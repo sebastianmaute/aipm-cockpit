@@ -44,7 +44,7 @@ import {
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
@@ -305,7 +305,7 @@ function ChangePanelBody({
     sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
 
   const toolbar = (
-    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
       <button
         type="button"
         onClick={openNew}
@@ -348,6 +348,7 @@ function ChangePanelBody({
         ))}
       </select>
       <PanelViewsControl lang={lang} view="changes" />
+      <PrintButton lang={lang} />
       {filtersActive && (
         <button
           type="button"
@@ -364,22 +365,24 @@ function ChangePanelBody({
   );
 
   return (
-    <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {toolbar}
 
-      <BulkEditBar
-        lang={lang}
-        count={sel.count}
-        open={bulkOpen}
-        onToggleOpen={() => setBulkOpen((o) => !o)}
-        onClear={() => {
-          sel.clear();
-          setBulkOpen(false);
-        }}
-      />
-      {bulkOpen && sel.count > 0 && (
-        <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
-      )}
+      <div className="print:hidden">
+        <BulkEditBar
+          lang={lang}
+          count={sel.count}
+          open={bulkOpen}
+          onToggleOpen={() => setBulkOpen((o) => !o)}
+          onClear={() => {
+            sel.clear();
+            setBulkOpen(false);
+          }}
+        />
+        {bulkOpen && sel.count > 0 && (
+          <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
+        )}
+      </div>
 
       <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
         <table className="min-w-full text-left text-sm">

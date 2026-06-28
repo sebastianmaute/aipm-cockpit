@@ -6,6 +6,7 @@ import type { TimelogConfig, TimelogScopeMode } from "./timelog-types";
 import { saveSecretValue } from "./use-secrets";
 import { listUsers, getPrivileges } from "./timelog-api";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { useIntegrationDisclaimer } from "./integration-disclaimer";
 
 interface Props {
   lang: Lang;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function TimelogSettings({ lang, config, onChange }: Props) {
+  const { notifyEnable } = useIntegrationDisclaimer();
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const set = (patch: Partial<TimelogConfig>) => onChange({ ...config, ...patch });
@@ -58,12 +60,27 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
           type="checkbox"
           className="h-4 w-4"
           checked={config.enabled}
-          onChange={(e) => set({ enabled: e.target.checked })}
+          onChange={(e) => {
+            if (e.target.checked) notifyEnable();
+            set({ enabled: e.target.checked });
+          }}
         />
         <span>{t(lang, "timelogEnable")}</span>
       </label>
       {config.enabled && (
         <div className="mt-2 flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">
+            {t(lang, "timelogTokenHelpBefore")}{" "}
+            <a
+              href="https://login.timelog.com/personaltoken"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`text-AIPM-dark-blue underline dark:text-AIPM-light-grey ${FOCUS_RING}`}
+            >
+              https://login.timelog.com/personaltoken
+            </a>{" "}
+            {t(lang, "timelogTokenHelpAfter")}
+          </p>
           <label className="block text-xs">
             {t(lang, "timelogHost")}
             <input

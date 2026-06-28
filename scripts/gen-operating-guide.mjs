@@ -46,7 +46,7 @@ export function parseFeatureGuide(md, validViews) {
 /** The AppView ids a feature guide section may scope to. Exported so the
  *  sync-guard test can parse the source md with the same valid-view list the
  *  generator uses (DRY). Script-only — not part of the generated output. */
-export const VALID_VIEWS = ["projects","open-points","dashboard","actions","trends","history","chat","gantt","milestones","resources","directory","workload","calendar","planning","manage-roles","budget","budget-report","raid","raid-report","changes","change-report","stakeholders","raci","stakeholder-map","documents","reports","activity","settings","learning-insights","steering-committee"];
+export const VALID_VIEWS = ["projects","open-points","dashboard","actions","trends","history","chat","gantt","milestones","resources","directory","workload","calendar","planning","manage-roles","budget","budget-report","raid","raid-report","changes","change-report","stakeholders","raci","stakeholder-map","documents","reports","activity","settings","learning-insights","steering-committee","timelog","portfolio-health"];
 
 const isMain = process.argv[1] ? process.argv[1].replace(/\\/g, "/").endsWith("gen-operating-guide.mjs") : false;
 if (isMain) {

@@ -2,8 +2,12 @@ import "fake-indexeddb/auto";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
-import { defaultSettings } from "../settings-types";
+import { defaultSettings as baseSettings } from "../settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
+
+// The AI config UI is gated behind the "Enable AI assistant" master switch
+// (default OFF). These tests exercise the expanded config, so flip it on.
+const defaultSettings = { ...baseSettings, ai: { ...baseSettings.ai, enabled: true } };
 import { t } from "../i18n";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
 import { readDeviceSecret, isPassphraseLocked } from "../secrets-store";
@@ -262,5 +266,21 @@ describe("AiSection", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove stored secret/i }));
     await waitFor(() => expect(isPassphraseLocked("anthropicApiKey")).toBe(false));
     expect(onChange.mock.calls.at(-1)![0].ai.apiKey).toBe("");
+  });
+
+  // --- master enable switch ---
+
+  it("collapses the config and hides the API key field when AI is disabled (default off)", () => {
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={vi.fn()} />);
+    // The Enable switch is present and unchecked; the config below is hidden.
+    expect(screen.getByLabelText(t("en-US", "aiEnable"))).not.toBeChecked();
+    expect(screen.queryByPlaceholderText(t("en-US", "aiApiKeyPlaceholder"))).toBeNull();
+  });
+
+  it("ticking Enable AI calls onChange with ai.enabled true", () => {
+    const onChange = vi.fn();
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText(t("en-US", "aiEnable")));
+    expect(onChange.mock.calls.at(-1)![0].ai.enabled).toBe(true);
   });
 });

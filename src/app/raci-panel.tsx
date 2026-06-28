@@ -13,7 +13,7 @@ import {
 import { type RaciRole, type Stakeholder, type Milestone } from "./types";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { useResizable } from "./use-resizable";
-import { ResetSizeButton } from "./task-manager-ui";
+import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -63,12 +63,13 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
   }
 
   return (
-    <div ref={paneRef} className={`${VIEW_PANE_RESIZABLE_CLASS} print-root`}>
-      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+    <div ref={paneRef} className={`${VIEW_PANE_RESIZABLE_CLASS} print-root print-landscape`}>
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
         <h2 className="text-base font-semibold text-foreground">
           {t(lang, "stakeholderRaciTitle")}
         </h2>
         <span className="ml-auto" />
+        <PrintButton lang={lang} />
         <ResetSizeButton onClick={resetPaneSize} lang={lang} />
       </div>
 

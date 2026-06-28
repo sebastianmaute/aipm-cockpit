@@ -1,13 +1,11 @@
 "use client";
 
-// Footer for the modern dark-blue sidebar: theme toggle, storage status, and
-// (when M365 is connected) the signed-in account with a sign-out button. The
-// version line stays in Sidebar — it is intentionally NOT rendered here.
+// Footer for the modern dark-blue sidebar: storage status and (when M365 is
+// connected) the signed-in account with a sign-out button. The theme control
+// lives in Settings → General → Appearance, not here. The version line stays in
+// Sidebar — it is intentionally NOT rendered here.
 
 import { type Lang, t } from "./i18n";
-import { useTheme } from "./use-theme";
-import { type Theme } from "./theme";
-import { SegmentedControl } from "./segmented-control";
 
 interface SidebarFooterProps {
   lang: Lang;
@@ -19,24 +17,6 @@ interface SidebarFooterProps {
   onSignOut: () => void;
 }
 
-function ThemeControl({ lang }: { lang: Lang }) {
-  const { theme, setTheme } = useTheme();
-  return (
-    <SegmentedControl<Theme>
-      value={theme}
-      ariaLabel={t(lang, "theme")}
-      title={t(lang, "themeHint")}
-      className="w-full"
-      options={[
-        { value: "light", label: t(lang, "themeLight") },
-        { value: "dark", label: t(lang, "themeDark") },
-        { value: "system", label: t(lang, "themeSystem") },
-      ]}
-      onChange={setTheme}
-    />
-  );
-}
-
 export function SidebarFooter({
   lang,
   collapsed,
@@ -46,23 +26,12 @@ export function SidebarFooter({
   accountName,
   onSignOut,
 }: SidebarFooterProps) {
-  if (collapsed) {
-    return (
-      <div className="flex flex-col items-center gap-2">
-        <ThemeControl lang={lang} />
-      </div>
-    );
-  }
+  // Collapsed rail has nothing to show here (theme moved to Settings; storage +
+  // account only render in the expanded footer).
+  if (collapsed) return null;
 
   return (
     <div className="flex flex-col gap-3">
-      <div>
-        <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-AIPM-light-grey">
-          {t(lang, "theme")}
-        </span>
-        <ThemeControl lang={lang} />
-      </div>
-
       {storageDescription && (
         <p className={storageReady ? "text-AIPM-light-grey" : "text-AIPM-light-grey"}>
           <span

@@ -4,8 +4,9 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 ## Overview
 
-- Covers portfolio and project delivery: open points (tasks), action center, dashboards, trends, RAID, change control, milestones and Gantt, stakeholders and RACI, steering committee, reports, budget, calendar, documents, and settings.
-- Recent additions: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled jobs, create-project from a description / file / SharePoint / Confluence, and editable communication templates.
+- Covers portfolio and project delivery: open points (tasks), action center, dashboards, trends, RAID, change control, milestones and Gantt, stakeholders and RACI, steering committee, reports, budget, resources and capacity, calendar, documents, time bookings, version history, the portfolio-health rollup, and settings.
+- Recent additions: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled jobs, create-project from a description / file / SharePoint / Confluence, editable communication templates, the Timelog time-booking integration, and the Turso-only portfolio-health rollup.
+- Tip for the user: most views have an "Ask Claude" button (and an "Explain this" prompt) that opens this assistant with a view-aware question.
 
 ## Open Points
 
@@ -31,6 +32,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 <!-- views: chat -->
 
 - This chat. Ask about the project, get explanations, or have records created/updated.
+- All AI features are gated by an "Enable AI assistant" master switch in Settings → AI (off by default); a Claude API key is still required on top.
 - Attach documents (PDF, image, text) — they are read natively and records can be extracted from them.
 - Reads the live workspace via list tools for grounded answers.
 - AI: that's me — I can create/update/delete tasks, RAID items, change items, milestones, and stakeholders, and read everything else.
@@ -40,7 +42,9 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 <!-- views: dashboard -->
 
 - Project health RAG, completion percentage, budget summary, and EVM (earned-value) metrics.
-- A read-only at-a-glance view; no records are edited here.
+- A landing "cockpit": a greeting + "since you last looked" delta strip, the ranked top-actions queue, a milestone-horizon strip ("what's coming"), at-a-glance KPI tiles with trend arrows vs the last visit, a completion-trend sparkline, and a coaching card on a blank project. The four RAG ratings can be overridden under "Adjust health ratings".
+- A Comfortable/Compact density toggle (also in Settings → Appearance) and most tiles/chips click through to the underlying view or record.
+- Read-only for records: nothing is edited here except the manual RAG overrides.
 - AI: read-only context for answers; there is no dashboard tool — point the user to the underlying entity (tasks/budget) to change figures.
 
 ## Trends
@@ -112,6 +116,69 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 <!-- views: settings -->
 
 - Storage backend, timezone (default, per-project, and additional clock zones), AI configuration, opt-in scheduled jobs, guided-tour replay, and next-action weights.
-- Secrets (API key, auth token) are stored encrypted at rest.
-- A **guided backend setup wizard** (Settings → Integrations → "Run setup wizard") steps through storage, AI, Jira, Timelog, and shows a configured/not-configured summary — the same wizard is also reachable from the new-project window. Users can skip any integration step and return to the flat Integrations panel to adjust settings at any time.
+- Secrets (Anthropic API key, Turso auth token, Jira and Timelog tokens) are stored encrypted at rest.
+- AI features are gated by an "Enable AI assistant" master switch in Settings → AI (off by default). The first time any integration/AI feature is enabled (AI, Jira, Microsoft 365, Turso or Timelog), a one-time security & responsibility note is shown and acknowledged once per device.
+- Integrations panel holds storage, Turso, Microsoft 365, Timelog, and Jira together. Jira lives inside Integrations: its configuration fields appear only after the "Enable Jira sync" checkbox is ticked.
+- A **guided backend setup wizard** (Settings → Integrations → "Run setup wizard") steps through Storage & connections (storage, Turso, M365, Timelog), AI, and Jira, then a Review step summarising what is configured. The same wizard is reachable from the new-project window. Steps are skippable, and the flat Integrations panel can be used to adjust any setting later.
 - AI: can explain where each setting lives and what it does; cannot open or run the setup wizard (it is a UI affordance only).
+
+## Budget
+
+<!-- views: budget -->
+
+- Project budget plan: blended or detailed (per-resource) cost, a week- or month-grained period plan, and per-period allocations.
+- Effort/cost actuals can be applied from the Timelog integration; EVM (CPI/SPI, cost/schedule variance) is derived from the plan and actuals.
+- Optional EUR overrides for non-EUR rates; the budget report (a separate view) shares this data for sharing/export.
+- AI: read-only here — there is no budget write tool. To change figures, point the user to this budget view (plan, allocations, actuals).
+
+## Resources & capacity
+
+<!-- views: resources,directory,workload,planning,manage-roles -->
+
+- Resource directory (people and their identity), workload/utilisation, capacity planning and allocations, and the roles/disciplines/grades reference data.
+- Capacity is computed from allocations against working time (holidays, absences, shifts); over-allocation surfaces in the workload view and feeds Action Center signals.
+- AI: read-only — there is no resource/allocation write tool. It can explain over-allocation and capacity gaps; assignment and allocation edits are UI actions.
+
+## Documents
+
+<!-- views: documents -->
+
+- A standalone register of project document links; entities (RAID, changes, milestones, stakeholders, etc.) can also carry their own document links.
+- SharePoint picker adds links when Microsoft 365 / SharePoint is configured; links are validated as safe http(s) URLs.
+- AI: no document write tool — it cannot add links here. In chat it can read documents you attach (PDF/image/text) natively and extract records from them.
+
+## Time bookings
+
+<!-- views: timelog -->
+
+- The Timelog integration: fetched time-tracking actuals aggregated per project and period, shown as a read-only overlay.
+- Fetching is two-step: "Load people" pulls the Timelog directory only, a filter box narrows it and you tick who you need, then "Fetch bookings" pulls timesheets for the ticked people only (org scope). A loading window shows progress with a Cancel button; "Clear all" resets the fetched data.
+- "Load my projects" loads the projects you are Project Manager for in Timelog (with "Include closed projects", or a customer picker to load one client's projects) so you can match them to budgets before fetching any bookings.
+- A resource's hours count as booked only when its Timelog user is linked to a resource AND the booking's project is linked to a budget bucket; otherwise they show as unattributed (a banner explains this).
+- "Apply to budget" is the one write — it writes each period's total into the matching budget allocation's actual hours; the period key must match the plan granularity (week/month).
+- Self-scoped to the token owner by default; org-wide reads need the right Timelog privilege. Reads page through all results and go through a same-origin proxy that retries automatically when rate-limited.
+- AI: read-only — there is no Timelog tool. It can explain the actuals overlay and the apply-to-budget flow; fetching and applying are UI actions.
+
+## Portfolio health
+
+<!-- views: portfolio-health -->
+
+- A Turso-only cross-project rollup: per-project RAG, completion, open-RAID count, and milestone health, plus aggregate portfolio KPIs.
+- Each project is loaded and run through the same health computation as the single-project dashboard.
+- AI: read-only — there is no portfolio tool. Available only on a Turso backend; on file storage the view is hidden.
+
+## Version history
+
+<!-- views: history -->
+
+- Confluence-style point-in-time versions of the project with compare and restore; Turso storage only.
+- Versions are captured by the user; restoring rolls the workspace back to a saved version.
+- AI: read-only — it can describe what changed between versions but cannot capture or restore a version (UI actions).
+
+## Activity log
+
+<!-- views: activity -->
+
+- A chronological feed of project activity (task, RAID, Jira sync, bulk, and general events), filterable by type; timestamps render in the active display timezone.
+- A read-only audit trail; entries are written by the app as records change.
+- AI: read-only — it can summarize recent activity but does not write log entries.

@@ -20,7 +20,11 @@ const add = (cell: HourCell | undefined, it: TimelogTimeItem): HourCell => ({
 export function aggregateActuals(
   items: readonly TimelogTimeItem[],
   links: TimelogLinks,
-  granularity: PlanGranularity = "month",
+  // Required (no default): the period key MUST be derived with the SAME
+  // granularity the budget report sums over (plan.granularity), or applied
+  // hours land under keys the report never reads and drop silently from EVM.
+  // A missing arg is a tsc error, not a silent month fallback.
+  granularity: PlanGranularity,
 ): ActualsAggregate {
   const userToRes = new Map(links.userLinks.map((l) => [l.timelogUserId, l.resourceId]));
   const projToBucket = new Map(links.projectLinks.map((l) => [l.timelogProjectId, l.bucketId]));

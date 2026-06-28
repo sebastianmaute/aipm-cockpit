@@ -65,7 +65,9 @@ describe("view-pane sweep", () => {
 
   it("tasks-section modern (fillHeight) branch is resizable", () => {
     const src = readFileSync(join(__dirname, "tasks-section.tsx"), "utf8");
-    expect(src).toMatch(/fillHeight\s*\?\s*VIEW_PANE_RESIZABLE_CLASS/);
+    // The fillHeight branch is resizable; it may carry a `print-root print-landscape`
+    // prefix inside a template literal before VIEW_PANE_RESIZABLE_CLASS.
+    expect(src).toMatch(/fillHeight\s*\?\s*`?[^`\n]*VIEW_PANE_RESIZABLE_CLASS/);
   });
 
   it("activity-log-panel is resizable", () => {

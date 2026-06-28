@@ -85,6 +85,7 @@ import {
   TimelogPanel,
 } from "./workspace-panels";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
+import { isAiEnabled } from "./settings-types";
 // Re-export so existing importers of `WorkspaceSectionProps` from
 // "./workspace-section" keep working (the type now lives in the types module).
 export type { WorkspaceSectionProps } from "./workspace-section-types";
@@ -790,7 +791,7 @@ export function WorkspaceSection({
                 setActiveTab(v);
                 if (section && onOpenSettingsSection) onOpenSettingsSection(section);
               }}
-              aiConfigured={!!settings.ai.apiKey?.trim()}
+              aiConfigured={isAiEnabled(settings.ai)}
               density={settings.dashboardDensity ?? "comfortable"}
               onToggleDensity={isPopout ? undefined : (d) => setSettings((s) => ({ ...s, dashboardDensity: d }))}
             />

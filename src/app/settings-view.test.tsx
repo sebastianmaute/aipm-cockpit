@@ -36,8 +36,8 @@ function makeProps(overrides = {}) {
 describe("SettingsView", () => {
   it("hides the expert-only sections by default (expert mode off)", () => {
     render(<SettingsView {...makeProps()} />);
-    // Appearance is the default landing section and is always visible.
-    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
+    // Appearance is its own always-visible standalone rail entry.
+    expect(screen.getByRole("button", { name: t("en-US", "settingsSectionAppearance") })).toBeInTheDocument();
     // Expert-only rail entries are absent.
     for (const key of ["settingsSectionMode", "settingsSectionTemplates", "settingsSectionNotifications", "settingsSectionNextActions", "settingsSectionExport"] as const) {
       expect(screen.queryByRole("button", { name: t("en-US", key) })).toBeNull();
@@ -75,30 +75,32 @@ describe("SettingsView", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ popout: { reuseWindow: true } }));
   });
 
-  it("General folds in the Appearance and Storage sub-sections with subheadings", () => {
+  it("General folds in the Storage sub-section with a subheading (not Appearance)", () => {
     render(<SettingsView {...makeProps()} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionGeneral") }));
-    // Appearance sub-section content (theme control) renders inside General.
-    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
-    // Storage sub-section content renders inside General.
+    // Storage sub-section content renders inside General with its subheading.
     expect(screen.getByText("storage-stub")).toBeInTheDocument();
-    // The folded sub-sections keep their labels as in-page subheadings.
-    expect(
-      screen.getByRole("heading", { name: t("en-US", "settingsSectionAppearance") }),
-    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: t("en-US", "settingsSectionStorage") }),
     ).toBeInTheDocument();
+    // Appearance is NO LONGER folded into General — its theme control isn't here.
+    expect(screen.queryByRole("radio", { name: t("en-US", "themeSystem") })).toBeNull();
   });
 
-  it("does not show Storage or Appearance as standalone rail entries", () => {
+  it("Appearance is its own rail section showing the theme control", () => {
+    render(<SettingsView {...makeProps()} />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "settingsSectionAppearance") }));
+    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeInTheDocument();
+  });
+
+  it("shows Appearance as a standalone rail entry, but not Storage (Storage folds into General)", () => {
     render(<SettingsView {...makeProps()} />);
     expect(
       screen.queryByRole("button", { name: t("en-US", "settingsSectionStorage") }),
     ).toBeNull();
     expect(
-      screen.queryByRole("button", { name: t("en-US", "settingsSectionAppearance") }),
-    ).toBeNull();
+      screen.getByRole("button", { name: t("en-US", "settingsSectionAppearance") }),
+    ).toBeInTheDocument();
   });
 
   it("shows Communication templates in the rail directly below Templates in expert mode", () => {
@@ -135,10 +137,8 @@ describe("SettingsView", () => {
     rerender(
       <SettingsView {...makeProps({ settings: { ...defaultSettings, expertMode: true }, commTemplatesEnabled: false })} />,
     );
-    // The pane falls back to General (Appearance subheading visible) instead of going blank.
-    expect(
-      screen.getByRole("heading", { name: t("en-US", "settingsSectionAppearance") }),
-    ).toBeInTheDocument();
+    // The pane falls back to General (its folded Storage content visible) instead of going blank.
+    expect(screen.getByText("storage-stub")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: t("en-US", "settingsSectionCommTemplates") }),
     ).toBeNull();
@@ -153,10 +153,8 @@ describe("SettingsView", () => {
         {...makeProps({ requestSection: { id: "nextActions", nonce: 1 } })}
       />,
     );
-    // General lands (Appearance subheading visible); no Next-actions rail entry.
-    expect(
-      screen.getByRole("heading", { name: t("en-US", "settingsSectionAppearance") }),
-    ).toBeInTheDocument();
+    // General lands (its folded Storage content visible); no Next-actions rail entry.
+    expect(screen.getByText("storage-stub")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: t("en-US", "settingsSectionNextActions") }),
     ).toBeNull();

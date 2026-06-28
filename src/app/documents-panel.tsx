@@ -11,7 +11,7 @@ import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
@@ -115,24 +115,25 @@ export function DocumentsPanel() {
   }
 
   return (
-    <div ref={ref} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <div ref={ref} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "documentsTitle")}</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden">
           <button
             type="button"
             onClick={() => setAddOpen((o) => !o)}
             aria-expanded={addOpen}
-            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
+            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
           >
             + {t(lang, "documentsTabAdd")}
           </button>
+          <PrintButton lang={lang} />
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <ResetSizeButton onClick={reset} lang={lang} />
         </div>
       </div>
       {addOpen && (
-        <div className="mb-3 shrink-0 rounded-md border border-line bg-surface-muted p-3">
+        <div className="mb-3 shrink-0 rounded-md border border-line bg-surface-muted p-3 print:hidden">
           <label className="mb-2 block text-sm text-foreground">
             {t(lang, "documentsTarget")}
             <select

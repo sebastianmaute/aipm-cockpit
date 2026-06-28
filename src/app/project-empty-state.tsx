@@ -15,13 +15,14 @@
 // would be a no-op here and read as a broken affordance).
 //
 // On a fresh install there is also no Settings UI reachable yet, so the choices
-// screen offers a "Backend setup" section: buttons to configure the Turso
-// backend and the M365 integration (both open the shared BackendConfigModal,
-// which wraps IntegrationsSection) before the user creates or loads a project.
+// screen offers a "Backend setup" section: a "Configure database / M365" button
+// (opens the shared BackendConfigModal, which wraps IntegrationsSection —
+// storage/Turso/M365/Timelog) and a "Run setup wizard" button (the guided
+// BackendSetupWizard) before the user creates or loads a project.
 
 import { useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
-import { AiSection } from "./settings-sections/ai-section";
+import { BackendSetupWizard } from "./backend-setup-wizard";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
@@ -93,7 +94,8 @@ export function ProjectEmptyState({
   onDeleteArchived,
 }: ProjectEmptyStateProps) {
   const [view, setView] = useState<View>("choices");
-  const [configModal, setConfigModal] = useState<null | "turso" | "m365" | "ai">(null);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
 
@@ -230,27 +232,18 @@ export function ProjectEmptyState({
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => setConfigModal("turso")}
-                    title={t(lang, "emptyStateConfigTursoTip")}
+                    onClick={() => setConfigOpen(true)}
+                    title={t(lang, "emptyStateConfigDbM365Tip")}
                     className={SECONDARY_BUTTON_CLASS}
                   >
-                    {t(lang, "storageOptionConfigure")}
+                    {t(lang, "emptyStateConfigDbM365")}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfigModal("m365")}
-                    title={t(lang, "emptyStateConfigM365Tip")}
+                    onClick={() => setWizardOpen(true)}
                     className={SECONDARY_BUTTON_CLASS}
                   >
-                    {t(lang, "emptyStateConfigM365")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfigModal("ai")}
-                    title={t(lang, "emptyStateConfigAiTip")}
-                    className={SECONDARY_BUTTON_CLASS}
-                  >
-                    {t(lang, "emptyStateConfigAi")}
+                    {t(lang, "setupWizardRun")}
                   </button>
                 </div>
               </div>
@@ -272,25 +265,24 @@ export function ProjectEmptyState({
 
       </div>
 
-      {configModal !== null && (
+      {configOpen && (
         <BackendConfigModal
           lang={lang}
-          title={t(
-            lang,
-            configModal === "turso"
-              ? "storageOptionConfigure"
-              : configModal === "ai"
-                ? "emptyStateConfigAi"
-                : "emptyStateConfigM365",
-          )}
+          title={t(lang, "emptyStateConfigDbM365")}
           settings={settings}
           onChangeSettings={onChangeSettings}
-          onClose={() => setConfigModal(null)}
-        >
-          {configModal === "ai" ? (
-            <AiSection lang={lang} settings={settings} onChange={onChangeSettings} hideUsage />
-          ) : undefined}
-        </BackendConfigModal>
+          onClose={() => setConfigOpen(false)}
+        />
+      )}
+
+      {wizardOpen && (
+        <BackendSetupWizard
+          lang={lang}
+          open
+          settings={settings}
+          onChangeSettings={onChangeSettings}
+          onClose={() => setWizardOpen(false)}
+        />
       )}
 
       {deleteTarget && onDeleteArchived && (

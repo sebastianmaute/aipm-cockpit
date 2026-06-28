@@ -84,39 +84,41 @@ describe("ProjectEmptyState", () => {
     expect(screen.queryByLabelText(/close/i)).toBeNull();
   });
 
-  it("offers backend-config buttons for Turso and M365", () => {
+  it("offers a Configure database / M365 button and a Run setup wizard button", () => {
     setup();
     expect(
-      screen.getByRole("button", { name: /configure the turso backend/i }),
+      screen.getByRole("button", { name: /configure database \/ m365/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /configure m365 integration/i }),
+      screen.getByRole("button", { name: /run setup wizard/i }),
     ).toBeInTheDocument();
+    // The standalone M365 + AI-assistant CTAs were folded into the above two.
     expect(
-      screen.getByRole("button", { name: /configure ai assistant/i }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /configure m365 integration/i }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /configure ai assistant/i }),
+    ).toBeNull();
   });
 
-  it("opens the AI-assistant config modal (key input shown, no usage bars) when its button is clicked", () => {
-    setup();
-    fireEvent.click(screen.getByRole("button", { name: /configure ai assistant/i }));
-    // Second dialog opened, with the API-key input (placeholder, not a usage panel).
-    expect(screen.getAllByRole("dialog")).toHaveLength(2);
-    expect(
-      screen.getByPlaceholderText(t("en-US", "aiApiKeyPlaceholder")),
-    ).toBeInTheDocument();
-    // hideUsage: the live usage bars (progressbars) are not rendered here.
-    expect(screen.queryAllByRole("progressbar")).toHaveLength(0);
-  });
-
-  it("opens the backend-config modal when a backend button is clicked", () => {
+  it("opens the backend-config modal when the database / M365 button is clicked", () => {
     setup();
     // The empty state itself is one dialog; the config modal is a second.
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
     fireEvent.click(
-      screen.getByRole("button", { name: /configure the turso backend/i }),
+      screen.getByRole("button", { name: /configure database \/ m365/i }),
     );
     expect(screen.getAllByRole("dialog")).toHaveLength(2);
+  });
+
+  it("opens the guided setup wizard when the Run setup wizard button is clicked", () => {
+    setup();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: /run setup wizard/i }));
+    expect(screen.getAllByRole("dialog")).toHaveLength(2);
+    expect(
+      screen.getByText(t("en-US", "setupWizardTitle")),
+    ).toBeInTheDocument();
   });
 
   it("calls onLoadFromFile when the Load button is clicked", () => {

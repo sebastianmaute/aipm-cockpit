@@ -3,18 +3,33 @@
 // NOT a Workspace field — never exported, never in Turso, cleared by
 // app-reset's `lop-app:*` sweep.
 import type { ActualsAggregate } from "./timelog-actuals";
+import type { TimelogProjectRef } from "./timelog-match";
+import type { TimelogUser } from "./timelog-types";
 
 export const TIMELOG_ACTUALS_KEY = "lop-app:timelog-actuals";
 const MAX_PROJECTS = 50;
 
-export type ActualsCacheEntry = { fetchedAt: string; aggregates: ActualsAggregate };
+// The matching-UI inputs (`users`/`projectRefs`) are cached ALONGSIDE the
+// aggregates so the People/Projects tables survive a view remount instead of
+// going empty while the KPIs (read from `aggregates`) still show. Optional for
+// back-compat with entries written before this field existed.
+export type ActualsCacheEntry = {
+  fetchedAt: string;
+  // Optional: a directory-only "Load people" persists users without aggregates
+  // (bookings not fetched yet). Present once "Fetch bookings" has run.
+  aggregates?: ActualsAggregate;
+  users?: TimelogUser[];
+  projectRefs?: TimelogProjectRef[];
+};
 type CacheMap = Record<string, ActualsCacheEntry>;
 
 function isEntry(v: unknown): v is ActualsCacheEntry {
   if (!v || typeof v !== "object" || Array.isArray(v)) return false;
   const e = v as ActualsCacheEntry;
   if (typeof e.fetchedAt !== "string") return false;
-  if (!e.aggregates || typeof e.aggregates !== "object" || Array.isArray(e.aggregates)) return false;
+  if (e.aggregates !== undefined && (typeof e.aggregates !== "object" || e.aggregates === null || Array.isArray(e.aggregates))) return false;
+  if (e.users !== undefined && !Array.isArray(e.users)) return false;
+  if (e.projectRefs !== undefined && !Array.isArray(e.projectRefs)) return false;
   return true;
 }
 
@@ -37,6 +52,18 @@ function readMap(): CacheMap {
 
 export function loadActualsCache(projectId: string): ActualsCacheEntry | undefined {
   return readMap()[projectId];
+}
+
+export function clearActualsCache(projectId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const map = readMap();
+    if (!(projectId in map)) return;
+    delete map[projectId];
+    window.localStorage.setItem(TIMELOG_ACTUALS_KEY, JSON.stringify(map));
+  } catch {
+    // quota / disabled — non-fatal
+  }
 }
 
 export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): void {

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Project Management Tracker">
+  <!-- Single-colour mono mark on a transparent background: the sidebar whitens it
+       via `brightness-0 invert`, so all detail must come from transparent gaps,
+       not from multiple fills. Stacked task/gantt bars + a completion check. -->
+  <g fill="#0B2A4A">
+    <rect x="5" y="15" width="20" height="6" rx="3"/>
+    <rect x="5" y="24" width="28" height="6" rx="3"/>
+    <rect x="5" y="33" width="13" height="6" rx="3"/>
+  </g>
+  <path d="M31 13 l4 4 l9 -10" fill="none" stroke="#0B2A4A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

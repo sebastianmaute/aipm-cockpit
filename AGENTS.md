@@ -504,10 +504,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `IntegrationsSection hidePortfolioSwitch` so the portfolio "Save & switch" `window.location.reload()`
   can't nuke a create-project draft. Shared `WizardStepIndicator` (`wizard-step-indicator.tsx`) de-dups
   the two wizards' step rails. Two launch points: Settings → Integrations ("Run setup wizard" button) and
-  the create-project wizard header, both gated `{wizardOpen && …}` (fresh mount per open → step resets).
+  the new-project empty-state window's "Backend setup" section (alongside "Configure database / M365"),
+  both gated `{wizardOpen && …}` (fresh mount per open → step resets). NOT launched from inside the
+  CreateProjectWizard (the project-creation flow) — that header carries the step indicator only.
   `isPopout`-gated (never shown in pop-outs). `SettingsView` gained an `isPopout` prop threaded from
   task-manager. `onMigrateToTurso` is threaded ONLY on the Settings launch (no existing workspace to
-  migrate in create-project).
+  migrate in create-project / empty-state).
   • ★★ **Shared `Modal` (`modal.tsx`) STACKS — topmost-only Escape/Tab.** A module-level `modalStack` of
   per-instance Symbol tokens; only the last-opened modal handles Escape/Tab, so a nested modal (wizard
   opened from inside the create-project modal) no longer double-fires Escape and dismisses the parent.
@@ -559,6 +561,38 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
+- **Print:** `globals.css @media print` scopes printing to a `.print-root` subtree (`body * {visibility:
+  hidden}`; only `.print-root` shows) — a view WITHOUT `print-root` prints BLANK. To make a view printable:
+  add `print-root` (+ `print-landscape` for wide tables) to its outermost pane (alongside the `VIEW_PANE_*`
+  class); add `<PrintButton lang={lang}/>` (from `task-manager-ui`; defaults to `window.print()`, already
+  labeled + `print:hidden`) to the toolbar — LEFT of any Reset buttons (resets stay rightmost); `print:hidden`
+  the toolbar/filters/bulk-bars (keep the data table + section title visible). An explicit `max-h-[…]` scroller
+  clips in print → add `print:max-h-none print:overflow-visible` (shared `INNER_TABLE_CLASS` is uncapped, fine);
+  `ColumnResizeHandle` is already `print:hidden`. ★ The `@media print` `.print-root` rule forces
+  `height/max-height/min-height/width/overflow` with `!important` so a user-dragged `useResizable` inline size
+  can't clip the printout — don't reintroduce a clip by overriding it. Data views (tasks/milestones/changes/
+  stakeholders/RAID/resources/
+  documents/history/steering/portfolio/RACI/timelog) + the ReportCard views are wired; Settings/Chat/Projects
+  are not (nothing to print).
+- **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?}`):** rides the
+  `writeSettings` spread (no allowlist edit); validated by `sanitizeBranding` — logo/favicon must be a
+  size-capped RASTER `data:image` URL (SVG EXCLUDED — XSS surface), slogan/footerSlogan trimmed+capped. Edited
+  in Settings → Appearance. `logo` overrides the sidebar logo — ★ a custom logo renders WITHOUT
+  `brightness-0 invert` (that filter only whitens the mono AIPM default); `slogan` = sidebar app-name subtitle;
+  `footerSlogan` = bottom footer tagline (default `DEFAULT_FOOTER_SLOGAN`, seeded into
+  `defaultSettings.branding`). `favicon` drives the document `<link rel=icon>` via `useApplyFavicon`/
+  `applyFavicon` (`use-favicon.ts`) — captures the build-time default ONCE so a remove restores it. Sidebar +
+  classic `AppHeader` + `app-modals` footer read branding via `useSettings()`. CSP already allows `data:` in
+  `img-src`. Default sidebar logo is `/app-logo.svg` (mono mark, whitened by `brightness-0 invert`); classic
+  header uses it un-inverted (light header).
+- **Footer bar / page scrollbars (★★):** the footer (`app-modals.tsx`, `!isPopout`) is `position: fixed`
+  bottom-right ON PURPOSE — `modalsBlock` is an in-flow SIBLING of the `h-screen` ModernShell, so an in-flow
+  footer adds height > 100vh → a page VERTICAL scrollbar. Keep it fixed (out of flow) + `pointer-events-none`;
+  both layouts reserve a `pb-6` bottom gap. Related: the shell root is `w-full`, NOT `w-screen` (`100vw`
+  includes the scrollbar width → spurious HORIZONTAL scrollbar).
+- **Settings sections:** each window shows a uniform pane `<h2>` (its rail label); `mode`/`templates`/
+  `commTemplates` are excluded (they self-head + carry an intro line). Appearance is its OWN rail section
+  (un-folded from General; General now folds only Storage).
 - **Responsive metric grids:** a multi-column grid of CONTENT cards (KPI tiles, budget CCI cards, hours
   breakdown, checkbox lists) must carry a `grid-cols-1` (or `grid-cols-2`) mobile base and only widen at
   `sm:`/`lg:` — a bare `grid grid-cols-3`/`grid-cols-4` overflows a phone/narrow-tablet viewport (the
@@ -764,8 +798,17 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 - **Secret:** `timelogApiToken` is the 4th `SecretId` (device-sealed only; the 6-edit lockstep applies — `SecretId` union, `isSealedSecret` allowlist, `readStore` allowlist loop, `migratePlaintextSecrets`, `writeSettings` blank, `hydrateSecretsInto`, + `saveSecretValue` seal-on-edit in `timelog-settings.tsx`). `settings.timelog` is TOP-LEVEL (mirrors `settings.jira`, NOT under `integrations`).
 - **`Workspace.timelogLinks`** persists as a JSON meta-blob (same pattern as `steeringCommittee`): 6 write paths (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB). NOT a `TABLE_NAMES` entry, NOT a column; excluded from exports; absent workspace stays byte-stable.
 - **Actuals cache:** fetched actuals are per-device (`lop-app:timelog-actuals`, mirrors `landing-state`; out of exports/Turso; cleared by `clearAppConfig`) — NOT workspace data. Pure `timelog-actuals.ts` aggregation routes unmapped user/project/null-bucket hours to an `unattributed` total (never dropped).
-- **Apply to budget:** `timelog-apply.ts` is the ONLY write into the persisted budget — writes each bucket's period total into its FIRST allocation's `actualHours` via a FUNCTIONAL `setBudgets(prev=>…)` updater. Everything else is read-only overlay. ★★ The actuals period KEY MUST match the plan granularity: `computeBucketReport` sums `actualHours` ONLY over the plan's period keys (`bucketActivePeriods`→`generatePeriods`, `PlanGranularity` "week"→`"YYYY-Www"` / "month"→`"YYYY-MM"`). `aggregateActuals(items, links, granularity)` keys via the SHARED `periodKeyForDate` (in `resource-capacity.ts`, the single source `generatePeriods` itself uses — don't re-derive ISO weeks). Pass `plan.granularity` panel→`useTimelogSync`→engine; default "month". A monthly key on a weekly plan silently drops the hours from win/loss. ★ Apply uses a `pendingApply` SNAPSHOT taken at confirm-open (not live aggregates) so the shown diff == the diff applied; Fetch is disabled while confirming. Matching `<select>`s/Clear are `isPopout`-disabled + handlers early-return (popout = read-only).
+- **Apply to budget:** `timelog-apply.ts` is the ONLY write into the persisted budget — writes each bucket's period total into its FIRST allocation's `actualHours` via a FUNCTIONAL `setBudgets(prev=>…)` updater. Everything else is read-only overlay. ★★ The actuals period KEY MUST match the plan granularity: `computeBucketReport` sums `actualHours` ONLY over the plan's period keys (`bucketActivePeriods`→`generatePeriods`, `PlanGranularity` "week"→`"YYYY-Www"` / "month"→`"YYYY-MM"`). `aggregateActuals(items, links, granularity)` keys via the SHARED `periodKeyForDate` (in `resource-capacity.ts`, the single source `generatePeriods` itself uses — don't re-derive ISO weeks). Pass `plan.granularity` panel→`useTimelogSync`→engine; ★ `granularity` is a REQUIRED arg (no default — a silent "month" fallback was removed; a monthly key on a weekly plan silently drops hours from win/loss). ★ `aggregateActuals` builds project refs from items but SKIPS `projectId <= 0` (absence/non-project time → would render a blank Projects row). ★ Apply uses a `pendingApply` SNAPSHOT taken at confirm-open (not live aggregates) so the shown diff == the diff applied; Fetch is disabled while confirming. Matching `<select>`s/Clear are `isPopout`-disabled + handlers early-return (popout = read-only).
 - **`timelog` view IS in axe `A11Y_VIEWS`** ("Time bookings"); project-row discovery comes from `useTimelogSync().projectRefs` (distinct projects in fetched items) merged with already-linked projects.
+- **Paging (★):** all TimeLog list endpoints page at 10 by default but honour OData `$page`/`$pagesize` (uncapped — `callPaged` uses 500/page, `MAX_PAGES=100`). WITHOUT a paging loop the app silently ingests only the first 10 rows of any list (e.g. 10 of 77 bookings). The proxy `encodeURIComponent`s the `$` (`%24page`) — upstream decodes it. `callRaw` transparently RETRIES a 429 honouring `Retry-After` (else exp backoff, abortable via the same signal), bounded at `MAX_429_RETRIES`.
+- **Two-step fetch (`use-timelog-sync.ts`):** `loadDirectory()` pulls ONLY the directory (cheap); `fetchBookings(start,end,userIds?)` pulls timesheets — org scope iterates ONLY the passed (ticked) ids, else all loaded users. Split so org scope doesn't fire one request/employee for the whole org. `displayableUsers`/`isDisplayableUser` (`timelog-match.ts`) drop inactive/nameless directory rows. Hook also exposes `removeUsers`/`clearAll`/`cancel` (AbortController threaded to every call; loading modal's Cancel aborts) + `loadManagedProjects`/`loadCustomers`. ★ Plain (non-memoized) functions reading live state — like the storage handlers. ★ Fetched `users`+`projectRefs` cached per-device (cache `aggregates` is now OPTIONAL so a directory-only load persists); `loadDirectory` only writes cache when bookings already exist (no fabricated `fetchedAt`).
+- **Load my projects (`listManagedProjects`):** REST `/v1/project/get-all` exposes `ProjectManagerID`; filter `=== getMe().userId` (guard `managerUserId<=0`→[] so a bad /me can't match null-PM projects). `Project_GetAll` defaults `isActive=true` — pass `includeClosed` to ALSO pull `isActive=false`. `listProjectsForCustomer(customerId)` server-filters by `customerID` (NOT PM-scoped — lets a non-PM load a client's projects); `listCustomers` populates the picker (lazy on focus, no modal). Project allocations (people↔project) are Transactional-API only — NOT reachable via the REST employee token.
+
+### AI master switch + integration disclaimer
+
+- **AI master switch:** `settings.ai.enabled` (default OFF, even for existing users) gates ALL AI features. Use `isAiEnabled(settings.ai)` (enabled && key present) / `aiKeyIfEnabled(settings.ai)` — NOT a raw `apiKey` read — at every AI activation site (chat, action analysis, scheduled jobs, weight suggestions, create-wizard). `sanitizeAiConfig` sets `enabled: obj.enabled === true`. AiSection collapses its config body until enabled.
+- **Integration disclaimer:** `integration-disclaimer.tsx` — a one-time security note shown the FIRST time any enable checkbox is ticked (AI/Jira/M365/Turso/Timelog). Context provider (no-op default) so the five checkboxes fire `useIntegrationDisclaimer().notifyEnable()` without prop-threading; gated by per-device `settings.integrationDisclaimerSeen`. Mounted at SettingsView + backend-setup-wizard + backend-config-modal. ★ memoize the context value (`useCallback`+`useMemo`) — an unstable value re-fires. NOT shown in popouts.
+- **Jira lives INSIDE Integrations:** `IntegrationsSection` renders `JiraSettingsSection` (below Timelog) gated on `!hideJira`; the wizard passes `hideJira` (it has a dedicated Jira step). `settings.jira` stays TOP-LEVEL.
 
 ### Guided tour + demo
 

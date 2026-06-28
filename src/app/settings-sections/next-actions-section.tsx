@@ -7,6 +7,8 @@ import {
   type NextActionsLearningConfig,
   type LearningStoreKind,
   type Settings,
+  aiKeyIfEnabled,
+  isAiEnabled,
   defaultAiConfig,
   defaultNextActionsConfig,
   resolveNextActionsConfig,
@@ -81,7 +83,7 @@ export function NextActionsSection({
 
   // SP-C: AI weight suggestions. Key-gated; ephemeral (cleared on re-run).
   const suggest = useWeightSuggestions({
-    apiKey: settings.ai?.apiKey ?? "",
+    apiKey: aiKeyIfEnabled(settings.ai),
     model: settings.ai?.model ?? defaultAiConfig.model,
   });
   const scopeAll = settings.ai?.suggestAllNextActionThresholds === true;
@@ -93,7 +95,7 @@ export function NextActionsSection({
     [suggest.result, dismissed],
   );
   const byField = useMemo(() => new Map(displayed.map((s) => [s.field, s])), [displayed]);
-  const hasKey = !!settings.ai?.apiKey?.trim();
+  const hasKey = isAiEnabled(settings.ai);
   const canSuggest = hasKey && buildWeightSuggestionContext != null;
 
   function runSuggest() {
@@ -125,11 +127,10 @@ export function NextActionsSection({
 
   return (
     <div className="mb-4">
-      <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-        {t(lang, "settingsSectionNextActions")}
+      <p className="mb-3 flex items-center gap-1 text-xs text-muted-foreground">
+        {t(lang, "nextActionsHint")}
         <InfoTooltip text={t(lang, "nextActionsTooltip")} />
-      </span>
-      <p className="mb-3 text-xs text-muted-foreground">{t(lang, "nextActionsHint")}</p>
+      </p>
 
       {canSuggest && (
         <div className="mb-3 flex flex-wrap items-center gap-2">

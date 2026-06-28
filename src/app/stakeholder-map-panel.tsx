@@ -13,7 +13,7 @@ import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
 import { TRANSITION, PRESS } from "./interaction-styles";
 import { useResizable } from "./use-resizable";
-import { ResetSizeButton } from "./task-manager-ui";
+import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 
 // --- Props ------------------------------------------------------------------
 
@@ -91,13 +91,16 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder }: S
   }, [stakeholders]);
 
   return (
-    <div ref={ref} data-testid="stakeholder-map-pane" className={CENTERED_HALF_PANE_CLASS}>
+    <div ref={ref} data-testid="stakeholder-map-pane" className={`print-root ${CENTERED_HALF_PANE_CLASS}`}>
       {/* Toolbar: title left, controls right */}
-      <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+      <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 print:hidden">
         <h2 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "stakeholderMapTitle")}
         </h2>
-        <ResetSizeButton onClick={reset} lang={lang} />
+        <div className="flex items-center gap-2">
+          <PrintButton lang={lang} />
+          <ResetSizeButton onClick={reset} lang={lang} />
+        </div>
       </div>
 
       {stakeholders.length === 0 ? (

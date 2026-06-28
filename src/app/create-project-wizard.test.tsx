@@ -326,7 +326,7 @@ describe("CreateProjectWizard AI Step 0", () => {
   ) {
     const settings = {
       ...defaultSettings,
-      ai: { ...defaultSettings.ai, apiKey: "sk-test" },
+      ai: { ...defaultSettings.ai, apiKey: "sk-test", enabled: true },
     };
     const onCreate = vi.fn<CreateFn>();
     const onCancel = vi.fn();

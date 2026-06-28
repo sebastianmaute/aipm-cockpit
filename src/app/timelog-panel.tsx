@@ -9,14 +9,38 @@ import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
 import { useTimelogSync } from "./use-timelog-sync";
 import { autoMatchUsers, autoMatchProjects, type TimelogProjectRef } from "./timelog-match";
+import { useRowSelection } from "./use-row-selection";
+import { Modal } from "./modal";
 import { planApply, applyActualsToBuckets } from "./timelog-apply";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
-import { defaultTimelogConfig, type TimelogLinks, type TimelogUser } from "./timelog-types";
-import { listUsers } from "./timelog-api";
-import { VIEW_PANE_FILL_CLASS } from "./view-styles";
+import { defaultTimelogConfig, type TimelogLinks } from "./timelog-types";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { Tile } from "./report-table";
+import { useResizable } from "./use-resizable";
+import { useColumnResize } from "./use-column-resize";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
+
+// People-table column widths (px) — drag-resizable, persisted per device.
+const PEOPLE_COL_WIDTHS = {
+  select: 40,
+  people: 240,
+  resources: 180,
+  status: 90,
+  clear: 90,
+  remove: 64,
+} as const;
+type PeopleCol = keyof typeof PEOPLE_COL_WIDTHS;
+
+/** Wildcard customer-name match: `*` is a wildcard, everything else literal. */
+function customerMatcher(query: string): (name: string) => boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return () => true;
+  const escaped = q.split("*").map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*");
+  const re = new RegExp(escaped, "i");
+  return (name: string) => re.test(name);
+}
 
 export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?: boolean }) {
   const ws = useWorkspace();
@@ -65,13 +89,38 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     },
   });
 
-  // Fetched users are populated by the Fetch handler. Project rows come from
-  // `sync.projectRefs` (distinct projects seen in the latest fetch — this lets
-  // brand-new, never-linked Timelog projects appear and be matched) MERGED with
+  // People + project rows come from the sync hook (and its per-project cache, so
+  // they survive a view remount). `sync.users` is the displayable directory;
+  // `sync.projectRefs` are distinct projects seen in the latest fetch (lets
+  // brand-new, never-linked Timelog projects appear and be matched), MERGED with
   // any already-linked projects not present in that fetch (so prior mappings
   // still render even when no current bookings reference them).
-  const [fetchedUsers, setFetchedUsers] = useState<TimelogUser[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const fetchedUsers = sync.users;
+
+  // Multi-select for bulk-removing fetched people from the matching table.
+  const sel = useRowSelection();
+
+  // Resizable content pane + per-device People-table column widths (mirrors the
+  // Resource Directory), with reset buttons in the header.
+  const { ref: paneRef, reset: resetPaneSize } = useResizable("lop-app:timelog-size");
+  const { colWidths, startColResize: startColResizeTyped, resetColWidths } = useColumnResize<PeopleCol>(
+    "timelog-people",
+    PEOPLE_COL_WIDTHS,
+  );
+  const startColResize = startColResizeTyped as (col: string, e: React.MouseEvent) => void;
+
+  function removeUsers(ids: readonly number[]) {
+    if (isPopout || ids.length === 0) return;
+    sync.removeUsers(ids);
+    sel.clear();
+  }
+
+  function clearAllFetched() {
+    if (isPopout) return;
+    if (!window.confirm(t(lang, "timelogClearAllConfirm"))) return;
+    sync.clearAll();
+    sel.clear();
+  }
 
   function setLinks(next: TimelogLinks) {
     ws.setTimelogLinks(sanitizeTimelogLinks(next) ?? { userLinks: [], projectLinks: [] });
@@ -182,44 +231,101 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     setPendingApply(null);
   }
 
-  // Fetch handler — new Date() lives here (inside callback), never in render
-  async function handleFetch() {
-    if (isPopout || sync.busy) return;
-    setFetchError(null);
+  // new Date() lives in these callbacks (never in render). Two-step fetch:
+  // (1) Load people = directory only (cheap); (2) Fetch bookings = timesheets,
+  // org scope scoped to the TICKED people so the request count stays under the
+  // rate limit. Errors surface via `sync.error` below.
+  function fetchWindow(): { start: string; end: string } {
     const now = new Date();
     const end = now.toISOString().slice(0, 10);
-    // Use project span if available, else rolling 90-day window
     const start =
       ws.project?.startDate ??
       new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-
-    // Fetch users in parallel with the time-items sync. allSettled never
-    // rejects, so inspect each result's status explicitly (an outer catch
-    // would be dead code). A rejected listUsers surfaces a visible error;
-    // the sync's own failure is surfaced via sync.error below.
-    const [users] = await Promise.allSettled([
-      listUsers(creds),
-      sync.sync(start, end),
-    ]);
-    setFetchedUsers(users.status === "fulfilled" ? users.value : []);
-    if (users.status === "rejected") setFetchError("fetch-failed");
+    return { start, end };
   }
+
+  async function handleLoadPeople() {
+    if (isPopout || sync.busy) return;
+    await sync.loadDirectory();
+  }
+
+  const [includeClosedProjects, setIncludeClosedProjects] = useState(false);
+  const [projectCustomerId, setProjectCustomerId] = useState<number | "">("");
+  const [customerFilter, setCustomerFilter] = useState("");
+  // Wildcard-filtered customer options; keep the current selection present even
+  // when filtered out so the <select> value still resolves.
+  const customerOptions = useMemo(() => {
+    const match = customerMatcher(customerFilter);
+    const list = sync.customers.filter((c) => match(c.name));
+    if (projectCustomerId !== "" && !list.some((c) => c.id === projectCustomerId)) {
+      const sel = sync.customers.find((c) => c.id === projectCustomerId);
+      if (sel) return [sel, ...list];
+    }
+    return list;
+  }, [sync.customers, customerFilter, projectCustomerId]);
+  async function handleLoadManagedProjects() {
+    if (isPopout || sync.busy) return;
+    await sync.loadManagedProjects(
+      includeClosedProjects,
+      projectCustomerId === "" ? undefined : projectCustomerId,
+    );
+  }
+
+  async function handleFetchBookings() {
+    if (isPopout || sync.busy) return;
+    const { start, end } = fetchWindow();
+    await sync.fetchBookings(start, end, [...sel.selectedIds]);
+  }
+
+  // Client-side narrowing of the loaded directory (text box above the table).
+  const [peopleFilter, setPeopleFilter] = useState("");
+  const filteredUsers = useMemo(() => {
+    const q = peopleFilter.trim().toLowerCase();
+    if (!q) return fetchedUsers;
+    return fetchedUsers.filter((u) =>
+      `${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(q),
+    );
+  }, [fetchedUsers, peopleFilter]);
+  const visibleFilteredIds = useMemo(() => filteredUsers.map((u) => u.userId), [filteredUsers]);
 
   const isMisconfigured = !cfg.enabled || !cfg.host || !cfg.apiToken;
 
   return (
-    <div className={VIEW_PANE_FILL_CLASS}>
+    <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
         <h2 className="text-lg font-semibold text-foreground">{t(lang, "timelogTitle")}</h2>
-        <button
-          type="button"
-          disabled={sync.busy || isPopout || isMisconfigured || confirming}
-          onClick={() => void handleFetch()}
-          className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
-        >
-          {sync.busy ? t(lang, "loadingTimelog") : t(lang, "timelogSync")}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={sync.busy || isPopout || !sync.fetchedAt || confirming}
+            onClick={clearAllFetched}
+            className={`rounded-md border border-AIPM-pink/50 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:opacity-50 ${INTERACTIVE}`}
+          >
+            {t(lang, "clearAll")}
+          </button>
+          <button
+            type="button"
+            disabled={sync.busy || isPopout || isMisconfigured || confirming}
+            onClick={() => void handleLoadPeople()}
+            className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+          >
+            {t(lang, "timelogLoadPeople")}
+          </button>
+          <button
+            type="button"
+            disabled={sync.busy || isPopout || isMisconfigured || confirming}
+            onClick={() => void handleFetchBookings()}
+            className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+          >
+            {sync.busy
+              ? t(lang, "loadingTimelog")
+              : `${t(lang, "timelogSync")}${sel.count > 0 ? ` (${sel.count})` : ""}`}
+          </button>
+          <PrintButton lang={lang} />
+          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+          <ResetSizeButton onClick={resetPaneSize} lang={lang} />
+        </div>
       </div>
 
       {/* Token-invalid warning */}
@@ -229,14 +335,13 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         </p>
       )}
 
-      {/* Fetch error — a rejected listUsers, or the sync hook's own error.
-          Auth failures (401/403) show the token-invalid message; any other
-          truthy status (or a listUsers rejection) shows a generic failure. */}
-      {(fetchError || sync.error) && (
+      {/* Fetch error from the sync hook. Auth failures (401/403) show the
+          token-invalid message; any other truthy status shows a generic failure. */}
+      {sync.error && (
         <p className="mb-3 rounded-md border border-line bg-surface-muted px-3 py-2 text-sm text-muted-foreground">
           {sync.error === 401 || sync.error === 403
             ? t(lang, "timelogTokenInvalid")
-            : t(lang, "timelogTestFail")}
+            : t(lang, "timelogTestFail", sync.error && sync.error > 0 ? String(sync.error) : "?")}
         </p>
       )}
 
@@ -271,93 +376,243 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         />
       </div>
 
+      {/* PM requirement note — "Load my projects" filters on the TimeLog Project
+          Manager role; a non-PM user gets no managed projects. */}
+      <p className="mb-6 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
+        {t(lang, "timelogPmNote")}
+      </p>
+
       {/* People matching table */}
       <section className="mb-6">
         <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "timelogMatchPeople")}
         </h3>
+        {/* Attribution hint — shown only while some fetched hours are unattributed
+            (the user/project links explain why those hours aren't booked yet). */}
+        {unattributed.hours > 0 && (
+          <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
+            {t(lang, "timelogAttributionHint")}
+          </p>
+        )}
         {fetchedUsers.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t(lang, "timelogMatchNone")}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className={TABLE_HEAD_CLASS}>
-                <tr>
-                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchPeople")}</th>
-                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "tabResources")}</th>
-                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "status")}</th>
-                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchClear")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fetchedUsers.map((u) => {
-                  const link = effectiveUserLinks.find((l) => l.timelogUserId === u.userId);
-                  const displayId = u.email || String(u.userId);
-                  const selectLabel = `${t(lang, "timelogMatchPeople")} – ${displayId}`;
-                  const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
-                  return (
-                    <tr key={u.userId} className="border-b border-line last:border-0">
-                      <td className="py-2 pr-3 text-foreground">
-                        {u.firstName} {u.lastName}
-                        {u.email && (
-                          <span className="ml-1 text-xs text-muted-foreground">{u.email}</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-2">
-                        <select
-                          aria-label={selectLabel}
-                          value={link?.resourceId ?? ""}
-                          disabled={isPopout}
-                          onChange={(e) =>
-                            manualLinkUser(
-                              u.userId,
-                              e.target.value === "" ? null : Number(e.target.value),
-                            )
-                          }
-                          className={`rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
-                        >
-                          <option value="">{t(lang, "timelogMatchNone")}</option>
-                          {resources.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.firstName} {r.lastName}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="py-2 pr-2">
-                        {link && (
-                          <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted-foreground">
-                            {t(lang, link.manual ? "timelogMatchManual" : "timelogMatchAuto")}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2">
-                        {link && (
+          <>
+            {/* Narrow the loaded directory before ticking who to fetch bookings for. */}
+            <input
+              type="search"
+              value={peopleFilter}
+              onChange={(e) => setPeopleFilter(e.target.value)}
+              placeholder={t(lang, "timelogPeopleFilter")}
+              aria-label={t(lang, "timelogPeopleFilter")}
+              className={`mb-2 w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
+            />
+            {/* Bulk-remove bar — self-hides at zero selection */}
+            {sel.count > 0 && !isPopout && (
+              <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 print:hidden">
+                <span className="text-xs font-medium text-foreground">
+                  {t(lang, "selectionCount", String(sel.count))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeUsers([...sel.selectedIds])}
+                  className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
+                >
+                  {t(lang, "remove")}
+                </button>
+                <button
+                  type="button"
+                  onClick={sel.clear}
+                  className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
+                >
+                  {t(lang, "clearSelection")}
+                </button>
+              </div>
+            )}
+            {/* Bounded scroller: people lists can exceed the viewport (the whole
+                org directory) — cap height and scroll, pr-2 for the scrollbar gap. */}
+            <div className="max-h-[60vh] overflow-auto pr-2 print:max-h-none print:overflow-visible">
+              <table className="w-full text-sm">
+                <thead className={TABLE_HEAD_CLASS}>
+                  <tr>
+                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.select, minWidth: colWidths.select }}>
+                      <input
+                        type="checkbox"
+                        aria-label={t(lang, "selectAllVisibleRows")}
+                        disabled={isPopout}
+                        checked={sel.allSelected(visibleFilteredIds)}
+                        onChange={() => sel.toggleAllVisible(visibleFilteredIds)}
+                        className={`align-middle ${FOCUS_RING}`}
+                      />
+                      <ColumnResizeHandle col="select" onMouseDown={startColResize} />
+                    </th>
+                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.people, minWidth: colWidths.people }}>
+                      {t(lang, "timelogMatchPeople")}
+                      <ColumnResizeHandle col="people" onMouseDown={startColResize} />
+                    </th>
+                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.resources, minWidth: colWidths.resources }}>
+                      {t(lang, "tabResources")}
+                      <ColumnResizeHandle col="resources" onMouseDown={startColResize} />
+                    </th>
+                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.status, minWidth: colWidths.status }}>
+                      {t(lang, "status")}
+                      <ColumnResizeHandle col="status" onMouseDown={startColResize} />
+                    </th>
+                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.clear, minWidth: colWidths.clear }}>
+                      {t(lang, "timelogMatchClear")}
+                      <ColumnResizeHandle col="clear" onMouseDown={startColResize} />
+                    </th>
+                    <th scope="col" className="px-2 py-1 text-left" style={{ width: colWidths.remove, minWidth: colWidths.remove }}>
+                      {t(lang, "remove")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((u) => {
+                    const link = effectiveUserLinks.find((l) => l.timelogUserId === u.userId);
+                    const displayId = u.email || String(u.userId);
+                    const selectLabel = `${t(lang, "timelogMatchPeople")} – ${displayId}`;
+                    const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
+                    const rowSelectLabel = t(lang, "selectItem", displayId);
+                    const removeLabel = `${t(lang, "remove")} – ${displayId}`;
+                    return (
+                      <tr key={u.userId} className="border-b border-line last:border-0">
+                        <td className="py-2 pr-2">
+                          <input
+                            type="checkbox"
+                            aria-label={rowSelectLabel}
+                            disabled={isPopout}
+                            checked={sel.isSelected(u.userId)}
+                            onChange={() => sel.toggle(u.userId)}
+                            className={`align-middle ${FOCUS_RING}`}
+                          />
+                        </td>
+                        <td className="py-2 pr-3 text-foreground">
+                          {u.firstName} {u.lastName}
+                          {u.email && (
+                            <span className="ml-1 text-xs text-muted-foreground">{u.email}</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-2">
+                          <select
+                            aria-label={selectLabel}
+                            value={link?.resourceId ?? ""}
+                            disabled={isPopout}
+                            onChange={(e) =>
+                              manualLinkUser(
+                                u.userId,
+                                e.target.value === "" ? null : Number(e.target.value),
+                              )
+                            }
+                            className={`rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                          >
+                            <option value="">{t(lang, "timelogMatchNone")}</option>
+                            {resources.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.firstName} {r.lastName}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="py-2 pr-2">
+                          {link && (
+                            <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted-foreground">
+                              {t(lang, link.manual ? "timelogMatchManual" : "timelogMatchAuto")}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-2">
+                          {link && (
+                            <button
+                              type="button"
+                              aria-label={clearLabel}
+                              disabled={isPopout}
+                              onClick={() => manualLinkUser(u.userId, null)}
+                              className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
+                            >
+                              {t(lang, "timelogMatchClear")}
+                            </button>
+                          )}
+                        </td>
+                        <td className="py-2">
                           <button
                             type="button"
-                            aria-label={clearLabel}
+                            aria-label={removeLabel}
                             disabled={isPopout}
-                            onClick={() => manualLinkUser(u.userId, null)}
-                            className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
+                            onClick={() => removeUsers([u.userId])}
+                            className={`rounded border border-line px-2 py-0.5 text-xs text-AIPM-pink-strong ${INTERACTIVE}`}
                           >
-                            {t(lang, "timelogMatchClear")}
+                            ✕
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 
       {/* Projects matching table */}
       <section className="mb-6">
-        <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-          {t(lang, "timelogMatchProjects")}
-        </h3>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            {t(lang, "timelogMatchProjects")}
+          </h3>
+          {/* Bootstrap the projects the token owner MANAGES (REST PM filter) so a
+              PM can link them to budgets without first pulling bookings. */}
+          <div className="flex items-center gap-2 print:hidden">
+            {/* Customer scope (lazy-loads on focus). A customer loads that client's
+                projects (not PM-scoped); "All customers" → my managed projects.
+                The text box wildcard-filters the (large) customer list — `*` is a
+                wildcard, everything else literal substring. */}
+            <input
+              type="search"
+              aria-label={t(lang, "timelogCustomerFilter")}
+              placeholder={t(lang, "timelogCustomerFilter")}
+              value={customerFilter}
+              disabled={isPopout}
+              onFocus={() => void sync.loadCustomers()}
+              onChange={(e) => setCustomerFilter(e.target.value)}
+              className={`w-32 rounded border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
+            />
+            <select
+              aria-label={t(lang, "timelogCustomerLabel")}
+              value={projectCustomerId === "" ? "" : String(projectCustomerId)}
+              disabled={isPopout}
+              onFocus={() => void sync.loadCustomers()}
+              onChange={(e) => setProjectCustomerId(e.target.value === "" ? "" : Number(e.target.value))}
+              className={`max-w-[16rem] rounded border border-line bg-surface px-2 py-1 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            >
+              <option value="">{t(lang, "timelogCustomerAll")}</option>
+              {customerOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={includeClosedProjects}
+                disabled={isPopout}
+                onChange={(e) => setIncludeClosedProjects(e.target.checked)}
+                className={`align-middle ${FOCUS_RING}`}
+              />
+              {t(lang, "timelogIncludeClosed")}
+            </label>
+            <button
+              type="button"
+              disabled={sync.busy || isPopout || isMisconfigured || confirming}
+              onClick={() => void handleLoadManagedProjects()}
+              className={`rounded-md border border-line px-2.5 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+            >
+              {t(lang, "timelogLoadManagedProjects")}
+            </button>
+          </div>
+        </div>
         {knownProjectRefs.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t(lang, "timelogMatchNone")}</p>
         ) : (
@@ -434,12 +689,12 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           type="button"
           disabled={applyDiff.length === 0 || isPopout}
           onClick={openConfirm}
-          className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-40 ${INTERACTIVE}`}
+          className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-40 print:hidden ${INTERACTIVE}`}
         >
           {t(lang, "timelogApply")}
         </button>
       ) : (
-        <div className="flex items-center gap-3 rounded-md border border-line bg-surface-muted px-3 py-2">
+        <div className="flex items-center gap-3 rounded-md border border-line bg-surface-muted px-3 py-2 print:hidden">
           <p className="text-sm text-foreground">
             {t(lang, "timelogApplyConfirm", String(applyDiff.length))}
           </p>
@@ -458,6 +713,31 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
             {t(lang, "cancel")}
           </button>
         </div>
+      )}
+
+      {/* Blocking loading modal — a fetch can be slow (paging loop, org per-employee,
+          429 backoff). Not dismissible: onClose is a no-op and no close control. */}
+      {sync.busy && (
+        <Modal open onClose={sync.cancel} ariaLabel={t(lang, "loadingTimelog")} align="center" zIndex={70}>
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
+          >
+            <span
+              aria-hidden="true"
+              className="h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue border-t-transparent"
+            />
+            <span className="text-sm font-medium">{t(lang, "loadingTimelog")}</span>
+            <button
+              type="button"
+              onClick={sync.cancel}
+              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
+            >
+              {t(lang, "cancel")}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

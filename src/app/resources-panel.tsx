@@ -40,7 +40,7 @@ import {
 } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
@@ -290,7 +290,8 @@ function ResourcesPanelInner({
           </span>
         )}
       </h2>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 print:hidden">
+        <PrintButton lang={lang} />
         {(view === "planning" || view === "workload") && (
           <ResetColWidthsButton
             onClick={view === "planning" ? resetPlanningAndRollup : workload.resetColWidths}
@@ -318,7 +319,7 @@ function ResourcesPanelInner({
   const paneClass = VIEW_PANE_RESIZABLE_CLASS;
 
   return (
-    <section ref={resRef} className={paneClass}>
+    <section ref={resRef} className={`print-root print-landscape ${paneClass}`}>
       {renderHeader()}
       {isEmpty && view !== "planning" && (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
@@ -337,7 +338,7 @@ function ResourcesPanelInner({
         const derived = viewGranularity !== plan.granularity;
         return (
           <>
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs print:hidden">
               <label className="flex items-center gap-1">
                 <span className="flex items-center gap-1">{t(lang, "resourcesPlanStart")}<InfoTooltip text={t(lang, "resourcesPlanStartHint")} /></span>
                 <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
@@ -375,7 +376,9 @@ function ResourcesPanelInner({
                 onChange={onSetAllUtilizationMode}
               />
             </div>
-            <TableFilter lang={lang} value={planFilter} onChange={setPlanFilter} placeholderKey="planningFilterResource" />
+            <div className="print:hidden">
+              <TableFilter lang={lang} value={planFilter} onChange={setPlanFilter} placeholderKey="planningFilterResource" />
+            </div>
             <div className={INNER_TABLE_CLASS}>
             <table className="w-full text-left text-sm">
               <thead className={TABLE_HEAD_CLASS}>
@@ -530,7 +533,7 @@ function ResourcesPanelInner({
               <div className="mt-3">
                 <button type="button" onClick={() => setShowRollup((v) => !v)}
                   title={t(lang, "resourcesRollupHint")}
-                  className={`rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}>
+                  className={`rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey print:hidden ${INTERACTIVE}`}>
                   {showRollup ? t(lang, "resourcesRollupHide") : t(lang, "resourcesRollupShow")}
                 </button>
                 {showRollup && (
@@ -600,7 +603,7 @@ function ResourcesPanelInner({
       )}
       {view === "calendar" && (
         <>
-          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs print:hidden">
             <SegmentedControl<CalendarMode>
               value={calendarMode}
               ariaLabel={t(lang, "resourcesViewCalendar")}

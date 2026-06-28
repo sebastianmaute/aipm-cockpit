@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "../i18n";
-import type { Settings } from "../settings-types";
+import { isAiEnabled, type Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
@@ -198,7 +198,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
   const { jobs, busy, createJob, updateJob, deleteJob } = useScheduledJobs({ config });
 
   const enabled = settings.ai.scheduledJobs === true;
-  const hasKey = settings.ai.apiKey.trim().length > 0;
+  const hasKey = isAiEnabled(settings.ai);
 
   function toggleEnabled() {
     onChange({ ...settings, ai: { ...settings.ai, scheduledJobs: !enabled } });

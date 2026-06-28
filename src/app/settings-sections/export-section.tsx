@@ -39,9 +39,6 @@ export function ExportSection({ lang, settings, onChange }: ExportSectionProps) 
 
   return (
     <div className="mb-4">
-      <p className="mb-1 text-sm font-medium text-foreground">
-        {t(lang, "settingsSectionExport")}
-      </p>
       <p className="mb-4 text-xs text-muted-foreground">
         {t(lang, "exportSectionHint")}
       </p>

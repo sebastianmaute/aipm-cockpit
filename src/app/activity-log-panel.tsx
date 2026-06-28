@@ -173,9 +173,9 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           {entries.length > 0 && (
             <button
               type="button"
-              onClick={onClear}
+              onClick={() => { if (window.confirm(t(lang, "activityClearConfirm"))) onClear(); }}
               title={t(lang, "activityClearHint")}
-              className={`rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+              className={`rounded-md border border-AIPM-pink/50 bg-surface px-2.5 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
             >
               {t(lang, "activityClear")}
             </button>

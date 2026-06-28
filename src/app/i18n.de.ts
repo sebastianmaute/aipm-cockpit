@@ -140,6 +140,8 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightMockupPolish: "Der Dashboard-Stil erhält eine Fortschrittsanzeige, getönte Delta-Chips und eine hellere Optik für aktive Bedienelemente; der Acme-Look bleibt unverändert",
   versionHighlightSetupWizard: "Ein geführter Einrichtungsassistent führt Sie aus den Einstellungen oder dem Fenster für neue Projekte durch Speicher und Integrationen.",
   versionHighlightPortfolioHealth: "Eine reine Turso-Ansicht \"Portfolio-Status\" bündelt RAG-Status, Fortschritt und offene RAID-Einträge über alle Projekte.",
+  versionHighlightTimelogWorkflow: "Timelog lädt jetzt in zwei Schritten - zuerst das Personenverzeichnis laden, eingrenzen und die gewünschten Personen auswählen, dann nur deren Buchungen abrufen - mit vollständiger Seitennavigation, einer Abbrechen-Schaltfläche, automatischem Wiederholversuch bei Ratenbegrenzung und einer Option \"Meine Projekte laden\" (nach Projektmanager, inklusive abgeschlossener Projekte oder nach Kunde gefiltert).",
+  versionHighlightAiMasterSwitch: "Alle KI-Funktionen sind jetzt standardmäßig über einen Hauptschalter \"KI-Assistent aktivieren\" ausgeschaltet, und beim ersten Aktivieren einer Integration (KI, Jira, Microsoft 365, Turso oder Timelog) wird ein einmaliger Sicherheits- und Verantwortungshinweis angezeigt.",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -425,6 +427,8 @@ export const de: Record<TranslationKey, string> = {
   tabEditTask: "Aufgabe #{0} bearbeiten",
 
   aiAssistant: "KI-Assistent",
+  aiEnable: "KI-Assistent aktivieren",
+  aiEnableHelp: "Aktivieren, um Claude-Chat, KI-Aktionsvorschläge, geplante Jobs und die KI-Projekterstellung zu nutzen. Standardmäßig aus.",
   openAiAssistant: "KI-Assistent",
   aiApiKey: "Anthropic API-Schlüssel",
   aiApiKeyPlaceholder: "sk-ant-...",
@@ -474,6 +478,8 @@ export const de: Record<TranslationKey, string> = {
   aiAskClaude: "Claude fragen",
   aiAskClaudeOnPage: "Auf dieser Seite",
   aiAskClaudeGeneral: "Allgemein",
+  aiPromptExplainLabel: "Das hier erklären",
+  aiPromptExplainBody: "Erkläre diese Ansicht: was sie zeigt, was die wichtigsten Begriffe und Indikatoren bedeuten und was ich hier tun kann. Halte es knapp und stütze dich auf den Funktionsleitfaden der aktuellen Ansicht.",
   aiPromptWhatsNextLabel: "Was kommt als Nächstes?",
   aiPromptWhatsNextBody: "Worauf sollte ich mich als Nächstes konzentrieren? Nenne mir die wichtigsten offenen Punkte im Projekt.",
   aiPromptStatusLabel: "Statusüberblick",
@@ -677,7 +683,26 @@ export const de: Record<TranslationKey, string> = {
   aiConsentNotAccepted:
     "Claude-Chat ist deaktiviert. Bitte die untenstehende Einwilligung prüfen und akzeptieren.",
   credentialStorageNote:
-    "Wird unverschlüsselt im localStorage dieses Browsers gespeichert – verwenden Sie auf gemeinsam genutzten oder nicht vertrauenswürdigen Rechnern keine produktiven Zugangsdaten.",
+    "Verschlüsselt in diesem Browser gespeichert (Geräteschlüssel). Wer Zugriff auf dieses Browserprofil hat, kann sie dennoch verwenden – verwenden Sie auf gemeinsam genutzten oder nicht vertrauenswürdigen Rechnern keine produktiven Zugangsdaten.",
+  disclaimerTitle: "Sicherheits- und Verantwortungshinweis",
+  disclaimerIntro:
+    "Die hier konfigurierten API-Schlüssel und Zugriffstokens (Anthropic, Jira, Microsoft 365, Turso) gewähren vollen Zugriff in Ihrem Namen. Jede Aktion der App oder des KI-Assistenten wird als Sie ausgeführt – es gibt keine separate Identität oder Protokollspur, die sie von Ihren eigenen Aktionen unterscheidet.",
+  disclaimerResponsibility:
+    "Sie sind allein verantwortlich für alles, was mit diesen Zugangsdaten geschieht. Behandeln Sie jedes Token mit derselben Sorgfalt wie ein Passwort. Wenn der Assistent oder eine Integration Daten erstellt, ändert oder löscht, ist dies nicht davon zu unterscheiden, als hätten Sie es manuell getan.",
+  disclaimerTipsHeading: "Tipps, um die Kontrolle zu behalten:",
+  disclaimerTipReview:
+    "Prüfen, bevor Sie handeln – lassen Sie sich vom Assistenten Datensätze anzeigen oder auflisten, bevor Sie ihn etwas erstellen, ändern oder löschen lassen.",
+  disclaimerTipSpecific:
+    "Seien Sie in Ihren Eingaben präzise – vage Anweisungen geben dem Assistenten großen Spielraum. Bevorzugen Sie enge, explizite Anfragen.",
+  disclaimerTipBulk:
+    "Vermeiden Sie unumkehrbare Massenoperationen – viele Datensätze auf einmal zu löschen oder zu ändern ist schwer rückgängig zu machen. Bevorzugen Sie gezielte Einzelaktionen.",
+  disclaimerTipReadOnly:
+    "Nutzen Sie zuerst einen schreibgeschützten Ablauf – fragen Sie Daten ab, bevor Sie Schreibvorgänge zulassen, damit Sie prüfen können, ob der Assistent Ihren Kontext versteht.",
+  disclaimerTipRotate:
+    "Rotieren oder widerrufen Sie ein Token, wenn Sie vermuten, dass es missbraucht oder offengelegt wurde.",
+  disclaimerTipShare:
+    "Geben Sie Ihre Tokens niemals weiter – fügen Sie sie nicht in den Chat ein, committen Sie sie nicht in die Versionskontrolle und nehmen Sie sie nicht in Screenshots auf.",
+  disclaimerAck: "Ich verstehe",
 
   notifications: "Erinnerungen & Benachrichtigungen",
   notificationsHint:
@@ -1125,6 +1150,8 @@ export const de: Record<TranslationKey, string> = {
   timelogModuleDesc: "Ist-Zeitbuchungen aus Timelog abrufen und mit deinem Budget vergleichen",
   timelogTitle: "Timelog-Zeitbuchungen",
   timelogEnable: "Timelog-Integration aktivieren",
+  timelogTokenHelpBefore: "Bei Timelog anmelden, dann zu",
+  timelogTokenHelpAfter: "navigieren, um ein persönliches Zugriffstoken zu erzeugen.",
   timelogHost: "Host",
   timelogTenant: "Mandant",
   timelogEmail: "Konto-E-Mail",
@@ -1144,8 +1171,18 @@ export const de: Record<TranslationKey, string> = {
   timelogMatchClear: "Verknüpfung entfernen",
   timelogMatchNone: "— nicht verknüpft —",
   timelogSync: "Buchungen abrufen",
+  timelogLoadPeople: "Personen laden",
+  timelogLoadManagedProjects: "Meine Projekte laden",
+  timelogIncludeClosed: "Abgeschlossene Projekte einbeziehen",
+  timelogCustomerLabel: "Kunde",
+  timelogCustomerAll: "Alle Kunden",
+  timelogCustomerFilter: "Kunden filtern (* Platzhalter)",
+  timelogPmNote: "Sie müssen in TimeLog Projektmanager sein, damit diese Funktion wie vorgesehen funktioniert.",
+  timelogPeopleFilter: "Geladene Personen filtern",
   timelogLastSynced: "Zuletzt abgerufen {0}",
   timelogUnattributed: "Nicht zugeordnet: {0} h",
+  timelogAttributionHint:
+    "Die Stunden einer Ressource werden nur als gebucht angezeigt, wenn ihr Timelog-Benutzer mit dieser Ressource verknüpft ist und das Projekt der Buchung mit einem Budget-Bucket verknüpft ist.",
   timelogApply: "Auf Budget anwenden",
   timelogApplyConfirm: "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?",
   timelogKpiBooked: "Gebuchte Stunden",
@@ -1408,6 +1445,8 @@ export const de: Record<TranslationKey, string> = {
   activitySearchModeHint: "Legt fest, wie der Suchtext interpretiert wird: wörtlich, Platzhalter oder Regex.",
   activityGroupFilterHint: "Zeigt nur Protokolleinträge der gewählten Art.",
   activityClearHint: "Löscht alle Einträge des Aktivitätsprotokolls. Dies kann nicht rückgängig gemacht werden.",
+  activityClearConfirm: "Das gesamte Aktivitätsprotokoll löschen? Dies kann nicht rückgängig gemacht werden.",
+  timelogClearAllConfirm: "Alle abgerufenen Timelog-Daten (Personen, Projekte und Buchungen) löschen? Dies kann nicht rückgängig gemacht werden.",
   tasksSearchHint: "Filtert die Tabelle auf Aufgaben, deren Name, Zuständige(r), Blocker oder Notizen zum Text passen.",
   tasksGroupFilterHint: "Zeigt nur Aufgaben der gewählten Gruppe.",
   tasksLabelFilterHint: "Zeigt nur Aufgaben mit der gewählten Beschriftung.",
@@ -1570,7 +1609,7 @@ export const de: Record<TranslationKey, string> = {
   aiGuideSave: "Speichern",
   aiGuideCancel: "Abbrechen",
   aiGuideBuiltInBadge: "Integriert",
-  aiGuideBudgetWarning: "Aktivierte Leitfäden überschreiten die empfohlene Größe und können die Token-Kosten erhöhen.",
+  aiGuideBudgetWarning: "Alle aktivierten Leitfäden zusammen überschreiten die empfohlene Größe. Pro Nachricht werden nur die Übersicht und der Leitfaden der aktuellen Ansicht gesendet (nach dem ersten Senden zwischengespeichert), die tatsächlichen Token-Kosten sind daher meist niedriger – deaktiviere nicht benötigte Leitfäden, um sie zu senken.",
   aiGuideScopeModes: "Modi",
   aiGuideScopeModules: "Module",
   aiGuideScopeViews: "Ansichten",
@@ -1680,6 +1719,17 @@ export const de: Record<TranslationKey, string> = {
   layoutClassic: "Klassisch",
   layoutTooltip: "Wechselt zwischen dem neuen Seitenleisten-Layout und dem klassischen Layout.",
   sidebarBrandSubtitle: "PROJECT MANAGEMENT TRACKER",
+  brandingTitle: "Branding",
+  brandingLogo: "Seitenleisten-Logo",
+  brandingLogoChoose: "Logo auswählen…",
+  brandingLogoRemove: "Entfernen",
+  brandingLogoHint: "Maximale Breite ist die Breite der Seitenleiste (16 rem / ~256 px); das Logo wird passend skaliert (~32 px hoch). PNG, JPG, WebP oder GIF, bis 512 KB.",
+  brandingLogoError: "Bitte ein PNG-, JPG-, WebP- oder GIF-Bild unter 512 KB verwenden.",
+  brandingAppName: "App-Name",
+  brandingFooterSlogan: "Slogan",
+  brandingFavicon: "Favicon (Browser-Tab-Symbol)",
+  brandingFaviconChoose: "Favicon auswählen…",
+  brandingFaviconHint: "Wird im Browser-Tab angezeigt. Quadratisches PNG empfohlen (32×32 oder 64×64), bis 512 KB. PNG, JPG, WebP oder GIF.",
   sidebarCollapse: "Seitenleiste einklappen",
   sidebarExpand: "Seitenleiste ausklappen",
   sidebarMenuButton: "Navigationsmenü öffnen",
@@ -2576,15 +2626,11 @@ export const de: Record<TranslationKey, string> = {
   projectFileFormat: "Dateiformat",
   projectStorage: "Speicher",
   storageOptionConfigure: "Turso-Backend konfigurieren",
+  emptyStateConfigDbM365: "Datenbank / M365 konfigurieren",
+  emptyStateConfigDbM365Tip:
+    "Datenbank-Backend und Microsoft 365 (SharePoint, Outlook) vor dem Anlegen eines Projekts einrichten.",
   backendSetup: "Backend-Einrichtung",
-  emptyStateConfigM365: "M365-Integration konfigurieren",
-  emptyStateConfigTursoTip:
-    "Turso-Datenbank-Backend (URL und Token) vor dem Anlegen eines Projekts einrichten.",
-  emptyStateConfigM365Tip:
-    "Bei Microsoft 365 anmelden und konfigurieren (SharePoint, Outlook), bevor ein Projekt angelegt wird.",
   emptyStateConfigAi: "KI-Assistenten konfigurieren",
-  emptyStateConfigAiTip:
-    "Anthropic-API-Schlüssel hinzufügen, bevor ein Projekt angelegt wird – erforderlich für „Mit KI erstellen“.",
   projectsDelete: "Projekt entfernen",
   projectsDeleteConfirm:
     "Projekt aus der Liste entfernen? Die zugrunde liegende Datei wird NICHT gelöscht.",

@@ -19,6 +19,7 @@ import type { MilestoneHealthBucket } from "./portfolio-rollup";
 import { EmptyState } from "./empty-state";
 import { PanelSkeleton } from "./skeleton";
 import { Tile, KpiGradientBar } from "./report-table";
+import { PrintButton } from "./task-manager-ui";
 import { VIEW_PANE_FILL_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -100,8 +101,11 @@ export function PortfolioHealthPanel({
   }
 
   return (
-    <div className={`${VIEW_PANE_FILL_CLASS} overflow-y-auto pr-2`}>
-      <h2 className="mb-3 text-lg font-medium text-foreground">{t(lang, "navPortfolioHealth")}</h2>
+    <div className={`print-root print-landscape ${VIEW_PANE_FILL_CLASS} overflow-y-auto pr-2`}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-lg font-medium text-foreground">{t(lang, "navPortfolioHealth")}</h2>
+        <PrintButton lang={lang} />
+      </div>
 
       {/* Aggregate KPI strip */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">

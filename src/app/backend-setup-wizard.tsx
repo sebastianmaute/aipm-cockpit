@@ -31,6 +31,7 @@ import { JiraSettingsSection } from "./jira-settings";
 import { type Settings } from "./settings-types";
 import { INTERACTIVE } from "./interaction-styles";
 import { WizardStepIndicator } from "./wizard-step-indicator";
+import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -139,6 +140,11 @@ export function BackendSetupWizard({
   }
 
   return (
+    <IntegrationDisclaimerProvider
+      lang={lang}
+      seen={settings.integrationDisclaimerSeen === true}
+      onAcknowledge={() => onChangeSettings({ ...settings, integrationDisclaimerSeen: true })}
+    >
     <Modal
       open={open}
       onClose={handleClose}
@@ -170,6 +176,7 @@ export function BackendSetupWizard({
               onChange={onChangeSettings}
               onMigrateToTurso={onMigrateToTurso}
               hidePortfolioSwitch
+              hideJira
             />
           )}
 
@@ -235,5 +242,6 @@ export function BackendSetupWizard({
         </div>
       </div>
     </Modal>
+    </IntegrationDisclaimerProvider>
   );
 }

@@ -12,7 +12,7 @@ import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
@@ -78,6 +78,8 @@ function DirectoryRoleSelects({
         <select
           aria-label={`Discipline for ${resourceDisplayName(resource)}`}
           value={disc === "" ? "" : String(disc)}
+          // Stop the click bubbling to the row's onClick (opens the edit modal).
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => {
             const v = e.target.value === "" ? "" : Number(e.target.value);
             setDisc(v);
@@ -95,6 +97,8 @@ function DirectoryRoleSelects({
         <select
           aria-label={`Grade for ${resourceDisplayName(resource)}`}
           value={grad === "" ? "" : String(grad)}
+          // Stop the click bubbling to the row's onClick (opens the edit modal).
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => {
             const v = e.target.value === "" ? "" : Number(e.target.value);
             setGrad(v);
@@ -190,8 +194,8 @@ function ResourceDirectoryInner({
     sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
   return (
-    <div ref={dirRef} className={VIEW_PANE_RESIZABLE_CLASS}>
-      <div className="mb-2 flex shrink-0 items-center gap-2">
+    <div ref={dirRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      <div className="mb-2 flex shrink-0 items-center gap-2 print:hidden">
         <button
           type="button"
           onClick={onAddResource}
@@ -224,6 +228,7 @@ function ResourceDirectoryInner({
             {t(lang, "outlookImportButton")}
           </button>
         )}
+        <PrintButton lang={lang} />
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
         <ResetSizeButton onClick={resetDirSize} lang={lang} />
       </div>

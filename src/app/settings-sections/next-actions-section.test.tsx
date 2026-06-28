@@ -135,7 +135,7 @@ describe("NextActionsSection learning controls", () => {
 });
 
 describe("NextActionsSection AI weight suggestions", () => {
-  const aiSettings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-test" } };
+  const aiSettings = { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: "sk-test", enabled: true } };
 
   it("shows an AI suggestion and Accept applies it", () => {
     const onChange = vi.fn();

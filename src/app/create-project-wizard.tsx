@@ -30,7 +30,7 @@ import {
 } from "./feature-modules";
 import { t, type Lang } from "./i18n";
 import { type NewProjectOpts } from "./new-project-workspace";
-import { type Settings } from "./settings-types";
+import { aiKeyIfEnabled, type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
 import { type ProjectMeta, type Resource } from "./types";
 import { useTemplates } from "./use-templates";
@@ -39,8 +39,6 @@ import { proposalToDraftPatch, proposalToSeed, seedHasContent } from "./ai-proje
 import { Step0ImportPanel } from "./step0-import-panel";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
-import { BackendSetupWizard } from "./backend-setup-wizard";
-import { INTERACTIVE } from "./interaction-styles";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 
 type CreateFormat = "json" | "csv" | "md";
@@ -106,14 +104,13 @@ export function CreateProjectWizard({
 }: CreateProjectWizardProps) {
   const { templates } = useTemplates();
 
-  const aiKey = settings.ai?.apiKey?.trim() ?? "";
+  const aiKey = aiKeyIfEnabled(settings.ai);
   const aiEnabled = aiKey.length > 0;
   const { generate, busy: aiBusy, error: aiError, reset: resetAi } = useProjectProposal({
     apiKey: aiKey,
     model: settings.ai?.model ?? "claude-sonnet-4-6",
   });
   const [step, setStep] = useState<Step>(aiEnabled ? 0 : 1);
-  const [wizardOpen, setWizardOpen] = useState(false);
   const [draftPatch, setDraftPatch] = useState<Partial<ProjectFormDraft> | undefined>(undefined);
   const [aiSeed, setAiSeed] = useState<TemplateSeed | undefined>(undefined);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
@@ -215,19 +212,12 @@ export function CreateProjectWizard({
   return (
     <div className="flex min-h-0 flex-col">
       {/* Fixed header: step indicator (the modal panel owns resize/reset). */}
-      <div className="flex shrink-0 items-start justify-between gap-3 pb-4">
+      <div className="flex shrink-0 items-start gap-3 pb-4">
         {step >= 1 ? (
           <WizardStepIndicator lang={lang} current={step - 1} steps={CREATE_WIZARD_STEPS} />
         ) : (
           <h2 className="text-base font-semibold text-foreground">{t(lang, "aiCreateHeading")}</h2>
         )}
-        <button
-          type="button"
-          onClick={() => setWizardOpen(true)}
-          className={`shrink-0 rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-        >
-          {t(lang, "setupWizardRun")}
-        </button>
       </div>
 
       {/* Step 0 — Describe / import (AI fast-path; only when an API key is set).
@@ -457,15 +447,6 @@ export function CreateProjectWizard({
             </button>
           </div>
         </div>
-      )}
-      {wizardOpen && (
-        <BackendSetupWizard
-          lang={lang}
-          open
-          settings={settings}
-          onChangeSettings={onChangeSettings}
-          onClose={() => setWizardOpen(false)}
-        />
       )}
     </div>
   );

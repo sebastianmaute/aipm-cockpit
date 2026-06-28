@@ -1,6 +1,6 @@
 // src/app/timelog-panel.test.tsx
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -54,10 +54,20 @@ function defaultSyncReturn() {
       unattributed: { hours: 2, billableHours: 0 },
     },
     fetchedAt: "2026-06-23T10:00:00.000Z",
+    users: [
+      { userId: 42, firstName: "Alice", lastName: "Smith", initials: "AS", email: "alice@example.com", isActive: true },
+    ],
     projectRefs: [{ id: 9, name: "ForgeOps", no: "PO-1" }],
+    customers: [],
     busy: false,
     error: null,
-    sync: vi.fn().mockResolvedValue(undefined),
+    loadDirectory: vi.fn().mockResolvedValue(undefined),
+    loadManagedProjects: vi.fn().mockResolvedValue(undefined),
+    loadCustomers: vi.fn().mockResolvedValue(undefined),
+    fetchBookings: vi.fn().mockResolvedValue(undefined),
+    cancel: vi.fn(),
+    removeUsers: vi.fn(),
+    clearAll: vi.fn(),
   };
 }
 
@@ -303,6 +313,218 @@ describe("TimelogPanel", () => {
     });
   });
 
+  describe("People remove + Clear all", () => {
+    it("per-row ✕ calls removeUsers with that userId", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const removeUsers = vi.fn();
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), removeUsers } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: `${t("en-US", "remove")} – alice@example.com` }),
+      );
+      expect(removeUsers).toHaveBeenCalledWith([42]);
+    });
+
+    it("bulk: select-all then Remove calls removeUsers with every visible id", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const removeUsers = vi.fn();
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), removeUsers } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectAllVisibleRows") }));
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "remove") }));
+      expect(removeUsers).toHaveBeenCalledWith([42]);
+    });
+
+    it("Load my projects calls sync.loadManagedProjects", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const loadManagedProjects = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), loadManagedProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // Settings hydrate async (secret migration) → the load button is gated on
+      // a configured token; wait for it to enable before clicking.
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      fireEvent.click(btn);
+      expect(loadManagedProjects).toHaveBeenCalledWith(false, undefined);
+    });
+
+    it("the customer filter wildcard-narrows the dropdown options", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 1, name: "Acme" }, { id: 2, name: "Globex" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") });
+      expect(within(select).getByRole("option", { name: "Acme" })).toBeInTheDocument();
+      fireEvent.change(screen.getByRole("searchbox", { name: t("en-US", "timelogCustomerFilter") }), { target: { value: "glob" } });
+      expect(within(select).queryByRole("option", { name: "Acme" })).toBeNull();
+      expect(within(select).getByRole("option", { name: "Globex" })).toBeInTheDocument();
+    });
+
+    it("selecting a customer loads that customer's projects", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const loadManagedProjects = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], loadManagedProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      fireEvent.click(btn);
+      expect(loadManagedProjects).toHaveBeenCalledWith(false, 667);
+    });
+
+    it("ticking Include closed loads managed projects with closed=true", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const loadManagedProjects = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), loadManagedProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "timelogIncludeClosed") }));
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      fireEvent.click(btn);
+      expect(loadManagedProjects).toHaveBeenCalledWith(true, undefined);
+    });
+
+    it("Clear all calls sync.clearAll (after confirm)", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const clearAll = vi.fn();
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), clearAll } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "clearAll") }));
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(clearAll).toHaveBeenCalled();
+    });
+
+    it("Clear all does NOT clear when confirm is cancelled", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const clearAll = vi.fn();
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), clearAll } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "clearAll") }));
+      expect(clearAll).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Loading modal", () => {
+    it("shows a blocking status modal while sync.busy", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), busy: true } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.getByRole("status")).toHaveTextContent(t("en-US", "loadingTimelog"));
+    });
+
+    it("Cancel in the loading modal calls sync.cancel", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const cancel = vi.fn();
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), busy: true, cancel } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+      expect(cancel).toHaveBeenCalled();
+    });
+
+    it("hides the loading modal when not busy", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+  });
+
   describe("Apply to budget", () => {
     it("shows the apply button when the mocked aggregate yields a diff", () => {
       enableTimelog();
@@ -441,8 +663,10 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
 
-      // fetchedUsers is empty until Fetch runs (Fetch is a no-op in popout),
-      // so verify via the project table instead.
+      // People rows come from sync.users (mocked: Alice) — its select is disabled.
+      const peopleSelectLabel = `${t("en-US", "timelogMatchPeople")} – alice@example.com`;
+      expect(screen.getByRole("combobox", { name: peopleSelectLabel })).toBeDisabled();
+
       const projectSelectLabel = `${t("en-US", "timelogMatchProjects")} – 99`;
       const projectSelect = screen.queryByRole("combobox", { name: projectSelectLabel });
       if (projectSelect) {
@@ -504,10 +728,18 @@ describe("TimelogPanel", () => {
       vi.mocked(useTimelogSync).mockReturnValue({
         aggregates: undefined,
         fetchedAt: undefined,
+        users: [],
         projectRefs: [],
+        customers: [],
         busy: false,
         error: 401,
-        sync: vi.fn().mockResolvedValue(undefined),
+        loadDirectory: vi.fn().mockResolvedValue(undefined),
+        loadManagedProjects: vi.fn().mockResolvedValue(undefined),
+        loadCustomers: vi.fn().mockResolvedValue(undefined),
+        fetchBookings: vi.fn().mockResolvedValue(undefined),
+        cancel: vi.fn(),
+        removeUsers: vi.fn(),
+        clearAll: vi.fn(),
       } as unknown as ReturnType<typeof useTimelogSync>);
 
       enableTimelog();
@@ -527,10 +759,18 @@ describe("TimelogPanel", () => {
       vi.mocked(useTimelogSync).mockReturnValue({
         aggregates: undefined,
         fetchedAt: undefined,
+        users: [],
         projectRefs: [],
+        customers: [],
         busy: false,
         error: 500,
-        sync: vi.fn().mockResolvedValue(undefined),
+        loadDirectory: vi.fn().mockResolvedValue(undefined),
+        loadManagedProjects: vi.fn().mockResolvedValue(undefined),
+        loadCustomers: vi.fn().mockResolvedValue(undefined),
+        fetchBookings: vi.fn().mockResolvedValue(undefined),
+        cancel: vi.fn(),
+        removeUsers: vi.fn(),
+        clearAll: vi.fn(),
       } as unknown as ReturnType<typeof useTimelogSync>);
 
       enableTimelog();
@@ -542,7 +782,39 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
 
-      expect(screen.getByText(t("en-US", "timelogTestFail"))).toBeInTheDocument();
+      expect(screen.getByText(t("en-US", "timelogTestFail", "500"))).toBeInTheDocument();
+    });
+
+    it("interpolates the HTTP status into the failure line (429 not a literal {0})", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        aggregates: undefined,
+        fetchedAt: undefined,
+        users: [],
+        projectRefs: [],
+        customers: [],
+        busy: false,
+        error: 429,
+        loadDirectory: vi.fn().mockResolvedValue(undefined),
+        loadManagedProjects: vi.fn().mockResolvedValue(undefined),
+        loadCustomers: vi.fn().mockResolvedValue(undefined),
+        fetchBookings: vi.fn().mockResolvedValue(undefined),
+        cancel: vi.fn(),
+        removeUsers: vi.fn(),
+        clearAll: vi.fn(),
+      } as unknown as ReturnType<typeof useTimelogSync>);
+
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      expect(screen.getByText(t("en-US", "timelogTestFail", "429"))).toBeInTheDocument();
+      expect(screen.queryByText(/\{0\}/)).toBeNull();
     });
   });
 });

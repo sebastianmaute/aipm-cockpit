@@ -13,7 +13,8 @@ const { MockTimelogError } = vi.hoisted(() => {
 
 vi.mock("./timelog-api", () => ({
   TimelogError: MockTimelogError,
-  listUsers: vi.fn(), getPrivileges: vi.fn(),
+  listUsers: vi.fn(), getPrivileges: vi.fn(), getMe: vi.fn(), listManagedProjects: vi.fn(),
+  listProjectsForCustomer: vi.fn(), listCustomers: vi.fn(),
   listTimeItemsSelf: vi.fn(), listEmployeeTimeItems: vi.fn(),
 }));
 import * as api from "./timelog-api";
@@ -23,7 +24,13 @@ import type { TimelogLinks } from "./timelog-types";
 const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
 const links: TimelogLinks = { userLinks: [{ timelogUserId: 5, resourceId: 2, manual: false }], projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: false }] };
 const item = (userId: number, hours: number) => ({ timeRegistrationId: 1, userId, projectId: 9, projectName: "", projectNo: "", taskId: 0, date: "2026-06-10", hours, billableHours: hours, isBillable: true });
-beforeEach(() => { vi.clearAllMocks(); window.localStorage.clear(); });
+beforeEach(() => {
+  vi.clearAllMocks();
+  window.localStorage.clear();
+  // Directory fetch now runs in BOTH scopes; default to an empty list so the
+  // self-scope tests don't crash on an unmocked listUsers (org tests override).
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+});
 
 function args(over: Partial<Parameters<typeof useTimelogSync>[0]> = {}) {
   return { creds, links, scopeMode: "auto" as const, granularity: "month" as const, projectId: "p1", isPopout: false, onTokenInvalid: vi.fn(), onTokenValid: vi.fn(), ...over };
@@ -33,18 +40,153 @@ it("self mode aggregates the token user's items and caches them", async () => {
   (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
   (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
   const { result } = renderHook(() => useTimelogSync(args()));
-  await act(async () => { await result.current.sync("2026-06-01", "2026-06-30"); });
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
   // Distinct project refs collected from the fetched items (item() uses projectId 9)
   expect(result.current.projectRefs).toEqual([{ id: 9, name: "", no: "" }]);
+});
+
+it("exposes only displayable directory users (drops inactive/nameless rows)", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 1, firstName: "Alice", lastName: "Smith", initials: "AS", email: "a@x.com", isActive: true },
+    { userId: 2, firstName: "", lastName: "", initials: "", email: "", isActive: true },   // nameless
+    { userId: 3, firstName: "Bob", lastName: "Lee", initials: "BL", email: "b@x.com", isActive: false }, // inactive
+  ]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await result.current.loadDirectory(); });
+  expect(result.current.users.map((u) => u.userId)).toEqual([1]);
+});
+
+it("restores users + projectRefs from the per-project cache on remount", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 5, firstName: "Carl", lastName: "Ng", initials: "CN", email: "c@x.com", isActive: true },
+  ]);
+  // First mount loads directory + fetches bookings, then caches both.
+  const first = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await first.result.current.loadDirectory(); });
+  await act(async () => { await first.result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  expect(first.result.current.users.map((u) => u.userId)).toEqual([5]);
+  first.unmount();
+
+  // Fresh mount (same projectId) restores from cache WITHOUT a new fetch.
+  const second = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  expect(second.result.current.users.map((u) => u.userId)).toEqual([5]);
+  expect(second.result.current.projectRefs).toEqual([{ id: 9, name: "", no: "" }]);
+});
+
+it("removeUsers drops people and persists the trimmed list to the cache", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 1, firstName: "Ada", lastName: "L", initials: "AL", email: "a@x.com", isActive: true },
+    { userId: 2, firstName: "Bob", lastName: "M", initials: "BM", email: "b@x.com", isActive: true },
+  ]);
+  const first = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await first.result.current.loadDirectory(); });
+  await act(async () => { await first.result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  act(() => { first.result.current.removeUsers([1]); });
+  expect(first.result.current.users.map((u) => u.userId)).toEqual([2]);
+  first.unmount();
+  // Trimmed list persisted: a fresh mount restores only user 2.
+  const second = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  expect(second.result.current.users.map((u) => u.userId)).toEqual([2]);
+  expect(second.result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4); // aggregates kept
+});
+
+it("clearAll resets state and clears the cache", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 1, firstName: "Ada", lastName: "L", initials: "AL", email: "a@x.com", isActive: true },
+  ]);
+  const first = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await first.result.current.loadDirectory(); });
+  await act(async () => { await first.result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  act(() => { first.result.current.clearAll(); });
+  expect(first.result.current.users).toEqual([]);
+  expect(first.result.current.aggregates).toBeUndefined();
+  expect(first.result.current.fetchedAt).toBeUndefined();
+  first.unmount();
+  // Cache wiped: a fresh mount has nothing to restore.
+  const second = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  expect(second.result.current.users).toEqual([]);
+  expect(second.result.current.aggregates).toBeUndefined();
 });
 
 it("org mode is fail-soft: one employee error does not abort the others", async () => {
   (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([{ userId: 5, firstName: "", lastName: "", initials: "", email: "", isActive: true }, { userId: 6, firstName: "", lastName: "", initials: "", email: "", isActive: true }]);
   (api.listEmployeeTimeItems as ReturnType<typeof vi.fn>).mockResolvedValueOnce([item(5, 4)]).mockRejectedValueOnce(new MockTimelogError(500));
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "org" })));
-  await act(async () => { await result.current.sync("2026-06-01", "2026-06-30"); });
+  // Org bookings scoped to the explicitly-chosen user ids (the ticked people).
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30", [5, 6]); });
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+});
+
+it("fetchBookings excludes non-project (ProjectID 0 absence) rows from projectRefs", async () => {
+  const absence = { ...item(5, 8), projectId: 0, projectName: "" }; // absence/internal time
+  (api.listEmployeeTimeItems as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4), absence]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "org" })));
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30", [5]); });
+  // Real project 9 present; the ProjectID-0 absence must NOT add a (blank) ref row.
+  expect(result.current.projectRefs.map((r) => r.id)).toEqual([9]);
+});
+
+it("org fetchBookings only requests timesheets for the given user ids", async () => {
+  (api.listEmployeeTimeItems as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "org" })));
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30", [11, 22]); });
+  const calledIds = (api.listEmployeeTimeItems as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1]);
+  expect(calledIds).toEqual([11, 22]);
+  expect(api.listUsers).not.toHaveBeenCalled(); // directory not re-fetched for bookings
+});
+
+it("loadManagedProjects sets projectRefs to the token owner's managed projects", async () => {
+  (api.getMe as ReturnType<typeof vi.fn>).mockResolvedValue({ userId: 2144 });
+  (api.listManagedProjects as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 12286, name: "KfW", no: "x" }]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await result.current.loadManagedProjects(); });
+  expect(result.current.projectRefs).toEqual([{ id: 12286, name: "KfW", no: "x" }]);
+  expect(api.listManagedProjects).toHaveBeenCalledWith(creds, 2144, expect.anything(), false);
+});
+
+it("loadManagedProjects(true) requests closed projects too", async () => {
+  (api.getMe as ReturnType<typeof vi.fn>).mockResolvedValue({ userId: 2144 });
+  (api.listManagedProjects as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await result.current.loadManagedProjects(true); });
+  expect(api.listManagedProjects).toHaveBeenCalledWith(creds, 2144, expect.anything(), true);
+});
+
+it("loadManagedProjects with a customerId loads that customer's projects (not PM-scoped)", async () => {
+  (api.listProjectsForCustomer as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 5, name: "Acme P1", no: "" }]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await result.current.loadManagedProjects(false, 667); });
+  expect(api.listProjectsForCustomer).toHaveBeenCalledWith(creds, 667, expect.anything(), false);
+  expect(api.getMe).not.toHaveBeenCalled();
+  expect(api.listManagedProjects).not.toHaveBeenCalled();
+  expect(result.current.projectRefs).toEqual([{ id: 5, name: "Acme P1", no: "" }]);
+});
+
+it("loadCustomers populates the customer picker", async () => {
+  (api.listCustomers as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 667, name: "Acme" }]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await result.current.loadCustomers(); });
+  expect(result.current.customers).toEqual([{ id: 667, name: "Acme" }]);
+});
+
+it("a cancelled fetch (AbortError) surfaces no error and clears busy", async () => {
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockRejectedValue(new DOMException("aborted", "AbortError"));
+  const onTokenInvalid = vi.fn();
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self", onTokenInvalid })));
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  expect(result.current.error).toBeNull();
+  expect(result.current.busy).toBe(false);
+  expect(onTokenInvalid).not.toHaveBeenCalled();
 });
 
 it("calls onTokenInvalid on a 401 and sets error", async () => {
@@ -52,14 +194,14 @@ it("calls onTokenInvalid on a 401 and sets error", async () => {
   (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockRejectedValue(new MockTimelogError(401));
   const onTokenInvalid = vi.fn();
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self", onTokenInvalid })));
-  await act(async () => { await result.current.sync("2026-06-01", "2026-06-30"); });
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
   expect(onTokenInvalid).toHaveBeenCalled();
   expect(result.current.error).toBeTruthy();
 });
 
 it("popout is read-only: sync is a no-op", async () => {
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self", isPopout: true })));
-  await act(async () => { await result.current.sync("2026-06-01", "2026-06-30"); });
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
   expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
 });
 
@@ -68,7 +210,7 @@ it("week granularity: aggregates under weekly key (2026-W24), not monthly key (2
   (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
   (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self", granularity: "week" })));
-  await act(async () => { await result.current.sync("2026-06-01", "2026-06-30"); });
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
   const byPeriod = result.current.aggregates?.byBucket[7];
   expect(byPeriod?.["2026-W24"]?.hours).toBe(4);
   expect(byPeriod?.["2026-06"]).toBeUndefined();

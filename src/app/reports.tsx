@@ -230,11 +230,13 @@ export function ReportsPanel({
         const id = e.target.value as AddableReportId;
         if (id) onChangeExtraReports?.([...extraReports, id]);
       }}
-      className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
+      className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
     >
-      <option value="">{remainingReports.length === 0 ? t(lang, "reportsAddReportNone") : `+ ${t(lang, "reportsAddReport")}`}</option>
+      {/* Options carry explicit readable colors: the select's white text would
+          otherwise render white-on-white in Chrome's open dropdown popup. */}
+      <option value="" className="bg-surface text-foreground">{remainingReports.length === 0 ? t(lang, "reportsAddReportNone") : `+ ${t(lang, "reportsAddReport")}`}</option>
       {remainingReports.map((r) => (
-        <option key={r.id} value={r.id}>{t(lang, r.titleKey)}</option>
+        <option key={r.id} value={r.id} className="bg-surface text-foreground">{t(lang, r.titleKey)}</option>
       ))}
     </select>
   );
@@ -273,7 +275,7 @@ export function ReportsPanel({
   };
 
   return (
-    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} toolbarExtra={<><ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />{addReportControl}{removeReportControl}</>} title={t(lang, "tabReports")}>
+    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} toolbarExtra={<>{addReportControl}{removeReportControl}<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} /></>} title={t(lang, "tabReports")}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "reportsTotal")} value={stats.total} />
         <Tile label={t(lang, "reportsOpen")} value={stats.open} />

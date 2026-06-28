@@ -14,6 +14,7 @@ export interface PromptDef {
 
 /** The universal foundational prompts. Always offered (chat chips + menu "General"). */
 export const FOUNDATIONAL_PROMPTS: PromptDef[] = [
+  { labelKey: "aiPromptExplainLabel", bodyKey: "aiPromptExplainBody" },
   { labelKey: "aiPromptWhatsNextLabel", bodyKey: "aiPromptWhatsNextBody" },
   { labelKey: "aiPromptStatusLabel", bodyKey: "aiPromptStatusBody" },
   { labelKey: "aiPromptPrioritizeLabel", bodyKey: "aiPromptPrioritizeBody" },

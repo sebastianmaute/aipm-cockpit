@@ -10,6 +10,7 @@ import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
 import { useToast } from "./use-toast";
 import { useSettings } from "./use-settings";
+import { useApplyFavicon } from "./use-favicon";
 import { useTemplates } from "./use-templates";
 import { templateFromWorkspace, type SaveTemplateInput } from "./templates";
 import { applyTemplate } from "./template-apply";
@@ -81,7 +82,7 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, resolveNextActionsConfig, type Settings } from "./settings-types";
+import { aiKeyIfEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, isAiEnabled, resolveNextActionsConfig, type Settings } from "./settings-types";
 import { buildSuggestionContext } from "./weight-suggestion-ai";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
@@ -176,6 +177,7 @@ const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 // export below wraps this in <FiltersProvider> so useFilters() works.
 function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
+  useApplyFavicon(settings.branding?.favicon ?? null);
   const { activityLog, setActivityLog, logActivity, handleClearActivityLog } =
     useActivityLog({ lang });
   const { toast, showToast } = useToast();
@@ -775,7 +777,7 @@ function TaskManagerInner() {
   // Action Center "Analyze with AI": one forced-tool Anthropic call (no agentic
   // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
   const actionAnalysis = useActionAnalysis({
-    apiKey: settings.ai?.apiKey?.trim() ?? "",
+    apiKey: aiKeyIfEnabled(settings.ai),
     model: settings.ai?.model ?? "claude-sonnet-4-6",
   });
   // Hoisted member reads (exhaustive-deps rejects `obj.member` deps; the hook
@@ -854,7 +856,7 @@ function TaskManagerInner() {
   const aiBusy = actionAnalysis.busy;
   const aiError = actionAnalysis.error;
   const aiResult = actionAnalysis.result;
-  const aiEnabled = !!settings.ai?.apiKey?.trim() && settings.ai?.actionSuggestions !== false;
+  const aiEnabled = isAiEnabled(settings.ai) && settings.ai?.actionSuggestions !== false;
   const aiAnalysisBundle = useMemo(
     () => ({ enabled: aiEnabled, busy: aiBusy, error: aiError, result: aiResult, onAnalyze: runActionAnalysis, onClear: aiClear, onActAi }),
     [aiEnabled, aiBusy, aiError, aiResult, runActionAnalysis, aiClear, onActAi],
@@ -888,11 +890,11 @@ function TaskManagerInner() {
     [lang],
   );
   useScheduledJobRunner({
-    enabled: !isPopout && !!settings.ai?.apiKey?.trim() && settings.ai?.scheduledJobs === true,
+    enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
     jobs: scheduledJobs.jobs,
     recordRun: scheduledJobs.recordRun,
     buildContext: buildAiContext,
-    ai: { apiKey: settings.ai?.apiKey?.trim() ?? "", model: settings.ai?.model ?? "claude-sonnet-4-6" },
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
     notify: notifyScheduledJob,
   });
 

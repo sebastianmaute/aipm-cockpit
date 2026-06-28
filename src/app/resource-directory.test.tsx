@@ -86,6 +86,26 @@ describe("ResourceDirectory", () => {
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
+  it("clicking the discipline/grade select does NOT open the editor (stopPropagation)", () => {
+    const onEdit = vi.fn();
+    render(
+      <ResourceDirectory
+        lang="en-US"
+        resources={rs}
+        roles={[]}
+        disciplines={[{ id: 1, name: "Engineering" }]}
+        grades={[{ id: 1, name: "Senior" }]}
+        onAssignRole={vi.fn()}
+        onEditResource={onEdit}
+        onAddResource={vi.fn()}
+        onAddAbsence={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("combobox", { name: "Discipline for Alex Example" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Grade for Alex Example" }));
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
   it("gives the directory search box a descriptive tooltip", () => {
     render(<ResourceDirectory {...common} resources={rs} />);
     expect(screen.getByPlaceholderText(/filter by name, title/i)).toHaveAttribute(

@@ -20,8 +20,8 @@ export function RolesPanel(props: RolesEditorProps) {
   };
 
   return (
-    <section ref={paneRef} className={CENTERED_FIT_PANE_CLASS}>
-      <header className="mb-2 flex shrink-0 items-center justify-between gap-2">
+    <section ref={paneRef} className={`print-root print-landscape ${CENTERED_FIT_PANE_CLASS}`}>
+      <header className="mb-2 flex shrink-0 items-center gap-2">
         <h2 className="text-lg font-medium text-foreground">{t(props.lang, "resourcesManageRoles")}</h2>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto pr-2"><RolesEditor {...props} onResetSize={resetSize} /></div>
