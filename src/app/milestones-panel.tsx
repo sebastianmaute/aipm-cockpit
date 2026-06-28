@@ -32,7 +32,6 @@ import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton, PrintButton 
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { EmptyState } from "./empty-state";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
@@ -304,7 +303,16 @@ function MilestonesPanelBody({
 
       <div ref={containerRef} className={INNER_TABLE_CLASS}>
       {sorted.length === 0 ? (
-        <EmptyState compact title={t(lang, "milestonesEmpty")} />
+        // Empty → clickable dashed box (mirrors the budget "+ add bucket" empty
+        // state): descriptive text + "+ New milestone…", the whole box adds one.
+        <button
+          type="button"
+          onClick={openNew}
+          className={`flex w-full flex-col items-center gap-2 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+        >
+          <span>{t(lang, "milestonesEmpty")}</span>
+          <span className="font-medium">+ {t(lang, "milestoneNew")}…</span>
+        </button>
       ) : (
         <table className="w-full text-sm">
           <thead className={TABLE_HEAD_CLASS}>

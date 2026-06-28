@@ -117,7 +117,9 @@ describe("MilestonesPanel", () => {
   });
 
   it("renders the New milestone button at the left, styled like Gantt (solid dark-blue)", () => {
-    renderMilestones({ milestones: [] });
+    // Render WITH a milestone so the empty-state clickable box (which also
+    // contains "+ New milestone…") isn't present to make the query ambiguous.
+    renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
     const btn = screen.getByRole("button", { name: /new milestone/i });
     expect(btn.className).toContain("bg-AIPM-dark-blue");
     expect(btn.className).toContain("text-white");
