@@ -235,6 +235,40 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 
 ### Dashboard landing cockpit
 
+**Layout = single masonry (CSS multicol, NOT a fixed grid).** `dashboard-panel.tsx` stays a thin
+orchestrator (data derivation + the `computeDashboard` memo) and renders three zones: a full-width
+HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` · `DashboardCoachingCard` · `DashboardHero`) → ONE
+masonry flow → a full-width FOOTER (`NarrativeEditor` · Recent-activity `<details>` · Trends).
+★★ The masonry is a CSS multicolumn container — `columns-1 lg:columns-2 xl:columns-3 ${dc.sectionGap}`
+(default `column-fill: balance` equalises column heights) — NOT `grid-cols-*`. Each card is wrapped in
+`<div className="break-inside-avoid ${dc.cardGap}">` so no card splits across a column. This REPLACED the
+old fixed `lg:grid-cols-2` bento, whose `items-start` + wildly uneven card heights trapped large
+wide-screen voids (huge whitespace under the short KPI/Progress cards). ★★ Masonry only kills voids when
+`#cards > #cols` (two cards in two columns is one-per-column = the void stays) — that is WHY the hero was
+re-split: its KPI strip + Top-actions had to join the same flow as the other short/tall cards. Reading
+order is column-major (top→bottom per column); cards are ordered priority-first. New density key
+`dc.cardGap` (`mb-4` comfortable / `mb-2` compact) is the inter-card vertical margin (multicol ignores
+`gap`/`space-y` between items). Footer strips stay full-width stacked (Trends' `VarianceSummary` table
+needs full width — would cram in a 1/3 column). The presentational slices:
+- `dashboard-sections/dashboard-hero.tsx` (`DashboardHero`) — now ONLY the compact Overall RAG band +
+  Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
+  `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
+  `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
+- `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the 3 "at a glance" KPI tiles
+  (complete % · overdue · open RAID, each with a `TrendArrow`); a standalone masonry card. Uses a
+  `dc.cardPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+- `dashboard-sections/dashboard-top-actions.tsx` (`DashboardTopActions`) — the ranked Top-actions queue;
+  returns `null` when `!topActions?.length`, and the PANEL also gates its `break-inside-avoid` wrapper on
+  `topActions?.length` so an empty queue leaves no dead `dc.cardGap` margin in the flow.
+- `dashboard-sections/registers-band.tsx` — split into `RaidRegisterCard` (gated on `showRaid`) +
+  `UpcomingCard`, two standalone masonry cards; the old combined `RegistersBand` wrapper was RETIRED.
+- `dashboard-sections/dashboard-narrative.tsx` — `NarrativeSummary` (headline, read-only saved text,
+  renders null when empty) + `NarrativeEditor` (footer folded `<details>`, owns the draft + autogrow + the
+  render-time reconcile; the textarea carries an `aria-label`, NOT just a placeholder — axe).
+★ ALL tier/card spacing uses `dc.*` density classes (`dc.outer`/`sectionGap`/`cardGap`/`cardPad`/`kpiGap`),
+never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`. `DashboardPanelProps` is unchanged by the reorg (the ~30
+test/caller sites were untouched).
+
 The Dashboard (`dashboard-panel.tsx`, owns `computeDashboard`) opens with a greeting + "since you last
 looked" delta strip, then the ranked top-actions queue (promoted ABOVE the health band), with the four
 RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosure. Dashboard IS in axe
