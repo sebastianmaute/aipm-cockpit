@@ -36,6 +36,10 @@ export const ActivityLogPanel = dynamic(
   () => import("./activity-log-panel").then((m) => m.ActivityLogPanel),
   { ssr: false, loading },
 );
+export const HelpView = dynamic(
+  () => import("./help-view").then((m) => m.HelpView),
+  { ssr: false, loading },
+);
 export const ResourcesReportPanel = dynamic(
   () => import("./resources-report").then((m) => m.ResourcesReportPanel),
   { ssr: false, loading },

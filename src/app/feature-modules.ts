@@ -59,6 +59,7 @@ export const CORE_VIEWS: readonly AppView[] = [
   "reports",
   "activity",
   "settings",
+  "help",
   "edit",
 ] as const;
 

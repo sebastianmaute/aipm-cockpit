@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 import { matchesQuery, highlightSegments } from "./help-search";
-import { type Lang, type TranslationKey, t } from "./i18n";
+import { type Lang, t } from "./i18n";
+import { HELP_SECTIONS as SECTIONS } from "./help-sections";
 import { useResizable } from "./use-resizable";
 import { APP_LICENSE_URL } from "./version";
 
@@ -16,40 +17,6 @@ const STORAGE_KEY_SIZE = "lop-app:help-size";
 // the `maxHeight` cap on the rendered element keeps the panel from spilling
 // into the gutter even after a resize.
 const VIEWPORT_PADDING = 100;
-
-const SECTIONS: Array<{
-  titleKey: TranslationKey;
-  bodyKey: TranslationKey;
-}> = [
-  { titleKey: "helpSecLayoutTitle", bodyKey: "helpSecLayoutBody" },
-  { titleKey: "helpSecAddTitle", bodyKey: "helpSecAddBody" },
-  { titleKey: "helpSecFieldVisibilityTitle", bodyKey: "helpSecFieldVisibilityBody" },
-  { titleKey: "helpSecTemplatesTitle", bodyKey: "helpSecTemplatesBody" },
-  { titleKey: "helpSecPerProjectFunctionsTitle", bodyKey: "helpSecPerProjectFunctionsBody" },
-  { titleKey: "helpSecTemplateSuggestTitle", bodyKey: "helpSecTemplateSuggestBody" },
-  { titleKey: "helpSecWorkspaceTitle", bodyKey: "helpSecWorkspaceBody" },
-  { titleKey: "helpSecTabsTitle", bodyKey: "helpSecTabsBody" },
-  { titleKey: "helpSecTasksTitle", bodyKey: "helpSecTasksBody" },
-  { titleKey: "helpSecTaskStatusTitle", bodyKey: "helpSecTaskStatusBody" },
-  { titleKey: "helpSecGanttTitle", bodyKey: "helpSecGanttBody" },
-  { titleKey: "helpSecRaidTitle", bodyKey: "helpSecRaidBody" },
-  { titleKey: "helpSecResourcesTitle", bodyKey: "helpSecResourcesBody" },
-  { titleKey: "helpSecSteeringTitle", bodyKey: "helpSecSteeringBody" },
-  { titleKey: "helpSecActivityTitle", bodyKey: "helpSecActivityBody" },
-  { titleKey: "helpSecDocumentsTitle", bodyKey: "helpSecDocumentsBody" },
-  { titleKey: "helpSecVoiceTitle", bodyKey: "helpSecVoiceBody" },
-  { titleKey: "helpSecNotifTitle", bodyKey: "helpSecNotifBody" },
-  { titleKey: "helpSecTimezonesTitle", bodyKey: "helpSecTimezonesBody" },
-  { titleKey: "helpSecJiraTitle", bodyKey: "helpSecJiraBody" },
-  { titleKey: "helpSecStorageTitle", bodyKey: "helpSecStorageBody" },
-  { titleKey: "helpSecSetupWizardTitle", bodyKey: "helpSecSetupWizardBody" },
-  { titleKey: "helpSecVersionHistoryTitle", bodyKey: "helpSecVersionHistoryBody" },
-  { titleKey: "helpSecAiTitle", bodyKey: "helpSecAiBody" },
-  { titleKey: "helpSecAiAdvancedTitle", bodyKey: "helpSecAiAdvancedBody" },
-  { titleKey: "helpSecInputFeedbackTitle", bodyKey: "helpSecInputFeedbackBody" },
-  { titleKey: "helpSecTourTitle", bodyKey: "helpSecTourBody" },
-  { titleKey: "helpSecKeysTitle", bodyKey: "helpSecKeysBody" },
-];
 
 type Pos = { x: number; y: number };
 

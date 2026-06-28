@@ -33,6 +33,7 @@ export type AppView =
   | "reports"
   | "activity"
   | "settings"
+  | "help"
   | "learning-insights"
   | "steering-committee"
   | "timelog"
@@ -94,7 +95,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: "navGroupSystem",
-    items: [{ view: "activity" }, { view: "history" }, { view: "settings" }],
+    items: [{ view: "activity" }, { view: "history" }, { view: "settings" }, { view: "help" }],
   },
 ];
 
@@ -128,6 +129,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights">, Transla
   reports: "tabReports",
   activity: "tabActivity",
   settings: "settings",
+  help: "navHelp",
   "steering-committee": "committeeNav",
   timelog: "navTimelog",
 };

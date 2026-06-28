@@ -31,6 +31,7 @@ import { computeCoaching, type SettingsSectionId } from "./dashboard-coaching";
 import { INTERACTIVE, TRANSITION, FOCUS_RING } from "./interaction-styles";
 import { EmptyState } from "./empty-state";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
+import { DashboardTipCard } from "./dashboard-tip-card";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { navLabelKey, type AppView } from "./nav-config";
 import { activityViewOf } from "./dashboard-activity-nav";
@@ -228,6 +229,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* First-open coaching — self-hides once the project has any task */}
         <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
+
+        {/* Tip of the day — dismissable, rotates daily (per-device) */}
+        <DashboardTipCard lang={lang} dc={dc} isPopout={props.isPopout} />
 
         {/* Tier 1 — hero: Overall RAG band + Adjust-health disclosure */}
         <DashboardHero

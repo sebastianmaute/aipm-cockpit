@@ -67,6 +67,7 @@ import {
   RaidPanel,
   ResourcesPanel,
   ActivityLogPanel,
+  HelpView,
   ResourcesReportPanel,
   RaidReportPanel,
   ChangePanel,
@@ -604,6 +605,12 @@ export function WorkspaceSection({
               entries={activityLog}
               onClear={handleClearActivityLog}
             />
+          </div>
+        )}
+
+        {activeTab === "help" && (
+          <div id="panel-help" role="tabpanel" className={panelClass}>
+            <HelpView lang={lang} />
           </div>
         )}
 
