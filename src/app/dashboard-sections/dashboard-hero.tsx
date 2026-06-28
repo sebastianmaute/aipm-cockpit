@@ -7,7 +7,6 @@ import { RagBadge } from "../rag-badge";
 import { TRANSITION, FOCUS_RING } from "../interaction-styles";
 import type { DashboardModel } from "../dashboard";
 import type { ProjectStatus } from "../types";
-import type { DensityClasses } from "../dashboard-density";
 
 function OverrideSelect({
   lang, label, value, computed, effective, onChange,
@@ -48,15 +47,13 @@ export interface DashboardHeroProps {
   setStatus: Dispatch<SetStateAction<ProjectStatus>>;
   showBudget?: boolean;
   showChanges?: boolean;
-  dc: DensityClasses;
 }
 
 export function DashboardHero(props: DashboardHeroProps) {
-  const { lang, today, model, status, setStatus, showBudget, showChanges, dc } = props;
+  const { lang, today, model, status, setStatus, showBudget, showChanges } = props;
   return (
-    <div className={dc.outer}>
-      {/* Overall band */}
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
+    // Single Overall band — the panel already wraps the hero in its dc.outer flow.
+    <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
         <div className="flex items-center gap-2 text-2xl font-bold">
           <RagBadge value={model.overall.effective} lang={lang} />
           {t(lang, "dashboardOverall")}:{" "}
@@ -81,8 +78,6 @@ export function DashboardHero(props: DashboardHeroProps) {
           </div>
         </details>
         <p className="basis-full text-xs text-muted-foreground">{t(lang, "dashboardRagThresholds")}</p>
-      </div>
-
     </div>
   );
 }

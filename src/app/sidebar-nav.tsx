@@ -91,6 +91,7 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
                               type="button"
                               onClick={() => onNavigate(child.view)}
                               aria-current={childActive ? "page" : undefined}
+                              data-tour-id={NAV_TOUR_ID[child.view]}
                               className={navItemClass(childActive, "child", false)}
                             >
                               <NavIcon view={child.view} />

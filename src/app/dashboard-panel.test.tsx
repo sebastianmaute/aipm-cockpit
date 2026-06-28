@@ -528,7 +528,7 @@ const propsWithEstimates = {
 
 // ─── Trends widget visibility + toggle ───────────────────────────────────────
 
-describe("DashboardPanel Trends widget (showTrends)", () => {
+describe("DashboardPanel Trends widget (Turso-gated)", () => {
   const baseProps = {
     lang: "en-US" as const,
     tasks: [],

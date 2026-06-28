@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import type { ProjectStatus } from "../types";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
-import { densityClasses } from "../dashboard-density";
 import { DashboardHero } from "./dashboard-hero";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" };
@@ -29,7 +28,6 @@ function Host() {
       setStatus={setStatus}
       showBudget
       showChanges
-      dc={densityClasses("comfortable")}
     />
   );
 }

@@ -19,7 +19,7 @@ export function DashboardTopActions({ lang, topActions, onOpenAction, dc }: Dash
   return (
     <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
       <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "dashboardTopActions")}</h3>
-      <div className="flex flex-col gap-2">
+      <div className={`flex flex-col ${dc.kpiGap}`}>
         {topActions.map((a) => (
           <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
         ))}

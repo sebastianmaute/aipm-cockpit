@@ -301,10 +301,10 @@ function MilestonesPanelBody({
         )}
       </div>
 
-      <div ref={containerRef} className={sorted.length === 0 ? undefined : INNER_TABLE_CLASS}>
-      {sorted.length === 0 ? (
-        // Empty → clickable dashed box (mirrors the budget "+ add bucket" empty
-        // state): descriptive text + "+ New milestone…", the whole box adds one.
+      <div ref={containerRef} className={milestones.length === 0 ? undefined : INNER_TABLE_CLASS}>
+      {milestones.length === 0 ? (
+        // Truly empty → clickable dashed box (mirrors the budget "+ add bucket"
+        // empty state): descriptive text + "+ New milestone…", the box adds one.
         <button
           type="button"
           onClick={openNew}
@@ -313,6 +313,9 @@ function MilestonesPanelBody({
           <span>{t(lang, "milestonesEmpty")}</span>
           <span className="font-medium">+ {t(lang, "milestoneNew")}…</span>
         </button>
+      ) : sorted.length === 0 ? (
+        // Filtered to no matches → message inside the bordered scroller (not the add box).
+        <p className="p-10 text-center text-sm text-muted-foreground">{t(lang, "milestonesNoMatches")}</p>
       ) : (
         <table className="w-full text-sm">
           <thead className={TABLE_HEAD_CLASS}>

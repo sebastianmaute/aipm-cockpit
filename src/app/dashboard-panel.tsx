@@ -238,7 +238,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
           setStatus={setStatus}
           showBudget={showBudget}
           showChanges={showChanges}
-          dc={dc}
         />
 
         {/* Masonry — variable-height cards pack via column-fill: balance.

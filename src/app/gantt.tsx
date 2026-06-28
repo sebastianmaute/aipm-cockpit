@@ -450,7 +450,6 @@ export function GanttPanel({
           <button
             type="button"
             onClick={onAddTask}
-            aria-label={t(lang, "addTaskButton")}
             className={`flex w-full flex-col items-center gap-2 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
           >
             <span>{t(lang, "ganttEmpty")}</span>

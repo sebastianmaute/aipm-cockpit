@@ -193,7 +193,7 @@ export function WorkspaceSection({
   // One-way signal: incrementing this opens the milestone create modal on the
   // Milestones tab (Gantt "Add milestone" parity with Add task).
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
-  const subTabs = subTabsFor(activeTab, features);
+  const subTabs = subTabsFor(activeTab, features, trends.active);
   const milestonesEnabled = isModuleEnabled("milestones", features);
   const raidEnabledForChanges = isModuleEnabled("raid", features);
   const stakeholdersEnabled = isModuleEnabled("stakeholders", features);

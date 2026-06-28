@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect } from "react";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import { buildHash, parseHash } from "./nav-config";
+import { buildHash, parseHash, type AppView } from "./nav-config";
 import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
 
 function currentHash(): string {
@@ -41,9 +41,11 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
     const apply = () => {
       const raw = currentHash();
       // Fresh open / no view encoded ("" or bare "#") lands on the Dashboard
-      // home rather than the parseHash slug fallback.
+      // home — but fall back to open-points (a guaranteed core view) if the
+      // dashboard module is disabled, so the user is never stranded.
       const blank = raw === "" || raw === "#";
-      const { view, itemId } = blank ? { view: "dashboard" as const, itemId: null } : parseHash(raw);
+      const blankView: AppView = features && !isViewEnabled("dashboard", features) ? "open-points" : "dashboard";
+      const { view, itemId } = blank ? { view: blankView, itemId: null } : parseHash(raw);
       if (features && !isViewEnabled(view, features)) return; // disabled target: ignore the hash
       setActiveTab(view);
       if (itemId != null) requestOpen(view, itemId);

@@ -1710,6 +1710,7 @@ export const de: Record<TranslationKey, string> = {
   milestoneStatusOnTrack: "Im Plan",
   milestonesTitle: "Wichtige Termine",
   milestonesEmpty: "Noch keine Meilensteine.",
+  milestonesNoMatches: "Keine Meilensteine entsprechen den aktuellen Filtern.",
   milestonesColName: "Meilenstein",
   milestonesColDate: "Datum",
   milestonesColStatus: "Status",
