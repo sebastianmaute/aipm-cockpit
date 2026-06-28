@@ -17,10 +17,12 @@ export interface DensityClasses {
   cardPad: string;
   /** Gap of the two-column section grids (Progress+Budget, Milestones+Changes). */
   sectionGap: string;
+  /** Bottom margin between masonry cards in the cockpit grid. */
+  cardGap: string;
 }
 
-const COMFORTABLE: DensityClasses = { outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", sectionGap: "gap-4" };
-const COMPACT: DensityClasses = { outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", sectionGap: "gap-2" };
+const COMFORTABLE: DensityClasses = { outer: "space-y-4", kpiGap: "gap-2", cardPad: "p-3", sectionGap: "gap-4", cardGap: "mb-4" };
+const COMPACT: DensityClasses = { outer: "space-y-2", kpiGap: "gap-1", cardPad: "p-2", sectionGap: "gap-2", cardGap: "mb-2" };
 
 /** Spacing classes for the given density. Defaults to comfortable. */
 export function densityClasses(density: DashboardDensity): DensityClasses {
