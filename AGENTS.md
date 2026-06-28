@@ -237,7 +237,8 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 
 **Layout = single masonry (CSS multicol, NOT a fixed grid).** `dashboard-panel.tsx` stays a thin
 orchestrator (data derivation + the `computeDashboard` memo) and renders three zones: a full-width
-HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` · `DashboardCoachingCard` · `DashboardHero`) → ONE
+HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` · `DashboardCoachingCard` · `DashboardTipCard` ·
+`DashboardHero`) → ONE
 masonry flow → a full-width FOOTER (`NarrativeEditor` · Recent-activity `<details>`).
 ★★ The masonry is a CSS multicolumn container — `columns-1 lg:columns-2 xl:columns-3 ${dc.sectionGap}`
 (default `column-fill: balance` equalises column heights) — NOT `grid-cols-*`. Each card is wrapped in
@@ -251,7 +252,9 @@ order is column-major (top→bottom per column); cards are ordered priority-firs
 `gap`/`space-y` between items). The Trends widget (`props.tursoActive`-gated `VarianceSummary`) is a masonry
 card placed directly after Progress and is itself a click-through button → navigates to the Trends view
 (`onNavigate("trends")`); the footer holds only the status-summary + recent-activity
-`<details>`. The presentational slices:
+`<details>`. ★ Tip-of-the-day (`DashboardTipCard`, `dashboard-tip-card.tsx` + pure English-only `tips.ts`)
+is a dismissable headline card that rotates one tip per day; per-device `lop-app:tip-state` (next/dismiss),
+popout read-only, day captured via lazy `useState` (purity — no `Date.now()` in render). The presentational slices:
 - `dashboard-sections/dashboard-hero.tsx` (`DashboardHero`) — now ONLY the compact Overall RAG band +
   Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
@@ -517,6 +520,13 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   14-field shape + `?? []` array defaults); callers do their OWN gating (feature-off / no-plan budgets)
   BEFORE building — pass `[]` for a gated-off entity.
 - **UI shell:**
+  • **Help view:** `help` AppView in the SYSTEM nav group below Settings (help-circle icon). `HelpView`
+  (`help-view.tsx`, lazy) is a searchable/printable in-pane page reusing the SHARED `HELP_SECTIONS`
+  (`help-sections.ts`, extracted from `help-menu.tsx` — the floating top-bar Help panel stays + imports the
+  same list). ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
+  — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
+  (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
+  (the sidebar entry IS scanned every view; eye-verify the page).
   • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
   also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
   fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
