@@ -6,6 +6,7 @@ import type { ProjectStatus } from "../types";
 import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
+import type { SuggestedAction } from "../next-actions/types";
 import { DashboardHero } from "./dashboard-hero";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" };
@@ -21,7 +22,18 @@ function model() {
 
 const trends = computeMetricTrends(undefined, { complete: 0, overdue: 0, openRaid: 0 });
 
-function Host(props: { topActions?: never[] }) {
+const sampleAction: SuggestedAction = {
+  id: "raid:1:severity",
+  source: "raid",
+  moduleId: "raid",
+  title: { key: "actionRaidTitle", params: [1, "X"] },
+  why: { key: "actionRaidWhySeverity", params: ["High"] },
+  score: 60,
+  tier: "now",
+  cta: { kind: "open", view: "raid", id: 1 },
+};
+
+function Host(props: { topActions?: readonly SuggestedAction[] }) {
   const [status, setStatus] = useState<ProjectStatus>({});
   return (
     <DashboardHero
@@ -67,5 +79,12 @@ describe("DashboardHero", () => {
     expect(screen.queryByText("Top actions")).toBeNull();
     rerender(<Host topActions={[]} />);
     expect(screen.queryByText("Top actions")).toBeNull();
+  });
+
+  it("renders the Top actions heading + an ActionRow when a real action is passed", () => {
+    render(<Host topActions={[sampleAction]} />);
+    expect(screen.getByText("Top actions")).toBeInTheDocument();
+    // The ActionRow render path is exercised: the action's title resolves.
+    expect(screen.getByText(/X/)).toBeInTheDocument();
   });
 });

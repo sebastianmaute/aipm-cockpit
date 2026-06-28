@@ -94,8 +94,10 @@ export function DashboardHero(props: DashboardHeroProps) {
         <p className="basis-full text-xs text-muted-foreground">{t(lang, "dashboardRagThresholds")}</p>
       </div>
 
-      {/* KPI strip + Top actions side-by-side on lg */}
-      <div className={`grid grid-cols-1 lg:grid-cols-2 ${dc.sectionGap} items-start`}>
+      {/* KPI strip + Top actions side-by-side on lg. Without top actions the
+          KPI grid is the sole child and must stay full-width (drop the second
+          column) — otherwise it renders at 50% on large screens. */}
+      <div className={`grid grid-cols-1 ${topActions?.length ? "lg:grid-cols-2" : ""} ${dc.sectionGap} items-start`}>
         <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
           <Tile
             label={t(lang, "dashboardKpiComplete")}
