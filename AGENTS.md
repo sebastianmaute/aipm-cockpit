@@ -522,6 +522,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
   • Nav: `actions` (Next actions) + `trends` are SUB-MENU children of `dashboard` in the Overview group
   (`nav-config.ts`); `trends` is in `TURSO_ONLY_VIEWS` so the Trends sub-entry only shows on a Turso backend.
+  ★ TURSO_ONLY child views are pruned in TWO places: `filterNavGroups` (sidebar) AND `subTabsFor(view,
+  features, onTurso)` (classic sub-tab row, pass `trends.active`) — gate BOTH for a new turso-only child,
+  or it leaks into the classic sub-tab row on file backends.
   • Steering committee panel uses the STANDARD resizable content-pane shell
   (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("lop-app:steering-size")` + `ResetSizeButton`, header OUTSIDE
   the bordered scroller).
