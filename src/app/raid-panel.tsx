@@ -510,7 +510,7 @@ function RaidPanelBody({
             className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
           >
             <span>{t(lang, "raidEmpty")}</span>
-            <span className="font-medium">+ {t(lang, "raidAddItem")}…</span>
+            <span className="font-medium">{t(lang, "raidAddItem")}…</span>
           </button>
         ) : (
         <table className="min-w-full text-left text-sm">
