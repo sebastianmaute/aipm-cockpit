@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { ReportCard, Section, Tile } from "./report-table";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
-import { RegistersBand } from "./dashboard-sections/registers-band";
+import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
+import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
+import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import { type Lang, t, localeFor, type TranslationKey } from "./i18n";
@@ -272,192 +274,204 @@ export function DashboardPanel(props: DashboardPanelProps) {
         {/* First-open coaching — self-hides once the project has any task */}
         <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
 
-        {/* Tier 1 — hero: Overall band + KPI strip + Top actions */}
+        {/* Tier 1 — hero: Overall RAG band + Adjust-health disclosure */}
         <DashboardHero
           lang={lang}
           today={today}
           model={model}
-          trends={trends}
           status={status}
           setStatus={setStatus}
-          topActions={topActions}
-          onOpenAction={onOpenAction}
-          onNavigate={props.onNavigate}
           showBudget={showBudget}
           showChanges={showChanges}
           dc={dc}
         />
 
-        {/* Tier 2 — operational core, full width */}
-        <RegistersBand
-          lang={lang}
-          topRaid={model.topRaid}
-          overdue={model.overdue}
-          dueSoon={model.dueSoon}
-          onOpenRaid={onOpenRaid}
-          onOpenTask={onOpenTask}
-          showRaid={showRaid}
-        />
-
-        {/* Tier 2 — detail bento: Progress · Budget · Milestones · Changes · Sparkline */}
-        <div className={`grid grid-cols-1 lg:grid-cols-2 ${dc.sectionGap} items-start`}>
-          <Section title={t(lang, "dashboardProgress")} boxed>
-            <div className="flex flex-wrap gap-2">
-              <Tile
-                label={t(lang, "dashboardPercentComplete", String(model.progress.percent))}
-                value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.total))}
-                onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-                activateLabel={`${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
-              />
-              <Tile
-                label="R / A / G"
-                value={
-                  <span>
-                    <span className={healthText.R}>{model.progress.counts.R}</span>
-                    {" / "}
-                    <span className={healthText.A}>{model.progress.counts.A}</span>
-                    {" / "}
-                    <span className={healthText.G}>{model.progress.counts.G}</span>
-                  </span>
-                }
-                onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-                activateLabel={`R / A / G – ${t(lang, "dashboardOpenTasksView")}`}
-              />
+        {/* Masonry — variable-height cards pack via column-fill: balance.
+            Order = priority-first (top of column 1 = most important). */}
+        <div className={`columns-1 lg:columns-2 xl:columns-3 ${dc.sectionGap}`}>
+          <div className={`break-inside-avoid ${dc.cardGap}`}>
+            <DashboardKpiStrip lang={lang} model={model} trends={trends} onNavigate={props.onNavigate} dc={dc} />
+          </div>
+          <div className={`break-inside-avoid ${dc.cardGap}`}>
+            <DashboardTopActions lang={lang} topActions={topActions} onOpenAction={onOpenAction} dc={dc} />
+          </div>
+          {showRaid && (
+            <div className={`break-inside-avoid ${dc.cardGap}`}>
+              <RaidRegisterCard lang={lang} topRaid={model.topRaid} onOpenRaid={onOpenRaid} showRaid={showRaid} />
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
-          </Section>
-          {showBudget && (
-            <Section title={t(lang, "dashboardBudgetBurn")} boxed>
-              {model.burn ? (
-                <div className="flex flex-wrap gap-2">
-                  <Tile
-                    label={t(lang, "dashboardSubBudget")}
-                    value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
-                    rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
-                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={`${t(lang, "dashboardSubBudget")} – ${t(lang, "dashboardOpenBudgetView")}`}
-                  />
-                  <Tile
-                    label="h"
-                    value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
-                    rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
-                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={`${t(lang, "resourcesUtilModeHours")} – ${t(lang, "dashboardOpenBudgetView")}`}
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
-              )}
-              {model.evm.coverage.withEstimate > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Tile
-                    label={t(lang, "evmSpi")}
-                    value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
-                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
-                  />
-                  <Tile
-                    label={t(lang, "evmCpi")}
-                    value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
-                    onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
-                    activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
-                  />
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
-              )}
-              {model.burndown ? (
-                <div className="mt-3">
-                  <BurndownCharts series={model.burndown} lang={lang} currency={props.plan.currency || "EUR"} />
-                </div>
-              ) : null}
-              {model.burn ? (
-                <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
-              ) : null}
+          )}
+          <div className={`break-inside-avoid ${dc.cardGap}`}>
+            <UpcomingCard lang={lang} overdue={model.overdue} dueSoon={model.dueSoon} onOpenTask={onOpenTask} />
+          </div>
+          <div className={`break-inside-avoid ${dc.cardGap}`}>
+            <Section title={t(lang, "dashboardProgress")} boxed>
+              <div className="flex flex-wrap gap-2">
+                <Tile
+                  label={t(lang, "dashboardPercentComplete", String(model.progress.percent))}
+                  value={t(lang, "dashboardCompletedOf", String(model.progress.completed), String(model.progress.total))}
+                  onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
+                  activateLabel={`${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
+                />
+                <Tile
+                  label="R / A / G"
+                  value={
+                    <span>
+                      <span className={healthText.R}>{model.progress.counts.R}</span>
+                      {" / "}
+                      <span className={healthText.A}>{model.progress.counts.A}</span>
+                      {" / "}
+                      <span className={healthText.G}>{model.progress.counts.G}</span>
+                    </span>
+                  }
+                  onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
+                  activateLabel={`R / A / G – ${t(lang, "dashboardOpenTasksView")}`}
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardProgressCaption")}</p>
             </Section>
+          </div>
+          {showBudget && (
+            <div className={`break-inside-avoid ${dc.cardGap}`}>
+              <Section title={t(lang, "dashboardBudgetBurn")} boxed>
+                {model.burn ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Tile
+                      label={t(lang, "dashboardSubBudget")}
+                      value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
+                      rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
+                      onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                      activateLabel={`${t(lang, "dashboardSubBudget")} – ${t(lang, "dashboardOpenBudgetView")}`}
+                    />
+                    <Tile
+                      label="h"
+                      value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
+                      rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
+                      onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                      activateLabel={`${t(lang, "resourcesUtilModeHours")} – ${t(lang, "dashboardOpenBudgetView")}`}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t(lang, "dashboardNoBudget")}</p>
+                )}
+                {model.evm.coverage.withEstimate > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Tile
+                      label={t(lang, "evmSpi")}
+                      value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
+                      onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                      activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
+                    />
+                    <Tile
+                      label={t(lang, "evmCpi")}
+                      value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
+                      onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
+                      activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">{t(lang, "evmNoEstimates")}</p>
+                )}
+                {model.burndown ? (
+                  <div className="mt-3">
+                    <BurndownCharts series={model.burndown} lang={lang} currency={props.plan.currency || "EUR"} />
+                  </div>
+                ) : null}
+                {model.burn ? (
+                  <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
+                ) : null}
+              </Section>
+            </div>
           )}
           {showMilestones && (
-            <Section title={t(lang, "dashboardMilestones")} boxed>
-              <MilestoneHorizonStrip lang={lang} buckets={milestoneBuckets} onOpenMilestone={props.onOpenMilestone} />
-            </Section>
+            <div className={`break-inside-avoid ${dc.cardGap}`}>
+              <Section title={t(lang, "dashboardMilestones")} boxed>
+                <MilestoneHorizonStrip lang={lang} buckets={milestoneBuckets} onOpenMilestone={props.onOpenMilestone} />
+              </Section>
+            </div>
           )}
           {showChanges && (
-            <Section title={t(lang, "dashboardChangesHeading")} boxed>
-              <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
-                {t(lang, "dashboardChangesPending", String(model.changes.pending))}
-              </p>
-              {model.topChanges.length === 0 ? (
-                <EmptyState compact title={t(lang, "dashboardChangesEmpty")} />
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {model.topChanges.map((c) => {
-                    const content = (
-                      <>
-                        <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
-                        <span className="text-muted-foreground">#{c.id}</span>
-                        <span className="font-medium">{c.title}</span>
-                        <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
-                      </>
-                    );
-                    return (
-                      <li key={c.id}>
-                        {props.onOpenChange ? (
-                          <button
-                            type="button"
-                            aria-label={t(lang, "dashboardOpenChangeItem", c.title)}
-                            onClick={() => props.onOpenChange!(c.id)}
-                            className={`flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
-                          >
-                            {content}
-                          </button>
-                        ) : (
-                          <span className="flex items-center gap-2">{content}</span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Section>
+            <div className={`break-inside-avoid ${dc.cardGap}`}>
+              <Section title={t(lang, "dashboardChangesHeading")} boxed>
+                <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                  {t(lang, "dashboardChangesPending", String(model.changes.pending))}
+                </p>
+                {model.topChanges.length === 0 ? (
+                  <EmptyState compact title={t(lang, "dashboardChangesEmpty")} />
+                ) : (
+                  <ul className="space-y-1 text-sm">
+                    {model.topChanges.map((c) => {
+                      const content = (
+                        <>
+                          <RagBadge value={changeImpactRag(c.impact)} lang={lang} />
+                          <span className="text-muted-foreground">#{c.id}</span>
+                          <span className="font-medium">{c.title}</span>
+                          <span className="text-muted-foreground">· {t(lang, CHANGE_STATUS_KEY[c.status])}</span>
+                        </>
+                      );
+                      return (
+                        <li key={c.id}>
+                          {props.onOpenChange ? (
+                            <button
+                              type="button"
+                              aria-label={t(lang, "dashboardOpenChangeItem", c.title)}
+                              onClick={() => props.onOpenChange!(c.id)}
+                              className={`flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                            >
+                              {content}
+                            </button>
+                          ) : (
+                            <span className="flex items-center gap-2">{content}</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </Section>
+            </div>
           )}
           {/* Completion-trend sparkline — self-hides without >= 2 points */}
-          {completionSeries.length >= 2 && (() => {
-            const sparkBody = (
-              <>
-                <div className="mb-1 flex items-baseline justify-between">
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {t(lang, "dashboardCompletionTrend")}
-                  </span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
-                  </span>
-                </div>
-                <Sparkline
-                  points={completionSeries}
-                  ariaLabel={t(
-                    lang,
-                    "dashboardCompletionTrendAria",
-                    completionSeries[completionSeries.length - 1].percent,
-                    completionSeries[0].percent,
-                    completionSeries.length,
-                  )}
-                />
-              </>
-            );
-            const trendView = props.tursoActive ? "trends" : "open-points";
-            return props.onNavigate ? (
-              <button
-                type="button"
-                aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
-                onClick={() => props.onNavigate!(trendView)}
-                className={`block w-full rounded border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
-              >
-                {sparkBody}
-              </button>
-            ) : (
-              <div className={`rounded border border-line bg-surface shadow-[var(--shadow-card)] ${dc.cardPad}`}>{sparkBody}</div>
-            );
-          })()}
+          {completionSeries.length >= 2 && (
+            <div className={`break-inside-avoid ${dc.cardGap}`}>
+              {(() => {
+                const sparkBody = (
+                  <>
+                    <div className="mb-1 flex items-baseline justify-between">
+                      <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {t(lang, "dashboardCompletionTrend")}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {t(lang, "dashboardCompletionTrendPoints", completionSeries.length)}
+                      </span>
+                    </div>
+                    <Sparkline
+                      points={completionSeries}
+                      ariaLabel={t(
+                        lang,
+                        "dashboardCompletionTrendAria",
+                        completionSeries[completionSeries.length - 1].percent,
+                        completionSeries[0].percent,
+                        completionSeries.length,
+                      )}
+                    />
+                  </>
+                );
+                const trendView = props.tursoActive ? "trends" : "open-points";
+                return props.onNavigate ? (
+                  <button
+                    type="button"
+                    aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
+                    onClick={() => props.onNavigate!(trendView)}
+                    className={`block w-full rounded border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
+                  >
+                    {sparkBody}
+                  </button>
+                ) : (
+                  <div className={`rounded border border-line bg-surface shadow-[var(--shadow-card)] ${dc.cardPad}`}>{sparkBody}</div>
+                );
+              })()}
+            </div>
+          )}
         </div>
 
         {/* Tier 3 — folded status-summary editor */}

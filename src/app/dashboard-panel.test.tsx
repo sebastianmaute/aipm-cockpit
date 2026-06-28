@@ -5,7 +5,7 @@ import { type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
-import { RegistersBand } from "./dashboard-sections/registers-band";
+import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { healthText } from "./health";
 import { t } from "./i18n";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
@@ -423,13 +423,12 @@ describe("DashboardPanel milestone horizon", () => {
   });
 });
 
-describe("RegistersBand link styling", () => {
+describe("RaidRegisterCard link styling", () => {
   it("uses the directory hover affordance, not underline", () => {
     render(
-      <RegistersBand
+      <RaidRegisterCard
         lang="en-US"
         topRaid={[{ id: 1, category: "R", title: "risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [] } as never]}
-        overdue={[]} dueSoon={[]}
         onOpenRaid={() => {}}
       />,
     );
@@ -809,23 +808,32 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
   });
 });
 
-describe("DashboardPanel Tier-2 bento", () => {
-  it("renders Progress, Milestones, and Changes inside one lg:grid-cols-2 bento", () => {
+describe("DashboardPanel masonry cockpit", () => {
+  it("renders the cards inside one lg:columns-2 multicolumn flow", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
     const progress = screen.getByText("Progress");
-    // Walk up to the bento grid container. (jsdom's selector engine rejects the
-    // escaped-colon Tailwind class as a CSS selector, so match via classList.)
-    let bento: HTMLElement | null = progress.parentElement;
-    while (bento && !bento.classList.contains("lg:grid-cols-2")) {
-      bento = bento.parentElement;
+    // Walk up to the masonry container. (jsdom's selector engine rejects the
+    // escaped-colon Tailwind class as a CSS selector, so match via className.)
+    let masonry: HTMLElement | null = progress.parentElement;
+    while (masonry && !masonry.className.includes("lg:columns-2")) {
+      masonry = masonry.parentElement;
     }
-    expect(bento).not.toBeNull();
-    // Milestones + Changes live in the SAME bento grid.
-    expect(bento!.textContent).toContain("Milestones");
-    expect(bento!.textContent).toContain("Changes");
+    expect(masonry).not.toBeNull();
+    expect(masonry!.className).toContain("columns-1");
+    // Progress, Milestones + Changes all live in the SAME masonry flow.
+    expect(masonry!.textContent).toContain("Milestones");
+    expect(masonry!.textContent).toContain("Changes");
   });
 
-  it("renders RegistersBand (Top open RAID) BEFORE the bento grid in DOM order", () => {
+  it("wraps masonry cards in break-inside-avoid containers", () => {
+    const { container } = render(<DashboardPanel {...fullProps} />, { wrapper });
+    const wrappers = Array.from(container.querySelectorAll("div")).filter((el) =>
+      el.className.includes("break-inside-avoid"),
+    );
+    expect(wrappers.length).toBeGreaterThan(0);
+  });
+
+  it("renders the RAID register (Top open RAID) BEFORE the Progress card in DOM order", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
     const registers = screen.getByText("Top open RAID");
     const progress = screen.getByText("Progress");

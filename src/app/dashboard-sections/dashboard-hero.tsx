@@ -6,12 +6,8 @@ import { healthColorName, healthText, type Health } from "../health";
 import { RagBadge } from "../rag-badge";
 import { TRANSITION, FOCUS_RING } from "../interaction-styles";
 import type { DashboardModel } from "../dashboard";
-import type { MetricKey, MetricTrend } from "../dashboard-trends";
 import type { ProjectStatus } from "../types";
-import type { SuggestedAction } from "../next-actions/types";
 import type { DensityClasses } from "../dashboard-density";
-import type { AppView } from "../nav-config";
-import type { SettingsSectionId } from "../dashboard-coaching";
 
 function OverrideSelect({
   lang, label, value, computed, effective, onChange,
@@ -48,14 +44,10 @@ export interface DashboardHeroProps {
   lang: Lang;
   today: string;
   model: DashboardModel;
-  trends: Record<MetricKey, MetricTrend>;
   status: ProjectStatus;
   setStatus: Dispatch<SetStateAction<ProjectStatus>>;
-  topActions?: readonly SuggestedAction[];
-  onOpenAction?: (a: SuggestedAction) => void;
-  onNavigate?: (view: AppView, section?: SettingsSectionId) => void;
-  showBudget: boolean;
-  showChanges: boolean;
+  showBudget?: boolean;
+  showChanges?: boolean;
   dc: DensityClasses;
 }
 
