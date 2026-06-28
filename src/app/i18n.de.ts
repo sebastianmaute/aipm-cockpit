@@ -2319,6 +2319,7 @@ export const de: Record<TranslationKey, string> = {
 
   helpSearchPlaceholder: "Hilfe durchsuchen",
   helpNoResults: "Keine Hilfethemen passen zu Ihrer Suche.",
+  helpContents: "Hilfe-Inhalt",
   helpSearchNoResults: "Keine Hilfethemen passen zur Suche.",
   dashboardStatusSave: "Speichern",
   dashboardStatusClear: "Leeren",

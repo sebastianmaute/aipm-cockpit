@@ -2352,6 +2352,7 @@ const enUS = {
 
   helpSearchPlaceholder: "Search help",
   helpNoResults: "No help topics match your search.",
+  helpContents: "Help contents",
   helpSearchNoResults: "No help topics match your search.",
   dashboardStatusSave: "Save",
   dashboardStatusClear: "Clear",
