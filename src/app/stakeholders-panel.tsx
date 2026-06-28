@@ -299,6 +299,18 @@ function StakeholdersPanelBody({
       </div>
 
       <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
+        {stakeholders.length === 0 ? (
+          // Empty → clickable dashed box (mirrors the budget "+ add bucket"
+          // empty state): descriptive text + "+ Add stakeholder…", box adds one.
+          <button
+            type="button"
+            onClick={openNew}
+            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <span>{t(lang, "stakeholdersEmpty")}</span>
+            <span className="font-medium">+ {t(lang, "stakeholdersAdd")}…</span>
+          </button>
+        ) : (
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -413,14 +425,7 @@ function StakeholdersPanelBody({
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {stakeholders.length === 0 && (
-              <tr>
-                <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
-                  {t(lang, "stakeholdersEmpty")}
-                </td>
-              </tr>
-            )}
-            {stakeholders.length > 0 && visible.length === 0 && (
+            {visible.length === 0 && (
               <tr>
                 <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "stakeholdersNoResults")}
@@ -486,6 +491,7 @@ function StakeholdersPanelBody({
             })}
           </tbody>
         </table>
+        )}
       </div>
 
       {draft && (
