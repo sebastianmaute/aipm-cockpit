@@ -671,18 +671,27 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   it into a non-full-pane lazy mount). New i18n key `loading` (EN/DE).
 - **Add-first-item empty state (clickable dashed box):** when an entity panel has ZERO items (truly empty,
   NOT filtered-empty), render a full-width clickable dashed `<button>` that adds the first item — NOT the
-  `EmptyState` primitive. Style (shared by budget · gantt · milestones · changes · stakeholders):
+  `EmptyState` primitive. Style (shared by budget · gantt · milestones · changes · stakeholders · raid · open-points):
   `flex w-full flex-col items-center gap-2 rounded-(lg|md) border border-dashed border-line p-(6|10)
   text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue
   dark:hover:text-AIPM-light-grey ${INTERACTIVE}` with two spans: the descriptive empty text + a
-  `font-medium` "+ <Add X>…" line; `onClick` = the panel's create handler (`openNew`/`addBucket`/`onAddTask`).
-  ★ For TABLE panels (changes/stakeholders) the box REPLACES the `<table>` (`{count===0 ? box : <table>}`),
+  `font-medium` "+ <Add X>…" line; `onClick` = the panel's create handler (`openNew`/`addBucket`/`onAddTask`/
+  `setTaskModalOpen(true)`). ★★ NO SOLID OUTER BOX: the box sits UNWRAPPED (gantt look) — the panel's
+  bordered scroller (`INNER_TABLE_CLASS` / `rounded-(md|xl) border border-line`) is made CONDITIONAL
+  (`className={count===0 ? undefined : SCROLLER}`) so it borders only the DATA view; the empty box is the
+  scroller div's sole child at natural height. Gantt's DATA view IS bordered — only its empty state is
+  unwrapped; mirror that. ★ RAID's box is category-filter-aware (`openNew(effectiveCategory)`) + carries the
+  `raidAddItem` aria-label so it's the add affordance the inline-add tests click.
+  ★ For TABLE panels (changes/stakeholders/raid/open-points) the box REPLACES the `<table>` (`{count===0 ? box : <table>}`),
   and the in-table FILTERED no-matches row stays (headers give context); the truly-empty `<td>` row is
   removed. ★ FILTERED-empty + popout (no create handler) fall back to the plain text box (gantt) or the
   no-matches row (tables) — never a dead add affordance. ★ Test gotcha: the box's "+ Add X…" text collides
   with the header add-button on a `getByRole("button",{name:/add x/i})` query — render WITH one item when
-  asserting the header button. This SUPERSEDES the older "use EmptyState, not a dashed-div" rule for the
-  add-first-item case (EmptyState still stands for read-only "no data" messages).
+  asserting the header button. ★ READ-ONLY empties (no add action): documents renders the `EmptyState` alone
+  (no scroller, no empty table headers); activity uses a natural-height dashed box (drop `flex-1`). ★ Steering
+  committee is a FORM (no empty state) — its content scroller is flattened (border removed) always. This
+  SUPERSEDES the older "use EmptyState, not a dashed-div" rule for the add-first-item case (EmptyState still
+  stands for read-only "no data" messages).
 - **Bulk edit (entity panels):** generic multi-row bulk edit shared across
   RAID/Milestones/Changes/Stakeholders. Pure `row-selection.ts` (set ops) +
   `use-row-selection.ts` (Set<number> selection, filter-aware select-all);
