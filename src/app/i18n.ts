@@ -137,6 +137,8 @@ const enUS = {
   versionHighlightMockupPolish: "The Dashboard style gains a completion gauge bar, tinted delta chips and a lighter active-control look; the Acme look is unchanged",
   versionHighlightSetupWizard: "A guided backend setup wizard walks you through storage and integrations from Settings or the new-project window",
   versionHighlightPortfolioHealth: "A Turso-only Portfolio health view rolls up RAG status, completion and open RAID across all your projects",
+  versionHighlightTimelogWorkflow: "Timelog now loads in two steps - load the people directory, narrow and tick who you need, then fetch only their bookings - with full paging, a Cancel button, automatic rate-limit retry, and a \"Load my projects\" option (by project manager, including closed projects, or filtered by customer)",
+  versionHighlightAiMasterSwitch: "All AI features are now off by default behind an \"Enable AI assistant\" master switch, and the first time you enable any integration (AI, Jira, Microsoft 365, Turso or Timelog) a one-time security and responsibility note is shown",
 
   tasks: "Tasks",
   tasksCount: "({0})",
@@ -420,6 +422,8 @@ const enUS = {
   tabEditTask: "Editing task #{0}",
 
   aiAssistant: "AI assistant",
+  aiEnable: "Enable AI assistant",
+  aiEnableHelp: "Turn on to use Claude chat, AI action suggestions, scheduled jobs, and AI project creation. Off by default.",
   openAiAssistant: "AI Assistant",
   aiApiKey: "Anthropic API key",
   aiApiKeyPlaceholder: "sk-ant-...",
@@ -472,6 +476,8 @@ const enUS = {
   aiAskClaudeOnPage: "On this page",
   aiAskClaudeGeneral: "General",
   // Foundational (universal) prompts
+  aiPromptExplainLabel: "Explain this",
+  aiPromptExplainBody: "Explain this screen: what it shows, what the key terms and indicators mean, and what I can do here. Keep it concise and ground it in the feature guide for the current view.",
   aiPromptWhatsNextLabel: "What's next?",
   aiPromptWhatsNextBody: "What should I focus on next? Give me the most important open items across the project.",
   aiPromptStatusLabel: "Status overview",
@@ -694,7 +700,26 @@ const enUS = {
   aiConsentNotAccepted:
     "Claude chat is disabled. Review and accept the consent below to enable it.",
   credentialStorageNote:
-    "Stored unencrypted in this browser's localStorage — do not use production credentials on shared or untrusted machines.",
+    "Encrypted at rest in this browser (device key). Anyone with access to this browser profile can still use it — avoid production credentials on shared or untrusted machines.",
+  disclaimerTitle: "Security & responsibility disclaimer",
+  disclaimerIntro:
+    "The API keys and access tokens you configure here (Anthropic, Jira, Microsoft 365, Turso) grant full access on your behalf. Every action the app or the AI assistant takes is executed as you — there is no separate identity or audit trail distinguishing it from your own actions.",
+  disclaimerResponsibility:
+    "You are solely responsible for everything done with these credentials. Treat each token with the same care as a password. If the assistant or an integration creates, modifies, or deletes data, it is indistinguishable from you having done it manually.",
+  disclaimerTipsHeading: "Tips to stay in control:",
+  disclaimerTipReview:
+    "Review before you act — ask the assistant to show or list records before asking it to create, update, or delete anything.",
+  disclaimerTipSpecific:
+    "Be specific in your prompts — vague instructions give the assistant wide latitude. Prefer narrow, explicit requests.",
+  disclaimerTipBulk:
+    "Avoid irreversible bulk operations — deleting or changing many records at once is hard to undo. Prefer targeted single-record actions.",
+  disclaimerTipReadOnly:
+    "Use a read-only workflow first — query data before allowing any writes, so you can validate the assistant understands your context.",
+  disclaimerTipRotate:
+    "Rotate or revoke a token if you suspect it has been misused or exposed.",
+  disclaimerTipShare:
+    "Never share your tokens — do not paste them in chat, commit them to source control, or include them in screenshots.",
+  disclaimerAck: "I understand",
 
   notifications: "Reminders & notifications",
   notificationsHint:
@@ -1133,6 +1158,8 @@ const enUS = {
   timelogModuleDesc: "Pull actual time bookings from Timelog and compare them against your budget",
   timelogTitle: "Timelog time bookings",
   timelogEnable: "Enable Timelog integration",
+  timelogTokenHelpBefore: "Log into Timelog, then navigate to",
+  timelogTokenHelpAfter: "to generate a personal access token.",
   timelogHost: "Host",
   timelogTenant: "Tenant",
   timelogEmail: "Account email",
@@ -1152,8 +1179,18 @@ const enUS = {
   timelogMatchClear: "Clear link",
   timelogMatchNone: "— not linked —",
   timelogSync: "Fetch bookings",
+  timelogLoadPeople: "Load people",
+  timelogLoadManagedProjects: "Load my projects",
+  timelogIncludeClosed: "Include closed projects",
+  timelogCustomerLabel: "Customer",
+  timelogCustomerAll: "All customers",
+  timelogCustomerFilter: "Filter customers (* wildcard)",
+  timelogPmNote: "You must be Project Manager in TimeLog for this feature to work as intended.",
+  timelogPeopleFilter: "Filter loaded people",
   timelogLastSynced: "Last fetched {0}",
   timelogUnattributed: "Unattributed: {0} h",
+  timelogAttributionHint:
+    "A resource's hours show as booked only when its Timelog user is linked to that resource and the booking's project is linked to a bucket.",
   timelogApply: "Apply to budget",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
   timelogKpiBooked: "Booked hours",
@@ -1414,6 +1451,8 @@ const enUS = {
   activitySearchModeHint: "Choose how the search text is interpreted: literal text, wildcards, or regex.",
   activityGroupFilterHint: "Show only log entries of the selected kind.",
   activityClearHint: "Delete all activity log entries. This cannot be undone.",
+  activityClearConfirm: "Clear the entire activity log? This cannot be undone.",
+  timelogClearAllConfirm: "Clear all fetched Timelog data (people, projects and bookings)? This cannot be undone.",
   tasksSearchHint: "Filter the table to tasks whose name, assignee, blockers, or notes match your text.",
   tasksGroupFilterHint: "Show only tasks in the selected group.",
   tasksLabelFilterHint: "Show only tasks carrying the selected label.",
@@ -1576,7 +1615,7 @@ const enUS = {
   aiGuideSave: "Save",
   aiGuideCancel: "Cancel",
   aiGuideBuiltInBadge: "Built-in",
-  aiGuideBudgetWarning: "Enabled guides exceed the recommended size and may raise token cost.",
+  aiGuideBudgetWarning: "All enabled guides together exceed the recommended size. Each message sends only the overview plus the current view's guide (cached after the first send), so actual token cost is usually lower — disable guides you don't need to reduce it.",
   aiGuideScopeModes: "Modes",
   aiGuideScopeModules: "Modules",
   aiGuideScopeViews: "Views",
@@ -1686,6 +1725,17 @@ const enUS = {
   layoutClassic: "Classic",
   layoutTooltip: "Switch between the new sidebar layout and the classic layout.",
   sidebarBrandSubtitle: "PROJECT MANAGEMENT TRACKER",
+  brandingTitle: "Branding",
+  brandingLogo: "Sidebar logo",
+  brandingLogoChoose: "Choose logo…",
+  brandingLogoRemove: "Remove",
+  brandingLogoHint: "Max width is the sidebar width (16 rem / ~256 px); the logo scales to fit (~32 px tall). PNG, JPG, WebP or GIF, up to 512 KB.",
+  brandingLogoError: "Use a PNG, JPG, WebP or GIF image under 512 KB.",
+  brandingAppName: "App name",
+  brandingFooterSlogan: "Slogan",
+  brandingFavicon: "Favicon (browser tab icon)",
+  brandingFaviconChoose: "Choose favicon…",
+  brandingFaviconHint: "Shown in the browser tab. Square PNG recommended (32×32 or 64×64), up to 512 KB. PNG, JPG, WebP or GIF.",
   sidebarCollapse: "Collapse sidebar",
   sidebarExpand: "Expand sidebar",
   sidebarMenuButton: "Open navigation menu",
@@ -2588,15 +2638,11 @@ const enUS = {
   projectFileFormat: "File format",
   projectStorage: "Storage",
   storageOptionConfigure: "Configure the Turso backend",
+  emptyStateConfigDbM365: "Configure database / M365",
+  emptyStateConfigDbM365Tip:
+    "Set up the database backend and Microsoft 365 (SharePoint, Outlook) before creating a project.",
   backendSetup: "Backend setup",
-  emptyStateConfigM365: "Configure M365 integration",
-  emptyStateConfigTursoTip:
-    "Set up the Turso database backend (URL and token) before creating a project.",
-  emptyStateConfigM365Tip:
-    "Sign in and configure Microsoft 365 (SharePoint, Outlook) before creating a project.",
   emptyStateConfigAi: "Configure AI assistant",
-  emptyStateConfigAiTip:
-    "Add your Anthropic API key before creating a project — required for “Use AI”.",
   projectsDelete: "Delete project",
   projectsDeleteConfirm:
     "Remove this project from the list? The underlying file is NOT deleted.",

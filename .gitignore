@@ -72,3 +72,7 @@ next-env.d.ts
 
 # Brainstorm/plan/spec working docs — kept LOCAL only, not part of the repo
 /docs/superpowers/
+
+# Agent-skill tooling artifacts (installed skills + lockfile — not part of the app)
+/.agents/
+/skills-lock.json

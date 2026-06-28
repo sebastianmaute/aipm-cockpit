@@ -4,6 +4,19 @@ import type { TimelogUser, TimelogLinks, TimelogUserLink, TimelogProjectLink } f
 
 const norm = (s: string): string => s.trim().toLowerCase();
 
+/** A Timelog user worth showing in the matching UI: active AND identifiable.
+ *  The org directory (`/v1/user`) includes inactive/system rows with empty
+ *  name + email — those render as blank lines and can't be matched to anything,
+ *  so drop them from the People table. */
+export function isDisplayableUser(u: TimelogUser): boolean {
+  if (!u.isActive) return false;
+  return !!(u.firstName.trim() || u.lastName.trim() || u.email.trim());
+}
+
+export function displayableUsers(users: readonly TimelogUser[]): TimelogUser[] {
+  return users.filter(isDisplayableUser);
+}
+
 export function autoMatchUsers(
   tlUsers: readonly TimelogUser[],
   resources: readonly Resource[],

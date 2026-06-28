@@ -10,7 +10,7 @@ import { type Lang, t } from "./i18n";
 import { ResourcePicker } from "./resource-picker";
 import { resourceDisplayName } from "./resource-foundation";
 import { dueInfoReminders, type InfoReminder, type ReminderTier } from "./steering-reminders";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -159,10 +159,11 @@ export function SteeringCommitteePanel({
   for (const r of reminders) byTier[r.tier].push(r);
 
   return (
-    <div ref={paneRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <div ref={paneRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <div className="mb-2 flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "committeeTitle")}</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden">
+          <PrintButton lang={lang} />
           <ResetColWidthsButton onClick={resetCols} lang={lang} />
           <ResetSizeButton onClick={resetSize} lang={lang} />
         </div>

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-11 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + api/confluence + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson"); data version history (`version-store.ts` + `version-schema.ts`: append-only `project_versions` over the same `/v2/pipeline` transport, pruned by retention, Turso-only) [0.66.0–0.69.0]; Confluence page proxy route reusing the hardened Jira helpers (0.110.0); AI scheduled-jobs global store (`scheduled-jobs-store.ts`, out of TABLE_NAMES, Turso-or-localStorage) [SP5] -->
+<!-- Generated: 2026-06-11 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + api/confluence + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson"); data version history (`version-store.ts` + `version-schema.ts`: append-only `project_versions` over the same `/v2/pipeline` transport, pruned by retention, Turso-only) [0.66.0–0.69.0]; Confluence page proxy route reusing the hardened Jira helpers (0.110.0); AI scheduled-jobs global store (`scheduled-jobs-store.ts`, out of TABLE_NAMES, Turso-or-localStorage) [SP5]; Timelog read proxy (`api/timelog/route.ts` + `_helpers.ts`) + paged/429-retrying browser wire layer (`timelog-api.ts`) [0.144.0] -->
 
 # Backend
 
@@ -8,6 +8,7 @@ no business logic on the server. Three thin server-side concerns only:
 1. `src/proxy.ts` — Next.js 16 middleware that attaches a per-request CSP nonce.
 2. `src/app/api/jira/*` — CORS proxy routes that forward to Atlassian Cloud.
 3. `src/app/api/confluence/page/route.ts` — Confluence-page fetch proxy (same Atlassian host as Jira; 0.110.0).
+4. `src/app/api/timelog/route.ts` — Timelog time-booking read proxy (forwards to `*.timelog.com`; 0.144.0).
 
 ## Middleware (`src/proxy.ts`)
 
@@ -69,6 +70,54 @@ is validated server-side with `/^\d+$/` before the path is built (path-injection
 guard). The browser-side helper is the pure `confluence-api.ts`
 (`fetchConfluencePage(url, creds)`); the import UI lives in `step0-import-panel.tsx`.
 Gated on full Jira config (`enabled && siteUrl && apiToken && email`).
+
+## Timelog route (0.144.0+)
+
+| Route | Purpose |
+|---|---|
+| `POST /api/timelog` | Single GET-proxy for every Timelog Web API v1 read. Body = `{ host, tenant, token, path, query }`; the route GET-fetches `https://<host>/<tenant>/api<path>?<query>` with `Bearer` auth and forwards the JSON + upstream status |
+
+Browser → proxy only (Timelog blocks CORS). The route mirrors the hardened Jira
+helpers in `src/app/api/timelog/_helpers.ts` (its own clone, NOT a shared import):
+`parseTimelogRequest` runs a `"timelog"`-scoped rate limit, parses the body,
+validates credentials, rejects path traversal (`..`), CRLF, `#`, and anything
+outside the `/v1/` namespace; `callTimelog` runs `normalizeHost` — host allowlist
+(`timelog.com` / `*.timelog.com`), `isPrivateHost` SSRF block (loopback /
+RFC-1918 / link-local / IPv6 ULA+link-local / NAT64 / IPv4-mapped, fail-closed),
+and rejects userinfo (`@`) / port (`:`) — then fetches with a 10s
+`AbortSignal.timeout`; `forwardJsonResponse` relays JSON + status. Credentials
+arrive per-request and are never persisted server-side. Same-origin (`/api/*`),
+so **no CSP `connect-src` host is needed** (like Jira/Confluence).
+
+### Timelog browser wire layer (`src/app/timelog-api.ts`, i18n-free)
+
+Pure client wire layer over the `/api/timelog` proxy — all Timelog reads funnel
+through it:
+
+- **Paged reads:** every list call goes through `callPaged`, walking all pages via
+  the OData-style `$page` / `$pagesize` (500/page) options and the envelope's
+  `Properties.TotalPage`, capped at `MAX_PAGES = 100` (50 000 rows) so a malformed
+  `TotalPage` can't loop unbounded. Without paging the app ingested only the first
+  10 rows of any list (Timelog's default page size).
+- **429 handling:** `callRaw` transparently retries a 429 up to `MAX_429_RETRIES`
+  (4), honouring the `Retry-After` header (seconds) else exponential backoff
+  (`BASE_BACKOFF_MS` 500 → `MAX_BACKOFF_MS` 60s). The backoff `sleep` is abortable
+  via the passed `AbortSignal` (Cancel returns promptly instead of blocking).
+- `unwrapTaf` normalises the TimeLog API Format envelope (`{Entities:[{Properties}]}`
+  / `{Properties}`) to a flat row array.
+
+**Endpoints used (all GET via the proxy):** `/v1/user/me`, `/v1/user`,
+`/v1/user-setting`, `/v1/project/get-all` (params `isActive`, `customerID`,
+`$page`/`$pagesize`), `/v1/customer`, `/v1/time-tracking-item/get-by-date`,
+`/v1/approval/timesheets/get-status-by-period-with-rejected-time-tracking-items`,
+`/v1/time-registration-financial-data/get-by-date-range`.
+
+**Functions:** `getMe` (token owner), `listManagedProjects` (projects where the
+caller is Project Manager; `includeClosed` merges `isActive=false`),
+`listProjectsForCustomer` (server-side `customerID` filter, not PM-scoped),
+`listCustomers`, `listUsers`, `getPrivileges` (`RegistrationAllTasks` → scope
+mode), `listTimeItemsSelf`, `listEmployeeTimeItems` (org scope, per employee),
+`getFinancialDataSelf`.
 
 - `src/app/api/jira/_helpers.ts` — credential validation, Basic-auth header builder, common error translation, and `parseJiraRequest(request)`: the shared route entry point that runs the rate-limit check, parses the JSON body, and extracts credentials, returning either a ready-to-send error `Response` or `{ creds, body }`. Every route calls it instead of repeating that boilerplate. Outbound site URLs are normalised by `normalizeSiteUrl`: **HTTPS only** — plaintext `http://` is rejected so Basic credentials are never sent in the clear — and `isPrivateHost` rejects loopback / RFC-1918 / link-local plus IPv6 unique-local (`fc00::/7`), IPv6 link-local (`fe80::/10`), and IPv4-mapped (`::ffff:`) addresses (SSRF guard). ADF (Atlassian Document Format) ↔ plain-text conversion now lives in `src/app/adf.ts` (shared with client-side import/export paths).
 - `src/app/api/jira/_rate-limit.ts` — per-IP / per-credentials rate-limit using an in-memory token bucket. Resets on server restart (acceptable for current scale).

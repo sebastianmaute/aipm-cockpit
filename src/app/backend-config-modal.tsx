@@ -16,6 +16,7 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { type Settings } from "./settings-types";
+import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
 export interface BackendConfigModalProps {
   lang: Lang;
@@ -41,6 +42,11 @@ export function BackendConfigModal({
 }: BackendConfigModalProps) {
   const TITLE_ID = "backend-config-modal-title";
   return (
+    <IntegrationDisclaimerProvider
+      lang={lang}
+      seen={settings.integrationDisclaimerSeen === true}
+      onAcknowledge={() => onChangeSettings({ ...settings, integrationDisclaimerSeen: true })}
+    >
     <Modal
       open
       onClose={onClose}
@@ -66,5 +72,6 @@ export function BackendConfigModal({
         </div>
       </div>
     </Modal>
+    </IntegrationDisclaimerProvider>
   );
 }

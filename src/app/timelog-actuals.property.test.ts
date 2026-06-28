@@ -19,7 +19,7 @@ describe("aggregateActuals conservation", () => {
           userLinks: [{ timelogUserId: 1, resourceId: 1, manual: false }],
           projectLinks: [{ timelogProjectId: 1, bucketId: 1, manual: false }],
         };
-        const out = aggregateActuals(items, links);
+        const out = aggregateActuals(items, links, "month");
         const bucketSum = Object.values(out.byBucket).flatMap((p) => Object.values(p)).reduce((s, c) => s + c.hours, 0);
         const resourceSum = Object.values(out.byResource).reduce((s, c) => s + c.hours, 0);
         const total = items.reduce((s, i) => s + i.hours, 0);

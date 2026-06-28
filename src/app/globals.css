@@ -208,7 +208,19 @@ table:has(> .lop-thead) {
      ink-strip rules below. */
   body * { visibility: hidden; }
   .print-root, .print-root * { visibility: visible; }
-  .print-root { position: absolute; inset: 0; width: 100%; }
+  /* Override any inline width/height useResizable persisted on the pane (a
+     user-dragged custom size would otherwise clip the printout) and the pane's
+     own overflow-hidden, so the full content flows across pages. !important is
+     required to beat the element's inline style. */
+  .print-root {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
 
   /* Sticky thead is meaningless on paper */
   .sticky {

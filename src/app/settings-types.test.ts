@@ -1,5 +1,38 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeAiConfig, defaultAiConfig } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN } from "./settings-types";
+
+describe("sanitizeBranding", () => {
+  const pngUrl = "data:image/png;base64,iVBORw0KGgo=";
+  it("accepts a raster data-image logo + trims/caps the slogan", () => {
+    expect(sanitizeBranding({ logo: pngUrl, slogan: "  My Tool  " })).toEqual({ logo: pngUrl, slogan: "My Tool" });
+  });
+  it("rejects non-image / script data URLs (XSS guard), incl. svg", () => {
+    expect(sanitizeBranding({ logo: "data:text/html;base64,PHNjcmlwdD4=" })).toBeUndefined();
+    expect(sanitizeBranding({ logo: "javascript:alert(1)" })).toBeUndefined();
+    expect(sanitizeBranding({ logo: "data:image/svg+xml;base64,PHN2Zz4=" })).toBeUndefined();
+  });
+  it("rejects an over-cap logo", () => {
+    const huge = "data:image/png;base64," + "A".repeat(BRANDING_LOGO_MAX_LEN);
+    expect(sanitizeBranding({ logo: huge })).toBeUndefined();
+  });
+  it("returns undefined when nothing valid remains", () => {
+    expect(sanitizeBranding({})).toBeUndefined();
+    expect(sanitizeBranding({ slogan: "   " })).toBeUndefined();
+    expect(sanitizeBranding(null)).toBeUndefined();
+  });
+  it("caps the slogan length", () => {
+    expect((sanitizeBranding({ slogan: "x".repeat(200) })?.slogan ?? "").length).toBe(60);
+  });
+  it("keeps + caps a footer slogan", () => {
+    expect(sanitizeBranding({ footerSlogan: "  Best app ever  " })).toEqual({ footerSlogan: "Best app ever" });
+    expect((sanitizeBranding({ footerSlogan: "y".repeat(300) })?.footerSlogan ?? "").length).toBe(120);
+  });
+  it("accepts a raster favicon and rejects non-image/script favicons (XSS guard)", () => {
+    expect(sanitizeBranding({ favicon: pngUrl })).toEqual({ favicon: pngUrl });
+    expect(sanitizeBranding({ favicon: "data:image/svg+xml;base64,PHN2Zz4=" })).toBeUndefined();
+    expect(sanitizeBranding({ favicon: "javascript:alert(1)" })).toBeUndefined();
+  });
+});
 
 describe("sanitizeAiConfig groundInGuides", () => {
   it("defaults groundInGuides to true", () => {

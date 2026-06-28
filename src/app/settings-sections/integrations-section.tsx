@@ -23,8 +23,10 @@ import { loadRegistry } from "../projects-registry";
 import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
+import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
 import { TimelogSettings } from "../timelog-settings";
+import { JiraSettingsSection } from "../jira-settings";
 import { defaultTimelogConfig } from "../timelog-types";
 
 interface IntegrationsSectionProps {
@@ -41,9 +43,13 @@ interface IntegrationsSectionProps {
    *  in-progress create-project draft and switching app-wide storage mid-setup
    *  is out of scope — that stays an advanced action in the flat Settings panel. */
   hidePortfolioSwitch?: boolean;
+  /** Hide the Jira block. Set by the setup wizard, which has a dedicated Jira
+   *  step — without this Jira would render twice (storage step + jira step). */
+  hideJira?: boolean;
 }
 
-export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch }: IntegrationsSectionProps) {
+export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira }: IntegrationsSectionProps) {
+  const { notifyEnable } = useIntegrationDisclaimer();
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
@@ -192,7 +198,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           <input
             type="checkbox"
             checked={m365.enabled}
-            onChange={(e) => updateM365({ enabled: e.target.checked })}
+            onChange={(e) => {
+              if (e.target.checked) notifyEnable();
+              updateM365({ enabled: e.target.checked });
+            }}
             className="h-4 w-4"
           />
           <span>{t(lang, "integrationsM365")}</span>
@@ -306,7 +315,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           <input
             type="checkbox"
             checked={turso.enabled}
-            onChange={(e) => updateTurso({ enabled: e.target.checked })}
+            onChange={(e) => {
+              if (e.target.checked) notifyEnable();
+              updateTurso({ enabled: e.target.checked });
+            }}
             className="h-4 w-4"
           />
           <span>{t(lang, "integrationsTurso")}</span>
@@ -511,6 +523,17 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         config={settings.timelog ?? defaultTimelogConfig}
         onChange={(next) => onChange({ ...settings, timelog: next })}
       />
+      {!hideJira && (
+        <div className="mt-4 border-t border-line pt-3">
+          <h3 className="mb-1 text-sm font-medium text-foreground">{t(lang, "settingsSectionJira")}</h3>
+          <JiraSettingsSection
+            lang={lang}
+            config={settings.jira}
+            onChange={(jira) => onChange({ ...settings, jira })}
+            alwaysOpen
+          />
+        </div>
+      )}
     </div>
   );
 }

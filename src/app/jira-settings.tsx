@@ -21,6 +21,7 @@ import {
   defaultJiraConfig,
 } from "./settings-types";
 import { saveSecretValue } from "./use-secrets";
+import { useIntegrationDisclaimer } from "./integration-disclaimer";
 
 const inputClass =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
@@ -44,6 +45,7 @@ export function JiraSettingsSection({
    *  toggle is redundant there — render the body always-expanded with no toggle. */
   alwaysOpen?: boolean;
 }) {
+  const { notifyEnable } = useIntegrationDisclaimer();
   const [open, setOpen] = useState(false);
   const isOpen = alwaysOpen || open;
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -215,7 +217,10 @@ export function JiraSettingsSection({
               <input
                 type="checkbox"
                 checked={config.enabled}
-                onChange={(e) => update("enabled", e.target.checked)}
+                onChange={(e) => {
+                  if (e.target.checked) notifyEnable();
+                  update("enabled", e.target.checked);
+                }}
                 className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
               />
               <span className="text-foreground">
@@ -225,10 +230,8 @@ export function JiraSettingsSection({
             <InfoTooltip text={t(lang, "jiraEnableTooltip")} />
           </div>
 
-          <fieldset
-            disabled={!config.enabled}
-            className="space-y-2 disabled:opacity-50"
-          >
+          {config.enabled && (
+          <fieldset className="space-y-2">
             <label className="block">
               <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                 {t(lang, "jiraSiteUrl")}
@@ -481,6 +484,7 @@ export function JiraSettingsSection({
               {t(lang, "jiraReset")}
             </button>
           </fieldset>
+          )}
 
           <p className="text-xs text-muted-foreground">
             {t(lang, "jiraNote")}

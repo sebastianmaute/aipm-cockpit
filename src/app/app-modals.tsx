@@ -9,6 +9,8 @@ import { ShiftEditModal } from "./shift-edit-modal";
 import { ResourceEditModal } from "./resource-edit-modal";
 import type { listContacts } from "./contacts";
 import type { Lang } from "./i18n";
+import { useSettings } from "./use-settings";
+import { DEFAULT_FOOTER_SLOGAN } from "./settings-types";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Absence, Resource, Shift, Task } from "./types";
@@ -127,6 +129,8 @@ export function AppModals({
   onCloseResourceModal,
   toast,
 }: AppModalsProps) {
+  const { settings } = useSettings();
+  const footerSlogan = settings.branding?.footerSlogan?.trim() || DEFAULT_FOOTER_SLOGAN;
   return (
     <>
       {showTaskFormModal && (
@@ -208,12 +212,11 @@ export function AppModals({
       )}
 
       {!isPopout && (
-        <footer className="mt-12 flex items-center justify-between gap-4 border-t border-line pt-6 text-xs text-muted-foreground">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto" />
-          <span className="text-right italic">
-            Identity Excellence Delivered. Globally.
-          </span>
+        // Fixed bottom-right so it adds NO document height (no page vertical
+        // scrollbar) and never overlaps clickable content. The shell's pb-6
+        // leaves a gap for it. pointer-events-none keeps it click-through.
+        <footer className="pointer-events-none fixed bottom-0 right-0 z-0 px-4 py-1 text-right text-xs italic text-muted-foreground">
+          {footerSlogan}
         </footer>
       )}
 

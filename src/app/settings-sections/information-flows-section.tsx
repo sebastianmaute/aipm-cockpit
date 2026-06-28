@@ -198,9 +198,6 @@ function Legend({ lang }: LegendProps) {
 export function InformationFlowsSection({ lang }: InformationFlowsSectionProps) {
   return (
     <div className="mb-4">
-      <p className="mb-1 text-sm font-medium text-foreground">
-        {t(lang, "settingsSectionInformationFlows")}
-      </p>
       <p className="mb-4 text-xs text-muted-foreground">
         {t(lang, "infoFlowsIntro")}
       </p>

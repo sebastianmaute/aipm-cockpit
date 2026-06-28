@@ -22,7 +22,7 @@ import { ModeSection } from "./settings-sections/mode-section";
 import { TemplatesSection } from "./settings-sections/templates-section";
 import { InformationFlowsSection } from "./settings-sections/information-flows-section";
 import { ExportSection } from "./settings-sections/export-section";
-import { JiraSettingsSection } from "./jira-settings";
+import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 import { StorageConfigSection } from "./storage-config";
 import { CommTemplatesSection } from "./settings-sections/comm-templates-section";
 import { ScheduledJobsSection } from "./settings-sections/scheduled-jobs-section";
@@ -83,7 +83,6 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "notifications", labelKey: "settingsSectionNotifications" },
   { id: "ai", labelKey: "settingsSectionAi" },
   { id: "scheduledJobs", labelKey: "scheduledJobsTitle" },
-  { id: "jira", labelKey: "settingsSectionJira" },
   { id: "storage", labelKey: "settingsSectionStorage" },
   { id: "integrations", labelKey: "settingsSectionIntegrations" },
   { id: "export", labelKey: "settingsSectionExport" },
@@ -95,7 +94,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
 // Advanced sections revealed only in expert mode.
 const EXPERT_IDS: readonly SectionId[] = ["nextActions", "notifications", "templates", "mode", "export", "commTemplates"];
 // Connectivity sections grouped together above Information flows (own divider).
-const INTEGRATION_IDS: readonly SectionId[] = ["ai", "scheduledJobs", "jira", "integrations"];
+const INTEGRATION_IDS: readonly SectionId[] = ["ai", "scheduledJobs", "integrations"];
 // Storage gets its own divider group between connectivity and information flows.
 const STORAGE_ID: SectionId = "storage";
 const FLOWS_ID: SectionId = "informationFlows";
@@ -147,23 +146,24 @@ export function SettingsView(props: SettingsViewProps) {
   // stale/now-hidden selection back to General so the pane never goes blank (no
   // ghost section with a body but no matching rail item).
   const active: SectionId =
-    activeRaw === "appearance" ||
     activeRaw === "storage" ||
     (activeRaw === "nextActions" && !expert) ||
     (activeRaw === "commTemplates" && !commTemplatesVisible)
       ? "general"
-      : activeRaw;
+      // Jira folded into Integrations — a stale/deep-linked "jira" lands there.
+      : activeRaw === "jira"
+        ? "integrations"
+        : activeRaw;
   const byLabel = (a: { labelKey: TranslationKey }, b: { labelKey: TranslationKey }) =>
     t(lang, a.labelKey).localeCompare(t(lang, b.labelKey), localeFor(lang));
 
-  // Main group: everything except storage + appearance (folded into General),
-  // integrations, comm-templates, and flows, with expert-only sections shown
-  // only in expert mode. Alphabetical by label.
+  // Main group: everything except storage (folded into General), integrations,
+  // comm-templates, and flows, with expert-only sections shown only in expert
+  // mode. Appearance is its own rail entry. Alphabetical by label.
   const mainEntriesSorted = RAIL.filter(
     (r) =>
       r.id !== FLOWS_ID &&
       r.id !== STORAGE_ID &&
-      r.id !== "appearance" &&
       r.id !== "commTemplates" &&
       !INTEGRATION_IDS.includes(r.id) &&
       (expert || !EXPERT_IDS.includes(r.id)),
@@ -208,7 +208,12 @@ export function SettingsView(props: SettingsViewProps) {
   };
 
   return (
-    <>
+    <IntegrationDisclaimerProvider
+      lang={lang}
+      seen={settings.integrationDisclaimerSeen === true}
+      onAcknowledge={() => onChange({ ...settings, integrationDisclaimerSeen: true })}
+      isPopout={props.isPopout}
+    >
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 md:flex-row">
       <nav
         aria-label={t(lang, "settings")}
@@ -243,6 +248,14 @@ export function SettingsView(props: SettingsViewProps) {
       </nav>
 
       <section className="min-w-0 flex-1 rounded-lg border border-line bg-surface p-6">
+        {/* Uniform section heading (the rail label) for every window. Mode,
+            Templates and Comm-templates are excluded — they already render their
+            own identical heading + an intro line. */}
+        {active !== "mode" && active !== "templates" && active !== "commTemplates" && (
+          <h2 className="mb-4 text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            {t(lang, RAIL.find((r) => r.id === active)?.labelKey ?? "settingsSectionGeneral")}
+          </h2>
+        )}
         {active === "mode" && (
           <ModeSection
             // Remount when the active project's functions change so the draft
@@ -259,14 +272,12 @@ export function SettingsView(props: SettingsViewProps) {
         {active === "localization" && (
           <LocalizationSection lang={lang} settings={settings} onChange={onChange} />
         )}
+        {active === "appearance" && (
+          <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
+        )}
         {active === "general" && (
           <>
             <GeneralSection lang={lang} settings={settings} onChange={onChange} />
-            <hr className="my-6 border-line" />
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
-              {t(lang, "settingsSectionAppearance")}
-            </h3>
-            <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
             <hr className="my-6 border-line" />
             <h3 className="mb-3 text-sm font-semibold text-foreground">
               {t(lang, "tzSettingsTitle")}
@@ -316,14 +327,6 @@ export function SettingsView(props: SettingsViewProps) {
             settings={settings}
             onChange={onChange}
             config={props.scheduledJobsConfig ?? null}
-          />
-        )}
-        {active === "jira" && (
-          <JiraSettingsSection
-            lang={lang}
-            config={settings.jira}
-            onChange={(jira) => onChange({ ...settings, jira })}
-            alwaysOpen
           />
         )}
         {active === "integrations" && (
@@ -396,6 +399,6 @@ export function SettingsView(props: SettingsViewProps) {
       />
     )}
     <VersionInfoModal lang={lang} open={showVersion} onClose={() => setShowVersion(false)} />
-    </>
+    </IntegrationDisclaimerProvider>
   );
 }

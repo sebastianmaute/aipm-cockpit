@@ -3,6 +3,7 @@ import { type Lang, t } from "./i18n";
 import { SidebarNav } from "./sidebar-nav";
 import type { AppView, NavGroup } from "./nav-config";
 import { type AppMode } from "./feature-modules";
+import { useSettings } from "./use-settings";
 
 const SIDEBAR_MODE_LABEL: Record<AppMode, "modeSimple" | "modeModular" | "modeAdvanced"> = {
   simple: "modeSimple",
@@ -28,6 +29,9 @@ interface SidebarProps {
 export function Sidebar({
   lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, mode, footer, navGroups, navBadges,
 }: SidebarProps) {
+  const { settings } = useSettings();
+  const brandLogo = settings.branding?.logo;
+  const brandSlogan = settings.branding?.slogan?.trim();
   return (
     <aside
       className={
@@ -35,13 +39,19 @@ export function Sidebar({
         (collapsed ? "w-16" : "w-64")
       }
     >
-      <div className="flex items-start justify-between gap-2 border-b border-AIPM-white/10 px-4 py-4">
+      <div className="flex items-center justify-between gap-2 border-b border-AIPM-white/10 px-4 py-2.5">
         {!collapsed && (
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/AIPM-logo.svg" alt="Acme" className="h-6 w-auto brightness-0 invert" />
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-green">
-              {t(lang, "sidebarBrandSubtitle")}
+            <img
+              src={brandLogo || "/app-logo.svg"}
+              alt={brandLogo ? (brandSlogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
+              // Custom logos render as-is (capped to the sidebar width); only the
+              // mono Acme default gets the brightness-0 invert to go white.
+              className={brandLogo ? "max-h-8 max-w-full w-auto object-contain" : "h-5 w-auto brightness-0 invert"}
+            />
+            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-AIPM-green">
+              {brandSlogan || t(lang, "sidebarBrandSubtitle")}
             </p>
           </div>
         )}

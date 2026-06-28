@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { autoMatchUsers, autoMatchProjects } from "./timelog-match";
+import { autoMatchUsers, autoMatchProjects, isDisplayableUser, displayableUsers } from "./timelog-match";
 import type { TimelogUser, TimelogLinks } from "./timelog-types";
 import type { Resource, BudgetBucket } from "./types";
 
@@ -26,6 +26,29 @@ describe("autoMatchUsers", () => {
   it("does not emit a link when nothing matches", () => {
     const links = autoMatchUsers([tlUser(8, "nobody@x.com")], [res(2, "Ada", "L", "ada@acme.com")], { userLinks: [], projectLinks: [] });
     expect(links.find((l) => l.timelogUserId === 8)).toBeUndefined();
+  });
+});
+
+describe("displayableUsers / isDisplayableUser", () => {
+  const u = (over: Partial<TimelogUser>): TimelogUser =>
+    ({ userId: 1, firstName: "", lastName: "", initials: "", email: "", isActive: true, ...over });
+
+  it("keeps active users with a name or email", () => {
+    expect(isDisplayableUser(u({ firstName: "Ada", lastName: "L" }))).toBe(true);
+    expect(isDisplayableUser(u({ email: "ada@x.com" }))).toBe(true);
+  });
+  it("drops inactive users and active users with no identity", () => {
+    expect(isDisplayableUser(u({ firstName: "Ada", isActive: false }))).toBe(false);
+    expect(isDisplayableUser(u({}))).toBe(false);                       // empty everything
+    expect(isDisplayableUser(u({ firstName: "  ", email: "  " }))).toBe(false); // whitespace-only
+  });
+  it("filters a directory to displayable rows only", () => {
+    const out = displayableUsers([
+      u({ userId: 1, firstName: "Ada" }),
+      u({ userId: 2 }),                       // blank
+      u({ userId: 3, email: "x@y.com", isActive: false }), // inactive
+    ]);
+    expect(out.map((r) => r.userId)).toEqual([1]);
   });
 });
 

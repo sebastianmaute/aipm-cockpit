@@ -18,11 +18,14 @@ this file covers what to do when the app needs to ship or starts misbehaving.
 - **Outbound calls** from the server are only to `api.atlassian.com` from
   `/api/jira/*` and `/api/confluence/page` (both Atlassian — the Confluence
   route reuses the Jira proxy helpers, the same SSRF allowlist, and the
-  user-supplied Atlassian credentials; no new outbound host). Both go out only
-  with credentials forwarded from the request body. The browser calls
-  `api.anthropic.com` (Claude), `api.turso.io` (Turso), `graph.microsoft.com`
-  (M365 Graph), and `login.microsoftonline.com` (MSAL) directly (no server
-  proxy).
+  user-supplied Atlassian credentials; no new outbound host) and to the user's
+  `*.timelog.com` host from `/api/timelog` (the Timelog time-booking proxy —
+  its own SSRF allowlist, private-IP block, `/v1/` path allowlist, Bearer auth,
+  and per-IP rate limit; reads are forwarded with the user-supplied token from
+  the request). All go out only with credentials forwarded from the request
+  body. The browser calls `api.anthropic.com` (Claude), `api.turso.io` (Turso),
+  `graph.microsoft.com` (M365 Graph), and `login.microsoftonline.com` (MSAL)
+  directly (no server proxy).
 
 This shape means most "incidents" are either build failures, browser-side
 errors visible only in DevTools, or Atlassian / Anthropic outages we cannot
@@ -240,6 +243,43 @@ Fix: Same as Outlook import — enable M365 in Settings → Integrations and con
 ### "Turso storage fails to connect"
 Cause: Database URL is malformed, auth token is invalid, or scoped to a different database.
 Fix: Verify the Database URL and Auth token in Settings → Integrations. Test the credentials in Turso console. Ensure the token has read/write permission on the target database.
+
+### "Timelog sync is slow / hangs on a large fetch"
+All Timelog reads go through the same-origin `/api/timelog` proxy
+(SSRF-guarded; per-IP rate limit of 60 requests/min on its own `"timelog"`
+bucket). Fetches now page through **all** results (500/page), so loading a lot
+of history — especially with **Include closed projects** ticked — pulls many
+pages and can be slow, but it is **paced**: when the proxy returns a 429 the
+app transparently retries honouring `Retry-After` with exponential backoff, so
+a slow fetch is the rate limit working, not a fault. The loading modal has a
+**Cancel** button that aborts the in-flight fetch; "Clear all" resets fetched
+data and the per-device cache. To keep request volume down, the flow is
+two-step: "Load people" pulls the directory only, then "Fetch bookings" pulls
+timesheets for just the ticked employees.
+
+### "Timelog booked hours show 0"
+A resource's hours count as booked only when **both** links exist: the
+booking's Timelog user must be linked to a resource in the app, **and** the
+booking's Timelog project must be linked to a budget bucket. If either link is
+missing the hours are attributed as unmapped/unattributed rather than landing
+on a resource — check the attribution banner and the user/project link tables
+in Settings → Integrations → Timelog. (Non-project absence time is never mapped
+to a project.)
+
+### "Timelog 'Load my projects' comes back empty"
+"Load my projects" only returns Timelog projects where the signed-in token
+owner is the **Project Manager** — that is intentional, so a PM can link those
+projects to budgets before any bookings exist. If you are not the PM on the
+projects you expect, use the **customer picker** to load a specific client's
+projects, or tick **Include closed projects** to also pull finished/closed ones.
+
+### "AI features look disabled / missing"
+AI is gated behind a master switch (0.144.0+) that is **off by default**, even
+for existing users. If chat, action suggestions, scheduled jobs, weight
+suggestions, or AI project proposal don't appear, open Settings → AI assistant
+and tick **"Enable AI assistant"** — the rest of the AI configuration UI stays
+collapsed until it is enabled (a valid Anthropic key is still required on top of
+the switch).
 
 ### "Local file storage doesn't work in Firefox / Safari"
 The File System Access API is Chromium-only. Users on Firefox or Safari

@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.144.0] - 2026-06-28 "Egan"
+
+### Added
+- **Timelog two-step fetch**: "Load people" now pulls the Timelog directory only (cheap); a filter box narrows it and you tick the people you want, then "Fetch bookings" pulls timesheets for the ticked employees only (org scope) — keeping request volume under the rate limit. Inactive/nameless directory rows are filtered out, rows can be removed individually (✕) or in bulk, the list is scrollable, and the fetched people + project matches persist per-device so they survive a view switch.
+- **Load my projects**: load the projects where you are the Project Manager in Timelog, so a PM can match them to budgets before any bookings are fetched. An "Include closed projects" option also pulls finished projects, and a customer picker loads a single client's projects (server-side filter).
+- **AI master switch**: a new "Enable AI assistant" toggle gates all AI features (chat, action suggestions, scheduled jobs, weight suggestions, describe-to-create). It is off by default, including for existing installs; the AI configuration stays collapsed until enabled.
+- **One-time integration disclaimer**: the first time any integration or AI feature is enabled (AI, Jira, Microsoft 365, Turso or Timelog), a one-time security & responsibility note is shown and acknowledged once per device.
+
+### Changed
+- **Timelog reads now page through all results** (previously only the first ~10 rows of any list were ingested, badly undercounting booked hours) and retry transparently on rate-limit (429) responses with backoff; a Cancel button aborts an in-flight fetch and a Clear-all button resets the fetched data. A banner explains that a resource's hours count as booked only when its Timelog user is linked to a resource **and** the booking's project is linked to a budget bucket.
+- **Settings → Integrations**: Jira configuration now lives inside the Integrations box (below Timelog); its fields appear only after "Enable Jira sync" is ticked. The stored-credential note now states secrets are encrypted at rest, and Timelog gained a help link to its personal-token page.
+
+### Fixed
+- Resource Directory: clicking a row's discipline/grade dropdown no longer also opens the edit modal.
+- Timelog actuals aggregation now requires the plan granularity explicitly (removed a silent monthly default that could drop hours from earned-value), and non-project (absence) time no longer creates a blank project row.
+
 ## [0.143.0] - 2026-06-27 "Haldeman"
 
 ### Added

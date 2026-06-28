@@ -14,6 +14,7 @@ import type { VersionChange } from "./version-diff";
 import { VersionDiffView } from "./version-diff-view";
 import { changeKey, type RestoreSelection } from "./version-restore";
 import { EmptyState } from "./empty-state";
+import { PrintButton } from "./task-manager-ui";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
 interface HistoryPanelProps {
@@ -127,10 +128,10 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   };
 
   return (
-    <div className="p-4">
+    <div className="print-root p-4">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">{t(lang, "historyTitle")}</h2>
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-2 print:hidden">
           <button
             type="button"
             onClick={() => compareSelected("inline")}
@@ -187,6 +188,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               {t(lang, "historySaveNow")}
             </button>
           )}
+          <PrintButton lang={lang} />
         </span>
       </div>
 

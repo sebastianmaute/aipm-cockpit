@@ -35,7 +35,7 @@ beforeEach(() => {
 const KEY = "sk-test";
 
 function withKey(over: Partial<Settings["ai"]> = {}): Settings {
-  return { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY, ...over } };
+  return { ...defaultSettings, ai: { ...defaultSettings.ai, apiKey: KEY, enabled: true, ...over } };
 }
 
 function job(over: Partial<ScheduledJob> = {}): ScheduledJob {

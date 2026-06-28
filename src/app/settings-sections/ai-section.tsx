@@ -16,6 +16,7 @@ import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { useIntegrationDisclaimer } from "../integration-disclaimer";
 
 interface AiSectionProps {
   lang: Lang;
@@ -233,6 +234,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
 }
 
 export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage }: AiSectionProps) {
+  const { notifyEnable } = useIntegrationDisclaimer();
   const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = settings.ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
 
@@ -353,6 +355,20 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         {t(lang, "aiAssistant")}
         <InfoTooltip text={t(lang, "aiAssistantTooltip")} />
       </span>
+      <label className="mt-2 flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={settings.ai.enabled === true}
+          onChange={(e) => {
+            if (e.target.checked) notifyEnable();
+            onChange({ ...settings, ai: { ...settings.ai, enabled: e.target.checked } });
+          }}
+        />
+        <span className="text-xs text-foreground">{t(lang, "aiEnable")}</span>
+      </label>
+      <p className="mt-1 text-xs text-muted-foreground">{t(lang, "aiEnableHelp")}</p>
+      {settings.ai.enabled === true && (
+        <>
       <label className="mt-2 block">
         <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
           {t(lang, "aiApiKey")}
@@ -623,6 +639,8 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           </>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

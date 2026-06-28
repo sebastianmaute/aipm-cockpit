@@ -22,6 +22,7 @@ export const DEFAULT_SESSION_TOKEN_CAP = 200_000;
 export const DEFAULT_WEEKLY_TOKEN_CAP = 2_000_000;
 
 export type AiConfig = {
+  enabled?: boolean; // Master switch for all AI features. Default OFF (undefined = off) — must be ticked to use the assistant.
   apiKey: string;
   model: ChatModel;
   consentAccepted: boolean;
@@ -62,10 +63,24 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     consentAccepted: obj.consentAccepted === true,
     sessionTokenCap: coerceCap(obj.sessionTokenCap, DEFAULT_SESSION_TOKEN_CAP),
     weeklyTokenCap: coerceCap(obj.weeklyTokenCap, DEFAULT_WEEKLY_TOKEN_CAP),
+    enabled: obj.enabled === true,
     groundInGuides: obj.groundInGuides !== false,
     scheduledJobs: obj.scheduledJobs === true,
     suggestAllNextActionThresholds: obj.suggestAllNextActionThresholds === true,
   };
+}
+
+/** True only when the AI master switch is ON and a usable key is present.
+ *  Master switch defaults OFF (undefined → false). The single source of truth
+ *  for "may AI run" — gate every AI activation through this (or aiKeyIfEnabled). */
+export function isAiEnabled(ai: AiConfig | undefined): boolean {
+  return ai?.enabled === true && !!ai?.apiKey?.trim();
+}
+
+/** The trimmed API key, but only when the AI master switch is on; "" otherwise.
+ *  Feeding "" downstream makes every key-presence gate treat AI as unconfigured. */
+export function aiKeyIfEnabled(ai: AiConfig | undefined): string {
+  return ai?.enabled === true ? (ai?.apiKey?.trim() ?? "") : "";
 }
 
 export type ChannelConfig = { enabled: boolean; leadDays?: number };
@@ -341,6 +356,49 @@ export type LearningStoreKind = "local" | "turso";
 export type NextActionsLearningConfig = { enabled: boolean; store: LearningStoreKind };
 export const defaultNextActionsLearning: NextActionsLearningConfig = { enabled: false, store: "local" };
 
+/** Per-device sidebar branding override. `logo` is a base64 `data:image/*` URL,
+ *  `slogan` overrides the sidebar app-name subtitle, `footerSlogan` overrides the
+ *  bottom footer-bar tagline. */
+export interface BrandingConfig {
+  logo?: string;
+  slogan?: string;
+  footerSlogan?: string;
+  favicon?: string;
+}
+/** Default bottom footer-bar tagline (used when no custom footerSlogan is set). */
+export const DEFAULT_FOOTER_SLOGAN = "Command your projects - AI-assisted tracking that plugs into M365, Jira and Timelog. Local-first, no backend.";
+/** Max stored logo length (~512 KB raw → ~700k base64 chars). */
+export const BRANDING_LOGO_MAX_LEN = 700_000;
+export const BRANDING_SLOGAN_MAX = 60;
+export const BRANDING_FOOTER_SLOGAN_MAX = 120;
+/** Accepted raster logo data-URL prefixes. SVG is intentionally excluded
+ *  (avoids the SVG-in-data-URL XSS surface entirely). */
+const BRANDING_LOGO_RE = /^data:image\/(png|jpeg|webp|gif);base64,/i;
+
+/** Validate untrusted branding (from localStorage or a freshly-read file):
+ *  logo must be a size-bounded raster `data:image` URL; slogan trimmed + capped.
+ *  Returns undefined when nothing valid remains so the defaults apply. */
+export function sanitizeBranding(obj: unknown): BrandingConfig | undefined {
+  if (!obj || typeof obj !== "object") return undefined;
+  const o = obj as Record<string, unknown>;
+  const out: BrandingConfig = {};
+  if (typeof o.logo === "string" && BRANDING_LOGO_RE.test(o.logo) && o.logo.length <= BRANDING_LOGO_MAX_LEN) {
+    out.logo = o.logo;
+  }
+  if (typeof o.slogan === "string") {
+    const s = o.slogan.trim().slice(0, BRANDING_SLOGAN_MAX);
+    if (s) out.slogan = s;
+  }
+  if (typeof o.footerSlogan === "string") {
+    const s = o.footerSlogan.trim().slice(0, BRANDING_FOOTER_SLOGAN_MAX);
+    if (s) out.footerSlogan = s;
+  }
+  if (typeof o.favicon === "string" && BRANDING_LOGO_RE.test(o.favicon) && o.favicon.length <= BRANDING_LOGO_MAX_LEN) {
+    out.favicon = o.favicon;
+  }
+  return out.logo || out.slogan || out.footerSlogan || out.favicon ? out : undefined;
+}
+
 export type Settings = {
   language: Lang;
   holidayCountries: string[];
@@ -362,8 +420,14 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device sidebar branding: a custom logo (data:image URL) and/or slogan
+   *  overriding the default Acme logo + subtitle. */
+  branding?: BrandingConfig;
   /** Per-device: the guided tour has been seen/skipped (suppresses auto-launch). */
   tourSeen?: boolean;
+  /** Per-device: the security & responsibility disclaimer has been acknowledged
+   *  (shown once, the first time any integration/AI enable checkbox is ticked). */
+  integrationDisclaimerSeen?: boolean;
   /** Per-device override of the app timezone (IANA). Undefined = follow project/browser. */
   timezone?: string;
   /** Per-device extra zones to surface (calendar + per-window switcher), IANA strings. */
@@ -404,6 +468,7 @@ export const defaultSettings: Settings = {
   hideFinishedTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
+  branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
   showDisplayTzSwitcher: false,
   reports: { extra: ["raid-report", "budget-report"] },
   integrations: defaultIntegrations,

@@ -481,6 +481,7 @@ legacy keys are removed.
 | `lop-app:projects` | File-mode project registry (v0.58 Phase 1; `projects-registry.ts`): `{ projects: ProjectRegistryEntry[], currentProjectId: string \| null }` where `ProjectRegistryEntry = { id, name, code, storageConfig }`. Malformed entries dropped on load; dangling `currentProjectId` coerced to `null`. |
 | `lop-app:action-learning` | **0.95.0+** Action Center learning store (local backend): per-kind outcome stats (`acted` / `snoozed` / `dismissed` / `last_at`) + explicit overrides. Opt-in; absent until the learning layer records its first outcome. Manual reset = delete this key. The alternative backend is the global Turso `action_learning` table (see below). |
 | `lop-app:scheduled-jobs` | **0.97.0+ (SP5)** AI scheduled-jobs store (local backend): `ScheduledJob[]` (`{ id, cadence, lastRunAt?, runs: ScheduledJobRun[] }`, history capped at `JOB_HISTORY_CAP = 10`). Opt-in (`ai.scheduledJobs`); used when `tursoConfig === null`. The cross-device backend is the global Turso `scheduled_jobs` table (see below). |
+| `lop-app:timelog-actuals` | **0.144.0+** Timelog per-device cache (`timelog-actuals-store.ts`): the fetched Timelog people + project refs (so the matching tables survive a view switch) alongside the optional aggregated actuals. Per-device only — **not** a `Workspace` field (no new persisted Workspace field this release), excluded from exports/Turso, cleared by `clearAppConfig`. |
 | `lop-app:tasks`, `lop-app:raid` | **Legacy** — removed after first successful IDB save |
 
 ## File-backend formats

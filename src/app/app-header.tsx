@@ -92,9 +92,11 @@ export function AppHeader({
       <div className="flex flex-col items-end gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/AIPM-logo.svg"
-          alt="Acme"
-          className="h-7 w-auto"
+          src={settings.branding?.logo || "/AIPM-logo.svg"}
+          alt={settings.branding?.logo ? (settings.branding.slogan ?? t(lang, "appTitle")) : "Acme"}
+          // Custom logos render as-is (light header → no invert), capped so a
+          // large upload can't blow out the header.
+          className={settings.branding?.logo ? "max-h-10 w-auto max-w-[200px] object-contain" : "h-7 w-auto"}
         />
         <div className="flex items-center gap-1">
           {onOpenAiAssistant && (

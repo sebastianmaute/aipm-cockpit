@@ -137,13 +137,16 @@ function ChatPanelInner({
   }, [display, busy]);
 
   const guidesPending = ai.groundInGuides && !guidesReady;
+  // Master switch: when AI is disabled in Settings, the assistant is fully off
+  // regardless of any stored key — force the no-key path so send is blocked.
+  const masterOn = ai.enabled === true;
   // The key actually used for calls/gating: a plaintext settings key wins,
   // else the inline-unlocked passphrase key (if any).
-  const effectiveApiKey = ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "");
+  const effectiveApiKey = masterOn ? (ai.apiKey.trim() ? ai.apiKey : (unlockedKey ?? "")) : "";
   const apiKeyMissing = !effectiveApiKey.trim();
   // Cheap synchronous localStorage read — fine in the render body (pure read).
   const apiKeyLocked =
-    !ai.apiKey.trim() && unlockedKey === null && isPassphraseLocked("anthropicApiKey");
+    masterOn && !ai.apiKey.trim() && unlockedKey === null && isPassphraseLocked("anthropicApiKey");
 
   async function submitPrompt(textArg?: string) {
     const text = (textArg ?? input).trim().slice(0, CHAT_MESSAGE_MAX);

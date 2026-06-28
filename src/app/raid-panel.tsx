@@ -46,7 +46,7 @@ import { RaidEditModal } from "./raid-edit-modal";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
@@ -389,7 +389,7 @@ function RaidPanelBody({
     filterTaskId !== null;
 
   const toolbar = (
-    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
+    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
       <button
         type="button"
         onClick={() => openNew()}
@@ -474,14 +474,15 @@ function RaidPanelBody({
           {t(lang, "ganttResetFilters")}
         </button>
       )}
+      <PanelViewsControl lang={lang} view="raid" onApply={() => { if (filterTaskId !== null) onClearTaskFilter?.(); }} />
+      <PrintButton lang={lang} />
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <ResetSizeButton onClick={resetRaidSize} lang={lang} />
-      <PanelViewsControl lang={lang} view="raid" onApply={() => { if (filterTaskId !== null) onClearTaskFilter?.(); }} />
     </div>
   );
 
   return (
-    <div ref={raidRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <div ref={raidRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {toolbar}
 
       <BulkEditBar

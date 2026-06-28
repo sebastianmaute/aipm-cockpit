@@ -6,7 +6,7 @@ import { currencySymbol } from "./resource-cost";
 import { roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
@@ -101,9 +101,10 @@ export function RolesEditor({
       <section>
         <div className="mb-2 flex items-center justify-between gap-2">
           <h4 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "rolesRateCard")}</h4>
-          <div className="flex flex-row items-center gap-2">
+          <div className="flex flex-row flex-nowrap items-center gap-2">
             {onResetSize && <ResetSizeButton onClick={onResetSize} lang={lang} />}
             <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+            <PrintButton lang={lang} />
           </div>
         </div>
         {sortedRoles.length === 0 ? (
@@ -182,7 +183,7 @@ export function RolesEditor({
                         className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-3 py-2 text-right print:hidden">
                     <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={t(lang, "delete")}
                       className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink">×</button>
                   </td>
@@ -195,7 +196,7 @@ export function RolesEditor({
           <hr className="my-3 border-t border-line" />
           </>
         )}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2 print:hidden">
           <select value={comboDiscipline} onChange={(e) => setComboDiscipline(e.target.value ? Number(e.target.value) : "")}
             className="rounded-md border border-line px-2 py-1 text-sm bg-surface-muted">
             <option value="">{t(lang, "rolesDiscipline")}</option>
@@ -294,7 +295,7 @@ function RefList({
           </li>
         ))}
       </ul>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex items-center gap-2 print:hidden">
         <input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
           aria-label={addPlaceholder}
           className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />

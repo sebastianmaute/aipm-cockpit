@@ -22,6 +22,7 @@ import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import type { SuggestedAction } from "./next-actions/types";
 import {
   EraserIcon,
+  PrintButton,
   ResetColWidthsButton,
   ResetSizeIcon,
   SortableTh,
@@ -241,12 +242,12 @@ export function TasksSection({
       ref={tableRef}
       className={
         fillHeight
-          ? VIEW_PANE_RESIZABLE_CLASS
-          : "relative mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
+          ? `print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`
+          : "print-root print-landscape relative mb-10 flex h-[560px] min-h-[300px] min-w-[520px] resize flex-col overflow-hidden rounded-xl border border-line bg-surface p-6"
       }
     >
       {/* shrink-0 wrapper keeps header, filters and bulk-edit from growing into the table area */}
-      <div className="shrink-0">
+      <div className="shrink-0 print:hidden">
       {onOpenAction && onShowActions && (
         <ActionChips
           lang={lang}
@@ -389,6 +390,7 @@ export function TasksSection({
               {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
             </button>
           )}
+          <PrintButton lang={lang} />
           <button
             type="button"
             onClick={resetTableSize}

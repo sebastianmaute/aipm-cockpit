@@ -7,11 +7,16 @@ import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
 import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import type { ToolDispatcher } from "./chat-tools";
-import { defaultAiConfig } from "./settings-types";
+import { defaultAiConfig as baseAiConfig } from "./settings-types";
 import type { OperatingGuide } from "./operating-guide";
 import type { FeatureModuleId } from "./feature-modules";
 import { saveSealed } from "./secrets-store";
 import { sealPassphrase } from "./secrets";
+
+// The AI master switch (settings.ai.enabled) defaults OFF; these tests exercise
+// an active assistant, so the shared fixture turns it on. Tests that want the
+// no-key path still pass apiKey: "" on top of this.
+const defaultAiConfig = { ...baseAiConfig, enabled: true };
 
 const src = readFileSync(
   join(process.cwd(), "src", "app", "chat-panel.tsx"),
