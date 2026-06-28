@@ -669,6 +669,20 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   shimmer (no announcement, but no worse than blank). `workspace-panels.tsx` wires the prop-less decorative
   variant as the `loading` fallback on all 20 lazy `dynamic()` view panels (so all are full-pane — don't wire
   it into a non-full-pane lazy mount). New i18n key `loading` (EN/DE).
+- **Add-first-item empty state (clickable dashed box):** when an entity panel has ZERO items (truly empty,
+  NOT filtered-empty), render a full-width clickable dashed `<button>` that adds the first item — NOT the
+  `EmptyState` primitive. Style (shared by budget · gantt · milestones · changes · stakeholders):
+  `flex w-full flex-col items-center gap-2 rounded-(lg|md) border border-dashed border-line p-(6|10)
+  text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue
+  dark:hover:text-AIPM-light-grey ${INTERACTIVE}` with two spans: the descriptive empty text + a
+  `font-medium` "+ <Add X>…" line; `onClick` = the panel's create handler (`openNew`/`addBucket`/`onAddTask`).
+  ★ For TABLE panels (changes/stakeholders) the box REPLACES the `<table>` (`{count===0 ? box : <table>}`),
+  and the in-table FILTERED no-matches row stays (headers give context); the truly-empty `<td>` row is
+  removed. ★ FILTERED-empty + popout (no create handler) fall back to the plain text box (gantt) or the
+  no-matches row (tables) — never a dead add affordance. ★ Test gotcha: the box's "+ Add X…" text collides
+  with the header add-button on a `getByRole("button",{name:/add x/i})` query — render WITH one item when
+  asserting the header button. This SUPERSEDES the older "use EmptyState, not a dashed-div" rule for the
+  add-first-item case (EmptyState still stands for read-only "no data" messages).
 - **Bulk edit (entity panels):** generic multi-row bulk edit shared across
   RAID/Milestones/Changes/Stakeholders. Pure `row-selection.ts` (set ops) +
   `use-row-selection.ts` (Set<number> selection, filter-aware select-all);
