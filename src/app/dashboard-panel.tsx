@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { KpiGradientBar, ReportCard, Section, Tile } from "./report-table";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
@@ -34,6 +34,7 @@ import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { navLabelKey, type AppView } from "./nav-config";
 import { activityViewOf } from "./dashboard-activity-nav";
+import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -231,46 +232,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
     [taskCount, milestoneCount, budgetCount, showMilestones, showBudget, aiConfigured],
   );
 
-  // Derived-state pattern: track the last stored value we seeded from so we can
-  // reset the draft when an external workspace reload changes status.narrative.
-  const [prevStoredNarrative, setPrevStoredNarrative] = useState(status.narrative ?? "");
-  const [draftNarrative, setDraftNarrative] = useState(status.narrative ?? "");
-
-  const storedNarrative = status.narrative ?? "";
-  if (storedNarrative !== prevStoredNarrative) {
-    setPrevStoredNarrative(storedNarrative);
-    setDraftNarrative(storedNarrative);
-  }
-
-  // Autogrow: keep the status textarea sized to its content. Applied on input
-  // and whenever the draft value changes (e.g. external reload / Clear).
-  const narrativeRef = useRef<HTMLTextAreaElement | null>(null);
-  const resizeNarrative = (el: HTMLTextAreaElement) => {
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  };
-  useEffect(() => {
-    if (narrativeRef.current) resizeNarrative(narrativeRef.current);
-  }, [draftNarrative]);
-
-  const commitNarrative = () => {
-    const trimmed = draftNarrative.trim();
-    if (trimmed === (status.narrative ?? "")) return;
-    setStatus((s) => ({ ...s, narrative: trimmed, narrativeUpdatedAt: new Date().toISOString() }));
-  };
-
-  const clearNarrative = () => {
-    setDraftNarrative("");
-    if ((status.narrative ?? "") !== "") {
-      setStatus((s) => ({ ...s, narrative: "", narrativeUpdatedAt: new Date().toISOString() }));
-    }
-    // Reset the box back to its default (min-h-24) resting height immediately so it
-    // never stays stuck at a previously-grown tall height. The useEffect([draftNarrative])
-    // pass re-measures after the cleared value lands in the DOM; this handler call just
-    // avoids any tall-flash window before that runs.
-    if (narrativeRef.current) resizeNarrative(narrativeRef.current);
-  };
-
   const toolbarExtra =
     props.onToggleDensity || props.onToggleTrends ? (
       <div className="flex items-center gap-2 print:hidden">
@@ -336,6 +297,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
           onOpenMilestone={props.onOpenMilestone ? () => props.onOpenMilestone!(-1) : undefined}
           onOpenChange={props.onOpenChange ? () => props.onOpenChange!(-1) : undefined}
         />
+
+        {/* Tier 0 — read-only status narrative summary (self-hides when empty) */}
+        <NarrativeSummary lang={lang} status={status} />
 
         {/* First-open coaching — self-hides once the project has any task */}
         <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
@@ -479,44 +443,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
           </p>
         </div>
 
-        {/* Narrative */}
-        <Section title={t(lang, "dashboardStatusSummary")}>
-          <div>
-            <textarea
-              ref={narrativeRef}
-              className={`min-h-24 w-full resize-none rounded-md border border-line bg-surface p-2 text-sm ${TRANSITION} ${FOCUS_RING}`}
-              placeholder={t(lang, "dashboardNarrativePlaceholder")}
-              value={draftNarrative}
-              onChange={(e) => setDraftNarrative(e.target.value)}
-              onInput={(e) => resizeNarrative(e.currentTarget)}
-              onBlur={commitNarrative}
-            />
-            <div className="mt-2 flex justify-end gap-2 print:hidden">
-              <button
-                type="button"
-                onClick={commitNarrative}
-                disabled={draftNarrative.trim() === (status.narrative ?? "")}
-                className={`rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                {t(lang, "dashboardStatusSave")}
-              </button>
-              <button
-                type="button"
-                onClick={clearNarrative}
-                onMouseDown={(e) => e.preventDefault()}
-                disabled={(status.narrative ?? "") === "" && draftNarrative === ""}
-                className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                {t(lang, "dashboardStatusClear")}
-              </button>
-            </div>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {status.narrativeUpdatedAt
-              ? t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))
-              : ""}
-          </p>
-        </Section>
+        {/* Narrative editor (folded) */}
+        <NarrativeEditor lang={lang} status={status} setStatus={setStatus} />
 
         {/* Progress + Budget burn */}
         <div className={`grid md:grid-cols-2 ${dc.sectionGap}`}>
