@@ -13,13 +13,13 @@ afterEach(() => {
 });
 
 describe("useHashView", () => {
-  it("selects open-points when no hash present", () => {
+  it("lands on the Dashboard home when no hash is present", () => {
     window.location.hash = "";
     const { result } = renderHook(
       () => { useHashView(); return useWorkspaceTab(); },
       { wrapper },
     );
-    expect(result.current.activeTab).toBe("open-points");
+    expect(result.current.activeTab).toBe("dashboard");
   });
 
   it("selects the view named by the initial hash", () => {

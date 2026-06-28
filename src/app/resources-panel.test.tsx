@@ -37,11 +37,11 @@ const baseProps = {
 };
 
 describe("ResourcesPanel", () => {
-  test("workload view renders the resources heading", () => {
-    // Role assignment (discipline/grade) moved out of this panel to the Directory
-    // view; the panel is now a prop-driven workload/calendar/planning host.
+  test("workload view renders the Workload heading", () => {
+    // The panel is a prop-driven workload/calendar/planning host; the heading
+    // now reflects the active sub-view rather than a generic "Resources".
     render(<ResourcesPanel {...baseProps} view="workload" resources={[]} />);
-    expect(screen.getByRole("heading", { name: /resources/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /workload/i })).toBeInTheDocument();
   });
 
   test("planning view: editing a utilization cell calls onSetUtilization", () => {

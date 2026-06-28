@@ -5,7 +5,7 @@ import { type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
-import { RegistersBand } from "./dashboard-sections/registers-band";
+import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { healthText } from "./health";
 import { t } from "./i18n";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
@@ -423,13 +423,12 @@ describe("DashboardPanel milestone horizon", () => {
   });
 });
 
-describe("RegistersBand link styling", () => {
+describe("RaidRegisterCard link styling", () => {
   it("uses the directory hover affordance, not underline", () => {
     render(
-      <RegistersBand
+      <RaidRegisterCard
         lang="en-US"
         topRaid={[{ id: 1, category: "R", title: "risk", status: "Open", linkedTaskIds: [], raisedDate: "2026-01-01", causedByRaidIds: [] } as never]}
-        overdue={[]} dueSoon={[]}
         onOpenRaid={() => {}}
       />,
     );
@@ -529,7 +528,7 @@ const propsWithEstimates = {
 
 // ─── Trends widget visibility + toggle ───────────────────────────────────────
 
-describe("DashboardPanel Trends widget (showTrends)", () => {
+describe("DashboardPanel Trends widget (Turso-gated)", () => {
   const baseProps = {
     lang: "en-US" as const,
     tasks: [],
@@ -544,88 +543,21 @@ describe("DashboardPanel Trends widget (showTrends)", () => {
     today: "2026-06-02",
   };
 
-  it("renders the Trends widget by default (showTrends undefined)", () => {
+  it("hides the Trends widget when Turso is inactive", () => {
     render(<DashboardPanel {...baseProps} />, { wrapper });
-    expect(screen.getByText("Trends")).toBeInTheDocument();
-  });
-
-  it("renders the Trends widget when showTrends is true", () => {
-    render(<DashboardPanel {...baseProps} showTrends={true} />, { wrapper });
-    expect(screen.getByText("Trends")).toBeInTheDocument();
-  });
-
-  it("hides the Trends widget when showTrends is false", () => {
-    render(<DashboardPanel {...baseProps} showTrends={false} />, { wrapper });
     expect(screen.queryByText("Trends")).toBeNull();
   });
 
-  it("calls onToggleTrends(false) when the remove button is clicked", async () => {
-    const user = userEvent.setup();
-    const onToggleTrends = vi.fn();
-    render(<DashboardPanel {...baseProps} showTrends={true} onToggleTrends={onToggleTrends} />, { wrapper });
-    // Label is pinned to "Trends"; aria-pressed conveys the shown state.
-    const removeBtn = screen.getByRole("button", { name: "Trends" });
-    expect(removeBtn).toHaveAttribute("aria-pressed", "true");
-    await user.click(removeBtn);
-    expect(onToggleTrends).toHaveBeenCalledWith(false);
+  it("renders the Trends widget when tursoActive is true", () => {
+    render(<DashboardPanel {...baseProps} tursoActive />, { wrapper });
+    expect(screen.getByText("Trends")).toBeInTheDocument();
   });
 
-  it("calls onToggleTrends(true) when the add button is clicked", async () => {
-    const user = userEvent.setup();
-    const onToggleTrends = vi.fn();
-    render(<DashboardPanel {...baseProps} showTrends={false} onToggleTrends={onToggleTrends} />, { wrapper });
-    const addBtn = screen.getByRole("button", { name: "Trends" });
-    expect(addBtn).toHaveAttribute("aria-pressed", "false");
-    await user.click(addBtn);
-    expect(onToggleTrends).toHaveBeenCalledWith(true);
-  });
-
-  it("renders the Trends toggle in the ReportCard header toolbar (beside Print), not in the Overall band or trends widget", async () => {
-    const user = userEvent.setup();
-    const onToggleTrends = vi.fn();
-    render(<DashboardPanel {...baseProps} showTrends={true} onToggleTrends={onToggleTrends} />, { wrapper });
-
-    // Toggle reflects the current (shown) state via aria-pressed.
-    const toggle = screen.getByRole("button", { name: "Trends" });
-
-    // It must NOT live in the Overall band (the rounded-lg div containing the
-    // "Overall" status word) — it was relocated to the card header toolbar.
-    const overallWord = screen.getByText("Overall");
-    const topBand = overallWord.closest("div.rounded-lg");
-    expect(topBand).not.toBeNull();
-    expect(topBand!.contains(toggle)).toBe(false);
-
-    // It shares the header toolbar with the Print button.
-    const printBtn = screen.getByRole("button", { name: t("en-US", "printHint") });
-    const toolbar = printBtn.parentElement;
-    expect(toolbar).not.toBeNull();
-    expect(toolbar!.contains(toggle)).toBe(true);
-
-    // The Trends widget heading must not be an ancestor of the toggle. (Query
-    // the heading by role so it doesn't collide with the toggle button, which
-    // now also reads "Trends".)
-    const trendsHeading = screen.getByRole("heading", { name: "Trends" });
-    const trendsWidget = trendsHeading.closest("div.rounded-lg");
-    expect(trendsWidget!.contains(toggle)).toBe(false);
-
-    // Toggling still calls the handler with the negated state.
-    await user.click(toggle);
-    expect(onToggleTrends).toHaveBeenCalledWith(false);
-  });
-
-  it("renders the density toggle in the ReportCard header toolbar beside Print", () => {
-    const onToggleDensity = vi.fn();
-    render(<DashboardPanel {...fullProps} density="comfortable" onToggleDensity={onToggleDensity} />, { wrapper });
-
-    const densityToggle = screen.getByRole("button", { name: "Compact view" });
-    const printBtn = screen.getByRole("button", { name: t("en-US", "printHint") });
-    const toolbar = printBtn.parentElement;
-    expect(toolbar).not.toBeNull();
-    expect(toolbar!.contains(densityToggle)).toBe(true);
-
-    // And NOT inside the Overall band.
-    const topBand = screen.getByText("Overall").closest("div.rounded-lg");
-    expect(topBand!.contains(densityToggle)).toBe(false);
+  it("renders no Trends or density toggle button in the header toolbar", () => {
+    render(<DashboardPanel {...baseProps} tursoActive />, { wrapper });
+    // Trends is Turso-gated with no on-panel toggle; density is set via Settings.
+    expect(screen.queryByRole("button", { name: "Trends" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Compact view" })).toBeNull();
   });
 
   it("places the report-date text on the same row as the Overall label", () => {
@@ -717,28 +649,9 @@ describe("DashboardPanel density (slice #8)", () => {
     expect(container.querySelector(".space-y-2")).not.toBeNull();
   });
 
-  it("renders no density toggle when onToggleDensity is omitted", () => {
-    render(<DashboardPanel {...fullProps} />, { wrapper });
+  it("renders no on-panel density toggle button (density is set via Settings → Appearance)", () => {
+    render(<DashboardPanel {...fullProps} density="comfortable" />, { wrapper });
     expect(screen.queryByRole("button", { name: "Compact view" })).toBeNull();
-  });
-
-  it("toggles comfortable -> compact via the on-panel button (aria-pressed reflects compact)", () => {
-    const onToggleDensity = vi.fn();
-    render(<DashboardPanel {...fullProps} density="comfortable" onToggleDensity={onToggleDensity} />, { wrapper });
-    // Stable label names the toggle target; aria-pressed=false ⇒ compact is off.
-    const btn = screen.getByRole("button", { name: "Compact view" });
-    expect(btn).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(btn);
-    expect(onToggleDensity).toHaveBeenCalledWith("compact");
-  });
-
-  it("toggles compact -> comfortable; aria-pressed is true while compact is active", () => {
-    const onToggleDensity = vi.fn();
-    render(<DashboardPanel {...fullProps} density="compact" onToggleDensity={onToggleDensity} />, { wrapper });
-    const btn = screen.getByRole("button", { name: "Compact view" });
-    expect(btn).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(btn);
-    expect(onToggleDensity).toHaveBeenCalledWith("comfortable");
   });
 });
 
@@ -809,23 +722,32 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
   });
 });
 
-describe("DashboardPanel Tier-2 bento", () => {
-  it("renders Progress, Milestones, and Changes inside one lg:grid-cols-2 bento", () => {
+describe("DashboardPanel masonry cockpit", () => {
+  it("renders the cards inside one lg:columns-2 multicolumn flow", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
     const progress = screen.getByText("Progress");
-    // Walk up to the bento grid container. (jsdom's selector engine rejects the
-    // escaped-colon Tailwind class as a CSS selector, so match via classList.)
-    let bento: HTMLElement | null = progress.parentElement;
-    while (bento && !bento.classList.contains("lg:grid-cols-2")) {
-      bento = bento.parentElement;
+    // Walk up to the masonry container. (jsdom's selector engine rejects the
+    // escaped-colon Tailwind class as a CSS selector, so match via className.)
+    let masonry: HTMLElement | null = progress.parentElement;
+    while (masonry && !masonry.className.includes("lg:columns-2")) {
+      masonry = masonry.parentElement;
     }
-    expect(bento).not.toBeNull();
-    // Milestones + Changes live in the SAME bento grid.
-    expect(bento!.textContent).toContain("Milestones");
-    expect(bento!.textContent).toContain("Changes");
+    expect(masonry).not.toBeNull();
+    expect(masonry!.className).toContain("columns-1");
+    // Progress, Milestones + Changes all live in the SAME masonry flow.
+    expect(masonry!.textContent).toContain("Milestones");
+    expect(masonry!.textContent).toContain("Changes");
   });
 
-  it("renders RegistersBand (Top open RAID) BEFORE the bento grid in DOM order", () => {
+  it("wraps masonry cards in break-inside-avoid containers", () => {
+    const { container } = render(<DashboardPanel {...fullProps} />, { wrapper });
+    const wrappers = Array.from(container.querySelectorAll("div")).filter((el) =>
+      el.className.includes("break-inside-avoid"),
+    );
+    expect(wrappers.length).toBeGreaterThan(0);
+  });
+
+  it("renders the RAID register (Top open RAID) BEFORE the Progress card in DOM order", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
     const registers = screen.getByText("Top open RAID");
     const progress = screen.getByText("Progress");

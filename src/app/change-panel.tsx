@@ -384,7 +384,19 @@ function ChangePanelBody({
         )}
       </div>
 
-      <div ref={containerRef} className="min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2">
+      <div ref={containerRef} className={changes.length === 0 ? undefined : "min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"}>
+        {changes.length === 0 ? (
+          // Empty → clickable dashed box (mirrors the budget "+ add bucket"
+          // empty state): descriptive text + "+ Add change…", the box adds one.
+          <button
+            type="button"
+            onClick={openNew}
+            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <span>{t(lang, "changeEmpty")}</span>
+            <span className="font-medium">+ {t(lang, "changesAdd")}…</span>
+          </button>
+        ) : (
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -443,14 +455,7 @@ function ChangePanelBody({
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {changes.length === 0 && (
-              <tr>
-                <td colSpan={8} className="p-10 text-center text-sm text-muted-foreground">
-                  {t(lang, "changeEmpty")}
-                </td>
-              </tr>
-            )}
-            {changes.length > 0 && visible.length === 0 && (
+            {visible.length === 0 && (
               <tr>
                 <td colSpan={8} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "changeNoMatches")}
@@ -509,6 +514,7 @@ function ChangePanelBody({
             })}
           </tbody>
         </table>
+        )}
       </div>
 
       {draft && (

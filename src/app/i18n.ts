@@ -1710,6 +1710,7 @@ const enUS = {
   milestoneStatusOnTrack: "On track",
   milestonesTitle: "Key dates",
   milestonesEmpty: "No milestones yet.",
+  milestonesNoMatches: "No milestones match the current filters.",
   milestonesColName: "Milestone",
   milestonesColDate: "Date",
   milestonesColStatus: "Status",

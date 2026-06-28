@@ -77,9 +77,9 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   OPPOSITE action (e.g. "Comfortable view" while compact is active) announces "Comfortable view,
   pressed" — implying the WRONG mode is on (WCAG 4.1.2). axe PASSES it (a name exists). Fix: PIN the
   label to what the toggle ENABLES ("Compact view") and let `aria-pressed` track THAT state, so
-  "Compact view, pressed" ⇒ compact is on. Both dashboard toggles (density + Trends, the latter pinned
-  to a stable "Trends" label) now follow this — pin-the-enabled-label + `aria-pressed` is the RULE for
-  any new toggle button.
+  "Compact view, pressed" ⇒ compact is on. (The dashboard's own density + Trends toggles followed this
+  before they were REMOVED — density moved to Settings → Appearance, Trends is now Turso-gated.) The
+  pin-the-enabled-label + `aria-pressed` pattern remains the RULE for any new toggle button.
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
@@ -235,6 +235,42 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 
 ### Dashboard landing cockpit
 
+**Layout = single masonry (CSS multicol, NOT a fixed grid).** `dashboard-panel.tsx` stays a thin
+orchestrator (data derivation + the `computeDashboard` memo) and renders three zones: a full-width
+HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` · `DashboardCoachingCard` · `DashboardHero`) → ONE
+masonry flow → a full-width FOOTER (`NarrativeEditor` · Recent-activity `<details>`).
+★★ The masonry is a CSS multicolumn container — `columns-1 lg:columns-2 xl:columns-3 ${dc.sectionGap}`
+(default `column-fill: balance` equalises column heights) — NOT `grid-cols-*`. Each card is wrapped in
+`<div className="break-inside-avoid ${dc.cardGap}">` so no card splits across a column. This REPLACED the
+old fixed `lg:grid-cols-2` bento, whose `items-start` + wildly uneven card heights trapped large
+wide-screen voids (huge whitespace under the short KPI/Progress cards). ★★ Masonry only kills voids when
+`#cards > #cols` (two cards in two columns is one-per-column = the void stays) — that is WHY the hero was
+re-split: its KPI strip + Top-actions had to join the same flow as the other short/tall cards. Reading
+order is column-major (top→bottom per column); cards are ordered priority-first. New density key
+`dc.cardGap` (`mb-4` comfortable / `mb-2` compact) is the inter-card vertical margin (multicol ignores
+`gap`/`space-y` between items). The Trends widget (`props.tursoActive`-gated `VarianceSummary`) is a masonry
+card placed directly after Progress and is itself a click-through button → navigates to the Trends view
+(`onNavigate("trends")`); the footer holds only the status-summary + recent-activity
+`<details>`. The presentational slices:
+- `dashboard-sections/dashboard-hero.tsx` (`DashboardHero`) — now ONLY the compact Overall RAG band +
+  Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
+  `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
+  `onOpenAction`/`onNavigate` were REMOVED (they moved with the KPI/Top-actions cards).
+- `dashboard-sections/dashboard-kpi-strip.tsx` (`DashboardKpiStrip`) — the 3 "at a glance" KPI tiles
+  (complete % · overdue · open RAID, each with a `TrendArrow`); a standalone masonry card. Uses a
+  `dc.cardPad` card wrapper (NOT `<Section boxed>`, which hardcodes `p-4` and ignores compact density).
+- `dashboard-sections/dashboard-top-actions.tsx` (`DashboardTopActions`) — the ranked Top-actions queue;
+  returns `null` when `!topActions?.length`, and the PANEL also gates its `break-inside-avoid` wrapper on
+  `topActions?.length` so an empty queue leaves no dead `dc.cardGap` margin in the flow.
+- `dashboard-sections/registers-band.tsx` — split into `RaidRegisterCard` (gated on `showRaid`) +
+  `UpcomingCard`, two standalone masonry cards; the old combined `RegistersBand` wrapper was RETIRED.
+- `dashboard-sections/dashboard-narrative.tsx` — `NarrativeSummary` (headline, read-only saved text,
+  renders null when empty) + `NarrativeEditor` (footer folded `<details>`, owns the draft + autogrow + the
+  render-time reconcile; the textarea carries an `aria-label`, NOT just a placeholder — axe).
+★ ALL tier/card spacing uses `dc.*` density classes (`dc.outer`/`sectionGap`/`cardGap`/`cardPad`/`kpiGap`),
+never literal `gap-*`/`space-y-*`/`p-*`/`mb-*`. `DashboardPanelProps` is unchanged by the reorg (the ~30
+test/caller sites were untouched).
+
 The Dashboard (`dashboard-panel.tsx`, owns `computeDashboard`) opens with a greeting + "since you last
 looked" delta strip, then the ranked top-actions queue (promoted ABOVE the health band), with the four
 RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosure. Dashboard IS in axe
@@ -346,13 +382,13 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   spacing on a cockpit slice MUST use a `dc.*` class (`outer`/`kpiGap`/`cardPad`/`sectionGap`),
   NOT a literal `gap-*`/`space-y-*`/`p-*` — a literal ignores compact mode (bit the two section
   grids: they stayed `gap-4` while everything else compressed).
-  `DashboardPanel` takes `density?` (default `"comfortable"`) + `onToggleDensity?`. ★★ TWO controls, ONE
-  setting (`settings.dashboardDensity?`, per-device, persisted via `setSettings`→`writeSettings` SPREAD —
-  no allowlist edit, mirrors `tasksViewMode`): on-panel toggle button + a `SegmentedControl<DashboardDensity>`
-  in `AppearanceSection` (Settings→General). `onToggleDensity` is `isPopout ? undefined` (popouts honour the
-  `density` prop but render no toggle). ★ Settings→General AND Dashboard are BOTH axe-scanned —
-  SegmentedControl's `ariaLabel` + the on-panel button's text name keep the gate green. ★ Compact-test
-  asserts `.space-y-2` PRESENCE only (container-only; a global-absence check is brittle). i18n EN+DE.
+  `DashboardPanel` takes `density?` (default `"comfortable"`). ★★ ONE control now (the on-panel toggle was
+  REMOVED): the SOLE density control is a `SegmentedControl<DashboardDensity>` in `AppearanceSection`
+  (Settings→General), writing `settings.dashboardDensity?` (per-device, persisted via
+  `setSettings`→`writeSettings` SPREAD — no allowlist edit, mirrors `tasksViewMode`). The panel just reads
+  the `density` prop. ★ Settings→General is axe-scanned — SegmentedControl's `ariaLabel` keeps the gate
+  green. ★ Compact-test asserts `.space-y-2` PRESENCE only (container-only; a global-absence check is
+  brittle). i18n EN+DE.
 - **Click-through:** `Tile` (`report-table.tsx`) gained an optional `onActivate`/`activateLabel` clickable
   variant (renders a real `<button>` — axe-safe name via `activateLabel`); pure i18n-free `activityViewOf`
   (`dashboard-activity-nav.ts`) maps an activity `kind`→`AppView`; KPI/progress/burn tiles + the completion
@@ -464,7 +500,10 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (Dashboard/Milestones/SteeringCommittee/ResourceDirectory) stay imported directly. Routes the axe-scanned
   views, so changes there re-scan them.
 - **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
-  lazy). Pure `portfolio-rollup.ts` (`aggregatePortfolio`/`deriveMilestoneHealthBucket`) + hook
+  lazy). Uses the STANDARD resizable content-pane shell (`VIEW_PANE_RESIZABLE_CLASS` +
+  `useResizable("lop-app:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
+  `print-root print-landscape`) — the empty/loading/error states stay full-fill (`VIEW_PANE_FILL_CLASS`).
+  Pure `portfolio-rollup.ts` (`aggregatePortfolio`/`deriveMilestoneHealthBucket`) + hook
   `use-portfolio-health.ts`: for each portfolio project it does `new TursoBackend(cfg, projectId).load()` then
   runs the pure `computeDashboard` → per-project RAG/completion/openRAID/milestone rows + aggregate KPIs.
   ★★ Loads SEQUENTIALLY — `TursoBackend.load()` embeds `CREATE TABLE IF NOT EXISTS` DDL OUTSIDE the write
@@ -478,12 +517,21 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   14-field shape + `?? []` array defaults); callers do their OWN gating (feature-off / no-plan budgets)
   BEFORE building — pass `[]` for a gated-off entity.
 - **UI shell:**
-  • Default landing view is `dashboard` (set in `workspace-tab-context.tsx`).
+  • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
+  also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
+  fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
+  • Nav: `actions` (Next actions) + `trends` are SUB-MENU children of `dashboard` in the Overview group
+  (`nav-config.ts`); `trends` is in `TURSO_ONLY_VIEWS` so the Trends sub-entry only shows on a Turso backend.
+  ★ TURSO_ONLY child views are pruned in TWO places: `filterNavGroups` (sidebar) AND `subTabsFor(view,
+  features, onTurso)` (classic sub-tab row, pass `trends.active`) — gate BOTH for a new turso-only child,
+  or it leaks into the classic sub-tab row on file backends.
   • Steering committee panel uses the STANDARD resizable content-pane shell
   (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("lop-app:steering-size")` + `ResetSizeButton`, header OUTSIDE
   the bordered scroller).
-  • Dashboard density/Trends toggles render in the `ReportCard` `toolbarExtra` slot (left of Print); the
-  report date sits on the "Overall" line.
+  • Dashboard has NO on-panel density or Trends toggle (both removed + unwired). Density is set ONLY via
+  Settings → Appearance (`settings.dashboardDensity`); the dashboard Trends card is Turso-gated
+  (`props.tursoActive`), not toggled. The `ReportCard` `toolbarExtra` slot is unused on the dashboard now;
+  the report date sits on the "Overall" line.
   • `settings.showDisplayTzSwitcher?` (per-device, default **false**) gates the top-bar `displayTzSwitcherEl`
   — both header mounts share the ONE gated element.
   • Task-editor actions render ONLY in the editor surface (TaskEditView footer / TaskFormModal), NEVER the
@@ -624,6 +672,31 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   shimmer (no announcement, but no worse than blank). `workspace-panels.tsx` wires the prop-less decorative
   variant as the `loading` fallback on all 20 lazy `dynamic()` view panels (so all are full-pane — don't wire
   it into a non-full-pane lazy mount). New i18n key `loading` (EN/DE).
+- **Add-first-item empty state (clickable dashed box):** when an entity panel has ZERO items (truly empty,
+  NOT filtered-empty), render a full-width clickable dashed `<button>` that adds the first item — NOT the
+  `EmptyState` primitive. Style (shared by budget · gantt · milestones · changes · stakeholders · raid · open-points):
+  `flex w-full flex-col items-center gap-2 rounded-(lg|md) border border-dashed border-line p-(6|10)
+  text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue
+  dark:hover:text-AIPM-light-grey ${INTERACTIVE}` with two spans: the descriptive empty text + a
+  `font-medium` "+ <Add X>…" line; `onClick` = the panel's create handler (`openNew`/`addBucket`/`onAddTask`/
+  `setTaskModalOpen(true)`). ★★ NO SOLID OUTER BOX: the box sits UNWRAPPED (gantt look) — the panel's
+  bordered scroller (`INNER_TABLE_CLASS` / `rounded-(md|xl) border border-line`) is made CONDITIONAL
+  (`className={count===0 ? undefined : SCROLLER}`) so it borders only the DATA view; the empty box is the
+  scroller div's sole child at natural height. Gantt's DATA view IS bordered — only its empty state is
+  unwrapped; mirror that. ★ RAID's box is category-filter-aware (`openNew(effectiveCategory)`) + carries the
+  `raidAddItem` aria-label so it's the add affordance the inline-add tests click.
+  ★ For TABLE panels (changes/stakeholders/raid/open-points) the box REPLACES the `<table>` (`{count===0 ? box : <table>}`),
+  and the in-table FILTERED no-matches row stays (headers give context); the truly-empty `<td>` row is
+  removed. ★ FILTERED-empty + popout (no create handler) fall back to the plain text box (gantt) or the
+  no-matches row (tables) — never a dead add affordance. ★ Test gotcha: the box's "+ Add X…" text collides
+  with the header add-button on a `getByRole("button",{name:/add x/i})` query — render WITH one item when
+  asserting the header button. ★ Documents uses the clickable box too — it opens the add-document panel
+  (`setAddOpen(true)`; manual-link entry needs no SharePoint). ★ Activity is fully FLAT: the data-view
+  scroller has NO border (border dropped per request) and the empty/no-match states are natural-height dashed
+  boxes (`flex-1` dropped) — read-only, no add affordance. ★ Steering
+  committee is a FORM (no empty state) — its content scroller is flattened (border removed) always. This
+  SUPERSEDES the older "use EmptyState, not a dashed-div" rule for the add-first-item case (EmptyState still
+  stands for read-only "no data" messages).
 - **Bulk edit (entity panels):** generic multi-row bulk edit shared across
   RAID/Milestones/Changes/Stakeholders. Pure `row-selection.ts` (set ops) +
   `use-row-selection.ts` (Set<number> selection, filter-aware select-all);

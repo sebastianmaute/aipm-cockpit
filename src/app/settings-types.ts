@@ -447,8 +447,6 @@ export type Settings = {
   /** User-created project templates (built-ins live in code). Cross-project, in the settings blob. */
   templates?: ProjectTemplate[];
   export?: ExportConfig;
-  /** Per-widget dashboard visibility overrides. All default to shown. */
-  dashboard?: { showTrends?: boolean };
   /** How comm-template sends are dispatched. Readers fall back to "mailto" when unset. */
   commTemplateSendMode?: CommTemplateSendMode;
 };
@@ -478,5 +476,4 @@ export const defaultSettings: Settings = {
   versionHistoryRetention: 50,
   templates: [],
   export: defaultExportConfig,
-  dashboard: { showTrends: true },
 };

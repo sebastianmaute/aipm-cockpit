@@ -56,7 +56,11 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     labelKey: "navGroupOverview",
-    items: [{ view: "dashboard" }, { view: "actions" }, { view: "trends" }, { view: "open-points" }, { view: "chat" }],
+    items: [
+      { view: "dashboard", children: [{ view: "actions" }, { view: "trends" }] },
+      { view: "open-points" },
+      { view: "chat" },
+    ],
   },
   {
     labelKey: "navGroupPlan",
@@ -140,7 +144,7 @@ export function allNavViews(): AppView[] {
 /** Views that are only reachable on a Turso backend. They are pruned from the
  *  nav when `storageKind !== "turso"` so they never render a dead tab on the
  *  file backend. "history" is gated this way (version history lives in Turso). */
-const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health"];
+const TURSO_ONLY_VIEWS: readonly AppView[] = ["history", "portfolio-health", "trends"];
 
 /** NAV_GROUPS pruned to enabled views: disabled items and children removed,
  *  and any group left with no items dropped. Core views always survive.
@@ -169,10 +173,13 @@ export function filterNavGroups(
 /** The sub-tab children of the nav section that contains `view` (matched as the
  *  section's own view OR one of its children). Empty when the section has no
  *  children. Drives the classic layout's secondary sub-tab row.
- *  When `features` is supplied, children are filtered to enabled views only. */
+ *  When `features` is supplied, children are filtered to enabled views only.
+ *  `onTurso` (default true) gates TURSO_ONLY_VIEWS so e.g. the `trends` sub-entry
+ *  is pruned on a file backend — mirroring `filterNavGroups` for the sidebar. */
 export function subTabsFor(
   view: AppView,
   features?: readonly FeatureModuleId[],
+  onTurso: boolean = true,
 ): readonly { view: AppView }[] {
   for (const group of NAV_GROUPS) {
     for (const item of group.items) {
@@ -180,7 +187,11 @@ export function subTabsFor(
         item.view === view || (item.children ?? []).some((c) => c.view === view);
       if (contains) {
         const children = item.children ?? [];
-        return features ? children.filter((c) => isViewEnabled(c.view, features)) : children;
+        return children.filter(
+          (c) =>
+            (!features || isViewEnabled(c.view, features)) &&
+            (onTurso || !TURSO_ONLY_VIEWS.includes(c.view)),
+        );
       }
     }
   }

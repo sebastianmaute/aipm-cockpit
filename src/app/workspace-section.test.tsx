@@ -211,8 +211,10 @@ describe("WorkspaceSection", () => {
     // Classic mode: non-popout, fullBleed=false (defaults) → primary tablist renders
     render(<WorkspaceSection {...makeProps()} />, { wrapper: Wrapper });
 
-    // No sub-tab row while Chat is the active tab
-    expect(screen.queryByRole("tablist", { name: /sub-tabs/i })).toBeNull();
+    // The default view (Dashboard) shows ITS OWN sub-tabs (Next actions / Trends),
+    // so a sub-tab row may exist — but Resources' sub-tabs (Directory / Manage
+    // roles) must not appear until Resources is the active parent.
+    expect(screen.queryByRole("tab", { name: /directory/i })).toBeNull();
 
     // Click the primary Resources tab to activate it
     fireEvent.click(screen.getByRole("tab", { name: /resources/i }));

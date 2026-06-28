@@ -57,6 +57,11 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
               const active = activeView === item.view;
               const label = t(lang, navLabelKey(item.view));
               const showChildren = !collapsed && !!item.children?.length && isParentActive(item, activeView);
+              // Parent badge bubbles up hidden children's counts so a nested
+              // urgency signal (e.g. Next actions under Dashboard) stays visible
+              // when the sub-menu is collapsed; when expanded it shows on the child.
+              const childBadgeTotal = (item.children ?? []).reduce((n, c) => n + (badges?.[c.view] ?? 0), 0);
+              const rootBadge = (badges?.[item.view] ?? 0) + (showChildren ? 0 : childBadgeTotal);
               return (
                 <li key={item.view}>
                   <button
@@ -70,9 +75,9 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
                   >
                     <NavIcon view={item.view} />
                     {!collapsed && <span>{label}</span>}
-                    {!collapsed && !!badges?.[item.view] && (
+                    {!collapsed && rootBadge > 0 && (
                       <span aria-hidden className="ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white">
-                        {badges[item.view]}
+                        {rootBadge}
                       </span>
                     )}
                   </button>
@@ -86,10 +91,16 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
                               type="button"
                               onClick={() => onNavigate(child.view)}
                               aria-current={childActive ? "page" : undefined}
+                              data-tour-id={NAV_TOUR_ID[child.view]}
                               className={navItemClass(childActive, "child", false)}
                             >
                               <NavIcon view={child.view} />
                               <span>{t(lang, navLabelKey(child.view))}</span>
+                              {!!badges?.[child.view] && (
+                                <span aria-hidden className="ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white">
+                                  {badges[child.view]}
+                                </span>
+                              )}
                             </button>
                           </li>
                         );

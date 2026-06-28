@@ -233,15 +233,15 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       </div>
 
       {entries.length === 0 ? (
-        <div className="flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
           {t(lang, "activityEmpty")}
         </div>
       ) : visible.length === 0 ? (
-        <div className="flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
           {t(lang, "activityNoMatches")}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
+        <div className="min-h-0 flex-1 overflow-auto pr-2">
           <table className="w-full text-left text-sm">
             <thead className={TABLE_HEAD_CLASS}>
               <tr>

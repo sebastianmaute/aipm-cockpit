@@ -169,7 +169,7 @@ export function SteeringCommitteePanel({
         </div>
       </div>
 
-      <div className="min-h-[240px] flex-1 overflow-auto rounded-xl border border-line">
+      <div className="min-h-[240px] flex-1 overflow-auto">
         <div className="flex flex-col gap-6 p-3">
         {/* Name */}
         <section>

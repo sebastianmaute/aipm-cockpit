@@ -28,6 +28,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
@@ -442,20 +443,23 @@ export function GanttPanel({
     return (
       <div ref={ganttRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
         {toolbar}
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
-          <span>
-            {filtersActive ? t(lang, "ganttNoMatches") : t(lang, "ganttEmpty")}
-          </span>
-          {!filtersActive && onAddTask && (
-            <button
-              type="button"
-              onClick={onAddTask}
-              className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue dark:border-AIPM-blue dark:bg-AIPM-blue"
-            >
-              {t(lang, "addTaskButton")}
-            </button>
-          )}
-        </div>
+        {!filtersActive && onAddTask ? (
+          // Empty (no tasks) → the whole box is the add affordance, mirroring
+          // the budget panel's clickable "+ add bucket" empty state. The
+          // descriptive text stays; no separate Add-task button.
+          <button
+            type="button"
+            onClick={onAddTask}
+            className={`flex w-full flex-col items-center gap-2 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <span>{t(lang, "ganttEmpty")}</span>
+            <span className="font-medium">+ {t(lang, "addTaskButton")}…</span>
+          </button>
+        ) : (
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
+            <span>{filtersActive ? t(lang, "ganttNoMatches") : t(lang, "ganttEmpty")}</span>
+          </div>
+        )}
       </div>
     );
   }

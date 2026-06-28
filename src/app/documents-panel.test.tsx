@@ -136,7 +136,9 @@ describe("DocumentsPanel", () => {
   it("shows the Add-document button and adds a manual link without SharePoint", () => {
     renderWithTasks([seededTask([])]);
     // Add is now always available (no SharePoint required).
-    const addBtn = screen.getByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) });
+    // Two affordances now carry the label (toolbar button + the empty-state
+    // clickable box); the toolbar is first in DOM order.
+    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
     fireEvent.click(addBtn);
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "task:7" } });
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualName")), { target: { value: "Plan" } });
