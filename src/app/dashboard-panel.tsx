@@ -1,20 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { KpiGradientBar, ReportCard, Section, Tile } from "./report-table";
+import { ReportCard, Section, Tile } from "./report-table";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { RegistersBand } from "./dashboard-sections/registers-band";
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import { type Lang, t, localeFor, type TranslationKey } from "./i18n";
-import { healthColorName, healthText, type Health } from "./health";
+import { healthText, type Health } from "./health";
 import { ratioHealth } from "./budget-health";
 import { changeImpactRag } from "./change-log";
 import type { Absence, BudgetBucket, ChangeItem, ChangeStatus, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import { formatCurrency } from "./resource-cost";
 import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
-import { ActionRow } from "./action-row";
 import type { SuggestedAction } from "./next-actions/types";
 import { useResizable } from "./use-resizable";
 import { VarianceSummary } from "./variance-summary";
@@ -22,19 +21,19 @@ import type { VarianceRow, SnapshotRecord } from "./snapshot";
 import { useLandingDelta } from "./use-landing-delta";
 import { buildGreeting, type RagScope } from "./dashboard-delta";
 import { DashboardDeltaStrip } from "./dashboard-delta-strip";
-import { TrendArrow } from "./trend-arrow";
 import { computeCompletionTrend } from "./completion-trend";
 import { Sparkline } from "./sparkline";
 import { bucketMilestonesByHorizon } from "./milestones";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { computeCoaching, type SettingsSectionId } from "./dashboard-coaching";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { EmptyState } from "./empty-state";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { navLabelKey, type AppView } from "./nav-config";
 import { activityViewOf } from "./dashboard-activity-nav";
 import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
+import { DashboardHero } from "./dashboard-sections/dashboard-hero";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -83,37 +82,6 @@ const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
   Implemented: "changeStatusImplemented",
   Deferred: "changeStatusDeferred",
 };
-
-function OverrideSelect({
-  lang, label, value, computed, effective, onChange,
-}: {
-  lang: Lang;
-  label: string;
-  value: "R" | "A" | "G" | undefined;
-  computed: Health | null;
-  effective: Health | null;
-  onChange: (v: "R" | "A" | "G" | undefined) => void;
-}) {
-  return (
-    <label className="inline-flex items-center gap-1.5 text-sm">
-      <RagBadge value={effective} lang={lang} title={`${label}: ${effective ? healthColorName(effective, lang) : "—"}`} />
-      <span className="font-medium">{label}</span>
-      <select
-        className={`rounded border border-line bg-surface px-1.5 py-0.5 text-sm print:hidden ${TRANSITION} ${FOCUS_RING}`}
-        value={value ?? ""}
-        onChange={(e) => onChange((e.target.value || undefined) as "R" | "A" | "G" | undefined)}
-      >
-        <option value="">{computed ? t(lang, "dashboardComputedHint", healthColorName(computed, lang)) : t(lang, "dashboardScopeUnset")}</option>
-        <option value="R">{healthColorName("R", lang)}</option>
-        <option value="A">{healthColorName("A", lang)}</option>
-        <option value="G">{healthColorName("G", lang)}</option>
-      </select>
-      <span className="hidden text-muted-foreground print:inline">
-        {effective ? healthColorName(effective, lang) : "—"}
-      </span>
-    </label>
-  );
-}
 
 export function DashboardPanel(props: DashboardPanelProps) {
   const { lang, today, onOpenRaid, onOpenTask, topActions, onOpenAction } = props;
@@ -304,31 +272,21 @@ export function DashboardPanel(props: DashboardPanelProps) {
         {/* First-open coaching — self-hides once the project has any task */}
         <DashboardCoachingCard lang={lang} ctas={coachingCtas} onNavigate={props.onNavigate ?? (() => {})} />
 
-        {/* At-a-glance KPI strip with trend arrows vs the last visit */}
-        <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
-          <Tile
-            label={t(lang, "dashboardKpiComplete")}
-            value={`${model.progress.percent}%`}
-            bar={<KpiGradientBar percent={model.progress.percent} label={t(lang, "dashboardKpiComplete")} />}
-            trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
-            onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-            activateLabel={`${t(lang, "dashboardKpiComplete")} – ${t(lang, "dashboardOpenTasksView")}`}
-          />
-          <Tile
-            label={t(lang, "dashboardKpiOverdue")}
-            value={String(model.overdue.length)}
-            trend={<TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
-            onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}
-            activateLabel={`${t(lang, "dashboardKpiOverdue")} – ${t(lang, "dashboardOpenTasksView")}`}
-          />
-          <Tile
-            label={t(lang, "dashboardKpiOpenRaid")}
-            value={String(model.openRaidCount)}
-            trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
-            onActivate={props.onNavigate ? () => props.onNavigate!("raid") : undefined}
-            activateLabel={`${t(lang, "dashboardKpiOpenRaid")} – ${t(lang, "dashboardOpenRaidView")}`}
-          />
-        </div>
+        {/* Tier 1 — hero: Overall band + KPI strip + Top actions */}
+        <DashboardHero
+          lang={lang}
+          today={today}
+          model={model}
+          trends={trends}
+          status={status}
+          setStatus={setStatus}
+          topActions={topActions}
+          onOpenAction={onOpenAction}
+          onNavigate={props.onNavigate}
+          showBudget={showBudget}
+          showChanges={showChanges}
+          dc={dc}
+        />
 
         {/* Completion-trend sparkline — self-hides without >= 2 points */}
         {completionSeries.length >= 2 && (() => {
@@ -368,80 +326,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
             <div className={`rounded border border-line bg-surface shadow-[var(--shadow-card)] ${dc.cardPad}`}>{sparkBody}</div>
           );
         })()}
-
-        {/* Top actions — promoted to the top so the PM sees what needs them first */}
-        {topActions && topActions.length > 0 && (
-          <section>
-            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-              {t(lang, "dashboardTopActions")}
-            </h3>
-            <div className="flex flex-col gap-2">
-              {topActions.map((a) => (
-                <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Overall band */}
-        <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
-          <div className="flex items-center gap-2 text-2xl font-bold">
-            <RagBadge value={model.overall.effective} lang={lang} />
-            {t(lang, "dashboardOverall")}:{" "}
-            <span className={model.overall.effective ? healthText[model.overall.effective] : ""}>
-              {healthColorName(model.overall.effective, lang)}
-            </span>
-          </div>
-          <span className="ml-auto text-sm text-muted-foreground">
-            {t(lang, "dashboardReportDate", today)}
-          </span>
-          <details className="basis-full print:hidden">
-            <summary className={`cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground ${TRANSITION} ${FOCUS_RING}`}>
-              {t(lang, "dashboardAdjustHealth")}
-            </summary>
-            <div className="mt-2 flex flex-wrap items-center gap-4">
-              <OverrideSelect
-                lang={lang}
-                label={t(lang, "dashboardOverall")}
-                value={status.ragOverride}
-                computed={model.overall.computed}
-                effective={model.overall.effective}
-                onChange={(v) => setStatus((s) => ({ ...s, ragOverride: v }))}
-              />
-              <OverrideSelect
-                lang={lang}
-                label={t(lang, "dashboardSubSchedule")}
-                value={status.scheduleOverride}
-                computed={model.schedule.computed}
-                effective={model.schedule.effective}
-                onChange={(v) => setStatus((s) => ({ ...s, scheduleOverride: v }))}
-              />
-              {showBudget && (
-                <OverrideSelect
-                  lang={lang}
-                  label={t(lang, "dashboardSubBudget")}
-                  value={status.budgetOverride}
-                  computed={model.budget.computed}
-                  effective={model.budget.effective}
-                  onChange={(v) => setStatus((s) => ({ ...s, budgetOverride: v }))}
-                />
-              )}
-              {showChanges && (
-                <OverrideSelect
-                  lang={lang}
-                  label={t(lang, "dashboardSubScope")}
-                  value={status.scopeOverride}
-                  computed={null}
-                  effective={model.scope.effective}
-                  onChange={(v) => setStatus((s) => ({ ...s, scopeOverride: v }))}
-                />
-              )}
-            </div>
-          </details>
-          <p className="basis-full text-xs text-muted-foreground">
-            {t(lang, "dashboardRagThresholds")}
-          </p>
-        </div>
 
         {/* Narrative editor (folded) */}
         <NarrativeEditor lang={lang} status={status} setStatus={setStatus} />
