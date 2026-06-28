@@ -139,6 +139,7 @@ const enUS = {
   versionHighlightPortfolioHealth: "A Turso-only Portfolio health view rolls up RAG status, completion and open RAID across all your projects",
   versionHighlightTimelogWorkflow: "Timelog now loads in two steps - load the people directory, narrow and tick who you need, then fetch only their bookings - with full paging, a Cancel button, automatic rate-limit retry, and a \"Load my projects\" option (by project manager, including closed projects, or filtered by customer)",
   versionHighlightAiMasterSwitch: "All AI features are now off by default behind an \"Enable AI assistant\" master switch, and the first time you enable any integration (AI, Jira, Microsoft 365, Turso or Timelog) a one-time security and responsibility note is shown",
+  versionHighlightMasonry: "The dashboard is now a single masonry of cards that packs tightly on wide screens instead of leaving large empty gaps; Next actions and Trends moved under Dashboard as sub-menu entries (Trends shows only on a Turso backend), the app opens on the Dashboard by default, and empty registers show a click-to-add box",
 
   tasks: "Tasks",
   tasksCount: "({0})",

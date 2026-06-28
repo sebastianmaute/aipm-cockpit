@@ -142,6 +142,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightPortfolioHealth: "Eine reine Turso-Ansicht \"Portfolio-Status\" bündelt RAG-Status, Fortschritt und offene RAID-Einträge über alle Projekte.",
   versionHighlightTimelogWorkflow: "Timelog lädt jetzt in zwei Schritten - zuerst das Personenverzeichnis laden, eingrenzen und die gewünschten Personen auswählen, dann nur deren Buchungen abrufen - mit vollständiger Seitennavigation, einer Abbrechen-Schaltfläche, automatischem Wiederholversuch bei Ratenbegrenzung und einer Option \"Meine Projekte laden\" (nach Projektmanager, inklusive abgeschlossener Projekte oder nach Kunde gefiltert).",
   versionHighlightAiMasterSwitch: "Alle KI-Funktionen sind jetzt standardmäßig über einen Hauptschalter \"KI-Assistent aktivieren\" ausgeschaltet, und beim ersten Aktivieren einer Integration (KI, Jira, Microsoft 365, Turso oder Timelog) wird ein einmaliger Sicherheits- und Verantwortungshinweis angezeigt.",
+  versionHighlightMasonry: "Das Dashboard ist jetzt ein einzelnes Karten-Masonry, das auf breiten Bildschirmen dicht packt statt großer Lücken; Nächste Aktionen und Trends liegen als Untermenü unter Dashboard (Trends nur bei Turso-Backend), die App startet standardmäßig im Dashboard, und leere Register zeigen eine Klick-zum-Hinzufügen-Box.",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

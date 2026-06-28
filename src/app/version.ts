@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.144.0";
-export const APP_BUILD_DATE = "2026-06-28"; // 0.144.0: Timelog workflow overhaul + AI master switch + integration disclaimer (Egan)
+export const APP_VERSION = "0.145.0";
+export const APP_BUILD_DATE = "2026-06-28"; // 0.145.0: dashboard masonry cockpit + nav nesting + add-first-item empty boxes (Sterling)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.144.x line is "Egan" (Greg Egan). */
-export const APP_MILESTONE = "Egan";
+ *  0.145.x line is "Sterling" (Bruce Sterling). */
+export const APP_MILESTONE = "Sterling";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -152,4 +152,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPortfolioHealth",
   "versionHighlightTimelogWorkflow",
   "versionHighlightAiMasterSwitch",
+  "versionHighlightMasonry",
 ] as const;
