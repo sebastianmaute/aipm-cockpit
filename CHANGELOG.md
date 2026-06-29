@@ -8,6 +8,12 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.149.0] - 2026-06-29 "Leiber"
+
+### Changed
+- **Floating Help is now tabbed**: the pop-out Help panel gained tabs in its header — **Help**, **Guided tours**, **How it connects**, and **Information flows** — beside the search box; clicking a tab swaps the panel body. The introductory slogan line was removed, and the search box now appears only on the Help tab.
+- **Guided tours, relations map & information flows in the floating panel**: the same guided-tour catalog, concept relations map, and grouped information-flows diagram from the in-pane Help view are now reachable from the floating panel too. The relations map and the diagram fill the full panel body instead of a cramped strip.
+
 ## [0.148.0] - 2026-06-29 "Kuang"
 
 ### Added

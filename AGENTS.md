@@ -556,7 +556,17 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   exclusive horizontal TABLIST accordion (`help-collapsible-region.tsx`: `role=tablist/tab/tabpanel`, bodies stay
   MOUNTED + `hidden`-toggled so each `aria-controls` target is in the DOM, arrow-key roving, `activeKey` drift
   guard) holding three panels — Guided tours · How it all connects · Information flows (default Tours; tours panel
-  gated on `onStartTour`) — REPLACING the old two `<details>`. Floating panel is content-pane-only (no accordion),
+  gated on `onStartTour`) — REPLACING the old two `<details>`. ★★ FLOATING panel (`help-menu.tsx`) is its OWN TABBED
+  surface (NOT the accordion, NOT content-pane-only any more): a `role=tablist` in the header beside the search box with
+  tabs **Help · Guided tours · How it connects · Information flows** (arrow-key roving, `FOCUS_RING`); clicking a tab
+  swaps the body and ONLY the active tab's body mounts (single shared `role=tabpanel` `#help-fp-panel`). Search renders
+  on the Help tab ONLY; the old `helpIntro` slogan + the footer "Take a tour" button are GONE (footer = license link
+  only). Tours tab gated on `onStartTour` (modern-only) → 3 tabs in classic/popout/tests. The catalog props
+  (`catalogTours`/`completedTours`/`onStartTour`) thread `task-manager → ActionMenus → HelpMenu`, REPLACING the dead
+  `onTakeTour` on that path (the in-pane HelpView's own `onTakeTour` via `workspace-section` is untouched). Connects-tab
+  concept click → `selectConcept` switches to Help + bumps a nonce; a nonce-keyed effect `scrollIntoView`s (no
+  `set-state-in-effect` — `pendingScroll` is never cleared). `InformationFlowsSection` gained an optional `maxWidth`
+  (default 480 keeps Settings + the in-pane accordion byte-identical; the floating flows tab passes 640).
   now `820×640` with `useResizable` key `lop-app:help-size-v3` (bumped — stale inline size would clip). jsdom
   lacks `IntersectionObserver`/`scrollIntoView` → global no-op stubs in `vitest.setup.ts`. ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
   — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
