@@ -170,6 +170,8 @@ export function Step0ImportPanel({
         const data = await readFileData(file, kind);
         blocks.push(buildAttachmentBlock(kind, file.type || mimeForKind(kind), data));
       }
+      // A genuine read error abandons the batch: any `dropped` entries collected
+      // before the throw are not surfaced (the source error is shown instead).
     } catch {
       setImportError(t(lang, "wizardImportErrorSource"));
       setReading(false);
@@ -438,6 +440,7 @@ export function Step0ImportPanel({
             <span className="text-sm font-medium">
               {t(lang, reading ? "wizardImportReadingFiles" : "wizardImportAnalyzing")}
             </span>
+            {/* Cancel aborts the AI call; during the (fast, local) read phase abortRef is null so this is a no-op. */}
             <button
               type="button"
               onClick={() => abortRef.current?.abort()}
