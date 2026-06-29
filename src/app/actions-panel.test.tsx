@@ -10,7 +10,7 @@ const mk = (id: string, tier: SuggestedAction["tier"]): SuggestedAction => ({
   title: { key: "actionRaidTitle", params: [1, id] },
   why: { key: "actionRaidWhySeverity", params: ["High"] },
   score: tier === "now" ? 60 : tier === "soon" ? 30 : 10, tier,
-  cta: { kind: "open", view: "raid", id: 1 },
+  cta: { kind: "open", view: "raid", id },
 });
 
 describe("ActionsPanel", () => {
@@ -27,13 +27,44 @@ describe("ActionsPanel", () => {
     expect(getByText(/all caught up/i)).toBeTruthy();
   });
 
+  it("collapses multiple signals on one entity into a single row", () => {
+    const base = {
+      source: "raid", moduleId: "raid", score: 70, tier: "now",
+      cta: { kind: "open", view: "raid", id: 1 },
+    };
+    const actions = [
+      { ...base, id: "r1", title: { key: "actionRaidTitle", params: [1, "r1"] }, why: { key: "actionRaidWhySeverity", params: ["High"] } },
+      { ...base, id: "r2", score: 40, title: { key: "actionRaidTitle", params: [1, "r2"] }, why: { key: "actionRaidWhyNoOwner" } },
+    ] as never;
+    render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
+    expect(screen.getAllByText("Open")).toHaveLength(1); // one row
+    expect(screen.getByText("+1 more reasons")).toBeTruthy();
+  });
+
+  it("caps the now tier and reveals the rest via show-more", async () => {
+    const user = userEvent.setup();
+    const actions = Array.from({ length: 7 }, (_, i) => ({
+      id: `n${i}`, source: "raid", moduleId: "raid",
+      title: { key: "actionRaidTitle", params: [1, `n${i}`] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score: 70 - i, tier: "now",
+      cta: { kind: "open", view: "raid", id: i }, // distinct entities → no collapse
+    })) as never;
+    render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
+    expect(screen.getAllByText("Open")).toHaveLength(5); // capped
+    const more = screen.getByRole("button", { name: /show 2 more/i });
+    await user.click(more);
+    expect(screen.getAllByText("Open")).toHaveLength(7);
+    expect(screen.getByRole("button", { name: /show less/i })).toBeTruthy();
+  });
+
   it("sorts soon-tier rows by score descending", () => {
     const soon = (id: string, score: number): SuggestedAction => ({
       id, source: "raid", moduleId: "raid",
       title: { key: "actionRaidTitle", params: [1, id] },
       why: { key: "actionRaidWhySeverity", params: ["High"] },
       score, tier: "soon",
-      cta: { kind: "open", view: "raid", id: 1 },
+      cta: { kind: "open", view: "raid", id },
     });
     // Supplied in non-descending score order.
     const actions = [soon("low", 10), soon("mid", 30), soon("high", 50)];
