@@ -933,6 +933,7 @@ function TaskManagerInner() {
     isPopout,
     hydrated,
     tourSeen: settings.tourSeen,
+    completedTours: settings.completedTours,
     features: settings.features,
     setSettings,
   });
@@ -1817,6 +1818,9 @@ function TaskManagerInner() {
     onOpenLearningSettings,
     onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
     onTakeTour: settings.layout === "modern" && !isPopout ? startTour : undefined,
+    onStartTour: settings.layout === "modern" && !isPopout ? tour.start : undefined,
+    catalogTours: tour.catalogTours,
+    completedTours: tour.completedTours,
     aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
@@ -2315,6 +2319,7 @@ function TaskManagerInner() {
       {tour.isOpen && settings.layout === "modern" && !isPopout && (
         <TourOverlay
           lang={lang}
+          tourTitleKey={tour.activeTourTitleKey}
           steps={tour.steps}
           index={tour.index}
           onBack={tour.back}

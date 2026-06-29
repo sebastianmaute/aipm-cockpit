@@ -157,6 +157,12 @@ export interface WorkspaceSectionProps {
   onOpenSettingsSection?: (id: SettingsSectionId) => void;
   /** Launch the guided tour from the Help view (modern, non-popout only). */
   onTakeTour?: () => void;
+  /** SP4 themed tours: launch a tour by id (Help view); modern non-popout only. */
+  onStartTour?: (id: string) => void;
+  /** SP4: tours available under the current feature set. */
+  catalogTours?: readonly import("./app-tour").TourCatalogEntry[];
+  /** SP4: completed tour ids (for the ✓ badge). */
+  completedTours?: readonly string[];
   aiAnalysis?: AiAnalysisBundle;
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;

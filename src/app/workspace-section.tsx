@@ -174,6 +174,9 @@ export function WorkspaceSection({
   onOpenLearningSettings,
   onOpenSettingsSection,
   onTakeTour,
+  onStartTour,
+  catalogTours,
+  completedTours,
   aiAnalysis,
   onPushMilestonesToOutlook,
   calendarPushBusy,
@@ -623,6 +626,9 @@ export function WorkspaceSection({
               pendingHelpConcept={pendingHelpConcept}
               onHelpConceptConsumed={clearHelpConcept}
               onNavigateView={(v) => setActiveTab(v)}
+              onStartTour={onStartTour}
+              catalogTours={catalogTours}
+              completedTours={completedTours}
             />
           </div>
         )}
