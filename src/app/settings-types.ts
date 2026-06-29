@@ -46,7 +46,7 @@ export type AiConfig = {
 
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
-  model: "claude-sonnet-4-6",
+  model: CHAT_MODELS[0].id,
   consentAccepted: false,
   sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
   weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,

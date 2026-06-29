@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
-import { type ChatModel, type Settings } from "../settings-types";
+import { type Settings } from "../settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
@@ -303,6 +303,8 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
   }
 
   function handleLockConfirm() {
+    // Defensive gate only — blur already discards a malformed key and load-time
+    // sanitize pattern-checks it; we just refuse to passphrase-seal it here.
     if (!isValidAnthropicApiKey(settings.ai.apiKey)) {
       showToast("error", t(lang, "aiKeyInvalid"));
       return;
@@ -474,7 +476,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               ...settings,
               ai: {
                 ...settings.ai,
-                model: e.target.value as ChatModel,
+                model: e.target.value,
               },
             })
           }
