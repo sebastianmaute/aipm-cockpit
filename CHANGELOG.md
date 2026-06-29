@@ -11,8 +11,9 @@ longer carries its own changelog comment.
 ## [0.149.0] - 2026-06-29 "Leiber"
 
 ### Changed
-- **Floating Help is now tabbed**: the pop-out Help panel gained tabs in its header — **Help**, **Guided tours**, **How it connects**, and **Information flows** — beside the search box; clicking a tab swaps the panel body. The introductory slogan line was removed, and the search box now appears only on the Help tab.
-- **Guided tours, relations map & information flows in the floating panel**: the same guided-tour catalog, concept relations map, and grouped information-flows diagram from the in-pane Help view are now reachable from the floating panel too. The relations map and the diagram fill the full panel body instead of a cramped strip.
+- **In-pane Help view is now tabbed**: the full Help view gained tabs in its header — **Help**, **Guided tours**, **How it connects**, and **Information flows** — beside the search box; clicking a tab swaps the body and only the active tab's body mounts. The search box appears only on the Help tab. This replaces the previous accordion region, and the contents list is resizable.
+- **Floating Help panel reverted to content-only**: the pop-out Help panel returns to the shared content pane (no tabs); its introductory slogan line was removed.
+- **Fix**: table-of-contents stacking in the Help content pane.
 
 ## [0.148.0] - 2026-06-29 "Kuang"
 

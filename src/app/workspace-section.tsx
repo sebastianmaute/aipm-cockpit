@@ -175,7 +175,6 @@ export function WorkspaceSection({
   expertMode,
   onOpenLearningSettings,
   onOpenSettingsSection,
-  onTakeTour,
   onStartTour,
   catalogTours,
   completedTours,
@@ -636,7 +635,6 @@ export function WorkspaceSection({
           <div id="panel-help" role="tabpanel" className={panelClass}>
             <HelpView
               lang={lang}
-              onTakeTour={onTakeTour}
               pendingHelpConcept={pendingHelpConcept}
               onHelpConceptConsumed={clearHelpConcept}
               onNavigateView={(v) => setActiveTab(v)}

@@ -1865,7 +1865,6 @@ function TaskManagerInner() {
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
     onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
-    onTakeTour: settings.layout === "modern" && !isPopout ? startTour : undefined,
     onStartTour: settings.layout === "modern" && !isPopout ? tour.start : undefined,
     catalogTours: tour.catalogTours,
     completedTours: tour.completedTours,
@@ -2136,9 +2135,6 @@ function TaskManagerInner() {
         onSaveTemplate={handleSaveTemplate}
         onApplyTemplate={handleApplyTemplate}
         expertMode={settings.expertMode}
-        onStartTour={settings.layout === "modern" && !isPopout ? startTour : undefined}
-        catalogTours={tour.catalogTours}
-        completedTours={tour.completedTours}
       />
     </>
   );

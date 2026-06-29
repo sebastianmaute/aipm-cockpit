@@ -154,7 +154,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightViewTips: "Der kontextbezogene Hilfehinweis jeder Ansicht sitzt jetzt in der Karte, wie bei den Offenen Punkten",
   versionHighlightAnalyzeModal: "Mit KI analysieren zeigt während der Ausführung einen abbrechbaren Fortschrittsdialog",
   versionHighlightHelpRedesign: "Neugestaltete Hilfe: Kartenlayout mit Scroll-Spy-Inhaltsverzeichnis, ein Tab-Bereich für Touren / Zusammenhänge / Informationsflüsse und ein klareres Informationsfluss-Diagramm mit 9 Knoten",
-  versionHighlightFloatingHelpTabs: "Hilfe mit Registerkarten: Tabs für Hilfe, Geführte Touren, Zusammenhänge und Informationsflüsse in der Kopfzeile neben der Suche",
+  versionHighlightFloatingHelpTabs: "Hilfe-Ansicht mit Registerkarten: Tabs für Geführte Touren, Zusammenhänge und Informationsflüsse neben der Suche, plus ein größenveränderbares Inhaltsverzeichnis",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

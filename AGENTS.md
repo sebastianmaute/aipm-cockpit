@@ -543,31 +543,29 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   BEFORE building — pass `[]` for a gated-off entity.
 - **UI shell:**
   • **Help view:** `help` AppView in the SYSTEM nav group below Settings (help-circle icon). `HelpView`
-  (`help-view.tsx`, STATIC import — it takes an `onTakeTour` callback and `dynamic()` strips function props
-  under the RSC serializable-props rule) renders the SHARED backbone `help-content.ts` (`HELP_ENTRIES`:
+  (`help-view.tsx`, STATIC import — it takes function-valued callbacks like `onStartTour`/`onNavigateView` and
+  `dynamic()` strips function props under the RSC serializable-props rule) renders the SHARED backbone `help-content.ts` (`HELP_ENTRIES`:
   HelpGroup `concepts`/`workflows`/`features`/`automated`, EN/DE, `relatedViews`/`relatedConcepts` for later
   SPs) GROUPED — grouped TOC + group headers (`HELP_GROUP_LABEL`, exhaustive `Record<HelpGroup>`) + per-concept
-  "Related:" links + a "Take the tour" button. The floating top-bar Help panel stays features-only via the
+  "Related:" links. The floating top-bar Help panel stays features-only via the
   derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`).
-  ★★ REDESIGN: `help-content-pane.tsx` (shared by the in-pane view AND the floating panel) renders each concept
+  ★★ `help-content-pane.tsx` (shared by the in-pane view AND the floating panel) renders each concept
   as a CARD (`border-l-AIPM-dark-blue` stripe, no shadow) on a `bg-surface-muted` scroller, with a wider `w-56`
   TOC driven by an `IntersectionObserver` SCROLL-SPY (effect dep = a hoisted scalar `sectionIdsKey` join, NOT an
-  array; observer callback sets `activeId` — not render-phase setState). The in-pane view's top region is ONE
-  exclusive horizontal TABLIST accordion (`help-collapsible-region.tsx`: `role=tablist/tab/tabpanel`, bodies stay
-  MOUNTED + `hidden`-toggled so each `aria-controls` target is in the DOM, arrow-key roving, `activeKey` drift
-  guard) holding three panels — Guided tours · How it all connects · Information flows (default Tours; tours panel
-  gated on `onStartTour`) — REPLACING the old two `<details>`. ★★ FLOATING panel (`help-menu.tsx`) is its OWN TABBED
-  surface (NOT the accordion, NOT content-pane-only any more): a `role=tablist` in the header beside the search box with
-  tabs **Help · Guided tours · How it connects · Information flows** (arrow-key roving, `FOCUS_RING`); clicking a tab
-  swaps the body and ONLY the active tab's body mounts (single shared `role=tabpanel` `#help-fp-panel`). Search renders
-  on the Help tab ONLY; the old `helpIntro` slogan + the footer "Take a tour" button are GONE (footer = license link
-  only). Tours tab gated on `onStartTour` (modern-only) → 3 tabs in classic/popout/tests. The catalog props
-  (`catalogTours`/`completedTours`/`onStartTour`) thread `task-manager → ActionMenus → HelpMenu`, REPLACING the dead
-  `onTakeTour` on that path (the in-pane HelpView's own `onTakeTour` via `workspace-section` is untouched). Connects-tab
-  concept click → `selectConcept` switches to Help + bumps a nonce; a nonce-keyed effect `scrollIntoView`s (no
-  `set-state-in-effect` — `pendingScroll` is never cleared). `InformationFlowsSection` gained an optional `maxWidth`
-  (default 480 keeps Settings + the in-pane accordion byte-identical; the floating flows tab passes 640).
-  now `820×640` with `useResizable` key `lop-app:help-size-v3` (bumped — stale inline size would clip). jsdom
+  array; observer callback sets `activeId` — not render-phase setState). ★★ IN-PANE `HelpView` is its OWN TABBED
+  surface: a `role=tablist` in the header beside the search box with tabs **Help · Guided tours · How it connects ·
+  Information flows** (arrow-key roving, `FOCUS_RING`, `activeTab` drift guard); clicking a tab swaps the body and
+  ONLY the active tab's body mounts (single shared `role=tabpanel` `#help-view-panel`). Search renders on the Help
+  tab ONLY. Tours tab gated on `onStartTour` (modern-only) → 3 tabs in classic/popout/tests. Connects-tab concept
+  click → `goToConcept` switches to Help + bumps a nonce; a nonce-keyed effect `scrollIntoView`s (no
+  `set-state-in-effect` — `scrollTarget` never cleared). The catalog props (`catalogTours`/`completedTours`/
+  `onStartTour`) thread `task-manager → WorkspaceSectionProps → workspace-section → HelpView`, REPLACING the dead
+  `onTakeTour`. In-pane view is resizable (`useResizable` key `lop-app:help-view-size`) + carries Print/Reset-size
+  buttons. ★★ FLOATING panel (`help-menu.tsx`) is CONTENT-PANE ONLY (`HelpContentPane` + its own search box; props
+  `{lang}` only — NO tabs, NO tour catalog); the `helpIntro` slogan + footer "Take a tour" button are GONE (footer =
+  license link only). Floating `useResizable` key `lop-app:help-size-v3`.
+  `InformationFlowsSection` has an optional `maxWidth` (default 480 keeps Settings byte-identical; the in-pane flows
+  tab passes 720). jsdom
   lacks `IntersectionObserver`/`scrollIntoView` → global no-op stubs in `vitest.setup.ts`. ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
   — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
   (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`

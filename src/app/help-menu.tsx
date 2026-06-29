@@ -1,15 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
-import { type Lang, t, type TranslationKey } from "./i18n";
-import { HelpContentPane, helpSectionId } from "./help-content-pane";
-import { RelationsMap } from "./relations-map";
-import { TourCatalog } from "./tour-catalog";
-import { InformationFlowsSection } from "./settings-sections/information-flows-section";
-import { buildRelationsGraph } from "./relations-graph";
-import { HELP_ENTRIES } from "./help-content";
-import type { TourCatalogEntry } from "./app-tour";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { INTERACTIVE } from "./interaction-styles";
+import { type Lang, t } from "./i18n";
+import { HelpContentPane } from "./help-content-pane";
 import { useResizable } from "./use-resizable";
 import { APP_LICENSE_URL } from "./version";
 
@@ -60,19 +54,11 @@ function savePos(p: Pos) {
   }
 }
 
-type HelpTab = "help" | "tours" | "connects" | "flows";
-
-export function HelpMenu({
-  lang,
-  catalogTours,
-  completedTours,
-  onStartTour,
-}: {
-  lang: Lang;
-  catalogTours?: readonly TourCatalogEntry[];
-  completedTours?: readonly string[];
-  onStartTour?: (id: string) => void;
-}) {
+/** Floating top-bar Help panel: a draggable, resizable pop-over showing the
+ *  shared grouped Help content (TOC + cards + search). Content-pane only — the
+ *  tabbed tours / relations-map / information-flows surfaces live in the in-pane
+ *  Help VIEW, not here. */
+export function HelpMenu({ lang }: { lang: Lang }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Pos | null>(null);
   const [query, setQuery] = useState("");
@@ -84,53 +70,10 @@ export function HelpMenu({
     origY: number;
   } | null>(null);
 
-  const [tab, setTab] = useState<HelpTab>("help");
-  const [pendingScroll, setPendingScroll] = useState<string | null>(null);
-  const [scrollSeq, setScrollSeq] = useState(0);
-  const graph = useMemo(() => buildRelationsGraph(HELP_ENTRIES), []);
-
-  const tabs: { key: HelpTab; labelKey: TranslationKey }[] = [
-    { key: "help", labelKey: "help" },
-    ...(onStartTour ? ([{ key: "tours", labelKey: "helpGuidedToursTitle" }] as { key: HelpTab; labelKey: TranslationKey }[]) : []),
-    { key: "connects", labelKey: "helpRelationsTitle" },
-    { key: "flows", labelKey: "infoFlowsTitle" },
-  ];
-  // Drift guard: if the active key is no longer in the list (tours tab gated
-  // away), fall back to the first tab.
-  const activeTab: HelpTab = tabs.some((tb) => tb.key === tab) ? tab : "help";
-
-  // Connects → Help deep scroll: only the active tab body is mounted, so a
-  // concept click switches to the Help tab and bumps a nonce; an effect keyed
-  // on the nonce scrolls once the Help content has committed. We never clear
-  // `pendingScroll` (re-selecting the same concept bumps the nonce) so there is
-  // no set-state-in-effect (banned).
-  const selectConcept = (id: string) => {
-    setTab("help");
-    setPendingScroll(id);
-    setScrollSeq((s) => s + 1);
-  };
-  useEffect(() => {
-    if (!pendingScroll) return;
-    document.getElementById(helpSectionId(pendingScroll))?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [scrollSeq, pendingScroll]);
-
-  const startAndClose = (id: string) => {
-    setOpen(false);
-    onStartTour?.(id);
-  };
-
-  const onTabKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>, idx: number) => {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    e.preventDefault();
-    const dir = e.key === "ArrowRight" ? 1 : -1;
-    setTab(tabs[(idx + dir + tabs.length) % tabs.length].key);
-  };
-
   // Restore saved position on first open; default to near top-right with
-  // a VIEWPORT_PADDING-px gutter from top + bottom of the viewport.
-  // w-[1120px] / h-[960px] are the class-based defaults below; the fallback
-  // numbers here are used only on the very first render before the element
-  // has measured itself.
+  // a VIEWPORT_PADDING-px gutter from top + bottom of the viewport. The
+  // fallback numbers here are used only on the very first render before the
+  // element has measured itself.
   useEffect(() => {
     if (!open || pos !== null) return;
     const el = panelRef.current;
@@ -269,74 +212,18 @@ export function HelpMenu({
             </button>
           </div>
 
-          <div
-            role="tablist"
-            aria-label={t(lang, "navHelp")}
-            className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line p-2"
-          >
-            {tabs.map((tb, idx) => {
-              const isActive = tb.key === activeTab;
-              return (
-                <button
-                  key={tb.key}
-                  type="button"
-                  role="tab"
-                  id={`help-fp-tab-${tb.key}`}
-                  aria-selected={isActive}
-                  aria-controls="help-fp-panel"
-                  tabIndex={isActive ? 0 : -1}
-                  onClick={() => setTab(tb.key)}
-                  onKeyDown={(e) => onTabKeyDown(e, idx)}
-                  className={
-                    isActive
-                      ? `rounded-md bg-AIPM-dark-blue px-2.5 py-1 text-xs font-semibold text-white ${FOCUS_RING}`
-                      : `rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
-                  }
-                >
-                  {t(lang, tb.labelKey)}
-                </button>
-              );
-            })}
-            {activeTab === "help" && (
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t(lang, "helpSearchPlaceholder")}
-                aria-label={t(lang, "helpSearchPlaceholder")}
-                className={`ml-auto min-w-[8rem] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground ${FOCUS_RING}`}
-              />
-            )}
+          <div className="shrink-0 border-b border-line p-2">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t(lang, "helpSearchPlaceholder")}
+              aria-label={t(lang, "helpSearchPlaceholder")}
+              className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            />
           </div>
 
-          <div
-            id="help-fp-panel"
-            role="tabpanel"
-            aria-labelledby={`help-fp-tab-${activeTab}`}
-            className="flex min-h-0 flex-1 flex-col overflow-hidden"
-          >
-            {activeTab === "help" && <HelpContentPane lang={lang} query={query} />}
-            {activeTab === "tours" && (
-              <div className="min-h-0 flex-1 overflow-auto p-3 pr-2">
-                <TourCatalog
-                  lang={lang}
-                  tours={catalogTours ?? []}
-                  completedTours={completedTours ?? []}
-                  onStartTour={startAndClose}
-                />
-              </div>
-            )}
-            {activeTab === "connects" && (
-              <div className="min-h-0 flex-1 overflow-auto p-3 pr-2">
-                <RelationsMap graph={graph} lang={lang} onSelectConcept={selectConcept} />
-              </div>
-            )}
-            {activeTab === "flows" && (
-              <div className="min-h-0 flex-1 overflow-auto p-3 pr-2">
-                <InformationFlowsSection lang={lang} maxWidth={640} />
-              </div>
-            )}
-          </div>
+          <HelpContentPane lang={lang} query={query} />
 
           <div className="flex shrink-0 items-center justify-end gap-4 border-t border-line px-4 py-2">
             <a
