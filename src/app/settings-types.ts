@@ -13,10 +13,17 @@ import {
 } from "./workspace";
 import { type TimelogConfig, defaultTimelogConfig } from "./timelog-types";
 
-export type ChatModel =
-  | "claude-sonnet-4-6"
-  | "claude-opus-4-7"
-  | "claude-haiku-4-5-20251001";
+/** Single source of truth for the selectable AI models. Add/replace ONE entry
+ *  here on a model release — the `ChatModel` union, the sanitize allowlist, and
+ *  the Settings → AI dropdown all derive from this array, so they can't drift
+ *  apart. `id` is the Anthropic model id sent to the API; `label` is the UI text. */
+export const CHAT_MODELS = [
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+] as const;
+
+export type ChatModel = (typeof CHAT_MODELS)[number]["id"];
 
 export const DEFAULT_SESSION_TOKEN_CAP = 200_000;
 export const DEFAULT_WEEKLY_TOKEN_CAP = 2_000_000;
@@ -49,12 +56,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? Math.round(n) : def;
   };
-  const MODELS: readonly ChatModel[] = [
-    "claude-sonnet-4-6",
-    "claude-opus-4-7",
-    "claude-haiku-4-5-20251001",
-  ];
-  const model: ChatModel = MODELS.includes(obj.model as ChatModel)
+  const model: ChatModel = CHAT_MODELS.some((m) => m.id === obj.model)
     ? (obj.model as ChatModel)
     : defaultAiConfig.model;
   return {

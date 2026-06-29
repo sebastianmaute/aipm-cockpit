@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
-import type { ChatModel, Settings } from "../settings-types";
+import { CHAT_MODELS, type ChatModel, type Settings } from "../settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
@@ -457,11 +457,11 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           }
           className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
-          <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
-          <option value="claude-opus-4-7">Claude Opus 4.7</option>
-          <option value="claude-haiku-4-5-20251001">
-            Claude Haiku 4.5
-          </option>
+          {CHAT_MODELS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
         </select>
       </label>
       <p className="mt-2 text-xs text-muted-foreground">
