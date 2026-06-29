@@ -14,12 +14,18 @@ import {
  *  when AI is enabled and the key is well-formed; on any failure returns the
  *  registry options. Never logs the key or response body. */
 export function useChatModels(apiKey: string, enabled: boolean, currentId: string): ModelOption[] {
-  const [live, setLive] = useState<readonly LiveModel[]>([]);
+  // Carry the source key alongside the models so a valid A->B key switch can't
+  // momentarily surface A's models while B's request is in flight.
+  const [liveState, setLiveState] = useState<{ key: string; models: readonly LiveModel[] }>({
+    key: "",
+    models: [],
+  });
   const key = apiKey.trim();
   const shouldFetch = enabled && isValidAnthropicApiKey(key);
 
   useEffect(() => {
     if (!shouldFetch) return;
+    let active = true;
     const ctrl = new AbortController();
     void (async () => {
       try {
@@ -32,24 +38,30 @@ export function useChatModels(apiKey: string, enabled: boolean, currentId: strin
           signal: ctrl.signal,
         });
         if (!res.ok) {
-          setLive([]);
+          if (active) setLiveState({ key, models: [] });
           return;
         }
         const body = (await res.json()) as { data?: LiveModel[] };
-        setLive(Array.isArray(body.data) ? body.data : []);
+        if (active) setLiveState({ key, models: Array.isArray(body.data) ? body.data : [] });
       } catch {
         // Network/parse/abort — silent fallback to the registry.
-        setLive([]);
+        if (active) setLiveState({ key: "", models: [] });
       }
     })();
-    return () => ctrl.abort();
+    return () => {
+      active = false;
+      ctrl.abort();
+    };
   }, [shouldFetch, key]);
 
-  // Gate the live list reactively (instead of synchronously resetting state in
-  // the effect, which the react-hooks/set-state-in-effect rule bans): a stale
-  // `live` from a previously-valid key is ignored the moment shouldFetch flips.
-  return useMemo(
-    () => buildModelOptions(CHAT_MODELS, shouldFetch ? live : [], currentId),
-    [shouldFetch, live, currentId],
-  );
+  // Only consume the live models when they were produced by the CURRENT key and
+  // a fetch is warranted; otherwise fall back to the registry. (Gating here
+  // instead of synchronously resetting state in the effect keeps the
+  // react-hooks/set-state-in-effect ban satisfied. The gate lives inside the
+  // memo so the dep is the stable `liveState` object, not a fresh array each
+  // render.)
+  return useMemo(() => {
+    const live = shouldFetch && liveState.key === key ? liveState.models : [];
+    return buildModelOptions(CHAT_MODELS, live, currentId);
+  }, [shouldFetch, liveState, key, currentId]);
 }

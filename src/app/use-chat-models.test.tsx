@@ -43,6 +43,17 @@ describe("useChatModels", () => {
     await waitFor(() => expect(result.current.some((o) => o.id === "claude-sonnet-4-6")).toBe(true));
   });
 
+  it("aborts the in-flight request on unmount", async () => {
+    let aborted = false;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) => {
+      (init?.signal as AbortSignal).addEventListener("abort", () => { aborted = true; });
+      return new Promise(() => {}); // never resolves
+    });
+    const { unmount } = renderHook(() => useChatModels(KEY, true, "claude-sonnet-4-6"));
+    unmount();
+    expect(aborted).toBe(true);
+  });
+
   it("does not fetch when disabled or key absent/malformed", async () => {
     const spy = vi.spyOn(globalThis, "fetch");
     renderHook(() => useChatModels(KEY, false, "claude-sonnet-4-6"));
