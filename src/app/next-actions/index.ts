@@ -12,6 +12,7 @@ import { stakeholderCommsProvider } from "./providers/stakeholder-comms";
 import { scheduleProvider } from "./providers/schedule";
 import { workloadProvider } from "./providers/workload";
 import { committeeInfoProvider } from "./providers/committee-info";
+import { taskAttentionProvider } from "./providers/task-attention";
 import type { ActionInput, ActionProvider, SuggestedAction } from "./types";
 
 /** The real provider set, in a deterministic order. */
@@ -25,6 +26,7 @@ export const ALL_PROVIDERS: readonly ActionProvider[] = [
   scheduleProvider,
   workloadProvider,
   committeeInfoProvider,
+  taskAttentionProvider,
 ];
 
 /** Compute the ranked suggested actions from the app's current signals. */

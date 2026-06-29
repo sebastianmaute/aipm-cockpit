@@ -32,17 +32,17 @@ describe("ActionRow snooze", () => {
   it("opens the snooze menu and fires onSnooze with 1h / 1d", () => {
     const onSnooze = vi.fn();
     const { getByRole } = render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onSnooze={onSnooze} />);
-    fireEvent.click(getByRole("button", { name: /Snooze/i }));
+    fireEvent.click(getByRole("button", { name: /more actions/i }));
     fireEvent.click(getByRole("button", { name: "1 hour" }));
     expect(onSnooze).toHaveBeenCalledWith(action, SNOOZE_1H);
-    fireEvent.click(getByRole("button", { name: /Snooze/i }));
+    fireEvent.click(getByRole("button", { name: /more actions/i }));
     fireEvent.click(getByRole("button", { name: "1 day" }));
     expect(onSnooze).toHaveBeenCalledWith(action, SNOOZE_1D);
   });
   it("snooze menu clicks do not fire onOpen (stopPropagation)", () => {
     const onOpen = vi.fn();
     const { getByRole } = render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onSnooze={() => {}} />);
-    fireEvent.click(getByRole("button", { name: /Snooze/i }));
+    fireEvent.click(getByRole("button", { name: /more actions/i }));
     fireEvent.click(getByRole("button", { name: "1 hour" }));
     expect(onOpen).not.toHaveBeenCalled();
   });
@@ -63,6 +63,7 @@ describe("ActionRow create task", () => {
       score: 30, tier: "now", cta: { kind: "open", view: "raid", id: 1 },
     } as never;
     render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onCreateTask={onCreateTask} />);
+    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     const btn = screen.getByRole("button", { name: /create task/i });
     fireEvent.click(btn);
     expect(onCreateTask).toHaveBeenCalledTimes(1);
@@ -165,6 +166,7 @@ describe("ActionRow draft message", () => {
     const onDraftMessage = vi.fn();
     const action = draftableAction("task-due");
     render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
+    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     const btn = screen.getByRole("button", { name: /draft message/i });
     fireEvent.click(btn);
     expect(onDraftMessage).toHaveBeenCalledTimes(1);
@@ -176,6 +178,7 @@ describe("ActionRow draft message", () => {
     const onDraftMessage = vi.fn();
     const action = draftableAction("stakeholder-comms");
     render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onDraftMessage={onDraftMessage} />);
+    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     const btn = screen.getByRole("button", { name: /draft message/i });
     expect(btn).toBeInTheDocument();
     fireEvent.click(btn);
@@ -292,6 +295,36 @@ describe("ActionRow rebaseline", () => {
   });
 });
 
+describe("ActionRow reschedule / mark done / clear blocker", () => {
+  it("shows Reschedule popover on a task-due row and Mark done in the menu", () => {
+    const onMarkDone = vi.fn();
+    const action = { id: "task-due:1:overdue", source: "task-due",
+      title: { key: "actionTaskTitle", params: ["T"] }, why: { key: "actionTaskWhyOverdue", params: [2] },
+      score: 70, tier: "now", cta: { kind: "open", view: "open-points", id: 1 } } as never;
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onMarkDone={onMarkDone}
+      reschedule={{ onReschedule: vi.fn() }} />);
+    expect(screen.getByRole("button", { name: /reschedule/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /mark done/i }));
+    expect(onMarkDone).toHaveBeenCalled();
+  });
+
+  it("shows Assign on unassigned task-attention, Clear blocker on a blocked one", () => {
+    const onClearBlocker = vi.fn();
+    const unassigned = { id: "task-attention:1:unassigned", source: "task-attention",
+      title: { key: "actionTaskTitle", params: ["T"] }, why: { key: "actionTaskWhyUnassigned" },
+      score: 30, tier: "soon", cta: { kind: "open", view: "open-points", id: 1 } } as never;
+    const blocked = { ...(unassigned as SuggestedAction), id: "task-attention:1:blocked", why: { key: "actionTaskWhyBlocked", params: ["x"] } } as never;
+    const assignBundle = { resources: [], onCreateResource: () => 1, onAssign: vi.fn() };
+    const { rerender } = render(<ActionRow lang="en-US" action={unassigned} onOpen={() => {}} assignOwner={assignBundle} />);
+    expect(screen.getByRole("button", { name: /assign owner/i })).toBeTruthy();
+    rerender(<ActionRow lang="en-US" action={blocked} onOpen={() => {}} onClearBlocker={onClearBlocker} />);
+    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /clear blocker/i }));
+    expect(onClearBlocker).toHaveBeenCalled();
+  });
+});
+
 describe("ActionRow source icon + score tooltip", () => {
   it("renders the source icon and a tooltip carrying the score", () => {
     const scored = { ...action, source: "raid" as const, score: 42 };
@@ -320,5 +353,58 @@ describe("ActionRow learning hint", () => {
     render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
     expect(screen.queryByText(/surfaced/i)).toBeNull();
     expect(screen.queryByText(/demoted/i)).toBeNull();
+  });
+});
+
+describe("ActionRow extra reasons", () => {
+  it("expands and collapses the extra reasons list", () => {
+    const action = {
+      id: "x", source: "raid",
+      title: { key: "actionRaidTitle", params: [1, "x"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score: 70, tier: "now",
+      cta: { kind: "open", view: "raid", id: 1 },
+    } as never;
+    const extra = [
+      { id: "x2", source: "raid", title: { key: "actionRaidTitle", params: [1, "x2"] },
+        why: { key: "actionRaidWhyNoOwner" }, score: 40, tier: "now", cta: { kind: "open", view: "raid", id: 1 } },
+    ] as never;
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} extraReasons={extra} />);
+    const toggle = screen.getByRole("button", { name: /1 more reasons/i });
+    // The reasons container is always mounted (aria-controls target must stay in DOM);
+    // expansion flips `hidden`, not presence.
+    const list = document.getElementById("action-reasons-x"); // action.id is "x" in this test
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(list?.hidden).toBe(true);
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(list?.hidden).toBe(false);
+    expect(list?.textContent ?? "").toMatch(/owner/i); // the no-owner extra signal's why text
+  });
+
+  it("renders the RAG left stripe for the tier and no dot", () => {
+    const action = {
+      id: "x", source: "raid", title: { key: "actionRaidTitle", params: [1, "x"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] }, score: 70, tier: "now",
+      cta: { kind: "open", view: "raid", id: 1 },
+    } as never;
+    const { container } = render(<ActionRow lang="en-US" action={action} onOpen={() => {}} />);
+    expect(container.querySelector(".border-l-\\[var\\(--rag-red\\)\\]")).toBeTruthy();
+  });
+
+  it("folds simple actions into the more-actions menu", () => {
+    const onSnooze = vi.fn();
+    const onCreateTask = vi.fn();
+    const action = {
+      id: "x", source: "raid", title: { key: "actionRaidTitle", params: [1, "x"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] }, score: 70, tier: "now",
+      cta: { kind: "open", view: "raid", id: 1 },
+    } as never;
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onSnooze={onSnooze} onCreateTask={onCreateTask} />);
+    const menuTrigger = screen.getByRole("button", { name: /more actions/i });
+    fireEvent.click(menuTrigger);
+    // The Snooze 1h item lives inside the menu now (actionSnooze1h EN = "1 hour").
+    fireEvent.click(screen.getByRole("button", { name: /1 hour/i }));
+    expect(onSnooze).toHaveBeenCalled();
   });
 });
