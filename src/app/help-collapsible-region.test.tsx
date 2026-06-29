@@ -16,18 +16,31 @@ function setup() {
 }
 
 describe("HelpCollapsibleRegion", () => {
-  it("opens the first panel by default", () => {
+  it("selects the first panel by default; others mounted but hidden", () => {
     setup();
-    expect(screen.getByText("TOURS BODY")).toBeTruthy();
-    expect(screen.queryByText("CONNECTS BODY")).toBeNull();
+    // All bodies stay in the DOM (so aria-controls targets exist) but only the
+    // selected one is visible.
+    expect(screen.getByText("TOURS BODY")).toBeVisible();
+    expect(screen.getByText("CONNECTS BODY")).not.toBeVisible();
   });
 
-  it("is exclusive: opening one collapses the others", () => {
+  it("is exclusive: selecting a tab shows its panel and hides the others", () => {
     setup();
-    const bars = screen.getAllByRole("button");
-    const connectsBar = bars.find((b) => b.getAttribute("aria-expanded") === "false" && /connect|how it/i.test(b.textContent || b.getAttribute("aria-label") || ""));
-    fireEvent.click(connectsBar!);
-    expect(screen.getByText("CONNECTS BODY")).toBeTruthy();
-    expect(screen.queryByText("TOURS BODY")).toBeNull();
+    const tabs = screen.getAllByRole("tab");
+    const connectsTab = tabs.find((tb) => /connect|how it/i.test(tb.textContent || ""));
+    expect(connectsTab).toBeTruthy();
+    fireEvent.click(connectsTab!);
+    expect(connectsTab!.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("CONNECTS BODY")).toBeVisible();
+    expect(screen.getByText("TOURS BODY")).not.toBeVisible();
+  });
+
+  it("each tab's aria-controls points at a mounted panel", () => {
+    setup();
+    for (const tab of screen.getAllByRole("tab")) {
+      const id = tab.getAttribute("aria-controls");
+      expect(id).toBeTruthy();
+      expect(document.getElementById(id!)).not.toBeNull();
+    }
   });
 });

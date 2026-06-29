@@ -46,7 +46,8 @@ export function RelationsMap({ graph, lang, onSelectConcept }: RelationsMapProps
           const incident = active === e.a || active === e.b;
           const y1 = na.y * 100;
           const y2 = nb.y * 100;
-          const bow = 6 + Math.min(14, Math.abs(y2 - y1) / 4);
+          // Clamp so the control-point x (12 - bow) stays inside the 0..24 viewBox.
+          const bow = Math.min(11, 6 + Math.min(14, Math.abs(y2 - y1) / 4));
           return (
             <path
               key={`${e.a}|${e.b}`}

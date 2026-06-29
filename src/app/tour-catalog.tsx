@@ -26,7 +26,7 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
             key={tour.id}
             type="button"
             onClick={() => onStartTour(tour.id)}
-            aria-label={`${t(lang, "tourStartCta")} – ${t(lang, tour.titleKey)}`}
+            aria-label={`${t(lang, isDone ? "tourReplayCta" : "tourStartCta")} – ${t(lang, tour.titleKey)}`}
             className={`flex gap-3 rounded-md border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >
             <span
