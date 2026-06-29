@@ -1622,6 +1622,7 @@ const enUS = {
   aiGuideScopeViews: "Views",
   aiGuideScopeAny: "Always on",
   aiApiKeyTooltip: "Your Anthropic API key. Stored locally in this browser only.",
+  aiKeyInvalid: "That doesn't look like a valid Anthropic API key (sk-ant-…). It was not saved.",
   aiModelTooltip: "Which Claude model the assistant uses.",
   integrationsTooltip: "Connect external services like Microsoft 365 and Turso.",
   integrationsM365Tooltip: "Sign in with Microsoft 365 to use SharePoint storage and Outlook import.",
