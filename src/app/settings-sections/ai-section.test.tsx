@@ -19,6 +19,17 @@ vi.mock("./ai-usage-panel", () => ({
   AiUsagePanel: () => <div data-testid="ai-usage-panel" />,
 }));
 
+beforeEach(() => {
+  // A well-formed key + enabled AI makes useChatModels fire a browser-direct
+  // fetch to api.anthropic.com. Stub it for EVERY test so none hits the network
+  // (the hook swallows the !ok response → falls back to the registry options).
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: false,
+    status: 401,
+    json: async () => ({}),
+  } as Response);
+});
+
 afterEach(async () => {
   // Editing the API key fires an un-awaited device-seal (handleApiKeyChange →
   // saveSecretValue, which encrypts then writes the ciphertext to localStorage).
@@ -28,6 +39,7 @@ afterEach(async () => {
   await new Promise((r) => setTimeout(r, 0));
   await new Promise((r) => setTimeout(r, 0));
   localStorage.clear();
+  vi.restoreAllMocks();
 });
 
 describe("AiSection", () => {
@@ -290,17 +302,6 @@ describe("AiSection", () => {
 });
 
 describe("AiSection API-key validation", () => {
-  beforeEach(() => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({}),
-    } as Response);
-  });
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   // The api-key field is a CONTROLLED input: a bare vi.fn() onChange never lifts
   // state, so React resets the DOM value to "" and the blur sees an empty key.
   // Lift state through a harness (the live SettingsView does the same) so the

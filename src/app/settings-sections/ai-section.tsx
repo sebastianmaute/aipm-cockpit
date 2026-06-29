@@ -401,7 +401,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           autoComplete="off"
           value={settings.ai.apiKey}
           onChange={(e) => handleApiKeyChange(e.target.value)}
-          onBlur={() => handleApiKeyBlur()}
+          onBlur={handleApiKeyBlur}
           placeholder={t(lang, "aiApiKeyPlaceholder")}
           className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
