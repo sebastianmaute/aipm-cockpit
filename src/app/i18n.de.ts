@@ -1704,6 +1704,12 @@ export const de: Record<TranslationKey, string> = {
   viewHintPlanning: "Die Planung legt die verfügbare Kapazität jeder Person je Periode fest – die Basis für ein Budget, das das Team auch liefern kann.",
   viewHintSteering: "Der Lenkungsausschuss ist das Führungsgremium, das über Eskalationen entscheidet. Planen Sie hier Sitzungen und teilen Sie Updates.",
   viewHintTrends: "Trends vergleichen heute mit einer gespeicherten Baseline, sodass Sie sehen, ob Termine und Budget abweichen.",
+  // Help relations map (SP3)
+  helpRelationsTitle: "Wie alles zusammenhängt",
+  helpRelationsIntro: "Fahren Sie über ein Thema, um seine Verknüpfungen zu sehen; klicken Sie eines an, um es zu lesen.",
+  helpRelationsMapLabel: "Beziehungskarte der Konzepte",
+  helpRelationsOpenConcept: "Erklärung anzeigen",
+  helpRelationsGoToView: "Zu {0} wechseln",
   dashboardChangesEmpty: "Noch keine Änderungen.",
   dashboardComputedHint: "Berechnet: {0}",
   dashboardScopeUnset: "Nicht gesetzt",

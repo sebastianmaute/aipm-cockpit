@@ -1710,6 +1710,12 @@ const enUS = {
   viewHintPlanning: "Planning sets each person's available capacity per period — the basis for a budget the team can actually deliver.",
   viewHintSteering: "The steering committee is the senior group that decides on escalations. Schedule meetings and share updates here.",
   viewHintTrends: "Trends compare today against a saved baseline, so you can see whether schedule and budget are drifting.",
+  // Help relations map (SP3)
+  helpRelationsTitle: "How it all connects",
+  helpRelationsIntro: "Hover a topic to see its links; click one to read about it.",
+  helpRelationsMapLabel: "Concept relationship map",
+  helpRelationsOpenConcept: "Show explanation",
+  helpRelationsGoToView: "Go to {0}",
   dashboardChangesEmpty: "No changes yet.",
   dashboardComputedHint: "Computed: {0}",
   dashboardScopeUnset: "Not set",
