@@ -149,6 +149,10 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightActionProviders: "Das Action Center kennzeichnet nicht zugewiesene, veraltete, blockierte und abhängigkeitsblockierte Aufgaben",
   versionHighlightActionInlineCtas: "Aktionen direkt erledigen: Verantwortlichen zuweisen, als erledigt markieren, Blocker entfernen oder neu planen",
   versionHighlightMultiUpload: "Ein Projekt aus mehreren hochgeladenen Dateien gleichzeitig erstellen, mit abbrechbarem Fortschrittsdialog",
+  versionHighlightHelpLayout: "Das schwebende Hilfefenster und die Hilfe-Ansicht teilen sich jetzt ein gemeinsames gruppiertes Zwei-Spalten-Layout",
+  versionHighlightChatFullWidth: "Der KI-Assistent ist jetzt voll breit, mit einer Modellauswahl in der oberen Leiste",
+  versionHighlightViewTips: "Der kontextbezogene Hilfehinweis jeder Ansicht sitzt jetzt in der Karte, wie bei den Offenen Punkten",
+  versionHighlightAnalyzeModal: "Mit KI analysieren zeigt während der Ausführung einen abbrechbaren Fortschrittsdialog",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

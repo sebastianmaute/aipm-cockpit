@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.147.0] - 2026-06-29 "Rucker"
+
+### Added
+- **Full-width AI assistant + model switcher**: the AI assistant pane is now full-width (matching the other primary views) with a model-switch dropdown in a new top bar — live `/v1/models` with the curated registry as fallback — sitting just left of the reset-size button.
+- **Analyze with AI — progress modal**: the Action Center "Analyze with AI" button is restyled like Ask Claude and moved beside the heading; while the call runs it shows a blocking progress modal with a Cancel that aborts the request.
+
+### Changed
+- **Unified Help layout**: the floating Help window and the in-pane Help view now share one grouped two-pane component (Concepts · Workflows · Features · What's automated) — a wider table of contents, clearer hierarchy, a smaller default floating-panel size, and a container-query responsive stack. The Acme AI-usage-policy link was removed from the Help footer.
+- **View tips inside the card**: every view's contextual Help tip now renders inside its own rounded card (like Open Points) instead of floating above it; the shared above-card callout was removed.
+
 ## [0.146.0] - 2026-06-29 "Gibson"
 
 ### Added

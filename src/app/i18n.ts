@@ -146,6 +146,10 @@ const enUS = {
   versionHighlightActionProviders: "The Action Center flags unassigned, stale, blocked and dependency-blocked tasks",
   versionHighlightActionInlineCtas: "Resolve actions in place: assign an owner, mark done, clear the blocker, or reschedule",
   versionHighlightMultiUpload: "Create a project from several uploaded files at once, with a cancellable progress modal",
+  versionHighlightHelpLayout: "The floating Help window and the in-pane Help view now share one grouped two-pane layout",
+  versionHighlightChatFullWidth: "The AI assistant is now full-width, with a model switcher in its top bar",
+  versionHighlightViewTips: "Each view's contextual help tip now sits inside its card, like Open Points",
+  versionHighlightAnalyzeModal: "Analyze with AI shows a cancellable progress modal while it runs",
 
   tasks: "Tasks",
   tasksCount: "({0})",
