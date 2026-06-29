@@ -540,6 +540,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   Self-hides when: no `VIEW_CALLOUTS[view]` / `!showHints` / `isPopout` / dismissed. Mounted in
   `workspace-section` (after the `ActionChips` strip — covers all routed views) AND `tasks-section`
   (open-points renders separately; gated `{onLearnMoreHint && …}` so the bare unit test stays unaffected).
+  ★ workspace-section's mount is gated `{activeTab !== "open-points" && …}`: in CLASSIC both surfaces mount at
+  once, so without the guard the open-points callout double-renders (mirrors the adjacent ActionChips
+  open-points `[]` guard). The Learn-more arrow is `aria-hidden` (label-bleed rule).
   ★★ "Learn more" deep-links via a NEW `workspace-tab-context` string channel `requestHelpConcept(conceptId)`
   (mirrors `requestChat`: `setActiveTab("help")` + `pendingHelpConcept`, NO hash write); `HelpView` consumes
   it via OPTIONAL props `pendingHelpConcept`/`onHelpConceptConsumed` (optional so the standalone
