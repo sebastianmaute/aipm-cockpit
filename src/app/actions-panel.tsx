@@ -58,7 +58,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
       key={g.key}
       lang={lang}
       action={g.primary}
-      extraReasonsCount={g.extra.length}
+      extraReasons={g.extra}
       onOpen={onOpen}
       onSnooze={onSnooze}
       onCreateTask={onCreateTask}

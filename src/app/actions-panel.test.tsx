@@ -38,7 +38,9 @@ describe("ActionsPanel", () => {
     ] as never;
     render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
     expect(screen.getAllByText("Open")).toHaveLength(1); // one row
-    expect(screen.getByText("+1 more reasons")).toBeTruthy();
+    const toggle = screen.getByRole("button", { name: /1 more reasons/i });
+    fireEvent.click(toggle);
+    expect(screen.getByText(/owner/i)).toBeTruthy(); // r2 used actionRaidWhyNoOwner
   });
 
   it("caps the now tier and reveals the rest via show-more", async () => {
