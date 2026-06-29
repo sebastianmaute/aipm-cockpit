@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.145.0";
-export const APP_BUILD_DATE = "2026-06-28"; // 0.145.0: dashboard masonry cockpit + nav nesting + add-first-item empty boxes (Sterling)
+export const APP_VERSION = "0.146.0";
+export const APP_BUILD_DATE = "2026-06-29"; // 0.146.0: Action Center overhaul (grouping/layout/providers/inline CTAs) + AI model picker + create-project multi-upload (Gibson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.145.x line is "Sterling" (Bruce Sterling). */
-export const APP_MILESTONE = "Sterling";
+ *  0.146.x line is "Gibson" (William Gibson). */
+export const APP_MILESTONE = "Gibson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -153,4 +153,10 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTimelogWorkflow",
   "versionHighlightAiMasterSwitch",
   "versionHighlightMasonry",
+  "versionHighlightModelPicker",
+  "versionHighlightActionGrouping",
+  "versionHighlightActionLayout",
+  "versionHighlightActionProviders",
+  "versionHighlightActionInlineCtas",
+  "versionHighlightMultiUpload",
 ] as const;

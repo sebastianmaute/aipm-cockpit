@@ -143,6 +143,12 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTimelogWorkflow: "Timelog lädt jetzt in zwei Schritten - zuerst das Personenverzeichnis laden, eingrenzen und die gewünschten Personen auswählen, dann nur deren Buchungen abrufen - mit vollständiger Seitennavigation, einer Abbrechen-Schaltfläche, automatischem Wiederholversuch bei Ratenbegrenzung und einer Option \"Meine Projekte laden\" (nach Projektmanager, inklusive abgeschlossener Projekte oder nach Kunde gefiltert).",
   versionHighlightAiMasterSwitch: "Alle KI-Funktionen sind jetzt standardmäßig über einen Hauptschalter \"KI-Assistent aktivieren\" ausgeschaltet, und beim ersten Aktivieren einer Integration (KI, Jira, Microsoft 365, Turso oder Timelog) wird ein einmaliger Sicherheits- und Verantwortungshinweis angezeigt.",
   versionHighlightMasonry: "Das Dashboard ist jetzt ein einzelnes Karten-Masonry, das auf breiten Bildschirmen dicht packt statt großer Lücken; Nächste Aktionen und Trends liegen als Untermenü unter Dashboard (Trends nur bei Turso-Backend), die App startet standardmäßig im Dashboard, und leere Register zeigen eine Klick-zum-Hinzufügen-Box.",
+  versionHighlightModelPicker: "Die KI-Modellauswahl listet Live-Modelle aus Ihrem Anthropic-Konto und prüft das Format des API-Schlüssels; ungültige Schlüssel werden verworfen",
+  versionHighlightActionGrouping: "Das Action Center fasst alle Signale zu einem Element in einer Zeile zusammen und begrenzt jede Stufe mit einer Mehr-anzeigen-Schaltfläche",
+  versionHighlightActionLayout: "Action-Center-Zeilen haben jetzt einen farbigen Dringlichkeitsstreifen, ein kompaktes Überlaufmenü und ausklappbare Gründe",
+  versionHighlightActionProviders: "Das Action Center kennzeichnet nicht zugewiesene, veraltete, blockierte und abhängigkeitsblockierte Aufgaben",
+  versionHighlightActionInlineCtas: "Aktionen direkt erledigen: Verantwortlichen zuweisen, als erledigt markieren, Blocker entfernen oder neu planen",
+  versionHighlightMultiUpload: "Ein Projekt aus mehreren hochgeladenen Dateien gleichzeitig erstellen, mit abbrechbarem Fortschrittsdialog",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

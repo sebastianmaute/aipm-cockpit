@@ -140,6 +140,12 @@ const enUS = {
   versionHighlightTimelogWorkflow: "Timelog now loads in two steps - load the people directory, narrow and tick who you need, then fetch only their bookings - with full paging, a Cancel button, automatic rate-limit retry, and a \"Load my projects\" option (by project manager, including closed projects, or filtered by customer)",
   versionHighlightAiMasterSwitch: "All AI features are now off by default behind an \"Enable AI assistant\" master switch, and the first time you enable any integration (AI, Jira, Microsoft 365, Turso or Timelog) a one-time security and responsibility note is shown",
   versionHighlightMasonry: "The dashboard is now a single masonry of cards that packs tightly on wide screens instead of leaving large empty gaps; Next actions and Trends moved under Dashboard as sub-menu entries (Trends shows only on a Turso backend), the app opens on the Dashboard by default, and empty registers show a click-to-add box",
+  versionHighlightModelPicker: "The AI model picker lists live models from your Anthropic account and validates the API key format, discarding malformed keys",
+  versionHighlightActionGrouping: "The Action Center groups every signal for one item into a single row and caps each tier with a show-more",
+  versionHighlightActionLayout: "Action-Center rows now have a colour-coded urgency stripe, a compact overflow menu, and expandable reasons",
+  versionHighlightActionProviders: "The Action Center flags unassigned, stale, blocked and dependency-blocked tasks",
+  versionHighlightActionInlineCtas: "Resolve actions in place: assign an owner, mark done, clear the blocker, or reschedule",
+  versionHighlightMultiUpload: "Create a project from several uploaded files at once, with a cancellable progress modal",
 
   tasks: "Tasks",
   tasksCount: "({0})",
