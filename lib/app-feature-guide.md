@@ -23,9 +23,12 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 <!-- views: actions -->
 
 - Ranked "suggested next actions" derived from project signals, each with one-click CTAs (create task, assign owner, escalate, draft message, re-baseline).
+- All signals for one item are now grouped into a single row, with a "+N more reasons" expander; each tier caps its rows with a show-more control so the list stays short.
+- Each row carries a colour-coded urgency stripe and a "⋮" overflow menu, and the Center now flags unassigned, stale, blocked, and dependency-blocked tasks.
+- You can resolve items in place — assign an owner, mark done, clear the blocker, or reschedule — without leaving the Center.
 - "Analyze with AI" runs a one-off advisory portfolio analysis.
 - The ranking engine is deterministic; AI analysis is advisory and adds no automatic changes.
-- AI: advisory only here, but can act on a suggested record using the task and RAID tools (e.g. create the task a suggestion describes).
+- AI: advisory only here, but can act on a suggested record using the task and RAID tools (e.g. create the task a suggestion describes, or update its owner/status). The in-row resolve buttons are user UI actions, not separate AI tools.
 
 ## AI assistant
 
@@ -118,6 +121,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Storage backend, timezone (default, per-project, and additional clock zones), AI configuration, opt-in scheduled jobs, guided-tour replay, and next-action weights.
 - Secrets (Anthropic API key, Turso auth token, Jira and Timelog tokens) are stored encrypted at rest.
 - AI features are gated by an "Enable AI assistant" master switch in Settings → AI (off by default). The first time any integration/AI feature is enabled (AI, Jira, Microsoft 365, Turso or Timelog), a one-time security & responsibility note is shown and acknowledged once per device.
+- The AI model dropdown lists the live models available on the user's Anthropic account (with an offline fallback list when they can't be fetched), and a malformed API key is rejected as it is entered.
 - Integrations panel holds storage, Turso, Microsoft 365, Timelog, and Jira together. Jira lives inside Integrations: its configuration fields appear only after the "Enable Jira sync" checkbox is ticked.
 - A **guided backend setup wizard** (Settings → Integrations → "Run setup wizard") steps through Storage & connections (storage, Turso, M365, Timelog), AI, and Jira, then a Review step summarising what is configured. The same wizard is reachable from the new-project window. Steps are skippable, and the flat Integrations panel can be used to adjust any setting later.
 - AI: can explain where each setting lives and what it does; cannot open or run the setup wizard (it is a UI affordance only).
