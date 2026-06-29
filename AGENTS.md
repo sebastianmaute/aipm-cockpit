@@ -177,7 +177,10 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   stays FLAT — grouping is SURFACE-ONLY; learning/notifications/AI keep the flat list. `actions-panel.tsx` caps Now/Soon
   at `MAX_VISIBLE_PER_TIER=5` with a show-more toggle.
 - **Action-row layout (slice 2):** `action-row.tsx` shows tier as a coloured LEFT STRIPE (`TIER_STRIPE` →
-  `border-l-[var(--rag-red|amber|green)]`, REPLACED the dot; RAG tokens switch under Mockup). A single `⋮` overflow
+  `border-l-[var(--rag-red)]` for now, with `--rag-amber`/`--rag-green` for soon/monitor — REPLACED the dot; RAG tokens
+  switch under Mockup). ★ Write each tier's stripe token as its own concrete `var(--rag-NAME)` here; never collapse the
+  family into one arbitrary-value bracket with a pipe or wildcard — Tailwind v4 scans AGENTS.md and an invalid char inside
+  such a bracket compiles to broken CSS (globals.css 500s, e2e webserver times out). A single `⋮` overflow
   popover (Draft / Create-task / Snooze) reuses `usePopoverDismiss`; contextual popovers (Escalate/Assign/Rebaseline/
   Reschedule) stay INLINE (≤1 per row). Expandable "+N more reasons" renders the group's `extraReasons`. ★ the reasons
   panel is ALWAYS mounted + `hidden`-toggled (id `action-reasons-${action.id}`) so the `aria-controls` target stays in DOM.
