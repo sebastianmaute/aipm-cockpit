@@ -41,7 +41,7 @@ export type DisplayItem =
 
 export type ApiUsage = { input_tokens: number; output_tokens: number };
 
-const ANTHROPIC_VERSION = "2023-06-01";
+export const ANTHROPIC_VERSION = "2023-06-01";
 
 /** Read a File into the data shape `buildAttachmentBlock` expects: base64 (no
  *  data: prefix) for pdf/image, decoded UTF-8 text for text. */
