@@ -568,6 +568,25 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ⇒ standalone `help-view.test.tsx` unchanged), wired `workspace-section` → `setActiveTab(v)`. Help is NOT in axe
   `A11Y_VIEWS` (map keyboard-focus/contrast + SVG positioning EYE-verified; jsdom rect=0 so tests assert
   structure/handlers/`data-active`, not pixels). i18n EN+DE; `helpRelationsGoToView` uses positional `{0}`.
+  • **Themed guided tours (Help SP4):** the single onboarding tour became a CATALOG of 6 themed
+  tours (`getting-started` · `raid` · `reporting` · `planning` · `stakeholders` · `ai`). Pure engine
+  `app-tour.ts` gained `TourDefinition`/`TourCatalogEntry`/`TOURS`/`findTour`; the old flat `TOUR_STEPS`
+  is KEPT as an export (= `getting-started`'s steps; `tour-overlay.test` imports it). `visibleSteps`
+  is now `(steps, features)` (was `(features)`) — drops a step whose `view` is a disabled module.
+  `use-tour.ts` tracks `activeTourId` (`start(tourId?)` defaults `getting-started`, preserving
+  auto-launch + HelpMenu), exposes `catalogTours` (tours with ≥1 visible step) + `completedTours` +
+  `activeTourTitleKey`; `done()` appends the active id to `settings.completedTours` (functional
+  `setSettings`), `skip()` sets `tourSeen` only. Per-device `settings.completedTours?: readonly
+  string[]` rides the `writeSettings` spread (no allowlist edit, sanitized on load, capped 50), OUT of
+  exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep; `tourSeen` STILL gates first-run
+  auto-launch separately. Presentational `tour-catalog.tsx` (props-only, no context — standalone
+  unit-tested) renders a card grid in a `<details open>` "Guided tours" section in `help-view.tsx`,
+  ABOVE the SP3 relations map; the whole section is GATED on `onStartTour` presence (mirrors the
+  `onTakeTour` gate) so standalone tests / classic / popout don't render it — tours stay modern-only.
+  Threaded task-manager → `WorkspaceSectionProps` (3 new OPTIONAL fields) → HelpView. `TourOverlay`
+  gained an optional `tourTitleKey` label. Help is NOT in axe `A11Y_VIEWS` → catalog a11y eye-verified
+  (`tour-catalog` uses the `INTERACTIVE` atom + `text-AIPM-green-strong` for the ✓-Done badge — there is
+  NO `text-AIPM-green-text` utility token).
   • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
   also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
   fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
