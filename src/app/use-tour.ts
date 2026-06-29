@@ -47,11 +47,15 @@ export function useTour({ layout, isPopout, hydrated, tourSeen, completedTours, 
 
   const catalogTours = useMemo<TourCatalogEntry[]>(
     () =>
-      TOURS.filter((t) => visibleSteps(t.steps, features).length > 0).map((t) => ({
-        id: t.id,
-        titleKey: t.titleKey,
-        descKey: t.descKey,
-      })),
+      TOURS.map((t) => ({ t, vis: visibleSteps(t.steps, features) }))
+        .filter(({ vis }) => vis.length > 0)
+        .map(({ t, vis }) => ({
+          id: t.id,
+          titleKey: t.titleKey,
+          descKey: t.descKey,
+          stepCount: vis.length,
+          iconView: t.iconView,
+        })),
     [features],
   );
 

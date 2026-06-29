@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RelationsMap } from "./relations-map";
-import { buildRelationsGraph } from "./relations-graph";
+import { buildRelationsGraph, type RelationsGraph } from "./relations-graph";
 import { HELP_ENTRIES } from "./help-content";
 import { t } from "./i18n";
 
@@ -29,5 +29,31 @@ describe("RelationsMap", () => {
     const btn = screen.getByRole("button", { name: t("en-US", first.titleKey) });
     fireEvent.mouseEnter(btn);
     expect(btn).toHaveAttribute("data-active", "true");
+  });
+});
+
+const verticalGraph: RelationsGraph = {
+  nodes: [
+    { id: "a", titleKey: "navHelp", x: 0.5, y: 0.1 },
+    { id: "b", titleKey: "navHelp", x: 0.5, y: 0.5 },
+  ],
+  edges: [{ a: "a", b: "b" }],
+};
+
+describe("RelationsMap vertical", () => {
+  it("renders one keyboard button per node and calls onSelectConcept on click", () => {
+    const onSelect = vi.fn();
+    render(<RelationsMap graph={verticalGraph} lang="en-US" onSelectConcept={onSelect} />);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.length).toBe(2);
+    fireEvent.click(buttons[0]);
+    expect(onSelect).toHaveBeenCalledWith("a");
+  });
+
+  it("marks the focused node active (data-active)", () => {
+    render(<RelationsMap graph={verticalGraph} lang="en-US" onSelectConcept={() => {}} />);
+    const buttons = screen.getAllByRole("button");
+    fireEvent.focus(buttons[1]);
+    expect(buttons[1].getAttribute("data-active")).toBe("true");
   });
 });

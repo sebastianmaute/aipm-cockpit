@@ -58,14 +58,20 @@ describe("HelpView (grouped)", () => {
     expect(onNav).toHaveBeenCalledWith("raid");
   });
 
-  it("renders the Guided tours section only when onStartTour is provided", () => {
-    const { rerender } = render(<HelpView lang="en-US" />);
+  it("omits the Guided tours tab when onStartTour is absent", () => {
+    const { unmount } = render(<HelpView lang="en-US" />);
     expect(screen.queryByText("Guided tours")).toBeNull();
-    rerender(
+    unmount();
+  });
+
+  it("shows the Guided tours tab (selected) when onStartTour is provided", () => {
+    // Fresh mount with onStartTour so Guided tours is panels[0] and the
+    // default-selected tab (its catalog card is visible, not a hidden tab).
+    render(
       <HelpView
         lang="en-US"
         onStartTour={() => {}}
-        catalogTours={[{ id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc" }]}
+        catalogTours={[{ id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc", stepCount: 3, iconView: "raid" }]}
         completedTours={[]}
       />,
     );

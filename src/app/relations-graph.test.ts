@@ -42,3 +42,30 @@ describe("buildRelationsGraph", () => {
     expect(buildRelationsGraph(HELP_ENTRIES)).toEqual(buildRelationsGraph(HELP_ENTRIES));
   });
 });
+
+describe("buildRelationsGraph vertical layout", () => {
+  it("lays concept nodes in a single vertical column (shared x, increasing y)", () => {
+    const g = buildRelationsGraph(HELP_ENTRIES);
+    expect(g.nodes.length).toBeGreaterThan(1);
+    const xs = new Set(g.nodes.map((n) => Number(n.x.toFixed(4))));
+    expect(xs.size).toBe(1); // one column
+    const ys = g.nodes.map((n) => n.y);
+    for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThan(ys[i - 1]);
+    for (const n of g.nodes) {
+      expect(n.x).toBeGreaterThanOrEqual(0);
+      expect(n.x).toBeLessThanOrEqual(1);
+      expect(n.y).toBeGreaterThanOrEqual(0);
+      expect(n.y).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("keeps edges deduped + undirected (sorted a<b), no self-loops", () => {
+    const g = buildRelationsGraph(HELP_ENTRIES);
+    const keys = g.edges.map((e) => `${e.a}|${e.b}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    for (const e of g.edges) {
+      expect(e.a < e.b).toBe(true);
+      expect(e.a).not.toBe(e.b);
+    }
+  });
+});

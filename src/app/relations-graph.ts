@@ -1,5 +1,5 @@
 // Pure, i18n-free layout engine for the Help relations map (SP3).
-// Concepts become nodes on a deterministic radial layout; their mutual
+// Concepts become nodes in a deterministic vertical column; their mutual
 // `relatedConcepts` references become deduped undirected edges. No DOM, no
 // Date/Math.random — output is a pure function of the input entries.
 import type { HelpEntry } from "./help-content";
@@ -20,24 +20,23 @@ export interface RelationsGraph {
   edges: readonly GraphEdge[];
 }
 
-/** Radius of the node circle within the unit box (leaves margin for the
- *  button chrome that overlays each node). */
-const RADIUS = 0.42;
-
 export function buildRelationsGraph(entries: readonly HelpEntry[]): RelationsGraph {
   const concepts = entries.filter((e) => e.group === "concepts");
   const ids = new Set(concepts.map((c) => c.id));
   const n = concepts.length;
 
-  const nodes: GraphNode[] = concepts.map((c, i) => {
-    const angle = -Math.PI / 2 + (2 * Math.PI * i) / n;
-    return {
-      id: c.id,
-      titleKey: c.titleKey,
-      x: 0.5 + RADIUS * Math.cos(angle),
-      y: 0.5 + RADIUS * Math.sin(angle),
-    };
-  });
+  // Vertical single-column layout: concepts stacked top→bottom at a fixed x.
+  // Margins keep the first/last node clear of the container edges.
+  const TOP = 0.08;
+  const BOTTOM = 0.92;
+  const COLUMN_X = 0.5;
+
+  const nodes: GraphNode[] = concepts.map((c, i) => ({
+    id: c.id,
+    titleKey: c.titleKey,
+    x: COLUMN_X,
+    y: n <= 1 ? 0.5 : TOP + ((BOTTOM - TOP) * i) / (n - 1),
+  }));
 
   const seen = new Set<string>();
   const edges: GraphEdge[] = [];

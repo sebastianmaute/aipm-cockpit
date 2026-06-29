@@ -8,7 +8,7 @@ import { useResizable } from "./use-resizable";
 import { APP_LICENSE_URL } from "./version";
 
 const STORAGE_KEY_POS = "lop-app:help-pos";
-const STORAGE_KEY_SIZE = "lop-app:help-size-v2";
+const STORAGE_KEY_SIZE = "lop-app:help-size-v3";
 
 // Minimum gap (px) between the help panel and the top/bottom viewport edges
 // when the panel opens. The panel can still be dragged anywhere afterwards;
@@ -74,8 +74,8 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
   useEffect(() => {
     if (!open || pos !== null) return;
     const el = panelRef.current;
-    const panelW = el?.offsetWidth ?? 760;
-    const panelH = el?.offsetHeight ?? 620;
+    const panelW = el?.offsetWidth ?? 820;
+    const panelH = el?.offsetHeight ?? 640;
     const saved = loadPos();
     const initial = clampPos(
       saved ?? {
@@ -183,7 +183,7 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
             maxWidth: "100vw",
             maxHeight: `calc(100vh - ${2 * VIEWPORT_PADDING}px)`,
           }}
-          className="fixed z-50 flex h-[620px] min-h-72 w-[760px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface"
+          className="fixed z-50 flex h-[640px] min-h-72 w-[820px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface"
         >
           <div
             onMouseDown={onTitleBarMouseDown}

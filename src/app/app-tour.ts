@@ -20,6 +20,7 @@ export interface TourDefinition {
   id: string;
   titleKey: TranslationKey;
   descKey: TranslationKey;
+  iconView: AppView;
   steps: readonly TourStep[];
 }
 
@@ -28,6 +29,8 @@ export interface TourCatalogEntry {
   id: string;
   titleKey: TranslationKey;
   descKey: TranslationKey;
+  stepCount: number;
+  iconView: AppView;
 }
 
 export const TOUR_ANCHORS = {
@@ -84,12 +87,12 @@ const AI_STEPS: readonly TourStep[] = [
 ];
 
 export const TOURS: readonly TourDefinition[] = [
-  { id: "getting-started", titleKey: "tourGettingStartedTitle", descKey: "tourGettingStartedDesc", steps: TOUR_STEPS },
-  { id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc", steps: RAID_STEPS },
-  { id: "reporting", titleKey: "tourReportingTitle", descKey: "tourReportingDesc", steps: REPORTING_STEPS },
-  { id: "planning", titleKey: "tourPlanningTitle", descKey: "tourPlanningDesc", steps: PLANNING_STEPS },
-  { id: "stakeholders", titleKey: "tourStakeholdersTitle", descKey: "tourStakeholdersDesc", steps: STAKEHOLDER_STEPS },
-  { id: "ai", titleKey: "tourAiTitle", descKey: "tourAiDesc", steps: AI_STEPS },
+  { id: "getting-started", titleKey: "tourGettingStartedTitle", descKey: "tourGettingStartedDesc", iconView: "dashboard", steps: TOUR_STEPS },
+  { id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc", iconView: "raid", steps: RAID_STEPS },
+  { id: "reporting", titleKey: "tourReportingTitle", descKey: "tourReportingDesc", iconView: "reports", steps: REPORTING_STEPS },
+  { id: "planning", titleKey: "tourPlanningTitle", descKey: "tourPlanningDesc", iconView: "milestones", steps: PLANNING_STEPS },
+  { id: "stakeholders", titleKey: "tourStakeholdersTitle", descKey: "tourStakeholdersDesc", iconView: "stakeholders", steps: STAKEHOLDER_STEPS },
+  { id: "ai", titleKey: "tourAiTitle", descKey: "tourAiDesc", iconView: "chat", steps: AI_STEPS },
 ];
 
 export function findTour(id: string): TourDefinition | undefined {
