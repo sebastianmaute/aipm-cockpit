@@ -15,6 +15,21 @@ export interface TourStep {
   anchorId?: string;
 }
 
+/** A themed tour: a named, described, ordered list of steps. */
+export interface TourDefinition {
+  id: string;
+  titleKey: TranslationKey;
+  descKey: TranslationKey;
+  steps: readonly TourStep[];
+}
+
+/** The catalog projection the Help-view picker renders (no steps). */
+export interface TourCatalogEntry {
+  id: string;
+  titleKey: TranslationKey;
+  descKey: TranslationKey;
+}
+
 export const TOUR_ANCHORS = {
   navTasks: "tour-nav-tasks",
   navActions: "tour-nav-actions",
@@ -22,6 +37,7 @@ export const TOUR_ANCHORS = {
   projectSwitcher: "tour-project-switcher",
 } as const;
 
+// The original onboarding walkthrough — now the "getting-started" tour's steps.
 export const TOUR_STEPS: readonly TourStep[] = [
   { id: "welcome", kind: "modal", titleKey: "tourStepWelcomeTitle", bodyKey: "tourStepWelcomeBody" },
   { id: "projects", kind: "spotlight", titleKey: "tourStepProjectsTitle", bodyKey: "tourStepProjectsBody", view: "projects", anchorId: TOUR_ANCHORS.projectSwitcher },
@@ -37,10 +53,53 @@ export const TOUR_STEPS: readonly TourStep[] = [
   { id: "settings", kind: "modal", titleKey: "tourStepSettingsTitle", bodyKey: "tourStepSettingsBody", view: "settings" },
 ];
 
-/** Drop steps whose deep-link view belongs to a disabled feature module, so the
+const RAID_STEPS: readonly TourStep[] = [
+  { id: "raid-overview", kind: "modal", titleKey: "tourStepRaidOverviewTitle", bodyKey: "tourStepRaidOverviewBody", view: "raid" },
+  { id: "raid-matrix", kind: "modal", titleKey: "tourStepRaidMatrixTitle", bodyKey: "tourStepRaidMatrixBody", view: "raid" },
+  { id: "raid-review", kind: "modal", titleKey: "tourStepRaidReviewTitle", bodyKey: "tourStepRaidReviewBody", view: "raid" },
+];
+
+const REPORTING_STEPS: readonly TourStep[] = [
+  { id: "report-dashboard", kind: "modal", titleKey: "tourStepReportDashboardTitle", bodyKey: "tourStepReportDashboardBody", view: "dashboard" },
+  { id: "report-reports", kind: "modal", titleKey: "tourStepReportReportsTitle", bodyKey: "tourStepReportReportsBody", view: "reports" },
+  { id: "report-evm", kind: "modal", titleKey: "tourStepReportEvmTitle", bodyKey: "tourStepReportEvmBody", view: "reports" },
+];
+
+const PLANNING_STEPS: readonly TourStep[] = [
+  { id: "plan-milestones", kind: "modal", titleKey: "tourStepPlanMilestonesTitle", bodyKey: "tourStepPlanMilestonesBody", view: "milestones" },
+  { id: "plan-gantt", kind: "modal", titleKey: "tourStepPlanGanttTitle", bodyKey: "tourStepPlanGanttBody", view: "milestones" },
+  { id: "plan-critical", kind: "modal", titleKey: "tourStepPlanCriticalTitle", bodyKey: "tourStepPlanCriticalBody", view: "milestones" },
+];
+
+const STAKEHOLDER_STEPS: readonly TourStep[] = [
+  { id: "stake-register", kind: "modal", titleKey: "tourStepStakeRegisterTitle", bodyKey: "tourStepStakeRegisterBody", view: "stakeholders" },
+  { id: "stake-raci", kind: "modal", titleKey: "tourStepStakeRaciTitle", bodyKey: "tourStepStakeRaciBody", view: "stakeholders" },
+  { id: "stake-comms", kind: "modal", titleKey: "tourStepStakeCommsTitle", bodyKey: "tourStepStakeCommsBody", view: "stakeholders" },
+];
+
+const AI_STEPS: readonly TourStep[] = [
+  { id: "ai-chat", kind: "modal", titleKey: "tourStepAiChatTitle", bodyKey: "tourStepAiChatBody", view: "chat" },
+  { id: "ai-actions", kind: "modal", titleKey: "tourStepAiActionsTitle", bodyKey: "tourStepAiActionsBody", view: "actions" },
+  { id: "ai-settings", kind: "modal", titleKey: "tourStepAiSettingsTitle", bodyKey: "tourStepAiSettingsBody", view: "settings" },
+];
+
+export const TOURS: readonly TourDefinition[] = [
+  { id: "getting-started", titleKey: "tourGettingStartedTitle", descKey: "tourGettingStartedDesc", steps: TOUR_STEPS },
+  { id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc", steps: RAID_STEPS },
+  { id: "reporting", titleKey: "tourReportingTitle", descKey: "tourReportingDesc", steps: REPORTING_STEPS },
+  { id: "planning", titleKey: "tourPlanningTitle", descKey: "tourPlanningDesc", steps: PLANNING_STEPS },
+  { id: "stakeholders", titleKey: "tourStakeholdersTitle", descKey: "tourStakeholdersDesc", steps: STAKEHOLDER_STEPS },
+  { id: "ai", titleKey: "tourAiTitle", descKey: "tourAiDesc", steps: AI_STEPS },
+];
+
+export function findTour(id: string): TourDefinition | undefined {
+  return TOURS.find((t) => t.id === id);
+}
+
+/** Drop steps whose deep-link view belongs to a disabled feature module, so a
  *  tour never navigates to a hidden view. Steps without a `view` always survive. */
-export function visibleSteps(features: readonly FeatureModuleId[]): TourStep[] {
-  return TOUR_STEPS.filter((s) => s.view === undefined || isViewEnabled(s.view, features));
+export function visibleSteps(steps: readonly TourStep[], features: readonly FeatureModuleId[]): TourStep[] {
+  return steps.filter((s) => s.view === undefined || isViewEnabled(s.view, features));
 }
 
 /** Bound an index to [0, total-1]; returns 0 for an empty list. */
