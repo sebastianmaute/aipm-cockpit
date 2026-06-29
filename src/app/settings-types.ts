@@ -13,10 +13,20 @@ import {
 } from "./workspace";
 import { type TimelogConfig, defaultTimelogConfig } from "./timelog-types";
 
-export type ChatModel =
-  | "claude-sonnet-4-6"
-  | "claude-opus-4-7"
-  | "claude-haiku-4-5-20251001";
+/** Single source of truth for the selectable AI models. Add/replace ONE entry
+ *  here on a model release — the `ChatModel` union, the sanitize allowlist, and
+ *  the Settings → AI dropdown all derive from this array, so they can't drift
+ *  apart. `id` is the Anthropic model id sent to the API; `label` is the UI text. */
+export const CHAT_MODELS = [
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { id: "claude-opus-4-8", label: "Claude Opus 4.8" },
+  { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
+] as const;
+
+// Open string: augment mode (use-chat-models) lets the user pick any live
+// claude-* id, not just the curated CHAT_MODELS. The registry ids remain the
+// known-good defaults + offline fallback.
+export type ChatModel = string;
 
 export const DEFAULT_SESSION_TOKEN_CAP = 200_000;
 export const DEFAULT_WEEKLY_TOKEN_CAP = 2_000_000;
@@ -36,7 +46,7 @@ export type AiConfig = {
 
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
-  model: "claude-sonnet-4-6",
+  model: CHAT_MODELS[0].id,
   consentAccepted: false,
   sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
   weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
@@ -49,14 +59,13 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? Math.round(n) : def;
   };
-  const MODELS: readonly ChatModel[] = [
-    "claude-sonnet-4-6",
-    "claude-opus-4-7",
-    "claude-haiku-4-5-20251001",
-  ];
-  const model: ChatModel = MODELS.includes(obj.model as ChatModel)
-    ? (obj.model as ChatModel)
-    : defaultAiConfig.model;
+  // Pattern (not allowlist): sanitize runs at load, BEFORE the async live-model
+  // fetch, so a previously-selected live model must survive the round-trip.
+  const rawModel = typeof obj.model === "string" ? obj.model.trim() : "";
+  const model: ChatModel =
+    rawModel.length <= 64 && /^claude-[\w.-]+$/.test(rawModel)
+      ? rawModel
+      : defaultAiConfig.model;
   return {
     apiKey: typeof obj.apiKey === "string" ? obj.apiKey : "",
     model,

@@ -1616,6 +1616,7 @@ export const de: Record<TranslationKey, string> = {
   aiGuideScopeViews: "Ansichten",
   aiGuideScopeAny: "Immer aktiv",
   aiApiKeyTooltip: "Ihr Anthropic-API-Schlüssel. Wird nur lokal in diesem Browser gespeichert.",
+  aiKeyInvalid: "Das sieht nicht wie ein gültiger Anthropic-API-Schlüssel aus (sk-ant-…). Er wurde nicht gespeichert.",
   aiModelTooltip: "Welches Claude-Modell der Assistent verwendet.",
   integrationsTooltip: "Externe Dienste wie Microsoft 365 und Turso verbinden.",
   integrationsM365Tooltip: "Mit Microsoft 365 anmelden, um SharePoint-Speicher und Outlook-Import zu nutzen.",

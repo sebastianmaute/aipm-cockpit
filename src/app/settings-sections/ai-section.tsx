@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
-import type { ChatModel, Settings } from "../settings-types";
+import { type Settings } from "../settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
@@ -17,6 +17,9 @@ import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
+import { useToastContext } from "../toast-context";
+import { useChatModels } from "../use-chat-models";
+import { isValidAnthropicApiKey } from "../chat-models";
 
 interface AiSectionProps {
   lang: Lang;
@@ -235,6 +238,8 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
 
 export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
+  const showToast = useToastContext();
+  const modelOptions = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
   const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = settings.ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
 
@@ -253,8 +258,21 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
 
   function handleApiKeyChange(value: string) {
     onChange({ ...settings, ai: { ...settings.ai, apiKey: value } });
-    if (keyWrap === "device") {
+    if (keyWrap === "device" && isValidAnthropicApiKey(value)) {
       void saveSecretValue("anthropicApiKey", value, "device").then(() => setKeyStored(true));
+    }
+  }
+
+  // Validate the typed key on blur: a malformed key is discarded (blanked +
+  // un-sealed) with an error toast, so a typo can't silently masquerade as a
+  // stored credential.
+  function handleApiKeyBlur() {
+    const k = settings.ai.apiKey.trim();
+    if (k && !isValidAnthropicApiKey(k)) {
+      showToast("error", t(lang, "aiKeyInvalid"));
+      onChange({ ...settings, ai: { ...settings.ai, apiKey: "" } });
+      removeSealed("anthropicApiKey");
+      setKeyStored(false);
     }
   }
 
@@ -285,6 +303,12 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
   }
 
   function handleLockConfirm() {
+    // Defensive gate only — blur already discards a malformed key and load-time
+    // sanitize pattern-checks it; we just refuse to passphrase-seal it here.
+    if (!isValidAnthropicApiKey(settings.ai.apiKey)) {
+      showToast("error", t(lang, "aiKeyInvalid"));
+      return;
+    }
     void (async () => {
       await setSecretPassphrase("anthropicApiKey", settings.ai.apiKey, keyPassphrase);
       setKeyStored(true);
@@ -379,6 +403,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           autoComplete="off"
           value={settings.ai.apiKey}
           onChange={(e) => handleApiKeyChange(e.target.value)}
+          onBlur={handleApiKeyBlur}
           placeholder={t(lang, "aiApiKeyPlaceholder")}
           className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
@@ -451,17 +476,17 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               ...settings,
               ai: {
                 ...settings.ai,
-                model: e.target.value as ChatModel,
+                model: e.target.value,
               },
             })
           }
           className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
-          <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
-          <option value="claude-opus-4-7">Claude Opus 4.7</option>
-          <option value="claude-haiku-4-5-20251001">
-            Claude Haiku 4.5
-          </option>
+          {modelOptions.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
         </select>
       </label>
       <p className="mt-2 text-xs text-muted-foreground">
