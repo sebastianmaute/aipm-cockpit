@@ -261,6 +261,15 @@ export function useSettings(): {
             // Fall back to the default branding (seeds the app slogan) when the
             // stored blob has none, so settings.branding.footerSlogan is populated.
             branding: sanitizeBranding((parsed as Record<string, unknown>).branding) ?? defaultSettings.branding,
+            completedTours: Array.isArray((parsed as Record<string, unknown>).completedTours)
+              ? Array.from(
+                  new Set(
+                    ((parsed as Record<string, unknown>).completedTours as unknown[]).filter(
+                      (v): v is string => typeof v === "string",
+                    ),
+                  ),
+                ).slice(0, 50)
+              : undefined,
           };
           void (async () => {
             // Migrate any legacy plaintext secrets out of the parsed blob into
