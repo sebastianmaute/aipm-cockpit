@@ -553,6 +553,21 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   labeled, palette-safe — verified). Dashboard EXCLUDED (has coaching + tip cards). ★ A loose
   `getByText(/changes/i)` in `dashboard-panel.test` collided with the date-rotating tip card's "Changes" text →
   scope such queries to a `heading` role, not free text.
+  • **Interactive relations map (Help SP3):** a node graph of the 11 Help CONCEPT entries (edges =
+  `relatedConcepts`) in a `<details open>` "How it all connects" atop the Help view. Pure i18n-free engine
+  `relations-graph.ts` `buildRelationsGraph(entries)` → `{nodes:[{id,titleKey,x,y}],edges:[{a,b}]}`:
+  deterministic RADIAL layout (fractional `x,y∈[0,1]`, HELP_ENTRIES order, `RADIUS=0.42`), edges undirected +
+  deduped (sorted `"a|b"` key), endpoints filtered to concept nodes, no self-loops; no `Date`/`Math.random`.
+  Presentational `relations-map.tsx` uses the ★★ OVERLAY technique: a decorative `aria-hidden` `<svg
+  viewBox="0 0 100 100">` draws the edge `<line>`s (coords `=x*100`), and a real absolutely-positioned HTML
+  `<button>` per node (`left/top %`) is the keyboard-native, axe-clean interactive element — NOT a focusable
+  SVG sub-element. Local `useState(active)` from hover AND focus highlights incident edges (`stroke-AIPM-dark-blue`,
+  dim the rest) + neighbour buttons; click → `onSelectConcept(id)` → HelpView `scrollToSection`. Concept-only —
+  view navigation lives in the Related line: SP3 upgraded each entry's `relatedViews` from a plain italic `<span>`
+  to a navigate `<button>` gated on a NEW OPTIONAL `HelpView` prop `onNavigateView?: (view:AppView)=>void` (optional
+  ⇒ standalone `help-view.test.tsx` unchanged), wired `workspace-section` → `setActiveTab(v)`. Help is NOT in axe
+  `A11Y_VIEWS` (map keyboard-focus/contrast + SVG positioning EYE-verified; jsdom rect=0 so tests assert
+  structure/handlers/`data-active`, not pixels). i18n EN+DE; `helpRelationsGoToView` uses positional `{0}`.
   • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
   also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
   fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
