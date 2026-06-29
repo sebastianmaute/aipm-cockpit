@@ -403,13 +403,13 @@ function ChatPanelInner({
     // Centered half-size card, top-anchored. The corner drags to a custom size
     // (persisted via useResizable); ResetSizeButton restores the default.
     <div ref={chatRef} className={CHAT_PANE_CLASS}>
-      <div className="mb-2 flex shrink-0 items-center gap-2">
+      <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
         <select
           aria-label={t(lang, "aiModel")}
           value={ai.model}
           onChange={(e) => onChangeModel?.(e.target.value)}
           disabled={!onChangeModel}
-          className={`min-w-0 max-w-[18rem] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none ${FOCUS_RING} ${TRANSITION}`}
+          className={`min-w-0 max-w-[18rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
         >
           {modelOptions.map((m) => (
             <option key={m.id} value={m.id}>
@@ -417,7 +417,7 @@ function ChatPanelInner({
             </option>
           ))}
         </select>
-        <ResetSizeButton onClick={resetChatSize} lang={lang} className="ml-auto" />
+        <ResetSizeButton onClick={resetChatSize} lang={lang} />
       </div>
       <div
         ref={scrollerRef}
