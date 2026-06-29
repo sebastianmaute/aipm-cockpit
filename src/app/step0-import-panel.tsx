@@ -12,7 +12,7 @@
 // surfaces via the wizard-owned `aiError`. `setReading(false)` always runs in
 // `finally`.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
@@ -27,6 +27,11 @@ import { fetchConfluencePage } from "./confluence-api";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
 import type { DocumentLink } from "./document-link";
+import { Modal } from "./modal";
+import { INTERACTIVE } from "./interaction-styles";
+
+/** Cap on files accepted in a single multi-upload (extras → "too-many" skip). */
+const MAX_IMPORT_FILES = 10;
 
 const PRIMARY_BUTTON_CLASS =
   "rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
@@ -85,8 +90,9 @@ export interface Step0ImportPanelProps {
   aiBusy: boolean;
   /** Wizard's proposal-call error (surfaced alongside the local importError). */
   aiError: string | null;
-  /** = the wizard's runIngest: runs the model call and pre-fills Step 1. */
-  onIngest: (content: ProposalContent) => Promise<void>;
+  /** = the wizard's runIngest: runs the model call and pre-fills Step 1. The
+   *  optional signal aborts the in-flight proposal call (loading-modal Cancel). */
+  onIngest: (content: ProposalContent, signal?: AbortSignal) => Promise<void>;
   /** Clear the proposal error state (mirrors the wizard's resetAi). */
   onResetAi: () => void;
   /** Skip the fast-path and jump to manual Step 1. */
@@ -112,6 +118,13 @@ export function Step0ImportPanel({
   // True while a SOURCE step (file read / SP fetch / Confluence fetch) is in
   // flight — gives read-phase feedback and blocks a second concurrent ingest.
   const [reading, setReading] = useState(false);
+  // Files dropped from a multi-upload (invalid type / too large / over the cap)
+  // — surfaced as a muted "skipped" notice while the valid ones still import.
+  const [skipped, setSkipped] = useState<
+    { name: string; reason: "too-large" | "unsupported" | "too-many" }[]
+  >([]);
+  // Aborts the in-flight proposal call when the loading modal's Cancel is hit.
+  const abortRef = useRef<AbortController | null>(null);
 
   // SharePoint import reuses the M365 delegated session, gated on the integration.
   const spEnabled = isSharePointEnabled(settings.integrations);
@@ -122,36 +135,63 @@ export function Step0ImportPanel({
 
   const handleGenerate = () => onIngest(description);
 
-  // File upload → classify, size-gate, read bytes (SOURCE step in try/catch),
-  // then ingest OUTSIDE the catch so a generate failure surfaces via aiError,
-  // not the generic source-import error. Never logs the bytes.
+  // Multi-file upload → classify + size-gate each (capped at MAX_IMPORT_FILES),
+  // read the valid ones' bytes (SOURCE step in try/catch), then ingest the
+  // combined blocks in ONE proposal call OUTSIDE the catch so a generate failure
+  // surfaces via aiError, not the generic source-import error. Invalid/over-cap
+  // files are collected into `skipped` (a muted notice) rather than aborting the
+  // whole import. Never logs the bytes.
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file later
-    if (!file) return;
-    if (checkAttachmentSize(file.size)) {
-      setImportError(t(lang, "wizardImportErrorTooLarge"));
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // allow re-selecting the same file(s) later
+    if (files.length === 0) return;
+    setImportError(null);
+    setSkipped([]);
+    onResetAi();
+    const dropped: { name: string; reason: "too-large" | "unsupported" | "too-many" }[] = [];
+    const blocks: ReturnType<typeof buildAttachmentBlock>[] = [];
+    setReading(true);
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (i >= MAX_IMPORT_FILES) {
+          dropped.push({ name: file.name, reason: "too-many" });
+          continue;
+        }
+        if (checkAttachmentSize(file.size)) {
+          dropped.push({ name: file.name, reason: "too-large" });
+          continue;
+        }
+        const kind = classifyAttachment(file.type, file.name);
+        if (!kind) {
+          dropped.push({ name: file.name, reason: "unsupported" });
+          continue;
+        }
+        const data = await readFileData(file, kind);
+        blocks.push(buildAttachmentBlock(kind, file.type || mimeForKind(kind), data));
+      }
+    } catch {
+      setImportError(t(lang, "wizardImportErrorSource"));
+      setReading(false);
       return;
     }
-    const kind = classifyAttachment(file.type, file.name);
-    if (!kind) {
+    setReading(false);
+    if (dropped.length > 0) setSkipped(dropped);
+    if (blocks.length === 0) {
       setImportError(t(lang, "wizardImportErrorUnsupported"));
       return;
     }
-    setImportError(null);
-    let content: ProposalContent;
-    setReading(true);
+    const content: ProposalContent = [
+      { type: "text", text: t(lang, "wizardImportFilePrompt") },
+      ...blocks,
+    ];
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
-      const data = await readFileData(file, kind);
-      const block = buildAttachmentBlock(kind, file.type || mimeForKind(kind), data);
-      content = [{ type: "text", text: t(lang, "wizardImportFilePrompt") }, block];
-    } catch {
-      setImportError(t(lang, "wizardImportErrorSource"));
-      return;
+      await onIngest(content, ctrl.signal);
     } finally {
-      setReading(false);
+      abortRef.current = null;
     }
-    await onIngest(content);
   };
 
   // SharePoint picker yielded a file link → fetch its bytes via Graph + classify
@@ -245,6 +285,7 @@ export function Step0ImportPanel({
                 onClick={() => {
                   setMethod(m.id);
                   setImportError(null);
+                  setSkipped([]);
                   onResetAi();
                 }}
                 className={`rounded-md border px-3 py-1.5 text-sm hover:bg-surface-muted ${
@@ -277,6 +318,7 @@ export function Step0ImportPanel({
             <span className="font-medium text-foreground">{t(lang, "wizardImportFileLabel")}</span>
             <input
               type="file"
+              multiple
               aria-label={t(lang, "wizardImportFileLabel")}
               accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv"
               disabled={reading || aiBusy}
@@ -331,6 +373,12 @@ export function Step0ImportPanel({
           </p>
         )}
 
+        {skipped.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {t(lang, "wizardImportSkippedFiles", skipped.length, skipped.map((s) => s.name).join(", "))}
+          </p>
+        )}
+
         {spPickerOpen && (
           <SharePointPickerModal
             mode="link"
@@ -367,6 +415,39 @@ export function Step0ImportPanel({
           )}
         </div>
       </div>
+
+      {/* Blocking loading modal during the read + proposal call. Cancel aborts
+          the in-flight AI call via the shared AbortController. */}
+      {(reading || aiBusy) && (
+        <Modal
+          open
+          onClose={() => abortRef.current?.abort()}
+          ariaLabel={t(lang, reading ? "wizardImportReadingFiles" : "wizardImportAnalyzing")}
+          align="center"
+          zIndex={70}
+        >
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
+          >
+            <span
+              aria-hidden="true"
+              className="h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue border-t-transparent"
+            />
+            <span className="text-sm font-medium">
+              {t(lang, reading ? "wizardImportReadingFiles" : "wizardImportAnalyzing")}
+            </span>
+            <button
+              type="button"
+              onClick={() => abortRef.current?.abort()}
+              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
+            >
+              {t(lang, "cancel")}
+            </button>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }
