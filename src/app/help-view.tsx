@@ -8,6 +8,8 @@ import { buildRelationsGraph } from "./relations-graph";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
 import { RelationsMap } from "./relations-map";
 import { TourCatalog } from "./tour-catalog";
+import { HelpCollapsibleRegion, type HelpPanel } from "./help-collapsible-region";
+import { InformationFlowsSection } from "./settings-sections/information-flows-section";
 import type { TourCatalogEntry } from "./app-tour";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
@@ -91,28 +93,37 @@ export function HelpView({
         <ResetSizeButton onClick={reset} lang={lang} />
       </div>
 
-      {onStartTour && (
-        <details open className="mb-2 shrink-0 print:hidden">
-          <summary className={`cursor-pointer text-sm font-medium text-foreground ${FOCUS_RING}`}>
-            {t(lang, "helpGuidedToursTitle")}
-          </summary>
-          <p className="mb-2 mt-1 text-xs text-muted-foreground">{t(lang, "helpGuidedToursIntro")}</p>
-          <TourCatalog
-            lang={lang}
-            tours={catalogTours ?? []}
-            completedTours={completedTours ?? []}
-            onStartTour={onStartTour}
-          />
-        </details>
-      )}
-
-      <details open className="mb-2 shrink-0 print:hidden">
-        <summary className={`cursor-pointer text-sm font-medium text-foreground ${FOCUS_RING}`}>
-          {t(lang, "helpRelationsTitle")}
-        </summary>
-        <p className="mb-2 mt-1 text-xs text-muted-foreground">{t(lang, "helpRelationsIntro")}</p>
-        <RelationsMap graph={graph} lang={lang} onSelectConcept={scrollToSection} />
-      </details>
+      <HelpCollapsibleRegion
+        lang={lang}
+        panels={[
+          ...(onStartTour
+            ? ([
+                {
+                  key: "tours",
+                  titleKey: "helpGuidedToursTitle",
+                  body: (
+                    <TourCatalog
+                      lang={lang}
+                      tours={catalogTours ?? []}
+                      completedTours={completedTours ?? []}
+                      onStartTour={onStartTour}
+                    />
+                  ),
+                },
+              ] as HelpPanel[])
+            : []),
+          {
+            key: "connects",
+            titleKey: "helpRelationsTitle",
+            body: <RelationsMap graph={graph} lang={lang} onSelectConcept={scrollToSection} />,
+          },
+          {
+            key: "flows",
+            titleKey: "infoFlowsTitle",
+            body: <InformationFlowsSection lang={lang} />,
+          },
+        ]}
+      />
 
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-md border border-line print:block print:overflow-visible">
         <HelpContentPane lang={lang} query={query} onNavigateView={onNavigateView} />

@@ -65,7 +65,7 @@ describe("HelpView (grouped)", () => {
       <HelpView
         lang="en-US"
         onStartTour={() => {}}
-        catalogTours={[{ id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc" }]}
+        catalogTours={[{ id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc", stepCount: 3, iconView: "raid" }]}
         completedTours={[]}
       />,
     );
