@@ -42,7 +42,8 @@ export function ViewCallout({ view, lang, showHints, isPopout, onLearnMore }: Vi
         onClick={() => onLearnMore(callout.conceptId)}
         className={`shrink-0 font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
       >
-        {t(lang, "viewHintLearnMore")} →
+        {t(lang, "viewHintLearnMore")}
+        <span aria-hidden="true"> →</span>
       </button>
       <button
         type="button"
