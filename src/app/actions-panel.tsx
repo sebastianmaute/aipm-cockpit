@@ -194,6 +194,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                     type="button"
                     aria-expanded={open}
                     aria-controls={`action-${tier}-list`}
+                    aria-label={`${t(lang, labelKey)} – ${open ? t(lang, "actionShowLess") : t(lang, "actionShowMore", hiddenCount)}`}
                     onClick={() => setExpanded((e) => ({ ...e, [tier]: !open }))}
                     className="mt-2 text-xs font-medium text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey"
                   >
