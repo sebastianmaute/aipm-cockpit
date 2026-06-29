@@ -53,4 +53,22 @@ describe("useProjectProposal", () => {
     const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
     expect(body.messages[0].content).toEqual(blocks); // array passed through, NOT stringified
   });
+
+  it("passes the abort signal to fetch", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true, json: async () => ({ content: [] }),
+    } as Response);
+    const { result } = renderHook(() => useProjectProposal(ai));
+    const ctrl = new AbortController();
+    await act(async () => { await result.current.generate("hi", ctrl.signal); });
+    expect((spy.mock.calls[0][1] as RequestInit).signal).toBe(ctrl.signal);
+  });
+
+  it("does not set an error when aborted", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new DOMException("aborted", "AbortError"));
+    const { result } = renderHook(() => useProjectProposal(ai));
+    const ctrl = new AbortController(); ctrl.abort();
+    await act(async () => { await result.current.generate("hi", ctrl.signal); });
+    expect(result.current.error).toBeNull();
+  });
 });

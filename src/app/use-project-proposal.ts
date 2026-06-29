@@ -30,7 +30,7 @@ export function useProjectProposal(ai: AiCreds) {
   const [error, setError] = useState<string | null>(null);
 
   const generate = useCallback(
-    async (input: ProposalContent): Promise<ProjectProposal | null> => {
+    async (input: ProposalContent, signal?: AbortSignal): Promise<ProjectProposal | null> => {
       const key = ai.apiKey.trim();
       if (!key) {
         setError("no-key");
@@ -41,6 +41,7 @@ export function useProjectProposal(ai: AiCreds) {
       try {
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
+          signal,
           headers: {
             "x-api-key": key,
             "anthropic-version": ANTHROPIC_VERSION,
@@ -68,6 +69,7 @@ export function useProjectProposal(ai: AiCreds) {
         if (!parsed) throw new Error("parse");
         return parsed;
       } catch (e) {
+        if (signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) return null;
         setError(e instanceof Error ? e.message : "error");
         return null;
       } finally {
