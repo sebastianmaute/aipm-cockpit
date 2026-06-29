@@ -13,116 +13,115 @@ function DiagramTitle() {
     <>
       <title>Information flows diagram</title>
       <desc>
-        A diagram showing the browser PWA at the centre connected to: local
-        IndexedDB/localStorage, optional Turso cloud DB, Jira via API proxy,
-        Microsoft 365 (Graph + MSAL), Timelog via API proxy, and the Anthropic
-        AI API.
+        A diagram showing the browser app at the centre, grouped into two zones.
+        Your data: local IndexedDB/localStorage, project files (JSON / CSV /
+        Markdown) and an optional Turso cloud database. Connected services: Jira
+        and Timelog via API proxies, SharePoint and Outlook via Microsoft Graph,
+        and the Anthropic AI chat API.
       </desc>
     </>
   );
 }
 
-// Central PWA node
-function PwaNode() {
+// A single node box. accent "green" = data zone, "blue" = service zone,
+// "hub" = the central browser-app node (dark-blue fill).
+function Node({
+  x,
+  y,
+  w,
+  title,
+  sub,
+  accent,
+}: {
+  x: number;
+  y: number;
+  w: number;
+  title: string;
+  sub?: string;
+  accent: "green" | "blue" | "hub";
+}) {
+  const stroke = accent === "green" ? "var(--AIPM-green)" : "var(--AIPM-dark-blue)";
+  const fill = accent === "hub" ? "var(--AIPM-dark-blue)" : "var(--AIPM-white)";
+  const titleFill = accent === "hub" ? "var(--AIPM-white)" : "var(--AIPM-dark-blue)";
+  const subFill = accent === "hub" ? "var(--AIPM-green)" : "var(--AIPM-dark-grey)";
+  const h = sub ? 44 : 30;
   return (
     <g>
-      <rect x="185" y="145" width="130" height="50" rx="8"
-        fill="var(--AIPM-dark-blue)" stroke="var(--AIPM-green)" strokeWidth="2" />
-      <text x="250" y="166" textAnchor="middle" fill="var(--AIPM-white)"
-        fontSize="11" fontWeight="600">Browser app</text>
-      <text x="250" y="182" textAnchor="middle" fill="var(--AIPM-green)"
-        fontSize="9.5">(this PWA)</text>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx="7"
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={accent === "hub" ? 2 : 1.5}
+      />
+      {/* left accent edge (skip on hub) */}
+      {accent !== "hub" && <rect x={x} y={y} width="3" height={h} rx="1.5" fill={stroke} />}
+      <text
+        x={x + w / 2}
+        y={y + (sub ? 18 : 19)}
+        textAnchor="middle"
+        fill={titleFill}
+        fontSize="10.5"
+        fontWeight="600"
+      >
+        {title}
+      </text>
+      {sub && (
+        <text x={x + w / 2} y={y + 33} textAnchor="middle" fill={subFill} fontSize="8.5">
+          {sub}
+        </text>
+      )}
     </g>
   );
 }
 
-// Local storage node – top-left
-function LocalStorageNode() {
+// A dashed group rectangle with an uppercase zone label.
+function Zone({
+  x,
+  y,
+  w,
+  h,
+  label,
+  color,
+}: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+  color: string;
+}) {
   return (
     <g>
-      <rect x="20" y="20" width="130" height="50" rx="8"
-        fill="var(--AIPM-light-grey)" stroke="var(--AIPM-medium-grey)" strokeWidth="1.5" />
-      <text x="85" y="41" textAnchor="middle" fill="var(--AIPM-dark-blue)"
-        fontSize="10.5" fontWeight="600">Local storage</text>
-      <text x="85" y="57" textAnchor="middle" fill="var(--AIPM-dark-grey)"
-        fontSize="9">IndexedDB / localStorage</text>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx="10"
+        fill="none"
+        stroke="var(--AIPM-medium-grey)"
+        strokeWidth="1"
+        strokeDasharray="4 3"
+      />
+      <text
+        x={x + 10}
+        y={y + 12}
+        fill={color}
+        fontSize="9"
+        fontWeight="700"
+        style={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
+      >
+        {label}
+      </text>
     </g>
   );
 }
 
-// Turso node – top-right
-function TursoNode() {
-  return (
-    <g>
-      <rect x="350" y="20" width="130" height="50" rx="8"
-        fill="var(--AIPM-light-grey)" stroke="var(--AIPM-medium-grey)" strokeWidth="1.5" />
-      <text x="415" y="41" textAnchor="middle" fill="var(--AIPM-dark-blue)"
-        fontSize="10.5" fontWeight="600">Turso (libSQL)</text>
-      <text x="415" y="57" textAnchor="middle" fill="var(--AIPM-dark-grey)"
-        fontSize="9">optional cloud DB</text>
-    </g>
-  );
-}
-
-// Timelog node – top-centre (directly above the PWA)
-function TimelogNode() {
-  return (
-    <g>
-      <rect x="185" y="20" width="130" height="50" rx="8"
-        fill="var(--AIPM-light-grey)" stroke="var(--AIPM-medium-grey)" strokeWidth="1.5" />
-      <text x="250" y="41" textAnchor="middle" fill="var(--AIPM-dark-blue)"
-        fontSize="10.5" fontWeight="600">Timelog</text>
-      <text x="250" y="57" textAnchor="middle" fill="var(--AIPM-dark-grey)"
-        fontSize="9">via /api/timelog proxy</text>
-    </g>
-  );
-}
-
-// Jira node – bottom-left
-function JiraNode() {
-  return (
-    <g>
-      <rect x="20" y="280" width="130" height="50" rx="8"
-        fill="var(--AIPM-light-grey)" stroke="var(--AIPM-medium-grey)" strokeWidth="1.5" />
-      <text x="85" y="301" textAnchor="middle" fill="var(--AIPM-dark-blue)"
-        fontSize="10.5" fontWeight="600">Jira</text>
-      <text x="85" y="317" textAnchor="middle" fill="var(--AIPM-dark-grey)"
-        fontSize="9">via /api/jira proxy</text>
-    </g>
-  );
-}
-
-// Microsoft 365 node – bottom-centre
-function M365Node() {
-  return (
-    <g>
-      <rect x="185" y="280" width="130" height="50" rx="8"
-        fill="var(--AIPM-light-grey)" stroke="var(--AIPM-medium-grey)" strokeWidth="1.5" />
-      <text x="250" y="298" textAnchor="middle" fill="var(--AIPM-dark-blue)"
-        fontSize="10.5" fontWeight="600">Microsoft 365</text>
-      <text x="250" y="313" textAnchor="middle" fill="var(--AIPM-dark-grey)"
-        fontSize="9">Graph API + MSAL</text>
-      <text x="250" y="325" textAnchor="middle" fill="var(--AIPM-dark-grey)"
-        fontSize="9">SharePoint · Contacts · Calendar</text>
-    </g>
-  );
-}
-
-// Anthropic node – bottom-right
-function AnthropicNode() {
-  return (
-    <g>
-      <rect x="350" y="280" width="130" height="50" rx="8"
-        fill="var(--AIPM-light-grey)" stroke="var(--AIPM-medium-grey)" strokeWidth="1.5" />
-      <text x="415" y="301" textAnchor="middle" fill="var(--AIPM-dark-blue)"
-        fontSize="10.5" fontWeight="600">Anthropic API</text>
-      <text x="415" y="317" textAnchor="middle" fill="var(--AIPM-dark-grey)"
-        fontSize="9">AI Assistant chat</text>
-    </g>
-  );
-}
-
-// Connector arrows between nodes and the central PWA
+// Connector lines between the hub and each node (existing arrow markers).
 function Connectors() {
   const lineProps = {
     stroke: "var(--AIPM-medium-grey)",
@@ -132,18 +131,16 @@ function Connectors() {
   };
   return (
     <g>
-      {/* Local storage ↔ PWA */}
-      <line x1="150" y1="45" x2="185" y2="155" {...lineProps} />
-      {/* Turso ↔ PWA */}
-      <line x1="350" y1="45" x2="315" y2="155" {...lineProps} />
-      {/* Timelog ↔ PWA */}
-      <line x1="250" y1="70" x2="250" y2="145" {...lineProps} />
-      {/* Jira ↔ PWA */}
-      <line x1="150" y1="305" x2="185" y2="185" {...lineProps} />
-      {/* M365 ↔ PWA */}
-      <line x1="250" y1="280" x2="250" y2="195" {...lineProps} />
-      {/* Anthropic ↔ PWA */}
-      <line x1="350" y1="305" x2="315" y2="195" {...lineProps} />
+      {/* hub left edge (190,142) ↔ data-zone nodes (right edge x=118) */}
+      <line x1="190" y1="142" x2="118" y2="62" {...lineProps} />
+      <line x1="190" y1="142" x2="118" y2="118" {...lineProps} />
+      <line x1="190" y1="142" x2="118" y2="174" {...lineProps} />
+      {/* hub right edge (290,142) ↔ service-zone nodes (left edge) */}
+      <line x1="290" y1="142" x2="310" y2="55" {...lineProps} />
+      <line x1="290" y1="142" x2="394" y2="55" {...lineProps} />
+      <line x1="290" y1="142" x2="310" y2="99" {...lineProps} />
+      <line x1="290" y1="142" x2="394" y2="99" {...lineProps} />
+      <line x1="290" y1="142" x2="310" y2="162" {...lineProps} />
     </g>
   );
 }
@@ -151,12 +148,17 @@ function Connectors() {
 function ArrowDefs() {
   return (
     <defs>
-      <marker id="arrow" markerWidth="8" markerHeight="8"
-        refX="6" refY="3" orient="auto">
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
         <path d="M0,0 L0,6 L8,3 z" fill="var(--AIPM-medium-grey)" />
       </marker>
-      <marker id="arrow-rev" markerWidth="8" markerHeight="8"
-        refX="2" refY="3" orient="auto-start-reverse">
+      <marker
+        id="arrow-rev"
+        markerWidth="8"
+        markerHeight="8"
+        refX="2"
+        refY="3"
+        orient="auto-start-reverse"
+      >
         <path d="M0,0 L0,6 L8,3 z" fill="var(--AIPM-medium-grey)" />
       </marker>
     </defs>
@@ -170,26 +172,38 @@ interface LegendProps {
 }
 
 function Legend({ lang }: LegendProps) {
-  const items: Array<{ labelKey: Parameters<typeof t>[1]; descKey: Parameters<typeof t>[1] }> = [
+  const items = [
     { labelKey: "infoFlowsLegendLocalLabel", descKey: "infoFlowsLegendLocalDesc" },
+    { labelKey: "infoFlowsLegendFileLabel", descKey: "infoFlowsLegendFileDesc" },
     { labelKey: "infoFlowsLegendTursoLabel", descKey: "infoFlowsLegendTursoDesc" },
     { labelKey: "infoFlowsLegendJiraLabel", descKey: "infoFlowsLegendJiraDesc" },
-    { labelKey: "infoFlowsLegendM365Label", descKey: "infoFlowsLegendM365Desc" },
     { labelKey: "infoFlowsLegendTimelogLabel", descKey: "infoFlowsLegendTimelogDesc" },
+    { labelKey: "infoFlowsLegendSharePointLabel", descKey: "infoFlowsLegendSharePointDesc" },
+    { labelKey: "infoFlowsLegendOutlookLabel", descKey: "infoFlowsLegendOutlookDesc" },
     { labelKey: "infoFlowsLegendAnthropicLabel", descKey: "infoFlowsLegendAnthropicDesc" },
-  ];
+  ] as const;
 
   return (
-    <dl className="mt-4 space-y-1 text-xs text-muted-foreground">
-      {items.map(({ labelKey, descKey }) => (
-        <div key={labelKey} className="flex gap-2">
-          <dt className="min-w-[8rem] font-medium text-foreground">
-            {t(lang, labelKey)}
-          </dt>
-          <dd>{t(lang, descKey)}</dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      <div className="mb-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-AIPM-green" aria-hidden="true" />
+          {t(lang, "infoFlowsZoneDataLabel")}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-AIPM-dark-blue" aria-hidden="true" />
+          {t(lang, "infoFlowsZoneServicesLabel")}
+        </span>
+      </div>
+      <dl className="space-y-1 text-xs text-muted-foreground">
+        {items.map(({ labelKey, descKey }) => (
+          <div key={labelKey} className="flex gap-2">
+            <dt className="min-w-[8rem] font-medium text-foreground">{t(lang, labelKey)}</dt>
+            <dd>{t(lang, descKey)}</dd>
+          </div>
+        ))}
+      </dl>
+    </>
   );
 }
 
@@ -198,31 +212,58 @@ function Legend({ lang }: LegendProps) {
 export function InformationFlowsSection({ lang }: InformationFlowsSectionProps) {
   return (
     <div className="mb-4">
-      <p className="mb-4 text-xs text-muted-foreground">
-        {t(lang, "infoFlowsIntro")}
-      </p>
+      <p className="mb-4 text-xs text-muted-foreground">{t(lang, "infoFlowsIntro")}</p>
 
       <svg
         role="img"
         aria-label={t(lang, "infoFlowsDiagramAriaLabel")}
-        viewBox="0 0 500 350"
+        viewBox="0 0 480 300"
         width="100%"
-        style={{ maxWidth: 500 }}
+        style={{ maxWidth: 480 }}
         xmlns="http://www.w3.org/2000/svg"
       >
         <DiagramTitle />
         <ArrowDefs />
+
+        {/* zones (drawn first, behind nodes) */}
+        <Zone
+          x={8}
+          y={20}
+          w={120}
+          h={200}
+          label={t(lang, "infoFlowsZoneDataLabel")}
+          color="var(--AIPM-green)"
+        />
+        <Zone
+          x={300}
+          y={20}
+          w={172}
+          h={200}
+          label={t(lang, "infoFlowsZoneServicesLabel")}
+          color="var(--AIPM-dark-blue)"
+        />
+
         <Connectors />
-        <LocalStorageNode />
-        <TursoNode />
-        <TimelogNode />
-        <PwaNode />
-        <JiraNode />
-        <M365Node />
-        <AnthropicNode />
+
+        {/* data zone */}
+        <Node x={18} y={40} w={100} title="Local storage" sub="IndexedDB" accent="green" />
+        <Node x={18} y={96} w={100} title="File storage" sub="JSON / CSV / MD" accent="green" />
+        <Node x={18} y={152} w={100} title="Turso" sub="cloud DB" accent="green" />
+
+        {/* hub */}
+        <Node x={190} y={120} w={100} title="Browser app" sub="(this PWA)" accent="hub" />
+
+        {/* service zone */}
+        <Node x={310} y={40} w={78} title="Jira" accent="blue" />
+        <Node x={394} y={40} w={78} title="Timelog" accent="blue" />
+        <Node x={310} y={84} w={78} title="SharePoint" accent="blue" />
+        <Node x={394} y={84} w={78} title="Outlook" accent="blue" />
+        <Node x={310} y={140} w={162} title="Anthropic" sub="AI chat" accent="blue" />
       </svg>
 
-      <Legend lang={lang} />
+      <div className="mt-4">
+        <Legend lang={lang} />
+      </div>
     </div>
   );
 }
