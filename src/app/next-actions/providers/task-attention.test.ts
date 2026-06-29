@@ -68,6 +68,11 @@ describe("taskAttentionProvider", () => {
     expect(ids([mkTask({ id: 1, dependencies: [{ taskId: 1, type: "FS" }] })]))
       .not.toContain("task-attention:1:dep-blocked");
   });
+  it("does not flag a non-FS dependency (only FS blocks start)", () => {
+    const pred = mkTask({ id: 2, status: "In Progress" });
+    const dependent = mkTask({ id: 1, dependencies: [{ taskId: 2, type: "SS" }] });
+    expect(ids([pred, dependent])).not.toContain("task-attention:1:dep-blocked");
+  });
   it("emits multiple actions for one task, same cta entity", () => {
     const out = taskAttentionProvider.provide(mkInput([mkTask({ assignee: "", blockers: "x" })]));
     const mine = out.filter((a) => a.cta.kind === "open" && a.cta.view === "open-points" && a.cta.id === 1);

@@ -47,10 +47,10 @@ export const taskAttentionProvider: ActionProvider = {
         out.push({ ...base, id: `task-attention:${task.id}:blocked`,
           why: { key: "actionTaskWhyBlocked", params: [task.blockers.trim()] }, score, tier: bandTier(score) });
       }
-      // First unfinished predecessor only — one :dep-blocked action per task (the id structure prevents a second).
+      // First unfinished FS (Finish-to-Start) predecessor only — one :dep-blocked action per task (the id structure prevents a second). SS/FF/SF are timing overlaps, not start-blockers.
       const dep = (task.dependencies ?? []).find((d) => {
         const pred = byId.get(d.taskId);
-        return d.taskId !== task.id && pred != null && !isTaskFinished(pred);
+        return d.type === "FS" && d.taskId !== task.id && pred != null && !isTaskFinished(pred);
       });
       if (dep) {
         const pred = byId.get(dep.taskId)!;
