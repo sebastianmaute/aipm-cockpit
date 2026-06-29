@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content";
 import { matchesQuery, highlightSegments } from "./help-search";
-import { navLabelKey } from "./nav-config";
+import { navLabelKey, type AppView } from "./nav-config";
+import { buildRelationsGraph } from "./relations-graph";
+import { RelationsMap } from "./relations-map";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
@@ -36,15 +38,19 @@ export function HelpView({
   onTakeTour,
   pendingHelpConcept,
   onHelpConceptConsumed,
+  onNavigateView,
 }: {
   lang: Lang;
   onTakeTour?: () => void;
   /** A concept id deep-linked from a per-view callout (SP2) — scroll to it. */
   pendingHelpConcept?: string | null;
   onHelpConceptConsumed?: () => void;
+  /** Navigate to a related view from a concept's Related line (SP3). */
+  onNavigateView?: (view: AppView) => void;
 }) {
   const [query, setQuery] = useState("");
   const { ref, reset } = useResizable("lop-app:help-view-size");
+  const graph = useMemo(() => buildRelationsGraph(HELP_ENTRIES), []);
 
   const groups = useMemo(() => {
     const matched = HELP_ENTRIES.filter((e) => matchesQuery(t(lang, e.titleKey), t(lang, e.bodyKey), query));
@@ -98,6 +104,14 @@ export function HelpView({
         <PrintButton lang={lang} />
         <ResetSizeButton onClick={reset} lang={lang} />
       </div>
+
+      <details open className="mb-2 shrink-0 print:hidden">
+        <summary className={`cursor-pointer text-sm font-medium text-foreground ${FOCUS_RING}`}>
+          {t(lang, "helpRelationsTitle")}
+        </summary>
+        <p className="mb-2 mt-1 text-xs text-muted-foreground">{t(lang, "helpRelationsIntro")}</p>
+        <RelationsMap graph={graph} lang={lang} onSelectConcept={scrollToSection} />
+      </details>
 
       <div className="flex min-h-0 flex-1 overflow-hidden rounded-md border border-line print:block print:overflow-visible">
         {groups.length === 0 ? (
@@ -166,11 +180,23 @@ export function HelpView({
                                 </span>
                               );
                             })}
-                            {e.relatedViews?.map((v) => (
-                              <span key={v} className="ml-2 italic">
-                                {t(lang, navLabelKey(v))}
-                              </span>
-                            ))}
+                            {e.relatedViews?.map((v) =>
+                              onNavigateView ? (
+                                <button
+                                  key={v}
+                                  type="button"
+                                  onClick={() => onNavigateView(v)}
+                                  aria-label={t(lang, "helpRelationsGoToView", t(lang, navLabelKey(v)))}
+                                  className={`ml-2 italic text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                                >
+                                  {t(lang, navLabelKey(v))}
+                                </button>
+                              ) : (
+                                <span key={v} className="ml-2 italic">
+                                  {t(lang, navLabelKey(v))}
+                                </span>
+                              ),
+                            )}
                           </p>
                         ) : null}
                       </section>

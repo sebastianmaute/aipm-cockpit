@@ -40,4 +40,21 @@ describe("HelpView (grouped)", () => {
     expect(onConsumed).toHaveBeenCalledTimes(1);
     expect(scrollSpy).toHaveBeenCalled();
   });
+
+  it("renders the relations map disclosure with concept nodes", () => {
+    render(<HelpView lang="en-US" />);
+    expect(screen.getByText("How it all connects")).toBeInTheDocument();
+    // a concept node button exists inside the map (e.g. "Milestone")
+    expect(screen.getAllByRole("button", { name: "Milestone" }).length).toBeGreaterThan(0);
+  });
+
+  it("navigates to a related view when onNavigateView is provided", () => {
+    const onNav = vi.fn();
+    render(<HelpView lang="en-US" onNavigateView={onNav} />);
+    // Several entries relate to view "raid" — each Related line renders a nav button.
+    const btns = screen.getAllByRole("button", { name: /go to raid/i });
+    expect(btns.length).toBeGreaterThan(0);
+    fireEvent.click(btns[0]);
+    expect(onNav).toHaveBeenCalledWith("raid");
+  });
 });
