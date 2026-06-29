@@ -5,6 +5,7 @@ import { type Lang, t, type TranslationKey } from "./i18n";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
+import { Modal } from "./modal";
 import { ActionRow } from "./action-row";
 import { AiActionRow } from "./ai-action-row";
 import type { AiAction, ActionAnalysis } from "./action-ai";
@@ -29,6 +30,7 @@ export interface AiAnalysisBundle {
   error: string | null;
   result: ActionAnalysis | null;
   onAnalyze: () => void;
+  onCancel: () => void;
   onClear: () => void;
   onActAi: (action: AiAction) => void;
 }
@@ -78,11 +80,29 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   return (
     <div ref={ref} className={VIEW_PANE_RESIZABLE_CLASS}>
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-            {t(lang, "actionCenterTitle")}
-          </h2>
-          <p className="text-sm text-muted-foreground">{t(lang, "actionCenterSubtitle")}</p>
+        <div className="flex items-start gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, "actionCenterTitle")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t(lang, "actionCenterSubtitle")}</p>
+          </div>
+          {aiAnalysis?.enabled && (
+            <button
+              type="button"
+              onClick={aiAnalysis.onAnalyze}
+              disabled={aiAnalysis.busy}
+              aria-busy={aiAnalysis.busy}
+              aria-label={t(lang, "actionAiAnalyze")}
+              title={t(lang, "actionAiAnalyze")}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:opacity-50"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+                <path d="M10 1.5l1.6 4.3 4.3 1.6-4.3 1.6L10 13.3 8.4 9 4.1 7.4l4.3-1.6L10 1.5zM15.5 12l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />
+              </svg>
+              <span>{t(lang, "actionAiAnalyze")}</span>
+            </button>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {expertMode && (
@@ -101,18 +121,6 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               >
                 {t(lang, learningEnabled ? "actionLearningOn" : "actionLearningOff")}
               </span>
-            </button>
-          )}
-          {aiAnalysis?.enabled && (
-            <button
-              type="button"
-              onClick={aiAnalysis.onAnalyze}
-              disabled={aiAnalysis.busy}
-              aria-busy={aiAnalysis.busy}
-              aria-label={t(lang, aiAnalysis.busy ? "actionAiAnalyzing" : "actionAiAnalyze")}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
-            >
-              {t(lang, aiAnalysis.busy ? "actionAiAnalyzing" : "actionAiAnalyze")}
             </button>
           )}
           <ResetSizeButton onClick={reset} lang={lang} />
@@ -212,6 +220,30 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             );
           })}
         </div>
+      )}
+      {/* Blocking loading modal while the AI analysis call is in flight (mirrors the
+          Timelog fetch modal). Not dismissible by backdrop; Cancel aborts the call. */}
+      {aiAnalysis?.busy && (
+        <Modal open onClose={aiAnalysis.onCancel} ariaLabel={t(lang, "actionAiAnalyzing")} align="center" zIndex={70}>
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
+          >
+            <span
+              aria-hidden="true"
+              className="h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue border-t-transparent"
+            />
+            <span className="text-sm font-medium">{t(lang, "actionAiAnalyzing")}</span>
+            <button
+              type="button"
+              onClick={aiAnalysis.onCancel}
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            >
+              {t(lang, "cancel")}
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

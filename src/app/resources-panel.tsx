@@ -48,6 +48,7 @@ import { marginAmountHealth } from "./budget-health";
 import { useSortableFilter, TableFilter, SortHeaderButton, type SortDir } from "./report-table";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { ViewCallout } from "./view-callout";
 
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
@@ -96,6 +97,9 @@ interface Props {
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
   onImportOutlookCalendar?: () => void;
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }
 
 type AssigneeRow = {
@@ -139,6 +143,9 @@ function ResourcesPanelInner({
   onEditResource,
   onAddResource,
   onImportOutlookCalendar,
+  showHints,
+  isPopout,
+  onLearnMore,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
   const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
@@ -320,6 +327,9 @@ function ResourcesPanelInner({
 
   return (
     <section ref={resRef} className={`print-root print-landscape ${paneClass}`}>
+      {onLearnMore && (
+        <ViewCallout view={view} lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       {renderHeader()}
       {isEmpty && view !== "planning" && (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">

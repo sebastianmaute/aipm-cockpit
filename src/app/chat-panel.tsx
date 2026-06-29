@@ -23,7 +23,8 @@ import type { AiConfig } from "./settings-types";
 import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
-import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
+import { useChatModels } from "./use-chat-models";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
 import { unlockSecret } from "./use-secrets";
 import { isPassphraseLocked } from "./secrets-store";
@@ -49,14 +50,15 @@ import {
 /** A staged upload: the Anthropic content block plus display metadata. */
 type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
 
-// Centered half-size, drag-to-resize. Shared with Manage Roles via view-styles.
-const CHAT_PANE_CLASS = CENTERED_HALF_PANE_CLASS;
+// Full-width, drag-to-resize pane (same chrome as the primary views).
+const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
 
 function ChatPanelImpl({
   lang,
   ai,
   dispatcher,
   onAcceptConsent,
+  onChangeModel,
   guides = [],
   guidesReady = true,
   chatSeed = null,
@@ -66,6 +68,7 @@ function ChatPanelImpl({
   ai: AiConfig;
   dispatcher: ToolDispatcher;
   onAcceptConsent: () => void;
+  onChangeModel?: (model: string) => void;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
   chatSeed?: { prompt: string; autoSend: boolean } | null;
@@ -79,6 +82,7 @@ function ChatPanelImpl({
       lang={lang}
       ai={ai}
       dispatcher={dispatcher}
+      onChangeModel={onChangeModel}
       guides={guides}
       guidesReady={guidesReady}
       chatSeed={chatSeed}
@@ -97,6 +101,7 @@ function ChatPanelInner({
   lang,
   ai,
   dispatcher,
+  onChangeModel,
   guides = [],
   guidesReady = true,
   chatSeed = null,
@@ -105,6 +110,7 @@ function ChatPanelInner({
   lang: Lang;
   ai: AiConfig;
   dispatcher: ToolDispatcher;
+  onChangeModel?: (model: string) => void;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
   chatSeed?: { prompt: string; autoSend: boolean } | null;
@@ -128,8 +134,11 @@ function ChatPanelInner({
   const attachSeqRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
-  const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size");
+  const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size-v2");
   const { record: recordUsage } = useAiUsageContext();
+  // Model picker options (live /v1/models when the key is valid, else registry).
+  // Uses the session-unlocked key when the saved key is passphrase-wrapped.
+  const modelOptions = useChatModels((unlockedKey ?? ai.apiKey) || "", ai.enabled === true, ai.model);
 
   useEffect(() => {
     if (!scrollerRef.current) return;
@@ -394,6 +403,22 @@ function ChatPanelInner({
     // Centered half-size card, top-anchored. The corner drags to a custom size
     // (persisted via useResizable); ResetSizeButton restores the default.
     <div ref={chatRef} className={CHAT_PANE_CLASS}>
+      <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
+        <select
+          aria-label={t(lang, "aiModel")}
+          value={ai.model}
+          onChange={(e) => onChangeModel?.(e.target.value)}
+          disabled={!onChangeModel}
+          className={`min-w-0 max-w-[18rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
+        >
+          {modelOptions.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        <ResetSizeButton onClick={resetChatSize} lang={lang} />
+      </div>
       <div
         ref={scrollerRef}
         className="flex-1 overflow-y-auto rounded-md border border-line bg-surface-muted p-3"
@@ -550,11 +575,6 @@ function ChatPanelInner({
           className="hidden"
           tabIndex={-1}
           aria-hidden="true"
-        />
-        <ResetSizeButton
-          onClick={resetChatSize}
-          lang={lang}
-          className="self-center"
         />
         <textarea
           ref={inputRef}

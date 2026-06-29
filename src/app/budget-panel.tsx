@@ -18,6 +18,7 @@ import { ratioHealth, marginHealth, costPerformanceHealth, winLossHealth } from 
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { ViewCallout } from "./view-callout";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -107,6 +108,9 @@ export interface BudgetPanelProps {
   onChangeBuckets: (next: BudgetBucket[]) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }
 
 function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amount" }: { label: string; hint?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null; primary?: "amount" | "percent" }) {
@@ -141,7 +145,7 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore } = props;
   const locale = localeFor(lang);
 
   const report = useMemo(
@@ -257,6 +261,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   return (
     <div ref={budgetRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+      {onLearnMore && (
+        <ViewCallout view="budget" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">
           {t(lang, "tabBudget")}{" "}

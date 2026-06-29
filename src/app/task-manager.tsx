@@ -855,13 +855,14 @@ function TaskManagerInner() {
   );
   // Hoisted member reads (exhaustive-deps rejects `obj.member` deps).
   const aiClear = actionAnalysis.clear;
+  const aiCancel = actionAnalysis.cancel;
   const aiBusy = actionAnalysis.busy;
   const aiError = actionAnalysis.error;
   const aiResult = actionAnalysis.result;
   const aiEnabled = isAiEnabled(settings.ai) && settings.ai?.actionSuggestions !== false;
   const aiAnalysisBundle = useMemo(
-    () => ({ enabled: aiEnabled, busy: aiBusy, error: aiError, result: aiResult, onAnalyze: runActionAnalysis, onClear: aiClear, onActAi }),
-    [aiEnabled, aiBusy, aiError, aiResult, runActionAnalysis, aiClear, onActAi],
+    () => ({ enabled: aiEnabled, busy: aiBusy, error: aiError, result: aiResult, onAnalyze: runActionAnalysis, onCancel: aiCancel, onClear: aiClear, onActAi }),
+    [aiEnabled, aiBusy, aiError, aiResult, runActionAnalysis, aiCancel, aiClear, onActAi],
   );
 
   useActionNotifications({

@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.146.0";
-export const APP_BUILD_DATE = "2026-06-29"; // 0.146.0: Action Center overhaul (grouping/layout/providers/inline CTAs) + AI model picker + create-project multi-upload (Gibson)
+export const APP_VERSION = "0.147.0";
+export const APP_BUILD_DATE = "2026-06-29"; // 0.147.0: unified Help layout (shared HelpContentPane) + full-width AI assistant with model switcher + per-view tips inside the card + Analyze-with-AI progress modal (Rucker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.146.x line is "Gibson" (William Gibson). */
-export const APP_MILESTONE = "Gibson";
+ *  0.147.x line is "Rucker" (Rudy Rucker). */
+export const APP_MILESTONE = "Rucker";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -159,4 +159,8 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightActionProviders",
   "versionHighlightActionInlineCtas",
   "versionHighlightMultiUpload",
+  "versionHighlightHelpLayout",
+  "versionHighlightChatFullWidth",
+  "versionHighlightViewTips",
+  "versionHighlightAnalyzeModal",
 ] as const;

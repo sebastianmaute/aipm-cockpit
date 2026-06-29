@@ -108,6 +108,7 @@ describe("ActionsPanel", () => {
       error: null as string | null,
       result: null as ActionAnalysis | null,
       onAnalyze: vi.fn(),
+      onCancel: vi.fn(),
       onClear: vi.fn(),
       onActAi: vi.fn(),
     });
@@ -127,6 +128,14 @@ describe("ActionsPanel", () => {
       render(<ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={ai} />);
       await userEvent.click(screen.getByRole("button", { name: /Analyze with AI/i }));
       expect(ai.onAnalyze).toHaveBeenCalled();
+    });
+
+    it("shows a blocking loading modal while busy and Cancel aborts the call", async () => {
+      const ai = baseAi({ busy: true });
+      render(<ActionsPanel lang="en-US" actions={[]} onOpen={vi.fn()} aiAnalysis={ai} />);
+      expect(screen.getByRole("status")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: /Cancel/i }));
+      expect(ai.onCancel).toHaveBeenCalled();
     });
 
     it("renders the AI section with summary + rows and a dismiss control", async () => {

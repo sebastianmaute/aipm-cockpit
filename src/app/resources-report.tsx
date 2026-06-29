@@ -19,6 +19,7 @@ import {
 } from "./report-table";
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
+import { ViewCallout } from "./view-callout";
 
 // ---------------------------------------------------------------------------
 // Column-width default maps
@@ -74,6 +75,9 @@ interface Props {
   holidaySet: ReadonlySet<string>;
   workdayHours: number;
   embedded?: boolean;
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +86,7 @@ interface Props {
 
 export function ResourcesReportPanel({
   lang, resources, roles, disciplines, grades, plan, absences, holidaySet, workdayHours, embedded = false,
+  showHints, isPopout, onLearnMore,
 }: Props) {
   const rep = useMemo(
     () => computeResourceReport(resources, roles, disciplines, grades, plan, absences, holidaySet, workdayHours),
@@ -179,6 +184,9 @@ export function ResourcesReportPanel({
 
   return (
     <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} onResetCols={resetAllCols} title={t(lang, "resourcesReportTitle")}>
+      {onLearnMore && (
+        <ViewCallout view="resources" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       {content}
     </ReportCard>
   );

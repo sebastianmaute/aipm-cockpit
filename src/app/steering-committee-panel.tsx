@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
+import { ViewCallout } from "./view-callout";
 import { ResourcePicker } from "./resource-picker";
 import { resourceDisplayName } from "./resource-foundation";
 import { dueInfoReminders, type InfoReminder, type ReminderTier } from "./steering-reminders";
@@ -55,6 +56,9 @@ export interface SteeringCommitteePanelProps {
   /** Supplied by Task 7 (Outlook push). When absent the button is hidden.
    *  Errors surface via toast (not inline), so no `error` field is threaded. */
   outlookPush?: { onPush: () => void; busy: boolean };
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }
 
 export function SteeringCommitteePanel({
@@ -64,6 +68,9 @@ export function SteeringCommitteePanel({
   resources,
   today,
   outlookPush,
+  showHints,
+  isPopout,
+  onLearnMore,
 }: SteeringCommitteePanelProps) {
   const c = committee ?? EMPTY_COMMITTEE;
   const { ref: paneRef, reset: resetSize } = useResizable("lop-app:steering-size");
@@ -160,6 +167,15 @@ export function SteeringCommitteePanel({
 
   return (
     <div ref={paneRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {onLearnMore && (
+        <ViewCallout
+          view="steering-committee"
+          lang={lang}
+          showHints={showHints !== false}
+          isPopout={!!isPopout}
+          onLearnMore={onLearnMore}
+        />
+      )}
       <div className="mb-2 flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "committeeTitle")}</h2>
         <div className="flex items-center gap-2 print:hidden">

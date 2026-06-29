@@ -14,7 +14,7 @@ interface ToolUseBlock { type: string; name?: string; input?: unknown }
 /** Run one forced report_analysis tool call and return the parsed analysis.
  *  Throws Error(status) on a non-OK response and Error("parse") on malformed tool
  *  output. The api key and response body are NEVER included in the thrown message. */
-export async function runJobAnalysis(context: string, ai: AiCreds): Promise<ActionAnalysis> {
+export async function runJobAnalysis(context: string, ai: AiCreds, signal?: AbortSignal): Promise<ActionAnalysis> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -31,6 +31,7 @@ export async function runJobAnalysis(context: string, ai: AiCreds): Promise<Acti
       tools: [ANALYZE_TOOL],
       tool_choice: { type: "tool", name: "report_analysis" },
     }),
+    signal,
   });
   if (!res.ok) throw new Error(String(res.status)); // status only — never echo key/body
   const json = (await res.json()) as { content?: ToolUseBlock[] };

@@ -1,0 +1,160 @@
+"use client";
+
+// Shared two-pane Help content: a grouped TOC (left) that jumps to grouped
+// content sections (right), both filtered by the parent-owned `query`. Used by
+// BOTH the in-pane Help view (help-view.tsx) and the floating Help panel
+// (help-menu.tsx) so the two surfaces render identically. Presentational: the
+// parent owns the search input, tours, relations map, and footer.
+import { useMemo, useState } from "react";
+import { type Lang, t } from "./i18n";
+import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content";
+import { matchesQuery, highlightSegments } from "./help-search";
+import { navLabelKey, type AppView } from "./nav-config";
+import { INTERACTIVE } from "./interaction-styles";
+
+/** DOM id for an entry's content section — shared so the in-pane view's
+ *  relations map + deep-link scroll can target sections this component renders. */
+export const helpSectionId = (id: string) => `help-sec-${id}`;
+
+function Highlighted({ text, query }: { text: string; query: string }) {
+  return (
+    <>
+      {highlightSegments(text, query).map((seg, k) =>
+        seg.match ? (
+          <mark key={k} className="bg-AIPM-green/20 text-inherit">
+            {seg.text}
+          </mark>
+        ) : (
+          <span key={k}>{seg.text}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+export function HelpContentPane({
+  lang,
+  query,
+  onNavigateView,
+}: {
+  lang: Lang;
+  query: string;
+  onNavigateView?: (view: AppView) => void;
+}) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const groups = useMemo(() => {
+    const matched = HELP_ENTRIES.filter((e) =>
+      matchesQuery(t(lang, e.titleKey), t(lang, e.bodyKey), query),
+    );
+    return HELP_GROUP_ORDER.map((group) => ({
+      group,
+      entries: matched.filter((e) => e.group === group),
+    })).filter((g) => g.entries.length > 0);
+  }, [lang, query]);
+
+  const scrollToSection = (id: string) => {
+    setActiveId(id);
+    document.getElementById(helpSectionId(id))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  if (groups.length === 0) {
+    return <p className="p-4 text-sm text-muted-foreground">{t(lang, "helpNoResults")}</p>;
+  }
+
+  return (
+    <div className="@container flex min-h-0 flex-1 flex-col overflow-hidden @[560px]:flex-row print:block print:overflow-visible">
+      {/* Grouped TOC: horizontal scroll strip when narrow, sticky sidebar when wide */}
+      <nav
+        aria-label={t(lang, "helpContents")}
+        className="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-line p-2 @[560px]:w-52 @[560px]:flex-col @[560px]:gap-0 @[560px]:overflow-x-visible @[560px]:overflow-y-auto @[560px]:border-b-0 @[560px]:border-r @[560px]:p-3 print:hidden"
+      >
+        {groups.map(({ group, entries }) => (
+          <div key={group} className="shrink-0 @[560px]:mb-3 @[560px]:shrink">
+            <p className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t(lang, HELP_GROUP_LABEL[group])}
+            </p>
+            <ul className="flex flex-row gap-0.5 @[560px]:flex-col">
+              {entries.map((e) => (
+                <li key={e.id}>
+                  <button
+                    type="button"
+                    onClick={() => scrollToSection(e.id)}
+                    className={
+                      activeId === e.id
+                        ? `block w-full whitespace-nowrap rounded border-l-2 border-AIPM-dark-blue bg-surface-muted px-2 py-1 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`
+                        : `block w-full whitespace-nowrap rounded border-l-2 border-transparent px-2 py-1 text-left text-xs text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
+                    }
+                  >
+                    {t(lang, e.titleKey)}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
+
+      {/* Grouped content */}
+      <div className="min-h-0 flex-1 overflow-auto p-3 pr-2 print:max-h-none print:overflow-visible">
+        {groups.map(({ group, entries }) => (
+          <div key={group} className="mb-6">
+            <h2 className="mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              {t(lang, HELP_GROUP_LABEL[group])}
+            </h2>
+            <div className="flex flex-col gap-4">
+              {entries.map((e) => (
+                <section key={e.id} id={helpSectionId(e.id)} className="scroll-mt-2">
+                  <h3 className="mb-1 text-sm font-semibold text-foreground">
+                    <Highlighted text={t(lang, e.titleKey)} query={query} />
+                  </h3>
+                  <p className="max-w-[64ch] whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+                    <Highlighted text={t(lang, e.bodyKey)} query={query} />
+                  </p>
+                  {(e.relatedConcepts?.length ?? 0) > 0 || (e.relatedViews?.length ?? 0) > 0 ? (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      <span className="font-medium">{t(lang, "helpRelated")}:</span>{" "}
+                      {e.relatedConcepts?.map((rid, idx) => {
+                        const target = HELP_ENTRIES.find((x) => x.id === rid);
+                        if (!target) return null;
+                        return (
+                          <span key={rid}>
+                            {idx > 0 ? ", " : ""}
+                            <button
+                              type="button"
+                              onClick={() => scrollToSection(rid)}
+                              className={`text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                            >
+                              {t(lang, target.titleKey)}
+                            </button>
+                          </span>
+                        );
+                      })}
+                      {e.relatedViews?.map((v) =>
+                        onNavigateView ? (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => onNavigateView(v)}
+                            aria-label={t(lang, "helpRelationsGoToView", t(lang, navLabelKey(v)))}
+                            className={`ml-2 italic text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                          >
+                            {t(lang, navLabelKey(v))}
+                          </button>
+                        ) : (
+                          <span key={v} className="ml-2 italic">
+                            {t(lang, navLabelKey(v))}
+                          </span>
+                        ),
+                      )}
+                    </p>
+                  ) : null}
+                </section>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

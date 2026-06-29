@@ -27,6 +27,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { ViewCallout } from "./view-callout";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 import { useResizable } from "./use-resizable";
@@ -65,6 +66,9 @@ export function GanttPanel({
   onEditTask,
   onAddMilestone,
   onEditMilestone,
+  showHints,
+  isPopout,
+  onLearnMore,
 }: {
   lang: Lang;
   tasks: readonly Task[];
@@ -75,6 +79,9 @@ export function GanttPanel({
   onEditTask?: (task: Task) => void;
   onAddMilestone?: () => void;
   onEditMilestone?: (m: Milestone) => void;
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -466,6 +473,9 @@ export function GanttPanel({
 
   return (
     <div ref={ganttRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {onLearnMore && (
+        <ViewCallout view="gantt" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       {toolbar}
       <div
         ref={scrollRef}

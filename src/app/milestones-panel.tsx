@@ -31,6 +31,7 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton, PrintButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
+import { ViewCallout } from "./view-callout";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
@@ -69,6 +70,9 @@ type MilestonesPanelProps = {
   onCreateConsumed?: () => void;
   onPushToOutlook?: () => void;
   calendarPushBusy?: boolean;
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 };
 
 export function MilestonesPanel(props: MilestonesPanelProps) {
@@ -88,6 +92,9 @@ function MilestonesPanelBody({
   onCreateConsumed,
   onPushToOutlook,
   calendarPushBusy,
+  showHints,
+  isPopout,
+  onLearnMore,
 }: MilestonesPanelProps) {
   const { milestones, setMilestones, tasks } = useWorkspace();
   // `-full` suffix: the view changed from a centered half-width pane to full
@@ -237,6 +244,9 @@ function MilestonesPanelBody({
 
   return (
     <div ref={ref} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {onLearnMore && (
+        <ViewCallout view="milestones" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       <header className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 print:hidden">
         <h2 className="text-lg font-medium text-foreground">
           {t(lang, "milestonesTitle")}
