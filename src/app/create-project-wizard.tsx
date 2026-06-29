@@ -145,8 +145,8 @@ export function CreateProjectWizard({
   // Shared post-proposal pre-fill: every Step-0 source (Describe, file,
   // SharePoint, Confluence) funnels its content through this. The model output
   // populates the Step-1 form draft + feature set + starter seed and advances.
-  const runIngest = async (content: ProposalContent) => {
-    const p = await generate(content);
+  const runIngest = async (content: ProposalContent, signal?: AbortSignal) => {
+    const p = await generate(content, signal);
     if (!p) return; // error surfaced via aiError
     const today = new Date().toISOString().slice(0, 10); // callback context — lint-safe
     // Clear any meta captured from a prior manual Step-1 visit so the fresh AI
