@@ -57,4 +57,19 @@ describe("HelpView (grouped)", () => {
     fireEvent.click(btns[0]);
     expect(onNav).toHaveBeenCalledWith("raid");
   });
+
+  it("renders the Guided tours section only when onStartTour is provided", () => {
+    const { rerender } = render(<HelpView lang="en-US" />);
+    expect(screen.queryByText("Guided tours")).toBeNull();
+    rerender(
+      <HelpView
+        lang="en-US"
+        onStartTour={() => {}}
+        catalogTours={[{ id: "raid", titleKey: "tourRaidTitle", descKey: "tourRaidDesc" }]}
+        completedTours={[]}
+      />,
+    );
+    expect(screen.getByText("Guided tours")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /managing risks/i })).toBeInTheDocument();
+  });
 });

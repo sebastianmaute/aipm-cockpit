@@ -7,6 +7,8 @@ import { matchesQuery, highlightSegments } from "./help-search";
 import { navLabelKey, type AppView } from "./nav-config";
 import { buildRelationsGraph } from "./relations-graph";
 import { RelationsMap } from "./relations-map";
+import { TourCatalog } from "./tour-catalog";
+import type { TourCatalogEntry } from "./app-tour";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
@@ -39,6 +41,9 @@ export function HelpView({
   pendingHelpConcept,
   onHelpConceptConsumed,
   onNavigateView,
+  onStartTour,
+  catalogTours,
+  completedTours,
 }: {
   lang: Lang;
   onTakeTour?: () => void;
@@ -47,6 +52,12 @@ export function HelpView({
   onHelpConceptConsumed?: () => void;
   /** Navigate to a related view from a concept's Related line (SP3). */
   onNavigateView?: (view: AppView) => void;
+  /** Launch a themed tour by id (SP4). Present only in modern, non-popout. */
+  onStartTour?: (id: string) => void;
+  /** Tours available under the current feature set (SP4). */
+  catalogTours?: readonly TourCatalogEntry[];
+  /** Ids of completed tours, for the ✓ badge (SP4). */
+  completedTours?: readonly string[];
 }) {
   const [query, setQuery] = useState("");
   const { ref, reset } = useResizable("lop-app:help-view-size");
@@ -104,6 +115,21 @@ export function HelpView({
         <PrintButton lang={lang} />
         <ResetSizeButton onClick={reset} lang={lang} />
       </div>
+
+      {onStartTour && (
+        <details open className="mb-2 shrink-0 print:hidden">
+          <summary className={`cursor-pointer text-sm font-medium text-foreground ${FOCUS_RING}`}>
+            {t(lang, "helpGuidedToursTitle")}
+          </summary>
+          <p className="mb-2 mt-1 text-xs text-muted-foreground">{t(lang, "helpGuidedToursIntro")}</p>
+          <TourCatalog
+            lang={lang}
+            tours={catalogTours ?? []}
+            completedTours={completedTours ?? []}
+            onStartTour={onStartTour}
+          />
+        </details>
+      )}
 
       <details open className="mb-2 shrink-0 print:hidden">
         <summary className={`cursor-pointer text-sm font-medium text-foreground ${FOCUS_RING}`}>
