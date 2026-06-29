@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.148.0] - 2026-06-29 "Kuang"
+
+### Added
+- **Help — guided tours, connections & data flows in one place**: the Help view's top area is now a single tabbed region with three panels — **Guided tours**, **How it all connects**, and **Information flows** — one open at a time (Tours by default). The information-flows diagram (previously only in Settings → Integrations) now also appears here.
+- **Information flows — clearer, grouped diagram**: the diagram is reorganised into two colour-coded zones — *Your data* (local storage, **file storage**, Turso) and *Connected services* (Jira, Timelog, **SharePoint**, **Outlook**, Anthropic) — with Microsoft 365 split into separate SharePoint and Outlook nodes (9 nodes total). Shown in both Settings and Help.
+
+### Changed
+- **Redesigned Help content**: each topic now renders as a card with a clearer hierarchy, and the table of contents highlights the section you're reading as you scroll (scroll-spy). The floating Help panel is a little larger to suit the new layout.
+- **Guided-tour cards**: each tour now shows an icon and its step count, and a completed tour offers "Replay tour".
+- **Relations map**: the "How it all connects" concept map is now a vertical, easier-to-scan layout.
+
 ## [0.147.0] - 2026-06-29 "Rucker"
 
 ### Added

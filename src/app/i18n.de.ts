@@ -153,6 +153,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightChatFullWidth: "Der KI-Assistent ist jetzt voll breit, mit einer Modellauswahl in der oberen Leiste",
   versionHighlightViewTips: "Der kontextbezogene Hilfehinweis jeder Ansicht sitzt jetzt in der Karte, wie bei den Offenen Punkten",
   versionHighlightAnalyzeModal: "Mit KI analysieren zeigt während der Ausführung einen abbrechbaren Fortschrittsdialog",
+  versionHighlightHelpRedesign: "Neugestaltete Hilfe: Kartenlayout mit Scroll-Spy-Inhaltsverzeichnis, ein Tab-Bereich für Touren / Zusammenhänge / Informationsflüsse und ein klareres Informationsfluss-Diagramm mit 9 Knoten",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

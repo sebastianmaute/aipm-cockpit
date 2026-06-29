@@ -150,6 +150,7 @@ const enUS = {
   versionHighlightChatFullWidth: "The AI assistant is now full-width, with a model switcher in its top bar",
   versionHighlightViewTips: "Each view's contextual help tip now sits inside its card, like Open Points",
   versionHighlightAnalyzeModal: "Analyze with AI shows a cancellable progress modal while it runs",
+  versionHighlightHelpRedesign: "Redesigned Help: card layout with a scroll-spy contents list, a tabbed Tours / How-it-connects / Information-flows region, and a clearer 9-node information-flows diagram",
 
   tasks: "Tasks",
   tasksCount: "({0})",
