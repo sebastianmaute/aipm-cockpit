@@ -341,10 +341,15 @@ describe("ActionRow extra reasons", () => {
     ] as never;
     render(<ActionRow lang="en-US" action={action} onOpen={() => {}} extraReasons={extra} />);
     const toggle = screen.getByRole("button", { name: /1 more reasons/i });
+    // The reasons container is always mounted (aria-controls target must stay in DOM);
+    // expansion flips `hidden`, not presence.
+    const list = document.getElementById("action-reasons-x"); // action.id is "x" in this test
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(list?.hidden).toBe(true);
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText(/owner/i)).toBeTruthy(); // the no-owner extra signal's why text
+    expect(list?.hidden).toBe(false);
+    expect(list?.textContent ?? "").toMatch(/owner/i); // the no-owner extra signal's why text
   });
 
   it("renders the RAG left stripe for the tier and no dot", () => {

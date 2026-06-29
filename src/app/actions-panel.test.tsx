@@ -38,9 +38,14 @@ describe("ActionsPanel", () => {
     ] as never;
     render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
     expect(screen.getAllByText("Open")).toHaveLength(1); // one row
+    // The reasons container is always mounted (just `hidden`); expansion flips aria-expanded.
     const toggle = screen.getByRole("button", { name: /1 more reasons/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(toggle);
-    expect(screen.getByText(/owner/i)).toBeTruthy(); // r2 used actionRaidWhyNoOwner
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const list = document.getElementById("action-reasons-r1"); // group keyed off primary r1
+    expect(list?.hidden).toBe(false);
+    expect(list?.textContent ?? "").toMatch(/owner/i); // r2 used actionRaidWhyNoOwner
   });
 
   it("caps the now tier and reveals the rest via show-more", async () => {

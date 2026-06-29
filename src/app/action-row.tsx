@@ -141,15 +141,13 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
               <span aria-hidden>{reasonsOpen ? "▾" : "▸"}</span>
               {t(lang, "actionMoreReasons", extraReasons.length)}
             </button>
-            {reasonsOpen && (
-              <span id={`action-reasons-${action.id}`} className="mt-0.5 block">
-                {extraReasons.map((ex) => (
-                  <span key={ex.id} className="block truncate text-xs text-muted-foreground">
-                    {t(lang, ex.why.key, ...(ex.why.params ?? []))}
-                  </span>
-                ))}
-              </span>
-            )}
+            <span id={`action-reasons-${action.id}`} hidden={!reasonsOpen} className="mt-0.5 block">
+              {extraReasons.map((ex) => (
+                <span key={ex.id} className="block truncate text-xs text-muted-foreground">
+                  {t(lang, ex.why.key, ...(ex.why.params ?? []))}
+                </span>
+              ))}
+            </span>
           </>
         )}
         {action.learning?.moved && (
@@ -210,7 +208,6 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           <span ref={menuWrapRef} className="relative">
             <button
               type="button"
-              aria-haspopup="true"
               aria-expanded={menuOpen}
               aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
