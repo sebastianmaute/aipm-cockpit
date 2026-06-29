@@ -417,7 +417,9 @@ export function WorkspaceSection({
         />
         {/* open-points owns its callout in TasksSection; in classic both surfaces
             mount, so exclude it here to avoid a duplicate banner (mirrors ActionChips). */}
-        {activeTab !== "open-points" && (
+        {/* open-points + trends own their callout INSIDE their card (like a
+            primary view); exclude them here to avoid an above-card duplicate. */}
+        {activeTab !== "open-points" && activeTab !== "trends" && (
           <ViewCallout view={activeTab} lang={lang} showHints={settings.showViewHints !== false} isPopout={isPopout} onLearnMore={requestHelpConcept} />
         )}
         <div
@@ -840,6 +842,9 @@ export function WorkspaceSection({
               setBaseline={trends.setBaseline}
               deleteSnapshot={trends.deleteSnapshot}
               deleteSnapshots={trends.deleteSnapshots}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}

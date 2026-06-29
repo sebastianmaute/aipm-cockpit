@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { VIEW_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
+import { ViewCallout } from "./view-callout";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { RagBadge } from "./rag-badge";
 import { healthText } from "./health";
@@ -48,6 +49,11 @@ export interface TrendsPanelProps {
   setBaseline: (id: string) => Promise<void>;
   deleteSnapshot: (id: string) => Promise<void>;
   deleteSnapshots: (ids: readonly string[]) => Promise<void>;
+  // Per-view Help callout (rendered inside the card, like Open Points). Wired
+  // only from workspace-section; omitted in the standalone unit test.
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }
 
 function gapBetween(prev: SnapshotRecord, curr: SnapshotRecord, gaps: ReadonlySet<string>): boolean {
@@ -69,7 +75,7 @@ function trendPoints(snaps: readonly SnapshotRecord[], gaps: ReadonlySet<string>
 }
 
 export function TrendsPanel(props: TrendsPanelProps) {
-  const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots } = props;
+  const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots, showHints, isPopout, onLearnMore } = props;
   const { displayTz } = useDisplayTimezone();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const { ref, reset } = useResizable("lop-app:trends-size");
@@ -104,7 +110,15 @@ export function TrendsPanel(props: TrendsPanelProps) {
 
   return (
     <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} title={t(lang, "navTrends")} toolbarExtra={captureButton}>
-
+      {onLearnMore && (
+        <ViewCallout
+          view="trends"
+          lang={lang}
+          showHints={showHints !== false}
+          isPopout={!!isPopout}
+          onLearnMore={onLearnMore}
+        />
+      )}
       {snapshots.length === 0 ? (
         <EmptyState compact title={t(lang, "trendsNoSnapshots")} />
       ) : (
