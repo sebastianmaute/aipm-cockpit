@@ -1234,7 +1234,7 @@ function TaskManagerInner() {
   );
 
   const handleMarkDoneFromAction = useCallback((action: SuggestedAction) => {
-    if (action.cta.kind !== "open") return;
+    if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
     const id = Number(action.cta.id);
     setTasks((prev) => prev.map((tk) => (tk.id === id ? applyStatusChange(tk, "Done", today) : tk)));
     void recordLearning(action, "acted");
@@ -1242,7 +1242,7 @@ function TaskManagerInner() {
   }, [setTasks, today, recordLearning, showToast, lang]);
 
   const handleClearBlockerFromAction = useCallback((action: SuggestedAction) => {
-    if (action.cta.kind !== "open") return;
+    if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
     const id = Number(action.cta.id);
     setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, blockers: "" } : tk)));
     void recordLearning(action, "acted");
@@ -1407,7 +1407,7 @@ function TaskManagerInner() {
         ? undefined
         : {
             onReschedule: (action: SuggestedAction, isoDate: string) => {
-              if (action.cta.kind !== "open" || !isValidIsoDate(isoDate)) return;
+              if (action.cta.kind !== "open" || action.cta.view !== "open-points" || !isValidIsoDate(isoDate)) return;
               const id = Number(action.cta.id);
               setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, dueDate: isoDate } : tk)));
               void recordLearning(action, "acted");
