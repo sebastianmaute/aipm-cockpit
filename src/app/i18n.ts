@@ -2087,6 +2087,7 @@ const enUS = {
   actionTierMonitor: "Monitor",
   actionMonitoredCount: "{0} monitored",
   actionMoreReasons: "+{0} more reasons",
+  actionMoreActions: "More actions",
   actionShowMore: "Show {0} more",
   actionShowLess: "Show less",
   actionSourceTask: "Task",

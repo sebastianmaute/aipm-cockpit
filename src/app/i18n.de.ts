@@ -2063,6 +2063,7 @@ export const de: Record<TranslationKey, string> = {
   actionTierMonitor: "Beobachten",
   actionMonitoredCount: "{0} überwacht",
   actionMoreReasons: "+{0} weitere Gründe",
+  actionMoreActions: "Weitere Aktionen",
   actionShowMore: "{0} weitere anzeigen",
   actionShowLess: "Weniger anzeigen",
   actionSourceTask: "Aufgabe",
