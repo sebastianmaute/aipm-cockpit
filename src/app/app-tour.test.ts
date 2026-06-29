@@ -37,3 +37,12 @@ describe("app-tour engine", () => {
     expect(clampStep(0, 0)).toBe(0);
   });
 });
+
+describe("TOURS iconView", () => {
+  it("every tour declares an iconView AppView", () => {
+    for (const tr of TOURS) {
+      expect(typeof tr.iconView).toBe("string");
+      expect(tr.iconView.length).toBeGreaterThan(0);
+    }
+  });
+});
