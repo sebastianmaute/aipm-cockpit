@@ -622,6 +622,7 @@ export function WorkspaceSection({
               onTakeTour={onTakeTour}
               pendingHelpConcept={pendingHelpConcept}
               onHelpConceptConsumed={clearHelpConcept}
+              onNavigateView={(v) => setActiveTab(v)}
             />
           </div>
         )}
