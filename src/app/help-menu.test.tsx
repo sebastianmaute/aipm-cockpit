@@ -10,17 +10,26 @@ async function openHelp() {
   return user;
 }
 
-test("typing in the search box filters the section list", async () => {
+test("typing in the search box narrows the rendered topics", async () => {
   const user = await openHelp();
   const search = await screen.findByPlaceholderText("Search help");
-  await user.type(search, "keyboard");
-  const tabs = screen.getAllByRole("tab");
-  expect(tabs.length).toBeGreaterThan(0);
-  expect(tabs.length).toBeLessThan(15); // fewer than all sections
+  const before = screen.getAllByRole("heading").length;
+  await user.type(search, "milestone");
+  const after = screen.getAllByRole("heading").length;
+  expect(after).toBeLessThan(before);
+  expect(after).toBeGreaterThan(0);
 });
 
 test("no-results state when nothing matches", async () => {
   const user = await openHelp();
   await user.type(await screen.findByPlaceholderText("Search help"), "zzzznotfound");
   expect(screen.getByText("No help topics match your search.")).toBeInTheDocument();
+});
+
+test("does not render the AI usage policy link", async () => {
+  await openHelp();
+  // The shared HelpContentPane renders AI-feature body text that mentions the
+  // "AI usage policy" phrase, so we assert specifically that no usage-policy
+  // LINK is rendered in the footer (the link was removed in a prior change).
+  expect(screen.queryByRole("link", { name: /usage policy/i })).toBeNull();
 });
