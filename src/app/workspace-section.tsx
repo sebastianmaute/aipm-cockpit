@@ -431,6 +431,7 @@ export function WorkspaceSection({
             ai={settings.ai}
             dispatcher={dispatcher}
             onAcceptConsent={handleAcceptAiConsent}
+            onChangeModel={(model) => setSettings((s) => ({ ...s, ai: { ...s.ai, model } }))}
             guides={guides}
             guidesReady={guidesReady}
             chatSeed={pendingChatSeed}
