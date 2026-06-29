@@ -52,7 +52,22 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   const [monitorOpen, setMonitorOpen] = useState(false);
   const { ref, reset } = useResizable("lop-app:actions-size");
   const groups = useMemo(() => groupNextActions(actions), [actions]);
-  const [expanded, setExpanded] = useState<Record<ActionTier, boolean>>({ now: false, soon: false, monitor: false });
+  const [expanded, setExpanded] = useState<Record<"now" | "soon", boolean>>({ now: false, soon: false });
+  const renderRow = (g: ActionGroup) => (
+    <ActionRow
+      key={g.key}
+      lang={lang}
+      action={g.primary}
+      extraReasonsCount={g.extra.length}
+      onOpen={onOpen}
+      onSnooze={onSnooze}
+      onCreateTask={onCreateTask}
+      assignOwner={assignOwner}
+      onDraftMessage={onDraftMessage}
+      escalate={escalate}
+      rebaseline={rebaseline}
+    />
+  );
   return (
     <div ref={ref} className={VIEW_PANE_RESIZABLE_CLASS}>
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
@@ -146,21 +161,6 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
           {TIERS.map(({ tier, labelKey }) => {
             const rows = groups.filter((g) => g.tier === tier);
             if (rows.length === 0) return null;
-            const renderRow = (g: ActionGroup) => (
-              <ActionRow
-                key={g.key}
-                lang={lang}
-                action={g.primary}
-                extraReasonsCount={g.extra.length}
-                onOpen={onOpen}
-                onSnooze={onSnooze}
-                onCreateTask={onCreateTask}
-                assignOwner={assignOwner}
-                onDraftMessage={onDraftMessage}
-                escalate={escalate}
-                rebaseline={rebaseline}
-              />
-            );
             if (tier === "monitor") {
               return (
                 <section key={tier}>
@@ -180,7 +180,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                 </section>
               );
             }
-            const open = expanded[tier];
+            const open = expanded[tier as "now" | "soon"];
             const visible = open ? rows : rows.slice(0, MAX_VISIBLE_PER_TIER);
             const hiddenCount = rows.length - visible.length;
             return (
@@ -188,10 +188,12 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t(lang, labelKey)} ({rows.length})
                 </h3>
-                <div className="flex flex-col gap-2">{visible.map(renderRow)}</div>
+                <div id={`action-${tier}-list`} className="flex flex-col gap-2">{visible.map(renderRow)}</div>
                 {rows.length > MAX_VISIBLE_PER_TIER && (
                   <button
                     type="button"
+                    aria-expanded={open}
+                    aria-controls={`action-${tier}-list`}
                     onClick={() => setExpanded((e) => ({ ...e, [tier]: !open }))}
                     className="mt-2 text-xs font-medium text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey"
                   >
