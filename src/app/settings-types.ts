@@ -420,6 +420,9 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device: show the contextual per-view Help callouts. Default ON
+   *  (read as `!== false`); individual callouts can also be dismissed per-view. */
+  showViewHints?: boolean;
   /** Per-device sidebar branding: a custom logo (data:image URL) and/or slogan
    *  overriding the default Acme logo + subtitle. */
   branding?: BrandingConfig;
@@ -466,6 +469,7 @@ export const defaultSettings: Settings = {
   hideFinishedTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
+  showViewHints: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
   showDisplayTzSwitcher: false,
   reports: { extra: ["raid-report", "budget-report"] },

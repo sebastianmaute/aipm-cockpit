@@ -57,6 +57,7 @@ import {
   MilestonesPanel,
 } from "./milestones-panel";
 import { HelpView } from "./help-view";
+import { ViewCallout } from "./view-callout";
 import {
   SteeringCommitteePanel,
 } from "./steering-committee-panel";
@@ -190,7 +191,7 @@ export function WorkspaceSection({
     [setSettings],
   );
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee } = useWorkspace();
-  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen } = useWorkspaceTab();
+  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
   // One-way signal: incrementing this opens the milestone create modal on the
   // Milestones tab (Gantt "Add milestone" parity with Add task).
@@ -408,6 +409,7 @@ export function WorkspaceSection({
           onShowMore={() => setActiveTab("actions")}
           className="mb-2 shrink-0"
         />
+        <ViewCallout view={activeTab} lang={lang} showHints={settings.showViewHints !== false} isPopout={isPopout} onLearnMore={requestHelpConcept} />
         <div
           id="panel-chat"
           role="tabpanel"
@@ -611,7 +613,12 @@ export function WorkspaceSection({
 
         {activeTab === "help" && (
           <div id="panel-help" role="tabpanel" className={panelClass}>
-            <HelpView lang={lang} onTakeTour={onTakeTour} />
+            <HelpView
+              lang={lang}
+              onTakeTour={onTakeTour}
+              pendingHelpConcept={pendingHelpConcept}
+              onHelpConceptConsumed={clearHelpConcept}
+            />
           </div>
         )}
 

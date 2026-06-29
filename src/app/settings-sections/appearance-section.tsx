@@ -152,6 +152,23 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
 
       <div className="mb-4">
         <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "showViewHintsLabel")}
+          <InfoTooltip text={t(lang, "showViewHintsHint")} />
+        </span>
+        <SegmentedControl<"shown" | "hidden">
+          value={settings.showViewHints !== false ? "shown" : "hidden"}
+          ariaLabel={t(lang, "showViewHintsLabel")}
+          className="w-full"
+          options={[
+            { value: "shown", label: t(lang, "viewHintsShown") },
+            { value: "hidden", label: t(lang, "viewHintsHidden") },
+          ]}
+          onChange={(v) => onChange({ ...settings, showViewHints: v === "shown" })}
+        />
+      </div>
+
+      <div className="mb-4">
+        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
           {t(lang, "brandingTitle")}
         </span>
 

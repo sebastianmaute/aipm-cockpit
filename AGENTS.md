@@ -530,6 +530,26 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
   (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
   (the sidebar entry IS scanned every view; eye-verify the page).
+  • **Contextual per-view callouts (Help SP2):** a slim dismissable banner atop each WORKING view — a novice
+  one-liner + "Learn more →" deep-linking the matching Help concept. Pure `view-callouts.ts`
+  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, ~14 views; `conceptId` in `HELP_ENTRIES`
+  concepts — guard test) + per-device dismiss store `view-hints-store.ts` (`lop-app:view-hints`, out of
+  exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep). Presentational `view-callout.tsx` is
+  PROPS-only (`view`/`lang`/`showHints`/`isPopout`/`onLearnMore`) — NOT context-consuming, because the
+  TasksSection/Kanban unit tests render outside `WorkspaceTabProvider` (a `useWorkspaceTab()` there THROWS).
+  Self-hides when: no `VIEW_CALLOUTS[view]` / `!showHints` / `isPopout` / dismissed. Mounted in
+  `workspace-section` (after the `ActionChips` strip — covers all routed views) AND `tasks-section`
+  (open-points renders separately; gated `{onLearnMoreHint && …}` so the bare unit test stays unaffected).
+  ★★ "Learn more" deep-links via a NEW `workspace-tab-context` string channel `requestHelpConcept(conceptId)`
+  (mirrors `requestChat`: `setActiveTab("help")` + `pendingHelpConcept`, NO hash write); `HelpView` consumes
+  it via OPTIONAL props `pendingHelpConcept`/`onHelpConceptConsumed` (optional so the standalone
+  `help-view.test.tsx`, which has no provider, is unchanged) using the render-reconcile + nonce-effect pattern
+  (mirrors `useDeepLinkRowFlash`; no `set-state-in-effect`). Global on/off: `settings.showViewHints?` (default
+  ON, read `!== false`) — a `SegmentedControl` in Settings → Appearance, persisted via the `writeSettings`
+  spread (no allowlist edit, mirrors `dashboardDensity`). Many mount views are axe-scanned (banner buttons are
+  labeled, palette-safe — verified). Dashboard EXCLUDED (has coaching + tip cards). ★ A loose
+  `getByText(/changes/i)` in `dashboard-panel.test` collided with the date-rotating tip card's "Changes" text →
+  scope such queries to a `heading` role, not free text.
   • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
   also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
   fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.

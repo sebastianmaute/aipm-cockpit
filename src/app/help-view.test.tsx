@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { HelpView } from "./help-view";
 
@@ -30,5 +30,14 @@ describe("HelpView (grouped)", () => {
     expect(screen.queryByRole("button", { name: /take the tour/i })).toBeNull();
     rerender(<HelpView lang="en-US" onTakeTour={() => {}} />);
     expect(screen.getByRole("button", { name: /take the tour/i })).toBeInTheDocument();
+  });
+
+  it("consumes a deep-linked concept on mount (scroll + callback)", () => {
+    const scrollSpy = vi.fn();
+    Object.defineProperty(Element.prototype, "scrollIntoView", { configurable: true, value: scrollSpy });
+    const onConsumed = vi.fn();
+    render(<HelpView lang="en-US" pendingHelpConcept="concept-raid" onHelpConceptConsumed={onConsumed} />);
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+    expect(scrollSpy).toHaveBeenCalled();
   });
 });

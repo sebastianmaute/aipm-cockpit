@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content";
 import { matchesQuery, highlightSegments } from "./help-search";
@@ -31,7 +31,18 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 /** In-pane Help view (sidebar nav entry, below Settings). Renders the shared
  *  help backbone grouped (Concepts · Workflows · Features · What's automated)
  *  with a grouped TOC, in-page related links, and search across everything. */
-export function HelpView({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => void }) {
+export function HelpView({
+  lang,
+  onTakeTour,
+  pendingHelpConcept,
+  onHelpConceptConsumed,
+}: {
+  lang: Lang;
+  onTakeTour?: () => void;
+  /** A concept id deep-linked from a per-view callout (SP2) — scroll to it. */
+  pendingHelpConcept?: string | null;
+  onHelpConceptConsumed?: () => void;
+}) {
   const [query, setQuery] = useState("");
   const { ref, reset } = useResizable("lop-app:help-view-size");
 
@@ -45,6 +56,22 @@ export function HelpView({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
   const scrollToSection = (id: string) => {
     document.getElementById(sectionId(id))?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  // Deep-link from a per-view callout: scroll to the requested concept on
+  // mount/change. Render-time reconcile + a nonce-keyed effect (mirrors
+  // useDeepLinkRowFlash) — no set-state-in-effect; `handledConcept` seeded
+  // `undefined` so a fresh mount that already sees the prop still fires.
+  const [handledConcept, setHandledConcept] = useState<string | null | undefined>(undefined);
+  const [scrollSeq, setScrollSeq] = useState(0);
+  if (pendingHelpConcept !== undefined && pendingHelpConcept !== handledConcept) {
+    setHandledConcept(pendingHelpConcept);
+    if (pendingHelpConcept) setScrollSeq((s) => s + 1);
+  }
+  useEffect(() => {
+    if (!handledConcept) return;
+    document.getElementById(sectionId(handledConcept))?.scrollIntoView({ behavior: "smooth", block: "start" });
+    onHelpConceptConsumed?.();
+  }, [scrollSeq, handledConcept, onHelpConceptConsumed]);
 
   return (
     <div ref={ref} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>

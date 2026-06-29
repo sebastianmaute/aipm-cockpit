@@ -194,7 +194,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestFlash } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestFlash, requestHelpConcept } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -1839,6 +1839,9 @@ function TaskManagerInner() {
       nextActions={nextActions}
       onOpenAction={openAction}
       onShowActions={() => setActiveTab("actions")}
+      showViewHints={settings.showViewHints !== false}
+      isPopout={isPopout}
+      onLearnMoreHint={requestHelpConcept}
       jiraSiteUrl={settings.jira.siteUrl}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}
