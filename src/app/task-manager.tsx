@@ -40,6 +40,8 @@ import { applyOwnerAssignment } from "./action-assign-owner";
 import { planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
 import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
 import type { RebaselineBundle } from "./rebaseline-popover";
+import type { RescheduleBundle } from "./reschedule-popover";
+import { applyStatusChange } from "./task-status";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -1195,7 +1197,17 @@ function TaskManagerInner() {
               action: SuggestedAction,
               v: { name: string; email: string; resourceId: number | null },
             ) => {
-              const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
+              if (action.cta.kind !== "open") return;
+              const id = Number(action.cta.id);
+              if (action.cta.view === "open-points") {
+                setTasks((prev) => prev.map((tk) =>
+                  tk.id === id
+                    ? { ...tk, assignee: v.name, assigneeEmail: v.email, resourceId: v.resourceId ?? undefined }
+                    : tk));
+                void recordLearning(action, "acted");
+                showToast("info", t(lang, "actionOwnerAssigned", id));
+                return;
+              }
               const next = applyOwnerAssignment(raid, id, v);
               if (next === raid) return; // no matching item → no write, no toast
               setRaid(next as RaidItem[]);
@@ -1203,7 +1215,7 @@ function TaskManagerInner() {
               showToast("info", t(lang, "actionOwnerAssigned", id));
             },
           },
-    [isPopout, resources, handleCreateResource, raid, setRaid, showToast, lang, recordLearning],
+    [isPopout, resources, handleCreateResource, raid, setRaid, setTasks, showToast, lang, recordLearning],
   );
 
   const handleCreateTaskFromAction = useCallback(
@@ -1220,6 +1232,22 @@ function TaskManagerInner() {
     },
     [handleCancelEdit, lang, setForm, setTaskModalOpen, pendingLinkRaidIdRef, recordLearning],
   );
+
+  const handleMarkDoneFromAction = useCallback((action: SuggestedAction) => {
+    if (action.cta.kind !== "open") return;
+    const id = Number(action.cta.id);
+    setTasks((prev) => prev.map((tk) => (tk.id === id ? applyStatusChange(tk, "Done", today) : tk)));
+    void recordLearning(action, "acted");
+    showToast("info", t(lang, "actionTaskCompleted"));
+  }, [setTasks, today, recordLearning, showToast, lang]);
+
+  const handleClearBlockerFromAction = useCallback((action: SuggestedAction) => {
+    if (action.cta.kind !== "open") return;
+    const id = Number(action.cta.id);
+    setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, blockers: "" } : tk)));
+    void recordLearning(action, "acted");
+    showToast("info", t(lang, "actionBlockerCleared"));
+  }, [setTasks, recordLearning, showToast, lang]);
 
   // Deep-link: when a suggested-action chip requests opening a task, open its
   // edit modal once and clear the pending signal so it does not re-fire.
@@ -1371,6 +1399,22 @@ function TaskManagerInner() {
             busy: snapshots.busy,
           },
     [isPopout, milestones, tasks, handleRebaselineMilestone, handleRebaselineSnapshot, trendsActive, snapshots.busy],
+  );
+
+  const rescheduleBundle = useMemo<RescheduleBundle | undefined>(
+    () =>
+      isPopout
+        ? undefined
+        : {
+            onReschedule: (action: SuggestedAction, isoDate: string) => {
+              if (action.cta.kind !== "open" || !isValidIsoDate(isoDate)) return;
+              const id = Number(action.cta.id);
+              setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, dueDate: isoDate } : tk)));
+              void recordLearning(action, "acted");
+              showToast("info", t(lang, "actionRescheduled"));
+            },
+          },
+    [isPopout, setTasks, recordLearning, showToast, lang],
   );
 
   // Keep the forwarding ref current after every commit (it's only ever read
@@ -1813,6 +1857,9 @@ function TaskManagerInner() {
     assignOwner: assignOwnerBundle,
     escalate: escalateBundle,
     rebaseline: rebaselineBundle,
+    reschedule: rescheduleBundle,
+    onMarkDone: isPopout ? undefined : handleMarkDoneFromAction,
+    onClearBlocker: isPopout ? undefined : handleClearBlockerFromAction,
     learningEnabled: settings.nextActionsLearning?.enabled ?? false,
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
