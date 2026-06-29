@@ -7,11 +7,13 @@
 // host (task-manager) owns navigation + state; this is a controlled component.
 
 import { useEffect, useRef, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, type TranslationKey, t } from "./i18n";
 import { clampStep, type TourStep } from "./app-tour";
 
 export interface TourOverlayProps {
   lang: Lang;
+  /** When set, the active tour's title shows as a small label above the step (SP4). */
+  tourTitleKey?: TranslationKey;
   steps: readonly TourStep[];
   index: number;
   onBack: () => void;
@@ -23,7 +25,7 @@ export interface TourOverlayProps {
 
 interface Rect { top: number; left: number; width: number; height: number; }
 
-export function TourOverlay({ lang, steps, index, onBack, onNext, onSkip, onDone, onShowMe }: TourOverlayProps) {
+export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, onSkip, onDone, onShowMe }: TourOverlayProps) {
   const total = steps.length;
   const i = clampStep(index, total);
   const step = steps[i];
@@ -82,6 +84,11 @@ export function TourOverlay({ lang, steps, index, onBack, onNext, onSkip, onDone
         style={cardStyle}
         className="w-[340px] max-w-[92vw] rounded-lg border border-line bg-surface p-4 focus:outline-none"
       >
+        {tourTitleKey && (
+          <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t(lang, tourTitleKey)}
+          </p>
+        )}
         <div className="mb-2 flex items-center gap-1" aria-hidden="true">
           {steps.map((s, k) => (
             <span key={s.id} className={k === i ? "h-1.5 w-3 rounded-full bg-AIPM-dark-blue" : "h-1.5 w-1.5 rounded-full bg-line"} />
