@@ -12,6 +12,7 @@ import { ResourcePicker } from "./resource-picker";
 import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
 import { usePopoverDismiss } from "./use-popover-dismiss";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 // Priority is shown with a coloured LEFT STRIPE (red/amber/green) on the row, so
 // "urgent" reads at a glance without a separate dot:
@@ -135,8 +136,9 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
               type="button"
               aria-expanded={reasonsOpen}
               aria-controls={`action-reasons-${action.id}`}
+              aria-label={`${t(lang, "actionMoreReasons", extraReasons.length)} – ${title}`}
               onClick={(e) => { e.stopPropagation(); setReasonsOpen((o) => !o); }}
-              className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              className={`mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
             >
               <span aria-hidden>{reasonsOpen ? "▾" : "▸"}</span>
               {t(lang, "actionMoreReasons", extraReasons.length)}
@@ -211,7 +213,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
               aria-expanded={menuOpen}
               aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-              className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10"
+              className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 ${FOCUS_RING}`}
             >
               ⋮
             </button>
