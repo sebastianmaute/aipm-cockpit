@@ -2595,6 +2595,7 @@ export const de: Record<TranslationKey, string> = {
   naFormulaVars: "urgency/risk/impact/quickWin/staleness stammen aus dem Signal selbst. clarity addiert den oben eingestellten Klarheits- (oder Teil-Klarheits-)Bonus für eindeutig behebbare Aktionen; staticPenalty zieht den oben eingestellten Statik-Abzug für vage, aggregierte Signale ab (automatisch halbiert, wenn sich ein Signal verschlechtert).",
   naFormulaTiers: "Stufe: Jetzt ab score ≥ 60, Bald ≥ 30, sonst Beobachten.",
   naFormulaThresholds: "Die Schwellenwerte oben entscheiden, ob ein Signal überhaupt ausgelöst wird, bevor es bewertet wird.",
+  infoFlowsTitle: "Informationsflüsse",
   infoFlowsIntro: "Eine schreibgeschützte Übersicht der Schnittstellen, Integrationen und Datenquellen der App.",
   infoFlowsDiagramAriaLabel: "Informationsflüsse: Browser-PWA verbunden mit lokalem Speicher, Dateispeicher, Turso-Cloud-DB, Jira, SharePoint, Outlook, Timelog und der Anthropic-API.",
   infoFlowsZoneDataLabel: "Ihre Daten",

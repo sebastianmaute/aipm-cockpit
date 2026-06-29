@@ -2614,6 +2614,7 @@ const enUS = {
   naFormulaVars: "urgency/risk/impact/quickWin/staleness come from the signal itself. clarity adds the Clarity (or Semi-clarity) bonus above for clear-fix actions; staticPenalty subtracts the Static penalty above for vague aggregate signals (halved automatically when a signal is worsening).",
   naFormulaTiers: "Tier: Now at score ≥ 60, Soon ≥ 30, otherwise Monitor.",
   naFormulaThresholds: "The threshold settings above decide whether a signal fires at all, before it is scored.",
+  infoFlowsTitle: "Information flows",
   infoFlowsIntro: "A read-only overview of the app's interfaces, integrations, and data sources.",
   infoFlowsDiagramAriaLabel: "Information flows: browser PWA connected to local storage, file storage, Turso cloud DB, Jira, SharePoint, Outlook, Timelog, and the Anthropic API.",
   infoFlowsZoneDataLabel: "Your data",
