@@ -322,3 +322,21 @@ describe("ActionRow learning hint", () => {
     expect(screen.queryByText(/demoted/i)).toBeNull();
   });
 });
+
+describe("ActionRow extra reasons", () => {
+  it("renders a +N more reasons line when extraReasonsCount > 0", () => {
+    const action = {
+      id: "x", source: "raid",
+      title: { key: "actionRaidTitle", params: [1, "x"] },
+      why: { key: "actionRaidWhySeverity", params: ["High"] },
+      score: 70, tier: "now",
+      cta: { kind: "open", view: "raid", id: 1 },
+    } as never;
+    const { getByText, rerender, queryByText } = render(
+      <ActionRow lang="en-US" action={action} onOpen={() => {}} extraReasonsCount={2} />,
+    );
+    expect(getByText("+2 more reasons")).toBeTruthy();
+    rerender(<ActionRow lang="en-US" action={action} onOpen={() => {}} extraReasonsCount={0} />);
+    expect(queryByText(/more reasons/)).toBeNull();
+  });
+});

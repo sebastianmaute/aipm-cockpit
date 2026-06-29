@@ -44,9 +44,10 @@ interface ActionRowProps {
   onDraftMessage?: (action: SuggestedAction) => void;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  extraReasonsCount?: number;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, extraReasonsCount }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const assignPopRef = useRef<HTMLSpanElement>(null);
@@ -123,6 +124,11 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           <span className="truncate text-sm font-medium text-foreground">{title}</span>
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">{why}</span>
+        {extraReasonsCount != null && extraReasonsCount > 0 && (
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+            {t(lang, "actionMoreReasons", extraReasonsCount)}
+          </span>
+        )}
         {action.learning?.moved && (
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">
             {action.learning.moved === "up"
