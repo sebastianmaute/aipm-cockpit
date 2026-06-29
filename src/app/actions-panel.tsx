@@ -11,6 +11,7 @@ import type { AiAction, ActionAnalysis } from "./action-ai";
 import type { AssignOwnerBundle } from "./action-row";
 import type { EscalateBundle } from "./escalate-popover";
 import type { RebaselineBundle } from "./rebaseline-popover";
+import type { RescheduleBundle } from "./reschedule-popover";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import { groupNextActions, type ActionGroup } from "./next-actions/group";
 
@@ -42,13 +43,16 @@ interface ActionsPanelProps {
   onDraftMessage?: (action: SuggestedAction) => void;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  reschedule?: RescheduleBundle;
+  onMarkDone?: (action: SuggestedAction) => void;
+  onClearBlocker?: (action: SuggestedAction) => void;
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;
   aiAnalysis?: AiAnalysisBundle;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   const { ref, reset } = useResizable("lop-app:actions-size");
   const groups = useMemo(() => groupNextActions(actions), [actions]);
@@ -66,6 +70,9 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
       onDraftMessage={onDraftMessage}
       escalate={escalate}
       rebaseline={rebaseline}
+      reschedule={reschedule}
+      onMarkDone={onMarkDone}
+      onClearBlocker={onClearBlocker}
     />
   );
   return (
