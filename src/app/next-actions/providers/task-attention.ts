@@ -35,6 +35,7 @@ export const taskAttentionProvider: ActionProvider = {
         out.push({ ...base, id: `task-attention:${task.id}:unassigned`,
           why: { key: "actionTaskWhyUnassigned" }, score, tier: bandTier(score) });
       }
+      // On-hold tasks are intentionally still flagged stale — isTaskFinished covers only Done/Cancelled, so on-hold items remain due for periodic review.
       const days = daysBetween(task.lastUpdateDate, input.today);
       if (Number.isFinite(days) && days >= STALE_DAYS) {
         const score = scoreAction({ staleness: stalenessScore(days), clarity: sc });
@@ -46,14 +47,15 @@ export const taskAttentionProvider: ActionProvider = {
         out.push({ ...base, id: `task-attention:${task.id}:blocked`,
           why: { key: "actionTaskWhyBlocked", params: [task.blockers.trim()] }, score, tier: bandTier(score) });
       }
+      // First unfinished predecessor only — one :dep-blocked action per task (the id structure prevents a second).
       const dep = (task.dependencies ?? []).find((d) => {
         const pred = byId.get(d.taskId);
-        return pred != null && !isTaskFinished(pred);
+        return d.taskId !== task.id && pred != null && !isTaskFinished(pred);
       });
       if (dep) {
         const pred = byId.get(dep.taskId)!;
         const score = scoreAction({ impact: W.impactBlocksMilestone, clarity: cl });
-        out.push({ ...base, id: `task-attention:${task.id}:dep`,
+        out.push({ ...base, id: `task-attention:${task.id}:dep-blocked`,
           why: { key: "actionTaskWhyDepBlocked", params: [pred.taskName] }, score, tier: bandTier(score) });
       }
     }

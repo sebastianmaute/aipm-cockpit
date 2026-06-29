@@ -55,14 +55,18 @@ describe("taskAttentionProvider", () => {
     const pred = mkTask({ id: 2, taskName: "Predecessor", status: "In Progress" });
     const dependent = mkTask({ id: 1, dependencies: [{ taskId: 2, type: "FS" }] });
     const out = taskAttentionProvider.provide(mkInput([pred, dependent]));
-    const dep = out.find((a) => a.id === "task-attention:1:dep");
+    const dep = out.find((a) => a.id === "task-attention:1:dep-blocked");
     expect(dep).toBeTruthy();
     expect(dep!.why.params?.[0]).toBe("Predecessor");
   });
   it("does not flag dependency-blocked when predecessor is Done", () => {
     const pred = mkTask({ id: 2, status: "Done", completedDate: "2026-06-01" });
     const dependent = mkTask({ id: 1, dependencies: [{ taskId: 2, type: "FS" }] });
-    expect(ids([pred, dependent])).not.toContain("task-attention:1:dep");
+    expect(ids([pred, dependent])).not.toContain("task-attention:1:dep-blocked");
+  });
+  it("does not flag a self-dependency", () => {
+    expect(ids([mkTask({ id: 1, dependencies: [{ taskId: 1, type: "FS" }] })]))
+      .not.toContain("task-attention:1:dep-blocked");
   });
   it("emits multiple actions for one task, same cta entity", () => {
     const out = taskAttentionProvider.provide(mkInput([mkTask({ assignee: "", blockers: "x" })]));
