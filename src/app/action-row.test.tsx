@@ -295,6 +295,36 @@ describe("ActionRow rebaseline", () => {
   });
 });
 
+describe("ActionRow reschedule / mark done / clear blocker", () => {
+  it("shows Reschedule popover on a task-due row and Mark done in the menu", () => {
+    const onMarkDone = vi.fn();
+    const action = { id: "task-due:1:overdue", source: "task-due",
+      title: { key: "actionTaskTitle", params: ["T"] }, why: { key: "actionTaskWhyOverdue", params: [2] },
+      score: 70, tier: "now", cta: { kind: "open", view: "open-points", id: 1 } } as never;
+    render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onMarkDone={onMarkDone}
+      reschedule={{ onReschedule: vi.fn() }} />);
+    expect(screen.getByRole("button", { name: /reschedule/i })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /mark done/i }));
+    expect(onMarkDone).toHaveBeenCalled();
+  });
+
+  it("shows Assign on unassigned task-attention, Clear blocker on a blocked one", () => {
+    const onClearBlocker = vi.fn();
+    const unassigned = { id: "task-attention:1:unassigned", source: "task-attention",
+      title: { key: "actionTaskTitle", params: ["T"] }, why: { key: "actionTaskWhyUnassigned" },
+      score: 30, tier: "soon", cta: { kind: "open", view: "open-points", id: 1 } } as never;
+    const blocked = { ...(unassigned as SuggestedAction), id: "task-attention:1:blocked", why: { key: "actionTaskWhyBlocked", params: ["x"] } } as never;
+    const assignBundle = { resources: [], onCreateResource: () => 1, onAssign: vi.fn() };
+    const { rerender } = render(<ActionRow lang="en-US" action={unassigned} onOpen={() => {}} assignOwner={assignBundle} />);
+    expect(screen.getByRole("button", { name: /assign owner/i })).toBeTruthy();
+    rerender(<ActionRow lang="en-US" action={blocked} onOpen={() => {}} onClearBlocker={onClearBlocker} />);
+    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /clear blocker/i }));
+    expect(onClearBlocker).toHaveBeenCalled();
+  });
+});
+
 describe("ActionRow source icon + score tooltip", () => {
   it("renders the source icon and a tooltip carrying the score", () => {
     const scored = { ...action, source: "raid" as const, score: 42 };

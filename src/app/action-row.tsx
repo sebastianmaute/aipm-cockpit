@@ -11,6 +11,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { ResourcePicker } from "./resource-picker";
 import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
+import { ReschedulePopover, type RescheduleBundle } from "./reschedule-popover";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
@@ -49,9 +50,12 @@ interface ActionRowProps {
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
   extraReasons?: readonly SuggestedAction[];
+  reschedule?: RescheduleBundle;
+  onMarkDone?: (action: SuggestedAction) => void;
+  onClearBlocker?: (action: SuggestedAction) => void;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, extraReasons }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, extraReasons, reschedule, onMarkDone, onClearBlocker }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [reasonsOpen, setReasonsOpen] = useState(false);
@@ -79,9 +83,9 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
   const canAssign =
     assignOwner != null &&
-    action.source === "raid" &&
-    action.why.key === "actionRaidWhyNoOwner" &&
-    action.cta.kind === "open";
+    action.cta.kind === "open" &&
+    ((action.source === "raid" && action.why.key === "actionRaidWhyNoOwner") ||
+     (action.source === "task-attention" && action.why.key === "actionTaskWhyUnassigned"));
   const canDraft =
     onDraftMessage != null &&
     (action.source === "task-due" || action.source === "stakeholder-comms") &&
@@ -104,7 +108,10 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
      (action.source === "budget" && action.why.key === "actionBudgetWhyWorsening")) &&
     action.cta.kind === "open";
   const createTaskApplicable = onCreateTask != null && action.source !== "task-due";
-  const hasMenu = canDraft || createTaskApplicable || onSnooze != null;
+  const canReschedule = reschedule != null && action.source === "task-due" && action.cta.kind === "open";
+  const canMarkDone = onMarkDone != null && action.cta.kind === "open" && action.cta.view === "open-points";
+  const canClearBlocker = onClearBlocker != null && action.source === "task-attention" && action.why.key === "actionTaskWhyBlocked";
+  const hasMenu = canDraft || createTaskApplicable || onSnooze != null || canMarkDone || canClearBlocker;
   return (
     // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive
     // control (the Open button) inside a role=button is a WCAG nested-interactive
@@ -174,6 +181,9 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
         {(canRebaselineMilestone || canRebaselineSnapshot) && rebaseline && (
           <RebaselinePopover lang={lang} action={action} bundle={rebaseline} />
         )}
+        {canReschedule && reschedule && (
+          <ReschedulePopover lang={lang} action={action} bundle={reschedule} />
+        )}
         {canAssign && assignOwner && (
           <span className="relative">
             <button
@@ -219,6 +229,20 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
             </button>
             {menuOpen && (
               <span className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1">
+                {canMarkDone && onMarkDone && (
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMarkDone(action); }}
+                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                    {t(lang, "actionMarkDone")}
+                  </button>
+                )}
+                {canClearBlocker && onClearBlocker && (
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onClearBlocker(action); }}
+                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                    {t(lang, "actionClearBlocker")}
+                  </button>
+                )}
                 {canDraft && onDraftMessage && (
                   <button type="button"
                     onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDraftMessage(action); }}
