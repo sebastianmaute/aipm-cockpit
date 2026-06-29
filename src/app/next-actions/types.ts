@@ -11,7 +11,7 @@ import type { ActionTrends } from "./trends";
 export type ActionTier = "now" | "soon" | "monitor";
 export type ActionSource =
   | "task-due" | "raid" | "change-pending" | "milestone" | "budget" | "stakeholder-comms"
-  | "schedule" | "workload" | "committee";
+  | "schedule" | "workload" | "committee" | "task-attention";
 
 /** Translated by the surface (SP2); the engine stays i18n-free. */
 export interface I18nText {

@@ -63,6 +63,13 @@ export const ACTION_SOURCE_ICON: Record<ActionSource, ReactNode> = {
       <path d="M3 13V8M8 13V4M13 13v-3" strokeLinecap="round" />
     </svg>
   ),
+  // task-attention: bell
+  "task-attention": (
+    <svg aria-hidden viewBox="0 0 16 16" className={ICON_CLASS} fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M8 2.5a3.5 3.5 0 0 0-3.5 3.5c0 3-1.5 4-1.5 4h10s-1.5-1-1.5-4A3.5 3.5 0 0 0 8 2.5z" strokeLinejoin="round" />
+      <path d="M6.5 13a1.5 1.5 0 0 0 3 0" strokeLinecap="round" />
+    </svg>
+  ),
   // committee: people / group
   committee: (
     <svg aria-hidden viewBox="0 0 16 16" className={ICON_CLASS} fill="none" stroke="currentColor" strokeWidth="1.5">
