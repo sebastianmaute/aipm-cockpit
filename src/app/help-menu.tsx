@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { INTERACTIVE } from "./interaction-styles";
-import { type Lang, t } from "./i18n";
-import { HelpContentPane } from "./help-content-pane";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
+import { type Lang, t, type TranslationKey } from "./i18n";
+import { HelpContentPane, helpSectionId } from "./help-content-pane";
+import { RelationsMap } from "./relations-map";
+import { TourCatalog } from "./tour-catalog";
+import { InformationFlowsSection } from "./settings-sections/information-flows-section";
+import { buildRelationsGraph } from "./relations-graph";
+import { HELP_ENTRIES } from "./help-content";
+import type { TourCatalogEntry } from "./app-tour";
 import { useResizable } from "./use-resizable";
 import { APP_LICENSE_URL } from "./version";
 
@@ -54,7 +60,19 @@ function savePos(p: Pos) {
   }
 }
 
-export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => void }) {
+type HelpTab = "help" | "tours" | "connects" | "flows";
+
+export function HelpMenu({
+  lang,
+  catalogTours,
+  completedTours,
+  onStartTour,
+}: {
+  lang: Lang;
+  catalogTours?: readonly TourCatalogEntry[];
+  completedTours?: readonly string[];
+  onStartTour?: (id: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Pos | null>(null);
   const [query, setQuery] = useState("");
@@ -65,6 +83,48 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
     origX: number;
     origY: number;
   } | null>(null);
+
+  const [tab, setTab] = useState<HelpTab>("help");
+  const [pendingScroll, setPendingScroll] = useState<string | null>(null);
+  const [scrollSeq, setScrollSeq] = useState(0);
+  const graph = useMemo(() => buildRelationsGraph(HELP_ENTRIES), []);
+
+  const tabs: { key: HelpTab; labelKey: TranslationKey }[] = [
+    { key: "help", labelKey: "help" },
+    ...(onStartTour ? ([{ key: "tours", labelKey: "helpGuidedToursTitle" }] as { key: HelpTab; labelKey: TranslationKey }[]) : []),
+    { key: "connects", labelKey: "helpRelationsTitle" },
+    { key: "flows", labelKey: "infoFlowsTitle" },
+  ];
+  // Drift guard: if the active key is no longer in the list (tours tab gated
+  // away), fall back to the first tab.
+  const activeTab: HelpTab = tabs.some((tb) => tb.key === tab) ? tab : "help";
+
+  // Connects → Help deep scroll: only the active tab body is mounted, so a
+  // concept click switches to the Help tab and bumps a nonce; an effect keyed
+  // on the nonce scrolls once the Help content has committed. We never clear
+  // `pendingScroll` (re-selecting the same concept bumps the nonce) so there is
+  // no set-state-in-effect (banned).
+  const selectConcept = (id: string) => {
+    setTab("help");
+    setPendingScroll(id);
+    setScrollSeq((s) => s + 1);
+  };
+  useEffect(() => {
+    if (!pendingScroll) return;
+    document.getElementById(helpSectionId(pendingScroll))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [scrollSeq, pendingScroll]);
+
+  const startAndClose = (id: string) => {
+    setOpen(false);
+    onStartTour?.(id);
+  };
+
+  const onTabKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>, idx: number) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    setTab(tabs[(idx + dir + tabs.length) % tabs.length].key);
+  };
 
   // Restore saved position on first open; default to near top-right with
   // a VIEWPORT_PADDING-px gutter from top + bottom of the viewport.
@@ -209,36 +269,76 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
             </button>
           </div>
 
-          <p className="shrink-0 border-b border-line px-4 py-2 text-xs text-foreground">
-            {t(lang, "helpIntro")}
-          </p>
-
-          <div className="shrink-0 border-b border-line p-2">
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t(lang, "helpSearchPlaceholder")}
-              aria-label={t(lang, "helpSearchPlaceholder")}
-              className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
-            />
+          <div
+            role="tablist"
+            aria-label={t(lang, "navHelp")}
+            className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line p-2"
+          >
+            {tabs.map((tb, idx) => {
+              const isActive = tb.key === activeTab;
+              return (
+                <button
+                  key={tb.key}
+                  type="button"
+                  role="tab"
+                  id={`help-fp-tab-${tb.key}`}
+                  aria-selected={isActive}
+                  aria-controls="help-fp-panel"
+                  tabIndex={isActive ? 0 : -1}
+                  onClick={() => setTab(tb.key)}
+                  onKeyDown={(e) => onTabKeyDown(e, idx)}
+                  className={
+                    isActive
+                      ? `rounded-md bg-AIPM-dark-blue px-2.5 py-1 text-xs font-semibold text-white ${FOCUS_RING}`
+                      : `rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
+                  }
+                >
+                  {t(lang, tb.labelKey)}
+                </button>
+              );
+            })}
+            {activeTab === "help" && (
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t(lang, "helpSearchPlaceholder")}
+                aria-label={t(lang, "helpSearchPlaceholder")}
+                className={`ml-auto min-w-[8rem] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground ${FOCUS_RING}`}
+              />
+            )}
           </div>
 
-          <HelpContentPane lang={lang} query={query} />
-
-          <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line px-4 py-2">
-            {onTakeTour && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onTakeTour();
-                }}
-                className={`text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue ${INTERACTIVE}`}
-              >
-                {t(lang, "tourLaunch")}
-              </button>
+          <div
+            id="help-fp-panel"
+            role="tabpanel"
+            aria-labelledby={`help-fp-tab-${activeTab}`}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            {activeTab === "help" && <HelpContentPane lang={lang} query={query} />}
+            {activeTab === "tours" && (
+              <div className="min-h-0 flex-1 overflow-auto p-3 pr-2">
+                <TourCatalog
+                  lang={lang}
+                  tours={catalogTours ?? []}
+                  completedTours={completedTours ?? []}
+                  onStartTour={startAndClose}
+                />
+              </div>
             )}
+            {activeTab === "connects" && (
+              <div className="min-h-0 flex-1 overflow-auto p-3 pr-2">
+                <RelationsMap graph={graph} lang={lang} onSelectConcept={selectConcept} />
+              </div>
+            )}
+            {activeTab === "flows" && (
+              <div className="min-h-0 flex-1 overflow-auto p-3 pr-2">
+                <InformationFlowsSection lang={lang} maxWidth={640} />
+              </div>
+            )}
+          </div>
+
+          <div className="flex shrink-0 items-center justify-end gap-4 border-t border-line px-4 py-2">
             <a
               href={APP_LICENSE_URL}
               target="_blank"
