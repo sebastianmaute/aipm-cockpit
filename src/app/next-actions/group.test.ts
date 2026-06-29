@@ -57,6 +57,10 @@ describe("groupNextActions", () => {
     expect(groups.map((g) => g.key).sort()).toEqual(["s1", "s2"]);
   });
 
+  it("returns an empty array for empty input", () => {
+    expect(groupNextActions([])).toEqual([]);
+  });
+
   it("orders group members by score desc then id asc", () => {
     const groups = groupNextActions([mk("z", 50, 1), mk("a", 50, 1), mk("m", 90, 1)]);
     expect(groups[0].primary.id).toBe("m");

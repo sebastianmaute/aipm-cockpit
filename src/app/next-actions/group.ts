@@ -20,6 +20,9 @@ export interface ActionGroup {
   tier: ActionTier;
 }
 
+// Open-CTA keys use the `${view}:${id}` prefix, so action `id`s must NOT adopt
+// that `view:id` shape — a snooze-only id like "raid:42" would otherwise collide
+// with an open-CTA group key for RAID entity 42.
 function groupKey(a: SuggestedAction): string {
   return a.cta.kind === "open" ? `${a.cta.view}:${a.cta.id}` : a.id;
 }
