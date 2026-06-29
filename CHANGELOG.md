@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.146.0] - 2026-06-29 "Gibson"
+
+### Added
+- **AI model picker — live models + key validation**: the Settings → AI model dropdown lists live models fetched from your Anthropic account (`/v1/models`), with the curated registry as the offline fallback. The API key is validated for format on entry; a malformed key is discarded with a toast.
+- **Action Center — signal grouping + caps**: all signals for one item (e.g. a task that is overdue *and* unassigned) collapse into a single row showing the strongest reason with a "+N more reasons" expander; the Now/Soon tiers cap at five rows with a show-more.
+- **Action Center — layout**: each row has a colour-coded RAG urgency stripe, a compact "⋮" overflow menu for secondary actions, and expandable reasons.
+- **Action Center — new signals**: a task-attention provider flags active tasks that are unassigned, stale (no update in 14 days), blocked, or dependency-blocked (an unfinished finish-to-start predecessor).
+- **Action Center — inline resolutions**: resolve common signals in place — assign an owner, mark done, clear the blocker, or reschedule (date picker) — without leaving the Action Center.
+- **Create project from multiple files**: the create-project wizard accepts multiple uploaded files in one go (invalid files are skipped with a notice) and shows a blocking progress modal with a Cancel that aborts the AI call.
+
+### Changed
+- `ChatModel` is now an open string (any live `claude-*` id), validated by pattern on load so a live-selected model survives a reload.
+
 ## [0.145.0] - 2026-06-28 "Sterling"
 
 ### Added

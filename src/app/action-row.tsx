@@ -11,13 +11,18 @@ import { InfoTooltip } from "./info-tooltip";
 import { ResourcePicker } from "./resource-picker";
 import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
+import { ReschedulePopover, type RescheduleBundle } from "./reschedule-popover";
 import { usePopoverDismiss } from "./use-popover-dismiss";
-import { healthDot, type Health } from "./health";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
-// Priority is shown with the SAME red/amber/green dot the Open Points table uses
-// for task health (healthDot), so "urgent" reads identically across the app:
-// now → R (red), soon → A (amber), monitor → G (green).
-const TIER_RAG: Record<ActionTier, Health> = { now: "R", soon: "A", monitor: "G" };
+// Priority is shown with a coloured LEFT STRIPE (red/amber/green) on the row, so
+// "urgent" reads at a glance without a separate dot:
+// now → red, soon → amber, monitor → green. RAG tokens switch under Mockup style.
+const TIER_STRIPE: Record<ActionTier, string> = {
+  now: "border-l-[var(--rag-red)]",
+  soon: "border-l-[var(--rag-amber)]",
+  monitor: "border-l-[var(--rag-green)]",
+};
 
 /** Shared chrome for a row CTA button — bordered pill with an explicit pointer
  *  cursor and a hover background so the affordance is obvious on hover. */
@@ -44,11 +49,16 @@ interface ActionRowProps {
   onDraftMessage?: (action: SuggestedAction) => void;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  extraReasons?: readonly SuggestedAction[];
+  reschedule?: RescheduleBundle;
+  onMarkDone?: (action: SuggestedAction) => void;
+  onClearBlocker?: (action: SuggestedAction) => void;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline }: ActionRowProps) {
+export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, extraReasons, reschedule, onMarkDone, onClearBlocker }: ActionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [reasonsOpen, setReasonsOpen] = useState(false);
   const assignPopRef = useRef<HTMLSpanElement>(null);
   const menuWrapRef = useRef<HTMLSpanElement>(null);
   // Snooze menu: dismiss on outside-click or Escape (wrapper holds trigger + menu).
@@ -73,9 +83,9 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
   const canAssign =
     assignOwner != null &&
-    action.source === "raid" &&
-    action.why.key === "actionRaidWhyNoOwner" &&
-    action.cta.kind === "open";
+    action.cta.kind === "open" &&
+    ((action.source === "raid" && action.why.key === "actionRaidWhyNoOwner") ||
+     (action.source === "task-attention" && action.why.key === "actionTaskWhyUnassigned"));
   const canDraft =
     onDraftMessage != null &&
     (action.source === "task-due" || action.source === "stakeholder-comms") &&
@@ -97,6 +107,11 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
     ((action.source === "schedule" && action.why.key === "actionScheduleWhySlipping") ||
      (action.source === "budget" && action.why.key === "actionBudgetWhyWorsening")) &&
     action.cta.kind === "open";
+  const createTaskApplicable = onCreateTask != null && action.source !== "task-due";
+  const canReschedule = reschedule != null && action.source === "task-due" && action.cta.kind === "open";
+  const canMarkDone = onMarkDone != null && action.cta.kind === "open" && action.cta.view === "open-points";
+  const canClearBlocker = onClearBlocker != null && action.cta.kind === "open" && action.cta.view === "open-points" && action.source === "task-attention" && action.why.key === "actionTaskWhyBlocked";
+  const hasMenu = canDraft || createTaskApplicable || onSnooze != null || canMarkDone || canClearBlocker;
   return (
     // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive
     // control (the Open button) inside a role=button is a WCAG nested-interactive
@@ -104,9 +119,8 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
     // Mirrors the RAID-row pattern (a plain onClick row + a focusable inner button).
     <div
       onClick={() => onOpen(action)}
-      className="flex cursor-pointer items-center gap-3 rounded-md border border-line bg-surface px-3 py-2 hover:bg-surface-muted"
+      className={`flex cursor-pointer items-center gap-2 rounded-md border border-line border-l-4 ${TIER_STRIPE[action.tier]} bg-surface px-3 py-1.5 hover:bg-surface-muted`}
     >
-      <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${healthDot[TIER_RAG[action.tier]]}`} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span aria-hidden data-action-source-icon className="shrink-0 text-muted-foreground">
@@ -123,6 +137,28 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           <span className="truncate text-sm font-medium text-foreground">{title}</span>
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">{why}</span>
+        {extraReasons && extraReasons.length > 0 && (
+          <>
+            <button
+              type="button"
+              aria-expanded={reasonsOpen}
+              aria-controls={`action-reasons-${action.id}`}
+              aria-label={`${t(lang, "actionMoreReasons", extraReasons.length)} – ${title}`}
+              onClick={(e) => { e.stopPropagation(); setReasonsOpen((o) => !o); }}
+              className={`mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            >
+              <span aria-hidden>{reasonsOpen ? "▾" : "▸"}</span>
+              {t(lang, "actionMoreReasons", extraReasons.length)}
+            </button>
+            <span id={`action-reasons-${action.id}`} hidden={!reasonsOpen} className="mt-0.5 block">
+              {extraReasons.map((ex) => (
+                <span key={ex.id} className="block truncate text-xs text-muted-foreground">
+                  {t(lang, ex.why.key, ...(ex.why.params ?? []))}
+                </span>
+              ))}
+            </span>
+          </>
+        )}
         {action.learning?.moved && (
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">
             {action.learning.moved === "up"
@@ -131,7 +167,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
           </span>
         )}
       </span>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-2">
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onOpen(action); }}
@@ -139,29 +175,14 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
         >
           {t(lang, "actionOpen")}
         </button>
-        {canDraft && onDraftMessage && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onDraftMessage(action); }}
-            className={ACTION_BTN_CLASS}
-          >
-            {t(lang, "actionDraftMessage")}
-          </button>
-        )}
-        {onCreateTask && action.source !== "task-due" && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onCreateTask(action); }}
-            className={ACTION_BTN_CLASS}
-          >
-            {t(lang, "actionCreateTask")}
-          </button>
-        )}
         {canEscalate && escalate && (
           <EscalatePopover lang={lang} action={action} bundle={escalate} />
         )}
         {(canRebaselineMilestone || canRebaselineSnapshot) && rebaseline && (
           <RebaselinePopover lang={lang} action={action} bundle={rebaseline} />
+        )}
+        {canReschedule && reschedule && (
+          <ReschedulePopover lang={lang} action={action} bundle={reschedule} />
         )}
         {canAssign && assignOwner && (
           <span className="relative">
@@ -195,31 +216,61 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
             )}
           </span>
         )}
-        {onSnooze && (
+        {hasMenu && (
           <span ref={menuWrapRef} className="relative">
             <button
               type="button"
-              aria-haspopup="true"
               aria-expanded={menuOpen}
+              aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
               onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-              className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10"
+              className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 ${FOCUS_RING}`}
             >
-              {t(lang, "actionSnooze")} ▾
+              ⋮
             </button>
             {menuOpen && (
-              <span
-                className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1"
-              >
-                <button type="button"
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1H); }}
-                  className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
-                  {t(lang, "actionSnooze1h")}
-                </button>
-                <button type="button"
-                  onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1D); }}
-                  className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
-                  {t(lang, "actionSnooze1d")}
-                </button>
+              <span className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1">
+                {canMarkDone && onMarkDone && (
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMarkDone(action); }}
+                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                    {t(lang, "actionMarkDone")}
+                  </button>
+                )}
+                {canClearBlocker && onClearBlocker && (
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onClearBlocker(action); }}
+                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                    {t(lang, "actionClearBlocker")}
+                  </button>
+                )}
+                {canDraft && onDraftMessage && (
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDraftMessage(action); }}
+                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                    {t(lang, "actionDraftMessage")}
+                  </button>
+                )}
+                {createTaskApplicable && onCreateTask && (
+                  <button type="button"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onCreateTask(action); }}
+                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                    {t(lang, "actionCreateTask")}
+                  </button>
+                )}
+                {onSnooze && (
+                  <>
+                    <button type="button"
+                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1H); }}
+                      className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                      {t(lang, "actionSnooze1h")}
+                    </button>
+                    <button type="button"
+                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1D); }}
+                      className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
+                      {t(lang, "actionSnooze1d")}
+                    </button>
+                  </>
+                )}
               </span>
             )}
           </span>

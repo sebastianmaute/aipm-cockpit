@@ -171,6 +171,28 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   ActionsPanel → ActionRow (ActionsPanel renders in workspace-section, not task-manager, and renders
   TWO ActionRow lists — tier + monitor — so a new CTA prop must thread to BOTH); `next-actions/` engine
   stays pure.
+- **Action-Center grouping (slice 1):** pure i18n-free `next-actions/group.ts` `groupNextActions(actions)` collapses
+  signals on the SAME entity into one `ActionGroup` (key = open-CTA `${cta.view}:${cta.id}`, else the action's own id
+  so snooze-only ids never merge; `primary`=max-score, `extra`=rest, group `score`/`tier`=primary's). `computeNextActions`
+  stays FLAT — grouping is SURFACE-ONLY; learning/notifications/AI keep the flat list. `actions-panel.tsx` caps Now/Soon
+  at `MAX_VISIBLE_PER_TIER=5` with a show-more toggle.
+- **Action-row layout (slice 2):** `action-row.tsx` shows tier as a coloured LEFT STRIPE (`TIER_STRIPE` →
+  `border-l-[var(--rag-red)]` for now, with `--rag-amber`/`--rag-green` for soon/monitor — REPLACED the dot; RAG tokens
+  switch under Mockup). ★ Write each tier's stripe token as its own concrete `var(--rag-NAME)` here; never collapse the
+  family into one arbitrary-value bracket with a pipe or wildcard — Tailwind v4 scans AGENTS.md and an invalid char inside
+  such a bracket compiles to broken CSS (globals.css 500s, e2e webserver times out). A single `⋮` overflow
+  popover (Draft / Create-task / Snooze) reuses `usePopoverDismiss`; contextual popovers (Escalate/Assign/Rebaseline/
+  Reschedule) stay INLINE (≤1 per row). Expandable "+N more reasons" renders the group's `extraReasons`. ★ the reasons
+  panel is ALWAYS mounted + `hidden`-toggled (id `action-reasons-${action.id}`) so the `aria-controls` target stays in DOM.
+- **`task-attention` provider (slice 3):** `next-actions/providers/task-attention.ts` (core, NO moduleId) flags active
+  (`!isTaskFinished`) tasks: unassigned (`assignee` blank && `resourceId==null`), stale (`lastUpdateDate` ≥`STALE_DAYS=14`),
+  blocked (`blockers` non-empty), dep-blocked (first unfinished `FS` predecessor only; `d.taskId!==task.id` self-dep guard,
+  SS/FF/SF ignored). ★ the new `ActionSource` `"task-attention"` forced the TWO exhaustive maps `ACTION_SOURCE_LABEL`
+  (→`actionSourceAttention`) + `ACTION_SOURCE_ICON`.
+- **Inline resolve CTAs (slice 4):** Assign-owner (extends the RAID assign bundle to unassigned tasks, routes by `cta.view`),
+  Mark-done (`applyStatusChange`), Clear-blocker, Reschedule (`reschedule-popover.tsx`). Handlers live in `task-manager`
+  (functional `setTasks(prev=>…)`, `isPopout`→undefined, guarded on `cta.view==="open-points"`); threaded the 5-layer chain
+  task-manager → `workspace-section-types` → workspace-section → `ActionsPanel` → `ActionRow`.
 - **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`
   (`appHeaderEl`, used by classic main-window `legacyTree`) and modern `ModernShell` `topBarMenus` slot
   (DEFAULT layout). A new top-bar control must wire into BOTH or it's invisible in whichever layout you
@@ -831,6 +853,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   upgrade); all built-ins undeletable via `BUILTIN_IDS`. `selectActiveGuides` loads overview + the current
   view's guide into the cached prompt prefix (view change re-caches that slice). Guide content is
   ENGLISH-ONLY (no i18n). Knowledge only — adds NO new AI tools.
+- **AI model picker:** `CHAT_MODELS` (`settings-types.ts`) is the SINGLE source for the dropdown; `ChatModel` is widened to
+  `string` (open — pick any live model), sanitized on load by `/^claude-[\w.-]+$/` (≤64 chars, else `defaultAiConfig.model`).
+  `use-chat-models.ts` `useChatModels(apiKey, enabled, currentId)` fetches Anthropic `GET /v1/models?limit=1000`
+  browser-direct (augment mode: live `claude-*` newest-first, registry as offline fallback; key never logged). Pure
+  `chat-models.ts` `buildModelOptions`/`isValidAnthropicApiKey` (format `sk-ant-…`). ★ the AI key seals only when
+  format-valid and is DISCARDED on blur with a toast (`ai-section.tsx`).
 - **AI write tools:** tool SCHEMAS (`TOOL_DEFS` + per-entity field-property helpers `taskFields`/`raidFields`/…
   + `ALL_RAID_STATUSES`) live in pure `chat-tool-defs.ts`; `chat-tools.ts` re-exports `TOOL_DEFS` (so
   `chat-api` imports it unchanged) and holds `runTool` routing + the `ToolDispatcher` type + arg-coercion/
@@ -872,6 +900,11 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   Jira config (`enabled&&siteUrl&&apiToken&&email`). ★ Error boundary: SOURCE failures → sanitized
   `importError`; the Anthropic `generate` failure → the hook's `aiError` (kept separate). No key/token/body
   ever logged or rendered.
+- **Create-project multi-upload:** `step0-import-panel.tsx`'s file path takes `<input multiple>` → classifies + size-gates
+  each into ONE `ProposalContent` (`MAX_IMPORT_FILES=10`, invalid/over-cap files skipped with a notice). A Timelog-style
+  BLOCKING loading modal with a Cancel button aborts the in-flight call via a shared `AbortController` (`abortRef`);
+  `generate(input, signal?)` + the wizard's `onIngest`/`runIngest(content, signal?)` forward the signal. ★ during the fast
+  local READ phase `abortRef` is null so Cancel is a no-op.
 - **AI Action Center suggestions:** Action Center "Analyze with AI" → ONE forced-tool call
   (`tool_choice:{type:"tool",name:"report_analysis"}`, no loop) in `use-action-analysis.ts`; pure contract/
   transforms in `action-ai.ts` (`parseAnalysis` validates untrusted model output; `groundEntity` RE-VALIDATES

@@ -1,6 +1,6 @@
 // src/app/actions-panel.tsx
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
@@ -11,13 +11,17 @@ import type { AiAction, ActionAnalysis } from "./action-ai";
 import type { AssignOwnerBundle } from "./action-row";
 import type { EscalateBundle } from "./escalate-popover";
 import type { RebaselineBundle } from "./rebaseline-popover";
+import type { RescheduleBundle } from "./reschedule-popover";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
+import { groupNextActions, type ActionGroup } from "./next-actions/group";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
   { tier: "now", labelKey: "actionTierNow" },
   { tier: "soon", labelKey: "actionTierSoon" },
   { tier: "monitor", labelKey: "actionTierMonitor" },
 ];
+
+const MAX_VISIBLE_PER_TIER = 5;
 
 export interface AiAnalysisBundle {
   enabled: boolean;
@@ -39,15 +43,38 @@ interface ActionsPanelProps {
   onDraftMessage?: (action: SuggestedAction) => void;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  reschedule?: RescheduleBundle;
+  onMarkDone?: (action: SuggestedAction) => void;
+  onClearBlocker?: (action: SuggestedAction) => void;
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;
   aiAnalysis?: AiAnalysisBundle;
 }
 
-export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
+export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
   const { ref, reset } = useResizable("lop-app:actions-size");
+  const groups = useMemo(() => groupNextActions(actions), [actions]);
+  const [expanded, setExpanded] = useState<Record<"now" | "soon", boolean>>({ now: false, soon: false });
+  const renderRow = (g: ActionGroup) => (
+    <ActionRow
+      key={g.key}
+      lang={lang}
+      action={g.primary}
+      extraReasons={g.extra}
+      onOpen={onOpen}
+      onSnooze={onSnooze}
+      onCreateTask={onCreateTask}
+      assignOwner={assignOwner}
+      onDraftMessage={onDraftMessage}
+      escalate={escalate}
+      rebaseline={rebaseline}
+      reschedule={reschedule}
+      onMarkDone={onMarkDone}
+      onClearBlocker={onClearBlocker}
+    />
+  );
   return (
     <div ref={ref} className={VIEW_PANE_RESIZABLE_CLASS}>
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
@@ -134,15 +161,12 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
           </div>
         </section>
       )}
-      {actions.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto pr-2">
           {TIERS.map(({ tier, labelKey }) => {
-            const rows = actions
-              .filter((a) => a.tier === tier)
-              .slice()
-              .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
+            const rows = groups.filter((g) => g.tier === tier);
             if (rows.length === 0) return null;
             if (tier === "monitor") {
               return (
@@ -158,23 +182,32 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                     {t(lang, "actionMonitoredCount", rows.length)}
                   </button>
                   <div id="action-monitor-list" className="flex flex-col gap-2" hidden={!monitorOpen}>
-                    {rows.map((a) => (
-                      <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} onDraftMessage={onDraftMessage} escalate={escalate} rebaseline={rebaseline} />
-                    ))}
+                    {rows.map(renderRow)}
                   </div>
                 </section>
               );
             }
+            const open = expanded[tier as "now" | "soon"];
+            const visible = open ? rows : rows.slice(0, MAX_VISIBLE_PER_TIER);
+            const hiddenCount = rows.length - visible.length;
             return (
               <section key={tier}>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t(lang, labelKey)} ({rows.length})
                 </h3>
-                <div className="flex flex-col gap-2">
-                  {rows.map((a) => (
-                    <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpen} onSnooze={onSnooze} onCreateTask={onCreateTask} assignOwner={assignOwner} onDraftMessage={onDraftMessage} escalate={escalate} rebaseline={rebaseline} />
-                  ))}
-                </div>
+                <div id={`action-${tier}-list`} className="flex flex-col gap-2">{visible.map(renderRow)}</div>
+                {rows.length > MAX_VISIBLE_PER_TIER && (
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-controls={`action-${tier}-list`}
+                    aria-label={`${t(lang, labelKey)} – ${open ? t(lang, "actionShowLess") : t(lang, "actionShowMore", hiddenCount)}`}
+                    onClick={() => setExpanded((e) => ({ ...e, [tier]: !open }))}
+                    className="mt-2 text-xs font-medium text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey"
+                  >
+                    {open ? t(lang, "actionShowLess") : t(lang, "actionShowMore", hiddenCount)}
+                  </button>
+                )}
               </section>
             );
           })}

@@ -50,6 +50,9 @@ import type {
   RebaselineBundle,
 } from "./rebaseline-popover";
 import type {
+  RescheduleBundle,
+} from "./reschedule-popover";
+import type {
   AiAnalysisBundle,
 } from "./actions-panel";
 import type {
@@ -150,6 +153,9 @@ export interface WorkspaceSectionProps {
   assignOwner?: AssignOwnerBundle;
   escalate?: EscalateBundle;
   rebaseline?: RebaselineBundle;
+  reschedule?: RescheduleBundle;
+  onMarkDone?: (action: SuggestedAction) => void;
+  onClearBlocker?: (action: SuggestedAction) => void;
   learningEnabled?: boolean;
   expertMode?: boolean;
   onOpenLearningSettings?: () => void;
