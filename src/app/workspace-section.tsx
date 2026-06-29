@@ -409,7 +409,11 @@ export function WorkspaceSection({
           onShowMore={() => setActiveTab("actions")}
           className="mb-2 shrink-0"
         />
-        <ViewCallout view={activeTab} lang={lang} showHints={settings.showViewHints !== false} isPopout={isPopout} onLearnMore={requestHelpConcept} />
+        {/* open-points owns its callout in TasksSection; in classic both surfaces
+            mount, so exclude it here to avoid a duplicate banner (mirrors ActionChips). */}
+        {activeTab !== "open-points" && (
+          <ViewCallout view={activeTab} lang={lang} showHints={settings.showViewHints !== false} isPopout={isPopout} onLearnMore={requestHelpConcept} />
+        )}
         <div
           id="panel-chat"
           role="tabpanel"
