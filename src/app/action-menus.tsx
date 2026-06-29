@@ -9,6 +9,7 @@ import { VersionMenu } from "./version-menu";
 import { useWorkspace } from "./workspace-context";
 import { defaultExportConfig, type ExportConfig } from "./settings-types";
 import type { ProjectTemplate, SaveTemplateInput } from "./templates";
+import type { TourCatalogEntry } from "./app-tour";
 
 // Lazy-loaded like in app-header.tsx — the speech-recognition bundle is only
 // fetched client-side when the button mounts.
@@ -33,9 +34,12 @@ interface ActionMenusProps {
   onSaveTemplate?: (input: SaveTemplateInput) => void;
   /** Expert mode reveals the Save-as-template / Apply-template menus. */
   expertMode?: boolean;
-  /** Re-launch the guided tour from the Help panel footer. Omitted (and the
-   *  Help "Take a tour" button hidden) outside the modern, non-popout shell. */
-  onTakeTour?: () => void;
+  /** Themed tour catalog for the Help panel's Guided-tours tab. Passed only in
+   *  the modern, non-popout shell (tours are modern-only); omitted elsewhere so
+   *  the tab is hidden. */
+  catalogTours?: readonly TourCatalogEntry[];
+  completedTours?: readonly string[];
+  onStartTour?: (id: string) => void;
 }
 
 /**
@@ -56,7 +60,9 @@ export function ActionMenus({
   onApplyTemplate,
   onSaveTemplate,
   expertMode = false,
-  onTakeTour,
+  catalogTours,
+  completedTours,
+  onStartTour,
 }: ActionMenusProps) {
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
   return (
@@ -69,7 +75,7 @@ export function ActionMenus({
           <ApplyTemplateMenu lang={lang} templates={templates} onApply={onApplyTemplate ?? (() => {})} />
         </>
       )}
-      <HelpMenu lang={lang} onTakeTour={onTakeTour} />
+      <HelpMenu lang={lang} catalogTours={catalogTours} completedTours={completedTours} onStartTour={onStartTour} />
       <VersionMenu lang={lang} />
     </>
   );

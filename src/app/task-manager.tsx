@@ -2136,7 +2136,9 @@ function TaskManagerInner() {
         onSaveTemplate={handleSaveTemplate}
         onApplyTemplate={handleApplyTemplate}
         expertMode={settings.expertMode}
-        onTakeTour={settings.layout === "modern" && !isPopout ? startTour : undefined}
+        onStartTour={settings.layout === "modern" && !isPopout ? startTour : undefined}
+        catalogTours={tour.catalogTours}
+        completedTours={tour.completedTours}
       />
     </>
   );
