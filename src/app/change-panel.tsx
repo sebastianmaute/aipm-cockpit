@@ -17,6 +17,7 @@ const CHANGE_FILTER_DEFAULTS: PanelFiltersState = {
   sort: null,
 };
 import { ChangeEditModal } from "./change-edit-modal";
+import { ViewCallout } from "./view-callout";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import {
@@ -82,6 +83,12 @@ export type ChangePanelProps = {
   stakeholdersEnabled?: boolean;
   /** Selectable stakeholders for the picker; empty when the module is off. */
   stakeholders?: readonly Stakeholder[];
+  /** Show the per-view Help callout (default true when `onLearnMore` is provided). */
+  showHints?: boolean;
+  /** Popout windows render the callout read-only (no dismiss). */
+  isPopout?: boolean;
+  /** Deep-link a Help concept; when absent the callout is not rendered. */
+  onLearnMore?: (conceptId: string) => void;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -142,6 +149,9 @@ function ChangePanelBody({
   raidEnabled = true,
   stakeholdersEnabled = true,
   stakeholders = [],
+  showHints,
+  isPopout,
+  onLearnMore,
 }: ChangePanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
@@ -366,6 +376,9 @@ function ChangePanelBody({
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {onLearnMore && (
+        <ViewCallout view="changes" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       {toolbar}
 
       <div className="print:hidden">

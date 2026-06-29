@@ -7,6 +7,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
+import { ViewCallout } from "./view-callout";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import { compareStakeholder, nextStakeholderId, type StakeholderSortKey } from "./stakeholders";
@@ -64,6 +65,9 @@ export interface StakeholdersPanelProps {
   commsPendingStakeholderIds?: ReadonlySet<number>;
   /** Jump to the Action Center for the given stakeholder. */
   onJumpToComms?: (stakeholderId: number) => void;
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }
 
 // --- Chip helpers -----------------------------------------------------------
@@ -110,6 +114,9 @@ function StakeholdersPanelBody({
   onDelete,
   commsPendingStakeholderIds,
   onJumpToComms,
+  showHints,
+  isPopout,
+  onLearnMore,
 }: StakeholdersPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
@@ -280,6 +287,9 @@ function StakeholdersPanelBody({
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {onLearnMore && (
+        <ViewCallout view="stakeholders" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       {toolbar}
 
       <div className="print:hidden">

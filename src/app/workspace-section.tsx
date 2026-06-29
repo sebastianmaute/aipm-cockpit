@@ -57,7 +57,6 @@ import {
   MilestonesPanel,
 } from "./milestones-panel";
 import { HelpView } from "./help-view";
-import { ViewCallout } from "./view-callout";
 import {
   SteeringCommitteePanel,
 } from "./steering-committee-panel";
@@ -417,11 +416,8 @@ export function WorkspaceSection({
         />
         {/* open-points owns its callout in TasksSection; in classic both surfaces
             mount, so exclude it here to avoid a duplicate banner (mirrors ActionChips). */}
-        {/* open-points + trends own their callout INSIDE their card (like a
-            primary view); exclude them here to avoid an above-card duplicate. */}
-        {activeTab !== "open-points" && activeTab !== "trends" && (
-          <ViewCallout view={activeTab} lang={lang} showHints={settings.showViewHints !== false} isPopout={isPopout} onLearnMore={requestHelpConcept} />
-        )}
+        {/* Each view owns its Help callout INSIDE its own card (like Open Points)
+            — see the per-panel ViewCallout. No shared above-card callout. */}
         <div
           id="panel-chat"
           role="tabpanel"
@@ -497,6 +493,9 @@ export function WorkspaceSection({
               onEditMilestone={milestonesEnabled
                 ? () => setActiveTab("milestones")
                 : undefined}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -523,6 +522,9 @@ export function WorkspaceSection({
             onDelete={handleDeleteRaidItem}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
+            showHints={settings.showViewHints !== false}
+            isPopout={isPopout}
+            onLearnMore={requestHelpConcept}
           />
         </div>
 
@@ -542,6 +544,9 @@ export function WorkspaceSection({
               absences={absences}
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -600,6 +605,9 @@ export function WorkspaceSection({
               onEditResource={onEditResource}
               onAddResource={onAddResource}
               onImportOutlookCalendar={onImportOutlookCalendar}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -658,6 +666,9 @@ export function WorkspaceSection({
               raidEnabled={raidEnabledForChanges}
               stakeholdersEnabled={stakeholdersEnabled}
               stakeholders={stakeholders}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -679,6 +690,9 @@ export function WorkspaceSection({
               onDelete={handleDeleteStakeholder}
               commsPendingStakeholderIds={commsPendingStakeholderIds}
               onJumpToComms={onJumpToComms}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -690,6 +704,9 @@ export function WorkspaceSection({
               stakeholders={stakeholders}
               milestones={milestones}
               onSave={handleSaveStakeholder}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -722,6 +739,9 @@ export function WorkspaceSection({
               onChangeBuckets={onChangeBudgets}
               onRefreshFx={onRefreshFx}
               fxLoading={fxLoading}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -740,6 +760,9 @@ export function WorkspaceSection({
               fxRates={fxRates}
               tasks={tasks}
               today={today}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -755,6 +778,9 @@ export function WorkspaceSection({
               onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}
               calendarPushBusy={calendarPushBusy}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -768,6 +794,9 @@ export function WorkspaceSection({
               resources={resources}
               today={today}
               outlookPush={committeeOutlookPush}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}

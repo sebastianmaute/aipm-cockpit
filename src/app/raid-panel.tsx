@@ -53,6 +53,7 @@ import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, selectField, dateField, type BulkField } from "./bulk-edit-panel";
 import { resourceDisplayName } from "./resource-foundation";
+import { ViewCallout } from "./view-callout";
 
 const RAID_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
@@ -104,6 +105,12 @@ export type RaidPanelProps = {
   /** Open the task edit modal for the given task id (used by linked-task
    *  chip clicks). */
   onJumpToTask: (taskId: number) => void;
+  /** When false, the per-view Help callout is suppressed. Default true. */
+  showHints?: boolean;
+  /** Read-only popout context — callout suppresses its dismiss control. */
+  isPopout?: boolean;
+  /** Deep-link to the matching Help concept; absence hides the callout. */
+  onLearnMore?: (conceptId: string) => void;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -146,6 +153,9 @@ function RaidPanelBody({
   onDelete,
   onCreateMitigationTask,
   onJumpToTask,
+  showHints,
+  isPopout,
+  onLearnMore,
 }: RaidPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
@@ -483,6 +493,9 @@ function RaidPanelBody({
 
   return (
     <div ref={raidRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {onLearnMore && (
+        <ViewCallout view="raid" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       {toolbar}
 
       <BulkEditBar

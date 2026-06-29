@@ -15,6 +15,7 @@ import { type RaciRole, type Stakeholder, type Milestone } from "./types";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
+import { ViewCallout } from "./view-callout";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -25,13 +26,16 @@ export interface RaciPanelProps {
   stakeholders: readonly Stakeholder[];
   milestones: readonly Milestone[];
   onSave: (item: Stakeholder) => void;
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelProps) {
+export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, isPopout, onLearnMore }: RaciPanelProps) {
   const rows = useMemo(
     () => buildRaciMatrix(stakeholders, milestones),
     [stakeholders, milestones],
@@ -84,6 +88,9 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave }: RaciPanelP
 
   return (
     <div ref={paneRef} className={`${VIEW_PANE_RESIZABLE_CLASS} print-root print-landscape`}>
+      {onLearnMore && (
+        <ViewCallout view="raci" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
         <h2 className="text-base font-semibold text-foreground">
           {t(lang, "stakeholderRaciTitle")}

@@ -26,6 +26,7 @@ import { ratioHealth, marginHealth, costPerformanceHealth } from "./budget-healt
 import { computeBurndownSeries } from "./budget-burndown";
 import { BurndownCharts } from "./burndown-chart";
 import { EmptyState } from "./empty-state";
+import { ViewCallout } from "./view-callout";
 
 const DETAIL_COL_WIDTHS = {
   bucket: 160, mode: 90, type: 80, status: 80, currency: 110,
@@ -50,10 +51,14 @@ interface Props {
   tasks: readonly Task[];
   today: string;
   embedded?: boolean;
+  showHints?: boolean;
+  isPopout?: boolean;
+  onLearnMore?: (conceptId: string) => void;
 }
 
 export function BudgetReportPanel({
   lang, buckets, plan, roles, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
+  showHints, isPopout, onLearnMore,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
   const report = useMemo(
@@ -148,6 +153,9 @@ export function BudgetReportPanel({
       onResetCols={detail.resetColWidths}
       title={t(lang, "budgetReportTitle")}
     >
+      {onLearnMore && (
+        <ViewCallout view="budget-report" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
       {content}
     </ReportCard>
   );
