@@ -56,6 +56,8 @@ import {
 import {
   MilestonesPanel,
 } from "./milestones-panel";
+import { HelpView } from "./help-view";
+import { ViewCallout } from "./view-callout";
 import {
   SteeringCommitteePanel,
 } from "./steering-committee-panel";
@@ -171,6 +173,10 @@ export function WorkspaceSection({
   expertMode,
   onOpenLearningSettings,
   onOpenSettingsSection,
+  onTakeTour,
+  onStartTour,
+  catalogTours,
+  completedTours,
   aiAnalysis,
   onPushMilestonesToOutlook,
   calendarPushBusy,
@@ -188,7 +194,7 @@ export function WorkspaceSection({
     [setSettings],
   );
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee } = useWorkspace();
-  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen } = useWorkspaceTab();
+  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
   // One-way signal: incrementing this opens the milestone create modal on the
   // Milestones tab (Gantt "Add milestone" parity with Add task).
@@ -406,6 +412,11 @@ export function WorkspaceSection({
           onShowMore={() => setActiveTab("actions")}
           className="mb-2 shrink-0"
         />
+        {/* open-points owns its callout in TasksSection; in classic both surfaces
+            mount, so exclude it here to avoid a duplicate banner (mirrors ActionChips). */}
+        {activeTab !== "open-points" && (
+          <ViewCallout view={activeTab} lang={lang} showHints={settings.showViewHints !== false} isPopout={isPopout} onLearnMore={requestHelpConcept} />
+        )}
         <div
           id="panel-chat"
           role="tabpanel"
@@ -603,6 +614,21 @@ export function WorkspaceSection({
               lang={lang}
               entries={activityLog}
               onClear={handleClearActivityLog}
+            />
+          </div>
+        )}
+
+        {activeTab === "help" && (
+          <div id="panel-help" role="tabpanel" className={panelClass}>
+            <HelpView
+              lang={lang}
+              onTakeTour={onTakeTour}
+              pendingHelpConcept={pendingHelpConcept}
+              onHelpConceptConsumed={clearHelpConcept}
+              onNavigateView={(v) => setActiveTab(v)}
+              onStartTour={onStartTour}
+              catalogTours={catalogTours}
+              completedTours={completedTours}
             />
           </div>
         )}

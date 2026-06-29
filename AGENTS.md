@@ -237,7 +237,8 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 
 **Layout = single masonry (CSS multicol, NOT a fixed grid).** `dashboard-panel.tsx` stays a thin
 orchestrator (data derivation + the `computeDashboard` memo) and renders three zones: a full-width
-HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` · `DashboardCoachingCard` · `DashboardHero`) → ONE
+HEADLINE (`DashboardDeltaStrip` · `NarrativeSummary` · `DashboardCoachingCard` · `DashboardTipCard` ·
+`DashboardHero`) → ONE
 masonry flow → a full-width FOOTER (`NarrativeEditor` · Recent-activity `<details>`).
 ★★ The masonry is a CSS multicolumn container — `columns-1 lg:columns-2 xl:columns-3 ${dc.sectionGap}`
 (default `column-fill: balance` equalises column heights) — NOT `grid-cols-*`. Each card is wrapped in
@@ -251,7 +252,9 @@ order is column-major (top→bottom per column); cards are ordered priority-firs
 `gap`/`space-y` between items). The Trends widget (`props.tursoActive`-gated `VarianceSummary`) is a masonry
 card placed directly after Progress and is itself a click-through button → navigates to the Trends view
 (`onNavigate("trends")`); the footer holds only the status-summary + recent-activity
-`<details>`. The presentational slices:
+`<details>`. ★ Tip-of-the-day (`DashboardTipCard`, `dashboard-tip-card.tsx` + pure English-only `tips.ts`)
+is a dismissable headline card that rotates one tip per day; per-device `lop-app:tip-state` (next/dismiss),
+popout read-only, day captured via lazy `useState` (purity — no `Date.now()` in render). The presentational slices:
 - `dashboard-sections/dashboard-hero.tsx` (`DashboardHero`) — now ONLY the compact Overall RAG band +
   Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
@@ -517,6 +520,73 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   14-field shape + `?? []` array defaults); callers do their OWN gating (feature-off / no-plan budgets)
   BEFORE building — pass `[]` for a gated-off entity.
 - **UI shell:**
+  • **Help view:** `help` AppView in the SYSTEM nav group below Settings (help-circle icon). `HelpView`
+  (`help-view.tsx`, STATIC import — it takes an `onTakeTour` callback and `dynamic()` strips function props
+  under the RSC serializable-props rule) renders the SHARED backbone `help-content.ts` (`HELP_ENTRIES`:
+  HelpGroup `concepts`/`workflows`/`features`/`automated`, EN/DE, `relatedViews`/`relatedConcepts` for later
+  SPs) GROUPED — grouped TOC + group headers (`HELP_GROUP_LABEL`, exhaustive `Record<HelpGroup>`) + per-concept
+  "Related:" links + a "Take the tour" button. The floating top-bar Help panel stays features-only via the
+  derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`). ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
+  — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
+  (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
+  (the sidebar entry IS scanned every view; eye-verify the page).
+  • **Contextual per-view callouts (Help SP2):** a slim dismissable banner atop each WORKING view — a novice
+  one-liner + "Learn more →" deep-linking the matching Help concept. Pure `view-callouts.ts`
+  (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, ~14 views; `conceptId` in `HELP_ENTRIES`
+  concepts — guard test) + per-device dismiss store `view-hints-store.ts` (`lop-app:view-hints`, out of
+  exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep). Presentational `view-callout.tsx` is
+  PROPS-only (`view`/`lang`/`showHints`/`isPopout`/`onLearnMore`) — NOT context-consuming, because the
+  TasksSection/Kanban unit tests render outside `WorkspaceTabProvider` (a `useWorkspaceTab()` there THROWS).
+  Self-hides when: no `VIEW_CALLOUTS[view]` / `!showHints` / `isPopout` / dismissed. Mounted in
+  `workspace-section` (after the `ActionChips` strip — covers all routed views) AND `tasks-section`
+  (open-points renders separately; gated `{onLearnMoreHint && …}` so the bare unit test stays unaffected).
+  ★ workspace-section's mount is gated `{activeTab !== "open-points" && …}`: in CLASSIC both surfaces mount at
+  once, so without the guard the open-points callout double-renders (mirrors the adjacent ActionChips
+  open-points `[]` guard). The Learn-more arrow is `aria-hidden` (label-bleed rule).
+  ★★ "Learn more" deep-links via a NEW `workspace-tab-context` string channel `requestHelpConcept(conceptId)`
+  (mirrors `requestChat`: `setActiveTab("help")` + `pendingHelpConcept`, NO hash write); `HelpView` consumes
+  it via OPTIONAL props `pendingHelpConcept`/`onHelpConceptConsumed` (optional so the standalone
+  `help-view.test.tsx`, which has no provider, is unchanged) using the render-reconcile + nonce-effect pattern
+  (mirrors `useDeepLinkRowFlash`; no `set-state-in-effect`). Global on/off: `settings.showViewHints?` (default
+  ON, read `!== false`) — a `SegmentedControl` in Settings → Appearance, persisted via the `writeSettings`
+  spread (no allowlist edit, mirrors `dashboardDensity`). Many mount views are axe-scanned (banner buttons are
+  labeled, palette-safe — verified). Dashboard EXCLUDED (has coaching + tip cards). ★ A loose
+  `getByText(/changes/i)` in `dashboard-panel.test` collided with the date-rotating tip card's "Changes" text →
+  scope such queries to a `heading` role, not free text.
+  • **Interactive relations map (Help SP3):** a node graph of the 11 Help CONCEPT entries (edges =
+  `relatedConcepts`) in a `<details open>` "How it all connects" atop the Help view. Pure i18n-free engine
+  `relations-graph.ts` `buildRelationsGraph(entries)` → `{nodes:[{id,titleKey,x,y}],edges:[{a,b}]}`:
+  deterministic RADIAL layout (fractional `x,y∈[0,1]`, HELP_ENTRIES order, `RADIUS=0.42`), edges undirected +
+  deduped (sorted `"a|b"` key), endpoints filtered to concept nodes, no self-loops; no `Date`/`Math.random`.
+  Presentational `relations-map.tsx` uses the ★★ OVERLAY technique: a decorative `aria-hidden` `<svg
+  viewBox="0 0 100 100">` draws the edge `<line>`s (coords `=x*100`), and a real absolutely-positioned HTML
+  `<button>` per node (`left/top %`) is the keyboard-native, axe-clean interactive element — NOT a focusable
+  SVG sub-element. Local `useState(active)` from hover AND focus highlights incident edges (`stroke-AIPM-dark-blue`,
+  dim the rest) + neighbour buttons; click → `onSelectConcept(id)` → HelpView `scrollToSection`. Concept-only —
+  view navigation lives in the Related line: SP3 upgraded each entry's `relatedViews` from a plain italic `<span>`
+  to a navigate `<button>` gated on a NEW OPTIONAL `HelpView` prop `onNavigateView?: (view:AppView)=>void` (optional
+  ⇒ standalone `help-view.test.tsx` unchanged), wired `workspace-section` → `setActiveTab(v)`. Help is NOT in axe
+  `A11Y_VIEWS` (map keyboard-focus/contrast + SVG positioning EYE-verified; jsdom rect=0 so tests assert
+  structure/handlers/`data-active`, not pixels). i18n EN+DE; `helpRelationsGoToView` uses positional `{0}`.
+  • **Themed guided tours (Help SP4):** the single onboarding tour became a CATALOG of 6 themed
+  tours (`getting-started` · `raid` · `reporting` · `planning` · `stakeholders` · `ai`). Pure engine
+  `app-tour.ts` gained `TourDefinition`/`TourCatalogEntry`/`TOURS`/`findTour`; the old flat `TOUR_STEPS`
+  is KEPT as an export (= `getting-started`'s steps; `tour-overlay.test` imports it). `visibleSteps`
+  is now `(steps, features)` (was `(features)`) — drops a step whose `view` is a disabled module.
+  `use-tour.ts` tracks `activeTourId` (`start(tourId?)` defaults `getting-started`, preserving
+  auto-launch + HelpMenu), exposes `catalogTours` (tours with ≥1 visible step) + `completedTours` +
+  `activeTourTitleKey`; `done()` appends the active id to `settings.completedTours` (functional
+  `setSettings`), `skip()` sets `tourSeen` only. Per-device `settings.completedTours?: readonly
+  string[]` rides the `writeSettings` spread (no allowlist edit, sanitized on load, capped 50), OUT of
+  exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep; `tourSeen` STILL gates first-run
+  auto-launch separately. Presentational `tour-catalog.tsx` (props-only, no context — standalone
+  unit-tested) renders a card grid in a `<details open>` "Guided tours" section in `help-view.tsx`,
+  ABOVE the SP3 relations map; the whole section is GATED on `onStartTour` presence (mirrors the
+  `onTakeTour` gate) so standalone tests / classic / popout don't render it — tours stay modern-only.
+  Threaded task-manager → `WorkspaceSectionProps` (3 new OPTIONAL fields) → HelpView. `TourOverlay`
+  gained an optional `tourTitleKey` label. Help is NOT in axe `A11Y_VIEWS` → catalog a11y eye-verified
+  (`tour-catalog` uses the `INTERACTIVE` atom + `text-AIPM-green-strong` for the ✓-Done badge — there is
+  NO `text-AIPM-green-text` utility token).
   • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
   also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
   fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.

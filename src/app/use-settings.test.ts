@@ -135,6 +135,13 @@ describe("useSettings", () => {
       expect(result.current.settings.tourSeen).toBe(true);
     });
 
+    it("completedTours round-trips and drops non-strings on load", async () => {
+      writeSettings({ ...defaultSettings, completedTours: ["raid", "reporting"] });
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.completedTours).toEqual(["raid", "reporting"]);
+    });
+
     it("preserves an explicitly emptied reports.extra (removal sticks)", async () => {
       localStorage.setItem(
         SETTINGS_KEY,

@@ -420,11 +420,17 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device: show the contextual per-view Help callouts. Default ON
+   *  (read as `!== false`); individual callouts can also be dismissed per-view. */
+  showViewHints?: boolean;
   /** Per-device sidebar branding: a custom logo (data:image URL) and/or slogan
    *  overriding the default Acme logo + subtitle. */
   branding?: BrandingConfig;
   /** Per-device: the guided tour has been seen/skipped (suppresses auto-launch). */
   tourSeen?: boolean;
+  /** Per-device: ids of guided tours the user has completed (✓ badge in the
+   *  Help catalog). Separate from `tourSeen` (which gates first-run auto-launch). */
+  completedTours?: readonly string[];
   /** Per-device: the security & responsibility disclaimer has been acknowledged
    *  (shown once, the first time any integration/AI enable checkbox is ticked). */
   integrationDisclaimerSeen?: boolean;
@@ -466,6 +472,7 @@ export const defaultSettings: Settings = {
   hideFinishedTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
+  showViewHints: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
   showDisplayTzSwitcher: false,
   reports: { extra: ["raid-report", "budget-report"] },

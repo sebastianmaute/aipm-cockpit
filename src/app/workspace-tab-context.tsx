@@ -16,6 +16,12 @@ interface WorkspaceTabContextValue {
   pendingChatSeed: { prompt: string; autoSend: boolean } | null;
   requestChat: (prompt: string, autoSend: boolean) => void;
   clearChatSeed: () => void;
+  // Deep-link a Help concept: switch to the Help view and scroll to the
+  // concept section (no hash write — mirrors requestChat). Used by the
+  // per-view callouts' "Learn more" link.
+  pendingHelpConcept: string | null;
+  requestHelpConcept: (conceptId: string) => void;
+  clearHelpConcept: () => void;
 }
 
 const WorkspaceTabContext = createContext<WorkspaceTabContextValue | null>(null);
@@ -50,8 +56,15 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     // No hash write: chat carries no item id (unlike requestOpen).
   }, []);
   const clearChatSeed = useCallback(() => setPendingChatSeed(null), []);
+  const [pendingHelpConcept, setPendingHelpConcept] = useState<string | null>(null);
+  const requestHelpConcept = useCallback((conceptId: string) => {
+    setActiveTab("help");
+    setPendingHelpConcept(conceptId);
+    // No hash write: the Help view scrolls to the concept section internally.
+  }, []);
+  const clearHelpConcept = useCallback(() => setPendingHelpConcept(null), []);
   return (
-    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingFlash, requestFlash, clearPendingFlash, pendingChatSeed, requestChat, clearChatSeed }}>
+    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingFlash, requestFlash, clearPendingFlash, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept }}>
       {children}
     </WorkspaceTabContext.Provider>
   );

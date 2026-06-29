@@ -8,6 +8,25 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.145.0] - 2026-06-28 "Sterling"
+
+### Added
+- **Dashboard masonry cockpit**: the dashboard is now a single masonry of cards (CSS multicolumn) that packs tightly on wide screens instead of leaving large empty gaps under the short cards. Cards never split across a column; reading order is column-major, priority-first.
+- **Trends widget click-through**: clicking the dashboard Trends card jumps to the Trends view. Trends is shown on the dashboard only when a Turso backend is active.
+- **Dashboard sub-menu**: Next actions and Trends are now sub-menu entries under Dashboard in the sidebar (the Next-actions urgency badge bubbles up to Dashboard when the sub-menu is collapsed). The app opens on the Dashboard by default.
+- **Resizable Portfolio health pane** with a reset-size button.
+- **Add-first-item empty states**: budget, Gantt, milestones, changes, stakeholders, RAID, Open Points and Documents now show a click-to-add box when empty (text + "+ Add …"), with no solid outer box (matches the Gantt look); the data view keeps its border.
+
+### Changed
+- **Dashboard toggles removed**: the on-panel Compact (density) and Trends toggle buttons are gone. Density is set only in Settings → Appearance; Trends visibility follows the Turso backend.
+- **Resource sub-views** show their own heading (Workload / Calendar / Planning) instead of a generic "Resources"; the Manage-roles heading was removed.
+- **Flatter panels**: the solid outer box around empty states was removed; the Activity log and the Steering-committee form render flat.
+- **Manage roles**: the rate-card table columns are no longer resizable (fixed default widths; the reset-column-widths button was removed).
+
+### Fixed
+- Milestones: a search/filter with no matches now shows a "no matches" message instead of the add-first-item box.
+- The Trends sub-entry no longer appears in the classic sub-tab row on a file backend (it is Turso-only).
+
 ## [0.144.0] - 2026-06-28 "Egan"
 
 ### Added

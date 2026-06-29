@@ -17,6 +17,7 @@ import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ActionChips, chipsForView } from "./action-chips";
+import { ViewCallout } from "./view-callout";
 import { SavedViewsControl } from "./saved-views-control";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import type { SuggestedAction } from "./next-actions/types";
@@ -107,6 +108,11 @@ export interface TasksSectionProps {
   nextActions?: readonly SuggestedAction[];
   onOpenAction?: (a: SuggestedAction) => void;
   onShowActions?: () => void;
+  // Per-view Help callout (SP2). Rendered only when onLearnMoreHint is wired
+  // (omitted in the standalone unit test, which has no tab context).
+  showViewHints?: boolean;
+  isPopout?: boolean;
+  onLearnMoreHint?: (conceptId: string) => void;
 }
 
 export function TasksSection({
@@ -155,6 +161,9 @@ export function TasksSection({
   nextActions = [],
   onOpenAction,
   onShowActions,
+  showViewHints,
+  isPopout,
+  onLearnMoreHint,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -255,6 +264,15 @@ export function TasksSection({
           onOpen={onOpenAction}
           onShowMore={onShowActions}
           className="mb-2"
+        />
+      )}
+      {onLearnMoreHint && (
+        <ViewCallout
+          view="open-points"
+          lang={lang}
+          showHints={showViewHints !== false}
+          isPopout={!!isPopout}
+          onLearnMore={onLearnMoreHint}
         />
       )}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

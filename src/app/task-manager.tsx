@@ -194,7 +194,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestFlash } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestFlash, requestHelpConcept } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -933,6 +933,7 @@ function TaskManagerInner() {
     isPopout,
     hydrated,
     tourSeen: settings.tourSeen,
+    completedTours: settings.completedTours,
     features: settings.features,
     setSettings,
   });
@@ -1816,6 +1817,10 @@ function TaskManagerInner() {
     expertMode: settings.expertMode === true,
     onOpenLearningSettings,
     onOpenSettingsSection: isPopout ? undefined : onOpenSettingsSection,
+    onTakeTour: settings.layout === "modern" && !isPopout ? startTour : undefined,
+    onStartTour: settings.layout === "modern" && !isPopout ? tour.start : undefined,
+    catalogTours: tour.catalogTours,
+    completedTours: tour.completedTours,
     aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
@@ -1838,6 +1843,9 @@ function TaskManagerInner() {
       nextActions={nextActions}
       onOpenAction={openAction}
       onShowActions={() => setActiveTab("actions")}
+      showViewHints={settings.showViewHints !== false}
+      isPopout={isPopout}
+      onLearnMoreHint={requestHelpConcept}
       jiraSiteUrl={settings.jira.siteUrl}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}
@@ -2311,6 +2319,7 @@ function TaskManagerInner() {
       {tour.isOpen && settings.layout === "modern" && !isPopout && (
         <TourOverlay
           lang={lang}
+          tourTitleKey={tour.activeTourTitleKey}
           steps={tour.steps}
           index={tour.index}
           onBack={tour.back}

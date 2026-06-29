@@ -143,7 +143,10 @@ describe("DashboardPanel Changes subsection", () => {
       />,
       { wrapper },
     );
-    expect(screen.getByText(/changes/i)).toBeTruthy();
+    // Scope to the subsection heading: the dashboard tip-of-the-day card can
+    // also contain the word "Changes", so a loose getByText(/changes/i) is
+    // ambiguous (date-dependent).
+    expect(screen.getByRole("heading", { name: "Changes" })).toBeTruthy();
     expect(screen.getByText(/1 pending/i)).toBeTruthy();
   });
 });
