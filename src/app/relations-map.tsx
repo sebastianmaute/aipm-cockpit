@@ -30,62 +30,69 @@ export function RelationsMap({ graph, lang, onSelectConcept }: RelationsMapProps
     <div
       role="group"
       aria-label={t(lang, "helpRelationsMapLabel")}
-      className="relative aspect-[3/2] max-h-80 w-full rounded-md border border-line bg-surface-muted"
+      className="relative w-full rounded-md border border-line bg-surface-muted p-3 pl-8"
     >
+      {/* edge overlay in the left gutter (decorative) */}
       <svg
         aria-hidden="true"
-        viewBox="0 0 100 100"
+        viewBox="0 0 24 100"
         preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full"
+        className="pointer-events-none absolute inset-y-3 left-1 w-6"
       >
         {graph.edges.map((e) => {
           const na = graph.nodes.find((n) => n.id === e.a);
           const nb = graph.nodes.find((n) => n.id === e.b);
           if (!na || !nb) return null;
           const incident = active === e.a || active === e.b;
+          const y1 = na.y * 100;
+          const y2 = nb.y * 100;
+          const bow = 6 + Math.min(14, Math.abs(y2 - y1) / 4);
           return (
-            <line
+            <path
               key={`${e.a}|${e.b}`}
-              x1={na.x * 100}
-              y1={na.y * 100}
-              x2={nb.x * 100}
-              y2={nb.y * 100}
+              d={`M12,${y1} C${12 - bow},${(y1 + y2) / 2} ${12 - bow},${(y1 + y2) / 2} 12,${y2}`}
+              fill="none"
               className={incident ? "stroke-AIPM-dark-blue" : "stroke-line"}
-              strokeWidth={incident ? 0.8 : 0.4}
+              strokeWidth={incident ? 1.2 : 0.7}
               opacity={active && !incident ? 0.3 : 1}
               vectorEffect="non-scaling-stroke"
             />
           );
         })}
-        {graph.nodes.map((n) => (
-          <circle key={n.id} cx={n.x * 100} cy={n.y * 100} r={0.8} className="fill-AIPM-dark-blue" />
-        ))}
       </svg>
 
-      {graph.nodes.map((n) => {
-        const isActive = active === n.id;
-        const isNeighbour = neighbours.has(n.id);
-        const dim = active && !isActive && !isNeighbour;
-        return (
-          <button
-            key={n.id}
-            type="button"
-            data-active={isActive ? "true" : "false"}
-            onClick={() => onSelectConcept(n.id)}
-            onMouseEnter={() => setActive(n.id)}
-            onMouseLeave={() => setActive(null)}
-            onFocus={() => setActive(n.id)}
-            onBlur={() => setActive(null)}
-            title={t(lang, "helpRelationsOpenConcept")}
-            style={{ left: `${n.x * 100}%`, top: `${n.y * 100}%` }}
-            className={`absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border bg-surface px-2 py-1 text-xs font-medium text-foreground ${
-              isActive || isNeighbour ? "border-AIPM-dark-blue" : "border-line"
-            } ${dim ? "opacity-40" : "opacity-100"} ${INTERACTIVE}`}
-          >
-            {t(lang, n.titleKey)}
-          </button>
-        );
-      })}
+      <ul className="flex flex-col gap-1.5">
+        {graph.nodes.map((n) => {
+          const isActive = active === n.id;
+          const isNeighbour = neighbours.has(n.id);
+          const dim = active && !isActive && !isNeighbour;
+          return (
+            <li key={n.id} className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 shrink-0 rounded-full border-2 ${
+                  isActive ? "border-AIPM-dark-blue bg-AIPM-dark-blue" : isNeighbour ? "border-AIPM-green bg-surface" : "border-AIPM-dark-blue bg-surface"
+                }`}
+              />
+              <button
+                type="button"
+                data-active={isActive ? "true" : "false"}
+                onClick={() => onSelectConcept(n.id)}
+                onMouseEnter={() => setActive(n.id)}
+                onMouseLeave={() => setActive(null)}
+                onFocus={() => setActive(n.id)}
+                onBlur={() => setActive(null)}
+                title={t(lang, "helpRelationsOpenConcept")}
+                className={`flex-1 rounded-md border border-l-2 bg-surface px-2 py-1 text-left text-xs font-medium ${
+                  isActive ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white" : isNeighbour ? "border-l-AIPM-green border-line text-AIPM-dark-blue dark:text-AIPM-light-grey" : "border-l-AIPM-dark-blue border-line text-foreground"
+                } ${dim ? "opacity-40" : "opacity-100"} ${INTERACTIVE}`}
+              >
+                {t(lang, n.titleKey)}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
