@@ -5,7 +5,7 @@
 // BOTH the in-pane Help view (help-view.tsx) and the floating Help panel
 // (help-menu.tsx) so the two surfaces render identically. Presentational: the
 // parent owns the search input, tours, relations map, and footer.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { HELP_ENTRIES, HELP_GROUP_ORDER, HELP_GROUP_LABEL } from "./help-content";
 import { matchesQuery, highlightSegments } from "./help-search";
@@ -42,6 +42,7 @@ export function HelpContentPane({
   onNavigateView?: (view: AppView) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const groups = useMemo(() => {
     const matched = HELP_ENTRIES.filter((e) =>
@@ -52,6 +53,29 @@ export function HelpContentPane({
       entries: matched.filter((e) => e.group === group),
     })).filter((g) => g.entries.length > 0);
   }, [lang, query]);
+
+  // Stable key of the rendered section ids → re-create the observer when the
+  // filtered set changes (search). Hoisted scalar avoids the exhaustive-deps
+  // "obj.member" rejection.
+  const sectionIdsKey = groups.flatMap((g) => g.entries.map((e) => e.id)).join(",");
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+    const sections = Array.from(root.querySelectorAll<HTMLElement>("section[id]"));
+    if (sections.length === 0) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length === 0) return;
+        const top = visible.reduce((a, b) => (a.boundingClientRect.top < b.boundingClientRect.top ? a : b));
+        const id = top.target.id.replace(/^help-sec-/, "");
+        setActiveId(id);
+      },
+      { root, rootMargin: "0px 0px -70% 0px", threshold: 0 },
+    );
+    sections.forEach((s) => obs.observe(s));
+    return () => obs.disconnect();
+  }, [sectionIdsKey]);
 
   const scrollToSection = (id: string) => {
     setActiveId(id);
@@ -67,11 +91,11 @@ export function HelpContentPane({
       {/* Grouped TOC: horizontal scroll strip when narrow, sticky sidebar when wide */}
       <nav
         aria-label={t(lang, "helpContents")}
-        className="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-line p-2 @[560px]:w-52 @[560px]:flex-col @[560px]:gap-0 @[560px]:overflow-x-visible @[560px]:overflow-y-auto @[560px]:border-b-0 @[560px]:border-r @[560px]:p-3 print:hidden"
+        className="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-line p-2 @[560px]:w-56 @[560px]:flex-col @[560px]:gap-0 @[560px]:overflow-x-visible @[560px]:overflow-y-auto @[560px]:border-b-0 @[560px]:border-r @[560px]:p-3 print:hidden"
       >
         {groups.map(({ group, entries }) => (
           <div key={group} className="shrink-0 @[560px]:mb-3 @[560px]:shrink">
-            <p className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="px-2 pb-0.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {t(lang, HELP_GROUP_LABEL[group])}
             </p>
             <ul className="flex flex-row gap-0.5 @[560px]:flex-col">
@@ -82,8 +106,8 @@ export function HelpContentPane({
                     onClick={() => scrollToSection(e.id)}
                     className={
                       activeId === e.id
-                        ? `block w-full whitespace-nowrap rounded border-l-2 border-AIPM-dark-blue bg-surface-muted px-2 py-1 text-left text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`
-                        : `block w-full whitespace-nowrap rounded border-l-2 border-transparent px-2 py-1 text-left text-xs text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
+                        ? `block w-full whitespace-nowrap rounded border-l-2 border-AIPM-dark-blue bg-surface-muted px-2 py-1.5 text-left text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`
+                        : `block w-full whitespace-nowrap rounded border-l-2 border-transparent px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
                     }
                   >
                     {t(lang, e.titleKey)}
@@ -96,15 +120,15 @@ export function HelpContentPane({
       </nav>
 
       {/* Grouped content */}
-      <div className="min-h-0 flex-1 overflow-auto p-3 pr-2 print:max-h-none print:overflow-visible">
+      <div ref={contentRef} className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3 pr-2 print:max-h-none print:overflow-visible">
         {groups.map(({ group, entries }) => (
-          <div key={group} className="mb-6">
+          <div key={group} className="mb-8">
             <h2 className="mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-AIPM-dark-blue dark:text-AIPM-light-grey">
               {t(lang, HELP_GROUP_LABEL[group])}
             </h2>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               {entries.map((e) => (
-                <section key={e.id} id={helpSectionId(e.id)} className="scroll-mt-2">
+                <section key={e.id} id={helpSectionId(e.id)} className="scroll-mt-2 rounded-lg border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface p-4">
                   <h3 className="mb-1 text-sm font-semibold text-foreground">
                     <Highlighted text={t(lang, e.titleKey)} query={query} />
                   </h3>
