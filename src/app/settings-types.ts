@@ -23,7 +23,10 @@ export const CHAT_MODELS = [
   { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5" },
 ] as const;
 
-export type ChatModel = (typeof CHAT_MODELS)[number]["id"];
+// Open string: augment mode (use-chat-models) lets the user pick any live
+// claude-* id, not just the curated CHAT_MODELS. The registry ids remain the
+// known-good defaults + offline fallback.
+export type ChatModel = string;
 
 export const DEFAULT_SESSION_TOKEN_CAP = 200_000;
 export const DEFAULT_WEEKLY_TOKEN_CAP = 2_000_000;
@@ -56,9 +59,13 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? Math.round(n) : def;
   };
-  const model: ChatModel = CHAT_MODELS.some((m) => m.id === obj.model)
-    ? (obj.model as ChatModel)
-    : defaultAiConfig.model;
+  // Pattern (not allowlist): sanitize runs at load, BEFORE the async live-model
+  // fetch, so a previously-selected live model must survive the round-trip.
+  const rawModel = typeof obj.model === "string" ? obj.model.trim() : "";
+  const model: ChatModel =
+    rawModel.length <= 64 && /^claude-[\w.-]+$/.test(rawModel)
+      ? rawModel
+      : defaultAiConfig.model;
   return {
     apiKey: typeof obj.apiKey === "string" ? obj.apiKey : "",
     model,
