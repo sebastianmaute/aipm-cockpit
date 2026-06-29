@@ -27,4 +27,17 @@ describe("InformationFlowsSection", () => {
     expect(container.textContent).toContain("Your data");
     expect(container.textContent).toContain("Connected services");
   });
+
+  it("uses the maxWidth prop on the diagram svg when provided", () => {
+    const { container } = render(<InformationFlowsSection lang="en-US" maxWidth={640} />);
+    const svg = container.querySelector("svg[role='img']") as SVGElement;
+    expect(svg).not.toBeNull();
+    expect(svg.style.maxWidth).toBe("640px");
+  });
+
+  it("defaults the diagram svg maxWidth to 480", () => {
+    const { container } = render(<InformationFlowsSection lang="en-US" />);
+    const svg = container.querySelector("svg[role='img']") as SVGElement;
+    expect(svg.style.maxWidth).toBe("480px");
+  });
 });

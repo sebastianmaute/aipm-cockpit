@@ -4,6 +4,10 @@ import { type Lang, t } from "../i18n";
 
 interface InformationFlowsSectionProps {
   lang: Lang;
+  /** Cap (px) for the diagram svg width. Default 480 keeps Settings + the
+   *  in-pane Help accordion byte-identical; the floating Help tab passes a
+   *  larger value to use the roomier panel body. */
+  maxWidth?: number;
 }
 
 // ── Diagram sub-components ────────────────────────────────────────────────────
@@ -209,7 +213,7 @@ function Legend({ lang }: LegendProps) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function InformationFlowsSection({ lang }: InformationFlowsSectionProps) {
+export function InformationFlowsSection({ lang, maxWidth = 480 }: InformationFlowsSectionProps) {
   return (
     <div className="mb-4">
       <p className="mb-4 text-xs text-muted-foreground">{t(lang, "infoFlowsIntro")}</p>
@@ -219,7 +223,7 @@ export function InformationFlowsSection({ lang }: InformationFlowsSectionProps) 
         aria-label={t(lang, "infoFlowsDiagramAriaLabel")}
         viewBox="0 0 480 300"
         width="100%"
-        style={{ maxWidth: 480 }}
+        style={{ maxWidth }}
         xmlns="http://www.w3.org/2000/svg"
       >
         <DiagramTitle />
