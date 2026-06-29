@@ -548,7 +548,17 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   HelpGroup `concepts`/`workflows`/`features`/`automated`, EN/DE, `relatedViews`/`relatedConcepts` for later
   SPs) GROUPED — grouped TOC + group headers (`HELP_GROUP_LABEL`, exhaustive `Record<HelpGroup>`) + per-concept
   "Related:" links + a "Take the tour" button. The floating top-bar Help panel stays features-only via the
-  derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`). ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
+  derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`).
+  ★★ REDESIGN: `help-content-pane.tsx` (shared by the in-pane view AND the floating panel) renders each concept
+  as a CARD (`border-l-AIPM-dark-blue` stripe, no shadow) on a `bg-surface-muted` scroller, with a wider `w-56`
+  TOC driven by an `IntersectionObserver` SCROLL-SPY (effect dep = a hoisted scalar `sectionIdsKey` join, NOT an
+  array; observer callback sets `activeId` — not render-phase setState). The in-pane view's top region is ONE
+  exclusive horizontal TABLIST accordion (`help-collapsible-region.tsx`: `role=tablist/tab/tabpanel`, bodies stay
+  MOUNTED + `hidden`-toggled so each `aria-controls` target is in the DOM, arrow-key roving, `activeKey` drift
+  guard) holding three panels — Guided tours · How it all connects · Information flows (default Tours; tours panel
+  gated on `onStartTour`) — REPLACING the old two `<details>`. Floating panel is content-pane-only (no accordion),
+  now `820×640` with `useResizable` key `lop-app:help-size-v3` (bumped — stale inline size would clip). jsdom
+  lacks `IntersectionObserver`/`scrollIntoView` → global no-op stubs in `vitest.setup.ts`. ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
   — else `filterNavGroups` prunes it), `LABEL_KEYS` + `navLabelKey` (`nav-config.ts`), `ICON_PATHS`
   (`nav-icons.tsx`, exhaustive `Record<AppView>`), + i18n `navHelp`. NOT a popout tab. Not in `A11Y_VIEWS`
   (the sidebar entry IS scanned every view; eye-verify the page).
@@ -575,15 +585,15 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   labeled, palette-safe — verified). Dashboard EXCLUDED (has coaching + tip cards). ★ A loose
   `getByText(/changes/i)` in `dashboard-panel.test` collided with the date-rotating tip card's "Changes" text →
   scope such queries to a `heading` role, not free text.
-  • **Interactive relations map (Help SP3):** a node graph of the 11 Help CONCEPT entries (edges =
-  `relatedConcepts`) in a `<details open>` "How it all connects" atop the Help view. Pure i18n-free engine
-  `relations-graph.ts` `buildRelationsGraph(entries)` → `{nodes:[{id,titleKey,x,y}],edges:[{a,b}]}`:
-  deterministic RADIAL layout (fractional `x,y∈[0,1]`, HELP_ENTRIES order, `RADIUS=0.42`), edges undirected +
-  deduped (sorted `"a|b"` key), endpoints filtered to concept nodes, no self-loops; no `Date`/`Math.random`.
-  Presentational `relations-map.tsx` uses the ★★ OVERLAY technique: a decorative `aria-hidden` `<svg
-  viewBox="0 0 100 100">` draws the edge `<line>`s (coords `=x*100`), and a real absolutely-positioned HTML
-  `<button>` per node (`left/top %`) is the keyboard-native, axe-clean interactive element — NOT a focusable
-  SVG sub-element. Local `useState(active)` from hover AND focus highlights incident edges (`stroke-AIPM-dark-blue`,
+  • **Interactive relations map (Help SP3):** a node graph of the Help CONCEPT entries (edges =
+  `relatedConcepts`), now the "How it all connects" TAB of the Help-view accordion (was a `<details>`). Pure
+  i18n-free engine `relations-graph.ts` `buildRelationsGraph(entries)` → `{nodes:[{id,titleKey,x,y}],edges:[{a,b}]}`:
+  deterministic **VERTICAL single column** (concepts only; shared `x=0.5`, `y` evenly `TOP=0.08..BOTTOM=0.92`; no
+  RADIUS), edges undirected + deduped (sorted `"a|b"` key), no self-loops; no `Date`/`Math.random`.
+  Presentational `relations-map.tsx` uses the ★★ OVERLAY technique: a `<ul>` of flow rows, each a dot
+  `<span aria-hidden>` + a real `<button>` (keyboard-native, axe-clean interactive layer), plus a decorative
+  `aria-hidden` `<svg viewBox="0 0 24 100">` in the LEFT GUTTER drawing edge `<path>` bezier curves (control-point
+  `bow` CLAMPED ≤11 so it stays in the viewBox; green when incident to the active node, else `stroke-line`). Local `useState(active)` from hover AND focus highlights incident edges (`stroke-AIPM-dark-blue`,
   dim the rest) + neighbour buttons; click → `onSelectConcept(id)` → HelpView `scrollToSection`. Concept-only —
   view navigation lives in the Related line: SP3 upgraded each entry's `relatedViews` from a plain italic `<span>`
   to a navigate `<button>` gated on a NEW OPTIONAL `HelpView` prop `onNavigateView?: (view:AppView)=>void` (optional
@@ -602,9 +612,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   string[]` rides the `writeSettings` spread (no allowlist edit, sanitized on load, capped 50), OUT of
   exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep; `tourSeen` STILL gates first-run
   auto-launch separately. Presentational `tour-catalog.tsx` (props-only, no context — standalone
-  unit-tested) renders a card grid in a `<details open>` "Guided tours" section in `help-view.tsx`,
-  ABOVE the SP3 relations map; the whole section is GATED on `onStartTour` presence (mirrors the
-  `onTakeTour` gate) so standalone tests / classic / popout don't render it — tours stay modern-only.
+  unit-tested) renders a card grid as the "Guided tours" TAB of the Help-view accordion (was a `<details>`),
+  gated on `onStartTour` presence (mirrors the `onTakeTour` gate) so standalone tests / classic / popout don't
+  render it — tours stay modern-only. ★ `TourCatalogEntry` now also carries `stepCount` + `iconView: AppView`
+  (projected in `use-tour.ts` `catalogTours` from `visibleSteps(...).length` + a new `TourDefinition.iconView`);
+  each card shows a `NavIcon` badge (or green ✓ when done), a step-count meta line (`tourStepCount`), and a
+  Start/Replay CTA (`tourReplayCta` when completed — the card's `aria-label` tracks that verb, WCAG 2.5.3).
   Threaded task-manager → `WorkspaceSectionProps` (3 new OPTIONAL fields) → HelpView. `TourOverlay`
   gained an optional `tourTitleKey` label. Help is NOT in axe `A11Y_VIEWS` → catalog a11y eye-verified
   (`tour-catalog` uses the `INTERACTIVE` atom + `text-AIPM-green-strong` for the ✓-Done badge — there is
@@ -657,8 +670,13 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)
   re-runs the effect and re-pushes that modal's token to the top → wrong modal becomes topmost. Push/pop
   lives in a SEPARATE `[open]`-only effect (order = mount order). Regression-tested in `modal.test.tsx`.
-  • **Info-flows diagram** (`settings-sections/information-flows-section.tsx`) now has **6 nodes**: local
-  storage, Turso, Jira, M365 (Graph + MSAL), Anthropic API, and Timelog (via `/api/timelog` proxy).
+  • **Info-flows diagram** (`settings-sections/information-flows-section.tsx`) has **9 nodes** in two
+  colour-coded zones (AIPM tokens): *Your data* (green) = Local/IndexedDB, **File storage** (JSON/CSV/MD),
+  Turso; central Browser-app hub; *Connected services* (dark-blue) = Jira, Timelog, **SharePoint**, **Outlook**,
+  Anthropic — M365 SPLIT into SharePoint (docs) + Outlook (contacts/calendar). Option-B tight-horizontal SVG
+  (`Node`/`Zone` helpers, `role=img`+`aria-label`+`<title>`/`<desc>`; node text hardcoded EN, legend `<dl>` +
+  zone-swatch row use i18n). Rendered in BOTH Settings → Integrations AND the Help-view accordion (same
+  component, two mounts).
   • **Dual-CI / style axis:** `data-style="AIPM"|"mockup"` on `<html>` is ORTHOGONAL to `.dark`; set by
   `use-style.tsx` (`useCiStyle`, `lop-style` localStorage, NOT the settings blob) + the extended no-flash
   boot script in `layout.tsx` (reads `lop-style`+`lop-theme` pre-paint). Mockup ("Dashboard" style) is
