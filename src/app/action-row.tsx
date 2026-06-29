@@ -110,7 +110,7 @@ export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assign
   const createTaskApplicable = onCreateTask != null && action.source !== "task-due";
   const canReschedule = reschedule != null && action.source === "task-due" && action.cta.kind === "open";
   const canMarkDone = onMarkDone != null && action.cta.kind === "open" && action.cta.view === "open-points";
-  const canClearBlocker = onClearBlocker != null && action.cta.kind === "open" && action.source === "task-attention" && action.why.key === "actionTaskWhyBlocked";
+  const canClearBlocker = onClearBlocker != null && action.cta.kind === "open" && action.cta.view === "open-points" && action.source === "task-attention" && action.why.key === "actionTaskWhyBlocked";
   const hasMenu = canDraft || createTaskApplicable || onSnooze != null || canMarkDone || canClearBlocker;
   return (
     // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive

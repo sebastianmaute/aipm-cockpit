@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { isValidIsoDate } from "./action-rebaseline";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 
 export interface RescheduleBundle {
   onReschedule: (action: SuggestedAction, isoDate: string) => void;
@@ -17,16 +18,13 @@ interface ReschedulePopoverProps {
 export function ReschedulePopover({ lang, action, bundle }: ReschedulePopoverProps) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
+  const wrapRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLSpanElement>(null);
+
+  usePopoverDismiss(open, wrapRef, () => setOpen(false));
 
   useEffect(() => {
     if (open) popRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus();
-  }, [open]);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
   const canConfirm = isValidIsoDate(date);
@@ -34,7 +32,7 @@ export function ReschedulePopover({ lang, action, bundle }: ReschedulePopoverPro
   const confirm = () => { bundle.onReschedule(action, date); setDate(""); setOpen(false); };
 
   return (
-    <span className="relative">
+    <span ref={wrapRef} className="relative">
       <button
         type="button"
         aria-haspopup="dialog"
@@ -53,15 +51,12 @@ export function ReschedulePopover({ lang, action, bundle }: ReschedulePopoverPro
           onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
           className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-line bg-surface p-2"
         >
-          <label
-            htmlFor="reschedule-date-input"
-            className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
-          >
+          <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {t(lang, "actionRescheduleTitle")}
           </label>
           <input
-            id="reschedule-date-input"
             type="date"
+            aria-label={t(lang, "actionRescheduleTitle")}
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
