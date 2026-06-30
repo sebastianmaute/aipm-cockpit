@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.152.0";
-export const APP_BUILD_DATE = "2026-06-30"; // 0.152.0: view-chrome streamlining across many views (redundant page headings removed; toolbars relocated — Dashboard/Reports/Activity/Help/Documents/Time-bookings/RACI/Calendar/Planning/Resources-overview) and a print overhaul (multi-page pagination + no printed scrollbars or rounded container boxes) (Tidhar)
+export const APP_VERSION = "0.153.0";
+export const APP_BUILD_DATE = "2026-06-30"; // 0.153.0: custom color schemes — build/save/import/export and apply your own palette + logo/slogans in Settings → Appearance via a new "Custom" style (pins light, no-flash boot, WCAG contrast warnings) (Gibson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.152.x line is "Tidhar" (Lavie Tidhar). */
-export const APP_MILESTONE = "Tidhar";
+ *  0.153.x line is "Gibson" (William Gibson). */
+export const APP_MILESTONE = "Gibson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -169,4 +169,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightColumnVisibility",
   "versionHighlightViewChrome",
   "versionHighlightPrintMultipage",
+  "versionHighlightColorSchemes",
 ] as const;
