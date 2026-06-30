@@ -237,6 +237,7 @@ export const de: Record<TranslationKey, string> = {
   themeHint: "Hell, dunkel oder der Systemeinstellung folgen.",
   styleLabel: "Visueller Stil",
   styleIcc: "Acme",
+  styleCustom: "Benutzerdefiniert",
   styleMockup: "Dashboard",
   styleMockupLightOnly: "Der Dashboard-Stil ist nur hell - das Thema ist deaktiviert, solange er aktiv ist.",
   language: "Sprache",

@@ -32,8 +32,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // This is the SOLE writer of document.documentElement.classList "dark".
   useEffect(() => {
     const apply = () => {
-      const mockup = document.documentElement.getAttribute("data-style") === "mockup";
-      const dark = !mockup && resolveTheme(theme, prefersDark()) === "dark";
+      const attr = document.documentElement.getAttribute("data-style");
+      const pinsLight = attr === "mockup" || attr === "custom";
+      const dark = !pinsLight && resolveTheme(theme, prefersDark()) === "dark";
       document.documentElement.classList.toggle("dark", dark);
     };
     apply();

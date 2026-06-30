@@ -234,6 +234,7 @@ const enUS = {
   themeHint: "Choose light, dark, or follow your system setting.",
   styleLabel: "Visual style",
   styleIcc: "Acme",
+  styleCustom: "Custom",
   styleMockup: "Dashboard",
   styleMockupLightOnly: "Dashboard style is light-only - theme is disabled while it's active.",
   language: "Language",

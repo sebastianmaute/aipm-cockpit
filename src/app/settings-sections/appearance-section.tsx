@@ -25,6 +25,9 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   const { theme, setTheme } = useTheme();
   const { style, setStyle } = useCiStyle();
   const isMockup = style === "mockup";
+  const isCustom = style === "custom";
+  void isCustom; // used by the scheme editor mount in a later task
+  const pinsLight = isMockup || isCustom;
 
   const branding = settings.branding;
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -87,6 +90,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           options={[
             { value: "AIPM", label: t(lang, "styleIcc") },
             { value: "mockup", label: t(lang, "styleMockup") },
+            { value: "custom", label: t(lang, "styleCustom") },
           ]}
           onChange={setStyle}
         />
@@ -101,7 +105,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           value={theme}
           ariaLabel={t(lang, "theme")}
           className="w-full"
-          disabled={isMockup}
+          disabled={pinsLight}
           options={[
             { value: "light", label: t(lang, "themeLight") },
             { value: "dark", label: t(lang, "themeDark") },
@@ -109,7 +113,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           ]}
           onChange={setTheme}
         />
-        {isMockup && (
+        {pinsLight && (
           <p className="mt-1 text-xs text-muted-foreground">
             {t(lang, "styleMockupLightOnly")}
           </p>
