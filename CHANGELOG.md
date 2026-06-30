@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.150.0] - 2026-06-30 "Gibson"
+
+### Changed
+- **"How it all connects" is now a 2D map**: the Help relations view renders concepts as boxed nodes on a grid with connector lines, matching the Information-flows diagram's look. Hovering or focusing a concept highlights its links and neighbours; clicking still jumps to the concept.
+- **Shared diagram engine**: the relations map and the Information-flows diagram now share one reusable node-graph component, so the two diagrams look and behave consistently.
+- **Information flows renders correctly in dark mode**: the diagram's node boxes now follow the colour theme instead of staying white.
+
 ## [0.149.0] - 2026-06-29 "Leiber"
 
 ### Changed
