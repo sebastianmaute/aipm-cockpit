@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.153.0";
-export const APP_BUILD_DATE = "2026-06-30"; // 0.153.0: custom color schemes — build/save/import/export and apply your own palette + logo/slogans in Settings → Appearance via a new "Custom" style (pins light, no-flash boot, WCAG contrast warnings) (Gibson)
+export const APP_VERSION = "0.154.0";
+export const APP_BUILD_DATE = "2026-06-30"; // 0.154.0: stronger resize-anchor indicators — always-visible ⋮ grip on column-resize handles (hover/drag accent) + accent-tinted native pane/textarea resize corner (Mitchell)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.153.x line is "Gibson" (William Gibson). */
-export const APP_MILESTONE = "Gibson";
+ *  0.154.x line is "Mitchell" (David Mitchell). */
+export const APP_MILESTONE = "Mitchell";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -170,4 +170,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightViewChrome",
   "versionHighlightPrintMultipage",
   "versionHighlightColorSchemes",
+  "versionHighlightResizeAnchor",
 ] as const;

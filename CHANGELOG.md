@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.154.0] - 2026-06-30 "Mitchell"
+
+### Changed
+- **Clearer resize anchors**: every data-table column-resize handle now shows an always-visible vertical "⋮" grip (instead of an invisible strip), dim at rest and brightening to the table-head accent on hover and throughout a drag. The native pane/window and resize-textarea corner grips are accent-tinted so they're easy to spot. Palette-safe (token-driven, no off-palette colour) and hidden in print.
+
 ## [0.153.0] - 2026-06-30 "Gibson"
 
 ### Added
