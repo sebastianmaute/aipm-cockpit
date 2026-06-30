@@ -160,6 +160,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightViewChrome: "Aufgeräumte Ansichts-Oberfläche: überflüssige Seitenüberschriften entfernt und Werkzeugleisten in den Ansichten Dashboard, Berichte, Aktivität, Hilfe, Dokumente, Zeitbuchungen, RACI, Kalender, Planung und Ressourcen aufgeräumt",
   versionHighlightPrintMultipage: "Druck-Überarbeitung: lange Ansichten werden jetzt über mehrere Seiten gedruckt, ohne Bildlaufleisten oder abgerundete Rahmenboxen auf dem Papier",
   versionHighlightColorSchemes: "Benutzerdefinierte Farbschemata: eigene Palette plus Logo und Slogans in Einstellungen -> Darstellung erstellen, speichern, im-/exportieren und anwenden via neuen Stil Benutzerdefiniert (nur hell, ohne Flackern, mit WCAG-Kontrastwarnungen)",
+  versionHighlightResizeAnchor: "Deutlichere Anpassungsanker: Spaltenbreiten-Griffe zeigen jetzt einen dauerhaft sichtbaren Griff, der beim Überfahren oder Ziehen hervorgehoben wird, und die native Größenänderungs-Ecke für Fenster/Textfelder ist akzentfarbig getönt",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

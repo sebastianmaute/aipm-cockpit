@@ -157,6 +157,7 @@ const enUS = {
   versionHighlightViewChrome: "Streamlined view chrome: redundant page headings removed and toolbars tidied across the Dashboard, Reports, Activity, Help, Documents, Time bookings, RACI, Calendar, Planning and Resources views",
   versionHighlightPrintMultipage: "Print overhaul: long views now print across multiple pages, with no on-paper scrollbars or rounded container boxes",
   versionHighlightColorSchemes: "Custom color schemes: build, save, import/export and apply your own palette plus logo and slogans in Settings -> Appearance via a new Custom style (light-only, no-flash, with WCAG contrast warnings)",
+  versionHighlightResizeAnchor: "Clearer resize anchors: column-resize handles now show an always-visible grip that brightens while you hover or drag, and the native pane/textarea resize corner is accent-tinted",
 
   tasks: "Tasks",
   tasksCount: "({0})",
