@@ -685,7 +685,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (`Node`/`Zone` helpers, `role=img`+`aria-label`+`<title>`/`<desc>`; node text hardcoded EN, legend `<dl>` +
   zone-swatch row use i18n). Rendered in BOTH Settings → Integrations AND the Help-view accordion (same
   component, two mounts).
-  • **Dual-CI / style axis:** `data-style="AIPM"|"mockup"` on `<html>` is ORTHOGONAL to `.dark`; set by
+  • **Dual-CI / style axis:** `data-style="AIPM"|"mockup"|"custom"` on `<html>` is ORTHOGONAL to `.dark`; set by
   `use-style.tsx` (`useCiStyle`, `lop-style` localStorage, NOT the settings blob) + the extended no-flash
   boot script in `layout.tsx` (reads `lop-style`+`lop-theme` pre-paint). Mockup ("Dashboard" style) is
   LIGHT-ONLY + PINS light: `use-style` fires a `lop-style-change` event; `use-theme` is the SOLE `.dark`
@@ -724,6 +724,27 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
   e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
   "var(--delta-chip-pad)"} : undefined}` — so AIPM is untouched AND a chip-less (flat) trend gets no empty bubble.
+  • **Custom color schemes (3rd style):** `data-style="custom"` beside AIPM/mockup (`style-ci.ts` `CiStyle`;
+  `effectiveDark` pins light for mockup AND custom — keep the 3 sync sites in lockstep: the helper,
+  `use-theme`, and the `layout.tsx` boot string). A scheme = per-device CSS-var overrides + branding,
+  applied via INLINE `documentElement.style.setProperty` (the legal runtime mechanism — NEVER a Tailwind
+  class, so palette-sweep is untouched). Pure modules: `scheme-tokens.ts` (CORE/ADVANCED token registry,
+  AIPM/MOCKUP seed maps, `deriveAaVariants` darken-to-AA, `resolveSchemeColors`), `scheme-contrast.ts` (WCAG
+  warn-only), `scheme-apply.ts` (`applySchemeColors`/`writeActiveSchemeColors`/`readActiveSchemeColors`),
+  `color-schemes.ts` (per-device library `lop-app:color-schemes`, hex-validated import, `mergeAppliedBranding`).
+  UI `color-scheme-editor.tsx` mounts in `AppearanceSection` only when `isCustom`. ★★ NO-FLASH: the active
+  scheme's RESOLVED map mirrors to the boot key `lop-active-scheme-colors` (NOT `lop-app:`-prefixed, so the
+  pre-paint boot script reads it like `lop-style`; consequently NOT swept by `clearAppConfig` — intentional,
+  mirrors `lop-style`/`lop-theme`). ★★ SINGLE SOURCE OF TRUTH: EVERY editor mutation
+  (select/save/import/rename/delete/apply) writes the boot key + applies, so the active library scheme == what
+  renders; the boot key is purely DERIVED. A path that mutates one channel without the other is the coherence
+  bug (selecting did nothing / a deleted scheme's colours lingered) — don't reintroduce it. ★ Schemes OWN
+  slogan/footerSlogan: apply REPLACES them via `mergeAppliedBranding` (clears when absent) and the global
+  app-name/footer inputs are HIDDEN under Custom; logo/favicon stay GLOBAL (untouched by scheme apply). ★ the
+  derived `-strong`/`-text`/`muted-foreground` tokens are dropped on save (`cleanColors` keeps only editable
+  tokens) — never persisted to the library. ★ Custom is light-only (theme toggle disabled, like Mockup). ★
+  `layout-boot-script.test.ts` PINS the EXACT boot string — editing the `layout.tsx` boot script means
+  updating that guard in lockstep.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.
@@ -732,11 +753,17 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   add `print-root` (+ `print-landscape` for wide tables) to its outermost pane (alongside the `VIEW_PANE_*`
   class); add `<PrintButton lang={lang}/>` (from `task-manager-ui`; defaults to `window.print()`, already
   labeled + `print:hidden`) to the toolbar — LEFT of any Reset buttons (resets stay rightmost); `print:hidden`
-  the toolbar/filters/bulk-bars (keep the data table + section title visible). An explicit `max-h-[…]` scroller
-  clips in print → add `print:max-h-none print:overflow-visible` (shared `INNER_TABLE_CLASS` is uncapped, fine);
-  `ColumnResizeHandle` is already `print:hidden`. ★ The `@media print` `.print-root` rule forces
-  `height/max-height/min-height/width/overflow` with `!important` so a user-dragged `useResizable` inline size
-  can't clip the printout — don't reintroduce a clip by overriding it. Data views (tasks/milestones/changes/
+  the toolbar/filters/bulk-bars (keep the data table + section title visible).
+  `ColumnResizeHandle` is already `print:hidden`. ★★ The `@media print` block (a) anchors `.print-root` at
+  `position:absolute; top:0; left:0` + `height:auto !important` (so a user-dragged `useResizable` inline size
+  can't clip the printout) — NOT `inset:0` (a `bottom:0` pins the abs box to ONE PAGE height → content past
+  page 1 is CLIPPED; the single-page-print bug); (b) GLOBALLY resets every `.print-root [class*="overflow-"]`/
+  `[class*="max-h-"]` descendant to `overflow:visible !important; max-height:none !important` (inner scrollers
+  otherwise print a scrollbar AND clip to their box = one page) — so per-panel `print:max-h-none
+  print:overflow-visible` is now REDUNDANT; (c) strips rounded container chrome via `.print-root
+  [class*="rounded"][class*="border-line"] {border:0; border-radius:0}` (`divide-line` row-lines + `rounded-full`
+  RAG dots untouched). Guarded by `e2e/print.spec.ts` (print-media emulation: asserts 0 clipping scrollers, 0
+  rounded boxes, box contains full content). Don't reintroduce `inset:0` or a per-pane print clip. Data views (tasks/milestones/changes/
   stakeholders/RAID/resources/
   documents/history/steering/portfolio/RACI/timelog) + the ReportCard views are wired; Settings/Chat/Projects
   are not (nothing to print).
