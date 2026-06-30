@@ -275,7 +275,7 @@ export function ReportsPanel({
   };
 
   return (
-    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} toolbarExtra={<>{addReportControl}{removeReportControl}<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} /></>} title={t(lang, "tabReports")}>
+    <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={<>{addReportControl}{removeReportControl}</>} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label={t(lang, "reportsTotal")} value={stats.total} />
         <Tile label={t(lang, "reportsOpen")} value={stats.open} />

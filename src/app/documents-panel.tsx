@@ -150,9 +150,6 @@ export function DocumentsPanel() {
           onLearnMore={requestHelpConcept}
         />
       )}
-      <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-        <h2 className="text-lg font-medium text-foreground">{t(lang, "documentsTitle")}</h2>
-      </div>
 
       {addOpen && (
         <div className="mb-3 shrink-0 rounded-md border border-line bg-surface-muted p-3 print:hidden">

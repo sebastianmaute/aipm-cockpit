@@ -292,9 +292,14 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      {/* Header */}
+      {/* Header — the title was removed; the "enable Timelog" notice takes the
+          left slot when misconfigured so the button row stays right-aligned. */}
       <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
-        <h2 className="text-lg font-semibold text-foreground">{t(lang, "timelogTitle")}</h2>
+        {isMisconfigured ? (
+          <p className="text-sm text-muted-foreground">{t(lang, "timelogEnable")}</p>
+        ) : (
+          <span />
+        )}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -342,13 +347,6 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           {sync.error === 401 || sync.error === 403
             ? t(lang, "timelogTokenInvalid")
             : t(lang, "timelogTestFail", sync.error && sync.error > 0 ? String(sync.error) : "?")}
-        </p>
-      )}
-
-      {/* Misconfigured notice */}
-      {isMisconfigured && (
-        <p className="mb-3 text-sm text-muted-foreground">
-          {t(lang, "timelogEnable")}
         </p>
       )}
 

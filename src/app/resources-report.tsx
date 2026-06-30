@@ -183,7 +183,7 @@ export function ResourcesReportPanel({
   if (embedded) return <div className="space-y-6">{content}</div>;
 
   return (
-    <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} onResetCols={resetAllCols} title={t(lang, "resourcesReportTitle")}>
+    <ReportCard lang={lang} sizeRef={ref} onResetSize={reset} onResetCols={resetAllCols} title={t(lang, "resourcesViewOverview")}>
       {onLearnMore && (
         <ViewCallout view="resources" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}

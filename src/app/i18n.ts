@@ -154,6 +154,8 @@ const enUS = {
   versionHighlightFloatingHelpTabs: "Tabbed Help view: Guided tours, How it connects, and Information flows tabs beside search, plus a resizable contents list",
   versionHighlightDocumentsCards: "Documents is now a filterable card grid — each file shows its type, host and added date; filter by source, search, and sort",
   versionHighlightColumnVisibility: "Show or hide table columns in RAID, Milestones, Changes and Stakeholders, and save the choice as part of a panel view",
+  versionHighlightViewChrome: "Streamlined view chrome: redundant page headings removed and toolbars tidied across the Dashboard, Reports, Activity, Help, Documents, Time bookings, RACI, Calendar, Planning and Resources views",
+  versionHighlightPrintMultipage: "Print overhaul: long views now print across multiple pages, with no on-paper scrollbars or rounded container boxes",
 
   tasks: "Tasks",
   tasksCount: "({0})",
@@ -1220,6 +1222,7 @@ const enUS = {
   activityEmpty: "No activity recorded yet.",
   activityClear: "Clear log",
   activityCount: "{0} entries",
+  activityEntriesLogged: "{0} entries logged",
   activityTaskCreated: "Task #{0} created: {1}",
   activityTaskUpdated: "Task #{0} updated: {1}",
   activityTaskDeleted: "Task #{0} deleted: {1}",
@@ -1368,6 +1371,7 @@ const enUS = {
   resourcesMarginHint: "External cost minus internal cost (planned contribution).",
 
   resourcesReportTitle: "Resource report",
+  resourcesViewOverview: "Overview",
   resourcesReportTotalCapacity: "Total capacity",
   resourcesReportByPeriod: "By period",
   resourcesReportByDiscipline: "By discipline",

@@ -286,36 +286,44 @@ function ResourcesPanelInner({
   }, []);
   const { sorted: planSorted, click: planClick } = useSortableFilter(planRows, planSort, setPlanSort, planFilter, getPlanValue);
 
-  // Header: title + count; planning-only ResetColWidths; calendar-only Outlook import; always ResetSize.
+  // Toolbar actions: planning-only ResetColWidths; calendar-only Outlook import;
+  // always Print + ResetSize. Shared by the workload/planning header and (for
+  // calendar, which has NO heading) the calendar control row.
+  const headerActions = (
+    <div className="flex items-center gap-2 print:hidden">
+      <PrintButton lang={lang} />
+      {(view === "planning" || view === "workload") && (
+        <ResetColWidthsButton
+          onClick={view === "planning" ? resetPlanningAndRollup : workload.resetColWidths}
+          lang={lang}
+        />
+      )}
+      {view === "calendar" && onImportOutlookCalendar && (
+        <button
+          type="button"
+          onClick={onImportOutlookCalendar}
+          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
+        >
+          {t(lang, "outlookCalImportButton")}
+        </button>
+      )}
+      <ResetSizeButton onClick={resetResSize} lang={lang} />
+    </div>
+  );
+
+  // Header: title + count. Calendar drops it (the actions move into its control
+  // row), so this renders only for workload/planning.
   const renderHeader = () => (
     <header className="mb-2 flex shrink-0 items-center justify-between gap-2">
       <h2 className="text-lg font-medium text-foreground">
-        {t(lang, view === "workload" ? "resourcesViewWorkload" : view === "calendar" ? "resourcesViewCalendar" : "resourcesViewPlanning")}
+        {t(lang, view === "workload" ? "resourcesViewWorkload" : "resourcesViewPlanning")}
         {rows.length > 0 && (
           <span className="ml-2 text-sm font-normal text-muted-foreground">
             {t(lang, "tasksCount", rows.length)}
           </span>
         )}
       </h2>
-      <div className="flex items-center gap-2 print:hidden">
-        <PrintButton lang={lang} />
-        {(view === "planning" || view === "workload") && (
-          <ResetColWidthsButton
-            onClick={view === "planning" ? resetPlanningAndRollup : workload.resetColWidths}
-            lang={lang}
-          />
-        )}
-        {view === "calendar" && onImportOutlookCalendar && (
-          <button
-            type="button"
-            onClick={onImportOutlookCalendar}
-            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            {t(lang, "outlookCalImportButton")}
-          </button>
-        )}
-        <ResetSizeButton onClick={resetResSize} lang={lang} />
-      </div>
+      {headerActions}
     </header>
   );
 
@@ -330,7 +338,7 @@ function ResourcesPanelInner({
       {onLearnMore && (
         <ViewCallout view={view} lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
-      {renderHeader()}
+      {view === "workload" && renderHeader()}
       {isEmpty && view !== "planning" && (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
           {t(lang, "resourcesEmpty")}
@@ -385,6 +393,7 @@ function ResourcesPanelInner({
                 ]}
                 onChange={onSetAllUtilizationMode}
               />
+              <div className="ml-auto">{headerActions}</div>
             </div>
             <div className="print:hidden">
               <TableFilter lang={lang} value={planFilter} onChange={setPlanFilter} placeholderKey="planningFilterResource" />
@@ -698,6 +707,7 @@ function ResourcesPanelInner({
                 </button>
               </div>
             )}
+            <div className="ml-auto">{headerActions}</div>
           </div>
           <ResourceCalendar
             lang={lang}
