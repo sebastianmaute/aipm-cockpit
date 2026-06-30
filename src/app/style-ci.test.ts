@@ -21,3 +21,19 @@ describe("effectiveDark — mockup pins light", () => {
     expect(effectiveDark(false, "AIPM")).toBe(false);
   });
 });
+
+describe("style-ci custom", () => {
+  it("accepts 'custom' as a valid stored style", () => {
+    expect(readStoredStyle("custom")).toBe("custom");
+    expect(readStoredStyle("AIPM")).toBe("AIPM");
+    expect(readStoredStyle("mockup")).toBe("mockup");
+    expect(readStoredStyle("bogus")).toBe("AIPM");
+  });
+
+  it("pins light for custom (like mockup)", () => {
+    expect(effectiveDark(true, "custom")).toBe(false);
+    expect(effectiveDark(true, "mockup")).toBe(false);
+    expect(effectiveDark(true, "AIPM")).toBe(true);
+    expect(effectiveDark(false, "AIPM")).toBe(false);
+  });
+});
