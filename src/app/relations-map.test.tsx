@@ -32,18 +32,19 @@ describe("RelationsMap", () => {
   });
 });
 
-const verticalGraph: RelationsGraph = {
+const tinyGraph: RelationsGraph = {
   nodes: [
-    { id: "a", titleKey: "navHelp", x: 0.5, y: 0.1 },
-    { id: "b", titleKey: "navHelp", x: 0.5, y: 0.5 },
+    { id: "a", titleKey: "navHelp", x: 10, y: 10, w: 60, h: 30 },
+    { id: "b", titleKey: "navHelp", x: 90, y: 10, w: 60, h: 30 },
   ],
   edges: [{ a: "a", b: "b" }],
+  viewBox: { w: 160, h: 50 },
 };
 
-describe("RelationsMap vertical", () => {
+describe("RelationsMap tiny graph", () => {
   it("renders one keyboard button per node and calls onSelectConcept on click", () => {
     const onSelect = vi.fn();
-    render(<RelationsMap graph={verticalGraph} lang="en-US" onSelectConcept={onSelect} />);
+    render(<RelationsMap graph={tinyGraph} lang="en-US" onSelectConcept={onSelect} />);
     const buttons = screen.getAllByRole("button");
     expect(buttons.length).toBe(2);
     fireEvent.click(buttons[0]);
@@ -51,7 +52,7 @@ describe("RelationsMap vertical", () => {
   });
 
   it("marks the focused node active (data-active)", () => {
-    render(<RelationsMap graph={verticalGraph} lang="en-US" onSelectConcept={() => {}} />);
+    render(<RelationsMap graph={tinyGraph} lang="en-US" onSelectConcept={() => {}} />);
     const buttons = screen.getAllByRole("button");
     fireEvent.focus(buttons[1]);
     expect(buttons[1].getAttribute("data-active")).toBe("true");
