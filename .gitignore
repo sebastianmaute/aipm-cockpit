@@ -76,3 +76,4 @@ next-env.d.ts
 # Agent-skill tooling artifacts (installed skills + lockfile — not part of the app)
 /.agents/
 /skills-lock.json
+.superpowers/
