@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { NodeGraph } from "./node-graph";
 import type { NodeGraphNode, NodeGraphEdge, NodeGraphZone } from "./node-graph-layout";
 
@@ -43,5 +43,50 @@ describe("NodeGraph static mode (no onSelectNode)", () => {
     );
     const svg = container.querySelector("svg[role='img']") as SVGElement;
     expect(svg.style.maxWidth).toBe("640px");
+  });
+});
+
+describe("NodeGraph interactive mode (onSelectNode present)", () => {
+  it("renders one button per node, named by label", () => {
+    render(<NodeGraph viewBox={{ w: 260, h: 120 }} nodes={nodes} edges={edges} ariaLabel="g" onSelectNode={() => {}} />);
+    expect(screen.getByRole("button", { name: "Hub" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Node X" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Node Y" })).toBeTruthy();
+  });
+
+  it("uses nodeAriaLabel when provided", () => {
+    render(
+      <NodeGraph
+        viewBox={{ w: 260, h: 120 }}
+        nodes={nodes}
+        edges={edges}
+        ariaLabel="g"
+        onSelectNode={() => {}}
+        nodeAriaLabel={(n) => `${n.label} – open`}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Hub – open" })).toBeTruthy();
+  });
+
+  it("calls onSelectNode with the id on click", () => {
+    const onSelect = vi.fn();
+    render(<NodeGraph viewBox={{ w: 260, h: 120 }} nodes={nodes} edges={edges} ariaLabel="g" onSelectNode={onSelect} />);
+    fireEvent.click(screen.getByRole("button", { name: "Node X" }));
+    expect(onSelect).toHaveBeenCalledWith("x");
+  });
+
+  it("marks a node active on focus", () => {
+    render(<NodeGraph viewBox={{ w: 260, h: 120 }} nodes={nodes} edges={edges} ariaLabel="g" onSelectNode={() => {}} />);
+    const btn = screen.getByRole("button", { name: "Hub" });
+    fireEvent.focus(btn);
+    expect(btn.getAttribute("data-active")).toBe("true");
+    fireEvent.blur(btn);
+    expect(btn.getAttribute("data-active")).toBe("false");
+  });
+
+  it("exposes the group aria-label and no role=img", () => {
+    render(<NodeGraph viewBox={{ w: 260, h: 120 }} nodes={nodes} edges={edges} ariaLabel="My group" onSelectNode={() => {}} />);
+    expect(screen.getByRole("group", { name: "My group" })).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();
   });
 });
