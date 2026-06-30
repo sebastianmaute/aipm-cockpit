@@ -97,5 +97,5 @@ export function summarizeDiff(changes: VersionChange[]): string {
   if (!changes.length) return "";
   const counts = new Map<string, number>();
   for (const c of changes) counts.set(c.collectionLabel, (counts.get(c.collectionLabel) ?? 0) + 1);
-  return [...counts.entries()].map(([label, n]) => `${n} ${label}`).join(", ");
+  return [...counts.entries()].map(([label, n]) => `${label} (${n})`).join(", ");
 }

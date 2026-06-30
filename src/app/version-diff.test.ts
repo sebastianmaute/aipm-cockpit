@@ -49,8 +49,8 @@ describe("summarizeDiff", () => {
       ws({ tasks: [task(1, { title: "a" })], raid: [] }),
       ws({ tasks: [task(1, { title: "b" }), task(2)], raid: [{ id: 9 } as never] }),
     );
-    expect(summarizeDiff(c)).toMatch(/2 Tasks/);
-    expect(summarizeDiff(c)).toMatch(/1 RAID/);
+    expect(summarizeDiff(c)).toMatch(/Tasks \(2\)/);
+    expect(summarizeDiff(c)).toMatch(/RAID \(1\)/);
   });
   it("returns empty string for no changes", () => { expect(summarizeDiff([])).toBe(""); });
 });

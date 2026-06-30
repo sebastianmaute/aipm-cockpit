@@ -13,6 +13,8 @@ export interface PanelFiltersState {
   search: string;
   filters: Record<string, string>;
   sort: PanelSort;
+  /** Column keys hidden in the table; absent on legacy saved views (treat as none). */
+  hiddenCols?: readonly string[];
 }
 
 export interface PanelView {
@@ -40,7 +42,9 @@ function isValidSort(value: unknown): value is PanelSort {
 function isValidState(value: unknown): value is PanelFiltersState {
   if (typeof value !== "object" || value === null) return false;
   const s = value as Record<string, unknown>;
-  return typeof s.search === "string" && isStringRecord(s.filters) && isValidSort(s.sort);
+  if (!(typeof s.search === "string" && isStringRecord(s.filters) && isValidSort(s.sort))) return false;
+  if (s.hiddenCols === undefined) return true;
+  return Array.isArray(s.hiddenCols) && s.hiddenCols.every((c) => typeof c === "string");
 }
 
 function isValidView(entry: unknown): entry is PanelView {

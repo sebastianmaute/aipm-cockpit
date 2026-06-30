@@ -46,7 +46,7 @@ it("captures a named checkpoint via the inline input", () => {
 });
 
 it("compares a clicked version against now and renders the diff", async () => {
-  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "auto", label: null, summary: "1 Tasks" }];
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "auto", label: null, summary: "Tasks (1)" }];
   const loadDiff = vi.fn().mockResolvedValue([
     { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "T1",
       type: "modified", fields: [{ field: "title", label: "Title", before: "A", after: "B" }] },

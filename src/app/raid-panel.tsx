@@ -54,11 +54,13 @@ import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, selectField, dateField, type BulkField } from "./bulk-edit-panel";
 import { resourceDisplayName } from "./resource-foundation";
 import { ViewCallout } from "./view-callout";
+import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 
 const RAID_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
   filters: { category: "All", severity: "All", status: "All" },
   sort: null,
+  hiddenCols: [],
 };
 
 const RAID_COL_WIDTHS = {
@@ -73,6 +75,20 @@ const RAID_COL_WIDTHS = {
   causedBy: 140,
 } as const;
 type RaidCol = keyof typeof RAID_COL_WIDTHS;
+
+// Toggleable columns (the leading row-select checkbox is always-on and not
+// listed). Order matches the rendered header/cell order.
+const RAID_CONFIG_COLS: readonly ColumnConfigCol[] = [
+  { key: "id", labelKey: "id" },
+  { key: "category", labelKey: "raidCategory" },
+  { key: "title", labelKey: "raidTitle" },
+  { key: "severity", labelKey: "raidSeverity" },
+  { key: "status", labelKey: "raidStatus" },
+  { key: "owner", labelKey: "raidOwner" },
+  { key: "targetDate", labelKey: "raidTargetDate" },
+  { key: "linkedTasks", labelKey: "raidLinkedTasks" },
+  { key: "causedBy", labelKey: "raidCausedBy" },
+];
 
 // --- Props ---------------------------------------------------------------
 
@@ -159,6 +175,7 @@ function RaidPanelBody({
 }: RaidPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
+  const hiddenSet = new Set(pf.hiddenCols ?? []);
   const categoryFilter = pf.filters.category;
   const severityFilter = pf.filters.severity;
   const statusFilter = pf.filters.status;
@@ -484,6 +501,7 @@ function RaidPanelBody({
           {t(lang, "ganttResetFilters")}
         </button>
       )}
+      <ColumnConfigPopover lang={lang} cols={RAID_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
       <PanelViewsControl lang={lang} view="raid" onApply={() => { if (filterTaskId !== null) onClearTaskFilter?.(); }} />
       <PrintButton lang={lang} />
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
@@ -538,24 +556,31 @@ function RaidPanelBody({
                   className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
               </th>
+              {!hiddenSet.has("id") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   #{sort?.key === "id" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="id" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("category") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.category, minWidth: colWidths.category }} aria-sort={sort?.key === "category" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("category")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidCategory")}{sort?.key === "category" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="category" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("title") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.title, minWidth: colWidths.title }} aria-sort={sort?.key === "title" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("title")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidTitle")}{sort?.key === "title" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="title" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("severity") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.severity, minWidth: colWidths.severity }} aria-sort={sort?.key === "severity" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("severity")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidSeverity")}{sort?.key === "severity" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
@@ -563,38 +588,49 @@ function RaidPanelBody({
                 <InfoTooltip text={t(lang, "raidSeverityHint")} />
                 <ColumnResizeHandle col="severity" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("status") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={sort?.key === "status" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("status")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidStatus")}{sort?.key === "status" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="status" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("owner") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.owner, minWidth: colWidths.owner }} aria-sort={sort?.key === "owner" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("owner")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidOwner")}{sort?.key === "owner" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="owner" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("targetDate") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.targetDate, minWidth: colWidths.targetDate }} aria-sort={sort?.key === "targetDate" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
                 <button type="button" onClick={() => toggleSort("targetDate")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "raidTargetDate")}{sort?.key === "targetDate" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                 </button>
                 <ColumnResizeHandle col="targetDate" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("linkedTasks") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.linkedTasks, minWidth: colWidths.linkedTasks }}>
                 {t(lang, "raidLinkedTasks")}
                 <ColumnResizeHandle col="linkedTasks" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("causedBy") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.causedBy, minWidth: colWidths.causedBy }}>
                 {t(lang, "raidCausedBy")}
                 <ColumnResizeHandle col="causedBy" onMouseDown={startResize} />
               </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {visible.length === 0 && (
               <tr>
-                <td colSpan={10} className="p-10 text-center text-sm text-muted-foreground">
+                <td colSpan={1 + RAID_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "raidNoMatches")}
                 </td>
               </tr>
@@ -627,9 +663,12 @@ function RaidPanelBody({
                       className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                     />
                   </td>
+                  {!hiddenSet.has("id") && (
                   <td className="px-3 py-2 font-mono text-muted-foreground">
                     #{item.id}
                   </td>
+                  )}
+                  {!hiddenSet.has("category") && (
                   <td className="px-3 py-2">
                     <span
                       className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${categoryPillClass[item.category]}`}
@@ -638,9 +677,13 @@ function RaidPanelBody({
                       {item.category}
                     </span>
                   </td>
+                  )}
+                  {!hiddenSet.has("title") && (
                   <td className="px-3 py-2 font-medium text-foreground">
                     {item.title}
                   </td>
+                  )}
+                  {!hiddenSet.has("severity") && (
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-1.5">
                       <span
@@ -655,15 +698,23 @@ function RaidPanelBody({
                       </span>
                     </span>
                   </td>
+                  )}
+                  {!hiddenSet.has("status") && (
                   <td className="px-3 py-2 text-foreground">
                     {statusLabel(item.status, lang)}
                   </td>
+                  )}
+                  {!hiddenSet.has("owner") && (
                   <td className="px-3 py-2 text-foreground">
                     {item.owner ?? ""}
                   </td>
+                  )}
+                  {!hiddenSet.has("targetDate") && (
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                     {item.targetDate ?? ""}
                   </td>
+                  )}
+                  {!hiddenSet.has("linkedTasks") && (
                   <td className="px-3 py-2">
                     {item.linkedTaskIds.length === 0 ? (
                       <span className="text-muted-foreground">—</span>
@@ -689,6 +740,8 @@ function RaidPanelBody({
                       </span>
                     )}
                   </td>
+                  )}
+                  {!hiddenSet.has("causedBy") && (
                   <td className="px-3 py-2">
                     {(() => {
                       const parentIds = item.causedByRaidIds ?? [];
@@ -727,11 +780,12 @@ function RaidPanelBody({
                       );
                     })()}
                   </td>
+                  )}
                 </tr>
               );
             })}
             <tr>
-              <td colSpan={9}>
+              <td colSpan={1 + RAID_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length}>
                 <button
                   type="button"
                   onClick={() => openNew(effectiveCategory)}

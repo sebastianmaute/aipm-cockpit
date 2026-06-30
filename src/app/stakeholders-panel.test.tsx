@@ -114,6 +114,18 @@ describe("StakeholdersPanel", () => {
   });
 });
 
+describe("Stakeholders column visibility", () => {
+  it("hides the email column (header + cell) when unticked in the column config popover", () => {
+    renderStakeholders({ stakeholders: [sampleStakeholder({ name: "Ada", email: "ada@example.com" })] });
+    expect(screen.getByText("ada@example.com")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
+    fireEvent.click(screen.getByLabelText(t("en-US", "stakeholderFieldEmail")));
+
+    expect(screen.queryByText("ada@example.com")).not.toBeInTheDocument();
+  });
+});
+
 describe("Stakeholders bulk edit", () => {
   it("applies a bulk influence change to the selected row via onSave", () => {
     const stakeholder = sampleStakeholder({ id: 1, name: "Dana", influence: "Low" });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, render, screen, fireEvent } from "@testing-library/react";
 import type { PanelFiltersState } from "./panel-views";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
 
@@ -52,5 +52,37 @@ describe("panel-filters-context", () => {
     expect(result.current.search).toBe("");
     expect(result.current.filters.status).toBe("All");
     expect(result.current.sort).toEqual({ key: "name", dir: "desc" });
+  });
+});
+
+function Probe() {
+  const pf = usePanelFilters();
+  return (
+    <div>
+      <span data-testid="hidden">{(pf.hiddenCols ?? []).join(",")}</span>
+      <button onClick={() => pf.toggleColumn("email")}>toggle</button>
+      <button onClick={() => pf.applyState({ search: "", filters: {}, sort: null, hiddenCols: ["title"] })}>apply</button>
+      <button onClick={() => pf.reset()}>reset</button>
+    </div>
+  );
+}
+
+const COL_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null, hiddenCols: [] };
+
+describe("panel-filters-context hiddenCols", () => {
+  it("toggleColumn adds then removes a key", () => {
+    render(<PanelFiltersProvider defaults={COL_DEFAULTS}><Probe /></PanelFiltersProvider>);
+    fireEvent.click(screen.getByText("toggle"));
+    expect(screen.getByTestId("hidden")).toHaveTextContent("email");
+    fireEvent.click(screen.getByText("toggle"));
+    expect(screen.getByTestId("hidden")).toHaveTextContent("");
+  });
+
+  it("applyState replaces hiddenCols; reset clears them", () => {
+    render(<PanelFiltersProvider defaults={COL_DEFAULTS}><Probe /></PanelFiltersProvider>);
+    fireEvent.click(screen.getByText("apply"));
+    expect(screen.getByTestId("hidden")).toHaveTextContent("title");
+    fireEvent.click(screen.getByText("reset"));
+    expect(screen.getByTestId("hidden")).toHaveTextContent("");
   });
 });

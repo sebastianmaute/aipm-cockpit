@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.150.0";
-export const APP_BUILD_DATE = "2026-06-30"; // 0.150.0: reusable 2D node-graph — the Help "How it all connects" relations map is now a boxed-node grid with connector lines (hover/focus highlights links + neighbours; click jumps to the concept), sharing one renderer with the Information-flows diagram, which now also renders correctly in dark mode (Gibson)
+export const APP_VERSION = "0.151.0";
+export const APP_BUILD_DATE = "2026-06-30"; // 0.151.0: Documents becomes a filterable, metadata-rich card grid (type/host/added-date, source filter, search, sort) with a contextual tip banner; table columns in RAID/Milestones/Changes/Stakeholders are show/hide-able and saved in panel views; the Dashboard drops the Recent-activity fold; plus a /recovery hydration fix and version-history no-empty-save + change counts (Swanwick)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.150.x line is "Gibson" (William Gibson). */
-export const APP_MILESTONE = "Gibson";
+ *  0.151.x line is "Swanwick" (Michael Swanwick). */
+export const APP_MILESTONE = "Swanwick";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -165,4 +165,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightAnalyzeModal",
   "versionHighlightHelpRedesign",
   "versionHighlightFloatingHelpTabs",
+  "versionHighlightDocumentsCards",
+  "versionHighlightColumnVisibility",
 ] as const;

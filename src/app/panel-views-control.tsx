@@ -74,7 +74,7 @@ export function PanelViewsControl({ lang, view, onApply }: PanelViewsControlProp
             disabled={name.trim() === ""}
             onClick={() => {
               const n = name.trim();
-              if (n) addView(n, { search: pf.search, filters: { ...pf.filters }, sort: pf.sort });
+              if (n) addView(n, { search: pf.search, filters: { ...pf.filters }, sort: pf.sort, hiddenCols: [...(pf.hiddenCols ?? [])] });
               setSaving(false);
               setName("");
             }}

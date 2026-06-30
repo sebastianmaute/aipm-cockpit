@@ -60,7 +60,17 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       return;
     }
     try {
-      setVersions(await listVersionMeta(config, projectId));
+      const list = await listVersionMeta(config, projectId);
+      setVersions(list);
+      // Seed the diff baseline ONCE from the latest stored version. Without this
+      // `lastPayload` stays null across a reload, so the first idle auto-capture
+      // of the session has no baseline: it writes a redundant version even when
+      // nothing changed AND computes no change-summary. Seeding makes that first
+      // auto-capture short-circuit on an unchanged workspace and produces counts.
+      if (lastPayload.current === null && list.length > 0) {
+        const latest = await loadVersionPayload(config, list[0].id, projectId);
+        if (latest !== null && lastPayload.current === null) lastPayload.current = latest;
+      }
     } catch (err) {
       onError?.(err);
     }
