@@ -277,6 +277,7 @@ const enUS = {
   styleCustom: "Custom",
   styleMockup: "Dashboard",
   styleMockupLightOnly: "Dashboard style is light-only - theme is disabled while it's active.",
+  styleCustomLightOnly: "Custom schemes are light-only - theme is disabled while one is active.",
   language: "Language",
   holidayCountries: "Holiday countries",
   selectCountry: "Select country…",

@@ -126,7 +126,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         />
         {pinsLight && (
           <p className="mt-1 text-xs text-muted-foreground">
-            {t(lang, "styleMockupLightOnly")}
+            {t(lang, isMockup ? "styleMockupLightOnly" : "styleCustomLightOnly")}
           </p>
         )}
       </div>

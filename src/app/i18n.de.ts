@@ -280,6 +280,7 @@ export const de: Record<TranslationKey, string> = {
   styleCustom: "Benutzerdefiniert",
   styleMockup: "Dashboard",
   styleMockupLightOnly: "Der Dashboard-Stil ist nur hell - das Thema ist deaktiviert, solange er aktiv ist.",
+  styleCustomLightOnly: "Benutzerdefinierte Schemata sind nur hell - das Thema ist deaktiviert, solange eines aktiv ist.",
   language: "Sprache",
   holidayCountries: "Feiertagsländer",
   selectCountry: "Land auswählen…",
