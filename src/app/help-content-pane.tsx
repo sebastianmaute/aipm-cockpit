@@ -87,11 +87,12 @@ export function HelpContentPane({
   }
 
   return (
-    <div className="@container flex min-h-0 flex-1 flex-col overflow-hidden @[560px]:flex-row print:block print:overflow-visible">
+    <div className="@container flex min-h-0 flex-1 flex-col overflow-hidden print:block print:overflow-visible">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden @[560px]:flex-row print:block print:overflow-visible">
       {/* Grouped TOC: horizontal scroll strip when narrow, sticky sidebar when wide */}
       <nav
         aria-label={t(lang, "helpContents")}
-        className="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-line p-2 @[560px]:w-56 @[560px]:flex-col @[560px]:gap-0 @[560px]:overflow-x-visible @[560px]:overflow-y-auto @[560px]:border-b-0 @[560px]:border-r @[560px]:p-3 print:hidden"
+        className="flex shrink-0 flex-row gap-2 overflow-x-auto border-b border-line p-2 @[560px]:w-56 @[560px]:min-w-[10rem] @[560px]:max-w-[24rem] @[560px]:flex-col @[560px]:gap-0 @[560px]:resize-x @[560px]:overflow-auto @[560px]:border-b-0 @[560px]:border-r @[560px]:p-3 print:hidden"
       >
         {groups.map(({ group, entries }) => (
           <div key={group} className="shrink-0 @[560px]:mb-3 @[560px]:shrink">
@@ -178,6 +179,7 @@ export function HelpContentPane({
             </div>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

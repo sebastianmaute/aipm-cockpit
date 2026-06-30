@@ -33,9 +33,6 @@ interface ActionMenusProps {
   onSaveTemplate?: (input: SaveTemplateInput) => void;
   /** Expert mode reveals the Save-as-template / Apply-template menus. */
   expertMode?: boolean;
-  /** Re-launch the guided tour from the Help panel footer. Omitted (and the
-   *  Help "Take a tour" button hidden) outside the modern, non-popout shell. */
-  onTakeTour?: () => void;
 }
 
 /**
@@ -56,7 +53,6 @@ export function ActionMenus({
   onApplyTemplate,
   onSaveTemplate,
   expertMode = false,
-  onTakeTour,
 }: ActionMenusProps) {
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates } = useWorkspace();
   return (
@@ -69,7 +65,7 @@ export function ActionMenus({
           <ApplyTemplateMenu lang={lang} templates={templates} onApply={onApplyTemplate ?? (() => {})} />
         </>
       )}
-      <HelpMenu lang={lang} onTakeTour={onTakeTour} />
+      <HelpMenu lang={lang} />
       <VersionMenu lang={lang} />
     </>
   );

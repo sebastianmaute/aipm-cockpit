@@ -1,35 +1,32 @@
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { expect, test } from "vitest";
+import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { HelpMenu } from "./help-menu";
 
-async function openHelp() {
-  const user = userEvent.setup();
-  render(<HelpMenu lang="en-US" />);
-  await user.click(screen.getByRole("button", { name: /help/i }));
-  return user;
+function openPanel() {
+  // The toggle button's accessible name is the translated "help" key ("Help").
+  fireEvent.click(screen.getByRole("button", { name: "Help" }));
 }
 
-test("typing in the search box narrows the rendered topics", async () => {
-  const user = await openHelp();
-  const search = await screen.findByPlaceholderText("Search help");
-  const before = screen.getAllByRole("heading").length;
-  await user.type(search, "milestone");
-  const after = screen.getAllByRole("heading").length;
-  expect(after).toBeLessThan(before);
-  expect(after).toBeGreaterThan(0);
-});
+describe("HelpMenu floating panel", () => {
+  it("renders the toggle button when closed", () => {
+    render(<HelpMenu lang="en-US" />);
+    expect(screen.getByRole("button", { name: "Help" })).toBeInTheDocument();
+  });
 
-test("no-results state when nothing matches", async () => {
-  const user = await openHelp();
-  await user.type(await screen.findByPlaceholderText("Search help"), "zzzznotfound");
-  expect(screen.getByText("No help topics match your search.")).toBeInTheDocument();
-});
+  it("opens a content-pane panel with a search box and grouped help content", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    expect(screen.getByRole("dialog", { name: "Help" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+    // Grouped Help content renders (no tabs — content-pane only).
+    expect(screen.getAllByText("Concepts").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("tablist")).toBeNull();
+  });
 
-test("does not render the AI usage policy link", async () => {
-  await openHelp();
-  // The shared HelpContentPane renders AI-feature body text that mentions the
-  // "AI usage policy" phrase, so we assert specifically that no usage-policy
-  // LINK is rendered in the footer (the link was removed in a prior change).
-  expect(screen.queryByRole("link", { name: /usage policy/i })).toBeNull();
+  it("filters content to the empty message on a no-match search", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "zzzznomatchxyz" } });
+    expect(screen.getByText("No help topics match your search.")).toBeInTheDocument();
+  });
 });

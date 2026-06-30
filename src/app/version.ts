@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.148.0";
-export const APP_BUILD_DATE = "2026-06-29"; // 0.148.0: Help redesign — card content pane + scroll-spy TOC, tablist accordion (Tours / How-it-connects / Information flows), vertical relations map, 9-node grouped information-flows diagram (also in Help); richer guided-tour cards (Kuang)
+export const APP_VERSION = "0.149.0";
+export const APP_BUILD_DATE = "2026-06-29"; // 0.149.0: in-pane Help VIEW reworked into a tabbed surface — Help / Guided tours / How it connects / Information flows tabs beside search, with a resizable contents list; the floating Help panel reverted to content-pane only (slogan removed); TOC stacking fix (Leiber)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.148.x line is "Kuang" (R. F. Kuang). */
-export const APP_MILESTONE = "Kuang";
+ *  0.149.x line is "Leiber" (Fritz Leiber). */
+export const APP_MILESTONE = "Leiber";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -164,4 +164,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightViewTips",
   "versionHighlightAnalyzeModal",
   "versionHighlightHelpRedesign",
+  "versionHighlightFloatingHelpTabs",
 ] as const;

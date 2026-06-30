@@ -25,13 +25,6 @@ describe("HelpView (grouped)", () => {
     expect(screen.queryAllByText("Concepts").length).toBe(0);
   });
 
-  it("shows the Take the tour button only when onTakeTour is provided", () => {
-    const { rerender } = render(<HelpView lang="en-US" />);
-    expect(screen.queryByRole("button", { name: /take the tour/i })).toBeNull();
-    rerender(<HelpView lang="en-US" onTakeTour={() => {}} />);
-    expect(screen.getByRole("button", { name: /take the tour/i })).toBeInTheDocument();
-  });
-
   it("consumes a deep-linked concept on mount (scroll + callback)", () => {
     const scrollSpy = vi.fn();
     Object.defineProperty(Element.prototype, "scrollIntoView", { configurable: true, value: scrollSpy });
@@ -41,11 +34,18 @@ describe("HelpView (grouped)", () => {
     expect(scrollSpy).toHaveBeenCalled();
   });
 
-  it("renders the relations map disclosure with concept nodes", () => {
+  it("shows the relations map with concept nodes on the How-it-connects tab", () => {
     render(<HelpView lang="en-US" />);
-    expect(screen.getByText("How it all connects")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "How it all connects" }));
     // a concept node button exists inside the map (e.g. "Milestone")
     expect(screen.getAllByRole("button", { name: "Milestone" }).length).toBeGreaterThan(0);
+  });
+
+  it("hides the search box on a non-Help tab", () => {
+    render(<HelpView lang="en-US" />);
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Information flows" }));
+    expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
   it("navigates to a related view when onNavigateView is provided", () => {
@@ -64,9 +64,7 @@ describe("HelpView (grouped)", () => {
     unmount();
   });
 
-  it("shows the Guided tours tab (selected) when onStartTour is provided", () => {
-    // Fresh mount with onStartTour so Guided tours is panels[0] and the
-    // default-selected tab (its catalog card is visible, not a hidden tab).
+  it("shows tour cards on the Guided tours tab when onStartTour is provided", () => {
     render(
       <HelpView
         lang="en-US"
@@ -75,7 +73,8 @@ describe("HelpView (grouped)", () => {
         completedTours={[]}
       />,
     );
-    expect(screen.getByText("Guided tours")).toBeInTheDocument();
+    // Default tab is Help; switch to the Guided tours tab to reveal the catalog.
+    fireEvent.click(screen.getByRole("tab", { name: "Guided tours" }));
     expect(screen.getByRole("button", { name: /managing risks/i })).toBeInTheDocument();
   });
 });

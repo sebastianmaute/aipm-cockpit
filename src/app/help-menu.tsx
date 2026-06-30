@@ -54,7 +54,11 @@ function savePos(p: Pos) {
   }
 }
 
-export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => void }) {
+/** Floating top-bar Help panel: a draggable, resizable pop-over showing the
+ *  shared grouped Help content (TOC + cards + search). Content-pane only — the
+ *  tabbed tours / relations-map / information-flows surfaces live in the in-pane
+ *  Help VIEW, not here. */
+export function HelpMenu({ lang }: { lang: Lang }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Pos | null>(null);
   const [query, setQuery] = useState("");
@@ -67,10 +71,9 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
   } | null>(null);
 
   // Restore saved position on first open; default to near top-right with
-  // a VIEWPORT_PADDING-px gutter from top + bottom of the viewport.
-  // w-[1120px] / h-[960px] are the class-based defaults below; the fallback
-  // numbers here are used only on the very first render before the element
-  // has measured itself.
+  // a VIEWPORT_PADDING-px gutter from top + bottom of the viewport. The
+  // fallback numbers here are used only on the very first render before the
+  // element has measured itself.
   useEffect(() => {
     if (!open || pos !== null) return;
     const el = panelRef.current;
@@ -209,10 +212,6 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
             </button>
           </div>
 
-          <p className="shrink-0 border-b border-line px-4 py-2 text-xs text-foreground">
-            {t(lang, "helpIntro")}
-          </p>
-
           <div className="shrink-0 border-b border-line p-2">
             <input
               type="search"
@@ -226,19 +225,7 @@ export function HelpMenu({ lang, onTakeTour }: { lang: Lang; onTakeTour?: () => 
 
           <HelpContentPane lang={lang} query={query} />
 
-          <div className="flex shrink-0 items-center justify-between gap-4 border-t border-line px-4 py-2">
-            {onTakeTour && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onTakeTour();
-                }}
-                className={`text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue ${INTERACTIVE}`}
-              >
-                {t(lang, "tourLaunch")}
-              </button>
-            )}
+          <div className="flex shrink-0 items-center justify-end gap-4 border-t border-line px-4 py-2">
             <a
               href={APP_LICENSE_URL}
               target="_blank"

@@ -161,8 +161,6 @@ export interface WorkspaceSectionProps {
   onOpenLearningSettings?: () => void;
   /** Deep-link the Dashboard to a specific Settings section (e.g. Settings → AI). */
   onOpenSettingsSection?: (id: SettingsSectionId) => void;
-  /** Launch the guided tour from the Help view (modern, non-popout only). */
-  onTakeTour?: () => void;
   /** SP4 themed tours: launch a tour by id (Help view); modern non-popout only. */
   onStartTour?: (id: string) => void;
   /** SP4: tours available under the current feature set. */
