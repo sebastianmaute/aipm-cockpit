@@ -15,8 +15,6 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-/** Persist settings with the M365+SharePoint integration enabled so the gated
- *  "Add document" control renders (useSettings hydrates from localStorage). */
 function enableSharePoint() {
   window.localStorage.setItem(
     SETTINGS_KEY,
@@ -50,7 +48,6 @@ function seededTask(documentLinks: DocumentLink[]): Task {
   };
 }
 
-/** Seeds workspace state once on mount so the context-driven panel has data. */
 function SeedTasks({ tasks }: { tasks: Task[] }) {
   const { setTasks } = useWorkspace();
   useEffect(() => {
@@ -59,7 +56,6 @@ function SeedTasks({ tasks }: { tasks: Task[] }) {
   return null;
 }
 
-/** Surfaces the active tab + pending-open id so the test can assert navigation. */
 function TabProbe() {
   const { activeTab, pendingOpen } = useWorkspaceTab();
   return (
@@ -91,21 +87,18 @@ function renderWithTasks(tasks: Task[]) {
 }
 
 describe("DocumentsPanel", () => {
-  it("renders the document name and a source button labeled with the task name", () => {
+  it("renders a card with the document name and a source button labeled by the task", () => {
     renderWithTasks([seededTask([LINK])]);
-    // Link name (with folder/file glyph + ↗ around it) — match by substring.
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
     const sourceLabel = `${t("en-US", "documentsSourceTask")}: Write spec`;
     expect(screen.getByRole("button", { name: sourceLabel })).toBeInTheDocument();
   });
 
-  it("removes the row when the ✕ remove button is clicked", () => {
+  it("removes the card when the ✕ remove button is clicked", () => {
     renderWithTasks([seededTask([LINK])]);
-    expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
     const remove = screen.getByRole("button", { name: `${t("en-US", "documentsRemove")} – ${LINK.name}` });
     fireEvent.click(remove);
     expect(screen.queryByText(/Spec\.docx/)).not.toBeInTheDocument();
-    // Empty state shows once the last link is gone.
     expect(screen.getByText(t("en-US", "documentsTabEmpty"))).toBeInTheDocument();
   });
 
@@ -113,7 +106,6 @@ describe("DocumentsPanel", () => {
     renderWithTasks([seededTask([LINK])]);
     const sourceLabel = `${t("en-US", "documentsSourceTask")}: Write spec`;
     fireEvent.click(screen.getByRole("button", { name: sourceLabel }));
-    // requestOpen("open-points", 7) → activeTab=open-points, pendingOpen.id=7
     expect(screen.getByTestId("tab-probe")).toHaveTextContent("open-points:7");
   });
 
@@ -122,30 +114,60 @@ describe("DocumentsPanel", () => {
     expect(screen.getByText(t("en-US", "documentsTabEmpty"))).toBeInTheDocument();
   });
 
+  it("filters the grid when a source chip is selected", () => {
+    const raidDoc: DocumentLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
+    const task = seededTask([LINK]);
+    const taskWithRaid: Task = { ...task, raid: undefined } as Task;
+    // Two docs from two different sources: one task link, one task link renamed.
+    renderWithTasks([{ ...taskWithRaid, documentLinks: [LINK, raidDoc] }]);
+    expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
+    expect(screen.getByText(/Risk\.pdf/)).toBeInTheDocument();
+    // The "All" chip is present and pressed by default.
+    const allChip = screen.getByRole("button", { name: new RegExp(t("en-US", "documentsFilterAll")) });
+    expect(allChip).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("narrows by the search box", () => {
+    const second: DocumentLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
+    renderWithTasks([{ ...seededTask([LINK, second]) }]);
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "risk" } });
+    expect(screen.queryByText(/Spec\.docx/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Risk\.pdf/)).toBeInTheDocument();
+  });
+
+  it("shows the no-match text when search excludes everything", () => {
+    renderWithTasks([seededTask([LINK])]);
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "zzz" } });
+    expect(screen.getByText(t("en-US", "documentsNoneForSource"))).toBeInTheDocument();
+  });
+
+  it("renders the derived host badge and file type", () => {
+    renderWithTasks([seededTask([LINK])]);
+    expect(screen.getByText("SharePoint")).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "documentsTypeWord"))).toBeInTheDocument();
+  });
+
   it("toggles the add panel and lists attach targets when SharePoint is enabled", async () => {
     enableSharePoint();
     renderWithTasks([seededTask([LINK])]);
-    // The Add button is gated on the M365+SharePoint integration, which hydrates
-    // asynchronously from localStorage — await it rather than reading synchronously.
     const addBtn = await screen.findByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) });
     fireEvent.click(addBtn);
-    const select = screen.getByRole("combobox");
+    const select = screen.getByRole("combobox", { name: t("en-US", "documentsTarget") });
     expect(within(select).getByText(`${t("en-US", "documentsSourceTask")}: Write spec`)).toBeInTheDocument();
   });
 
-  it("shows the Add-document button and adds a manual link without SharePoint", () => {
+  it("adds a manual link (stamped with an added date) without SharePoint", () => {
     renderWithTasks([seededTask([])]);
-    // Add is now always available (no SharePoint required).
-    // Two affordances now carry the label (toolbar button + the empty-state
-    // clickable box); the toolbar is first in DOM order.
     const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
     fireEvent.click(addBtn);
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "task:7" } });
+    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }), { target: { value: "task:7" } });
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualName")), { target: { value: "Plan" } });
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualUrl")), {
       target: { value: "https://example.com/plan.pdf" },
     });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "documentsManualAdd") }));
     expect(screen.getByText(/Plan/)).toBeInTheDocument();
+    // Stamped addedAt renders an "Added …" line on the new card.
+    expect(screen.getByText(new RegExp(t("en-US", "documentsAdded", ".*")))).toBeInTheDocument();
   });
 });

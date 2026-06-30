@@ -8,12 +8,14 @@ import {
 } from "./report-table";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
 import { PanelViewsControl } from "./panel-views-control";
+import { ColumnConfigPopover } from "./column-config-popover";
 import type { PanelFiltersState } from "./panel-views";
 
 const MILESTONE_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
   filters: { status: "all" },
   sort: { key: "date", dir: "asc" },
+  hiddenCols: [],
 };
 import { MilestoneEditModal } from "./milestone-edit-modal";
 import { useWorkspace } from "./workspace-context";
@@ -42,6 +44,13 @@ import type { Milestone } from "./types";
 
 const MILESTONE_COL_WIDTHS = { name: 220, date: 130, status: 140, achieved: 130 } as const;
 type MilestoneCol = keyof typeof MILESTONE_COL_WIDTHS;
+
+const MILESTONE_CONFIG_COLS = [
+  { key: "name", labelKey: "milestonesColName" },
+  { key: "date", labelKey: "milestonesColDate" },
+  { key: "status", labelKey: "milestonesColStatus" },
+  { key: "achieved", labelKey: "milestonesColAchieved" },
+] as const;
 
 const STATUS_KEY: Record<
   MilestoneStatus,
@@ -104,6 +113,7 @@ function MilestonesPanelBody({
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
   const pf = usePanelFilters();
+  const hiddenSet = new Set(pf.hiddenCols ?? []);
 
   const sort = (pf.sort ?? MILESTONE_FILTER_DEFAULTS.sort) as { key: "name" | "date"; dir: SortDir };
   const setSort = (next: { key: "name" | "date"; dir: SortDir }) =>
@@ -288,6 +298,7 @@ function MilestonesPanelBody({
             <option value="achieved">{t(lang, "milestonesFilterAchieved")}</option>
             <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
           </select>
+          <ColumnConfigPopover lang={lang} cols={MILESTONE_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
           <PanelViewsControl lang={lang} view="milestones" />
           <PrintButton lang={lang} />
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
@@ -339,43 +350,51 @@ function MilestonesPanelBody({
                   className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
               </th>
-              <th
-                className="relative py-1"
-                style={{ width: colWidths.name, minWidth: colWidths.name }}
-              >
-                <SortHeaderButton
-                  label={t(lang, "milestonesColName")}
-                  active={sort.key === "name"}
-                  dir={sort.dir}
-                  onClick={() => click("name")}
-                />
-                <ColumnResizeHandle col="name" onMouseDown={startResize} />
-              </th>
-              <th
-                className="relative"
-                style={{ width: colWidths.date, minWidth: colWidths.date }}
-              >
-                <SortHeaderButton
-                  label={t(lang, "milestonesColDate")}
-                  active={sort.key === "date"}
-                  dir={sort.dir}
-                  onClick={() => click("date")}
-                />
-                <ColumnResizeHandle col="date" onMouseDown={startResize} />
-              </th>
-              <th
-                className="relative"
-                style={{ width: colWidths.status, minWidth: colWidths.status }}
-              >
-                {t(lang, "milestonesColStatus")}
-                <ColumnResizeHandle col="status" onMouseDown={startResize} />
-              </th>
-              <th
-                className="relative"
-                style={{ width: colWidths.achieved, minWidth: colWidths.achieved }}
-              >
-                <ColumnResizeHandle col="achieved" onMouseDown={startResize} />
-              </th>
+              {!hiddenSet.has("name") && (
+                <th
+                  className="relative py-1"
+                  style={{ width: colWidths.name, minWidth: colWidths.name }}
+                >
+                  <SortHeaderButton
+                    label={t(lang, "milestonesColName")}
+                    active={sort.key === "name"}
+                    dir={sort.dir}
+                    onClick={() => click("name")}
+                  />
+                  <ColumnResizeHandle col="name" onMouseDown={startResize} />
+                </th>
+              )}
+              {!hiddenSet.has("date") && (
+                <th
+                  className="relative"
+                  style={{ width: colWidths.date, minWidth: colWidths.date }}
+                >
+                  <SortHeaderButton
+                    label={t(lang, "milestonesColDate")}
+                    active={sort.key === "date"}
+                    dir={sort.dir}
+                    onClick={() => click("date")}
+                  />
+                  <ColumnResizeHandle col="date" onMouseDown={startResize} />
+                </th>
+              )}
+              {!hiddenSet.has("status") && (
+                <th
+                  className="relative"
+                  style={{ width: colWidths.status, minWidth: colWidths.status }}
+                >
+                  {t(lang, "milestonesColStatus")}
+                  <ColumnResizeHandle col="status" onMouseDown={startResize} />
+                </th>
+              )}
+              {!hiddenSet.has("achieved") && (
+                <th
+                  className="relative"
+                  style={{ width: colWidths.achieved, minWidth: colWidths.achieved }}
+                >
+                  <ColumnResizeHandle col="achieved" onMouseDown={startResize} />
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -396,34 +415,40 @@ function MilestonesPanelBody({
                       className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                     />
                   </td>
-                  <td className="py-1" style={{ width: colWidths.name }}>
-                    <button
-                      type="button"
-                      title={m.name}
-                      className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green ${INTERACTIVE}`}
-                      onClick={() => {
-                        setIsNew(false);
-                        setEditing(m);
-                      }}
-                    >
-                      {m.name}
-                    </button>
-                  </td>
-                  <td>{m.date}</td>
-                  <td>
-                    {s === "achieved" ? "✓ " : s === "at-risk" ? "⚠ " : ""}
-                    {t(lang, STATUS_KEY[s])}
-                  </td>
-                  <td>
-                    <label className="flex items-center gap-1 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={!!m.achievedDate}
-                        onChange={() => toggleAchieved(m)}
-                      />
-                      {t(lang, "milestonesMarkAchieved")}
-                    </label>
-                  </td>
+                  {!hiddenSet.has("name") && (
+                    <td className="py-1" style={{ width: colWidths.name }}>
+                      <button
+                        type="button"
+                        title={m.name}
+                        className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green ${INTERACTIVE}`}
+                        onClick={() => {
+                          setIsNew(false);
+                          setEditing(m);
+                        }}
+                      >
+                        {m.name}
+                      </button>
+                    </td>
+                  )}
+                  {!hiddenSet.has("date") && <td>{m.date}</td>}
+                  {!hiddenSet.has("status") && (
+                    <td>
+                      {s === "achieved" ? "✓ " : s === "at-risk" ? "⚠ " : ""}
+                      {t(lang, STATUS_KEY[s])}
+                    </td>
+                  )}
+                  {!hiddenSet.has("achieved") && (
+                    <td>
+                      <label className="flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={!!m.achievedDate}
+                          onChange={() => toggleAchieved(m)}
+                        />
+                        {t(lang, "milestonesMarkAchieved")}
+                      </label>
+                    </td>
+                  )}
                 </tr>
               );
             })}

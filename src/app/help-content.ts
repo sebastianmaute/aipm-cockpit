@@ -43,6 +43,7 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "concept-task-status", group: "concepts", titleKey: "helpConceptTaskStatusTitle", bodyKey: "helpConceptTaskStatusBody", relatedViews: ["open-points"], relatedConcepts: ["concept-milestone"] },
   { id: "concept-baseline", group: "concepts", titleKey: "helpConceptBaselineTitle", bodyKey: "helpConceptBaselineBody", relatedViews: ["trends"], relatedConcepts: ["concept-milestone", "concept-budget"] },
   { id: "concept-dependency", group: "concepts", titleKey: "helpConceptDependencyTitle", bodyKey: "helpConceptDependencyBody", relatedViews: ["gantt", "open-points"], relatedConcepts: ["concept-milestone"] },
+  { id: "concept-document", group: "concepts", titleKey: "helpConceptDocumentTitle", bodyKey: "helpConceptDocumentBody", relatedViews: ["documents"], relatedConcepts: ["concept-stakeholder"] },
 
   // ── Workflows (numbered guides) ──
   { id: "workflow-end-to-end", group: "workflows", titleKey: "helpWorkflowEndToEndTitle", bodyKey: "helpWorkflowEndToEndBody", relatedViews: ["dashboard", "open-points", "milestones"], relatedConcepts: ["concept-milestone", "concept-task-status"] },

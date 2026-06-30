@@ -28,13 +28,12 @@ import { Sparkline } from "./sparkline";
 import { bucketMilestonesByHorizon } from "./milestones";
 import { MilestoneHorizonStrip } from "./milestone-horizon-strip";
 import { computeCoaching, type SettingsSectionId } from "./dashboard-coaching";
-import { INTERACTIVE, TRANSITION, FOCUS_RING } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { EmptyState } from "./empty-state";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { DashboardTipCard } from "./dashboard-tip-card";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
-import { navLabelKey, type AppView } from "./nav-config";
-import { activityViewOf } from "./dashboard-activity-nav";
+import { type AppView } from "./nav-config";
 import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
 import { DashboardHero } from "./dashboard-sections/dashboard-hero";
 
@@ -469,41 +468,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* Tier 3 — folded status-summary editor */}
         <NarrativeEditor lang={lang} status={status} setStatus={setStatus} />
-
-        {/* Tier 3 — Recent activity (folded; Top actions lives at the top) */}
-        <details className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
-          <summary className={`cursor-pointer text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey ${TRANSITION} ${FOCUS_RING}`}>
-            {t(lang, "dashboardRecentActivity")}
-          </summary>
-          <div className="mt-2">
-            {model.recentActivity.length === 0 ? (
-              <EmptyState compact title={t(lang, "dashboardEmpty")} />
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {model.recentActivity.map((e) => {
-                  const view = activityViewOf(e.kind);
-                  const label = `${e.timestamp.slice(0, 10)} · ${e.kind}`;
-                  return (
-                    <li key={e.id}>
-                      {view && props.onNavigate ? (
-                        <button
-                          type="button"
-                          aria-label={`${label} – ${t(lang, "dashboardActivityOpenView", t(lang, navLabelKey(view)))}`}
-                          onClick={() => props.onNavigate!(view)}
-                          className={`w-full rounded-md border border-transparent px-1 py-0.5 text-left text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
-                        >
-                          {label}
-                        </button>
-                      ) : (
-                        <span className="text-muted-foreground">{label}</span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </details>
       </div>
     </ReportCard>
   );

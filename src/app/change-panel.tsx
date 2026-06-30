@@ -15,8 +15,10 @@ const CHANGE_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
   filters: { type: "All", status: "All" },
   sort: null,
+  hiddenCols: [],
 };
 import { ChangeEditModal } from "./change-edit-modal";
+import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 import { ViewCallout } from "./view-callout";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
@@ -62,6 +64,18 @@ const CHANGE_COL_WIDTHS = {
   raisedDate: 110,
 } as const;
 type ChangeCol = keyof typeof CHANGE_COL_WIDTHS;
+
+// Toggleable columns (the row-select checkbox is always on). Drives the
+// ColumnConfigPopover checklist + the empty-state colSpan.
+const CHANGE_CONFIG_COLS = [
+  { key: "id", labelKey: "id" },
+  { key: "type", labelKey: "changeFieldType" },
+  { key: "title", labelKey: "changeFieldTitle" },
+  { key: "impact", labelKey: "changeFieldImpact" },
+  { key: "status", labelKey: "changeFieldStatus" },
+  { key: "requestedBy", labelKey: "changeFieldRequestedBy" },
+  { key: "raisedDate", labelKey: "changeFieldRaisedDate" },
+] as const satisfies readonly ColumnConfigCol[];
 
 // Mirrors `requestedBy`'s sanitize cap (BUDGET_NAME_MAX in sanitize-entities).
 const REQUESTED_BY_MAX = 200;
@@ -154,6 +168,7 @@ function ChangePanelBody({
   onLearnMore,
 }: ChangePanelProps) {
   const pf = usePanelFilters();
+  const hiddenSet = new Set(pf.hiddenCols ?? []);
   const { search, sort } = pf;
   const typeFilter = pf.filters.type;
   const statusFilter = pf.filters.status;
@@ -357,6 +372,7 @@ function ChangePanelBody({
           </option>
         ))}
       </select>
+      <ColumnConfigPopover lang={lang} cols={CHANGE_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
       <PanelViewsControl lang={lang} view="changes" />
       <PrintButton lang={lang} />
       {filtersActive && (
@@ -422,24 +438,31 @@ function ChangePanelBody({
                   className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
               </th>
+              {!hiddenSet.has("id") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={ariaSort("id")}>
                 <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   #{sortArrow("id")}
                 </button>
                 <ColumnResizeHandle col="id" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("type") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.type, minWidth: colWidths.type }} aria-sort={ariaSort("type")}>
                 <button type="button" onClick={() => toggleSort("type")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldType")}{sortArrow("type")}
                 </button>
                 <ColumnResizeHandle col="type" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("title") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.title, minWidth: colWidths.title }} aria-sort={ariaSort("title")}>
                 <button type="button" onClick={() => toggleSort("title")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldTitle")}{sortArrow("title")}
                 </button>
                 <ColumnResizeHandle col="title" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("impact") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.impact, minWidth: colWidths.impact }} aria-sort={ariaSort("impact")}>
                 <button type="button" onClick={() => toggleSort("impact")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldImpact")}{sortArrow("impact")}
@@ -447,30 +470,37 @@ function ChangePanelBody({
                 <InfoTooltip text={t(lang, "changeFieldImpactHint")} />
                 <ColumnResizeHandle col="impact" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("status") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={ariaSort("status")}>
                 <button type="button" onClick={() => toggleSort("status")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldStatus")}{sortArrow("status")}
                 </button>
                 <ColumnResizeHandle col="status" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("requestedBy") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.requestedBy, minWidth: colWidths.requestedBy }} aria-sort={ariaSort("requestedBy")}>
                 <button type="button" onClick={() => toggleSort("requestedBy")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldRequestedBy")}{sortArrow("requestedBy")}
                 </button>
                 <ColumnResizeHandle col="requestedBy" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("raisedDate") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.raisedDate, minWidth: colWidths.raisedDate }} aria-sort={ariaSort("raisedDate")}>
                 <button type="button" onClick={() => toggleSort("raisedDate")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldRaisedDate")}{sortArrow("raisedDate")}
                 </button>
                 <ColumnResizeHandle col="raisedDate" onMouseDown={startResize} />
               </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {visible.length === 0 && (
               <tr>
-                <td colSpan={8} className="p-10 text-center text-sm text-muted-foreground">
+                <td colSpan={1 + CHANGE_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "changeNoMatches")}
                 </td>
               </tr>
@@ -495,15 +525,22 @@ function ChangePanelBody({
                       className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                     />
                   </td>
+                  {!hiddenSet.has("id") && (
                   <td className="px-3 py-2 font-mono text-muted-foreground">
                     #{item.id}
                   </td>
+                  )}
+                  {!hiddenSet.has("type") && (
                   <td className="px-3 py-2 text-foreground">
                     {typeLabel(item.type, lang)}
                   </td>
+                  )}
+                  {!hiddenSet.has("title") && (
                   <td className="px-3 py-2 font-medium text-foreground">
                     {item.title}
                   </td>
+                  )}
+                  {!hiddenSet.has("impact") && (
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-1.5">
                       <span
@@ -513,15 +550,22 @@ function ChangePanelBody({
                       <span>{item.impact ? impactLabel(item.impact, lang) : "—"}</span>
                     </span>
                   </td>
+                  )}
+                  {!hiddenSet.has("status") && (
                   <td className="px-3 py-2 text-foreground">
                     {statusLabel(item.status, lang)}
                   </td>
+                  )}
+                  {!hiddenSet.has("requestedBy") && (
                   <td className="px-3 py-2 text-foreground">
                     {item.requestedBy ?? ""}
                   </td>
+                  )}
+                  {!hiddenSet.has("raisedDate") && (
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                     {item.raisedDate}
                   </td>
+                  )}
                 </tr>
               );
             })}

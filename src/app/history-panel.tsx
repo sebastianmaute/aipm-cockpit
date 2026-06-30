@@ -210,7 +210,12 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
                 </span>
                 <span className="text-foreground">{v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
-                {v.summary && <span className="text-xs text-muted-foreground">{v.summary}</span>}
+                {v.summary && (
+                  <>
+                    <span className="text-xs text-muted-foreground" aria-hidden="true">|</span>
+                    <span className="text-xs text-muted-foreground">{v.summary}</span>
+                  </>
+                )}
               </span>
               <span className="flex items-center gap-2">
                 <button

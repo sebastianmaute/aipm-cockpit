@@ -72,3 +72,21 @@ describe("panel-views store", () => {
     expect(loadPanelViews()).toEqual(list);
   });
 });
+
+describe("panel-views hiddenCols", () => {
+  it("round-trips hiddenCols through save/load", () => {
+    const v: PanelView = { id: 1, name: "V", view: "stakeholders", state: { search: "", filters: {}, sort: null, hiddenCols: ["email", "title"] } };
+    savePanelViews([v]);
+    expect(loadPanelViews()[0].state.hiddenCols).toEqual(["email", "title"]);
+  });
+  it("accepts a legacy view with no hiddenCols (stays valid)", () => {
+    localStorage.setItem("lop-app:panel-views", JSON.stringify([{ id: 2, name: "Old", view: "raid", state: { search: "", filters: {}, sort: null } }]));
+    const loaded = loadPanelViews();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].state.hiddenCols).toBeUndefined();
+  });
+  it("rejects a view whose hiddenCols is not a string array", () => {
+    localStorage.setItem("lop-app:panel-views", JSON.stringify([{ id: 3, name: "Bad", view: "raid", state: { search: "", filters: {}, sort: null, hiddenCols: [1, 2] } }]));
+    expect(loadPanelViews()).toHaveLength(0);
+  });
+});

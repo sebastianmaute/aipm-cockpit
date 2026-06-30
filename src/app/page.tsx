@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import TaskManager from "./task-manager";
 import { ErrorBoundary } from "./error-boundary";
-import { RecoveryBanner } from "./recovery-banner";
+import { RecoveryBannerClient } from "./recovery-banner-client";
 
 export default async function Home() {
   // Opt into dynamic rendering so the per-request CSP nonce in `src/proxy.ts`
@@ -12,7 +12,7 @@ export default async function Home() {
   // main landmark (a WCAG "no duplicate main" violation).
   return (
     <div className="flex flex-1 flex-col bg-surface-muted dark:bg-black">
-      <RecoveryBanner />
+      <RecoveryBannerClient />
       <ErrorBoundary>
         <TaskManager />
       </ErrorBoundary>

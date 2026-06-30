@@ -4,19 +4,17 @@ import { t } from "./i18n";
 import { useSettings } from "./use-settings";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import { collectDocuments, type DocRef, type DocSource } from "./documents";
+import { collectDocuments, type DocRef, type DocSource, type DocSourceKind } from "./documents";
 import { isSafeHttpUrl, type DocumentLink } from "./document-link";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
-import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
-import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
-
-const DOCS_COL_WIDTHS = { document: 360, source: 240 } as const;
-type DocCol = keyof typeof DOCS_COL_WIDTHS;
+import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./document-meta";
+import { formatExpiryDate } from "./date-format";
+import { ViewCallout } from "./view-callout";
 
 const SOURCE_LABEL = {
   task: "documentsSourceTask",
@@ -27,22 +25,43 @@ const SOURCE_LABEL = {
   project: "documentsSourceProject",
 } as const;
 
+const DOC_TYPE_LABEL = {
+  Pdf: "documentsTypePdf",
+  Word: "documentsTypeWord",
+  Excel: "documentsTypeExcel",
+  Ppt: "documentsTypePpt",
+  Image: "documentsTypeImage",
+  Folder: "documentsTypeFolder",
+  Link: "documentsTypeLink",
+  File: "documentsTypeFile",
+} as const satisfies Record<DocTypeKey, string>;
+
+const SORT_LABEL = {
+  name: "documentsSortName",
+  added: "documentsSortAdded",
+  source: "documentsSortSource",
+  type: "documentsSortType",
+} as const satisfies Record<DocSort, string>;
+
+const SORT_OPTIONS: DocSort[] = ["added", "name", "source", "type"];
+const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "change", "stakeholder"];
+
 export function DocumentsPanel() {
   const { settings } = useSettings();
   const lang = settings.language;
-  // `-full` suffix: the view changed from a centered half-width pane to full
-  // width — use a fresh key so a stale half-width size doesn't override `w-full`.
   const { ref, reset } = useResizable("lop-app:documents-size-full");
-  const { colWidths, startColResize, resetColWidths } = useColumnResize<DocCol>("documents", DOCS_COL_WIDTHS);
-  const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
   const canAddDocument = isSharePointEnabled(settings.integrations);
   const ws = useWorkspace();
-  const { requestOpen } = useWorkspaceTab();
+  const { requestOpen, isPopout, requestHelpConcept } = useWorkspaceTab();
   const { tasks, raid, changes, milestones, stakeholders, project } = ws;
   const docs = useMemo(
     () => collectDocuments({ tasks, raid, changes, milestones, stakeholders, project }),
     [tasks, raid, changes, milestones, stakeholders, project],
   );
+
+  const [sourceFilter, setSourceFilter] = useState<DocSourceKind | "all">("all");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<DocSort>("added");
 
   function linksOf(s: DocSource): DocumentLink[] {
     if (s.kind === "project") return [...(project?.documentLinks ?? [])];
@@ -71,10 +90,10 @@ export function DocumentsPanel() {
     else if (s.kind === "stakeholder") ws.setStakeholders((p) => patch(p));
     else ws.setProject((p) => (p ? { ...p, documentLinks: next } : p));
   }
-  function remove(ref: DocRef) {
+  function remove(r: DocRef) {
     setDocsForSource(
-      ref.source,
-      linksOf(ref.source).filter((_, i) => i !== ref.index),
+      r.source,
+      linksOf(r.source).filter((_, i) => i !== r.index),
     );
   }
 
@@ -103,40 +122,45 @@ export function DocumentsPanel() {
 
   function addManualLink(s: DocSource) {
     if (!manualValid) return;
-    // Manual entries have no Graph driveItem id — derive a stable id from the URL
-    // (also the dedupe key used across the documents surfaces).
     const url = manualUrl.trim();
-    const link: DocumentLink = { id: url, kind: "file", name: manualName.trim(), url };
+    const link: DocumentLink = { id: url, kind: "file", name: manualName.trim(), url, addedAt: new Date().toISOString() };
     if (linksOf(s).some((l) => l.url === link.url)) return;
     setDocsForSource(s, [...linksOf(s), link]);
     setManualName("");
     setManualUrl("");
   }
 
+  const counts = sourceCounts(docs);
+  const chipKinds = SOURCE_ORDER.filter((k) => counts[k] > 0);
+  const effFilter = effectiveSourceFilter(sourceFilter, counts);
+  const visible = sortDocs(
+    filterDocs(docs, effFilter, query),
+    sort,
+    (r) => t(lang, DOC_TYPE_LABEL[fileTypeOf(r.link).labelKey]),
+  );
+
   return (
     <div ref={ref} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      {requestHelpConcept && (
+        <ViewCallout
+          view="documents"
+          lang={lang}
+          showHints={settings.showViewHints !== false}
+          isPopout={!!isPopout}
+          onLearnMore={requestHelpConcept}
+        />
+      )}
       <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">{t(lang, "documentsTitle")}</h2>
-        <div className="flex items-center gap-2 print:hidden">
-          <button
-            type="button"
-            onClick={() => setAddOpen((o) => !o)}
-            aria-expanded={addOpen}
-            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
-          >
-            + {t(lang, "documentsTabAdd")}
-          </button>
-          <PrintButton lang={lang} />
-          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-          <ResetSizeButton onClick={reset} lang={lang} />
-        </div>
       </div>
+
       {addOpen && (
         <div className="mb-3 shrink-0 rounded-md border border-line bg-surface-muted p-3 print:hidden">
           <label className="mb-2 block text-sm text-foreground">
             {t(lang, "documentsTarget")}
             <select
               value={targetKey}
+              aria-label={t(lang, "documentsTarget")}
               onChange={(e) => setTargetKey(e.target.value)}
               className={`ml-2 rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
             >
@@ -150,7 +174,6 @@ export function DocumentsPanel() {
           </label>
           {target && (
             <>
-              {/* Manual link entry — always available, no SharePoint required. */}
               <div className="mb-2 flex flex-wrap items-end gap-2">
                 <label className="flex flex-col gap-1 text-xs text-foreground">
                   <span>{t(lang, "documentsManualName")}</span>
@@ -169,7 +192,9 @@ export function DocumentsPanel() {
                     value={manualUrl}
                     aria-label={t(lang, "documentsManualUrl")}
                     onChange={(e) => setManualUrl(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") addManualLink(target); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") addManualLink(target);
+                    }}
                     className={`w-full min-w-[12rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
                   />
                 </label>
@@ -183,7 +208,6 @@ export function DocumentsPanel() {
                 </button>
               </div>
               <p className="mb-2 text-xs text-muted-foreground">{t(lang, "documentsManualHint")}</p>
-              {/* SharePoint picker (when M365 + SharePoint enabled). */}
               {canAddDocument && (
                 <DocumentLinksFieldGated
                   value={linksOf(target)}
@@ -195,8 +219,8 @@ export function DocumentsPanel() {
           )}
         </div>
       )}
+
       {docs.length === 0 ? (
-        // Empty → gantt-style clickable dashed box: opens the add-document panel.
         <button
           type="button"
           onClick={() => setAddOpen(true)}
@@ -206,63 +230,124 @@ export function DocumentsPanel() {
           <span className="font-medium">+ {t(lang, "documentsTabAdd")}…</span>
         </button>
       ) : (
-        <div className={INNER_TABLE_CLASS}>
-        <table className="w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
-            <tr>
-              <th className="relative px-3 py-2" style={{ width: colWidths.document, minWidth: colWidths.document }}>
-                {t(lang, "documentsColDocument")}
-                <ColumnResizeHandle col="document" onMouseDown={startResize} />
-              </th>
-              <th className="relative px-3 py-2" style={{ width: colWidths.source, minWidth: colWidths.source }}>
-                {t(lang, "documentsColSource")}
-                <ColumnResizeHandle col="source" onMouseDown={startResize} />
-              </th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {docs.map((ref, i) => (
-              <tr key={`${ref.source.kind}:${ref.source.id}:${ref.index}:${i}`} className="align-top">
-                <td className="px-3 py-2">
-                  {isSafeHttpUrl(ref.link.url) ? (
-                    <a
-                      href={ref.link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey"
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto pr-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
+            <button
+              type="button"
+              onClick={() => setAddOpen((o) => !o)}
+              aria-expanded={addOpen}
+              className={`shrink-0 rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+            >
+              + {t(lang, "documentsTabAdd")}
+            </button>
+            <div className="flex flex-wrap gap-1.5">
+              {(["all", ...chipKinds] as (DocSourceKind | "all")[]).map((k) => {
+                const active = effFilter === k;
+                const label = k === "all" ? t(lang, "documentsFilterAll") : t(lang, SOURCE_LABEL[k]);
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setSourceFilter(k)}
+                    className={`rounded-full border px-2.5 py-0.5 text-xs ${
+                      active
+                        ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white"
+                        : "border-line bg-surface-muted text-foreground"
+                    } ${INTERACTIVE}`}
+                  >
+                    {label} <span className="opacity-60">{counts[k]}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              type="search"
+              value={query}
+              aria-label={t(lang, "documentsSearchDocs")}
+              placeholder={t(lang, "documentsSearchDocs")}
+              onChange={(e) => setQuery(e.target.value)}
+              className={`min-w-[8rem] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            />
+            <label className="shrink-0 text-xs text-muted-foreground">
+              {t(lang, "documentsSortBy")}
+              <select
+                value={sort}
+                aria-label={t(lang, "documentsSortBy")}
+                onChange={(e) => setSort(e.target.value as DocSort)}
+                className={`ml-1 rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
+              >
+                {SORT_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {t(lang, SORT_LABEL[s])}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <PrintButton lang={lang} />
+            <ResetSizeButton onClick={reset} lang={lang} />
+          </div>
+
+          {visible.length === 0 ? (
+            <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t(lang, "documentsNoneForSource")}</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visible.map((r, i) => {
+                const ft = fileTypeOf(r.link);
+                const safe = isSafeHttpUrl(r.link.url);
+                const host = safe ? hostLabel(r.link.url) || t(lang, "documentsHostWeb") : "";
+                return (
+                  <div
+                    key={`${r.source.kind}:${r.source.id}:${r.index}:${i}`}
+                    className="relative flex flex-col gap-2 rounded-lg border border-line bg-surface p-3"
+                  >
+                    <button
+                      type="button"
+                      aria-label={`${t(lang, "documentsRemove")} – ${r.link.name}`}
+                      title={t(lang, "documentsRemove")}
+                      onClick={() => remove(r)}
+                      className={`absolute right-2 top-2 rounded-md px-1.5 text-xs text-muted-foreground hover:text-AIPM-pink-strong ${INTERACTIVE}`}
                     >
-                      {ref.link.kind === "folder" ? "📁 " : "📄 "}
-                      {ref.link.name} ↗
-                    </a>
-                  ) : (
-                    <span className="text-foreground">{ref.link.name}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  <button
-                    type="button"
-                    onClick={() => requestOpen(ref.source.view, ref.source.id)}
-                    className={`text-muted-foreground hover:text-AIPM-dark-blue hover:underline ${INTERACTIVE}`}
-                  >
-                    {t(lang, SOURCE_LABEL[ref.source.kind])}: {ref.source.name}
-                  </button>
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <button
-                    type="button"
-                    aria-label={`${t(lang, "documentsRemove")} – ${ref.link.name}`}
-                    title={t(lang, "documentsRemove")}
-                    onClick={() => remove(ref)}
-                    className={`rounded-md px-2 py-0.5 text-xs text-muted-foreground hover:text-AIPM-pink-strong ${INTERACTIVE}`}
-                  >
-                    ✕
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                      ✕
+                    </button>
+                    <div className="text-2xl" aria-hidden="true">
+                      {ft.icon}
+                    </div>
+                    <div className="pr-5">
+                      {safe ? (
+                        <a
+                          href={r.link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey"
+                        >
+                          {r.link.name} ↗
+                        </a>
+                      ) : (
+                        <span className="font-medium text-foreground">{r.link.name}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => requestOpen(r.source.view, r.source.id)}
+                      className={`self-start rounded-full bg-surface-muted px-2 py-0.5 text-xs text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                    >
+                      {t(lang, SOURCE_LABEL[r.source.kind])}: {r.source.name}
+                    </button>
+                    <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                      <span>{t(lang, DOC_TYPE_LABEL[ft.labelKey])}</span>
+                      {host && (
+                        <span className="rounded bg-AIPM-dark-blue px-1 text-[10px] uppercase text-white">{host}</span>
+                      )}
+                      {r.link.addedAt && (
+                        <span>· {t(lang, "documentsAdded", formatExpiryDate(r.link.addedAt.slice(0, 10), lang))}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

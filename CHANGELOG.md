@@ -8,6 +8,21 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.151.0] - 2026-06-30 "Swanwick"
+
+### Added
+- **Documents card grid**: the Documents view is now a responsive, filterable card grid. Each card shows the file's type (PDF/Word/Excel/image/folder/link), a host badge (SharePoint/Confluence/GitHub/…), and the date it was added; you can filter by source entity, search by name, and sort by name/added/source/type. New links capture an "added" date.
+- **Documents tip banner**: a contextual "Learn more" callout atop the Documents view, backed by a new Documents Help concept.
+- **Column show/hide saved in views**: RAID, Milestones, Changes, and Stakeholders panels gained a column-configuration popover to show/hide individual table columns; the choice is stored as part of a saved panel view.
+
+### Changed
+- **Dashboard**: removed the folded "Recent activity" disclosure from the landing cockpit.
+- **Documents toolbar**: the Add button, source filter chips, search box, sort control, and Print/Reset-size buttons now share a single toolbar line.
+
+### Fixed
+- **/recovery hydration**: the recovery page and the safe-mode home banner are now rendered client-only, fixing a server/client hydration mismatch.
+- **Version history**: automatic checkpoints no longer save a redundant version when nothing changed, and each version now shows how many records changed per entity (e.g. "RAID (3), Changes (1)") next to its timestamp.
+
 ## [0.150.0] - 2026-06-30 "Gibson"
 
 ### Changed

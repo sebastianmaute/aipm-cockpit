@@ -19,7 +19,8 @@ export function DocumentLinksField({ value, onChange, lang, acquireToken, onLog 
 
   function add(link: DocumentLink) {
     if (value.some((l) => l.url === link.url)) return;
-    onChange([...value, link]);
+    const stamped: DocumentLink = link.addedAt ? link : { ...link, addedAt: new Date().toISOString() };
+    onChange([...value, stamped]);
     onLog?.("added", link.name);
   }
 

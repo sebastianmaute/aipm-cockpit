@@ -7,6 +7,7 @@ interface PanelFiltersValue extends PanelFiltersState {
   setSearch: (s: string) => void;
   setFilter: (key: string, value: string) => void;
   setSort: (sort: PanelSort) => void;
+  toggleColumn: (key: string) => void;
   applyState: (state: PanelFiltersState) => void;
   resetFilters: () => void;
   reset: () => void;
@@ -29,6 +30,14 @@ export function PanelFiltersProvider({
     [],
   );
   const setSort = useCallback((sort: PanelSort) => setState((s) => ({ ...s, sort })), []);
+  const toggleColumn = useCallback(
+    (key: string) =>
+      setState((s) => {
+        const cur = s.hiddenCols ?? [];
+        return { ...s, hiddenCols: cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key] };
+      }),
+    [],
+  );
   const applyState = useCallback((next: PanelFiltersState) => setState(next), []);
   // Clear search + filters back to defaults but KEEP the active sort — the
   // per-panel "Clear filters" button never reset the user's sort column.
@@ -39,8 +48,8 @@ export function PanelFiltersProvider({
   const reset = useCallback(() => setState(defaults), [defaults]);
 
   const value = useMemo<PanelFiltersValue>(
-    () => ({ ...state, setSearch, setFilter, setSort, applyState, resetFilters, reset }),
-    [state, setSearch, setFilter, setSort, applyState, resetFilters, reset],
+    () => ({ ...state, setSearch, setFilter, setSort, toggleColumn, applyState, resetFilters, reset }),
+    [state, setSearch, setFilter, setSort, toggleColumn, applyState, resetFilters, reset],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

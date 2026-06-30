@@ -88,7 +88,44 @@ describe("useVersionHistory", () => {
     expect(append.mock.calls[0][1].summary).toBeNull(); // first capture: no previous
     payload = JSON.stringify({ tasks: [{ id: 1, title: "B" }], ...base });
     await act(async () => { await result.current.captureNow("v2"); });
-    expect(append.mock.calls[1][1].summary).toMatch(/1 Tasks/);
+    expect(append.mock.calls[1][1].summary).toMatch(/Tasks \(1\)/);
+  });
+
+  it("does NOT auto-capture after a reload when nothing changed (seeds baseline from the latest stored version)", async () => {
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    const payload = JSON.stringify({ tasks: [{ id: 1, title: "A" }], ...base });
+    // History already has a version with this exact content (the prior session).
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([
+      { id: "v1", projectId: "p1", capturedAt: "2026-01-01T00:00:00.000Z", trigger: "auto", label: null, summary: null },
+    ]);
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(payload);
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => payload })));
+    // Flush the mount refresh so the baseline seeds before the idle timer fires.
+    await act(async () => { for (let i = 0; i < 6; i += 1) await Promise.resolve(); });
+    act(() => { result.current.notifySaved(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(append).not.toHaveBeenCalled(); // unchanged since last stored version → no redundant capture
+  });
+
+  it("computes a summary for the FIRST capture of a session against the latest stored version", async () => {
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    const stored = JSON.stringify({ tasks: [{ id: 1, title: "A" }], ...base });
+    const current = JSON.stringify({ tasks: [{ id: 1, title: "B" }, { id: 2, title: "C" }], ...base });
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([
+      { id: "v1", projectId: "p1", capturedAt: "2026-01-01T00:00:00.000Z", trigger: "auto", label: null, summary: null },
+    ]);
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(stored);
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => current })));
+    await act(async () => { for (let i = 0; i < 6; i += 1) await Promise.resolve(); });
+    await act(async () => { await result.current.captureNow("v2"); });
+    expect(append).toHaveBeenCalledTimes(1);
+    expect(append.mock.calls[0][1].summary).toMatch(/Tasks \(2\)/); // 1 modified + 1 added, vs seeded baseline
   });
 
   it("is inert when disabled (off-Turso)", async () => {

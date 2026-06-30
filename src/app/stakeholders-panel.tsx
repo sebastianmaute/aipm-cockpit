@@ -14,6 +14,7 @@ import { compareStakeholder, nextStakeholderId, type StakeholderSortKey } from "
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
 import { PanelViewsControl } from "./panel-views-control";
+import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 import type { PanelFiltersState } from "./panel-views";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
@@ -36,7 +37,7 @@ import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, selectField, type BulkField } from "./bulk-edit-panel";
 
-const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null };
+const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null, hiddenCols: [] };
 
 // --- Column widths ----------------------------------------------------------
 
@@ -51,6 +52,18 @@ const STAKEHOLDER_COL_WIDTHS = {
   email: 180,
 } as const;
 type StakeholderCol = keyof typeof STAKEHOLDER_COL_WIDTHS;
+
+// Toggleable columns (the leading row-select checkbox column is always on).
+const STAKEHOLDER_CONFIG_COLS: readonly ColumnConfigCol[] = [
+  { key: "name", labelKey: "stakeholderFieldName" },
+  { key: "organization", labelKey: "stakeholderFieldOrganization" },
+  { key: "title", labelKey: "stakeholderFieldTitle" },
+  { key: "category", labelKey: "stakeholderFieldCategory" },
+  { key: "influence", labelKey: "stakeholderFieldInfluence" },
+  { key: "interest", labelKey: "stakeholderFieldInterest" },
+  { key: "resource", labelKey: "stakeholderFieldResource" },
+  { key: "email", labelKey: "stakeholderFieldEmail" },
+];
 
 // --- Props ------------------------------------------------------------------
 
@@ -120,6 +133,7 @@ function StakeholdersPanelBody({
 }: StakeholdersPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
+  const hiddenSet = new Set(pf.hiddenCols ?? []);
 
   const toggleSort = (key: StakeholderSortKey) =>
     pf.setSort(
@@ -278,6 +292,7 @@ function StakeholdersPanelBody({
           ×
         </button>
       )}
+      <ColumnConfigPopover lang={lang} cols={STAKEHOLDER_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
       <PanelViewsControl lang={lang} view="stakeholders" />
       <PrintButton lang={lang} />
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
@@ -333,6 +348,7 @@ function StakeholdersPanelBody({
                   className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
               </th>
+              {!hiddenSet.has("name") && (
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.name, minWidth: colWidths.name }}
@@ -347,6 +363,8 @@ function StakeholdersPanelBody({
                 </button>
                 <ColumnResizeHandle col="name" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("organization") && (
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.organization, minWidth: colWidths.organization }}
@@ -361,6 +379,8 @@ function StakeholdersPanelBody({
                 </button>
                 <ColumnResizeHandle col="organization" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("title") && (
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.title, minWidth: colWidths.title }}
@@ -370,6 +390,8 @@ function StakeholdersPanelBody({
                 </span>
                 <ColumnResizeHandle col="title" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("category") && (
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.category, minWidth: colWidths.category }}
@@ -384,6 +406,8 @@ function StakeholdersPanelBody({
                 </button>
                 <ColumnResizeHandle col="category" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("influence") && (
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.influence, minWidth: colWidths.influence }}
@@ -399,6 +423,8 @@ function StakeholdersPanelBody({
                 <InfoTooltip text={t(lang, "stakeholderFieldInfluenceHint")} />
                 <ColumnResizeHandle col="influence" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("interest") && (
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.interest, minWidth: colWidths.interest }}
@@ -414,6 +440,8 @@ function StakeholdersPanelBody({
                 <InfoTooltip text={t(lang, "stakeholderFieldInterestHint")} />
                 <ColumnResizeHandle col="interest" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("resource") && (
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.resource, minWidth: colWidths.resource }}
@@ -423,6 +451,8 @@ function StakeholdersPanelBody({
                 </span>
                 <ColumnResizeHandle col="resource" onMouseDown={startResize} />
               </th>
+              )}
+              {!hiddenSet.has("email") && (
               <th
                 className="relative px-3 py-2"
                 style={{ width: colWidths.email, minWidth: colWidths.email }}
@@ -432,12 +462,13 @@ function StakeholdersPanelBody({
                 </span>
                 <ColumnResizeHandle col="email" onMouseDown={startResize} />
               </th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {visible.length === 0 && (
               <tr>
-                <td colSpan={9} className="p-10 text-center text-sm text-muted-foreground">
+                <td colSpan={1 + STAKEHOLDER_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length} className="p-10 text-center text-sm text-muted-foreground">
                   {t(lang, "stakeholdersNoResults")}
                 </td>
               </tr>
@@ -462,6 +493,7 @@ function StakeholdersPanelBody({
                       className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                     />
                   </td>
+                  {!hiddenSet.has("name") && (
                   <td className="px-3 py-2">
                     <button
                       type="button"
@@ -472,30 +504,39 @@ function StakeholdersPanelBody({
                       {item.name}
                     </button>
                   </td>
-                  <td className="px-3 py-2 text-foreground">{item.organization ?? ""}</td>
-                  <td className="px-3 py-2 text-foreground">{item.title ?? ""}</td>
+                  )}
+                  {!hiddenSet.has("organization") && <td className="px-3 py-2 text-foreground">{item.organization ?? ""}</td>}
+                  {!hiddenSet.has("title") && <td className="px-3 py-2 text-foreground">{item.title ?? ""}</td>}
+                  {!hiddenSet.has("category") && (
                   <td className="px-3 py-2">
                     <Chip
                       label={t(lang, CATEGORY_KEY[item.category])}
                       className="bg-surface-muted text-foreground"
                     />
                   </td>
+                  )}
+                  {!hiddenSet.has("influence") && (
                   <td className="px-3 py-2">
                     <Chip
                       label={t(lang, LEVEL_KEY[item.influence])}
                       className={LEVEL_CHIP[item.influence]}
                     />
                   </td>
+                  )}
+                  {!hiddenSet.has("interest") && (
                   <td className="px-3 py-2">
                     <Chip
                       label={t(lang, LEVEL_KEY[item.interest])}
                       className={LEVEL_CHIP[item.interest]}
                     />
                   </td>
+                  )}
+                  {!hiddenSet.has("resource") && (
                   <td className="px-3 py-2 text-foreground">
                     {linked ? resourceDisplayName(linked) : ""}
                   </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{item.email ?? ""}</td>
+                  )}
+                  {!hiddenSet.has("email") && <td className="px-3 py-2 text-xs text-muted-foreground">{item.email ?? ""}</td>}
                 </tr>
               );
             })}

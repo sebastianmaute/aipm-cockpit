@@ -339,6 +339,39 @@ describe("RaidPanel — document links", () => {
   });
 });
 
+describe("RAID column visibility", () => {
+  it("hides the Owner column (header + cell) when unticked in the column config popover", () => {
+    const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High", owner: "Priya Nadkarni" })];
+    const { container } = renderPanel(makeProps({ raid }));
+
+    // Owner value visible initially.
+    expect(screen.getByText("Priya Nadkarni")).toBeInTheDocument();
+
+    // Open the column config popover and untick "Owner".
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
+    const dialog = screen.getByRole("dialog", { name: t("en-US", "colConfigTitle") });
+    fireEvent.click(within(dialog).getByLabelText(t("en-US", "raidOwner")));
+
+    // Owner cell gone; the table still renders the remaining columns.
+    expect(screen.queryByText("Priya Nadkarni")).not.toBeInTheDocument();
+    expect(rowIds(container)).toEqual(["#1"]);
+  });
+
+  it("the inline add-row spans the full table width (select + all visible columns)", () => {
+    const raid = [makeRaidItem({ id: 1, title: "Vendor risk" })];
+    const { container } = renderPanel(makeProps({ raid }));
+    const headerCount = container.querySelectorAll("thead th").length; // select + visible data cols
+    // RAID renders several "Add item" buttons (toolbar + the in-table add row);
+    // pick the one that lives inside a <td> (the inline add row).
+    const addTd = screen
+      .getAllByRole("button", { name: t("en-US", "raidAddItem") })
+      .map((b) => b.closest("td"))
+      .find((td) => td !== null);
+    expect(addTd).toBeTruthy();
+    expect(addTd!.colSpan).toBe(headerCount);
+  });
+});
+
 describe("RAID bulk edit", () => {
   it("applies a bulk severity change to the selected row via onSave", () => {
     const onSave = vi.fn();

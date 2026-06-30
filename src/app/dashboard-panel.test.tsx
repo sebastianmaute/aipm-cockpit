@@ -8,7 +8,7 @@ import { DashboardPanel } from "./dashboard-panel";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { healthText } from "./health";
 import { t } from "./i18n";
-import { loadActivityLog, type ActivityEntry } from "./activity-log";
+import { loadActivityLog } from "./activity-log";
 import type { RaidItem, Milestone, ChangeItem } from "./types";
 
 vi.mock("./activity-log", async (orig) => ({
@@ -700,29 +700,6 @@ describe("DashboardPanel click-through parity (slice #9)", () => {
     expect(onOpenChange).toHaveBeenCalledWith(7);
   });
 
-  it("navigates by activity kind: a task.created row links to open-points", () => {
-    vi.mocked(loadActivityLog).mockReturnValue([
-      { id: 1, timestamp: "2026-06-20T10:00:00.000Z", kind: "task.created", args: [] },
-    ] as ActivityEntry[]);
-    const onNavigate = vi.fn();
-    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
-    // Accessible name PREFIXES the visible "date · kind" with the open-view
-    // hint → "2026-06-20 · task.created – Open Open Points" (unique + informative).
-    const row = screen.getByRole("button", { name: /task\.created.*Open Points/ });
-    fireEvent.click(row);
-    expect(onNavigate).toHaveBeenCalledWith("open-points");
-  });
-
-  it("renders a static (non-button) row for a non-deep-linkable activity kind", () => {
-    vi.mocked(loadActivityLog).mockReturnValue([
-      { id: 2, timestamp: "2026-06-20T11:00:00.000Z", kind: "settings.updated", args: [] },
-    ] as ActivityEntry[]);
-    const onNavigate = vi.fn();
-    render(<DashboardPanel {...fullProps} onNavigate={onNavigate} />, { wrapper });
-    // settings.updated has no deep-link destination → its row stays a span.
-    expect(screen.getByText(/2026-06-20 · settings\.updated/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /settings\.updated/ })).toBeNull();
-  });
 });
 
 describe("DashboardPanel masonry cockpit", () => {
@@ -759,12 +736,6 @@ describe("DashboardPanel masonry cockpit", () => {
 });
 
 describe("DashboardPanel Tier-3 folds", () => {
-  it("folds Recent activity into a details disclosure", () => {
-    render(<DashboardPanel {...fullProps} />, { wrapper });
-    const heading = screen.getByText(t("en-US", "dashboardRecentActivity"));
-    expect(heading.closest("details")).not.toBeNull();
-  });
-
   it("renders the narrative editor (Status summary) AFTER the bento Progress card", () => {
     render(<DashboardPanel {...fullProps} />, { wrapper });
     const progress = screen.getByText("Progress");
