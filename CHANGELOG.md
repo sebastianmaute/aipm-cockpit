@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.153.0] - 2026-06-30 "Gibson"
+
+### Added
+- **Custom color schemes**: Settings → Appearance gained a third "Custom" visual style alongside Acme and Dashboard. A scheme is your own palette (brand primary, accent, background, surface, text and the RAG status colours, plus an Advanced disclosure for the remaining role tokens) bundled with the app name and footer slogan. Build, name, save, rename, delete, and import/export schemes as JSON; the AA-safe text variants are derived automatically and a live WCAG contrast panel warns (non-blocking) about low-contrast pairs. Custom is light-only (it pins light like the Dashboard style) and applies pre-paint with no flash on reload. Schemes are per-device (never exported with project data) and imported colours are validated to hex.
+
+### Fixed
+- **Scheme coherence**: selecting, saving, importing, or deleting a scheme now keeps the active scheme exactly in sync with what is rendered (previously these could diverge — e.g. selecting a saved scheme didn't recolour, or a deleted scheme's colours lingered). Applied edits persist to the active scheme so they survive a reload.
+- **Branding ownership**: under Custom the scheme owns the app name and footer slogan (the duplicate global inputs are hidden), so switching schemes no longer leaves a previous scheme's slogan behind, and applying a colour-only scheme never wipes a globally-set logo.
+
 ## [0.152.0] - 2026-06-30 "Tidhar"
 
 ### Changed
