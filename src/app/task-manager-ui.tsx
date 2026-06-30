@@ -176,7 +176,12 @@ function PrinterIcon() {
   );
 }
 
-/** Drag handle on the right edge of a <th>. Host th MUST be `relative`. */
+/** Drag handle on the right edge of a <th>. Host th MUST be `relative`.
+ *  Always-visible ⋮ grip so the resize anchor is discoverable at rest; it
+ *  brightens to the table-head accent on hover and during the drag. (CSS
+ *  `:active` holds from mousedown to mouseup even after the pointer leaves
+ *  the element, so the drag-time accent needs no React state.) Decorative —
+ *  resize is a mouse enhancement; columns stay usable and ResetColWidths exists. */
 export function ColumnResizeHandle({
   col,
   onMouseDown,
@@ -188,8 +193,14 @@ export function ColumnResizeHandle({
     <div
       aria-hidden="true"
       onMouseDown={(e) => onMouseDown(col, e)}
-      className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none hover:bg-white/30 print:hidden"
-    />
+      className="absolute right-0 top-0 flex h-full w-1.5 cursor-col-resize select-none items-center justify-center text-table-head-fg/40 transition-colors hover:bg-table-head-accent/10 hover:text-table-head-accent active:text-table-head-accent print:hidden"
+    >
+      <svg viewBox="0 0 2 12" width="2" height="12" fill="currentColor" aria-hidden="true">
+        <circle cx="1" cy="2" r="1" />
+        <circle cx="1" cy="6" r="1" />
+        <circle cx="1" cy="10" r="1" />
+      </svg>
+    </div>
   );
 }
 
