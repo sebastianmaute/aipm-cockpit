@@ -11,6 +11,8 @@ import { InfoTooltip } from "../info-tooltip";
 import { useCiStyle } from "../use-style";
 import type { CiStyle } from "../style-ci";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "../interaction-styles";
+import { ColorSchemeEditor } from "../color-scheme-editor";
+import { applySchemeColors, writeActiveSchemeColors } from "../scheme-apply";
 
 const BRANDING_LOGO_MAX_BYTES = 512 * 1024;
 const BRANDING_LOGO_FILE_RE = /^data:image\/(png|jpeg|webp|gif);base64,/i;
@@ -26,7 +28,6 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   const { style, setStyle } = useCiStyle();
   const isMockup = style === "mockup";
   const isCustom = style === "custom";
-  void isCustom; // used by the scheme editor mount in a later task
   const pinsLight = isMockup || isCustom;
 
   const branding = settings.branding;
@@ -95,6 +96,16 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           onChange={setStyle}
         />
       </div>
+
+      {isCustom && (
+        <div className="mb-4">
+          <ColorSchemeEditor
+            lang={lang}
+            onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
+            onApplyBranding={(b) => setBranding({ ...branding, ...b })}
+          />
+        </div>
+      )}
 
       <div className="mb-4">
         <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
