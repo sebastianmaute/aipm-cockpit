@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ColorSchemeEditor } from "./color-scheme-editor";
+import { addScheme, loadSchemes } from "./color-schemes";
 
 describe("ColorSchemeEditor", () => {
   beforeEach(() => localStorage.clear());
@@ -33,5 +34,49 @@ describe("ColorSchemeEditor", () => {
     fireEvent.change(screen.getByLabelText("Scheme name"), { target: { value: "Acme Blue" } });
     fireEvent.click(screen.getByRole("button", { name: /^new scheme$/i }));
     expect(screen.getByRole("option", { name: "Acme Blue" })).toBeInTheDocument();
+  });
+});
+
+// Coherence: the active library scheme must always == what is applied (rendered).
+describe("ColorSchemeEditor coherence", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("applies a scheme when it is selected from the dropdown", () => {
+    addScheme("Red", { "--AIPM-green": "#ff0000" }, {});
+    addScheme("Blue", { "--AIPM-green": "#0000ff" }, {}); // active = Blue (id 2)
+    const onApply = vi.fn();
+    render(<ColorSchemeEditor lang="en-US" onApply={onApply} />);
+    onApply.mockClear();
+    fireEvent.change(screen.getByLabelText("Saved schemes"), { target: { value: "1" } }); // Red
+    expect(onApply).toHaveBeenCalled();
+    expect(onApply.mock.calls.at(-1)![0]["--AIPM-green"]).toBe("#ff0000");
+  });
+
+  it("applies a newly saved scheme", () => {
+    const onApply = vi.fn();
+    render(<ColorSchemeEditor lang="en-US" onApply={onApply} />);
+    fireEvent.input(screen.getByLabelText("Accent"), { target: { value: "#123456" } });
+    fireEvent.change(screen.getByLabelText("Scheme name"), { target: { value: "Acme" } });
+    onApply.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /^new scheme$/i }));
+    expect(onApply).toHaveBeenCalled();
+    expect(onApply.mock.calls.at(-1)![0]["--AIPM-green"]).toBe("#123456");
+  });
+
+  it("clears the applied colors when the active scheme is deleted", () => {
+    addScheme("Red", { "--AIPM-green": "#ff0000" }, {});
+    const onClear = vi.fn();
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onClear={onClear} />);
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("persists applied edits to the active scheme (survives reload)", () => {
+    addScheme("Red", { "--AIPM-green": "#ff0000" }, {});
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
+    fireEvent.input(screen.getByLabelText("Accent"), { target: { value: "#00ff00" } });
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
+    const red = loadSchemes().schemes.find((s) => s.name === "Red");
+    expect(red!.colors["--AIPM-green"]).toBe("#00ff00");
   });
 });

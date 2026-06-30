@@ -103,6 +103,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
             lang={lang}
             onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
             onApplyBranding={(b) => setBranding({ ...branding, ...b })}
+            onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
           />
         </div>
       )}

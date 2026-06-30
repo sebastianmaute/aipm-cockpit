@@ -5,7 +5,7 @@ import { type Lang, t, type TranslationKey } from "./i18n";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, MOCKUP_SEED, resolveSchemeColors } from "./scheme-tokens";
 import { checkSchemePairs } from "./scheme-contrast";
-import type { SchemeColorMap } from "./scheme-apply";
+import { readActiveSchemeColors, type SchemeColorMap } from "./scheme-apply";
 import {
   loadSchemes, addScheme, updateScheme, removeScheme, setActive,
   exportScheme, importScheme, type SchemeStore,
@@ -16,17 +16,29 @@ interface ColorSchemeEditorProps {
   lang: Lang;
   onApply: (resolved: SchemeColorMap) => void;
   onApplyBranding?: (b: BrandingConfig) => void;
+  /** Drop the applied colors entirely (e.g. when the active scheme is deleted). */
+  onClear?: () => void;
 }
 
-export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchemeEditorProps) {
+export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onClear }: ColorSchemeEditorProps) {
   const [store, setStore] = useState<SchemeStore>(() => loadSchemes());
   const active = store.schemes.find((s) => s.id === store.activeId) ?? null;
   const [name, setName] = useState(active?.name ?? "");
-  const [colors, setColors] = useState<SchemeColorMap>({ ...ICC_SEED, ...active?.colors });
+  // Seed the draft from the active library scheme; if none, from the last-applied
+  // boot key (so an applied-but-unsaved scheme survives reload coherently).
+  const [colors, setColors] = useState<SchemeColorMap>(() => ({
+    ...ICC_SEED,
+    ...(active ? active.colors : readActiveSchemeColors() ?? {}),
+  }));
   const [branding, setBranding] = useState<BrandingConfig>(active?.branding ?? {});
   const [importError, setImportError] = useState<string | null>(null);
   const pairs = checkSchemePairs(colors);
 
+  // Single sync point: render the given colors + branding (active == applied).
+  function applyResolved(full: SchemeColorMap, b: BrandingConfig) {
+    onApply(resolveSchemeColors(full));
+    onApplyBranding?.(b);
+  }
   function seed(map: SchemeColorMap) {
     setColors({ ...ICC_SEED, ...map });
   }
@@ -34,22 +46,27 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
     const next = setActive(id);
     setStore(next);
     const s = next.schemes.find((x) => x.id === id);
+    const full = { ...ICC_SEED, ...s?.colors };
     setName(s?.name ?? "");
-    setColors({ ...ICC_SEED, ...s?.colors });
+    setColors(full);
     setBranding(s?.branding ?? {});
+    applyResolved(full, s?.branding ?? {}); // selecting a scheme applies it
   }
   function apply() {
-    onApply(resolveSchemeColors(colors));
-    onApplyBranding?.(branding);
+    applyResolved(colors, branding);
+    // Persist applied edits to the active scheme so they survive a reload.
+    if (active) setStore(updateScheme(active.id, { colors, branding }));
   }
   function saveNew() {
     const next = addScheme(name || t(lang, "schemeNamePlaceholder"), colors, branding);
     setStore(next);
     setName(next.schemes[next.schemes.length - 1].name);
+    applyResolved(colors, branding); // saving applies the new scheme
   }
   function rename() {
     if (!active) return;
     setStore(updateScheme(active.id, { name, colors, branding }));
+    applyResolved(colors, branding); // persist + re-apply edits
   }
   function del() {
     if (!active) return;
@@ -58,6 +75,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
     setName("");
     setColors({ ...ICC_SEED });
     setBranding({});
+    onClear?.(); // drop the applied colors (no active scheme remains selected)
   }
   function doExport() {
     if (!active) return;
@@ -81,7 +99,9 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding }: ColorSchem
       const next = addScheme(parsed.name, parsed.colors, parsed.branding);
       setStore(next);
       const s = next.schemes[next.schemes.length - 1];
-      setName(s.name); setColors({ ...ICC_SEED, ...s.colors }); setBranding(s.branding);
+      const full = { ...ICC_SEED, ...s.colors };
+      setName(s.name); setColors(full); setBranding(s.branding);
+      applyResolved(full, s.branding); // importing applies the imported scheme
     };
     reader.readAsText(file);
   }
