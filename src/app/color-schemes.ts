@@ -125,6 +125,20 @@ export function setActive(id: number | null): SchemeStore {
   return next;
 }
 
+/** Branding to write into settings when a custom scheme is applied (Option A:
+ *  schemes OWN slogan/footerSlogan — replaced, cleared when the scheme lacks them
+ *  — while logo/favicon stay GLOBAL, edited only in the main Branding block. */
+export function mergeAppliedBranding(
+  current: BrandingConfig | undefined,
+  scheme: BrandingConfig,
+): BrandingConfig {
+  return {
+    ...(current ?? {}),
+    slogan: scheme.slogan,
+    footerSlogan: scheme.footerSlogan,
+  };
+}
+
 export function exportScheme(scheme: ColorScheme): string {
   return JSON.stringify({ name: scheme.name, colors: scheme.colors, branding: scheme.branding }, null, 2);
 }

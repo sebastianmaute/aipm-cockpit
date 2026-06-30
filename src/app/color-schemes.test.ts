@@ -1,12 +1,34 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   loadSchemes, addScheme, removeScheme,
-  exportScheme, importScheme, type ColorScheme,
+  exportScheme, importScheme, mergeAppliedBranding, type ColorScheme,
 } from "./color-schemes";
 
 function sample(name = "Acme"): ColorScheme {
   return { id: 1, name, colors: { "--AIPM-green": "#123456" }, branding: { slogan: "Hi" } };
 }
+
+describe("mergeAppliedBranding", () => {
+  it("replaces slogan/footerSlogan (clearing stale) and leaves logo/favicon global", () => {
+    const current = { slogan: "Alpha", footerSlogan: "Foot", logo: "data:image/png;base64,AAA" };
+    const merged = mergeAppliedBranding(current, {}); // scheme with no branding
+    expect(merged.slogan).toBeUndefined();   // stale slogan cleared
+    expect(merged.footerSlogan).toBeUndefined();
+    expect(merged.logo).toBe("data:image/png;base64,AAA"); // global logo preserved
+  });
+
+  it("takes the scheme's slogan + footerSlogan and never touches logo/favicon", () => {
+    const current = { logo: "data:image/png;base64,AAA" };
+    const merged = mergeAppliedBranding(current, { slogan: "Beta", footerSlogan: "Bee", logo: "data:image/png;base64,ZZZ" });
+    expect(merged.slogan).toBe("Beta");
+    expect(merged.footerSlogan).toBe("Bee");
+    expect(merged.logo).toBe("data:image/png;base64,AAA"); // scheme logo IGNORED (global owns logo)
+  });
+
+  it("handles an undefined current branding", () => {
+    expect(mergeAppliedBranding(undefined, { slogan: "X" }).slogan).toBe("X");
+  });
+});
 
 describe("color-schemes store", () => {
   beforeEach(() => localStorage.clear());

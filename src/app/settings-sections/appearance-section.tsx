@@ -13,6 +13,7 @@ import type { CiStyle } from "../style-ci";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { ColorSchemeEditor } from "../color-scheme-editor";
 import { applySchemeColors, writeActiveSchemeColors } from "../scheme-apply";
+import { mergeAppliedBranding } from "../color-schemes";
 
 const BRANDING_LOGO_MAX_BYTES = 512 * 1024;
 const BRANDING_LOGO_FILE_RE = /^data:image\/(png|jpeg|webp|gif);base64,/i;
@@ -102,7 +103,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           <ColorSchemeEditor
             lang={lang}
             onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
-            onApplyBranding={(b) => setBranding({ ...branding, ...b })}
+            onApplyBranding={(b) => setBranding(mergeAppliedBranding(branding, b))}
             onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
           />
         </div>
@@ -258,37 +259,44 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           {faviconError && <p className="mt-1 text-xs text-AIPM-pink-strong">{faviconError}</p>}
         </div>
 
-        {/* App name (sidebar subtitle under the logo) */}
-        <div className="mb-3">
-          <label htmlFor="branding-appname" className="mb-1 block text-xs font-medium text-muted-foreground">
-            {t(lang, "brandingAppName")}
-          </label>
-          <input
-            id="branding-appname"
-            type="text"
-            maxLength={60}
-            value={branding?.slogan ?? ""}
-            placeholder={t(lang, "sidebarBrandSubtitle")}
-            onChange={(e) => setBranding({ ...branding, slogan: e.target.value })}
-            className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
-          />
-        </div>
+        {/* App name + footer slogan: edited HERE in AIPM/Mockup, but OWNED by the
+            active scheme under Custom (the scheme editor edits them, apply replaces
+            via mergeAppliedBranding) — so hide these to avoid a dual editor. */}
+        {!isCustom && (
+          <>
+            {/* App name (sidebar subtitle under the logo) */}
+            <div className="mb-3">
+              <label htmlFor="branding-appname" className="mb-1 block text-xs font-medium text-muted-foreground">
+                {t(lang, "brandingAppName")}
+              </label>
+              <input
+                id="branding-appname"
+                type="text"
+                maxLength={60}
+                value={branding?.slogan ?? ""}
+                placeholder={t(lang, "sidebarBrandSubtitle")}
+                onChange={(e) => setBranding({ ...branding, slogan: e.target.value })}
+                className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
+              />
+            </div>
 
-        {/* Slogan (bottom footer-bar tagline) */}
-        <div>
-          <label htmlFor="branding-footer-slogan" className="mb-1 block text-xs font-medium text-muted-foreground">
-            {t(lang, "brandingFooterSlogan")}
-          </label>
-          <input
-            id="branding-footer-slogan"
-            type="text"
-            maxLength={120}
-            value={branding?.footerSlogan ?? ""}
-            placeholder={DEFAULT_FOOTER_SLOGAN}
-            onChange={(e) => setBranding({ ...branding, footerSlogan: e.target.value })}
-            className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
-          />
-        </div>
+            {/* Slogan (bottom footer-bar tagline) */}
+            <div>
+              <label htmlFor="branding-footer-slogan" className="mb-1 block text-xs font-medium text-muted-foreground">
+                {t(lang, "brandingFooterSlogan")}
+              </label>
+              <input
+                id="branding-footer-slogan"
+                type="text"
+                maxLength={120}
+                value={branding?.footerSlogan ?? ""}
+                placeholder={DEFAULT_FOOTER_SLOGAN}
+                onChange={(e) => setBranding({ ...branding, footerSlogan: e.target.value })}
+                className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
+              />
+            </div>
+          </>
+        )}
       </div>
     </>
   );
