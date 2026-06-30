@@ -10,23 +10,28 @@ describe("buildRelationsGraph", () => {
     expect(graph.nodes.map((n) => n.id)).toEqual(concepts.map((c) => c.id));
   });
 
-  it("places every node inside the unit box", () => {
+  it("positions every node inside the returned viewBox", () => {
     for (const n of graph.nodes) {
       expect(n.x).toBeGreaterThanOrEqual(0);
-      expect(n.x).toBeLessThanOrEqual(1);
       expect(n.y).toBeGreaterThanOrEqual(0);
-      expect(n.y).toBeLessThanOrEqual(1);
+      expect(n.x + n.w).toBeLessThanOrEqual(graph.viewBox.w);
+      expect(n.y + n.h).toBeLessThanOrEqual(graph.viewBox.h);
     }
   });
 
-  it("only emits edges between real concept nodes, deduped, no self-loops", () => {
+  it("lays nodes in a multi-column grid (more than one distinct x)", () => {
+    const xs = new Set(graph.nodes.map((n) => n.x));
+    expect(xs.size).toBeGreaterThan(1);
+  });
+
+  it("only emits edges between real concept nodes, deduped, sorted a<b, no self-loops", () => {
     const ids = new Set(graph.nodes.map((n) => n.id));
     const seen = new Set<string>();
     for (const e of graph.edges) {
       expect(ids.has(e.a)).toBe(true);
       expect(ids.has(e.b)).toBe(true);
       expect(e.a).not.toBe(e.b);
-      expect(e.a < e.b).toBe(true); // sorted key
+      expect(e.a < e.b).toBe(true);
       const key = `${e.a}|${e.b}`;
       expect(seen.has(key)).toBe(false);
       seen.add(key);
@@ -40,32 +45,5 @@ describe("buildRelationsGraph", () => {
 
   it("is deterministic", () => {
     expect(buildRelationsGraph(HELP_ENTRIES)).toEqual(buildRelationsGraph(HELP_ENTRIES));
-  });
-});
-
-describe("buildRelationsGraph vertical layout", () => {
-  it("lays concept nodes in a single vertical column (shared x, increasing y)", () => {
-    const g = buildRelationsGraph(HELP_ENTRIES);
-    expect(g.nodes.length).toBeGreaterThan(1);
-    const xs = new Set(g.nodes.map((n) => Number(n.x.toFixed(4))));
-    expect(xs.size).toBe(1); // one column
-    const ys = g.nodes.map((n) => n.y);
-    for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeGreaterThan(ys[i - 1]);
-    for (const n of g.nodes) {
-      expect(n.x).toBeGreaterThanOrEqual(0);
-      expect(n.x).toBeLessThanOrEqual(1);
-      expect(n.y).toBeGreaterThanOrEqual(0);
-      expect(n.y).toBeLessThanOrEqual(1);
-    }
-  });
-
-  it("keeps edges deduped + undirected (sorted a<b), no self-loops", () => {
-    const g = buildRelationsGraph(HELP_ENTRIES);
-    const keys = g.edges.map((e) => `${e.a}|${e.b}`);
-    expect(new Set(keys).size).toBe(keys.length);
-    for (const e of g.edges) {
-      expect(e.a < e.b).toBe(true);
-      expect(e.a).not.toBe(e.b);
-    }
   });
 });
