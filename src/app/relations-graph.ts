@@ -27,8 +27,12 @@ export function buildRelationsGraph(entries: readonly HelpEntry[]): RelationsGra
   const concepts = entries.filter((e) => e.group === "concepts");
   const ids = new Set(concepts.map((c) => c.id));
 
+  // Wider nodes than the default so the longest concept titles fit without
+  // the component's compress-to-fit kicking in (EN "Budget & earned value",
+  // DE "Ressourcen-Kapazitaet" are ~21 chars).
   const { nodes, viewBox } = gridLayout(
     concepts.map((c) => ({ id: c.id, titleKey: c.titleKey })),
+    { nodeW: 160 },
   );
 
   const seen = new Set<string>();

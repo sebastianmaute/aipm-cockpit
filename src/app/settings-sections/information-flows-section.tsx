@@ -99,6 +99,7 @@ export function InformationFlowsSection({ lang, maxWidth = 480 }: InformationFlo
         ariaLabel={t(lang, "infoFlowsDiagramAriaLabel")}
         description={DIAGRAM_DESC}
         maxWidth={maxWidth}
+        edgeClassName="stroke-AIPM-medium-grey"
       />
 
       <div className="mt-4">

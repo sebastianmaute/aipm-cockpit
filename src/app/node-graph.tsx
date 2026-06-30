@@ -4,6 +4,9 @@ import { useState } from "react";
 import { FOCUS_RING } from "./interaction-styles";
 import type { NodeGraphNode, NodeGraphEdge, NodeGraphZone, ViewBox } from "./node-graph-layout";
 
+/** Horizontal padding (viewBox units) reserved inside a node box for its title. */
+const TITLE_PAD = 8;
+
 interface NodeGraphProps {
   viewBox: ViewBox;
   nodes: readonly NodeGraphNode[];
@@ -21,6 +24,9 @@ interface NodeGraphProps {
   nodeAriaLabel?: (node: NodeGraphNode) => string;
   /** Tooltip on each node button (interactive). */
   selectTitle?: string;
+  /** Tailwind class for non-highlighted edge strokes. Defaults to `stroke-line`;
+   *  the info-flows diagram passes `stroke-AIPM-medium-grey` for visible connectors. */
+  edgeClassName?: string;
 }
 
 function ArrowDefs() {
@@ -79,9 +85,19 @@ function NodeShape({
   const filled = hub || isActive;
   const fillClass = filled ? "fill-AIPM-dark-blue" : "fill-surface";
   const strokeClass = isNeighbour ? "stroke-AIPM-green" : node.accent === "green" ? "stroke-AIPM-green" : "stroke-AIPM-dark-blue";
-  const titleClass = filled ? "text-white" : "text-foreground";
+  const titleClass = filled ? "text-AIPM-white" : "text-foreground";
   const subClass = filled ? "text-AIPM-green" : "text-muted-foreground";
   const stripeClass = node.accent === "green" ? "fill-AIPM-green" : "fill-AIPM-dark-blue";
+
+  // Compress-to-fit safety: SVG text does not wrap, so a label wider than the
+  // box (long EN/DE concept titles) would spill into neighbours. When the
+  // estimated width exceeds the inner width, pin textLength so the glyphs are
+  // squeezed to fit. Short labels (e.g. info-flows nodes) are left untouched.
+  const TITLE_FS = 10.5;
+  const innerW = node.w - TITLE_PAD * 2;
+  const estTitleW = node.label.length * TITLE_FS * 0.6;
+  const fitTitle = estTitleW > innerW;
+
   return (
     <g opacity={dim ? 0.4 : 1}>
       <rect
@@ -102,15 +118,17 @@ function NodeShape({
         textAnchor="middle"
         fill="currentColor"
         className={titleClass}
-        fontSize={10.5}
+        fontSize={TITLE_FS}
         fontWeight={600}
+        textLength={fitTitle ? innerW : undefined}
+        lengthAdjust={fitTitle ? "spacingAndGlyphs" : undefined}
       >
         {node.label}
       </text>
       {node.sub && (
         <text
           x={node.x + node.w / 2}
-          y={node.y + 33}
+          y={node.y + node.h - 8}
           textAnchor="middle"
           fill="currentColor"
           className={subClass}
@@ -137,6 +155,7 @@ export function NodeGraph({
   onSelectNode,
   nodeAriaLabel,
   selectTitle,
+  edgeClassName = "stroke-line",
 }: NodeGraphProps) {
   const interactive = !!onSelectNode;
   const [active, setActive] = useState<string | null>(null);
@@ -168,7 +187,7 @@ export function NodeGraph({
             y1={na.y + na.h / 2}
             x2={nb.x + nb.w / 2}
             y2={nb.y + nb.h / 2}
-            className={incident ? "stroke-AIPM-dark-blue" : "stroke-line"}
+            className={incident ? "stroke-AIPM-dark-blue" : edgeClassName}
             strokeWidth={incident ? 1.6 : 1.2}
             opacity={active && !incident ? 0.3 : 1}
             markerStart={e.arrow === "both" ? "url(#ng-arrow-start)" : undefined}
