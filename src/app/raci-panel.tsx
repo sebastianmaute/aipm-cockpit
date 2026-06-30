@@ -91,30 +91,29 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
       {onLearnMore && (
         <ViewCallout view="raci" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
-      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
-        <h2 className="text-base font-semibold text-foreground">
-          {t(lang, "stakeholderRaciTitle")}
-        </h2>
-        <span className="ml-auto" />
-        <PrintButton lang={lang} />
-        <ResetSizeButton onClick={resetPaneSize} lang={lang} />
-      </div>
-
-      {/* Person (column) filter — uncheck a person to hide their column */}
-      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
-        <span className="text-xs font-medium text-muted-foreground">{t(lang, "raciFilterPersons")}:</span>
-        {stakeholders.map((s) => (
-          <label key={s.id} className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-foreground">
-            <input
-              type="checkbox"
-              checked={!excluded.has(s.id)}
-              onChange={() => togglePerson(s.id)}
-              aria-label={`${t(lang, "raciFilterPersons")} – ${s.name}`}
-              className={`h-3.5 w-3.5 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-            />
-            <span>{s.name}</span>
-          </label>
-        ))}
+      {/* Person (column) filter + actions on one row — uncheck a person to hide
+          their column. The persons wrap onto further rows when space runs out;
+          Print/Reset stay top-right. */}
+      <div className="mb-2 flex shrink-0 flex-wrap items-start gap-2 print:hidden">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">{t(lang, "raciFilterPersons")}:</span>
+          {stakeholders.map((s) => (
+            <label key={s.id} className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-foreground">
+              <input
+                type="checkbox"
+                checked={!excluded.has(s.id)}
+                onChange={() => togglePerson(s.id)}
+                aria-label={`${t(lang, "raciFilterPersons")} – ${s.name}`}
+                className={`h-3.5 w-3.5 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+              />
+              <span>{s.name}</span>
+            </label>
+          ))}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <PrintButton lang={lang} />
+          <ResetSizeButton onClick={resetPaneSize} lang={lang} />
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">

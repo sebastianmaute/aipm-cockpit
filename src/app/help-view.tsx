@@ -97,41 +97,36 @@ export function HelpView({
 
   return (
     <div ref={ref} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-        <h2 className="text-lg font-medium text-foreground">{t(lang, "navHelp")}</h2>
-        <span className="ml-auto" />
-        <PrintButton lang={lang} />
-        <ResetSizeButton onClick={reset} lang={lang} />
-      </div>
-
-      <div
-        role="tablist"
-        aria-label={t(lang, "navHelp")}
-        className="mb-2 flex shrink-0 flex-wrap items-center gap-1 border-b border-line pb-2 print:hidden"
-      >
-        {tabs.map((tb, idx) => {
-          const isActive = tb.key === activeTab;
-          return (
-            <button
-              key={tb.key}
-              type="button"
-              role="tab"
-              id={`help-view-tab-${tb.key}`}
-              aria-selected={isActive}
-              aria-controls="help-view-panel"
-              tabIndex={isActive ? 0 : -1}
-              onClick={() => setTab(tb.key)}
-              onKeyDown={(e) => onTabKeyDown(e, idx)}
-              className={
-                isActive
-                  ? `rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-semibold text-white ${FOCUS_RING}`
-                  : `rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
-              }
-            >
-              {t(lang, tb.labelKey)}
-            </button>
-          );
-        })}
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 border-b border-line pb-2 print:hidden">
+        <div
+          role="tablist"
+          aria-label={t(lang, "navHelp")}
+          className="flex flex-wrap items-center gap-1 print:hidden"
+        >
+          {tabs.map((tb, idx) => {
+            const isActive = tb.key === activeTab;
+            return (
+              <button
+                key={tb.key}
+                type="button"
+                role="tab"
+                id={`help-view-tab-${tb.key}`}
+                aria-selected={isActive}
+                aria-controls="help-view-panel"
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => setTab(tb.key)}
+                onKeyDown={(e) => onTabKeyDown(e, idx)}
+                className={
+                  isActive
+                    ? `rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-semibold text-white ${FOCUS_RING}`
+                    : `rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
+                }
+              >
+                {t(lang, tb.labelKey)}
+              </button>
+            );
+          })}
+        </div>
         {activeTab === "help" && (
           <input
             type="search"
@@ -139,9 +134,13 @@ export function HelpView({
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t(lang, "helpSearchPlaceholder")}
             aria-label={t(lang, "helpSearchPlaceholder")}
-            className={`min-w-[12rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
+            className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
           />
         )}
+        <div className="ml-auto flex shrink-0 items-center gap-2 print:hidden">
+          <PrintButton lang={lang} />
+          <ResetSizeButton onClick={reset} lang={lang} />
+        </div>
       </div>
 
       <div

@@ -223,7 +223,9 @@ export function ReportCard({
   onResetSize,
   onResetCols,
   toolbarExtra,
+  leading,
   title,
+  hideToolbar = false,
   children,
 }: {
   lang: Lang;
@@ -231,20 +233,33 @@ export function ReportCard({
   onResetSize: () => void;
   onResetCols?: () => void;
   toolbarExtra?: React.ReactNode;
+  /** Controls pinned to the LEFT of the toolbar (e.g. add/remove report). */
+  leading?: React.ReactNode;
   title?: string;
+  /** Suppress the whole top toolbar row — the caller renders its own
+   *  Print/Reset controls inside the body (e.g. the Dashboard). */
+  hideToolbar?: boolean;
   children: React.ReactNode;
 }) {
+  const hasLeft = !!title || !!leading;
   return (
     <div ref={sizeRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      <div className={`mb-2 flex shrink-0 items-center gap-2 ${title ? "justify-between" : "justify-end"}`}>
-        {title && <h2 className="text-lg font-medium text-foreground">{title}</h2>}
-        <div className="flex items-center gap-2 print:hidden">
-          {toolbarExtra}
-          <PrintButton lang={lang} />
-          {onResetCols && <ResetColWidthsButton onClick={onResetCols} lang={lang} />}
-          <ResetSizeButton onClick={onResetSize} lang={lang} />
+      {!hideToolbar && (
+        <div className={`mb-2 flex shrink-0 items-center gap-2 ${hasLeft ? "justify-between" : "justify-end"}`}>
+          {hasLeft && (
+            <div className="flex items-center gap-2">
+              {title && <h2 className="text-lg font-medium text-foreground">{title}</h2>}
+              {leading && <div className="flex items-center gap-2 print:hidden">{leading}</div>}
+            </div>
+          )}
+          <div className="flex items-center gap-2 print:hidden">
+            {toolbarExtra}
+            <PrintButton lang={lang} />
+            {onResetCols && <ResetColWidthsButton onClick={onResetCols} lang={lang} />}
+            <ResetSizeButton onClick={onResetSize} lang={lang} />
+          </div>
         </div>
-      </div>
+      )}
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">{children}</div>
     </div>
   );

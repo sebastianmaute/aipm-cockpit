@@ -214,12 +214,36 @@ table:has(> .lop-thead) {
      required to beat the element's inline style. */
   .print-root {
     position: absolute;
-    inset: 0;
+    /* Pin only top/left — NOT `inset:0`. With `bottom:0` set, an absolutely
+       positioned box with `height:auto` resolves to the containing-block
+       (one page) height, clipping everything past page 1. Anchoring just
+       top/left lets `height:auto` grow to content height so it paginates. */
+    top: 0;
+    left: 0;
     width: 100% !important;
     height: auto !important;
     max-height: none !important;
     min-height: 0 !important;
     overflow: visible !important;
+  }
+
+  /* Inner per-view scrollers (`overflow-auto`/`max-h-*`) would otherwise print
+     a scrollbar AND clip their content to one page — `.print-root`'s own
+     `overflow:visible` does not cascade. Neutralise overflow + height caps on
+     every descendant so the full content flows across pages. */
+  .print-root [class*="overflow-"],
+  .print-root [class*="max-h-"] {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Strip the rounded container chrome (card/scroller wrappers = `rounded` +
+     `border-line`). Targets only structural boxes — table row separators
+     (`divide-line`, no radius) and RAG dots (`rounded-full`, no `border-line`)
+     are untouched. */
+  .print-root [class*="rounded"][class*="border-line"] {
+    border: 0 !important;
+    border-radius: 0 !important;
   }
 
   /* Sticky thead is meaningless on paper */

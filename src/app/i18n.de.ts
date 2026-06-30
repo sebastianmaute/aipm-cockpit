@@ -157,6 +157,8 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightFloatingHelpTabs: "Hilfe-Ansicht mit Registerkarten: Tabs für Geführte Touren, Zusammenhänge und Informationsflüsse neben der Suche, plus ein größenveränderbares Inhaltsverzeichnis",
   versionHighlightDocumentsCards: "Dokumente sind jetzt ein filterbares Kartenraster — jede Datei zeigt Typ, Host und Hinzufügedatum; nach Quelle filtern, suchen und sortieren",
   versionHighlightColumnVisibility: "Tabellenspalten in RAID, Meilensteinen, Änderungen und Stakeholdern ein- oder ausblenden und die Auswahl als Teil einer Ansicht speichern",
+  versionHighlightViewChrome: "Aufgeräumte Ansichts-Oberfläche: überflüssige Seitenüberschriften entfernt und Werkzeugleisten in den Ansichten Dashboard, Berichte, Aktivität, Hilfe, Dokumente, Zeitbuchungen, RACI, Kalender, Planung und Ressourcen aufgeräumt",
+  versionHighlightPrintMultipage: "Druck-Überarbeitung: lange Ansichten werden jetzt über mehrere Seiten gedruckt, ohne Bildlaufleisten oder abgerundete Rahmenboxen auf dem Papier",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -1212,6 +1214,7 @@ export const de: Record<TranslationKey, string> = {
   activityEmpty: "Noch keine Aktivität aufgezeichnet.",
   activityClear: "Verlauf löschen",
   activityCount: "{0} Einträge",
+  activityEntriesLogged: "{0} Einträge protokolliert",
   activityTaskCreated: "Aufgabe #{0} erstellt: {1}",
   activityTaskUpdated: "Aufgabe #{0} aktualisiert: {1}",
   activityTaskDeleted: "Aufgabe #{0} gelöscht: {1}",
@@ -1362,6 +1365,7 @@ export const de: Record<TranslationKey, string> = {
   resourcesMarginHint: "Externe Kosten minus interne Kosten (geplanter Deckungsbeitrag).",
 
   resourcesReportTitle: "Ressourcen-Bericht",
+  resourcesViewOverview: "Übersicht",
   resourcesReportTotalCapacity: "Gesamtkapazität",
   resourcesReportByPeriod: "Nach Periode",
   resourcesReportByDiscipline: "Nach Disziplin",

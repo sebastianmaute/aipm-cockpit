@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.151.0";
-export const APP_BUILD_DATE = "2026-06-30"; // 0.151.0: Documents becomes a filterable, metadata-rich card grid (type/host/added-date, source filter, search, sort) with a contextual tip banner; table columns in RAID/Milestones/Changes/Stakeholders are show/hide-able and saved in panel views; the Dashboard drops the Recent-activity fold; plus a /recovery hydration fix and version-history no-empty-save + change counts (Swanwick)
+export const APP_VERSION = "0.152.0";
+export const APP_BUILD_DATE = "2026-06-30"; // 0.152.0: view-chrome streamlining across many views (redundant page headings removed; toolbars relocated — Dashboard/Reports/Activity/Help/Documents/Time-bookings/RACI/Calendar/Planning/Resources-overview) and a print overhaul (multi-page pagination + no printed scrollbars or rounded container boxes) (Tidhar)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.151.x line is "Swanwick" (Michael Swanwick). */
-export const APP_MILESTONE = "Swanwick";
+ *  0.152.x line is "Tidhar" (Lavie Tidhar). */
+export const APP_MILESTONE = "Tidhar";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -167,4 +167,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightFloatingHelpTabs",
   "versionHighlightDocumentsCards",
   "versionHighlightColumnVisibility",
+  "versionHighlightViewChrome",
+  "versionHighlightPrintMultipage",
 ] as const;

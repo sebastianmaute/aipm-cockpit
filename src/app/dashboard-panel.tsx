@@ -18,6 +18,7 @@ import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
 import type { SuggestedAction } from "./next-actions/types";
 import { useResizable } from "./use-resizable";
+import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { VarianceSummary } from "./variance-summary";
 import type { VarianceRow, SnapshotRecord } from "./snapshot";
 import { useLandingDelta } from "./use-landing-delta";
@@ -202,15 +203,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
       lang={lang}
       sizeRef={sizeRef}
       onResetSize={resetSize}
-      title={t(lang, "navDashboard")}
+      hideToolbar
     >
       <div className={dc.outer}>
-        {/* Landing: greeting + since-you-last-looked */}
-        <DashboardDeltaStrip
-          lang={lang}
-          delta={delta}
-          greeting={greeting}
-          onOpenTask={
+        {/* Landing: greeting + since-you-last-looked. The heading is removed; the
+            Print + Reset-size controls are stacked to the RIGHT of this first box. */}
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <DashboardDeltaStrip
+              lang={lang}
+              delta={delta}
+              greeting={greeting}
+              onOpenTask={
             // onOpenTask opens a SPECIFIC task editor by id, so only wire it
             // when a representative task exists — otherwise the strip renders
             // the chip as a non-interactive span (no dead -1 click). RAID/
@@ -218,10 +222,16 @@ export function DashboardPanel(props: DashboardPanelProps) {
             // they stay wired unconditionally below.
             onOpenTask && repTaskId !== undefined ? () => onOpenTask(repTaskId) : undefined
           }
-          onOpenRaid={onOpenRaid ? () => onOpenRaid(model.topRaid[0]?.id ?? -1) : undefined}
-          onOpenMilestone={props.onOpenMilestone ? () => props.onOpenMilestone!(-1) : undefined}
-          onOpenChange={props.onOpenChange ? () => props.onOpenChange!(-1) : undefined}
-        />
+              onOpenRaid={onOpenRaid ? () => onOpenRaid(model.topRaid[0]?.id ?? -1) : undefined}
+              onOpenMilestone={props.onOpenMilestone ? () => props.onOpenMilestone!(-1) : undefined}
+              onOpenChange={props.onOpenChange ? () => props.onOpenChange!(-1) : undefined}
+            />
+          </div>
+          <div className="flex shrink-0 flex-col gap-2 print:hidden">
+            <PrintButton lang={lang} iconOnly />
+            <ResetSizeButton onClick={resetSize} lang={lang} />
+          </div>
+        </div>
 
         {/* Tier 0 — read-only status narrative summary (self-hides when empty) */}
         <NarrativeSummary lang={lang} status={status} />

@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.152.0] - 2026-06-30 "Tidhar"
+
+### Changed
+- **Streamlined view chrome**: redundant page headings were removed and toolbars tidied across many views — the Dashboard (Print/Reset-size now stacked beside the greeting; Print shows an icon only), Reports (Add/Remove-report moved to the left), Activity (the header now reads "N entries logged"), Help (tabs, search and Print/Reset share one row with a full-width search box), Documents, Time bookings (the "enable Timelog" note moved into the button row), RACI, Calendar and Planning (action buttons moved into their filter/control rows), and the Resources overview (heading renamed to "Overview").
+
+### Fixed
+- **Printing**: long views now print across multiple pages instead of being clipped to a single page, and printed output no longer shows scrollbars or rounded container boxes. (Root cause: per-view inner scroll containers were never reset for print, and the print root was pinned to one page's height via `inset:0`.)
+
 ## [0.151.0] - 2026-06-30 "Swanwick"
 
 ### Added

@@ -158,14 +158,11 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   return (
     <section ref={actRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
-        <h2 className="mr-auto text-lg font-medium text-foreground">
-          {t(lang, "tabActivity")}{" "}
-          <span className="text-sm font-normal text-muted-foreground">
-            {visible.length === entries.length
-              ? t(lang, "activityCount", entries.length)
-              : t(lang, "tasksCountFiltered", visible.length, entries.length)}
-          </span>
-        </h2>
+        <span className="mr-auto text-sm text-muted-foreground">
+          {visible.length === entries.length
+            ? t(lang, "activityEntriesLogged", entries.length)
+            : t(lang, "tasksCountFiltered", visible.length, entries.length)}
+        </span>
         <div className="flex items-center gap-2 print:hidden">
           <PrintButton lang={lang} />
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
