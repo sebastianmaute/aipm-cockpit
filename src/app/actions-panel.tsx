@@ -228,7 +228,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               <section key={tier}>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${TIER_RAG[tier].dot}`} />
-                  {t(lang, labelKey)} <span className={TIER_RAG[tier].text}>({rows.length})</span>
+                  {t(lang, labelKey)} ({rows.length})
                 </h3>
                 <div id={`action-${tier}-list`} className="flex flex-col gap-2">{visible.map(renderRow)}</div>
                 {rows.length > MAX_VISIBLE_PER_TIER && (

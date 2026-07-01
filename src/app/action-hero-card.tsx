@@ -25,7 +25,7 @@ export function ActionHeroCard(props: ActionHeroCardProps) {
       aria-label={t(lang, "actionHeroEyebrow")}
       className={`mb-4 rounded-lg border border-line border-l-4 ${rag.stripe} bg-surface p-4 shadow-[var(--shadow-card)]`}
     >
-      <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide ${rag.text}`}>
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
         <span aria-hidden>⚑</span>
         {t(lang, "actionHeroEyebrow")}
         {expertMode && (

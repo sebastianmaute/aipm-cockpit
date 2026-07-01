@@ -92,11 +92,16 @@ export function overflowCtas(a: SuggestedAction, c: ActionCaps): SecondaryCtaKin
   return out;
 }
 
-// Tier -> RAG token classes. Concrete `var(--rag-NAME)` strings only — NEVER a single
-// arbitrary-value bracket with a pipe/wildcard (Tailwind v4 scans all files; an invalid
-// bracket char compiles to broken CSS and 500s globals.css).
-export const TIER_RAG: Record<ActionTier, { stripe: string; dot: string; text: string }> = {
-  now: { stripe: "border-l-[var(--rag-red)]", dot: "bg-[var(--rag-red)]", text: "text-[var(--rag-red-text)]" },
-  soon: { stripe: "border-l-[var(--rag-amber)]", dot: "bg-[var(--rag-amber)]", text: "text-[var(--rag-amber-text)]" },
-  monitor: { stripe: "border-l-[var(--rag-green)]", dot: "bg-[var(--rag-green)]", text: "text-[var(--rag-green-text)]" },
+// Tier -> RAG token classes for the NON-TEXT tier signals: the row/hero left
+// STRIPE and the header DOT. Concrete `var(--rag-NAME)` strings only — NEVER a
+// single arbitrary-value bracket with a pipe/wildcard (Tailwind v4 scans all files;
+// an invalid bracket char compiles to broken CSS and 500s globals.css).
+// ★ No `text` variant here on purpose: `--rag-amber-text` (= AIPM-purple / a brown)
+// is only AA on the LIGHT AIPM surface — as small text on bg-surface it fails AA on
+// dark + mockup (3.5:1 / 4.4:1). Tier colour rides the dot/stripe (AA-exempt);
+// tinted small text would reintroduce that contrast failure.
+export const TIER_RAG: Record<ActionTier, { stripe: string; dot: string }> = {
+  now: { stripe: "border-l-[var(--rag-red)]", dot: "bg-[var(--rag-red)]" },
+  soon: { stripe: "border-l-[var(--rag-amber)]", dot: "bg-[var(--rag-amber)]" },
+  monitor: { stripe: "border-l-[var(--rag-green)]", dot: "bg-[var(--rag-green)]" },
 };
