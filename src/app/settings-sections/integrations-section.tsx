@@ -28,6 +28,7 @@ import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
 import { TimelogSettings } from "../timelog-settings";
 import { JiraSettingsSection } from "../jira-settings";
 import { defaultTimelogConfig } from "../timelog-types";
+import { calendarSyncFor } from "../calendar-sync-config";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -307,6 +308,60 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               </div>
             ))}
           </fieldset>
+
+          <div className="mt-3 border-t border-line pt-2">
+            <h4 className="text-sm font-semibold text-foreground">{t(lang, "calendarSyncHeading")}</h4>
+            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "calendarSyncDesc")}</p>
+            {(() => {
+              const taskSync = calendarSyncFor(settings, "task");
+              return (
+                <div className="mt-2">
+                  <p className="text-sm font-medium text-foreground">{t(lang, "calendarSyncEntityTask")}</p>
+                  <div className="mt-1 flex flex-col gap-1 pl-1">
+                    <label className="flex items-center gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, "calendarSyncEntityTask")}`}
+                        checked={taskSync.enabled}
+                        onChange={(e) =>
+                          onChange({
+                            ...settings,
+                            outlookCalendar: {
+                              ...settings.outlookCalendar,
+                              task: { enabled: e.target.checked, auto: e.target.checked ? taskSync.auto : false },
+                            },
+                          })
+                        }
+                        className={`h-4 w-4 ${FOCUS_RING} ${TRANSITION}`}
+                      />
+                      <span>{t(lang, "calendarSyncEnable")}</span>
+                    </label>
+                    <label
+                      className={`flex items-center gap-2 text-sm ${taskSync.enabled ? "text-foreground" : "text-muted-foreground"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label={`${t(lang, "calendarSyncAuto")} – ${t(lang, "calendarSyncEntityTask")}`}
+                        disabled={!taskSync.enabled}
+                        checked={taskSync.auto}
+                        onChange={(e) =>
+                          onChange({
+                            ...settings,
+                            outlookCalendar: {
+                              ...settings.outlookCalendar,
+                              task: { enabled: taskSync.enabled, auto: e.target.checked },
+                            },
+                          })
+                        }
+                        className={`h-4 w-4 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
+                      />
+                      <span>{t(lang, "calendarSyncAuto")}</span>
+                    </label>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       )}
 

@@ -70,6 +70,8 @@ export type Task = {
   lastSyncedAt?: string;
   /** ISO timestamp of the last local edit (used for sync conflict detection). */
   localModifiedAt?: string;
+  /** Outlook calendar event id for this task (calendar write-back link). */
+  outlookEventId?: string;
   /** Resource Planner v2: stable link to a Resource. Additive — the
    *  free-text `assignee` remains the display value and the fallback join. */
   resourceId?: number;

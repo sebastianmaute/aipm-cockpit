@@ -65,6 +65,7 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "originalEstimateMinutes",
   "timeSpentMinutes",
   "documentLinks",
+  "outlookEventId",
 ];
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that

@@ -1,7 +1,9 @@
 // src/app/csv-codecs.test.ts
 import { describe, it, expect } from "vitest";
 import { workspaceToCsv, csvToWorkspace } from "./csv-codecs";
-import { emptyWorkspace } from "./workspace";
+import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
+import { workspaceToJson, jsonToWorkspace, emptyWorkspace } from "./workspace";
+import type { Task } from "./types";
 
 describe("csv fieldVisibility section", () => {
   it("emits no field-visibility section when undefined", () => {
@@ -28,6 +30,40 @@ describe("csv milestone outlookEventId", () => {
     };
     const back = csvToWorkspace(workspaceToCsv(ws));
     expect(back.milestones?.[0]?.outlookEventId).toBe("AAMk-evt-1");
+  });
+});
+
+describe("Task.outlookEventId persistence", () => {
+  const task: Task = {
+    id: 1,
+    taskName: "Wire calendar",
+    assignee: "Alex",
+    assigneeEmail: "alex@example.com",
+    dueDate: "2026-02-01",
+    lastUpdateDate: "2026-01-10",
+    priority: "Medium",
+    status: "To Do",
+    blockers: "",
+    notes: "",
+    outlookEventId: "E9",
+  };
+
+  it("survives workspaceToCsv -> csvToWorkspace", () => {
+    const ws = { ...emptyWorkspace(), tasks: [task] };
+    const back = csvToWorkspace(workspaceToCsv(ws));
+    expect(back.tasks[0]?.outlookEventId).toBe("E9");
+  });
+
+  it("survives workspaceToMarkdown -> markdownToWorkspace", () => {
+    const ws = { ...emptyWorkspace(), tasks: [task] };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.tasks[0]?.outlookEventId).toBe("E9");
+  });
+
+  it("survives workspaceToJson -> jsonToWorkspace", () => {
+    const ws = { ...emptyWorkspace(), tasks: [task] };
+    const back = jsonToWorkspace(workspaceToJson(ws));
+    expect(back.tasks[0]?.outlookEventId).toBe("E9");
   });
 });
 

@@ -1,6 +1,6 @@
 // src/app/outlook-calendar-write.ts — Microsoft Graph calendar write (events). Pure
 // given an access token: no MSAL, no React. graph.microsoft.com is already CSP-allowlisted.
-import type { Milestone, CommitteeMeeting } from "./types";
+import type { Milestone, CommitteeMeeting, Task } from "./types";
 import type { ExistingEvent } from "./calendar-reconcile";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -8,7 +8,8 @@ const MAX_PAGES = 100;
 
 export const CALENDAR_READWRITE_SCOPE = ["Calendars.ReadWrite"] as const;
 
-export const categoryFor = (projectId: string): string => `AIPM:${projectId}`;
+export const categoryFor = (projectId: string, entityType?: string): string =>
+  entityType ? `AIPM:${projectId}:${entityType}` : `AIPM:${projectId}`;
 
 export interface GraphEvent {
   subject: string;
@@ -41,6 +42,31 @@ export function milestoneToGraphEvent(m: Milestone, projectId: string): GraphEve
     end: { dateTime: `${nextDay(m.date)}T00:00:00`, timeZone: "UTC" },
     categories: [categoryFor(projectId)],
     body: { contentType: "Text", content: "Managed by the AIPM PM Tracker." },
+  };
+}
+
+/**
+ * A TASK as an all-day Graph event on its due date, tagged with the
+ * TYPE-SCOPED category so its list-based reconcile can't touch milestone/
+ * committee events. Callers filter to tasks WITH a dueDate before calling.
+ */
+export function taskToGraphEvent(task: Task, projectId: string): GraphEvent {
+  return {
+    subject: task.taskName,
+    isAllDay: true,
+    start: { dateTime: `${task.dueDate}T00:00:00`, timeZone: "UTC" },
+    end: { dateTime: `${nextDay(task.dueDate)}T00:00:00`, timeZone: "UTC" },
+    categories: [categoryFor(projectId, "task")],
+    body: {
+      contentType: "Text",
+      content: [
+        task.assignee ? `Owner: ${task.assignee}` : "",
+        task.status ? `Status: ${task.status}` : "",
+        "Managed by the AIPM PM Tracker.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    },
   };
 }
 
@@ -116,6 +142,19 @@ async function graphGet<T>(token: string, url: string): Promise<T> {
 /** All project-tagged events (id only), paginated. */
 export async function listProjectEvents(token: string, projectId: string): Promise<ExistingEvent[]> {
   const cat = categoryFor(projectId).replace(/'/g, "''"); // OData single-quote escape
+  let url: string | null = `${GRAPH}/me/events?$filter=${encodeURIComponent(`categories/any(c:c eq '${cat}')`)}&$select=id&$top=100`;
+  const out: ExistingEvent[] = [];
+  for (let i = 0; i < MAX_PAGES && url; i++) {
+    const json: { value?: { id: string }[]; "@odata.nextLink"?: string } = await graphGet(token, url);
+    for (const e of json.value ?? []) out.push({ id: e.id });
+    url = json["@odata.nextLink"] ?? null;
+  }
+  return out;
+}
+
+/** All events tagged with a TYPE-SCOPED category (id only), paginated. */
+export async function listEntityEvents(token: string, projectId: string, entityType: string): Promise<ExistingEvent[]> {
+  const cat = categoryFor(projectId, entityType).replace(/'/g, "''"); // OData single-quote escape
   let url: string | null = `${GRAPH}/me/events?$filter=${encodeURIComponent(`categories/any(c:c eq '${cat}')`)}&$select=id&$top=100`;
   const out: ExistingEvent[] = [];
   for (let i = 0; i < MAX_PAGES && url; i++) {

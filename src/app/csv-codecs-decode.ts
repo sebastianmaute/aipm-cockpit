@@ -496,6 +496,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     jiraIssueType: obj.jiraIssueType || undefined,
     lastSyncedAt: obj.lastSyncedAt || undefined,
     localModifiedAt: obj.localModifiedAt || undefined,
+    outlookEventId: obj.outlookEventId || undefined,
     healthOverride: parseHealthOverride(obj.healthOverride),
     resourceId: fkIdOrUndefined(obj.resourceId),
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),

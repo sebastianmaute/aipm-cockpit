@@ -422,6 +422,42 @@ export function sanitizeBranding(obj: unknown): BrandingConfig | undefined {
   return out.logo || out.slogan || out.footerSlogan || out.favicon ? out : undefined;
 }
 
+/** Entity types that can be written back to the Outlook calendar. */
+export type CalendarEntityType = "task" | "raid" | "change" | "absence";
+
+/** Per-entity-type calendar write-back flags. `enabled` turns the feature on;
+ *  `auto` (only meaningful while enabled) pushes changes without a manual step. */
+export interface CalendarSyncEntry {
+  enabled: boolean;
+  auto: boolean;
+}
+
+export const CALENDAR_ENTITY_TYPES: readonly CalendarEntityType[] = [
+  "task",
+  "raid",
+  "change",
+  "absence",
+];
+
+/** Load-time coercer for `settings.outlookCalendar`: keeps only KNOWN entity
+ *  keys, coerces both flags to booleans, and returns undefined when nothing is
+ *  configured (keeps the settings blob byte-stable for users who never set it). */
+export function sanitizeOutlookCalendar(
+  raw: unknown,
+): Partial<Record<CalendarEntityType, CalendarSyncEntry>> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const out: Partial<Record<CalendarEntityType, CalendarSyncEntry>> = {};
+  for (const type of CALENDAR_ENTITY_TYPES) {
+    const v = o[type];
+    if (v && typeof v === "object") {
+      const e = v as Record<string, unknown>;
+      out[type] = { enabled: e.enabled === true, auto: e.auto === true };
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export type Settings = {
   language: Lang;
   holidayCountries: string[];
@@ -463,6 +499,9 @@ export type Settings = {
   additionalTimezones?: string[];
   /** Per-device: show the top-bar display-timezone switcher. Default OFF. */
   showDisplayTzSwitcher?: boolean;
+  /** Per-device Outlook calendar write-back toggles, per entity type.
+   *  Undefined/absent = disabled everywhere (see `calendarSyncFor`). */
+  outlookCalendar?: Partial<Record<CalendarEntityType, CalendarSyncEntry>>;
   reports?: { extra: AddableReportId[] };
   integrations?: IntegrationsSettings;
   snapshots?: SnapshotSettings;

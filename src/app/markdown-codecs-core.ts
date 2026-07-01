@@ -303,6 +303,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "originalEstimateMinutes", label: "OrigEstimateMin" },
   { key: "timeSpentMinutes", label: "TimeSpentMin" },
   { key: "documentLinks", label: "DocumentLinks" },
+  { key: "outlookEventId", label: "OutlookEventId" },
 ];
 
 function mdEscape(value: string): string {

@@ -414,4 +414,50 @@ describe("TasksSection", () => {
       t("en-US", "tasksSearchHint")
     );
   });
+
+  it("shows the Push-to-Outlook button when M365 is configured and task calendar sync is enabled", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured />);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "calendarPush") }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the Push-to-Outlook button when task calendar sync is disabled", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: false, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured />);
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the calendar controls entirely when M365 is not configured", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the calendar controls in a popout (push can never fire there)", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured isPopout />);
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
+    ).not.toBeInTheDocument();
+  });
 });
