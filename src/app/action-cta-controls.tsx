@@ -51,15 +51,17 @@ export function useActionCaps(h: ActionHandlers): ActionCaps {
 
 const GHOST =
   `cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 dark:text-AIPM-light-grey ${INTERACTIVE}`;
-const FILLED =
-  `cursor-pointer rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`;
+// Size is applied per-context (prominent hero vs compact row) so the hero's primary
+// verb reads bolder than the same verb in a row.
+const FILLED_BASE =
+  `cursor-pointer rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue font-medium text-white hover:opacity-90 ${INTERACTIVE}`;
 
 interface CtaProps {
   lang: Lang;
   action: SuggestedAction;
   caps: ActionCaps;
   handlers: ActionHandlers;
-  /** Hero = larger filled treatment for direct verbs. */
+  /** Hero = larger filled treatment for direct verbs (bigger padding + text). */
   prominent?: boolean;
 }
 
@@ -79,12 +81,12 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
   }, [assignOpen]);
 
   const kind = pickPrimaryCta(action, caps);
-  const directBtn = prominent ? FILLED : `${FILLED} `; // both filled; prominent kept for future divergence
+  const directBtn = `${FILLED_BASE} ${prominent ? "px-4 py-1.5 text-sm" : "px-3 py-1 text-xs"}`;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   const open = (
     <button type="button" onClick={(e) => { stop(e); handlers.onOpen(action); }}
-      className={kind === "open" ? `${directBtn} px-3` : `${GHOST} px-3`}>
+      className={kind === "open" ? directBtn : `${GHOST} px-3`}>
       {t(lang, "actionOpen")}
     </button>
   );
