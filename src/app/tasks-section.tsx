@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
 import type { JiraExtraProject } from "./settings-types";
@@ -15,6 +15,9 @@ import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
+import { useEntityCalendarPush } from "./use-entity-calendar-push";
+import { taskToGraphEvent } from "./outlook-calendar-write";
+import { calendarSyncFor } from "./calendar-sync-config";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -123,6 +126,11 @@ export interface TasksSectionProps {
   showViewHints?: boolean;
   isPopout?: boolean;
   onLearnMoreHint?: (conceptId: string) => void;
+  // Outlook calendar write-back (SP1): threaded from task-manager. `projectId`
+  // is the stable Outlook event-category id; `m365Configured` gates the toggle +
+  // Push button (hidden when M365 is not configured).
+  projectId?: string;
+  m365Configured?: boolean;
 }
 
 export function TasksSection({
@@ -175,6 +183,8 @@ export function TasksSection({
   showViewHints,
   isPopout,
   onLearnMoreHint,
+  projectId,
+  m365Configured,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -185,7 +195,7 @@ export function TasksSection({
     sortKey, sortDir, setSortKey, setSortDir,
   } = useFilters();
 
-  const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById } =
+  const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById, setTasks } =
     useWorkspace();
 
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
@@ -196,6 +206,31 @@ export function TasksSection({
 
   const hideFinished = settings.hideFinishedTasks ?? false;
   const tasksViewMode = settings.tasksViewMode ?? "table";
+
+  // Outlook calendar write-back (SP1): manual push of unfinished, dated tasks.
+  // The hook is called unconditionally (rules of hooks); `enabled` gates the
+  // MSAL session so it stays inert when M365 is not configured.
+  const calendarTaskEnabled = calendarSyncFor(settings, "task").enabled;
+  const pushableTasks = useMemo(
+    () => tasks.filter((x) => !isTaskFinished(x) && !!x.dueDate),
+    [tasks],
+  );
+  // Bridge the workspace `Dispatch<SetStateAction<readonly Task[]>>` setter to the
+  // hook's `(updater: (prev: Task[]) => Task[]) => void` shape (mirrors milestones).
+  const setTasksForPush = useCallback(
+    (updater: (prev: Task[]) => Task[]) => setTasks((prev) => updater([...prev])),
+    [setTasks],
+  );
+  const { pushToOutlook: pushTasksToOutlook, busy: calPushBusy } = useEntityCalendarPush<Task>({
+    items: pushableTasks,
+    entityType: "task",
+    projectId: projectId ?? "default",
+    toGraphEvent: taskToGraphEvent,
+    setItems: setTasksForPush,
+    isPopout: !!isPopout,
+    lang,
+    enabled: !!m365Configured,
+  });
   const visibleRows = hideFinished
     ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
     : filteredSortedTasks;
@@ -467,6 +502,40 @@ export function TasksSection({
           )}
         </div>
         <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
+        {m365Configured && (
+          <>
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={calendarTaskEnabled}
+                onChange={(e) =>
+                  setSettings((s) => ({
+                    ...s,
+                    outlookCalendar: {
+                      ...s.outlookCalendar,
+                      task: { enabled: e.target.checked, auto: s.outlookCalendar?.task?.auto ?? false },
+                    },
+                  }))
+                }
+                aria-label={t(lang, "calendarSyncEnable")}
+                className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+              />
+              {t(lang, "calendarSyncEnable")}
+            </label>
+            {calendarTaskEnabled && (
+              <button
+                type="button"
+                onClick={() => void pushTasksToOutlook()}
+                disabled={calPushBusy}
+                aria-label={t(lang, "calendarPush")}
+                title={t(lang, "calendarPush")}
+                className={`rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+              >
+                {calPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
+              </button>
+            )}
+          </>
+        )}
         <PrintButton lang={lang} iconOnly />
         <button
           type="button"

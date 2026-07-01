@@ -1902,6 +1902,8 @@ function TaskManagerInner() {
       showViewHints={settings.showViewHints !== false}
       isPopout={isPopout}
       onLearnMoreHint={requestHelpConcept}
+      projectId={calendarProjectId}
+      m365Configured={m365Enabled}
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? []}
       onToggleSelect={onToggleSelect}
