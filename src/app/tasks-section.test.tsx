@@ -447,4 +447,17 @@ describe("TasksSection", () => {
       screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
     ).not.toBeInTheDocument();
   });
+
+  it("hides the calendar controls in a popout (push can never fire there)", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured isPopout />);
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "calendarPush") }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
+    ).not.toBeInTheDocument();
+  });
 });

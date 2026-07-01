@@ -229,7 +229,7 @@ export function TasksSection({
     setItems: setTasksForPush,
     isPopout: !!isPopout,
     lang,
-    enabled: !!m365Configured,
+    enabled: !!m365Configured && !isPopout,
   });
   const visibleRows = hideFinished
     ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
@@ -502,7 +502,7 @@ export function TasksSection({
           )}
         </div>
         <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
-        {m365Configured && (
+        {m365Configured && !isPopout && (
           <>
             <label className="flex items-center gap-1 text-xs text-muted-foreground">
               <input
