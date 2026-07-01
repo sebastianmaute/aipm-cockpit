@@ -33,7 +33,7 @@ export function jiraProjectKeys(
  *  (never write to a project we don't recognize). */
 export function isReadOnlyIssue(
   issueKey: string,
-  config: Pick<JiraConfig, "projectKey" | "extraProjects">,
+  config: { projectKey: string; extraProjects?: readonly JiraExtraProject[] },
 ): boolean {
   const project = jiraProjectKeyOf(issueKey);
   if (project === config.projectKey) return false;

@@ -4,7 +4,8 @@ import { createContext, memo, useContext, type MouseEvent, type ReactNode } from
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
-import { jiraProjectKeyOf } from "./jira-projects";
+import { isReadOnlyIssue } from "./jira-projects";
+import type { JiraExtraProject } from "./settings-types";
 import { JiraBadge } from "./task-jira-badge";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
@@ -21,7 +22,7 @@ export interface RowContextValue {
   // Flattened from settings.jira so consumers only re-render
   // on Jira-config change, not on unrelated settings changes.
   jiraSiteUrl: string;
-  jiraReadOnlyKeys: readonly string[];
+  jiraExtraProjects: readonly JiraExtraProject[];
   jiraEnabled: boolean;
   jiraProjectKey: string;
 
@@ -157,7 +158,8 @@ function TaskRowImpl({
     today,
     holidaySet,
     jiraSiteUrl,
-    jiraReadOnlyKeys,
+    jiraExtraProjects,
+    jiraProjectKey,
     hiddenCols,
     onToggleSelect,
     onJumpToRaid,
@@ -231,7 +233,7 @@ function TaskRowImpl({
                 lang={lang}
                 href={href}
                 issueType={task.jiraIssueType}
-                readOnlyProject={jiraReadOnlyKeys.includes(jiraProjectKeyOf(task.jiraKey))}
+                readOnlyProject={isReadOnlyIssue(task.jiraKey, { projectKey: jiraProjectKey, extraProjects: jiraExtraProjects })}
               />
             </span>
           );

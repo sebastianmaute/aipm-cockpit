@@ -51,7 +51,7 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     today: "2026-05-18",
     holidaySet: new Set(),
     jiraSiteUrl: "",
-    jiraReadOnlyKeys: [],
+    jiraExtraProjects: [],
     jiraEnabled: false,
     jiraProjectKey: "",
     hiddenCols: new Set(),

@@ -61,7 +61,7 @@ import { GlobalSearchConnected } from "./global-search-box";
 import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
 import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
-import { jiraProjectKeyOf } from "./jira-projects";
+import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
@@ -1685,16 +1685,12 @@ function TaskManagerInner() {
       : null;
   const editingIsJiraLinked = !!editingTask?.jiraKey;
 
-  // Keys of extra projects flagged read-only — drives the badge/editor telegraph.
-  const jiraReadOnlyKeys = (settings.jira.extraProjects ?? [])
-    .filter((p) => p.readOnly)
-    .map((p) => p.key);
-
   const editingReadOnlyJiraProjectName = (() => {
     if (!editingTask?.jiraKey) return undefined;
+    if (!isReadOnlyIssue(editingTask.jiraKey, settings.jira)) return undefined;
     const proj = jiraProjectKeyOf(editingTask.jiraKey);
     const extra = (settings.jira.extraProjects ?? []).find((p) => p.key === proj);
-    return extra?.readOnly ? extra.name || extra.key : undefined;
+    return extra?.name || extra?.key || proj;
   })();
 
   // Render gate: hold first paint until the active-language dictionary is
@@ -1907,7 +1903,7 @@ function TaskManagerInner() {
       isPopout={isPopout}
       onLearnMoreHint={requestHelpConcept}
       jiraSiteUrl={settings.jira.siteUrl}
-      jiraReadOnlyKeys={jiraReadOnlyKeys}
+      jiraExtraProjects={settings.jira.extraProjects ?? []}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}
       onJumpToRaid={onJumpToRaid}

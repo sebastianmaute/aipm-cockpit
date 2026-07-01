@@ -3,6 +3,7 @@ import type React from "react";
 import { useMemo } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
+import type { JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
@@ -59,7 +60,7 @@ export interface TasksSectionProps {
   fillHeight?: boolean;
   // Row-context data not already in props
   jiraSiteUrl: string;
-  jiraReadOnlyKeys: readonly string[];
+  jiraExtraProjects: readonly JiraExtraProject[];
   // Row-context callbacks — assembled into rowContextValue useMemo internally
   onToggleSelect: (id: number) => void;
   onToggleNoteExpanded: (id: number) => void;
@@ -121,7 +122,7 @@ export function TasksSection({
   today,
   fillHeight,
   jiraSiteUrl,
-  jiraReadOnlyKeys,
+  jiraExtraProjects,
   onToggleSelect,
   onToggleNoteExpanded,
   onJumpToRaid,
@@ -202,7 +203,7 @@ export function TasksSection({
       today,
       holidaySet,
       jiraSiteUrl,
-      jiraReadOnlyKeys,
+      jiraExtraProjects,
       jiraEnabled,
       jiraProjectKey,
       hiddenCols,
@@ -222,7 +223,7 @@ export function TasksSection({
       today,
       holidaySet,
       jiraSiteUrl,
-      jiraReadOnlyKeys,
+      jiraExtraProjects,
       jiraEnabled,
       jiraProjectKey,
       hiddenCols,
@@ -561,7 +562,8 @@ export function TasksSection({
           onStatusChange={onStatusChange}
           onEdit={onEdit}
           onJumpToRaid={onJumpToRaid}
-          jiraReadOnlyKeys={jiraReadOnlyKeys}
+          jiraProjectKey={jiraProjectKey}
+          jiraExtraProjects={jiraExtraProjects}
           containerRef={containerRef}
           flashId={flashId}
         />

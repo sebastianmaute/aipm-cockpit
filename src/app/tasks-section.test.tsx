@@ -111,7 +111,7 @@ function makeProps(): TasksSectionProps {
     today: "2026-05-22",
     // row context data + callbacks (replaced rowContextValue prop)
     jiraSiteUrl: "",
-    jiraReadOnlyKeys: [],
+    jiraExtraProjects: [],
     onToggleSelect: vi.fn(),
     onToggleNoteExpanded: vi.fn(),
     onJumpToRaid: vi.fn(),

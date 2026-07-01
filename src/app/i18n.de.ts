@@ -1209,13 +1209,11 @@ export const de: Record<TranslationKey, string> = {
   jiraPushPrereq:
     "Bitte Jira in den Einstellungen aktivieren und ein Projekt wählen, bevor Aufgaben übertragen werden.",
   jiraManagedTooltip: "In Jira verwaltet",
-  jiraSyncedReadOnly: "Mit Jira synchronisiert — Ziehen und manuelle Statusänderung deaktiviert",
   jiraExtraProjectsLabel: "Auch aus anderen Projekten synchronisieren",
   jiraExtraProjectsHint: "Das primäre Projekt oben bleibt bidirektional. Zusatzprojekte sind standardmäßig schreibgeschützt (nur beobachten); stelle eines auf bidirektional, um Änderungen zurückzuschreiben.",
   jiraExtraProjectInclude: "Einbeziehen",
   jiraExtraProjectRemove: "Entfernen",
   jiraReadOnly: "Schreibgeschützt",
-  jiraTwoWay: "Bidirektional",
   jiraSyncedTwoWay: "Mit Jira synchronisiert (bidirektional)",
   jiraSyncedReadOnlyProject: "Aus Jira beobachtet – schreibgeschützt",
   jiraReadOnlyBanner: "Schreibgeschützt – beobachtet aus Jira-Projekt {0}. Änderungen hier werden nicht gespeichert und beim nächsten Sync verworfen.",

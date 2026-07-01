@@ -1217,13 +1217,11 @@ const enUS = {
   jiraPushPrereq:
     "Enable Jira and pick a project in Settings before pushing tasks.",
   jiraManagedTooltip: "Managed in Jira",
-  jiraSyncedReadOnly: "Synced with Jira — drag and manual status change disabled",
   jiraExtraProjectsLabel: "Also sync from other projects",
   jiraExtraProjectsHint: "The primary project above stays two-way. Extra projects are read-only by default (watch only); switch one to two-way to push edits back.",
   jiraExtraProjectInclude: "Include",
   jiraExtraProjectRemove: "Remove",
   jiraReadOnly: "Read-only",
-  jiraTwoWay: "Two-way",
   jiraSyncedTwoWay: "Synced with Jira (two-way)",
   jiraSyncedReadOnlyProject: "Watched from Jira — read-only",
   jiraReadOnlyBanner: "Read-only — watched from Jira project {0}. Changes here won't be saved and revert on next sync.",

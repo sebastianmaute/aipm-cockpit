@@ -9,7 +9,8 @@ import { TASK_STATUSES, type ChangeItem, type RaidItem, type Task, type TaskStat
 import { statusLabelKey } from "./task-status-ui";
 import { groupByStatus } from "./task-kanban";
 import { isJiraSynced } from "./jira-status-map";
-import { jiraProjectKeyOf } from "./jira-projects";
+import { isReadOnlyIssue } from "./jira-projects";
+import type { JiraExtraProject } from "./settings-types";
 import { TaskKanbanCard } from "./task-kanban-card";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 
@@ -21,8 +22,9 @@ interface TaskKanbanProps {
    *  the same values the table rows use. */
   today?: string;
   holidaySet?: Set<string>;
-  /** Keys of read-only Jira projects — drives the per-card badge variant. */
-  jiraReadOnlyKeys?: readonly string[];
+  /** Jira config subset — drives the per-card read-only badge variant via isReadOnlyIssue. */
+  jiraProjectKey?: string;
+  jiraExtraProjects?: readonly JiraExtraProject[];
   /** Per-task RAID / change references (same maps the table rows use). */
   raidByTask?: Map<number, RaidItem[]>;
   changeByTask?: Map<number, ChangeItem[]>;
@@ -38,7 +40,7 @@ interface TaskKanbanProps {
 }
 
 const EMPTY_HOLIDAYS: Set<string> = new Set();
-const EMPTY_READONLY_KEYS: readonly string[] = [];
+const EMPTY_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
 
 export function TaskKanban({
@@ -46,7 +48,8 @@ export function TaskKanban({
   tasks,
   today = "",
   holidaySet = EMPTY_HOLIDAYS,
-  jiraReadOnlyKeys = EMPTY_READONLY_KEYS,
+  jiraProjectKey = "",
+  jiraExtraProjects = EMPTY_EXTRA_PROJECTS,
   raidByTask,
   changeByTask,
   onStatusChange,
@@ -99,7 +102,7 @@ export function TaskKanban({
                     onStatusChange={onStatusChange}
                     onEdit={onEdit}
                     onJumpToRaid={onJumpToRaid}
-                    readOnlyProject={!!task.jiraKey && jiraReadOnlyKeys.includes(jiraProjectKeyOf(task.jiraKey))}
+                    readOnlyProject={!!task.jiraKey && isReadOnlyIssue(task.jiraKey, { projectKey: jiraProjectKey, extraProjects: jiraExtraProjects })}
                   />
                 </article>
               );
