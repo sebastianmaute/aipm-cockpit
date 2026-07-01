@@ -187,12 +187,25 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 - **`task-attention` provider (slice 3):** `next-actions/providers/task-attention.ts` (core, NO moduleId) flags active
   (`!isTaskFinished`) tasks: unassigned (`assignee` blank && `resourceId==null`), stale (`lastUpdateDate` ≥`STALE_DAYS=14`),
   blocked (`blockers` non-empty), dep-blocked (first unfinished `FS` predecessor only; `d.taskId!==task.id` self-dep guard,
-  SS/FF/SF ignored). ★ the new `ActionSource` `"task-attention"` forced the TWO exhaustive maps `ACTION_SOURCE_LABEL`
-  (→`actionSourceAttention`) + `ACTION_SOURCE_ICON`.
+  SS/FF/SF ignored). ★ the new `ActionSource` `"task-attention"` forced the exhaustive map `ACTION_SOURCE_LABEL`
+  (→`actionSourceAttention`). (`ACTION_SOURCE_ICON` was REMOVED in the next-actions redesign — rows show no source icon.)
 - **Inline resolve CTAs (slice 4):** Assign-owner (extends the RAID assign bundle to unassigned tasks, routes by `cta.view`),
   Mark-done (`applyStatusChange`), Clear-blocker, Reschedule (`reschedule-popover.tsx`). Handlers live in `task-manager`
   (functional `setTasks(prev=>…)`, `isPopout`→undefined, guarded on `cta.view==="open-points"`); threaded the 5-layer chain
   task-manager → `workspace-section-types` → workspace-section → `ActionsPanel` → `ActionRow`.
+- **Next-actions surface (focus hero + action-first rows):** pure `next-actions/action-cta.ts` = `pickPrimaryCta`/
+  `overflowCtas` (SINGLE source for a row's primary verb + ⋮ overflow; the `can*` predicates live here, consumed by
+  `action-row.tsx` AND `action-hero-card.tsx`) + `TIER_RAG` (tier→stripe/dot token classes — ★ NO `text` variant, see
+  landmine). Shared React controls in `action-cta-controls.tsx` (`ActionPrimaryCta`/`ActionOverflowMenu`/`useActionCaps`/
+  `ActionHandlers`/`AssignOwnerBundle`, re-exported by `action-row`) render identical CTAs for the compact row AND the
+  hero. Hero = `groups[0]`, shown only when `tier!=="monitor"`, DE-DUPED from its tier list (`g.key!==heroKey`).
+  `action-reasons.tsx` = shared +N-reasons expander. Escalate/Rebaseline/Reschedule popovers + the assign button take a
+  `prominent?` prop (hero = filled+larger via `action-cta-styles.ts` `popoverTriggerClass`; rows pass nothing → unchanged
+  ghost). Source icon/pill GONE — source label is a bold prefix in the why-line; numeric score is `expertMode`-only.
+  ★★ `--rag-amber-text` (=AIPM-purple / a brown) is AA ONLY on LIGHT AIPM — as SMALL text on `bg-surface` it FAILS AA on
+  dark+mockup (3.5/4.4:1). Tier colour MUST ride the DOT/STRIPE (non-text, AA-exempt), never tinted small text (bit the
+  tier count + hero eyebrow; both now muted). ★ the `actions` (Next actions) view is now in axe `A11Y_VIEWS` (hash-nav in
+  `e2e/a11y.spec.ts` — Dashboard sub-child, sidebar entry may be collapsed at scan time).
 - **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`
   (`appHeaderEl`, used by classic main-window `legacyTree`) and modern `ModernShell` `topBarMenus` slot
   (DEFAULT layout). A new top-bar control must wire into BOTH or it's invisible in whichever layout you
@@ -690,7 +703,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   boot script in `layout.tsx` (reads `lop-style`+`lop-theme` pre-paint). Mockup ("Dashboard" style) is
   LIGHT-ONLY + PINS light: `use-style` fires a `lop-style-change` event; `use-theme` is the SOLE `.dark`
   writer and re-applies on that event (switching back to AIPM restores dark). ALL style difference is CSS
-  role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants), `--table-head-bg/-fg`,
+  role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants — ★ but `--rag-amber-text` is AA only on
+  LIGHT AIPM; as SMALL text on `bg-surface` it FAILS AA on dark/mockup, see the Next-actions surface bullet), `--table-head-bg/-fg`,
   `--table-head-accent` (sort-button active/hover), `--shadow-card/-control/-card-hover`, `--gradient-kpi`,
   `--rag-green-chip`/`--rag-red-chip` + `--delta-chip-pad` (KPI delta pills), `--segment-track-bg/-active-bg/-active-fg`. AIPM values
   reproduce the old look (no-op); mockup overrides
@@ -1003,9 +1017,9 @@ Committee` (fenced JSON) + Turso `meta` row `steering_committee` (REUSES the `me
 `TABLE_NAMES` entry) + JSON + IDB KV slot. Storage-ONLY (gated `config===undefined`, like
 fieldVisibility/features — EXCLUDED from user exports); committee-less ws stays BYTE-STABLE. ★ Adding a FIELD
 to the nested object costs ZERO extra write paths (rides the blob) — only extend `sanitizeSteeringCommittee`.
-★★ Adding to the `ActionSource` / `AppView` unions surfaced FOUR exhaustive `Record<>` maps tsc forced
-extending (`action-source-label`, `action-source-icon`, `nav-icons` ICON_PATHS, `nav-config`
-LABEL_KEYS/`navLabelKey`) — "Map-based, no break" was WRONG; grep the union members.
+★★ Adding to the `ActionSource` / `AppView` unions surfaced exhaustive `Record<>` maps tsc forced
+extending (`action-source-label`, `nav-icons` ICON_PATHS, `nav-config` LABEL_KEYS/`navLabelKey`; the former
+`action-source-icon` map was REMOVED in the next-actions redesign) — "Map-based, no break" was WRONG; grep the union members.
 Pure engines: `steering-reminders.ts` (`dueInfoReminders` — working-day lead, `today` passed in, no
 `Date.now()`) + `committee-calendar-reconcile.ts` (`planCommitteeReconcile` is ID-TRACKED: derives
 create/update/delete from the committee's OWN stored ids, NO `listProjectEvents`). Provider

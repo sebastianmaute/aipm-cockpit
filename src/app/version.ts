@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.154.0";
-export const APP_BUILD_DATE = "2026-06-30"; // 0.154.0: stronger resize-anchor indicators — always-visible ⋮ grip on column-resize handles (hover/drag accent) + accent-tinted native pane/textarea resize corner (Mitchell)
+export const APP_VERSION = "0.155.0";
+export const APP_BUILD_DATE = "2026-07-01"; // 0.155.0: Next-actions redesign — focus "Do this first" hero atop the kept tiers, action-first rows (real next-step primary CTA, source in the why-line, expert-only score), prominent hero CTA for every verb, and the view added to the a11y gate (Egan)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.154.x line is "Mitchell" (David Mitchell). */
-export const APP_MILESTONE = "Mitchell";
+ *  0.155.x line is "Egan" (Greg Egan). */
+export const APP_MILESTONE = "Egan";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -171,4 +171,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPrintMultipage",
   "versionHighlightColorSchemes",
   "versionHighlightResizeAnchor",
+  "versionHighlightNextActionsRedesign",
 ] as const;

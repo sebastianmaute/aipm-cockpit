@@ -63,6 +63,13 @@ never reference them directly.
 - **Severity ramp (Low→Critical)** — 4-step cold→hot: Low=`AIPM-green`, Medium=`AIPM-blue`, High=`AIPM-purple`, Critical=`AIPM-pink`. Alpha escalates with severity (`/20` Low/Medium → `/25` High → `/30` Critical).
 - **RAG health dots (R/A/G)** — solid dots: R=`bg-AIPM-pink`, A=`bg-AIPM-purple`, G=`bg-AIPM-green` (same triple as the task-form-modal RAG indicator and the reports legend).
 
+## RAG role tokens (dual-CI) — text-on-surface caveat
+
+The dual-CI style system adds `--rag-red/amber/green` role tokens (+ `-text` AA companions) so RAG semantics switch across the Acme / Dashboard / Custom styles.
+
+- ★ **`--rag-amber-text` is AA only on the LIGHT AIPM surface** — it maps to `AIPM-purple` (a brown under the Dashboard style). As **small text on `bg-surface`** it falls below WCAG AA on the dark and Dashboard styles (3.5:1 and 4.4:1). `--rag-red-text` / `--rag-green-text` pass.
+- **Carry tier colour on a NON-text element** — a solid dot or a left stripe (`bg-[var(--rag-amber)]` / `border-l-[var(--rag-amber)]`), which are exempt from text-contrast rules — never as small tinted text. (This bit the Next-actions tier counts + hero eyebrow; both were moved to a dot/stripe.)
+
 ## Migration status (sub-project E)
 
 - E0 (0.15.1): tokens + `segmented-control`, `modal`, `modal-header`, `app-header`. ✅

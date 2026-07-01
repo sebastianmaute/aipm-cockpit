@@ -161,6 +161,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightPrintMultipage: "Druck-Überarbeitung: lange Ansichten werden jetzt über mehrere Seiten gedruckt, ohne Bildlaufleisten oder abgerundete Rahmenboxen auf dem Papier",
   versionHighlightColorSchemes: "Benutzerdefinierte Farbschemata: eigene Palette plus Logo und Slogans in Einstellungen -> Darstellung erstellen, speichern, im-/exportieren und anwenden via neuen Stil Benutzerdefiniert (nur hell, ohne Flackern, mit WCAG-Kontrastwarnungen)",
   versionHighlightResizeAnchor: "Deutlichere Anpassungsanker: Spaltenbreiten-Griffe zeigen jetzt einen dauerhaft sichtbaren Griff, der beim Überfahren oder Ziehen hervorgehoben wird, und die native Größenänderungs-Ecke für Fenster/Textfelder ist akzentfarbig getönt",
+  versionHighlightNextActionsRedesign: "Nächste Aktionen neu gestaltet: eine Fokus-Karte „Zuerst erledigen“ führt die Warteschlange an, jede Zeile beginnt mit ihrem echten nächsten Schritt (zuweisen / neu planen / Blocker entfernen / neu ausrichten), der Rest liegt in einem Menü, und die Ansicht ist jetzt per Barrierefreiheits-Gate geprüft.",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -2153,6 +2154,7 @@ export const de: Record<TranslationKey, string> = {
   actionTierSoon: "Bald",
   actionTierMonitor: "Beobachten",
   actionMonitoredCount: "{0} überwacht",
+  actionHeroEyebrow: "Zuerst erledigen",
   actionMoreReasons: "+{0} weitere Gründe",
   actionMoreActions: "Weitere Aktionen",
   actionMarkDone: "Als erledigt markieren",

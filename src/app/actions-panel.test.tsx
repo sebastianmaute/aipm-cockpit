@@ -14,13 +14,14 @@ const mk = (id: string, tier: SuggestedAction["tier"]): SuggestedAction => ({
 });
 
 describe("ActionsPanel", () => {
-  it("renders Now/Soon section headings for present tiers, hides empty ones", () => {
-    const { getByText, queryByText } = render(
+  it("promotes the top group to a hero and renders remaining tiers", () => {
+    // a(now,60) becomes the hero; b(soon,30) renders in Soon. Now has no remainder.
+    const { getByRole, getByText, queryByText } = render(
       <ActionsPanel lang="en-US" actions={[mk("a", "now"), mk("b", "soon")]} onOpen={() => {}} />,
     );
-    expect(getByText(/^Now/)).toBeTruthy();
+    expect(getByRole("region", { name: /Do this first/i })).toBeTruthy(); // hero present
     expect(getByText(/^Soon/)).toBeTruthy();
-    expect(queryByText(/^Monitor/)).toBeNull(); // no monitor action → section hidden
+    expect(queryByText(/^Monitor/)).toBeNull();
   });
   it("shows the empty state when there are no actions", () => {
     const { getByText } = render(<ActionsPanel lang="en-US" actions={[]} onOpen={() => {}} />);
@@ -48,20 +49,21 @@ describe("ActionsPanel", () => {
     expect(list?.textContent ?? "").toMatch(/owner/i); // r2 used actionRaidWhyNoOwner
   });
 
-  it("caps the now tier and reveals the rest via show-more", async () => {
+  it("caps the now tier under the hero and reveals the rest via show-more", async () => {
     const user = userEvent.setup();
     const actions = Array.from({ length: 7 }, (_, i) => ({
       id: `n${i}`, source: "raid", moduleId: "raid",
       title: { key: "actionRaidTitle", params: [1, `n${i}`] },
       why: { key: "actionRaidWhySeverity", params: ["High"] },
       score: 70 - i, tier: "now",
-      cta: { kind: "open", view: "raid", id: i }, // distinct entities → no collapse
+      cta: { kind: "open", view: "raid", id: i },
     })) as never;
     render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
-    expect(screen.getAllByText("Open")).toHaveLength(5); // capped
-    const more = screen.getByRole("button", { name: /show 2 more/i });
+    // n0 → hero (1 Open). Remaining 6 in Now, capped at 5 → 5 Opens. Total 6.
+    expect(screen.getAllByText("Open")).toHaveLength(6);
+    const more = screen.getByRole("button", { name: /show 1 more/i });
     await user.click(more);
-    expect(screen.getAllByText("Open")).toHaveLength(7);
+    expect(screen.getAllByText("Open")).toHaveLength(7); // hero + all 6
     expect(screen.getByRole("button", { name: /show less/i })).toBeTruthy();
   });
 
@@ -99,6 +101,17 @@ describe("ActionsPanel", () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(document.getElementById("action-monitor-list")).not.toHaveAttribute("hidden");
+  });
+
+  it("does not promote a monitor-only top group to a hero", () => {
+    const actions = [
+      { id: "m1", source: "budget", title: { key: "actionBudgetTitle", params: ["P"] },
+        why: { key: "actionBudgetWhyCpi", params: ["0.8"] }, score: 10, tier: "monitor",
+        cta: { kind: "open", view: "budget", id: 0 } },
+    ] as never;
+    render(<ActionsPanel lang="en-US" actions={actions} onOpen={() => {}} />);
+    expect(screen.queryByRole("region", { name: /Do this first/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /monitored/i })).toBeTruthy();
   });
 
   describe("AI analysis section", () => {
