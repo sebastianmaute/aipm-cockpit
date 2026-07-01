@@ -1,6 +1,6 @@
 // src/app/outlook-calendar-write.ts — Microsoft Graph calendar write (events). Pure
 // given an access token: no MSAL, no React. graph.microsoft.com is already CSP-allowlisted.
-import type { Milestone, CommitteeMeeting, Task, RaidItem } from "./types";
+import type { Milestone, CommitteeMeeting, Task, RaidItem, ChangeItem } from "./types";
 import type { ExistingEvent } from "./calendar-reconcile";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -89,6 +89,34 @@ export function raidToGraphEvent(raid: RaidItem, projectId: string): GraphEvent 
         raid.owner ? `Owner: ${raid.owner}` : "",
         raid.severity ? `Severity: ${raid.severity}` : "",
         raid.status ? `Status: ${raid.status}` : "",
+        "Managed by the AIPM PM Tracker.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    },
+  };
+}
+
+/**
+ * A CHANGE-control item as an all-day Graph event on its DECISION date, tagged
+ * with the TYPE-SCOPED "change" category so its list-based reconcile can't touch
+ * task/raid/milestone/committee events. Callers filter to changes WITH a
+ * decisionDate before calling (decided items only).
+ */
+export function changeToGraphEvent(change: ChangeItem, projectId: string): GraphEvent {
+  return {
+    subject: change.title,
+    isAllDay: true,
+    start: { dateTime: `${change.decisionDate}T00:00:00`, timeZone: "UTC" },
+    end: { dateTime: `${nextDay(change.decisionDate!)}T00:00:00`, timeZone: "UTC" },
+    categories: [categoryFor(projectId, "change")],
+    body: {
+      contentType: "Text",
+      content: [
+        change.type ? `Type: ${change.type}` : "",
+        change.impact ? `Impact: ${change.impact}` : "",
+        change.status ? `Status: ${change.status}` : "",
+        change.decisionBy ? `Decision by: ${change.decisionBy}` : "",
         "Managed by the AIPM PM Tracker.",
       ]
         .filter(Boolean)
