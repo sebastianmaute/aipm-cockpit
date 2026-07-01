@@ -160,6 +160,7 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
                             e.dataTransfer.setData("text/plain", String(s.id));
                             e.dataTransfer.effectAllowed = "move";
                           } : undefined}
+                          onDragEnd={editable ? () => setDragOverQ(null) : undefined}
                           onClick={() => onOpenStakeholder(s.id)}
                           aria-label={`${t(lang, "edit")} – ${s.name}`}
                           className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-AIPM-green/15 focus:outline-none focus:ring-2 focus:ring-AIPM-green ${TRANSITION} ${PRESS}`}

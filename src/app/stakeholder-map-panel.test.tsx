@@ -108,4 +108,20 @@ describe("StakeholderMapPanel drag-to-move", () => {
     fireEvent.drop(screen.getByTestId("quadrant-monitor"), { dataTransfer: dt("1") });
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  it("a garbage (non-numeric / unknown-id) payload is a safe no-op", () => {
+    const onSave = vi.fn();
+    render(
+      <StakeholderMapPanel
+        lang="en-US"
+        stakeholders={[alice]}
+        onOpenStakeholder={vi.fn()}
+        onSaveStakeholder={onSave}
+      />,
+    );
+    expect(() =>
+      fireEvent.drop(screen.getByTestId("quadrant-manage-closely"), { dataTransfer: dt("not-a-number") }),
+    ).not.toThrow();
+    expect(onSave).not.toHaveBeenCalled();
+  });
 });
