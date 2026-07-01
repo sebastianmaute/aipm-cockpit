@@ -7,6 +7,7 @@ import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
 import { Modal } from "./modal";
 import { ActionRow } from "./action-row";
+import { ActionHeroCard } from "./action-hero-card";
 import { AiActionRow } from "./ai-action-row";
 import type { AiAction, ActionAnalysis } from "./action-ai";
 import type { AssignOwnerBundle } from "./action-row";
@@ -15,6 +16,7 @@ import type { RebaselineBundle } from "./rebaseline-popover";
 import type { RescheduleBundle } from "./reschedule-popover";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import { groupNextActions, type ActionGroup } from "./next-actions/group";
+import { TIER_RAG } from "./next-actions/action-cta";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
   { tier: "now", labelKey: "actionTierNow" },
@@ -65,6 +67,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
       lang={lang}
       action={g.primary}
       extraReasons={g.extra}
+      expertMode={expertMode}
       onOpen={onOpen}
       onSnooze={onSnooze}
       onCreateTask={onCreateTask}
@@ -77,6 +80,11 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
       onClearBlocker={onClearBlocker}
     />
   );
+
+  // Hero = the single top-ranked group, but only when it carries real urgency
+  // (tier !== monitor — never promote a low/monitor item to "Do this first").
+  const hero = groups[0] && groups[0].tier !== "monitor" ? groups[0] : null;
+  const heroKey = hero?.key;
   return (
     <div ref={ref} className={VIEW_PANE_RESIZABLE_CLASS}>
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
@@ -173,8 +181,25 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto pr-2">
+          {hero && (
+            <ActionHeroCard
+              lang={lang}
+              group={hero}
+              expertMode={expertMode}
+              onOpen={onOpen}
+              onSnooze={onSnooze}
+              onCreateTask={onCreateTask}
+              assignOwner={assignOwner}
+              onDraftMessage={onDraftMessage}
+              escalate={escalate}
+              rebaseline={rebaseline}
+              reschedule={reschedule}
+              onMarkDone={onMarkDone}
+              onClearBlocker={onClearBlocker}
+            />
+          )}
           {TIERS.map(({ tier, labelKey }) => {
-            const rows = groups.filter((g) => g.tier === tier);
+            const rows = groups.filter((g) => g.tier === tier && g.key !== heroKey);
             if (rows.length === 0) return null;
             if (tier === "monitor") {
               return (
@@ -184,8 +209,9 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                     aria-expanded={monitorOpen}
                     aria-controls="action-monitor-list"
                     onClick={() => setMonitorOpen((o) => !o)}
-                    className="mb-2 flex w-full items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                    className="mb-2 inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
                   >
+                    <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${TIER_RAG.monitor.dot}`} />
                     <span aria-hidden>{monitorOpen ? "▾" : "▸"}</span>
                     {t(lang, "actionMonitoredCount", rows.length)}
                   </button>
@@ -200,8 +226,9 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             const hiddenCount = rows.length - visible.length;
             return (
               <section key={tier}>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t(lang, labelKey)} ({rows.length})
+                <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${TIER_RAG[tier].dot}`} />
+                  {t(lang, labelKey)} <span className={TIER_RAG[tier].text}>({rows.length})</span>
                 </h3>
                 <div id={`action-${tier}-list`} className="flex flex-col gap-2">{visible.map(renderRow)}</div>
                 {rows.length > MAX_VISIBLE_PER_TIER && (
