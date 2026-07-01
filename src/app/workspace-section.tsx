@@ -715,6 +715,7 @@ export function WorkspaceSection({
               lang={lang}
               stakeholders={stakeholders}
               onOpenStakeholder={isPopout ? undefined : (id) => requestOpen("stakeholders", id)}
+              onSaveStakeholder={isPopout ? undefined : handleSaveStakeholder}
             />
           </div>
         )}
