@@ -183,6 +183,11 @@ export interface WorkspaceSectionProps {
   onToggleCalendarChange?: (enabled: boolean) => void;
   pushChangeToOutlook?: () => void;
   calendarChangePushBusy?: boolean;
+  /** Absence Outlook write-back (SP4). Absent in popouts. */
+  calendarAbsenceEnabled?: boolean;
+  onToggleCalendarAbsence?: (enabled: boolean) => void;
+  pushAbsenceToOutlook?: () => void;
+  calendarAbsencePushBusy?: boolean;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
 }

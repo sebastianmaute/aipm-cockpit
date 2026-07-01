@@ -191,6 +191,10 @@ export function WorkspaceSection({
   onToggleCalendarChange,
   pushChangeToOutlook,
   calendarChangePushBusy,
+  calendarAbsenceEnabled,
+  onToggleCalendarAbsence,
+  pushAbsenceToOutlook,
+  calendarAbsencePushBusy,
   guides = [],
   guidesReady = true,
 }: WorkspaceSectionProps) {
@@ -618,6 +622,11 @@ export function WorkspaceSection({
               onEditResource={onEditResource}
               onAddResource={onAddResource}
               onImportOutlookCalendar={onImportOutlookCalendar}
+              m365Configured={m365Configured}
+              calendarEnabled={calendarAbsenceEnabled}
+              onToggleCalendar={onToggleCalendarAbsence}
+              onPushCalendar={pushAbsenceToOutlook}
+              calendarPushBusy={calendarAbsencePushBusy}
               showHints={settings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

@@ -69,7 +69,7 @@ import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
 import { calendarSyncFor } from "./calendar-sync-config";
-import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent } from "./outlook-calendar-write";
+import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent } from "./outlook-calendar-write";
 import { isRaidActiveForReview } from "./raid-review";
 import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { RolesPanel } from "./roles-panel";
@@ -121,7 +121,7 @@ import { useOutlookCalendar } from "./use-outlook-calendar";
 import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
 import { dedupeKey, type OutlookEvent, type AbsenceImportTarget } from "./outlook-calendar";
 import { isoAddDays } from "./due-dates";
-import type { AbsenceType, ProjectMeta } from "./types";
+import type { Absence, AbsenceType, ProjectMeta } from "./types";
 import {
   loadRegistry,
   saveRegistry,
@@ -1874,6 +1874,45 @@ function TaskManagerInner() {
     [setSettings],
   );
 
+  // --- Absence calendar write-back (SP4) — mirrors the Change block ---
+  const absenceSync = calendarSyncFor(settings, "absence");
+  const calendarAbsenceEnabled = absenceSync.enabled && m365Enabled && !isPopout;
+  const absenceAutoSyncActive = absenceSync.auto && m365Enabled && !isPopout;
+  const pushableAbsences = useMemo(
+    () => absences.filter((a) => a.type !== "sick" && !!a.startDate && !!a.endDate && a.endDate >= today),
+    [absences, today],
+  );
+  // EXCLUDES outlookEventId — an OUTPUT the push writes back.
+  const absenceAutoSyncKey = useMemo(
+    () => pushableAbsences.map((a) => `${a.id}|${a.startDate}|${a.endDate}|${a.type}|${a.assignee}`).join(";"),
+    [pushableAbsences],
+  );
+  const setAbsenceForCalendar = useCallback(
+    (updater: (prev: Absence[]) => Absence[]) => setAbsences((prev) => updater([...prev])),
+    [setAbsences],
+  );
+  const { pushToOutlook: pushAbsenceToOutlook, busy: calendarAbsencePushBusy } = useEntityCalendarPush<Absence>({
+    items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
+    toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
+    isPopout, lang, enabled: calendarAbsenceEnabled,
+  });
+  const { pushToOutlook: autoPushAbsence } = useEntityCalendarPush<Absence>({
+    items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
+    toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
+    isPopout, lang, enabled: absenceAutoSyncActive, interactive: false,
+  });
+  useCalendarAutoSync({ active: absenceAutoSyncActive, contentKey: absenceAutoSyncKey, push: autoPushAbsence });
+  const onToggleCalendarAbsence = useCallback(
+    (enabled: boolean) => setSettings((s) => ({
+      ...s,
+      outlookCalendar: {
+        ...s.outlookCalendar,
+        absence: { enabled, auto: enabled ? (s.outlookCalendar?.absence?.auto ?? false) : false },
+      },
+    })),
+    [setSettings],
+  );
+
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -1903,6 +1942,10 @@ function TaskManagerInner() {
     onToggleCalendarChange,
     pushChangeToOutlook,
     calendarChangePushBusy,
+    calendarAbsenceEnabled,
+    onToggleCalendarAbsence,
+    pushAbsenceToOutlook,
+    calendarAbsencePushBusy,
     changes,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
