@@ -1,6 +1,6 @@
 // src/app/outlook-calendar-write.ts — Microsoft Graph calendar write (events). Pure
 // given an access token: no MSAL, no React. graph.microsoft.com is already CSP-allowlisted.
-import type { Milestone, CommitteeMeeting, Task, RaidItem, ChangeItem } from "./types";
+import type { Milestone, CommitteeMeeting, Task, RaidItem, ChangeItem, Absence } from "./types";
 import type { ExistingEvent } from "./calendar-reconcile";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -117,6 +117,33 @@ export function changeToGraphEvent(change: ChangeItem, projectId: string): Graph
         change.impact ? `Impact: ${change.impact}` : "",
         change.status ? `Status: ${change.status}` : "",
         change.decisionBy ? `Decision by: ${change.decisionBy}` : "",
+        "Managed by the AIPM PM Tracker.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    },
+  };
+}
+
+/**
+ * A resource ABSENCE as a MULTI-DAY all-day Graph event spanning startDate..endDate,
+ * tagged with the TYPE-SCOPED "absence" category so its list-based reconcile can't touch
+ * task/raid/change/milestone/committee events. Graph all-day `end` is EXCLUSIVE, so the
+ * event ends the day AFTER endDate.
+ */
+export function absenceToGraphEvent(absence: Absence, projectId: string): GraphEvent {
+  return {
+    subject: `${absence.assignee} – ${absence.type}`,
+    isAllDay: true,
+    start: { dateTime: `${absence.startDate}T00:00:00`, timeZone: "UTC" },
+    end: { dateTime: `${nextDay(absence.endDate)}T00:00:00`, timeZone: "UTC" },
+    categories: [categoryFor(projectId, "absence")],
+    body: {
+      contentType: "Text",
+      content: [
+        `Type: ${absence.type}`,
+        `Assignee: ${absence.assignee}`,
+        absence.note ? absence.note : "",
         "Managed by the AIPM PM Tracker.",
       ]
         .filter(Boolean)

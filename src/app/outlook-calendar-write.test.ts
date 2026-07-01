@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
 } from "./outlook-calendar-write";
-import type { Milestone, Task, RaidItem } from "./types";
+import { absenceToGraphEvent } from "./outlook-calendar-write";
+import type { Milestone, Task, RaidItem, Absence } from "./types";
 
 const EVENT = milestoneToGraphEvent({ id: 1, name: "X", date: "2026-08-01", linkedTaskIds: [] }, "p");
 
@@ -76,6 +77,22 @@ describe("changeToGraphEvent", () => {
     expect(ev.body.content).toContain("Impact: High");
     expect(ev.body.content).toContain("Status: Approved");
     expect(ev.body.content).toContain("Decision by: Elena");
+  });
+});
+
+describe("absenceToGraphEvent", () => {
+  const abs: Absence = { id: 1, assignee: "Jane Doe", startDate: "2026-01-05", endDate: "2026-01-09", type: "vacation", note: "Skiing" };
+  it("emits a multi-day all-day event ending the day AFTER endDate (exclusive)", () => {
+    const ev = absenceToGraphEvent(abs, "proj-1");
+    expect(ev.isAllDay).toBe(true);
+    expect(ev.start).toEqual({ dateTime: "2026-01-05T00:00:00", timeZone: "UTC" });
+    expect(ev.end).toEqual({ dateTime: "2026-01-10T00:00:00", timeZone: "UTC" });
+  });
+  it("tags a type-scoped absence category", () => {
+    expect(absenceToGraphEvent(abs, "proj-1").categories).toEqual(["AIPM:proj-1:absence"]);
+  });
+  it("puts assignee and type in the subject", () => {
+    expect(absenceToGraphEvent(abs, "proj-1").subject).toBe("Jane Doe – vacation");
   });
 });
 
