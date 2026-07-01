@@ -37,6 +37,11 @@ export function ActionHeroCard(props: ActionHeroCardProps) {
       <h3 className="mt-1 text-base font-semibold text-foreground">{title}</h3>
       <p className="mt-0.5 text-sm text-muted-foreground">{why}</p>
       <ActionReasons lang={lang} action={action} extraReasons={group.extra} />
+      {action.learning?.moved && (
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {action.learning.moved === "up" ? t(lang, "learningSurfacedHint") : t(lang, "learningDemotedHint")}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <ActionPrimaryCta lang={lang} action={action} caps={caps} handlers={props} prominent />
         <ActionOverflowMenu lang={lang} action={action} caps={caps} handlers={props} />

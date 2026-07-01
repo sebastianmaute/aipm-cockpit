@@ -160,7 +160,6 @@ export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
         <span className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1">
           {items.map((k) => {
             if (k === "markDone" && handlers.onMarkDone) return item(t(lang, "actionMarkDone"), () => handlers.onMarkDone!(action));
-            if (k === "clearBlocker" && handlers.onClearBlocker) return item(t(lang, "actionClearBlocker"), () => handlers.onClearBlocker!(action));
             if (k === "draft" && handlers.onDraftMessage) return item(t(lang, "actionDraftMessage"), () => handlers.onDraftMessage!(action));
             if (k === "createTask" && handlers.onCreateTask) return item(t(lang, "actionCreateTask"), () => handlers.onCreateTask!(action));
             if (k === "snooze" && handlers.onSnooze) return (

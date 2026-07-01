@@ -11,7 +11,10 @@ export type PrimaryCtaKind =
   | "assign" | "clearBlocker" | "reschedule" | "rebaseline"
   | "escalate" | "draft" | "markDone" | "open";
 
-export type SecondaryCtaKind = "markDone" | "clearBlocker" | "draft" | "createTask" | "snooze";
+// NOTE: clearBlocker is intentionally absent — it is priority-2 and mutually
+// exclusive (by source/why) with the only higher verb (assign), so it is ALWAYS
+// the primary when applicable and can never land in the overflow.
+export type SecondaryCtaKind = "markDone" | "draft" | "createTask" | "snooze";
 
 /** Which optional handler bundles/flags are wired in for this surface — presence
  *  === capability. Assembled from the props ActionRow/ActionHeroCard already hold. */
@@ -83,7 +86,6 @@ export function overflowCtas(a: SuggestedAction, c: ActionCaps): SecondaryCtaKin
   const primary = pickPrimaryCta(a, c);
   const out: SecondaryCtaKind[] = [];
   if (canMarkDone(a, c) && primary !== "markDone") out.push("markDone");
-  if (canClearBlocker(a, c) && primary !== "clearBlocker") out.push("clearBlocker");
   if (canDraft(a, c) && primary !== "draft") out.push("draft");
   if (canCreateTask(a, c)) out.push("createTask");
   if (c.snooze) out.push("snooze");

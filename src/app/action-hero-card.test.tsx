@@ -39,4 +39,12 @@ describe("ActionHeroCard", () => {
     expect(container.querySelector(".border-l-\\[var\\(--rag-red\\)\\]")).toBeTruthy();
     expect(screen.getByRole("region", { name: /Do this first/i })).toBeInTheDocument();
   });
+  it("shows the learning surfaced/demoted hint when the action moved", () => {
+    const surfaced = { ...noOwner, learning: { bias: 12, moved: "up" as const } };
+    const { rerender } = render(<ActionHeroCard lang="en-US" group={group(surfaced)} onOpen={() => {}} />);
+    expect(screen.getByText(/surfaced/i)).toBeInTheDocument();
+    const demoted = { ...noOwner, learning: { bias: -12, moved: "down" as const } };
+    rerender(<ActionHeroCard lang="en-US" group={group(demoted)} onOpen={() => {}} />);
+    expect(screen.getByText(/demoted/i)).toBeInTheDocument();
+  });
 });
