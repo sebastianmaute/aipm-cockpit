@@ -513,7 +513,12 @@ export function TasksSection({
                     ...s,
                     outlookCalendar: {
                       ...s.outlookCalendar,
-                      task: { enabled: e.target.checked, auto: s.outlookCalendar?.task?.auto ?? false },
+                      // Disabling here also forces auto off (mirrors the Settings toggle)
+                      // so re-enabling from this checkbox can't silently reactivate auto-sync.
+                      task: {
+                        enabled: e.target.checked,
+                        auto: e.target.checked ? (s.outlookCalendar?.task?.auto ?? false) : false,
+                      },
                     },
                   }))
                 }
