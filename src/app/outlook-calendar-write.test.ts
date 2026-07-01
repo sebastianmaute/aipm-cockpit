@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
-  milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
+  milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
 } from "./outlook-calendar-write";
-import { absenceToGraphEvent } from "./outlook-calendar-write";
 import type { Milestone, Task, RaidItem, Absence } from "./types";
 
 const EVENT = milestoneToGraphEvent({ id: 1, name: "X", date: "2026-08-01", linkedTaskIds: [] }, "p");

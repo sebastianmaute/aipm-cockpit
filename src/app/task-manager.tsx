@@ -1882,7 +1882,9 @@ function TaskManagerInner() {
     () => absences.filter((a) => a.type !== "sick" && !!a.startDate && !!a.endDate && a.endDate >= today),
     [absences, today],
   );
-  // EXCLUDES outlookEventId — an OUTPUT the push writes back.
+  // EXCLUDES outlookEventId — an OUTPUT the push writes back. Also intentionally
+  // omits `note` (a body-only field): a note-only edit won't auto-repush — the
+  // manual "Push to Outlook" button covers that rare case (matches other entities).
   const absenceAutoSyncKey = useMemo(
     () => pushableAbsences.map((a) => `${a.id}|${a.startDate}|${a.endDate}|${a.type}|${a.assignee}`).join(";"),
     [pushableAbsences],
