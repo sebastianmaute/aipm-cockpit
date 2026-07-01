@@ -13,6 +13,7 @@ import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
 import { isSafeMode } from "./safe-mode";
 import { migratePlaintextSecrets, readDeviceSecret } from "./secrets-store";
+import { sanitizeJiraExtraProjects } from "./jira-projects";
 
 export const SETTINGS_KEY = "lop-app:settings";
 
@@ -220,10 +221,19 @@ export function useSettings(): {
             language: resolvedLang,
             ai: sanitizeAiConfig(isPlainObject(parsed.ai) ? parsed.ai : {}),
             notifications: migrateNotifications(parsed.notifications),
-            jira: {
-              ...defaultSettings.jira,
-              ...(isPlainObject(parsed.jira) ? parsed.jira : {}),
-            },
+            jira: (() => {
+              const merged = {
+                ...defaultSettings.jira,
+                ...(isPlainObject(parsed.jira) ? parsed.jira : {}),
+              };
+              return {
+                ...merged,
+                extraProjects: sanitizeJiraExtraProjects(
+                  merged.extraProjects,
+                  merged.projectKey,
+                ),
+              };
+            })(),
             timelog: {
               ...defaultTimelogConfig,
               ...(isPlainObject(parsed.timelog) ? parsed.timelog : {}),
