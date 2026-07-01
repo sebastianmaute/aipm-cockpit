@@ -41,6 +41,7 @@ function makeSettings(): Settings {
       apiToken: "",
       projectKey: "",
       projectName: "",
+      extraProjects: [],
       issueTypes: [],
       assigneeMode: "currentUser",
       assigneeAccountId: "",
