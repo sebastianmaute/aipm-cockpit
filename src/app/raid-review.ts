@@ -18,7 +18,10 @@ const TERMINAL: ReadonlySet<RaidStatus> = new Set<RaidStatus>([
   "Closed", "Resolved", "Delivered", "Validated", "Invalidated",
 ]);
 
-function isActive(item: RaidItem): boolean {
+/** Active for review = not closed and not in a terminal status. Shared by the
+ *  review-reminder engine AND the calendar-writeback pane filter so both agree
+ *  on which items are pushable. */
+export function isRaidActiveForReview(item: RaidItem): boolean {
   return !item.closedDate && !TERMINAL.has(item.status);
 }
 
@@ -41,7 +44,7 @@ export function getRaidReviewItems(
 ): RaidReviewItem[] {
   const out: RaidReviewItem[] = [];
   for (const item of raid) {
-    if (!isActive(item)) continue;
+    if (!isRaidActiveForReview(item)) continue;
     const daysOverdue = item.targetDate && item.targetDate < today ? dayDiff(today, item.targetDate) : 0;
     const daysSinceReview = dayDiff(today, lastTouch(item));
     const overdue = daysOverdue > 0;

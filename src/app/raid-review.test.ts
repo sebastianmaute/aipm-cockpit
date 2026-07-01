@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { getRaidReviewItems, summarizeRaidReview } from "./raid-review";
+import { getRaidReviewItems, summarizeRaidReview, isRaidActiveForReview } from "./raid-review";
 import type { RaidItem } from "./types";
 
 function raid(partial: Partial<RaidItem>): RaidItem {
@@ -51,6 +51,14 @@ describe("getRaidReviewItems", () => {
   });
   test("empty input -> empty", () => {
     expect(getRaidReviewItems([], TODAY, 14)).toEqual([]);
+  });
+});
+
+describe("isRaidActiveForReview", () => {
+  test("isRaidActiveForReview is false for closed or terminal items", () => {
+    expect(isRaidActiveForReview({ closedDate: "2026-01-01", status: "Open" } as RaidItem)).toBe(false);
+    expect(isRaidActiveForReview({ status: "Closed" } as RaidItem)).toBe(false);
+    expect(isRaidActiveForReview({ status: "Open" } as RaidItem)).toBe(true);
   });
 });
 
