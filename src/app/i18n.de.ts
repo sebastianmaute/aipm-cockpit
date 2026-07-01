@@ -1815,7 +1815,6 @@ export const de: Record<TranslationKey, string> = {
   milestoneStatusAtRisk: "Gefährdet",
   milestoneStatusDueSoon: "Bald fällig",
   milestoneStatusOnTrack: "Im Plan",
-  milestonesTitle: "Wichtige Termine",
   milestonesEmpty: "Noch keine Meilensteine.",
   milestonesNoMatches: "Keine Meilensteine entsprechen den aktuellen Filtern.",
   milestonesColName: "Meilenstein",

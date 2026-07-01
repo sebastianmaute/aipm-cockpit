@@ -1815,7 +1815,6 @@ const enUS = {
   milestoneStatusAtRisk: "At risk",
   milestoneStatusDueSoon: "Due soon",
   milestoneStatusOnTrack: "On track",
-  milestonesTitle: "Key dates",
   milestonesEmpty: "No milestones yet.",
   milestonesNoMatches: "No milestones match the current filters.",
   milestonesColName: "Milestone",
