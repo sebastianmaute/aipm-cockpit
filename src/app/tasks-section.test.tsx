@@ -318,7 +318,7 @@ describe("TasksSection", () => {
     expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
   });
 
-  it("no longer renders the heading count / finished-hidden hint", () => {
+  it("hides finished rows and renders no heading/count (single toolbar row)", () => {
     // The header heading + task count were dropped in favour of a single
     // milestones-style toolbar row; only the row-hiding behaviour remains.
     stubSettings({ hideFinishedTasks: true });
@@ -327,22 +327,11 @@ describe("TasksSection", () => {
     const charlie = { id: 3, taskName: "Charlie", status: "Cancelled" };
     stubWorkspace([alpha, bravo, charlie], [alpha, bravo, charlie]);
     render(<TasksSection {...makeProps()} />);
-    // The finished rows are hidden, but no count hint is rendered any more.
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.queryByText("Bravo")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(t("en-US", "tasksFinishedHidden", 2)),
-    ).not.toBeInTheDocument();
-  });
-
-  it("omits the finished-hidden hint when nothing is hidden", () => {
-    stubSettings({ hideFinishedTasks: true });
-    const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
-    const bravo = { id: 2, taskName: "Bravo", status: "In Progress" };
-    stubWorkspace([alpha, bravo], [alpha, bravo]);
-    render(<TasksSection {...makeProps()} />);
-    expect(
-      screen.queryByText(t("en-US", "tasksFinishedHidden", 0)),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
+    // No heading — the modern shell supplies the view <h1>.
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
   });
 
   it("shows all tasks (incl. Done and Cancelled) when hideFinishedTasks is off", () => {

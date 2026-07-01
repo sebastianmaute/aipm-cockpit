@@ -167,7 +167,6 @@ export const de: Record<TranslationKey, string> = {
   tasks: "Aufgaben",
   tasksCount: "({0})",
   tasksCountFiltered: "({0} von {1})",
-  tasksFinishedHidden: "{0} erledigte ausgeblendet",
   clearAll: "Alle löschen",
   tasksClearDialogTitle: "Alle Aufgaben löschen?",
   tasksClearDialogMessage: "Dies entfernt dauerhaft alle {0} Aufgabe(n) aus diesem Projekt. Dies kann nicht rückgängig gemacht werden.",

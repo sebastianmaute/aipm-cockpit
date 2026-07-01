@@ -173,65 +173,49 @@ describe("useBulkOperations", () => {
   });
 
   describe("handleClearAll", () => {
-    it("does nothing when tasks is empty", () => {
-      const { result } = renderBulk();
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      act(() => { result.current.bulk.handleClearAll(); });
-      expect(confirmSpy).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
+    const seedOne = () => ({
+      id: 1,
+      taskName: "Task A",
+      assignee: "Alice",
+      assigneeEmail: "alice@test.com",
+      dueDate: "2026-06-01",
+      lastUpdateDate: "2026-05-20",
+      status: "To Do" as const,
+      priority: "Medium" as const,
+      blockers: "",
+      notes: "",
+      inquiriesSent: 0,
+      localModifiedAt: "2026-05-20T00:00:00.000Z",
     });
 
-    it("clears tasks when window.confirm returns true", () => {
+    it("does nothing when tasks is empty", () => {
       const { result } = renderBulk();
-      act(() => {
-        result.current.workspace.setTasks([
-          {
-            id: 1,
-            taskName: "Task A",
-            assignee: "Alice",
-            assigneeEmail: "alice@test.com",
-            dueDate: "2026-06-01",
-            lastUpdateDate: "2026-05-20",
-            status: "To Do",
-            priority: "Medium",
-            blockers: "",
-            notes: "",
-            inquiriesSent: 0,
-            localModifiedAt: "2026-05-20T00:00:00.000Z",
-          },
-        ]);
-      });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      act(() => { result.current.bulk.handleClearAll(); });
+      expect(result.current.workspace.tasks).toHaveLength(0);
+    });
+
+    it("clears all tasks unconditionally (the caller owns confirmation)", () => {
+      const { result } = renderBulk();
+      act(() => { result.current.workspace.setTasks([seedOne()]); });
+      // No window.confirm here — the tasks view now gates this with TypeToConfirmDialog.
       act(() => { result.current.bulk.handleClearAll(); });
       expect(result.current.workspace.tasks).toHaveLength(0);
       expect(result.current.bulk.selectedIds.size).toBe(0);
-      confirmSpy.mockRestore();
     });
 
-    it("does NOT clear tasks when window.confirm returns false", () => {
+    it("voice 'clearAll' command clears only when window.confirm returns true", () => {
       const { result } = renderBulk();
-      act(() => {
-        result.current.workspace.setTasks([
-          {
-            id: 1,
-            taskName: "Task A",
-            assignee: "Alice",
-            assigneeEmail: "alice@test.com",
-            dueDate: "2026-06-01",
-            lastUpdateDate: "2026-05-20",
-            status: "To Do",
-            priority: "Medium",
-            blockers: "",
-            notes: "",
-            inquiriesSent: 0,
-            localModifiedAt: "2026-05-20T00:00:00.000Z",
-          },
-        ]);
-      });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-      act(() => { result.current.bulk.handleClearAll(); });
+      act(() => { result.current.workspace.setTasks([seedOne()]); });
+
+      const noSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+      act(() => { result.current.bulk.handleCommand({ kind: "clearAll" }, "clear all"); });
       expect(result.current.workspace.tasks).toHaveLength(1);
-      confirmSpy.mockRestore();
+      noSpy.mockRestore();
+
+      const yesSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      act(() => { result.current.bulk.handleCommand({ kind: "clearAll" }, "clear all"); });
+      expect(result.current.workspace.tasks).toHaveLength(0);
+      yesSpy.mockRestore();
     });
   });
 

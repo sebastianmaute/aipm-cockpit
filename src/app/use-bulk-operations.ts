@@ -170,9 +170,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setSelectedIds(new Set());
   }, [bulkEdit, selectedIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz]);
 
+  // Unconditional clear — callers own the confirmation (the tasks view gates it
+  // with TypeToConfirmDialog; the voice command below gates it with window.confirm).
   const handleClearAll = useCallback(() => {
     if (tasks.length === 0) return;
-    if (!window.confirm(t(langRef.current, "confirmClearAll", tasks.length))) return;
     setTasks([]);
     setSelectedIds(new Set());
     onCancelEditRef.current();
@@ -280,7 +281,9 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
           return;
         }
         case "clearAll":
-          handleClearAll();
+          if (tasks.length > 0 && window.confirm(t(lang, "confirmClearAll", tasks.length))) {
+            handleClearAll();
+          }
           return;
         case "openForm":
           onCancelEditRef.current();

@@ -164,7 +164,6 @@ const enUS = {
   tasks: "Tasks",
   tasksCount: "({0})",
   tasksCountFiltered: "({0} of {1})",
-  tasksFinishedHidden: "{0} finished hidden",
   clearAll: "Clear all",
   tasksClearDialogTitle: "Clear all tasks?",
   tasksClearDialogMessage: "This permanently removes all {0} task(s) from this project. This cannot be undone.",
