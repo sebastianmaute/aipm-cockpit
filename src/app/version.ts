@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.157.0";
-export const APP_BUILD_DATE = "2026-07-01"; // 0.157.0: Outlook calendar write-back for tasks (due dates) and RAID items (review dates) — all-day events pushed manually or automatically, toggled per entity in its pane and centrally in Settings; plus stakeholder map drag-and-drop to reassign influence/interest levels (Baxter)
+export const APP_VERSION = "0.158.0";
+export const APP_BUILD_DATE = "2026-07-01"; // 0.158.0: Change decision-date Outlook calendar write-back — decided changes pushed as all-day events on their decision date; manual + auto per-entity toggle in the Changes pane and Settings (Erikson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.157.x line is "Baxter" (Stephen Baxter). */
-export const APP_MILESTONE = "Baxter";
+ *  0.158.x line is "Erikson" (Steven Erikson). */
+export const APP_MILESTONE = "Erikson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -175,4 +175,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightJiraMultiProject",
   "versionHighlightStakeholderDrag",
   "versionHighlightCalendarWriteback",
+  "versionHighlightCalendarChange",
 ] as const;

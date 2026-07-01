@@ -165,6 +165,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightJiraMultiProject: "Jira-Synchronisierung über mehrere Projekte: ein primäres bidirektionales Projekt behalten und weitere Projekte zum Beobachten hinzufügen, jedes mit eigenem Schreibschutz-Schalter – schreibgeschützte Projekte ziehen Aktualisierungen herein, übertragen aber nie Ihre Änderungen zurück, und ein Aufgaben-Badge plus ein Editor-Banner machen den Schreibschutz-Status klar",
   versionHighlightStakeholderDrag: "Stakeholder-Karte per Ziehen: Stakeholder zwischen den Einfluss/Interesse-Quadranten ziehen, um ihre Einfluss- und Interessenstufen direkt auf der Karte zu aktualisieren",
   versionHighlightCalendarWriteback: "Outlook-Kalender-Rückschreibung: Aufgaben (nach Fälligkeitsdatum) und RAID-Einträge (nach Überprüfungstermin) als ganztägige Termine nach Outlook schreiben – manuell oder automatisch, pro Entität im jeweiligen Bereich und zentral unter Einstellungen → Integrationen umschaltbar",
+  versionHighlightCalendarChange: "Änderungsentscheidungen werden an ihren Entscheidungsterminen mit Outlook synchronisiert",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

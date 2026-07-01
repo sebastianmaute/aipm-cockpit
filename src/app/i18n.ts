@@ -162,6 +162,7 @@ const enUS = {
   versionHighlightJiraMultiProject: "Multi-project Jira sync: keep one primary two-way project and add extra projects to watch, each with a per-project read-only toggle — read-only projects pull in updates but never push your edits back, and a task badge plus an editor banner make the read-only state clear",
   versionHighlightStakeholderDrag: "Stakeholder map drag-and-drop: drag stakeholders between the influence/interest quadrants to update their influence and interest levels directly on the map",
   versionHighlightCalendarWriteback: "Outlook calendar write-back: push tasks (by due date) and RAID items (by review date) to Outlook as all-day events — manually or automatically, toggled per entity in its pane and centrally in Settings → Integrations",
+  versionHighlightCalendarChange: "Change decisions sync to Outlook on their decision dates",
 
   tasks: "Tasks",
   tasksCount: "({0})",

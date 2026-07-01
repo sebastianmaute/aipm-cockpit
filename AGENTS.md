@@ -1083,9 +1083,15 @@ callback-prop pane (parent owns `raid`), so — UNLIKE the fat `tasks-section` �
 `onToggleCalendarRaid`) and threads FIVE props (`m365Configured`/`calendarRaidEnabled`/`onToggleCalendarRaid`/
 `pushRaidToOutlook`/`calendarRaidPushBusy`) through `workspace-section-types` → `workspace-section` → the pane (renamed
 to `calendarEnabled`/`onToggleCalendar`/`onPushCalendar`/`calendarPushBusy` at the pane boundary). The central Settings
-rows are a reusable `CalendarSyncEntityRow` helper (`integrations-section.tsx`). SP3–4 (Change decision dates /
-Resource absences) reuse the engine: add the entity's `outlookEventId` column + a `CalendarEntityType` config entry +
-`*ToGraphEvent` + pane/task-manager wiring.
+rows are a reusable `CalendarSyncEntityRow` helper (`integrations-section.tsx`). **Change (SP3, v0.158+):** pushes decided
+changes (`!!decisionDate`) as all-day events on the decision date; `changeToGraphEvent` mirrors `raidToGraphEvent`;
+`ChangeItem.outlookEventId` rides the same 6 paths + `CHANGES_CSV_COLUMNS`/`CHANGES_MD_COLUMNS` column (MD decode arm in
+`markdown-codecs-core.ts`; `sanitizeChangeItem` caps 1024). Like RAID it's a THIN callback-prop pane, so ALL calendar
+logic lives in `task-manager` (manual + silent-auto `useEntityCalendarPush<ChangeItem>`, `useCalendarAutoSync`, the
+`setChangesForCalendar` bridge, `onToggleCalendarChange`) and threads FOUR props through `workspace-section-types` →
+`workspace-section` → the pane (renamed to `calendarEnabled`/`onToggleCalendar`/`onPushCalendar`/`calendarPushBusy` at the
+pane boundary). SP4 (Resource absences) reuses the engine: add the entity's `outlookEventId` column + a
+`CalendarEntityType` config entry + `*ToGraphEvent` + pane/task-manager wiring.
 
 ### Timelog integration
 
