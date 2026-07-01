@@ -59,6 +59,7 @@ export interface TasksSectionProps {
   fillHeight?: boolean;
   // Row-context data not already in props
   jiraSiteUrl: string;
+  jiraReadOnlyKeys: readonly string[];
   // Row-context callbacks — assembled into rowContextValue useMemo internally
   onToggleSelect: (id: number) => void;
   onToggleNoteExpanded: (id: number) => void;
@@ -120,6 +121,7 @@ export function TasksSection({
   today,
   fillHeight,
   jiraSiteUrl,
+  jiraReadOnlyKeys,
   onToggleSelect,
   onToggleNoteExpanded,
   onJumpToRaid,
@@ -200,6 +202,7 @@ export function TasksSection({
       today,
       holidaySet,
       jiraSiteUrl,
+      jiraReadOnlyKeys,
       jiraEnabled,
       jiraProjectKey,
       hiddenCols,
@@ -219,6 +222,7 @@ export function TasksSection({
       today,
       holidaySet,
       jiraSiteUrl,
+      jiraReadOnlyKeys,
       jiraEnabled,
       jiraProjectKey,
       hiddenCols,
@@ -557,6 +561,7 @@ export function TasksSection({
           onStatusChange={onStatusChange}
           onEdit={onEdit}
           onJumpToRaid={onJumpToRaid}
+          jiraReadOnlyKeys={jiraReadOnlyKeys}
           containerRef={containerRef}
           flashId={flashId}
         />

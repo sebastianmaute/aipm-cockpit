@@ -23,6 +23,7 @@ interface TaskKanbanCardProps {
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onJumpToRaid: (taskId: number) => void;
+  readOnlyProject?: boolean;
 }
 
 export function TaskKanbanCard({
@@ -35,6 +36,7 @@ export function TaskKanbanCard({
   onStatusChange,
   onEdit,
   onJumpToRaid,
+  readOnlyProject,
 }: TaskKanbanCardProps) {
   const health: TaskHealth = computeTaskHealth(task, today, holidaySet);
   const healthTip = formatHealthTooltip(health, lang);
@@ -70,7 +72,7 @@ export function TaskKanbanCard({
         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityClass}`}>
           {priorityLabel(lang, task.priority)}
         </span>
-        {task.jiraKey && <JiraBadge jiraKey={task.jiraKey} lang={lang} />}
+        {task.jiraKey && <JiraBadge jiraKey={task.jiraKey} lang={lang} readOnlyProject={readOnlyProject} />}
         {raidRefs && raidRefs.length > 0 && (
           <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
         )}

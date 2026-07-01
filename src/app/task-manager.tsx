@@ -1684,6 +1684,11 @@ function TaskManagerInner() {
       : null;
   const editingIsJiraLinked = !!editingTask?.jiraKey;
 
+  // Keys of extra projects flagged read-only — drives the badge/editor telegraph.
+  const jiraReadOnlyKeys = (settings.jira.extraProjects ?? [])
+    .filter((p) => p.readOnly)
+    .map((p) => p.key);
+
   // Render gate: hold first paint until the active-language dictionary is
   // in memory. Lifts in the next microtask for en-US/en-GB (no fetch);
   // briefly delays initial paint for de while ./i18n.de loads. Must come
@@ -1894,6 +1899,7 @@ function TaskManagerInner() {
       isPopout={isPopout}
       onLearnMoreHint={requestHelpConcept}
       jiraSiteUrl={settings.jira.siteUrl}
+      jiraReadOnlyKeys={jiraReadOnlyKeys}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}
       onJumpToRaid={onJumpToRaid}
