@@ -327,6 +327,118 @@ describe("useJiraSync — handleJiraSync", () => {
   });
 });
 
+describe("read-only project sync", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  const roSettings = {
+    jira: {
+      ...baseSettings.jira,
+      projectKey: "LOP",
+      projectName: "LOP Project",
+      extraProjects: [{ key: "OPS", name: "Ops", readOnly: true }],
+    },
+  } as unknown as Settings;
+
+  it("reverts a locally-changed read-only-project task without pushing", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project in (LOP, OPS)");
+    const remoteIssue = {
+      key: "OPS-1",
+      fields: {
+        summary: "remote name",
+        updated: "2025-12-01T00:00:00", // <= lastSyncedAt → remote UNCHANGED
+        status: { statusCategory: { key: "indeterminate" } },
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "remote name",
+      status: "To Do",
+      jiraIssueType: "Task",
+    });
+
+    // local changed (localModifiedAt after lastSyncedAt), remote unchanged
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "OPS-1",
+      taskName: "local edit",
+      lastSyncedAt: "2026-01-01T00:00:00",
+      localModifiedAt: "2026-05-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask], roSettings);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled();
+    expect(result.current.currentTasks[0].taskName).toBe("remote name"); // reverted
+    expect(result.current.currentTasks[0].localModifiedAt).toBeUndefined();
+  });
+
+  it("never queues a conflict for a read-only-project task", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project in (LOP, OPS)");
+    const remoteIssue = {
+      key: "OPS-1",
+      fields: {
+        summary: "remote name",
+        updated: "2026-05-10T00:00:00", // AFTER lastSyncedAt → remote ALSO changed
+        status: { statusCategory: { key: "indeterminate" } },
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "remote name",
+      status: "To Do",
+      jiraIssueType: "Task",
+    });
+    // Would produce a conflict if the read-only branch didn't short-circuit.
+    (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockReturnValue([
+      { key: "taskName", localValue: "local edit", remoteValue: "remote name" },
+    ]);
+
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "OPS-1",
+      taskName: "local edit",
+      lastSyncedAt: "2026-01-01T00:00:00",
+      localModifiedAt: "2026-05-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask], roSettings);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled();
+    expect(result.current.jiraConflicts).toEqual([]);
+    expect(result.current.currentTasks[0].taskName).toBe("remote name");
+  });
+
+  it("still pushes a locally-changed two-way (primary) task", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project in (LOP, OPS)");
+    const remoteIssue = {
+      key: "LOP-1",
+      fields: {
+        summary: "old name",
+        updated: "2025-12-01T00:00:00", // remote unchanged
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "new name" });
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "LOP-1",
+      taskName: "new name",
+      lastSyncedAt: "2026-01-01T00:00:00",
+      localModifiedAt: "2026-05-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask], roSettings);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(jiraApi.updateIssue).toHaveBeenCalled();
+  });
+});
+
 describe("useJiraSync — handleResolveConflicts", () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
