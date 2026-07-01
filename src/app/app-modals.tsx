@@ -54,6 +54,8 @@ export interface AppModalsProps {
   uniqueGroups: string[];
   uniqueLabels: string[];
   editingIsJiraLinked: boolean;
+  /** When set, the task's Jira project is read-only; show a warning banner. */
+  readOnlyJiraProjectName?: string;
   jiraEnabled: boolean;
   fieldErrors: TaskFieldErrors;
   submitted: boolean;
@@ -108,6 +110,7 @@ export function AppModals({
   uniqueGroups,
   uniqueLabels,
   editingIsJiraLinked,
+  readOnlyJiraProjectName,
   jiraEnabled,
   fieldErrors,
   submitted,
@@ -146,6 +149,7 @@ export function AppModals({
           uniqueGroups={uniqueGroups}
           uniqueLabels={uniqueLabels}
           editingIsJiraLinked={editingIsJiraLinked}
+          readOnlyJiraProjectName={readOnlyJiraProjectName}
           jiraEnabled={jiraEnabled}
           fieldErrors={fieldErrors}
           submitted={submitted}

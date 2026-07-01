@@ -3,6 +3,7 @@
 import type React from "react";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
+import { JiraReadOnlyBanner } from "./jira-readonly-banner";
 import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields, type TaskFormFieldsProps } from "./task-form-fields";
 
@@ -22,9 +23,11 @@ export interface TaskEditViewProps extends TaskFormFieldsProps {
   /** Dismiss handler for the ✕ close button rendered beside the field cog. When
    *  omitted, no close button is shown. */
   onClose?: () => void;
+  /** When set, the task's Jira project is read-only; show a warning banner. */
+  readOnlyJiraProjectName?: string;
 }
 
-export function TaskEditView({ onSubmit, footer, footerLeading, heading, onClose, ...fieldProps }: TaskEditViewProps) {
+export function TaskEditView({ onSubmit, footer, footerLeading, heading, onClose, readOnlyJiraProjectName, ...fieldProps }: TaskEditViewProps) {
   const { lang } = fieldProps;
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -57,6 +60,9 @@ export function TaskEditView({ onSubmit, footer, footerLeading, heading, onClose
               )}
             </div>
           </div>
+          {readOnlyJiraProjectName && (
+            <JiraReadOnlyBanner lang={lang} projectName={readOnlyJiraProjectName} />
+          )}
           <TaskFormFields {...fieldProps} />
           {(footer || footerLeading) && (
             <div className="flex items-center justify-between gap-2 border-t border-line pt-4">

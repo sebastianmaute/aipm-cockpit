@@ -61,6 +61,7 @@ import { GlobalSearchConnected } from "./global-search-box";
 import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
 import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
+import { jiraProjectKeyOf } from "./jira-projects";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
@@ -1689,6 +1690,13 @@ function TaskManagerInner() {
     .filter((p) => p.readOnly)
     .map((p) => p.key);
 
+  const editingReadOnlyJiraProjectName = (() => {
+    if (!editingTask?.jiraKey) return undefined;
+    const proj = jiraProjectKeyOf(editingTask.jiraKey);
+    const extra = (settings.jira.extraProjects ?? []).find((p) => p.key === proj);
+    return extra?.readOnly ? extra.name || extra.key : undefined;
+  })();
+
   // Render gate: hold first paint until the active-language dictionary is
   // in memory. Lifts in the next microtask for en-US/en-GB (no fetch);
   // briefly delays initial paint for de while ./i18n.de loads. Must come
@@ -2013,6 +2021,7 @@ function TaskManagerInner() {
       uniqueGroups={uniqueGroups}
       uniqueLabels={uniqueLabels}
       editingIsJiraLinked={editingIsJiraLinked}
+      readOnlyJiraProjectName={editingReadOnlyJiraProjectName}
       jiraEnabled={settings.jira.enabled}
       fieldErrors={fieldErrors}
       submitted={submitted}
@@ -2239,6 +2248,7 @@ function TaskManagerInner() {
         uniqueGroups={uniqueGroups}
         uniqueLabels={uniqueLabels}
         editingIsJiraLinked={editingIsJiraLinked}
+        readOnlyJiraProjectName={editingReadOnlyJiraProjectName}
         jiraEnabled={settings.jira.enabled}
         fieldErrors={fieldErrors}
         submitted={submitted}
