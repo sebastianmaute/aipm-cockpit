@@ -73,6 +73,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "causedByRaidIds", label: "CausedByIds" },
   { key: "stakeholderIds", label: "StakeholderIds" },
   { key: "documentLinks", label: "DocumentLinks" },
+  { key: "outlookEventId", label: "OutlookEventId" },
 ];
 
 

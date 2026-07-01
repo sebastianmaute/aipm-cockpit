@@ -404,6 +404,7 @@ function markdownToRaid(md: string): RaidItem[] {
     else if (norm === "stakeholderids" || norm === "stakeholders")
       colMap[idx] = "stakeholderIds";
     else if (norm === "documentlinks") colMap[idx] = "documentLinks";
+    else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
   });
 
   const items: RaidItem[] = [];

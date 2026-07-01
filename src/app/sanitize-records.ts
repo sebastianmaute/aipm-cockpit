@@ -220,6 +220,9 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
   if (dl.length) item.documentLinks = dl;
 
+  const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 1024) : "";
+  if (outlookEventId) item.outlookEventId = outlookEventId;
+
   return item;
 }
 

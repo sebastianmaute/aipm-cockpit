@@ -200,6 +200,9 @@ export type RaidItem = {
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
   documentLinks?: DocumentLink[];
+  /** Outlook calendar event id for this item's review date (calendar write-back
+   *  link, keyed on targetDate). App-managed; users never enter it. */
+  outlookEventId?: string;
 };
 
 /** A zero-duration key date, distinct from a task. `achievedDate` is a manual
