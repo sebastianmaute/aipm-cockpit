@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
 import type { JiraExtraProject } from "./settings-types";
@@ -11,6 +11,7 @@ import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
 import { BulkEditModal } from "./bulk-edit-modal";
+import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
@@ -32,6 +33,10 @@ import {
 } from "./task-manager-ui";
 
 const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","notes","depRelations","estimate","spent","actions"] as const;
+
+/** Fixed English friction phrase to confirm clearing all tasks (mirrors the
+ *  factory-reset dialog). Deliberately not localized. */
+const CLEAR_TASKS_CONFIRM_PHRASE = "yes, clear all tasks";
 
 const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "status",         labelKey: "health" },
@@ -249,6 +254,8 @@ export function TasksSection({
 
   const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
 
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+
   return (
     <section
       ref={tableRef}
@@ -460,7 +467,7 @@ export function TasksSection({
           )}
         </div>
         <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
-        <PrintButton lang={lang} />
+        <PrintButton lang={lang} iconOnly />
         <button
           type="button"
           onClick={resetTableSize}
@@ -473,7 +480,7 @@ export function TasksSection({
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
         <button
           type="button"
-          onClick={handleClearAll}
+          onClick={() => setClearConfirmOpen(true)}
           disabled={tasks.length === 0}
           aria-label={t(lang, "clearAll")}
           title={t(lang, "clearAll")}
@@ -482,6 +489,21 @@ export function TasksSection({
           <EraserIcon />
         </button>
       </div>
+
+      {clearConfirmOpen && (
+        <TypeToConfirmDialog
+          lang={lang}
+          title={t(lang, "tasksClearDialogTitle")}
+          message={t(lang, "tasksClearDialogMessage", tasks.length)}
+          confirmValue={CLEAR_TASKS_CONFIRM_PHRASE}
+          confirmLabel={t(lang, "tasksClearConfirmLabel")}
+          onConfirm={() => {
+            handleClearAll();
+            setClearConfirmOpen(false);
+          }}
+          onCancel={() => setClearConfirmOpen(false)}
+        />
+      )}
 
       {selectedIds.size > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface-muted p-3">
