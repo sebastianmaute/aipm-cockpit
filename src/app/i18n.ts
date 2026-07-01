@@ -1713,6 +1713,7 @@ const enUS = {
   calendarSyncDesc: "Add app items to your Outlook calendar. Enable per type; optionally keep them in sync automatically.",
   calendarSyncEntityTask: "Tasks (due dates)",
   calendarSyncEntityRaid: "RAID items (review dates)",
+  calendarSyncEntityChange: "Change decisions (decision dates)",
   calendarSyncEnable: "Add to Outlook calendar",
   calendarSyncAuto: "Keep in sync automatically",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
