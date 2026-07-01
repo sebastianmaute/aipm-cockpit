@@ -98,4 +98,31 @@ describe("useEntityCalendarPush", () => {
     expect(vi.mocked(createEvent)).not.toHaveBeenCalled();
     expect(setItems).not.toHaveBeenCalled();
   });
+
+  it("interactive:false stays silent on SUCCESS (work happens, no result toast)", async () => {
+    let items: LinkedTask[] = [makeTask()];
+    const setItems = (u: (p: LinkedTask[]) => LinkedTask[]) => { items = u(items); };
+    const { result } = renderHook(() => useEntityCalendarPush<LinkedTask>({
+      items, entityType: "task", projectId: "p1", toGraphEvent: taskToGraphEvent,
+      setItems, isPopout: false, lang: "en-US", enabled: true, interactive: false,
+    }));
+    await act(async () => { await result.current.pushToOutlook(); });
+    expect(items[0].outlookEventId).toBe("NEW1"); // the reconcile ran
+    expect(showToastMock).not.toHaveBeenCalled(); // but auto-sync is silent
+  });
+
+  it("serializes concurrent pushes via the in-flight lock (no double-create)", async () => {
+    let items: LinkedTask[] = [makeTask()];
+    const setItems = (u: (p: LinkedTask[]) => LinkedTask[]) => { items = u(items); };
+    const { result } = renderHook(() => useEntityCalendarPush<LinkedTask>({
+      items, entityType: "task", projectId: "lockp", toGraphEvent: taskToGraphEvent,
+      setItems, isPopout: false, lang: "en-US", enabled: true,
+    }));
+    // Fire two pushes concurrently: the first grabs the module lock before its
+    // first await, so the second sees it held and no-ops → createEvent runs once.
+    await act(async () => {
+      await Promise.all([result.current.pushToOutlook(), result.current.pushToOutlook()]);
+    });
+    expect(vi.mocked(createEvent)).toHaveBeenCalledTimes(1);
+  });
 });

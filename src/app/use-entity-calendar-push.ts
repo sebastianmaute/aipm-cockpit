@@ -9,6 +9,13 @@ import {
   GraphCalendarError, type GraphEvent,
 } from "./outlook-calendar-write";
 
+// Module-scoped in-flight lock keyed by `${projectId}:${entityType}`. Shared
+// across ALL hook instances (the silent auto-sync runner AND the manual button
+// operate on the same entity set + Outlook category), so only ONE reconcile
+// runs at a time — a manual click during an in-flight auto push (or vice-versa)
+// no-ops instead of racing to double-create the same event.
+const inFlightReconcile = new Set<string>();
+
 interface Args<T extends HasEventLink> {
   items: readonly T[];
   entityType: string;
@@ -40,6 +47,9 @@ export function useEntityCalendarPush<T extends HasEventLink>(
 
   const pushToOutlook = useCallback(async () => {
     if (isPopout) return;
+    const lockKey = `${projectId}:${entityType}`;
+    if (inFlightReconcile.has(lockKey)) return; // another push is already reconciling this set
+    inFlightReconcile.add(lockKey);
     setBusy(true);
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive }).catch(() => null);
@@ -80,11 +90,15 @@ export function useEntityCalendarPush<T extends HasEventLink>(
           return it;
         }));
       }
-      showToast("info", t(lang, "calendarPushResult", plan.create.length, plan.update.length, plan.delete.length));
-      if (failed > 0) showToast("error", t(lang, "calendarPushPartial", failed));
+      // Auto-sync (interactive:false) stays fully silent — no result/partial toast.
+      if (interactive) {
+        showToast("info", t(lang, "calendarPushResult", plan.create.length, plan.update.length, plan.delete.length));
+        if (failed > 0) showToast("error", t(lang, "calendarPushPartial", failed));
+      }
     } catch {
-      showToast("error", t(lang, "calendarPushNoAccess"));
+      if (interactive) showToast("error", t(lang, "calendarPushNoAccess"));
     } finally {
+      inFlightReconcile.delete(lockKey);
       setBusy(false);
     }
   }, [isPopout, acquireToken, showToast, lang, items, projectId, setItems, entityType, toGraphEvent, interactive]);

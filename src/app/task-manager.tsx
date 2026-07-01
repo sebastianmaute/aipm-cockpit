@@ -1771,9 +1771,12 @@ function TaskManagerInner() {
     () => tasks.filter((x) => !isTaskFinished(x) && !!x.dueDate),
     [tasks],
   );
+  // NOTE: deliberately EXCLUDES outlookEventId — that is an OUTPUT the push
+  // writes back, not an input. Including it would re-fire the debounce one extra
+  // time after every create (a redundant no-op reconcile round).
   const taskAutoSyncKey = useMemo(
     () => pushableTasks
-      .map((t) => `${t.id}|${t.dueDate}|${t.taskName}|${t.status}|${t.outlookEventId ?? ""}`)
+      .map((t) => `${t.id}|${t.dueDate}|${t.taskName}|${t.status}`)
       .join(";"),
     [pushableTasks],
   );
