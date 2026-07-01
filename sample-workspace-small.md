@@ -37,13 +37,13 @@
 
 # Absences
 
-| ID | Assignee | Email | Start | End | Type | Note | LocalModified | ResourceId |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Alex Example | Sample.Dummy@example.com | 2026-06-01 | 2026-06-14 | vacation | Family trip |  |  |
-| 2 | Sam Placeholder | Fictional.Jordan@example.com | 2026-05-28 | 2026-05-28 | sick |  |  |  |
-| 3 | Taylor Specimen | aria.patel@example.com | 2026-06-23 | 2026-06-25 | training | Kubernetes cert |  |  |
-| 4 | Morgan Standin | Invented.Riley@example.com | 2026-06-17 | 2026-06-18 | other | Offsite leadership summit |  |  |
-| 5 | Sam Placeholder | Fictional.Jordan@example.com | 2026-07-07 | 2026-07-11 | vacation | Summer holiday |  |  |
+| ID | Assignee | Email | Start | End | Type | Note | LocalModified | ResourceId | OutlookEventId |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Alex Example | Sample.Dummy@example.com | 2026-06-01 | 2026-06-14 | vacation | Family trip |  |  |  |
+| 2 | Sam Placeholder | Fictional.Jordan@example.com | 2026-05-28 | 2026-05-28 | sick |  |  |  |  |
+| 3 | Taylor Specimen | aria.patel@example.com | 2026-06-23 | 2026-06-25 | training | Kubernetes cert |  |  |  |
+| 4 | Morgan Standin | Invented.Riley@example.com | 2026-06-17 | 2026-06-18 | other | Offsite leadership summit |  |  |  |
+| 5 | Sam Placeholder | Fictional.Jordan@example.com | 2026-07-07 | 2026-07-11 | vacation | Summer holiday |  |  |  |
 
 # Shifts
 

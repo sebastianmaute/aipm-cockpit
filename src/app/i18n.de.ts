@@ -166,6 +166,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightStakeholderDrag: "Stakeholder-Karte per Ziehen: Stakeholder zwischen den Einfluss/Interesse-Quadranten ziehen, um ihre Einfluss- und Interessenstufen direkt auf der Karte zu aktualisieren",
   versionHighlightCalendarWriteback: "Outlook-Kalender-Rückschreibung: Aufgaben (nach Fälligkeitsdatum) und RAID-Einträge (nach Überprüfungstermin) als ganztägige Termine nach Outlook schreiben – manuell oder automatisch, pro Entität im jeweiligen Bereich und zentral unter Einstellungen → Integrationen umschaltbar",
   versionHighlightCalendarChange: "Änderungsentscheidungen werden an ihren Entscheidungsterminen mit Outlook synchronisiert",
+  versionHighlightCalendarAbsence: "Ressourcenabwesenheiten werden als mehrtägige Outlook-Termine synchronisiert",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -1709,6 +1710,7 @@ export const de: Record<TranslationKey, string> = {
   calendarSyncEntityTask: "Aufgaben (Fälligkeitsdaten)",
   calendarSyncEntityRaid: "RAID-Einträge (Überprüfungstermine)",
   calendarSyncEntityChange: "Änderungsentscheidungen (Entscheidungstermine)",
+  calendarSyncEntityAbsence: "Ressourcenabwesenheiten (Urlaubs-/Schulungstermine)",
   calendarSyncEnable: "Zum Outlook-Kalender hinzufügen",
   calendarSyncAuto: "Automatisch synchron halten",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",

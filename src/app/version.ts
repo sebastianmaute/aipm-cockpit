@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.158.0";
-export const APP_BUILD_DATE = "2026-07-01"; // 0.158.0: Change decision-date Outlook calendar write-back — decided changes pushed as all-day events on their decision date; manual + auto per-entity toggle in the Changes pane and Settings (Erikson)
+export const APP_VERSION = "0.159.0";
+export const APP_BUILD_DATE = "2026-07-01"; // 0.159.0: Resource-absence Outlook calendar write-back (SP4) — current+future non-sick absences pushed as multi-day all-day events over their date range; manual + auto per-entity toggle in the Resources view and Settings; completes the calendar write-back roadmap (Gladstone)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.158.x line is "Erikson" (Steven Erikson). */
-export const APP_MILESTONE = "Erikson";
+ *  0.159.x line is "Gladstone" (Max Gladstone). */
+export const APP_MILESTONE = "Gladstone";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -176,4 +176,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightStakeholderDrag",
   "versionHighlightCalendarWriteback",
   "versionHighlightCalendarChange",
+  "versionHighlightCalendarAbsence",
 ] as const;

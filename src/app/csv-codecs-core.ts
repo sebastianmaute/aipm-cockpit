@@ -117,6 +117,7 @@ export const ABSENCES_CSV_COLUMNS: Array<keyof Absence> = [
   "note",
   "localModifiedAt",
   "resourceId",
+  "outlookEventId",
 ];
 
 // Columns persisted for Shift items in CSV and Markdown. Per-weekday hours

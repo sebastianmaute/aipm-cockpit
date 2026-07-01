@@ -382,6 +382,8 @@ export type Absence = {
   localModifiedAt?: string;
   /** Resource Planner v2: stable link to a Resource (see Task.resourceId). */
   resourceId?: number;
+  /** Outlook calendar event id for the pushed absence event (SP4 write-back). */
+  outlookEventId?: string;
 };
 
 // ----------------------------------------------------------------------------

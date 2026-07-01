@@ -243,6 +243,51 @@ describe("ResourcesPanel", () => {
   });
 });
 
+describe("ResourcesPanel — Outlook calendar toggle (SP4)", () => {
+  const calLabel = `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityAbsence")}`;
+
+  test("renders the toggle when m365Configured and a handler is given", () => {
+    render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} />);
+    expect(screen.getByRole("checkbox", { name: calLabel })).toBeInTheDocument();
+  });
+
+  test("labels the toggle for resource absences", () => {
+    render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} />);
+    expect(screen.getByRole("checkbox", { name: /resource absences/i })).toBeInTheDocument();
+  });
+
+  test("does NOT render the toggle without m365Configured", () => {
+    render(<ResourcesPanel {...baseProps} view="workload" m365Configured={false} onToggleCalendar={vi.fn()} />);
+    expect(screen.queryByRole("checkbox", { name: calLabel })).toBeNull();
+  });
+
+  test("does NOT render the toggle in a popout", () => {
+    render(<ResourcesPanel {...baseProps} view="workload" m365Configured isPopout onToggleCalendar={vi.fn()} />);
+    expect(screen.queryByRole("checkbox", { name: calLabel })).toBeNull();
+  });
+
+  test("calls onToggleCalendar(true) when the checkbox is ticked", () => {
+    const onToggleCalendar = vi.fn();
+    render(<ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={onToggleCalendar} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: calLabel }));
+    expect(onToggleCalendar).toHaveBeenCalledWith(true);
+  });
+
+  test("shows the Push button only when calendarEnabled and calls onPushCalendar", () => {
+    const onPushCalendar = vi.fn();
+    const { rerender } = render(
+      <ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} calendarEnabled={false} onPushCalendar={onPushCalendar} />,
+    );
+    expect(screen.queryByRole("button", { name: t("en-US", "calendarPush") })).toBeNull();
+
+    rerender(
+      <ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPushCalendar={onPushCalendar} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPush") }));
+    expect(onPushCalendar).toHaveBeenCalledTimes(1);
+  });
+});
+
 test("custom calendar view has a Today button that resets to the current month", () => {
   render(<ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" />);
   // Switch to custom mode via the SegmentedControl option labelled "Custom"
