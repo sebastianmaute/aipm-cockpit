@@ -186,6 +186,30 @@ describe("TasksSection", () => {
     expect(container.querySelector("table")).toBeInTheDocument();
   });
 
+  it("clear-all opens a type-to-confirm dialog instead of clearing immediately", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const props = makeProps();
+    render(<TasksSection {...props} />);
+
+    // Clicking the eraser opens the dialog; nothing is cleared yet.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "clearAll") }));
+    expect(screen.getByText(t("en-US", "tasksClearDialogTitle"))).toBeInTheDocument();
+    expect(props.handleClearAll).not.toHaveBeenCalled();
+
+    // Confirm stays disabled until the exact phrase is typed.
+    const confirm = screen.getByRole("button", { name: t("en-US", "tasksClearConfirmLabel") });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(
+      screen.getByLabelText(t("en-US", "typeToConfirmPrompt", "yes, clear all tasks")),
+      { target: { value: "yes, clear all tasks" } },
+    );
+    expect(confirm).toBeEnabled();
+    fireEvent.click(confirm);
+    expect(props.handleClearAll).toHaveBeenCalledTimes(1);
+  });
+
   it("tags each task row with its id via data-deeplink-row (deep-link flash wiring)", () => {
     const rows = [
       { id: 11, taskName: "T11" },
@@ -294,28 +318,20 @@ describe("TasksSection", () => {
     expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
   });
 
-  it("shows a finished-hidden count hint when hideFinishedTasks hides rows", () => {
+  it("hides finished rows and renders no heading/count (single toolbar row)", () => {
+    // The header heading + task count were dropped in favour of a single
+    // milestones-style toolbar row; only the row-hiding behaviour remains.
     stubSettings({ hideFinishedTasks: true });
     const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
     const bravo = { id: 2, taskName: "Bravo", status: "Done" };
     const charlie = { id: 3, taskName: "Charlie", status: "Cancelled" };
     stubWorkspace([alpha, bravo, charlie], [alpha, bravo, charlie]);
     render(<TasksSection {...makeProps()} />);
-    // 2 finished rows (Done + Cancelled) were hidden out of 3 matching rows.
-    expect(
-      screen.getByText(t("en-US", "tasksFinishedHidden", 2)),
-    ).toBeInTheDocument();
-  });
-
-  it("omits the finished-hidden hint when nothing is hidden", () => {
-    stubSettings({ hideFinishedTasks: true });
-    const alpha = { id: 1, taskName: "Alpha", status: "To Do" };
-    const bravo = { id: 2, taskName: "Bravo", status: "In Progress" };
-    stubWorkspace([alpha, bravo], [alpha, bravo]);
-    render(<TasksSection {...makeProps()} />);
-    expect(
-      screen.queryByText(t("en-US", "tasksFinishedHidden", 0)),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Bravo")).not.toBeInTheDocument();
+    expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
+    // No heading — the modern shell supplies the view <h1>.
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
   });
 
   it("shows all tasks (incl. Done and Cancelled) when hideFinishedTasks is off", () => {

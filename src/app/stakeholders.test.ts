@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   nextStakeholderId, quadrantFor, buildRaciMatrix, accountableCountByMilestone,
-  raciWarningFor, compareStakeholder, setRaciRole,
+  raciWarningFor, compareStakeholder, setRaciRole, applyQuadrantMove,
 } from "./stakeholders";
 import type { Milestone, Stakeholder } from "./types";
 
@@ -71,5 +71,57 @@ describe("compareStakeholder", () => {
     const hi = mkS({ id: 2, influence: "High" });
     expect(compareStakeholder(lo, hi, "influence", "asc")).toBeLessThan(0);
     expect(compareStakeholder(lo, hi, "influence", "desc")).toBeGreaterThan(0);
+  });
+});
+
+describe("applyQuadrantMove", () => {
+  it("sets both axes High for manage-closely", () => {
+    const moved = applyQuadrantMove(mkS({ influence: "Low", interest: "Low" }), "manage-closely");
+    expect(moved).not.toBeNull();
+    expect(moved!.influence).toBe("High");
+    expect(moved!.interest).toBe("High");
+  });
+
+  it("keep-satisfied: High influence, interest untouched when already Medium", () => {
+    const moved = applyQuadrantMove(mkS({ influence: "Low", interest: "Medium" }), "keep-satisfied");
+    expect(moved!.influence).toBe("High");
+    expect(moved!.interest).toBe("Medium");
+  });
+
+  it("keep-satisfied: interest Low preserved (not flattened) on the low side", () => {
+    const moved = applyQuadrantMove(mkS({ influence: "Low", interest: "Low" }), "keep-satisfied");
+    expect(moved!.influence).toBe("High");
+    expect(moved!.interest).toBe("Low");
+  });
+
+  it("keep-informed: raises interest, demotes High influence — catches an axis swap", () => {
+    const moved = applyQuadrantMove(mkS({ influence: "High", interest: "Low" }), "keep-informed");
+    expect(moved!.influence).toBe("Medium");
+    expect(moved!.interest).toBe("High");
+  });
+
+  it("demotes High to Medium when dragged out of the high band", () => {
+    const moved = applyQuadrantMove(mkS({ influence: "High", interest: "High" }), "monitor");
+    expect(moved!.influence).toBe("Medium");
+    expect(moved!.interest).toBe("Medium");
+  });
+
+  it("returns null on a no-op drop (same quadrant, nothing to demote)", () => {
+    expect(applyQuadrantMove(mkS({ influence: "Medium", interest: "Low" }), "monitor")).toBeNull();
+  });
+
+  it("round-trip is not identity (Low -> keep-satisfied -> monitor yields Medium)", () => {
+    const up = applyQuadrantMove(mkS({ influence: "Low", interest: "Low" }), "keep-satisfied");
+    expect(up!.influence).toBe("High");
+    expect(up!.interest).toBe("Low");
+    const back = applyQuadrantMove(up!, "monitor");
+    expect(back!.influence).toBe("Medium");
+  });
+
+  it("does not mutate the input", () => {
+    const s = mkS({ influence: "Low", interest: "Low" });
+    applyQuadrantMove(s, "manage-closely");
+    expect(s.influence).toBe("Low");
+    expect(s.interest).toBe("Low");
   });
 });

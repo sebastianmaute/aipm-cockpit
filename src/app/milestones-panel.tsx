@@ -257,53 +257,48 @@ function MilestonesPanelBody({
       {onLearnMore && (
         <ViewCallout view="milestones" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
-      <header className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 print:hidden">
-        <h2 className="text-lg font-medium text-foreground">
-          {t(lang, "milestonesTitle")}
-        </h2>
-        <div className="flex flex-wrap items-center gap-2">
+      <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
+        <button
+          type="button"
+          onClick={openNew}
+          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+        >
+          + {t(lang, "milestoneNew")}
+        </button>
+        {onPushToOutlook ? (
           <button
             type="button"
-            onClick={openNew}
-            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+            onClick={onPushToOutlook}
+            disabled={calendarPushBusy}
+            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
           >
-            + {t(lang, "milestoneNew")}
+            {t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
           </button>
-          {onPushToOutlook ? (
-            <button
-              type="button"
-              onClick={onPushToOutlook}
-              disabled={calendarPushBusy}
-              className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
-            >
-              {t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
-            </button>
-          ) : null}
-          <input
-            type="search"
-            value={pf.search}
-            onChange={(e) => pf.setSearch(e.target.value)}
-            placeholder={t(lang, "milestonesFilterName")}
-            aria-label={t(lang, "milestonesFilterName")}
-            className={`min-w-[10rem] rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
-          />
-          <select
-            value={status}
-            onChange={(e) => pf.setFilter("status", e.target.value)}
-            aria-label={t(lang, "milestonesFilterStatus")}
-            className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
-          >
-            <option value="all">{t(lang, "milestonesFilterAll")}</option>
-            <option value="pending">{t(lang, "milestonesFilterPending")}</option>
-            <option value="achieved">{t(lang, "milestonesFilterAchieved")}</option>
-            <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
-          </select>
-          <ColumnConfigPopover lang={lang} cols={MILESTONE_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
-          <PanelViewsControl lang={lang} view="milestones" />
-          <PrintButton lang={lang} />
-          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-          <ResetSizeButton onClick={resetSize} lang={lang} />
-        </div>
+        ) : null}
+        <input
+          type="search"
+          value={pf.search}
+          onChange={(e) => pf.setSearch(e.target.value)}
+          placeholder={t(lang, "milestonesFilterName")}
+          aria-label={t(lang, "milestonesFilterName")}
+          className={`min-w-[10rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+        />
+        <select
+          value={status}
+          onChange={(e) => pf.setFilter("status", e.target.value)}
+          aria-label={t(lang, "milestonesFilterStatus")}
+          className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+        >
+          <option value="all">{t(lang, "milestonesFilterAll")}</option>
+          <option value="pending">{t(lang, "milestonesFilterPending")}</option>
+          <option value="achieved">{t(lang, "milestonesFilterAchieved")}</option>
+          <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
+        </select>
+        <ColumnConfigPopover lang={lang} cols={MILESTONE_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
+        <PanelViewsControl lang={lang} view="milestones" />
+        <PrintButton lang={lang} />
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        <ResetSizeButton onClick={resetSize} lang={lang} />
       </header>
 
       <div className="print:hidden">

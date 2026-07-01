@@ -29,6 +29,34 @@ export function quadrantFor(
   return "monitor";
 }
 
+/** Which axes a quadrant asserts as High: [highInfluence, highInterest]. */
+export const QUADRANT_TARGET: Record<StakeholderQuadrant, readonly [boolean, boolean]> = {
+  "manage-closely": [true, true],
+  "keep-satisfied": [true, false],
+  "keep-informed": [false, true],
+  monitor: [false, false],
+};
+
+/** Preserve-Medium: raise to "High" on the high side; on the low side demote a
+ *  "High" to "Medium" but leave existing Medium/Low untouched. */
+function axisTarget(current: InfluenceInterest, wantHigh: boolean): InfluenceInterest {
+  if (wantHigh) return "High";
+  return current === "High" ? "Medium" : current;
+}
+
+/** Apply a quadrant drop to a stakeholder. Returns a new Stakeholder, or null
+ *  when nothing changes (no-op drop) so callers skip a spurious save. */
+export function applyQuadrantMove(
+  s: Stakeholder,
+  quadrant: StakeholderQuadrant,
+): Stakeholder | null {
+  const [hi, ht] = QUADRANT_TARGET[quadrant];
+  const influence = axisTarget(s.influence, hi);
+  const interest = axisTarget(s.interest, ht);
+  if (influence === s.influence && interest === s.interest) return null;
+  return { ...s, influence, interest };
+}
+
 export interface RaciCell { stakeholderId: number; role: RaciRole | null }
 export interface RaciRow { milestone: Milestone; cells: RaciCell[] }
 

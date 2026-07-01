@@ -39,3 +39,89 @@ describe("StakeholderMapPanel", () => {
     expect(pane.className).toContain("w-[50%]");
   });
 });
+
+// jsdom's fireEvent.drop does NOT populate a dataTransfer — stub one.
+function dt(id: string) {
+  const store: Record<string, string> = { "text/plain": id };
+  return {
+    getData: (k: string) => store[k] ?? "",
+    setData: vi.fn(),
+    dropEffect: "",
+    effectAllowed: "",
+  };
+}
+
+describe("StakeholderMapPanel drag-to-move", () => {
+  const alice: Stakeholder = {
+    id: 1,
+    name: "Alice",
+    category: "Internal",
+    influence: "Low",
+    interest: "Low",
+    raci: {},
+  };
+
+  it("chips are draggable when editable (onSaveStakeholder present)", () => {
+    render(
+      <StakeholderMapPanel
+        lang="en-US"
+        stakeholders={[alice]}
+        onOpenStakeholder={vi.fn()}
+        onSaveStakeholder={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Alice").closest("[draggable]")).toHaveAttribute("draggable", "true");
+  });
+
+  it("chips are NOT draggable without onSaveStakeholder (read-only)", () => {
+    render(
+      <StakeholderMapPanel lang="en-US" stakeholders={[alice]} onOpenStakeholder={vi.fn()} />,
+    );
+    expect(screen.getByText("Alice").closest("[draggable]")).toBeNull();
+  });
+
+  it("dropping on a quadrant calls onSaveStakeholder with the moved stakeholder", () => {
+    const onSave = vi.fn();
+    render(
+      <StakeholderMapPanel
+        lang="en-US"
+        stakeholders={[alice]}
+        onOpenStakeholder={vi.fn()}
+        onSaveStakeholder={onSave}
+      />,
+    );
+    fireEvent.drop(screen.getByTestId("quadrant-manage-closely"), { dataTransfer: dt("1") });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ id: 1, influence: "High", interest: "High" });
+  });
+
+  it("a no-op drop (same quadrant) does not call onSaveStakeholder", () => {
+    const onSave = vi.fn();
+    render(
+      <StakeholderMapPanel
+        lang="en-US"
+        stakeholders={[alice]}
+        onOpenStakeholder={vi.fn()}
+        onSaveStakeholder={onSave}
+      />,
+    );
+    fireEvent.drop(screen.getByTestId("quadrant-monitor"), { dataTransfer: dt("1") });
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("a garbage (non-numeric / unknown-id) payload is a safe no-op", () => {
+    const onSave = vi.fn();
+    render(
+      <StakeholderMapPanel
+        lang="en-US"
+        stakeholders={[alice]}
+        onOpenStakeholder={vi.fn()}
+        onSaveStakeholder={onSave}
+      />,
+    );
+    expect(() =>
+      fireEvent.drop(screen.getByTestId("quadrant-manage-closely"), { dataTransfer: dt("not-a-number") }),
+    ).not.toThrow();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+});

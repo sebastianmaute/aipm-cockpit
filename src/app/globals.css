@@ -172,12 +172,6 @@ table:has(> .lop-thead) {
   background-color: var(--table-head-bg);
   color: var(--table-head-fg);
 }
-/* Strengthen the native resize-corner grip (panes via useResizable + any
-   resize:both textarea). Solid accent corner — palette-safe (no shadow/gradient),
-   Chromium/WebKit only; other engines keep their native grip. */
-::-webkit-resizer {
-  background-color: var(--table-head-accent);
-}
 .lop-thead > tr:first-child > th:first-child {
   border-top-left-radius: 0.75rem;
 }

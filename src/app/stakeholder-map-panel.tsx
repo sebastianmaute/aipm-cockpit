@@ -5,8 +5,9 @@
 // matching cell. Axis labels flank the grid. Wraps in VIEW_PANE_CLASS like
 // sibling panels (StakeholdersPanel, RaciMatrixPanel).
 
-import { useMemo } from "react";
-import { quadrantFor, type StakeholderQuadrant } from "./stakeholders";
+import { useMemo, useState } from "react";
+import type React from "react";
+import { quadrantFor, applyQuadrantMove, type StakeholderQuadrant } from "./stakeholders";
 import { type Lang, t } from "./i18n";
 import type { Stakeholder } from "./types";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
@@ -23,6 +24,9 @@ export interface StakeholderMapPanelProps {
   /** Click a plotted stakeholder → open its editor (deep-link). When omitted the
    *  chips are non-interactive text (e.g. read-only popout mirrors). */
   onOpenStakeholder?: (id: number) => void;
+  /** Save an edited stakeholder (drag-to-move). Omit for read-only popouts —
+   *  chips are then non-draggable and cells accept no drop. */
+  onSaveStakeholder?: (s: Stakeholder) => void;
 }
 
 // --- Quadrant cell config ---------------------------------------------------
@@ -73,7 +77,7 @@ const QUADRANTS: QuadrantConfig[] = [
 
 // --- Component --------------------------------------------------------------
 
-export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder }: StakeholderMapPanelProps) {
+export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onSaveStakeholder }: StakeholderMapPanelProps) {
   const { ref, reset } = useResizable("lop-app:stakeholder-map-size");
 
   // Group stakeholders by quadrant once.
@@ -89,6 +93,18 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder }: S
     }
     return map;
   }, [stakeholders]);
+
+  const editable = !!onSaveStakeholder;
+  const [dragOverQ, setDragOverQ] = useState<StakeholderQuadrant | null>(null);
+
+  function onDropInto(q: StakeholderQuadrant, e: React.DragEvent) {
+    e.preventDefault();
+    const id = Number(e.dataTransfer.getData("text/plain"));
+    const s = stakeholders.find((x) => x.id === id);
+    if (!s) return;
+    const moved = applyQuadrantMove(s, q);
+    if (moved) onSaveStakeholder?.(moved);
+  }
 
   return (
     <div ref={ref} data-testid="stakeholder-map-pane" className={`print-root ${CENTERED_HALF_PANE_CLASS}`}>
@@ -124,7 +140,11 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder }: S
                 <div
                   key={q.id}
                   data-testid={q.testId}
-                  className={`flex flex-col gap-1.5 overflow-auto rounded-lg border border-line p-3 ${q.tintClass}`}
+                  onDragOver={editable ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } : undefined}
+                  onDragEnter={editable ? () => setDragOverQ(q.id) : undefined}
+                  onDragLeave={editable ? (e) => { if (e.currentTarget === e.target) setDragOverQ(null); } : undefined}
+                  onDrop={editable ? (e) => { onDropInto(q.id, e); setDragOverQ(null); } : undefined}
+                  className={`flex flex-col gap-1.5 overflow-auto rounded-lg border border-line p-3 ${q.tintClass} ${dragOverQ === q.id ? "ring-2 ring-AIPM-green" : ""}`}
                 >
                   <p className="text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
                     {t(lang, q.labelKey)}
@@ -135,6 +155,12 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder }: S
                         <button
                           key={s.id}
                           type="button"
+                          draggable={editable || undefined}
+                          onDragStart={editable ? (e) => {
+                            e.dataTransfer.setData("text/plain", String(s.id));
+                            e.dataTransfer.effectAllowed = "move";
+                          } : undefined}
+                          onDragEnd={editable ? () => setDragOverQ(null) : undefined}
                           onClick={() => onOpenStakeholder(s.id)}
                           aria-label={`${t(lang, "edit")} – ${s.name}`}
                           className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-AIPM-green/15 focus:outline-none focus:ring-2 focus:ring-AIPM-green ${TRANSITION} ${PRESS}`}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { type Lang, t } from "./i18n";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { usePanelFilters } from "./panel-filters-context";
 import { usePanelViews } from "./use-panel-views";
 import type { PanelView, PanelViewKind } from "./panel-views";
@@ -14,9 +15,9 @@ interface PanelViewsControlProps {
 }
 
 const INPUT_CLASS =
-  "rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:ring-AIPM-green";
+  `rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`;
 const BTN_CLASS =
-  "rounded-md border border-line bg-surface px-2 py-1 text-sm text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:opacity-50";
+  `rounded-md border border-line bg-surface px-2 py-1 text-sm text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:opacity-50 ${INTERACTIVE}`;
 
 export function PanelViewsControl({ lang, view, onApply }: PanelViewsControlProps) {
   const pf = usePanelFilters();
