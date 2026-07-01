@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
-  milestoneToGraphEvent, categoryFor, taskToGraphEvent, updateEvent, deleteEvent, GraphCalendarError,
+  milestoneToGraphEvent, categoryFor, taskToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
 } from "./outlook-calendar-write";
 import type { Milestone, Task } from "./types";
 
@@ -42,6 +42,24 @@ describe("taskToGraphEvent", () => {
     expect(e.start.dateTime).toBe("2026-07-10T00:00:00");
     expect(e.end.dateTime).toBe("2026-07-11T00:00:00");
     expect(e.categories).toEqual(["AIPM:p1:task"]);
+  });
+});
+
+describe("listEntityEvents", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it("filters on the TYPE-SCOPED category (never the bare milestone tag)", async () => {
+    let requested = "";
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      requested = url;
+      return new Response(JSON.stringify({ value: [{ id: "E1" }] }), { status: 200 });
+    }));
+    const events = await listEntityEvents("tok", "p1", "task");
+    expect(events).toEqual([{ id: "E1" }]);
+    const decoded = decodeURIComponent(requested);
+    expect(decoded).toContain("categories/any(c:c eq 'AIPM:p1:task')");
+    // Must NOT reuse the bare project tag (would cross-match milestone events).
+    expect(decoded).not.toContain("c eq 'AIPM:p1')");
   });
 });
 
