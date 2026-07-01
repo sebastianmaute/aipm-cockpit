@@ -22,7 +22,7 @@ import {
 } from "./settings-types";
 import { saveSecretValue } from "./use-secrets";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
-import { FOCUS_RING } from "./interaction-styles";
+import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 
 const inputClass =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
@@ -411,7 +411,7 @@ export function JiraSettingsSection({
                                   : current.filter((x) => x.key !== p.key);
                                 onChange({ ...config, extraProjects: next });
                               }}
-                              className="h-4 w-4"
+                              className={`h-4 w-4 ${FOCUS_RING}`}
                             />
                             <span className="text-foreground">
                               {p.name}{" "}
@@ -446,6 +446,66 @@ export function JiraSettingsSection({
                 </ul>
               </div>
             )}
+
+            {config.projectKey &&
+              projects.length === 0 &&
+              (config.extraProjects ?? []).length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t(lang, "jiraExtraProjectsLabel")}
+                  </p>
+                  <ul className="space-y-1">
+                    {(config.extraProjects ?? []).map((e) => (
+                      <li
+                        key={e.key}
+                        className="flex items-center justify-between gap-2 text-sm"
+                      >
+                        <span className="text-foreground">
+                          {e.name}{" "}
+                          <span className="text-muted-foreground">
+                            ({e.key})
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-3">
+                          <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground">
+                            <input
+                              type="checkbox"
+                              checked={e.readOnly}
+                              aria-label={`${t(lang, "jiraReadOnly")} – ${e.name} (${e.key})`}
+                              onChange={(ev) => {
+                                const next = (config.extraProjects ?? []).map(
+                                  (x) =>
+                                    x.key === e.key
+                                      ? { ...x, readOnly: ev.target.checked }
+                                      : x,
+                                );
+                                onChange({ ...config, extraProjects: next });
+                              }}
+                              className={`h-3.5 w-3.5 ${FOCUS_RING}`}
+                            />
+                            {t(lang, "jiraReadOnly")}
+                          </label>
+                          <button
+                            type="button"
+                            aria-label={`${t(lang, "jiraExtraProjectRemove")} – ${e.name} (${e.key})`}
+                            onClick={() =>
+                              onChange({
+                                ...config,
+                                extraProjects: (config.extraProjects ?? []).filter(
+                                  (x) => x.key !== e.key,
+                                ),
+                              })
+                            }
+                            className={`text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
+                          >
+                            {t(lang, "jiraExtraProjectRemove")}
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
             {issueTypes.length > 0 && (
               <div>

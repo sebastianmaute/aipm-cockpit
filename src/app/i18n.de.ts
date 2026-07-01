@@ -1213,6 +1213,7 @@ export const de: Record<TranslationKey, string> = {
   jiraExtraProjectsLabel: "Auch aus anderen Projekten synchronisieren",
   jiraExtraProjectsHint: "Das primäre Projekt oben bleibt bidirektional. Zusatzprojekte sind standardmäßig schreibgeschützt (nur beobachten); stelle eines auf bidirektional, um Änderungen zurückzuschreiben.",
   jiraExtraProjectInclude: "Einbeziehen",
+  jiraExtraProjectRemove: "Entfernen",
   jiraReadOnly: "Schreibgeschützt",
   jiraTwoWay: "Bidirektional",
   jiraSyncedTwoWay: "Mit Jira synchronisiert (bidirektional)",

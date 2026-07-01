@@ -132,6 +132,21 @@ describe("JiraSettingsSection — extra projects block", () => {
     );
   });
 
+  it("unchecking an included project removes it from extraProjects", async () => {
+    const seeded: JiraConfig = {
+      ...baseConfig,
+      extraProjects: [{ key: "OPS", name: "Ops", readOnly: true }],
+    };
+    const { onChange } = await renderWithProjects(seeded);
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /include – ops \(ops\)/i }),
+    );
+    const lastCall = onChange.mock.calls.at(-1)?.[0] as JiraConfig;
+    expect(lastCall.extraProjects).not.toContainEqual(
+      expect.objectContaining({ key: "OPS" }),
+    );
+  });
+
   it("toggling read-only flips the entry's readOnly flag", async () => {
     const seeded: JiraConfig = {
       ...baseConfig,
