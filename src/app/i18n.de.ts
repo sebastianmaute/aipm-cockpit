@@ -1692,7 +1692,7 @@ export const de: Record<TranslationKey, string> = {
   integrationsOutlookContactsTooltip: "Kontakte aus Outlook in das Ressourcenverzeichnis importieren.",
   integrationsOutlookCalendarTooltip: "Abwesenheits- und Außer-Haus-Termine aus Ihrem Outlook-Kalender in Ihre Abwesenheiten importieren.",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",
-  integrationsTursoUrlTooltip: "Ihre Turso-Datenbank-URL (libsql://, https:// oder http:// für einen lokalen Server).",
+  integrationsTursoUrlTooltip: "Cloud-Datenbank: die libsql://-URL (oder https://) aus `turso db show <db>` verwenden. Lokaler/selbst gehosteter Server: http:// nur auf localhost (127.0.0.1/::1), ganz ohne Token.",
   tursoUrlRegionWarning: "Dies sieht nach einem regionsspezifischen Host aus (z. B. .aws-eu-west-1.turso.io). Turso lehnt ihn meist mit „no route configured for host“ ab. Verwenden Sie die routbare URL aus `turso db show <db>` (ohne Regionssegment).",
   integrationsTursoTokenTooltip: "Auth-Token für die Turso-Datenbank. Für einen lokalen Server ohne Token leer lassen.",
   storageTooltip: "Wo Ihr Workspace gespeichert wird. Beim Wechsel werden Ihre aktuellen Daten konvertiert und in den neuen Speicher geschrieben.",
