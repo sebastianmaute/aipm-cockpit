@@ -50,7 +50,10 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
 ];
 
 const inputClass =
-  `w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`;
+  `rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`;
+
+const searchClass =
+  `min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`;
 
 export interface TasksSectionProps {
   lang: Lang;
@@ -191,11 +194,6 @@ export function TasksSection({
   const visibleRows = hideFinished
     ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
     : filteredSortedTasks;
-  // How many of the currently-matching rows the hide-finished toggle removed,
-  // so the "X of Y" count below isn't ambiguous when finished rows are hidden.
-  const finishedHidden = hideFinished
-    ? filteredSortedTasks.length - visibleRows.length
-    : 0;
 
   const rowContextValue = useMemo<RowContextValue>(
     () => ({
@@ -280,171 +278,85 @@ export function TasksSection({
           onLearnMore={onLearnMoreHint}
         />
       )}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div ref={colConfigRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setColConfigOpen((o) => !o)}
-              aria-label={t(lang, "colConfigTitle")}
-              title={t(lang, "colConfigTitle")}
-              aria-expanded={colConfigOpen}
-              className={`rounded-md p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-muted-foreground ${INTERACTIVE}`}
-            >
-              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-                <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.25 1.252a6.013 6.013 0 011.317.757l1.198-.42a1 1 0 011.15.376l1.18 2.044a1 1 0 01-.205 1.274l-.96.836a6.02 6.02 0 010 1.514l.96.836a1 1 0 01.205 1.274l-1.18 2.044a1 1 0 01-1.15.376l-1.198-.42a6.014 6.014 0 01-1.317.757l-.25 1.252a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.25-1.252a6.013 6.013 0 01-1.317-.757l-1.198.42a1 1 0 01-1.15-.376L2.745 13.3a1 1 0 01.205-1.274l.96-.836a6.023 6.023 0 010-1.514l-.96-.836a1 1 0 01-.205-1.274L3.925 5.52a1 1 0 011.15-.376l1.198.42a6.013 6.013 0 011.317-.757l.25-1.252zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-              </svg>
-            </button>
-            {colConfigOpen && (
-              <div
-                role="dialog"
-                aria-label={t(lang, "colConfigTitle")}
-                className="absolute left-0 top-full z-40 mt-1 w-52 rounded-lg border border-line bg-surface p-3"
-              >
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t(lang, "colConfigTitle")}
-                </p>
-                <ul className="space-y-1">
-                  {CONFIGURABLE_COLS.map(({ key, labelKey }) => (
-                    <li key={key}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-surface-muted">
-                        <input
-                          type="checkbox"
-                          checked={!hiddenCols.has(key)}
-                          onChange={() =>
-                            setHiddenCols((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(key)) { next.delete(key); } else { next.add(key); }
-                              return next;
-                            })
-                          }
-                          className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
-                        />
-                        {t(lang, labelKey)}
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-          <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
-          <h2 className="text-lg font-medium text-foreground">
-            {t(lang, "tasks")}{" "}
-            {visibleRows.length !== tasks.length
-              ? t(lang, "tasksCountFiltered", visibleRows.length, tasks.length)
-              : t(lang, "tasksCount", visibleRows.length)}
-            {finishedHidden > 0 && (
-              <span className="text-muted-foreground">
-                {" "}
-                {t(lang, "tasksFinishedHidden", finishedHidden)}
-              </span>
-            )}
-          </h2>
-          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={hideFinished}
-              onChange={(e) => setSettings((s) => ({ ...s, hideFinishedTasks: e.target.checked }))}
-              className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
-            />
-            {t(lang, "hideFinishedTasks")}
-          </label>
-          <div
-            className="inline-flex overflow-hidden rounded-md border border-line"
-            role="group"
-            aria-label={t(lang, "tasksViewModeLabel")}
-          >
-            <button
-              type="button"
-              aria-pressed={tasksViewMode === "table"}
-              onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "table" }))}
-              className={`px-2 py-1 text-xs ${tasksViewMode === "table" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"} ${INTERACTIVE}`}
-            >
-              {t(lang, "tasksViewTable")}
-            </button>
-            <button
-              type="button"
-              aria-pressed={tasksViewMode === "board"}
-              onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "board" }))}
-              className={`px-2 py-1 text-xs ${tasksViewMode === "board" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"} ${INTERACTIVE}`}
-            >
-              {t(lang, "tasksViewBoard")}
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            handleCancelEdit();
+            setTaskModalOpen(true);
+          }}
+          aria-label={t(lang, "addTaskButton")}
+          title={t(lang, "addTaskButton")}
+          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+        >
+          + {t(lang, "addTaskButton")}
+        </button>
+        {jiraEnabled && (
           <button
             type="button"
-            onClick={() => {
-              handleCancelEdit();
-              setTaskModalOpen(true);
-            }}
-            aria-label={t(lang, "addTaskButton")}
-            title={t(lang, "addTaskButton")}
-            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+            onClick={handleJiraSync}
+            disabled={jiraSyncing || !jiraProjectKey}
+            title={
+              jiraProjectKey
+                ? t(lang, "jiraSync")
+                : t(lang, "jiraSyncNoScope")
+            }
+            className={`inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
-            + {t(lang, "addTaskButton")}
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+              className={`h-4 w-4 ${jiraSyncing ? "animate-spin" : ""}`}
+            >
+              <path
+                fillRule="evenodd"
+                d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
+                clipRule="evenodd"
+              />
+            </svg>
+            {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
           </button>
-          {jiraEnabled && (
-            <button
-              type="button"
-              onClick={handleJiraSync}
-              disabled={jiraSyncing || !jiraProjectKey}
-              title={
-                jiraProjectKey
-                  ? t(lang, "jiraSync")
-                  : t(lang, "jiraSyncNoScope")
-              }
-              className={`inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-            >
-              <svg
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-                className={`h-4 w-4 ${jiraSyncing ? "animate-spin" : ""}`}
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
-            </button>
-          )}
-          <PrintButton lang={lang} />
+        )}
+        <label className="flex items-center gap-1 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={hideFinished}
+            onChange={(e) => setSettings((s) => ({ ...s, hideFinishedTasks: e.target.checked }))}
+            className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+          />
+          {t(lang, "hideFinishedTasks")}
+        </label>
+        <div
+          className="inline-flex overflow-hidden rounded-md border border-line"
+          role="group"
+          aria-label={t(lang, "tasksViewModeLabel")}
+        >
           <button
             type="button"
-            onClick={resetTableSize}
-            aria-label={t(lang, "tableResetSizeHint")}
-            title={t(lang, "tableResetSizeHint")}
-            className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
+            aria-pressed={tasksViewMode === "table"}
+            onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "table" }))}
+            className={`px-2 py-1 text-xs ${tasksViewMode === "table" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"} ${INTERACTIVE}`}
           >
-            <ResetSizeIcon />
+            {t(lang, "tasksViewTable")}
           </button>
-          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <button
             type="button"
-            onClick={handleClearAll}
-            disabled={tasks.length === 0}
-            aria-label={t(lang, "clearAll")}
-            title={t(lang, "clearAll")}
-            className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            aria-pressed={tasksViewMode === "board"}
+            onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "board" }))}
+            className={`px-2 py-1 text-xs ${tasksViewMode === "board" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"} ${INTERACTIVE}`}
           >
-            <EraserIcon />
+            {t(lang, "tasksViewBoard")}
           </button>
         </div>
-      </div>
-
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t(lang, "searchPlaceholder")}
+          aria-label={t(lang, "searchPlaceholder")}
           title={t(lang, "tasksSearchHint")}
-          className={inputClass}
+          className={searchClass}
         />
         <select
           value={priorityFilter}
@@ -501,6 +413,74 @@ export function TasksSection({
             </option>
           ))}
         </select>
+        <div ref={colConfigRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setColConfigOpen((o) => !o)}
+            aria-label={t(lang, "colConfigTitle")}
+            title={t(lang, "colConfigTitle")}
+            aria-expanded={colConfigOpen}
+            className={`rounded-md p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-muted-foreground ${INTERACTIVE}`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+              <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.25 1.252a6.013 6.013 0 011.317.757l1.198-.42a1 1 0 011.15.376l1.18 2.044a1 1 0 01-.205 1.274l-.96.836a6.02 6.02 0 010 1.514l.96.836a1 1 0 01.205 1.274l-1.18 2.044a1 1 0 01-1.15.376l-1.198-.42a6.014 6.014 0 01-1.317.757l-.25 1.252a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.25-1.252a6.013 6.013 0 01-1.317-.757l-1.198.42a1 1 0 01-1.15-.376L2.745 13.3a1 1 0 01.205-1.274l.96-.836a6.023 6.023 0 010-1.514l-.96-.836a1 1 0 01-.205-1.274L3.925 5.52a1 1 0 011.15-.376l1.198.42a6.013 6.013 0 011.317-.757l.25-1.252zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {colConfigOpen && (
+            <div
+              role="dialog"
+              aria-label={t(lang, "colConfigTitle")}
+              className="absolute left-0 top-full z-40 mt-1 w-52 rounded-lg border border-line bg-surface p-3"
+            >
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t(lang, "colConfigTitle")}
+              </p>
+              <ul className="space-y-1">
+                {CONFIGURABLE_COLS.map(({ key, labelKey }) => (
+                  <li key={key}>
+                    <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-surface-muted">
+                      <input
+                        type="checkbox"
+                        checked={!hiddenCols.has(key)}
+                        onChange={() =>
+                          setHiddenCols((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(key)) { next.delete(key); } else { next.add(key); }
+                            return next;
+                          })
+                        }
+                        className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                      />
+                      {t(lang, labelKey)}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+        <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
+        <PrintButton lang={lang} />
+        <button
+          type="button"
+          onClick={resetTableSize}
+          aria-label={t(lang, "tableResetSizeHint")}
+          title={t(lang, "tableResetSizeHint")}
+          className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
+        >
+          <ResetSizeIcon />
+        </button>
+        <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+        <button
+          type="button"
+          onClick={handleClearAll}
+          disabled={tasks.length === 0}
+          aria-label={t(lang, "clearAll")}
+          title={t(lang, "clearAll")}
+          className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+        >
+          <EraserIcon />
+        </button>
       </div>
 
       {selectedIds.size > 0 && (
