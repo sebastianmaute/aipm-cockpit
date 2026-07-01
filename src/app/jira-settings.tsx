@@ -22,6 +22,7 @@ import {
 } from "./settings-types";
 import { saveSecretValue } from "./use-secrets";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
+import { FOCUS_RING } from "./interaction-styles";
 
 const inputClass =
   "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
@@ -368,6 +369,82 @@ export function JiraSettingsSection({
               <p className="text-xs text-muted-foreground">
                 {t(lang, "jiraCurrentProject", projectName, config.projectKey)}
               </p>
+            )}
+
+            {config.projectKey && projects.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t(lang, "jiraExtraProjectsLabel")}
+                </p>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  {t(lang, "jiraExtraProjectsHint")}
+                </p>
+                <ul className="space-y-1">
+                  {projects
+                    .filter((p) => p.key !== config.projectKey)
+                    .map((p) => {
+                      const entry = (config.extraProjects ?? []).find(
+                        (e) => e.key === p.key,
+                      );
+                      const included = !!entry;
+                      return (
+                        <li
+                          key={p.key}
+                          className="flex items-center justify-between gap-2 text-sm"
+                        >
+                          <label className="flex cursor-pointer items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={included}
+                              aria-label={`${t(lang, "jiraExtraProjectInclude")} – ${p.name} (${p.key})`}
+                              onChange={(e) => {
+                                const current = config.extraProjects ?? [];
+                                const next = e.target.checked
+                                  ? [
+                                      ...current,
+                                      {
+                                        key: p.key,
+                                        name: p.name,
+                                        readOnly: true,
+                                      },
+                                    ]
+                                  : current.filter((x) => x.key !== p.key);
+                                onChange({ ...config, extraProjects: next });
+                              }}
+                              className="h-4 w-4"
+                            />
+                            <span className="text-foreground">
+                              {p.name}{" "}
+                              <span className="text-muted-foreground">
+                                ({p.key})
+                              </span>
+                            </span>
+                          </label>
+                          {included && (
+                            <label className="flex cursor-pointer items-center gap-1 text-xs text-muted-foreground">
+                              <input
+                                type="checkbox"
+                                checked={entry.readOnly}
+                                aria-label={`${t(lang, "jiraReadOnly")} – ${p.name} (${p.key})`}
+                                onChange={(e) => {
+                                  const next = (config.extraProjects ?? []).map(
+                                    (x) =>
+                                      x.key === p.key
+                                        ? { ...x, readOnly: e.target.checked }
+                                        : x,
+                                  );
+                                  onChange({ ...config, extraProjects: next });
+                                }}
+                                className={`h-3.5 w-3.5 ${FOCUS_RING}`}
+                              />
+                              {t(lang, "jiraReadOnly")}
+                            </label>
+                          )}
+                        </li>
+                      );
+                    })}
+                </ul>
+              </div>
             )}
 
             {issueTypes.length > 0 && (
