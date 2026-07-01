@@ -69,7 +69,8 @@ import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
 import { calendarSyncFor } from "./calendar-sync-config";
-import { taskToGraphEvent } from "./outlook-calendar-write";
+import { taskToGraphEvent, raidToGraphEvent } from "./outlook-calendar-write";
+import { isRaidActiveForReview } from "./raid-review";
 import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
@@ -1798,6 +1799,45 @@ function TaskManagerInner() {
   });
   useCalendarAutoSync({ active: taskAutoSyncActive, contentKey: taskAutoSyncKey, push: autoPushTasks });
 
+  // --- RAID review-date calendar write-back (SP2) — mirrors the task block ---
+  const raidSync = calendarSyncFor(settings, "raid");
+  const calendarRaidEnabled = raidSync.enabled && m365Enabled && !isPopout;
+  const raidAutoSyncActive = raidSync.auto && m365Enabled && !isPopout;
+  const pushableRaid = useMemo(
+    () => raid.filter((r) => isRaidActiveForReview(r) && !!r.targetDate),
+    [raid],
+  );
+  // EXCLUDES outlookEventId — an OUTPUT the push writes back (see task block).
+  const raidAutoSyncKey = useMemo(
+    () => pushableRaid.map((r) => `${r.id}|${r.targetDate}|${r.title}|${r.status}`).join(";"),
+    [pushableRaid],
+  );
+  const setRaidForCalendar = useCallback(
+    (updater: (prev: RaidItem[]) => RaidItem[]) => setRaid((prev) => updater([...prev])),
+    [setRaid],
+  );
+  const { pushToOutlook: pushRaidToOutlook, busy: calendarRaidPushBusy } = useEntityCalendarPush<RaidItem>({
+    items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
+    toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
+    isPopout, lang, enabled: calendarRaidEnabled,
+  });
+  const { pushToOutlook: autoPushRaid } = useEntityCalendarPush<RaidItem>({
+    items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
+    toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
+    isPopout, lang, enabled: raidAutoSyncActive, interactive: false,
+  });
+  useCalendarAutoSync({ active: raidAutoSyncActive, contentKey: raidAutoSyncKey, push: autoPushRaid });
+  const onToggleCalendarRaid = useCallback(
+    (enabled: boolean) => setSettings((s) => ({
+      ...s,
+      outlookCalendar: {
+        ...s.outlookCalendar,
+        raid: { enabled, auto: enabled ? (s.outlookCalendar?.raid?.auto ?? false) : false },
+      },
+    })),
+    [setSettings],
+  );
+
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -1818,6 +1858,11 @@ function TaskManagerInner() {
     handleClearRaidTaskFilter,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
+    m365Configured: m365Enabled,
+    calendarRaidEnabled,
+    onToggleCalendarRaid,
+    pushRaidToOutlook,
+    calendarRaidPushBusy,
     changes,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),

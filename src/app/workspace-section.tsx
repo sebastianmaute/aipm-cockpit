@@ -182,6 +182,11 @@ export function WorkspaceSection({
   onPushMilestonesToOutlook,
   calendarPushBusy,
   committeeOutlookPush,
+  m365Configured,
+  calendarRaidEnabled,
+  onToggleCalendarRaid,
+  pushRaidToOutlook,
+  calendarRaidPushBusy,
   guides = [],
   guidesReady = true,
 }: WorkspaceSectionProps) {
@@ -524,6 +529,11 @@ export function WorkspaceSection({
             showHints={settings.showViewHints !== false}
             isPopout={isPopout}
             onLearnMore={requestHelpConcept}
+            m365Configured={m365Configured}
+            calendarEnabled={calendarRaidEnabled}
+            onToggleCalendar={onToggleCalendarRaid}
+            onPushCalendar={pushRaidToOutlook}
+            calendarPushBusy={calendarRaidPushBusy}
           />
         </div>
 
