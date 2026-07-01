@@ -1709,6 +1709,7 @@ export const de: Record<TranslationKey, string> = {
   calendarSyncEntityTask: "Aufgaben (Fälligkeitsdaten)",
   calendarSyncEntityRaid: "RAID-Einträge (Überprüfungstermine)",
   calendarSyncEntityChange: "Änderungsentscheidungen (Entscheidungstermine)",
+  calendarSyncEntityAbsence: "Ressourcenabwesenheiten (Urlaubs-/Schulungstermine)",
   calendarSyncEnable: "Zum Outlook-Kalender hinzufügen",
   calendarSyncAuto: "Automatisch synchron halten",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",

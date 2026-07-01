@@ -1715,6 +1715,7 @@ const enUS = {
   calendarSyncEntityTask: "Tasks (due dates)",
   calendarSyncEntityRaid: "RAID items (review dates)",
   calendarSyncEntityChange: "Change decisions (decision dates)",
+  calendarSyncEntityAbsence: "Resource absences (vacation/training dates)",
   calendarSyncEnable: "Add to Outlook calendar",
   calendarSyncAuto: "Keep in sync automatically",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
