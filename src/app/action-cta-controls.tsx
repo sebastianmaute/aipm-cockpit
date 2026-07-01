@@ -96,7 +96,7 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
     primary = (
       <span className="relative">
         <button type="button" aria-haspopup="dialog" aria-expanded={assignOpen}
-          onClick={(e) => { stop(e); setAssignOpen((o) => !o); }} className={GHOST}>
+          onClick={(e) => { stop(e); setAssignOpen((o) => !o); }} className={prominent ? directBtn : GHOST}>
           {t(lang, "actionAssignOwner")}
         </button>
         {assignOpen && (
@@ -112,11 +112,11 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
       </span>
     );
   } else if (kind === "escalate" && handlers.escalate) {
-    primary = <EscalatePopover lang={lang} action={action} bundle={handlers.escalate} />;
+    primary = <EscalatePopover lang={lang} action={action} bundle={handlers.escalate} prominent={prominent} />;
   } else if (kind === "rebaseline" && handlers.rebaseline) {
-    primary = <RebaselinePopover lang={lang} action={action} bundle={handlers.rebaseline} />;
+    primary = <RebaselinePopover lang={lang} action={action} bundle={handlers.rebaseline} prominent={prominent} />;
   } else if (kind === "reschedule" && handlers.reschedule) {
-    primary = <ReschedulePopover lang={lang} action={action} bundle={handlers.reschedule} />;
+    primary = <ReschedulePopover lang={lang} action={action} bundle={handlers.reschedule} prominent={prominent} />;
   } else if (kind === "clearBlocker" && handlers.onClearBlocker) {
     primary = <button type="button" onClick={(e) => { stop(e); handlers.onClearBlocker!(action); }} className={directBtn}>{t(lang, "actionClearBlocker")}</button>;
   } else if (kind === "markDone" && handlers.onMarkDone) {

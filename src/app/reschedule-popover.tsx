@@ -4,6 +4,7 @@ import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { isValidIsoDate } from "./action-rebaseline";
 import { usePopoverDismiss } from "./use-popover-dismiss";
+import { popoverTriggerClass } from "./action-cta-styles";
 
 export interface RescheduleBundle {
   onReschedule: (action: SuggestedAction, isoDate: string) => void;
@@ -13,9 +14,11 @@ interface ReschedulePopoverProps {
   lang: Lang;
   action: SuggestedAction;
   bundle: RescheduleBundle;
+  /** Hero surface renders the trigger as a prominent filled CTA. */
+  prominent?: boolean;
 }
 
-export function ReschedulePopover({ lang, action, bundle }: ReschedulePopoverProps) {
+export function ReschedulePopover({ lang, action, bundle, prominent }: ReschedulePopoverProps) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -38,7 +41,7 @@ export function ReschedulePopover({ lang, action, bundle }: ReschedulePopoverPro
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
-        className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 dark:text-AIPM-light-grey"
+        className={popoverTriggerClass(prominent)}
       >
         {t(lang, "actionReschedule")}
       </button>

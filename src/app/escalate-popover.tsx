@@ -6,6 +6,7 @@ import type { RaidItem, Resource } from "./types";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { isValidEmail } from "./sanitize";
 import { planEscalation } from "./action-escalate";
+import { popoverTriggerClass } from "./action-cta-styles";
 
 export interface EscalateBundle {
   resources: readonly Resource[];
@@ -21,11 +22,13 @@ interface EscalatePopoverProps {
   lang: Lang;
   action: SuggestedAction;
   bundle: EscalateBundle;
+  /** Hero surface renders the trigger as a prominent filled CTA. */
+  prominent?: boolean;
 }
 
 const EMPTY_RECIPIENT: ResourcePickerValue = { name: "", email: "", resourceId: null };
 
-export function EscalatePopover({ lang, action, bundle }: EscalatePopoverProps) {
+export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePopoverProps) {
   const [open, setOpen] = useState(false);
   const [recipient, setRecipient] = useState<ResourcePickerValue>(EMPTY_RECIPIENT);
   const [emailInput, setEmailInput] = useState("");
@@ -78,7 +81,7 @@ export function EscalatePopover({ lang, action, bundle }: EscalatePopoverProps) 
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
-        className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 dark:text-AIPM-light-grey"
+        className={popoverTriggerClass(prominent)}
       >
         {t(lang, "actionEscalate")}
       </button>

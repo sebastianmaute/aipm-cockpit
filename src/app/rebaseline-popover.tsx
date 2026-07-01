@@ -5,6 +5,7 @@ import type { SuggestedAction } from "./next-actions/types";
 import type { Milestone, Task } from "./types";
 import { milestoneRebaselineDate, isValidIsoDate } from "./action-rebaseline";
 import { usePopoverDismiss } from "./use-popover-dismiss";
+import { popoverTriggerClass } from "./action-cta-styles";
 
 export interface RebaselineBundle {
   // Milestone (B) path — all backends:
@@ -21,11 +22,13 @@ interface RebaselinePopoverProps {
   lang: Lang;
   action: SuggestedAction;
   bundle: RebaselineBundle;
+  /** Hero surface renders the trigger as a prominent filled CTA. */
+  prominent?: boolean;
 }
 
 const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
 
-export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverProps) {
+export function RebaselinePopover({ lang, action, bundle, prominent }: RebaselinePopoverProps) {
   const isMilestone = action.source === "milestone";
   const wrapRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLSpanElement>(null);
@@ -71,7 +74,7 @@ export function RebaselinePopover({ lang, action, bundle }: RebaselinePopoverPro
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
-        className="cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 dark:text-AIPM-light-grey"
+        className={popoverTriggerClass(prominent)}
       >
         {t(lang, "actionRebaseline")}
       </button>
