@@ -99,6 +99,7 @@ export function sanitizeAbsence(input: unknown): Absence | null {
         ? raw.localModifiedAt
         : undefined,
     resourceId: fkIdOrUndefined(raw.resourceId),
+    outlookEventId: sanitizeText(raw.outlookEventId, 1024) || undefined,
   };
 }
 

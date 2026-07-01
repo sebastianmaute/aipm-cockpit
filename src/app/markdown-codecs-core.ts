@@ -87,6 +87,7 @@ const ABSENCES_MD_COLUMNS: Array<{ key: keyof Absence; label: string }> = [
   { key: "note", label: "Note" },
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "resourceId", label: "ResourceId" },
+  { key: "outlookEventId", label: "OutlookEventId" },
 ];
 
 

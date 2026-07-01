@@ -166,6 +166,7 @@ function markdownToAbsences(md: string): Absence[] {
     else if (norm === "note") colMap[idx] = "note";
     else if (norm === "localmodified" || norm === "localmodifiedat")
       colMap[idx] = "localModifiedAt";
+    else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
   });
 
   const items: Absence[] = [];

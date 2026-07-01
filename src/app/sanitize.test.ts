@@ -316,6 +316,16 @@ describe("numeric coercion never throws on adversarial JSON objects", () => {
   }
 });
 
+describe("sanitizeAbsence", () => {
+  it("preserves outlookEventId and caps it at 1024 chars", () => {
+    const base = { id: 1, assignee: "Jane", startDate: "2026-01-01", endDate: "2026-01-05", type: "vacation" };
+    expect(sanitizeAbsence({ ...base, outlookEventId: "evt-123" })?.outlookEventId).toBe("evt-123");
+    const long = "x".repeat(2000);
+    expect(sanitizeAbsence({ ...base, outlookEventId: long })?.outlookEventId).toHaveLength(1024);
+    expect(sanitizeAbsence(base)?.outlookEventId).toBeUndefined();
+  });
+});
+
 describe("fkIdOrUndefined", () => {
   it("keeps a positive integer id (number and string forms)", () => {
     expect(fkIdOrUndefined(3)).toBe(3);
