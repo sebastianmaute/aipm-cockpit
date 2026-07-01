@@ -18,6 +18,10 @@ interface Args<T extends HasEventLink> {
   isPopout: boolean;
   lang: Lang;
   enabled: boolean;
+  /** When false, acquire the Graph token NON-interactively (no consent popup) and
+   *  stay SILENT on a null token — used by the background auto-sync runner so a
+   *  missing/expired token doesn't spam an error toast on every reconcile. */
+  interactive?: boolean;
 }
 
 /**
@@ -28,7 +32,7 @@ interface Args<T extends HasEventLink> {
  * push. Popouts are read-only (no Graph calls, no state write).
  */
 export function useEntityCalendarPush<T extends HasEventLink>(
-  { items, entityType, projectId, toGraphEvent, setItems, isPopout, lang, enabled }: Args<T>,
+  { items, entityType, projectId, toGraphEvent, setItems, isPopout, lang, enabled, interactive = true }: Args<T>,
 ) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
@@ -38,8 +42,13 @@ export function useEntityCalendarPush<T extends HasEventLink>(
     if (isPopout) return;
     setBusy(true);
     try {
-      const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
-      if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
+      const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive }).catch(() => null);
+      if (!token) {
+        // Auto-sync (interactive:false): a null token = no cached session → silent
+        // no-op (no toast). The manual button (interactive:true) still surfaces it.
+        if (!interactive) return;
+        showToast("error", t(lang, "calendarPushNoAccess")); return;
+      }
       const existing = await listEntityEvents(token, projectId, entityType);
       const plan = planEntityReconcile(items, existing);
       const newIds = new Map<number, string>();
@@ -78,7 +87,7 @@ export function useEntityCalendarPush<T extends HasEventLink>(
     } finally {
       setBusy(false);
     }
-  }, [isPopout, acquireToken, showToast, lang, items, projectId, setItems, entityType, toGraphEvent]);
+  }, [isPopout, acquireToken, showToast, lang, items, projectId, setItems, entityType, toGraphEvent, interactive]);
 
   return { pushToOutlook, busy };
 }

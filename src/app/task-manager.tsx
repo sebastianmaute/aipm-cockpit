@@ -32,7 +32,7 @@ import { htmlToPlainText } from "./html-to-text";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Milestone } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Milestone, type Task } from "./types";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
@@ -41,7 +41,7 @@ import { planEscalation, applyEscalation, buildEscalationMail } from "./action-e
 import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
 import type { RebaselineBundle } from "./rebaseline-popover";
 import type { RescheduleBundle } from "./reschedule-popover";
-import { applyStatusChange } from "./task-status";
+import { applyStatusChange, isTaskFinished } from "./task-status";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -66,6 +66,10 @@ import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
 import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
+import { useEntityCalendarPush } from "./use-entity-calendar-push";
+import { useCalendarAutoSync } from "./use-calendar-auto-sync";
+import { calendarSyncFor } from "./calendar-sync-config";
+import { taskToGraphEvent } from "./outlook-calendar-write";
 import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
@@ -1756,6 +1760,40 @@ function TaskManagerInner() {
     lang,
     enabled: calendarPushEnabled,
   });
+
+  // Background AUTO calendar-sync for tasks (opt-in enable + auto). When the
+  // pushable task set changes it silently reconciles Outlook (debounced 4s),
+  // without the manual Push button. Popout/M365-gated + non-interactive token
+  // (no consent popup, no error toast on a missing session). Fail-once-per-change.
+  const taskSync = calendarSyncFor(settings, "task");
+  const taskAutoSyncActive = taskSync.auto && m365Enabled && !isPopout;
+  const pushableTasks = useMemo(
+    () => tasks.filter((x) => !isTaskFinished(x) && !!x.dueDate),
+    [tasks],
+  );
+  const taskAutoSyncKey = useMemo(
+    () => pushableTasks
+      .map((t) => `${t.id}|${t.dueDate}|${t.taskName}|${t.status}|${t.outlookEventId ?? ""}`)
+      .join(";"),
+    [pushableTasks],
+  );
+  // Bridge the workspace setter to the hook's (prev: Task[]) => Task[] shape.
+  const setTasksForAuto = useCallback(
+    (updater: (prev: Task[]) => Task[]) => setTasks((prev) => updater([...prev])),
+    [setTasks],
+  );
+  const { pushToOutlook: autoPushTasks } = useEntityCalendarPush<Task>({
+    items: pushableTasks,
+    entityType: "task",
+    projectId: calendarProjectId,
+    toGraphEvent: taskToGraphEvent,
+    setItems: setTasksForAuto,
+    isPopout,
+    lang,
+    enabled: taskAutoSyncActive,
+    interactive: false,
+  });
+  useCalendarAutoSync({ active: taskAutoSyncActive, contentKey: taskAutoSyncKey, push: autoPushTasks });
 
   if (!i18nReady) return null;
 
