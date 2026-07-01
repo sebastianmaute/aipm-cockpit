@@ -1,280 +1,61 @@
 // src/app/action-row.tsx
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
 import { type Lang, t } from "./i18n";
-import type { SuggestedAction, ActionTier } from "./next-actions/types";
-import type { Resource } from "./types";
-import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
+import type { SuggestedAction } from "./next-actions/types";
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
-import { ACTION_SOURCE_ICON } from "./action-source-icon";
 import { InfoTooltip } from "./info-tooltip";
-import { ResourcePicker } from "./resource-picker";
-import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
-import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
-import { ReschedulePopover, type RescheduleBundle } from "./reschedule-popover";
-import { usePopoverDismiss } from "./use-popover-dismiss";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { ActionReasons } from "./action-reasons";
+import {
+  ActionPrimaryCta, ActionOverflowMenu, useActionCaps,
+  type ActionHandlers, type AssignOwnerBundle,
+} from "./action-cta-controls";
+import { TIER_RAG } from "./next-actions/action-cta";
 
-// Priority is shown with a coloured LEFT STRIPE (red/amber/green) on the row, so
-// "urgent" reads at a glance without a separate dot:
-// now → red, soon → amber, monitor → green. RAG tokens switch under Mockup style.
-const TIER_STRIPE: Record<ActionTier, string> = {
-  now: "border-l-[var(--rag-red)]",
-  soon: "border-l-[var(--rag-amber)]",
-  monitor: "border-l-[var(--rag-green)]",
-};
+export type { AssignOwnerBundle };
 
-/** Shared chrome for a row CTA button — bordered pill with an explicit pointer
- *  cursor and a hover background so the affordance is obvious on hover. */
-// NOTE: the row itself hovers to `bg-surface-muted`, so a button hovering to the
-// SAME colour would be invisible while the pointer is over the (already-hovered)
-// row. Use a brand-blue tint + border emphasis so the button affordance still
-// reads on hover against the muted row.
-const ACTION_BTN_CLASS =
-  "cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 dark:text-AIPM-light-grey";
-
-export interface AssignOwnerBundle {
-  resources: readonly Resource[];
-  onCreateResource: (name: string, email: string) => number;
-  onAssign: (action: SuggestedAction, value: { name: string; email: string; resourceId: number | null }) => void;
-}
-
-interface ActionRowProps {
+interface ActionRowProps extends ActionHandlers {
   lang: Lang;
   action: SuggestedAction;
-  onOpen: (action: SuggestedAction) => void;
-  onSnooze?: (action: SuggestedAction, durationMs: number) => void;
-  onCreateTask?: (action: SuggestedAction) => void;
-  assignOwner?: AssignOwnerBundle;
-  onDraftMessage?: (action: SuggestedAction) => void;
-  escalate?: EscalateBundle;
-  rebaseline?: RebaselineBundle;
   extraReasons?: readonly SuggestedAction[];
-  reschedule?: RescheduleBundle;
-  onMarkDone?: (action: SuggestedAction) => void;
-  onClearBlocker?: (action: SuggestedAction) => void;
+  expertMode?: boolean;
 }
 
-export function ActionRow({ lang, action, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, extraReasons, reschedule, onMarkDone, onClearBlocker }: ActionRowProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [reasonsOpen, setReasonsOpen] = useState(false);
-  const assignPopRef = useRef<HTMLSpanElement>(null);
-  const menuWrapRef = useRef<HTMLSpanElement>(null);
-  // Snooze menu: dismiss on outside-click or Escape (wrapper holds trigger + menu).
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
-  usePopoverDismiss(menuOpen, menuWrapRef, closeMenu);
-
-  // Focus first focusable element when popover opens (a11y: dialog focus management).
-  useEffect(() => {
-    if (assignOpen) assignPopRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus();
-  }, [assignOpen]);
-
-  // Close on Escape regardless of which element inside the dialog has focus.
-  // Document-level listener is robust even when ResourcePicker's own Escape handler
-  // fires e.preventDefault() without bubbling (e.g. when its listbox is open).
-  useEffect(() => {
-    if (!assignOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAssignOpen(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [assignOpen]);
+export function ActionRow(props: ActionRowProps) {
+  const { lang, action, extraReasons, expertMode } = props;
+  const caps = useActionCaps(props);
+  const rag = TIER_RAG[action.tier];
   const title = t(lang, action.title.key, ...(action.title.params ?? []));
   const why = t(lang, action.why.key, ...(action.why.params ?? []));
-  const canAssign =
-    assignOwner != null &&
-    action.cta.kind === "open" &&
-    ((action.source === "raid" && action.why.key === "actionRaidWhyNoOwner") ||
-     (action.source === "task-attention" && action.why.key === "actionTaskWhyUnassigned"));
-  const canDraft =
-    onDraftMessage != null &&
-    (action.source === "task-due" || action.source === "stakeholder-comms") &&
-    action.cta.kind === "open";
-  const canEscalate =
-    escalate != null &&
-    action.source === "raid" &&
-    action.why.key === "actionRaidWhySeverity" &&
-    action.cta.kind === "open";
-  const canRebaselineMilestone =
-    rebaseline != null &&
-    action.source === "milestone" &&
-    (action.why.key === "actionMilestoneWhyAtRisk" ||
-     action.why.key === "actionMilestoneWhyOverdue") &&
-    action.cta.kind === "open";
-  const canRebaselineSnapshot =
-    rebaseline != null &&
-    rebaseline.snapshotActive &&
-    ((action.source === "schedule" && action.why.key === "actionScheduleWhySlipping") ||
-     (action.source === "budget" && action.why.key === "actionBudgetWhyWorsening")) &&
-    action.cta.kind === "open";
-  const createTaskApplicable = onCreateTask != null && action.source !== "task-due";
-  const canReschedule = reschedule != null && action.source === "task-due" && action.cta.kind === "open";
-  const canMarkDone = onMarkDone != null && action.cta.kind === "open" && action.cta.view === "open-points";
-  const canClearBlocker = onClearBlocker != null && action.cta.kind === "open" && action.cta.view === "open-points" && action.source === "task-attention" && action.why.key === "actionTaskWhyBlocked";
-  const hasMenu = canDraft || createTaskApplicable || onSnooze != null || canMarkDone || canClearBlocker;
+  const sourceLabel = t(lang, ACTION_SOURCE_LABEL[action.source]);
   return (
-    // Mouse convenience only — NOT role="button"/tabIndex: nesting an interactive
-    // control (the Open button) inside a role=button is a WCAG nested-interactive
-    // violation. Keyboard/AT users use the inner Open button (the real affordance).
-    // Mirrors the RAID-row pattern (a plain onClick row + a focusable inner button).
+    // Mouse convenience only — NOT role=button (nested-interactive a11y). Inner
+    // controls are the real keyboard affordances.
     <div
-      onClick={() => onOpen(action)}
-      className={`flex cursor-pointer items-center gap-2 rounded-md border border-line border-l-4 ${TIER_STRIPE[action.tier]} bg-surface px-3 py-1.5 hover:bg-surface-muted`}
+      onClick={() => props.onOpen(action)}
+      className={`flex cursor-pointer items-center gap-2 rounded-md border border-line border-l-4 ${rag.stripe} bg-surface px-3 py-1.5 hover:bg-surface-muted`}
     >
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
-          <span aria-hidden data-action-source-icon className="shrink-0 text-muted-foreground">
-            {ACTION_SOURCE_ICON[action.source]}
-          </span>
-          {/* InfoTooltip renders its own focusable trigger; it carries the numeric
-              score as the accessible hint (the icon stays decorative). */}
-          <span onClick={(e) => e.stopPropagation()} className="shrink-0">
-            <InfoTooltip text={t(lang, "actionScoreTooltip", action.score)} />
-          </span>
-          <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            {t(lang, ACTION_SOURCE_LABEL[action.source])}
-          </span>
+          {expertMode && (
+            <span onClick={(e) => e.stopPropagation()} className="shrink-0">
+              <InfoTooltip text={t(lang, "actionScoreTooltip", action.score)} />
+            </span>
+          )}
           <span className="truncate text-sm font-medium text-foreground">{title}</span>
         </span>
-        <span className="mt-0.5 block truncate text-xs text-muted-foreground">{why}</span>
-        {extraReasons && extraReasons.length > 0 && (
-          <>
-            <button
-              type="button"
-              aria-expanded={reasonsOpen}
-              aria-controls={`action-reasons-${action.id}`}
-              aria-label={`${t(lang, "actionMoreReasons", extraReasons.length)} – ${title}`}
-              onClick={(e) => { e.stopPropagation(); setReasonsOpen((o) => !o); }}
-              className={`mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
-            >
-              <span aria-hidden>{reasonsOpen ? "▾" : "▸"}</span>
-              {t(lang, "actionMoreReasons", extraReasons.length)}
-            </button>
-            <span id={`action-reasons-${action.id}`} hidden={!reasonsOpen} className="mt-0.5 block">
-              {extraReasons.map((ex) => (
-                <span key={ex.id} className="block truncate text-xs text-muted-foreground">
-                  {t(lang, ex.why.key, ...(ex.why.params ?? []))}
-                </span>
-              ))}
-            </span>
-          </>
-        )}
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+          <b className="font-semibold uppercase tracking-wide">{sourceLabel}</b> · {why}
+        </span>
+        <ActionReasons lang={lang} action={action} extraReasons={extraReasons} />
         {action.learning?.moved && (
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-            {action.learning.moved === "up"
-              ? t(lang, "learningSurfacedHint")
-              : t(lang, "learningDemotedHint")}
+            {action.learning.moved === "up" ? t(lang, "learningSurfacedHint") : t(lang, "learningDemotedHint")}
           </span>
         )}
       </span>
       <div className="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onOpen(action); }}
-          className={`${ACTION_BTN_CLASS} px-3`}
-        >
-          {t(lang, "actionOpen")}
-        </button>
-        {canEscalate && escalate && (
-          <EscalatePopover lang={lang} action={action} bundle={escalate} />
-        )}
-        {(canRebaselineMilestone || canRebaselineSnapshot) && rebaseline && (
-          <RebaselinePopover lang={lang} action={action} bundle={rebaseline} />
-        )}
-        {canReschedule && reschedule && (
-          <ReschedulePopover lang={lang} action={action} bundle={reschedule} />
-        )}
-        {canAssign && assignOwner && (
-          <span className="relative">
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={assignOpen}
-              onClick={(e) => { e.stopPropagation(); setAssignOpen((o) => !o); }}
-              className={ACTION_BTN_CLASS}
-            >
-              {t(lang, "actionAssignOwner")}
-            </button>
-            {assignOpen && (
-              <span
-                ref={assignPopRef}
-                role="dialog"
-                aria-label={t(lang, "actionAssignOwner")}
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => { if (e.key === "Escape") setAssignOpen(false); }}
-                className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-line bg-surface p-2"
-              >
-                <ResourcePicker
-                  lang={lang}
-                  value={{ name: "", email: "", resourceId: null }}
-                  resources={assignOwner.resources}
-                  contacts={[]}
-                  onCreateResource={assignOwner.onCreateResource}
-                  onChange={(next) => { assignOwner.onAssign(action, next); setAssignOpen(false); }}
-                />
-              </span>
-            )}
-          </span>
-        )}
-        {hasMenu && (
-          <span ref={menuWrapRef} className="relative">
-            <button
-              type="button"
-              aria-expanded={menuOpen}
-              aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
-              onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
-              className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 ${FOCUS_RING}`}
-            >
-              ⋮
-            </button>
-            {menuOpen && (
-              <span className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1">
-                {canMarkDone && onMarkDone && (
-                  <button type="button"
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMarkDone(action); }}
-                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
-                    {t(lang, "actionMarkDone")}
-                  </button>
-                )}
-                {canClearBlocker && onClearBlocker && (
-                  <button type="button"
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onClearBlocker(action); }}
-                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
-                    {t(lang, "actionClearBlocker")}
-                  </button>
-                )}
-                {canDraft && onDraftMessage && (
-                  <button type="button"
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDraftMessage(action); }}
-                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
-                    {t(lang, "actionDraftMessage")}
-                  </button>
-                )}
-                {createTaskApplicable && onCreateTask && (
-                  <button type="button"
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onCreateTask(action); }}
-                    className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
-                    {t(lang, "actionCreateTask")}
-                  </button>
-                )}
-                {onSnooze && (
-                  <>
-                    <button type="button"
-                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1H); }}
-                      className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
-                      {t(lang, "actionSnooze1h")}
-                    </button>
-                    <button type="button"
-                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onSnooze(action, SNOOZE_1D); }}
-                      className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">
-                      {t(lang, "actionSnooze1d")}
-                    </button>
-                  </>
-                )}
-              </span>
-            )}
-          </span>
-        )}
+        <ActionPrimaryCta lang={lang} action={action} caps={caps} handlers={props} />
+        <ActionOverflowMenu lang={lang} action={action} caps={caps} handlers={props} />
       </div>
     </div>
   );

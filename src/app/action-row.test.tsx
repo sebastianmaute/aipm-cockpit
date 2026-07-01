@@ -166,7 +166,6 @@ describe("ActionRow draft message", () => {
     const onDraftMessage = vi.fn();
     const action = draftableAction("task-due");
     render(<ActionRow lang="en-US" action={action} onOpen={onOpen} onDraftMessage={onDraftMessage} />);
-    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     const btn = screen.getByRole("button", { name: /draft message/i });
     fireEvent.click(btn);
     expect(onDraftMessage).toHaveBeenCalledTimes(1);
@@ -178,7 +177,6 @@ describe("ActionRow draft message", () => {
     const onDraftMessage = vi.fn();
     const action = draftableAction("stakeholder-comms");
     render(<ActionRow lang="en-US" action={action} onOpen={() => {}} onDraftMessage={onDraftMessage} />);
-    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
     const btn = screen.getByRole("button", { name: /draft message/i });
     expect(btn).toBeInTheDocument();
     fireEvent.click(btn);
@@ -309,7 +307,7 @@ describe("ActionRow reschedule / mark done / clear blocker", () => {
     expect(onMarkDone).toHaveBeenCalled();
   });
 
-  it("shows Assign on unassigned task-attention, Clear blocker on a blocked one", () => {
+  it("shows Assign inline on unassigned, Clear blocker inline on a blocked one", () => {
     const onClearBlocker = vi.fn();
     const unassigned = { id: "task-attention:1:unassigned", source: "task-attention",
       title: { key: "actionTaskTitle", params: ["T"] }, why: { key: "actionTaskWhyUnassigned" },
@@ -319,19 +317,24 @@ describe("ActionRow reschedule / mark done / clear blocker", () => {
     const { rerender } = render(<ActionRow lang="en-US" action={unassigned} onOpen={() => {}} assignOwner={assignBundle} />);
     expect(screen.getByRole("button", { name: /assign owner/i })).toBeTruthy();
     rerender(<ActionRow lang="en-US" action={blocked} onOpen={() => {}} onClearBlocker={onClearBlocker} />);
-    fireEvent.click(screen.getByRole("button", { name: /more actions/i }));
-    fireEvent.click(screen.getByRole("button", { name: /clear blocker/i }));
+    fireEvent.click(screen.getByRole("button", { name: /clear blocker/i })); // now inline, not in the menu
     expect(onClearBlocker).toHaveBeenCalled();
   });
 });
 
-describe("ActionRow source icon + score tooltip", () => {
-  it("renders the source icon and a tooltip carrying the score", () => {
+describe("ActionRow source label + expert score", () => {
+  it("shows the source label inline and NO standalone icon", () => {
     const scored = { ...action, source: "raid" as const, score: 42 };
     render(<ActionRow lang="en-US" action={scored} onOpen={() => {}} />);
-    // The decorative source glyph is present (aria-hidden svg inside the row).
-    expect(document.querySelector('[data-action-source-icon] svg')).toBeInTheDocument();
-    // The InfoTooltip trigger exposes the score via its accessible name.
+    // Anchored: the title ("RAID 1: Server down") also contains "RAID" as a direct
+    // text node, so an unanchored /RAID/ matches both it and the bold source label.
+    expect(screen.getByText(/^RAID$/)).toBeInTheDocument();                 // source label in why-line
+    expect(document.querySelector("[data-action-source-icon]")).toBeNull(); // icon removed
+    expect(screen.queryByRole("button", { name: /Score: 42/ })).toBeNull(); // score hidden by default
+  });
+  it("shows the score tooltip only in expert mode", () => {
+    const scored = { ...action, source: "raid" as const, score: 42 };
+    render(<ActionRow lang="en-US" action={scored} onOpen={() => {}} expertMode />);
     expect(screen.getByRole("button", { name: /Score: 42/ })).toBeInTheDocument();
   });
 });
