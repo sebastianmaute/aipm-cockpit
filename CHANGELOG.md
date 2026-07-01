@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.159.0] - 2026-07-01 "Gladstone"
+
+### Added
+- **Resource-absence Outlook calendar write-back (SP4)**: the generic calendar write-back — already covering milestones, tasks, RAID items, and change decisions — now extends to **resource absences**, completing the roadmap. Each current or upcoming absence (`endDate` today or later) is pushed to the authenticated user's Outlook calendar as a single **multi-day all-day event** spanning its start→end range. **Sick leave is excluded** for privacy; vacation, training, and other absences sync. Toggled independently: an **"Add to Outlook calendar"** switch with a manual **"Push to Outlook"** button in the Resources view, plus the same switch (and optional **auto-sync**) centrally in Settings → Integrations → **Calendar write-back**. Events are tagged per project + entity type, so absence syncs never touch the milestone, task, RAID, or change calendar entries. Auto-sync runs quietly in the background (debounced, no consent pop-ups) when enabled. Requires Microsoft 365; pop-out windows are read-only.
+
+### Notes
+- Completes the generic calendar write-back engine (milestones · tasks · RAID · changes · absences). No new Turso table or export field; `Absence.outlookEventId` rides the existing six absence write paths.
+
 ## [0.158.0] - 2026-07-01 "Erikson"
 
 ### Added

@@ -1088,10 +1088,23 @@ changes (`!!decisionDate`) as all-day events on the decision date; `changeToGrap
 `ChangeItem.outlookEventId` rides the same 6 paths + `CHANGES_CSV_COLUMNS`/`CHANGES_MD_COLUMNS` column (MD decode arm in
 `markdown-codecs-core.ts`; `sanitizeChangeItem` caps 1024). Like RAID it's a THIN callback-prop pane, so ALL calendar
 logic lives in `task-manager` (manual + silent-auto `useEntityCalendarPush<ChangeItem>`, `useCalendarAutoSync`, the
-`setChangesForCalendar` bridge, `onToggleCalendarChange`) and threads FOUR props through `workspace-section-types` →
+`setChangeForCalendar` bridge, `onToggleCalendarChange`) and threads FOUR props through `workspace-section-types` →
 `workspace-section` → the pane (renamed to `calendarEnabled`/`onToggleCalendar`/`onPushCalendar`/`calendarPushBusy` at the
-pane boundary). SP4 (Resource absences) reuses the engine: add the entity's `outlookEventId` column + a
-`CalendarEntityType` config entry + `*ToGraphEvent` + pane/task-manager wiring.
+pane boundary). **Absence (SP4, v0.159+):** the FINAL entity — completes the roadmap. Pushes current+future
+non-sick absences (`a.type !== "sick" && a.endDate >= today`) as a SINGLE **multi-day** all-day event spanning
+the range: `absenceToGraphEvent` sets `start=startDate`, `end=nextDay(endDate)` (Graph all-day end is EXCLUSIVE —
+the ONLY structural difference from the single-day task/raid/change events). `Absence.outlookEventId` rides the
+same 6 paths + `ABSENCES_CSV_COLUMNS`/`ABSENCES_MD_COLUMNS` column (MD decode arm in `markdown-codecs-decode.ts`
+`markdownToAbsences`; `sanitizeAbsence` in `sanitize-entities.ts` caps 1024). Absences ARE in the curated sample
+(unlike synthesized changes) → the `.md` Absences table + `.csv` `# ABSENCES` section got the new column, golden
+fixtures regenerated (Absences-section-only diff). THIN callback-prop pane (parent owns `absences`), so all calendar
+logic lives in `task-manager` (`pushableAbsences`, `absenceAutoSyncKey` = `id|startDate|endDate|type|assignee`
+EXCLUDING `outlookEventId`, `setAbsenceForCalendar` functional bridge, manual + silent-auto
+`useEntityCalendarPush<Absence>`, `useCalendarAutoSync`, `onToggleCalendarAbsence`); threads FOUR props through
+`workspace-section-types` → `workspace-section` → the Resources pane (`resources-panel.tsx` renders the toggle+push
+in the shared `headerActions`, renamed to `calendarEnabled`/`onToggleCalendar`/`onPushCalendar`/`calendarPushBusy`).
+★ Resources IS in axe `A11Y_VIEWS` — the toggle carries an aria-label. ROADMAP COMPLETE (tasks · RAID · changes ·
+absences); no entities remain.
 
 ### Timelog integration
 
