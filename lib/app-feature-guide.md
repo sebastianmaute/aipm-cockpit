@@ -23,8 +23,8 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 <!-- views: actions -->
 
 - Ranked "suggested next actions" derived from project signals, each with one-click CTAs (create task, assign owner, escalate, draft message, re-baseline).
-- All signals for one item are now grouped into a single row, with a "+N more reasons" expander; each tier caps its rows with a show-more control so the list stays short.
-- Each row carries a colour-coded urgency stripe and a "⋮" overflow menu, and the Center now flags unassigned, stale, blocked, and dependency-blocked tasks.
+- The single most-urgent action is promoted to a focus "Do this first" card at the top; below it, actions stay grouped by urgency tier (Now / Soon / Monitor), each capped with a show-more control so the list stays short.
+- All signals for one item are grouped into a single row with a "+N more reasons" expander. Each row is action-first — it leads with its real next step (assign, reschedule, clear blocker, re-baseline, draft…) and folds the rest into a "⋮" overflow; urgency reads from a coloured tier dot and left stripe. The Center flags unassigned, stale, blocked, and dependency-blocked tasks.
 - You can resolve items in place — assign an owner, mark done, clear the blocker, or reschedule — without leaving the Center.
 - "Analyze with AI" runs a one-off advisory portfolio analysis.
 - The ranking engine is deterministic; AI analysis is advisory and adds no automatic changes.

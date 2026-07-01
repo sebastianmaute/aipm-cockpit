@@ -158,6 +158,7 @@ const enUS = {
   versionHighlightPrintMultipage: "Print overhaul: long views now print across multiple pages, with no on-paper scrollbars or rounded container boxes",
   versionHighlightColorSchemes: "Custom color schemes: build, save, import/export and apply your own palette plus logo and slogans in Settings -> Appearance via a new Custom style (light-only, no-flash, with WCAG contrast warnings)",
   versionHighlightResizeAnchor: "Clearer resize anchors: column-resize handles now show an always-visible grip that brightens while you hover or drag, and the native pane/textarea resize corner is accent-tinted",
+  versionHighlightNextActionsRedesign: "Next actions redesign: a focus \"Do this first\" card tops the queue, each row leads with its real next step (assign / reschedule / clear blocker / re-baseline) with the rest under a menu, and the view is now covered by the accessibility gate",
 
   tasks: "Tasks",
   tasksCount: "({0})",

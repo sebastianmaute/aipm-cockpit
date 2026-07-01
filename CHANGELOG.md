@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.155.0] - 2026-07-01 "Egan"
+
+### Changed
+- **Next actions redesign**: the Action Center now opens with a focus **"Do this first"** card for the single most-urgent action (with its full call-to-action set), above the kept Now / Soon / Monitor tiers. Compact rows are **action-first** — each leads with its real next step (assign owner, reschedule, clear blocker, re-baseline, draft, mark done, or open) with the rest folded into a "⋮" overflow; the source label moved into the reason line and the numeric score now shows only in expert mode. Tier urgency reads from a coloured dot + left stripe. The hero's primary button is prominent (filled) for every action type, including the popover actions (assign / escalate / re-baseline / reschedule).
+
+### Fixed
+- **Contrast**: the tier count and hero label no longer use the amber RAG *text* token, which fell below WCAG AA as small text on the Dark and Dashboard styles (3.5:1 / 4.4:1); tier colour now rides the non-text dot and stripe instead. The Next actions view was added to the automated accessibility gate, so this is verified on every build across the light, dark, and Dashboard styles.
+
 ## [0.154.0] - 2026-06-30 "Mitchell"
 
 ### Changed
