@@ -11,7 +11,7 @@ describe("JiraBadge", () => {
 
   it("two-way (default) uses the two-way accessible name", () => {
     render(<JiraBadge jiraKey="ABC-123" lang="en-US" />);
-    expect(screen.getByLabelText("Synced with Jira (two-way)")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Synced with Jira \(two-way\)/)).toBeInTheDocument();
   });
 
   it("read-only project uses the read-only accessible name", () => {

@@ -1214,9 +1214,9 @@ export const de: Record<TranslationKey, string> = {
   jiraExtraProjectInclude: "Einbeziehen",
   jiraExtraProjectRemove: "Entfernen",
   jiraReadOnly: "Schreibgeschützt",
-  jiraSyncedTwoWay: "Mit Jira synchronisiert (bidirektional)",
+  jiraSyncedTwoWay: "Mit Jira synchronisiert (bidirektional) – Status wird in Jira verwaltet",
   jiraSyncedReadOnlyProject: "Aus Jira beobachtet – schreibgeschützt",
-  jiraReadOnlyBanner: "Schreibgeschützt – beobachtet aus Jira-Projekt {0}. Änderungen hier werden nicht gespeichert und beim nächsten Sync verworfen.",
+  jiraReadOnlyBanner: "Schreibgeschützt – beobachtet aus Jira-Projekt {0}. Jira-verwaltete Felder werden hier nicht gespeichert und beim nächsten Sync verworfen.",
 
   navTimelog: "Zeitbuchungen",
   timelogModuleDesc: "Ist-Zeitbuchungen aus Timelog abrufen und mit deinem Budget vergleichen",

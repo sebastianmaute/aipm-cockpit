@@ -1222,9 +1222,9 @@ const enUS = {
   jiraExtraProjectInclude: "Include",
   jiraExtraProjectRemove: "Remove",
   jiraReadOnly: "Read-only",
-  jiraSyncedTwoWay: "Synced with Jira (two-way)",
+  jiraSyncedTwoWay: "Synced with Jira (two-way) — status is managed in Jira",
   jiraSyncedReadOnlyProject: "Watched from Jira — read-only",
-  jiraReadOnlyBanner: "Read-only — watched from Jira project {0}. Changes here won't be saved and revert on next sync.",
+  jiraReadOnlyBanner: "Read-only — watched from Jira project {0}. Jira-managed fields won't be saved here and revert on next sync.",
 
   navTimelog: "Time bookings",
   timelogModuleDesc: "Pull actual time bookings from Timelog and compare them against your budget",

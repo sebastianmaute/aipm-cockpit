@@ -44,6 +44,7 @@ export function isReadOnlyIssue(
 const KEY_RE = /^[A-Za-z0-9_]+$/;
 const MAX_EXTRA_PROJECTS = 20;
 const NAME_MAX = 120;
+const KEY_MAX = 64;
 
 /** Validate the persisted extraProjects array from untrusted storage. Drops
  *  malformed/blank/invalid keys, the primary key, and duplicates; defaults a
@@ -60,7 +61,7 @@ export function sanitizeJiraExtraProjects(
     if (!item || typeof item !== "object") continue;
     const rec = item as Record<string, unknown>;
     const key = typeof rec.key === "string" ? rec.key.trim() : "";
-    if (!key || key.length > 64 || !KEY_RE.test(key)) continue;
+    if (!key || key.length > KEY_MAX || !KEY_RE.test(key)) continue;
     if (key === primaryKey || seen.has(key)) continue;
     seen.add(key);
     const name =
