@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.158.0] - 2026-07-01 "Erikson"
+
+### Added
+- **Change decision-date Outlook calendar write-back**: the calendar write-back that already covered milestones, tasks, and RAID items now extends to **change-control items**. A decided change — one that carries a **decision date** — is pushed to the shared Outlook calendar as an **all-day event on its decision date**. Like the other entity types it is toggled independently: a per-pane **"Add to Outlook calendar"** switch with a manual **"Push to Outlook"** button in the Changes pane, and the same switch (plus an optional **auto-sync**) centrally in Settings → Integrations → **Calendar write-back**. Only changes with a decision date are pushed (clearing the date removes the event on the next sync); events are tagged per project + entity type so the change syncs never touch the milestone, task, or RAID calendar entries. Auto-sync runs quietly in the background (debounced, no consent pop-ups) when enabled. Requires Microsoft 365; pop-out windows are read-only.
+
+### Notes
+- `ChangeItem.outlookEventId` persists across all backends (JSON, CSV, Markdown, Turso single + multi-tenant, IndexedDB); existing databases self-heal the new column. The per-device calendar-sync toggle lives in `settings.outlookCalendar` and is excluded from exports and Turso.
+
 ## [0.157.0] - 2026-07-01 "Baxter"
 
 ### Added

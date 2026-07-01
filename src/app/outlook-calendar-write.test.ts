@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
-  milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
+  milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
 } from "./outlook-calendar-write";
 import type { Milestone, Task, RaidItem } from "./types";
 
@@ -58,6 +58,24 @@ describe("raidToGraphEvent", () => {
     expect(ev.categories).toEqual([categoryFor("p1", "raid")]);
     expect(ev.body.content).toContain("Owner: Ana");
     expect(ev.body.content).toContain("Severity: High");
+  });
+});
+
+describe("changeToGraphEvent", () => {
+  it("changeToGraphEvent: all-day on decisionDate, type-scoped category, body lines", () => {
+    const ev = changeToGraphEvent(
+      { id: 5, title: "Widen scope", description: "", type: "Scope", status: "Approved", impact: "High", decisionBy: "Elena", decisionDate: "2026-06-09", raisedDate: "2026-05-21", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] },
+      "proj-1",
+    );
+    expect(ev.isAllDay).toBe(true);
+    expect(ev.subject).toBe("Widen scope");
+    expect(ev.start.dateTime).toBe("2026-06-09T00:00:00");
+    expect(ev.end.dateTime).toBe("2026-06-10T00:00:00");
+    expect(ev.categories).toEqual(["AIPM:proj-1:change"]);
+    expect(ev.body.content).toContain("Type: Scope");
+    expect(ev.body.content).toContain("Impact: High");
+    expect(ev.body.content).toContain("Status: Approved");
+    expect(ev.body.content).toContain("Decision by: Elena");
   });
 });
 

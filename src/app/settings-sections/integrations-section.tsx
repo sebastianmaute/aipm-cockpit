@@ -381,6 +381,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               entityType="raid"
               labelKey="calendarSyncEntityRaid"
             />
+            <CalendarSyncEntityRow
+              lang={lang}
+              settings={settings}
+              onChange={onChange}
+              entityType="change"
+              labelKey="calendarSyncEntityChange"
+            />
           </div>
         </div>
       )}

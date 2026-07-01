@@ -178,6 +178,11 @@ export interface WorkspaceSectionProps {
   onToggleCalendarRaid?: (enabled: boolean) => void;
   pushRaidToOutlook?: () => void;
   calendarRaidPushBusy?: boolean;
+  /** Change decision-date Outlook write-back (SP3). Absent in popouts. */
+  calendarChangeEnabled?: boolean;
+  onToggleCalendarChange?: (enabled: boolean) => void;
+  pushChangeToOutlook?: () => void;
+  calendarChangePushBusy?: boolean;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
 }
