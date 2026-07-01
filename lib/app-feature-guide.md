@@ -15,7 +15,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - The task list ("Open Points") for the active project, with a Table/Board (Kanban) toggle.
 - Status model: To Do, In Progress, On Hold, In Review, Cancelled, Done — Done auto-stamps a completed date.
 - Tasks can link to RAID items (a task may resolve a risk, issue, or dependency).
-- Jira-synced tasks (those with a Jira key) are read-only here: status and assignee are managed in Jira.
+- Jira-synced tasks (those with a Jira key): tasks from the primary project are editable; tasks from read-only extra projects have their Jira fields locked until the next sync.
 - AI: create/update tasks including setting status; cannot toggle the Board view or change a Jira-synced task's status (explain + point to Jira).
 
 ## Action Center
@@ -122,7 +122,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Secrets (Anthropic API key, Turso auth token, Jira and Timelog tokens) are stored encrypted at rest.
 - AI features are gated by an "Enable AI assistant" master switch in Settings → AI (off by default). The first time any integration/AI feature is enabled (AI, Jira, Microsoft 365, Turso or Timelog), a one-time security & responsibility note is shown and acknowledged once per device.
 - The AI model dropdown lists the live models available on the user's Anthropic account (with an offline fallback list when they can't be fetched), and a malformed API key is rejected as it is entered.
-- Integrations panel holds storage, Turso, Microsoft 365, Timelog, and Jira together. Jira lives inside Integrations: its configuration fields appear only after the "Enable Jira sync" checkbox is ticked.
+- Integrations panel holds storage, Turso, Microsoft 365, Timelog, and Jira together. Jira lives inside Integrations: its configuration fields appear only after the "Enable Jira sync" checkbox is ticked. Configure a primary Jira project (two-way sync) and optionally add extra projects to sync read-only (pull-only — edits never push back); each extra project has a per-project read-only toggle (default ON). The task Jira badge shows a padlock for read-only vs sync-arrows for two-way, and the task editor shows a read-only warning for watched projects.
 - A **guided backend setup wizard** (Settings → Integrations → "Run setup wizard") steps through Storage & connections (storage, Turso, M365, Timelog), AI, and Jira, then a Review step summarising what is configured. The same wizard is reachable from the new-project window. Steps are skippable, and the flat Integrations panel can be used to adjust any setting later.
 - AI: can explain where each setting lives and what it does; cannot open or run the setup wizard (it is a UI affordance only).
 

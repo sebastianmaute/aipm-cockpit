@@ -2,10 +2,10 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.155.0_%22Egan%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.156.0_%22Bear%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-> A project-command surface for project leads with a context-aware Claude copilot that knows your current view and is grounded in your operating guides. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents), syncs bidirectionally with Jira, and pulls actual time bookings from Timelog — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.
+> A project-command surface for project leads with a context-aware Claude copilot that knows your current view and is grounded in your operating guides. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents), syncs with Jira (primary two-way project plus optional read-only extra projects), and pulls actual time bookings from Timelog — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.
 
 ---
 
@@ -20,7 +20,7 @@ Core workflow:
 3. Ask the integrated Claude AI assistant to create, update, or summarize tasks in natural language
 4. Send pre-filled status-inquiry emails to assignees with one click
 5. Export the task list to CSV, Markdown, PDF, DOCX, XLSX, or PPTX
-6. Optionally sync tasks bidirectionally with a Jira project
+6. Optionally sync tasks with Jira: a primary two-way project plus additional read-only projects to monitor
 7. Track RAID and change-control items and create reports for the steering committee
 8. Plan capacity, utilization, availability, and cost rates while accounting for holidays
 9. Run a portfolio of projects, each with its own workspace and metadata header
@@ -31,7 +31,7 @@ Two things set the tracker apart: it has an AI copilot that understands the proj
 
 **(1) An AI copilot that knows your project.** A context-aware Claude assistant that knows your current view and mode and is grounded in your operating guides — so it gives advice that fits *this* project, not generic chatbot answers. Per-view **"Ask Claude"** suggestions and one-tap foundational prompts ("What's next?", a status overview, "prioritize") mean the tool tells you what to do next, and it can act on it: create, update, and summarize across the whole register (tasks, RAID, changes, milestones, stakeholders) in natural language via tool calls, with a live token-usage panel, a Stop button, and a pop-out mirror. The AI reaches further into the workflow too — **describe a project** (or import one from a file, SharePoint, or a Confluence page) to pre-fill the create wizard, **"Analyze with AI"** in the Action Center for a triage of the queue, and opt-in **scheduled portfolio-analysis jobs**. The **Action Center** complements this by ranking live project data into next-best-actions, and that ranking **learns** from how you respond (act / snooze / dismiss).
 
-**(2) Plugs into your existing stack (M365, Jira + Timelog).** It pulls people in from your Outlook contacts, imports calendar events as absences and pushes milestones back to Outlook, attaches documents straight from SharePoint, keeps tasks in lockstep with Jira through **bidirectional sync**, and pulls actual time bookings from Timelog into your budget — so you accelerate your existing workflow instead of re-keying the same data into yet another tool.
+**(2) Plugs into your existing stack (M365, Jira + Timelog).** It pulls people in from your Outlook contacts, imports calendar events as absences and pushes milestones back to Outlook, attaches documents straight from SharePoint, syncs with Jira (a primary two-way project plus optional read-only monitor projects), and pulls actual time bookings from Timelog into your budget — so you accelerate your existing workflow instead of re-keying the same data into yet another tool.
 
 ## Features
 

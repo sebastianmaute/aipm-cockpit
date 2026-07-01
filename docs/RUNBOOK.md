@@ -210,10 +210,7 @@ at <https://id.atlassian.com/manage-profile/security/api-tokens> and paste it
 into Settings → Jira.
 
 ### "Jira sync fails with 403 / project not in list"
-Cause: assignee scope or project permissions in Atlassian. Verify the user's
-account has Browse Projects + Edit Issues on the target project. The route
-handler returns Atlassian's error verbatim — check the browser Network tab
-for the JSON body.
+Cause: assignee scope or project permissions in Atlassian. Sync now covers the primary project plus any extra projects configured in Settings → Integrations → Jira. Verify the user's account has Browse Projects + Edit Issues on all configured projects. The route handler returns Atlassian's error verbatim — check the browser Network tab for the JSON body.
 
 ### "Jira sync hangs / slow"
 The route handlers carry per-IP and per-credentials rate limits
