@@ -82,10 +82,22 @@ describe("applyQuadrantMove", () => {
     expect(moved!.interest).toBe("High");
   });
 
-  it("keep-satisfied: High influence, interest untouched when already low-band", () => {
+  it("keep-satisfied: High influence, interest untouched when already Medium", () => {
     const moved = applyQuadrantMove(mkS({ influence: "Low", interest: "Medium" }), "keep-satisfied");
     expect(moved!.influence).toBe("High");
     expect(moved!.interest).toBe("Medium");
+  });
+
+  it("keep-satisfied: interest Low preserved (not flattened) on the low side", () => {
+    const moved = applyQuadrantMove(mkS({ influence: "Low", interest: "Low" }), "keep-satisfied");
+    expect(moved!.influence).toBe("High");
+    expect(moved!.interest).toBe("Low");
+  });
+
+  it("keep-informed: raises interest, demotes High influence — catches an axis swap", () => {
+    const moved = applyQuadrantMove(mkS({ influence: "High", interest: "Low" }), "keep-informed");
+    expect(moved!.influence).toBe("Medium");
+    expect(moved!.interest).toBe("High");
   });
 
   it("demotes High to Medium when dragged out of the high band", () => {
@@ -101,6 +113,7 @@ describe("applyQuadrantMove", () => {
   it("round-trip is not identity (Low -> keep-satisfied -> monitor yields Medium)", () => {
     const up = applyQuadrantMove(mkS({ influence: "Low", interest: "Low" }), "keep-satisfied");
     expect(up!.influence).toBe("High");
+    expect(up!.interest).toBe("Low");
     const back = applyQuadrantMove(up!, "monitor");
     expect(back!.influence).toBe("Medium");
   });
