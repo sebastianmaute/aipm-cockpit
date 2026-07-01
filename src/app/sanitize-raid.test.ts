@@ -316,6 +316,17 @@ describe("sanitizeRaidItem", () => {
     expect(result!.documentLinks![0].url).toBe("https://example.com/doc");
   });
 
+  // --- outlookEventId ---
+
+  it("preserves outlookEventId (capped 1024)", () => {
+    const base = { id: 1, title: "R", category: "R", raisedDate: "2026-01-01" };
+    expect(sanitizeRaidItem({ ...base, outlookEventId: "EVT1" })?.outlookEventId).toBe("EVT1");
+    expect(
+      sanitizeRaidItem({ ...base, outlookEventId: "x".repeat(2000) })?.outlookEventId?.length,
+    ).toBe(1024);
+    expect(sanitizeRaidItem(base)?.outlookEventId).toBeUndefined();
+  });
+
   // --- immutability ---
 
   it("returns a new object and does not mutate input", () => {

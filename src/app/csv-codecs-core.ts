@@ -101,6 +101,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "causedByRaidIds",
   "stakeholderIds",
   "documentLinks",
+  "outlookEventId",
 ];
 
 // Columns persisted for Absence items in CSV and Markdown. Order matches
@@ -332,6 +333,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     causedByRaidIds,
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
     documentLinks: decodeDocumentLinks(obj.documentLinks),
+    outlookEventId: obj.outlookEventId || undefined,
   };
 }
 

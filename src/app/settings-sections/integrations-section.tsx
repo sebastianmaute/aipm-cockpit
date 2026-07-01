@@ -12,6 +12,7 @@ import {
   defaultM365Integrations,
   defaultTursoIntegrations,
   defaultSnapshotSettings,
+  type CalendarEntityType,
 } from "../settings-types";
 import type { SnapshotCadence } from "../snapshot";
 import { useMsAuth } from "../use-ms-auth";
@@ -47,6 +48,60 @@ interface IntegrationsSectionProps {
   /** Hide the Jira block. Set by the setup wizard, which has a dedicated Jira
    *  step — without this Jira would render twice (storage step + jira step). */
   hideJira?: boolean;
+}
+
+/** One calendar write-back entity row (label + Enable + Auto-sync checkboxes).
+ *  Reused per entity type so every row renders identical markup/a11y. */
+function CalendarSyncEntityRow({
+  lang,
+  settings,
+  onChange,
+  entityType,
+  labelKey,
+}: {
+  lang: Lang;
+  settings: Settings;
+  onChange: (s: Settings) => void;
+  entityType: CalendarEntityType;
+  labelKey: Parameters<typeof t>[1];
+}) {
+  const sync = calendarSyncFor(settings, entityType);
+  const label = t(lang, labelKey);
+  const write = (enabled: boolean, auto: boolean) =>
+    onChange({
+      ...settings,
+      outlookCalendar: { ...settings.outlookCalendar, [entityType]: { enabled, auto } },
+    });
+  return (
+    <div className="mt-2">
+      <p className="text-sm font-medium text-foreground">{label}</p>
+      <div className="mt-1 flex flex-col gap-1 pl-1">
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            aria-label={`${t(lang, "calendarSyncEnable")} – ${label}`}
+            checked={sync.enabled}
+            onChange={(e) => write(e.target.checked, e.target.checked ? sync.auto : false)}
+            className={`h-4 w-4 ${FOCUS_RING} ${TRANSITION}`}
+          />
+          <span>{t(lang, "calendarSyncEnable")}</span>
+        </label>
+        <label
+          className={`flex items-center gap-2 text-sm ${sync.enabled ? "text-foreground" : "text-muted-foreground"}`}
+        >
+          <input
+            type="checkbox"
+            aria-label={`${t(lang, "calendarSyncAuto")} – ${label}`}
+            disabled={!sync.enabled}
+            checked={sync.auto}
+            onChange={(e) => write(sync.enabled, e.target.checked)}
+            className={`h-4 w-4 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
+          />
+          <span>{t(lang, "calendarSyncAuto")}</span>
+        </label>
+      </div>
+    </div>
+  );
 }
 
 export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira }: IntegrationsSectionProps) {
@@ -312,55 +367,20 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           <div className="mt-3 border-t border-line pt-2">
             <h4 className="text-sm font-semibold text-foreground">{t(lang, "calendarSyncHeading")}</h4>
             <p className="mt-1 text-xs text-muted-foreground">{t(lang, "calendarSyncDesc")}</p>
-            {(() => {
-              const taskSync = calendarSyncFor(settings, "task");
-              return (
-                <div className="mt-2">
-                  <p className="text-sm font-medium text-foreground">{t(lang, "calendarSyncEntityTask")}</p>
-                  <div className="mt-1 flex flex-col gap-1 pl-1">
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, "calendarSyncEntityTask")}`}
-                        checked={taskSync.enabled}
-                        onChange={(e) =>
-                          onChange({
-                            ...settings,
-                            outlookCalendar: {
-                              ...settings.outlookCalendar,
-                              task: { enabled: e.target.checked, auto: e.target.checked ? taskSync.auto : false },
-                            },
-                          })
-                        }
-                        className={`h-4 w-4 ${FOCUS_RING} ${TRANSITION}`}
-                      />
-                      <span>{t(lang, "calendarSyncEnable")}</span>
-                    </label>
-                    <label
-                      className={`flex items-center gap-2 text-sm ${taskSync.enabled ? "text-foreground" : "text-muted-foreground"}`}
-                    >
-                      <input
-                        type="checkbox"
-                        aria-label={`${t(lang, "calendarSyncAuto")} – ${t(lang, "calendarSyncEntityTask")}`}
-                        disabled={!taskSync.enabled}
-                        checked={taskSync.auto}
-                        onChange={(e) =>
-                          onChange({
-                            ...settings,
-                            outlookCalendar: {
-                              ...settings.outlookCalendar,
-                              task: { enabled: taskSync.enabled, auto: e.target.checked },
-                            },
-                          })
-                        }
-                        className={`h-4 w-4 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
-                      />
-                      <span>{t(lang, "calendarSyncAuto")}</span>
-                    </label>
-                  </div>
-                </div>
-              );
-            })()}
+            <CalendarSyncEntityRow
+              lang={lang}
+              settings={settings}
+              onChange={onChange}
+              entityType="task"
+              labelKey="calendarSyncEntityTask"
+            />
+            <CalendarSyncEntityRow
+              lang={lang}
+              settings={settings}
+              onChange={onChange}
+              entityType="raid"
+              labelKey="calendarSyncEntityRaid"
+            />
           </div>
         </div>
       )}

@@ -127,6 +127,13 @@ export type RaidPanelProps = {
   isPopout?: boolean;
   /** Deep-link to the matching Help concept; absence hides the callout. */
   onLearnMore?: (conceptId: string) => void;
+  /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
+  m365Configured?: boolean;
+  /** RAID review-date Outlook write-back (SP2). Absent in popouts. */
+  calendarEnabled?: boolean;
+  onToggleCalendar?: (enabled: boolean) => void;
+  onPushCalendar?: () => void;
+  calendarPushBusy?: boolean;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -172,6 +179,11 @@ function RaidPanelBody({
   showHints,
   isPopout,
   onLearnMore,
+  m365Configured,
+  calendarEnabled,
+  onToggleCalendar,
+  onPushCalendar,
+  calendarPushBusy,
 }: RaidPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
@@ -503,6 +515,32 @@ function RaidPanelBody({
       )}
       <ColumnConfigPopover lang={lang} cols={RAID_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
       <PanelViewsControl lang={lang} view="raid" onApply={() => { if (filterTaskId !== null) onClearTaskFilter?.(); }} />
+      {m365Configured && !isPopout && onToggleCalendar && (
+        <>
+          <label className="flex items-center gap-1.5 text-xs text-foreground">
+            <input
+              type="checkbox"
+              checked={!!calendarEnabled}
+              onChange={(e) => onToggleCalendar(e.target.checked)}
+              aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, "calendarSyncEntityRaid")}`}
+              className={`h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+            />
+            {t(lang, "calendarSyncEnable")}
+          </label>
+          {calendarEnabled && onPushCalendar && (
+            <button
+              type="button"
+              onClick={onPushCalendar}
+              disabled={calendarPushBusy}
+              aria-label={t(lang, "calendarPush")}
+              title={t(lang, "calendarPush")}
+              className={`rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            >
+              {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
+            </button>
+          )}
+        </>
+      )}
       <PrintButton lang={lang} />
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <ResetSizeButton onClick={resetRaidSize} lang={lang} />

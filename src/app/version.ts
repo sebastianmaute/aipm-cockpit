@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.156.0";
-export const APP_BUILD_DATE = "2026-07-01"; // 0.156.0: Multi-project Jira sync — a primary two-way project plus optional extra projects each with a per-project read-only (watch-only) toggle; read-only projects pull only and never push; badge + editor banner telegraph the read-only state (Bear)
+export const APP_VERSION = "0.157.0";
+export const APP_BUILD_DATE = "2026-07-01"; // 0.157.0: Outlook calendar write-back for tasks (due dates) and RAID items (review dates) — all-day events pushed manually or automatically, toggled per entity in its pane and centrally in Settings; plus stakeholder map drag-and-drop to reassign influence/interest levels (Baxter)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.156.x line is "Bear" (Greg Bear). */
-export const APP_MILESTONE = "Bear";
+ *  0.157.x line is "Baxter" (Stephen Baxter). */
+export const APP_MILESTONE = "Baxter";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -173,4 +173,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightResizeAnchor",
   "versionHighlightNextActionsRedesign",
   "versionHighlightJiraMultiProject",
+  "versionHighlightStakeholderDrag",
+  "versionHighlightCalendarWriteback",
 ] as const;

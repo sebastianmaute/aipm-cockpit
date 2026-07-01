@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
-  milestoneToGraphEvent, categoryFor, taskToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
+  milestoneToGraphEvent, categoryFor, taskToGraphEvent, raidToGraphEvent, listEntityEvents, updateEvent, deleteEvent, GraphCalendarError,
 } from "./outlook-calendar-write";
-import type { Milestone, Task } from "./types";
+import type { Milestone, Task, RaidItem } from "./types";
 
 const EVENT = milestoneToGraphEvent({ id: 1, name: "X", date: "2026-08-01", linkedTaskIds: [] }, "p");
 
@@ -42,6 +42,22 @@ describe("taskToGraphEvent", () => {
     expect(e.start.dateTime).toBe("2026-07-10T00:00:00");
     expect(e.end.dateTime).toBe("2026-07-11T00:00:00");
     expect(e.categories).toEqual(["AIPM:p1:task"]);
+  });
+});
+
+describe("raidToGraphEvent", () => {
+  it("builds an all-day event on targetDate with the raid category", () => {
+    const raid = { id: 3, category: "R", title: "Vendor risk", status: "Open",
+      raisedDate: "2026-01-01", targetDate: "2026-07-10", owner: "Ana", severity: "High",
+      linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [] } as unknown as RaidItem;
+    const ev = raidToGraphEvent(raid, "p1");
+    expect(ev.isAllDay).toBe(true);
+    expect(ev.start.dateTime).toBe("2026-07-10T00:00:00");
+    expect(ev.end.dateTime).toBe("2026-07-11T00:00:00");
+    expect(ev.subject).toBe("Vendor risk");
+    expect(ev.categories).toEqual([categoryFor("p1", "raid")]);
+    expect(ev.body.content).toContain("Owner: Ana");
+    expect(ev.body.content).toContain("Severity: High");
   });
 });
 

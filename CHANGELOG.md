@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.157.0] - 2026-07-01 "Baxter"
+
+### Added
+- **Outlook calendar write-back for tasks and RAID**: the calendar write-back that already covered milestones and steering-committee meetings now extends to **tasks** (as all-day events on their due date) and **RAID items** (on their review/target date). Each entity type is toggled independently — a per-pane **"Add to Outlook calendar"** switch with a manual **"Push to Outlook"** button, and the same switches (plus an optional **auto-sync**) centrally in Settings → Integrations → **Calendar write-back**. Only active items with a date are pushed (finishing a task, closing a RAID item, or clearing its date removes the event on the next sync); events are tagged per project + entity type so the syncs never touch each other's calendar entries. Auto-sync runs quietly in the background (debounced, no consent pop-ups) when enabled. Requires Microsoft 365; pop-out windows are read-only.
+- **Stakeholder map drag-and-drop**: on the Influence / Interest map you can now drag a stakeholder chip between the four quadrants to update its influence and interest levels directly — no need to open the edit modal. Dragging into the high-influence or high-interest side promotes that axis; dragging out of it steps a "High" down to "Medium" while preserving an existing Medium/Low. Read-only in pop-outs.
+
+### Notes
+- `Task.outlookEventId` and `RaidItem.outlookEventId` persist across all backends (JSON, CSV, Markdown, Turso single + multi-tenant, IndexedDB); existing databases self-heal the new column. The per-device calendar-sync toggles live in `settings.outlookCalendar` and are excluded from exports and Turso.
+
 ## [0.156.0] - 2026-07-01 "Bear"
 
 ### Added

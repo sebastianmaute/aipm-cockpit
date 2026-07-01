@@ -171,6 +171,13 @@ export interface WorkspaceSectionProps {
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;
   committeeOutlookPush?: { onPush: () => void; busy: boolean };
+  /** M365 configured — gates the RAID calendar toggle/button (hidden otherwise). */
+  m365Configured?: boolean;
+  /** RAID review-date Outlook write-back (SP2). Absent in popouts. */
+  calendarRaidEnabled?: boolean;
+  onToggleCalendarRaid?: (enabled: boolean) => void;
+  pushRaidToOutlook?: () => void;
+  calendarRaidPushBusy?: boolean;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
 }

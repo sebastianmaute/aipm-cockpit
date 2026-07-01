@@ -1,6 +1,6 @@
 // src/app/outlook-calendar-write.ts — Microsoft Graph calendar write (events). Pure
 // given an access token: no MSAL, no React. graph.microsoft.com is already CSP-allowlisted.
-import type { Milestone, CommitteeMeeting, Task } from "./types";
+import type { Milestone, CommitteeMeeting, Task, RaidItem } from "./types";
 import type { ExistingEvent } from "./calendar-reconcile";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -62,6 +62,33 @@ export function taskToGraphEvent(task: Task, projectId: string): GraphEvent {
       content: [
         task.assignee ? `Owner: ${task.assignee}` : "",
         task.status ? `Status: ${task.status}` : "",
+        "Managed by the AIPM PM Tracker.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    },
+  };
+}
+
+/**
+ * A RAID item as an all-day Graph event on its review date (`targetDate`),
+ * tagged with the TYPE-SCOPED "raid" category so its list-based reconcile
+ * can't touch task/milestone/committee events. Callers filter to active
+ * items WITH a targetDate before calling.
+ */
+export function raidToGraphEvent(raid: RaidItem, projectId: string): GraphEvent {
+  return {
+    subject: raid.title,
+    isAllDay: true,
+    start: { dateTime: `${raid.targetDate}T00:00:00`, timeZone: "UTC" },
+    end: { dateTime: `${nextDay(raid.targetDate!)}T00:00:00`, timeZone: "UTC" },
+    categories: [categoryFor(projectId, "raid")],
+    body: {
+      contentType: "Text",
+      content: [
+        raid.owner ? `Owner: ${raid.owner}` : "",
+        raid.severity ? `Severity: ${raid.severity}` : "",
+        raid.status ? `Status: ${raid.status}` : "",
         "Managed by the AIPM PM Tracker.",
       ]
         .filter(Boolean)

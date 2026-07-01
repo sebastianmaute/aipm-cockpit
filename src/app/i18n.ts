@@ -160,6 +160,8 @@ const enUS = {
   versionHighlightResizeAnchor: "Clearer resize anchors: column-resize handles now show an always-visible grip that brightens while you hover or drag, and the native pane/textarea resize corner is accent-tinted",
   versionHighlightNextActionsRedesign: "Next actions redesign: a focus \"Do this first\" card tops the queue, each row leads with its real next step (assign / reschedule / clear blocker / re-baseline) with the rest under a menu, and the view is now covered by the accessibility gate",
   versionHighlightJiraMultiProject: "Multi-project Jira sync: keep one primary two-way project and add extra projects to watch, each with a per-project read-only toggle — read-only projects pull in updates but never push your edits back, and a task badge plus an editor banner make the read-only state clear",
+  versionHighlightStakeholderDrag: "Stakeholder map drag-and-drop: drag stakeholders between the influence/interest quadrants to update their influence and interest levels directly on the map",
+  versionHighlightCalendarWriteback: "Outlook calendar write-back: push tasks (by due date) and RAID items (by review date) to Outlook as all-day events — manually or automatically, toggled per entity in its pane and centrally in Settings → Integrations",
 
   tasks: "Tasks",
   tasksCount: "({0})",
@@ -1710,6 +1712,7 @@ const enUS = {
   calendarSyncHeading: "Calendar write-back",
   calendarSyncDesc: "Add app items to your Outlook calendar. Enable per type; optionally keep them in sync automatically.",
   calendarSyncEntityTask: "Tasks (due dates)",
+  calendarSyncEntityRaid: "RAID items (review dates)",
   calendarSyncEnable: "Add to Outlook calendar",
   calendarSyncAuto: "Keep in sync automatically",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
