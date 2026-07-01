@@ -105,6 +105,68 @@ describe("ChangePanel — raidEnabled", () => {
   });
 });
 
+describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
+  const calLabel = `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityChange")}`;
+
+  it("renders the toggle when m365Configured and a handler is given", () => {
+    const { getByRole } = render(
+      <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} />,
+      { wrapper: Providers },
+    );
+    expect(getByRole("checkbox", { name: calLabel })).toBeTruthy();
+  });
+
+  it("labels the toggle for change decisions", () => {
+    const { getByRole } = render(
+      <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} />,
+      { wrapper: Providers },
+    );
+    expect(getByRole("checkbox", { name: /change decisions/i })).toBeTruthy();
+  });
+
+  it("does NOT render the toggle without m365Configured", () => {
+    const { queryByRole } = render(
+      <ChangePanel {...base} m365Configured={false} onToggleCalendar={vi.fn()} />,
+      { wrapper: Providers },
+    );
+    expect(queryByRole("checkbox", { name: calLabel })).toBeNull();
+  });
+
+  it("does NOT render the toggle in a popout", () => {
+    const { queryByRole } = render(
+      <ChangePanel {...base} m365Configured isPopout onToggleCalendar={vi.fn()} />,
+      { wrapper: Providers },
+    );
+    expect(queryByRole("checkbox", { name: calLabel })).toBeNull();
+  });
+
+  it("calls onToggleCalendar(true) when the checkbox is ticked", () => {
+    const onToggleCalendar = vi.fn();
+    const { getByRole } = render(
+      <ChangePanel {...base} m365Configured onToggleCalendar={onToggleCalendar} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("checkbox", { name: calLabel }));
+    expect(onToggleCalendar).toHaveBeenCalledWith(true);
+  });
+
+  it("shows the Push button only when calendarEnabled and calls onPushCalendar", () => {
+    const onPushCalendar = vi.fn();
+    const { queryByRole } = render(
+      <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} calendarEnabled={false} onPushCalendar={onPushCalendar} />,
+      { wrapper: Providers },
+    );
+    expect(queryByRole("button", { name: t("en-US", "calendarPush") })).toBeNull();
+
+    const { getByRole } = render(
+      <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPushCalendar={onPushCalendar} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("button", { name: t("en-US", "calendarPush") }));
+    expect(onPushCalendar).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("Changes bulk edit", () => {
   const originalScrollIntoView = Element.prototype.scrollIntoView;
   beforeEach(() => {

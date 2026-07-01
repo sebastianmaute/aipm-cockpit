@@ -69,7 +69,7 @@ import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
 import { calendarSyncFor } from "./calendar-sync-config";
-import { taskToGraphEvent, raidToGraphEvent } from "./outlook-calendar-write";
+import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent } from "./outlook-calendar-write";
 import { isRaidActiveForReview } from "./raid-review";
 import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { RolesPanel } from "./roles-panel";
@@ -1838,6 +1838,42 @@ function TaskManagerInner() {
     [setSettings],
   );
 
+  // --- Change decision-date calendar write-back (SP3) — mirrors the RAID block ---
+  const changeSync = calendarSyncFor(settings, "change");
+  const calendarChangeEnabled = changeSync.enabled && m365Enabled && !isPopout;
+  const changeAutoSyncActive = changeSync.auto && m365Enabled && !isPopout;
+  const pushableChanges = useMemo(() => changes.filter((c) => !!c.decisionDate), [changes]);
+  // EXCLUDES outlookEventId — an OUTPUT the push writes back.
+  const changeAutoSyncKey = useMemo(
+    () => pushableChanges.map((c) => `${c.id}|${c.decisionDate}|${c.title}|${c.status}`).join(";"),
+    [pushableChanges],
+  );
+  const setChangeForCalendar = useCallback(
+    (updater: (prev: ChangeItem[]) => ChangeItem[]) => setChanges((prev) => updater([...prev])),
+    [setChanges],
+  );
+  const { pushToOutlook: pushChangeToOutlook, busy: calendarChangePushBusy } = useEntityCalendarPush<ChangeItem>({
+    items: pushableChanges, entityType: "change", projectId: calendarProjectId,
+    toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
+    isPopout, lang, enabled: calendarChangeEnabled,
+  });
+  const { pushToOutlook: autoPushChange } = useEntityCalendarPush<ChangeItem>({
+    items: pushableChanges, entityType: "change", projectId: calendarProjectId,
+    toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
+    isPopout, lang, enabled: changeAutoSyncActive, interactive: false,
+  });
+  useCalendarAutoSync({ active: changeAutoSyncActive, contentKey: changeAutoSyncKey, push: autoPushChange });
+  const onToggleCalendarChange = useCallback(
+    (enabled: boolean) => setSettings((s) => ({
+      ...s,
+      outlookCalendar: {
+        ...s.outlookCalendar,
+        change: { enabled, auto: enabled ? (s.outlookCalendar?.change?.auto ?? false) : false },
+      },
+    })),
+    [setSettings],
+  );
+
   if (!i18nReady) return null;
 
   // Shared props for WorkspaceSection. Spread into both the classic (no
@@ -1863,6 +1899,10 @@ function TaskManagerInner() {
     onToggleCalendarRaid,
     pushRaidToOutlook,
     calendarRaidPushBusy,
+    calendarChangeEnabled,
+    onToggleCalendarChange,
+    pushChangeToOutlook,
+    calendarChangePushBusy,
     changes,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
