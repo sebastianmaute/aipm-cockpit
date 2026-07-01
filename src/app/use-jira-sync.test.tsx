@@ -524,6 +524,57 @@ describe("useJiraSync — handleResolveConflicts", () => {
 
     expect(result.current.jiraConflicts).toEqual([]);
   });
+
+  it("read-only project: a stale conflict resolution picking local does NOT push", async () => {
+    // Seed the conflict while OPS is still two-way (readOnly:false), then flip the
+    // live config to read-only to simulate a stale conflict queued before the flag
+    // changed. The hook's settingsRef points at this same object, so the mutation
+    // is visible at resolve time.
+    const roSettings = {
+      jira: {
+        ...baseSettings.jira,
+        projectKey: "LOP",
+        projectName: "LOP Project",
+        extraProjects: [{ key: "OPS", name: "Ops", readOnly: false }],
+      },
+    } as unknown as Settings;
+
+    const localTask = makeTask({
+      id: 1, jiraKey: "OPS-1", taskName: "Local name",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask], roSettings);
+
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project in (LOP, OPS)");
+    const remoteIssue = {
+      key: "OPS-1",
+      fields: { summary: "Remote name", updated: "2026-05-10T00:00:00" },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({ taskName: "Remote name", status: "To Do" });
+    (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockReturnValue([
+      { key: "taskName", localValue: "Local name", remoteValue: "Remote name" },
+    ]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(result.current.jiraConflicts.length).toBeGreaterThan(0);
+
+    // Project is now read-only — the queued conflict is stale.
+    roSettings.jira.extraProjects[0].readOnly = true;
+
+    vi.clearAllMocks();
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "Local name" });
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1,
+      jiraKey: "OPS-1",
+      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", notes: "remote", completedDate: "remote" },
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled();  // read-only guard short-circuited the push
+  });
 });
 
 describe("useJiraSync — preflight, classified failures, flag sync", () => {
