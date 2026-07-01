@@ -162,6 +162,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightColorSchemes: "Benutzerdefinierte Farbschemata: eigene Palette plus Logo und Slogans in Einstellungen -> Darstellung erstellen, speichern, im-/exportieren und anwenden via neuen Stil Benutzerdefiniert (nur hell, ohne Flackern, mit WCAG-Kontrastwarnungen)",
   versionHighlightResizeAnchor: "Deutlichere Anpassungsanker: Spaltenbreiten-Griffe zeigen jetzt einen dauerhaft sichtbaren Griff, der beim Überfahren oder Ziehen hervorgehoben wird, und die native Größenänderungs-Ecke für Fenster/Textfelder ist akzentfarbig getönt",
   versionHighlightNextActionsRedesign: "Nächste Aktionen neu gestaltet: eine Fokus-Karte „Zuerst erledigen“ führt die Warteschlange an, jede Zeile beginnt mit ihrem echten nächsten Schritt (zuweisen / neu planen / Blocker entfernen / neu ausrichten), der Rest liegt in einem Menü, und die Ansicht ist jetzt per Barrierefreiheits-Gate geprüft.",
+  versionHighlightJiraMultiProject: "Jira-Synchronisierung über mehrere Projekte: ein primäres bidirektionales Projekt behalten und weitere Projekte zum Beobachten hinzufügen, jedes mit eigenem Schreibschutz-Schalter – schreibgeschützte Projekte ziehen Aktualisierungen herein, übertragen aber nie Ihre Änderungen zurück, und ein Aufgaben-Badge plus ein Editor-Banner machen den Schreibschutz-Status klar",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -1030,7 +1031,7 @@ export const de: Record<TranslationKey, string> = {
     "Legen Sie in den Einstellungen eine Standard-Zeitzone je Gerät und eine Betriebs-Zeitzone je Projekt fest, dazu eine Liste weiterer Zonen, in denen Sie arbeiten. Die Tagesgrenzen-Logik der App – was als überfällig, heute fällig oder bald fällig gilt – folgt nun der aufgelösten Zeitzone statt UTC. Ein Zeitzonen-Umschalter in der oberen Leiste steuert, wie Zeitstempel im Aktivitätsprotokoll, im Versionsverlauf und in den Trends angezeigt werden (Standard / UTC / eine Ihrer weiteren Zonen), wobei die Zone neben jeder Uhrzeit steht; diese Anzeigewahl gilt für die Sitzung und wird beim Neuladen zurückgesetzt, während die zugrunde liegenden Daten unverändert bleiben. Sobald Sie weitere Zonen hinzugefügt haben, zeigt die Kalenderansicht eine Live-„Weltuhr“-Leiste mit der aktuellen Uhrzeit und dem Datum in Ihrer Standardzone sowie in jeder weiteren Zone – praktisch für die Abstimmung verteilter Teams.",
   helpSecJiraTitle: "Jira-Synchronisation",
   helpSecJiraBody:
-    "Einstellungen → Jira: Atlassian-URL, E-Mail und API-Token hinterlegen, Projekt + Vorgangstypen auswählen, Bereich für Zugewiesene wählen. Der Sync-Button neben der Aufgabenliste zieht Remote-Änderungen, schreibt lokale Anpassungen zurück und sammelt echte Konflikte in einem Review-Dialog je Aufgabe. Über \"An Jira übertragen\" (Zeilenaktion) oder die Checkbox \"Auch in Jira anlegen\" im Aufgabendialog wird ein neues Issue erstellt. Notizen ↔ Jira-Beschreibung sind verlustbehaftet – Rich-Text wird beim Sync zu Klartext. Jira-verwaltete Felder (Zugewiesener, Wiedereröffnen) sind in der App gesperrt. Tragen Sie das Ablaufdatum Ihres Tokens unter \"Token läuft ab am\" ein, um vor dem Ablauf (und danach) eine Erinnerung zu erhalten; erkennt ein Sync ein abgelaufenes oder ungültiges Token oder ist Jira nicht erreichbar, erscheint eine klare, handlungsleitende Meldung statt eines generischen Fehlers.",
+    "Einstellungen → Jira: Atlassian-URL, E-Mail und API-Token hinterlegen, Projekt + Vorgangstypen auswählen, Bereich für Zugewiesene wählen. Unter \"Auch aus anderen Projekten synchronisieren\" können weitere Projekte hinzugefügt werden, jedes mit eigenem Schreibschutz-Schalter (standardmäßig an): schreibgeschützte Projekte ziehen Aktualisierungen herein, übertragen aber nie Ihre Änderungen zurück (Jira-verwaltete Felder werden beim nächsten Sync verworfen), bidirektionale Zusatzprojekte verhalten sich wie das primäre; ein Aufgaben-Badge und ein Editor-Banner zeigen, was gilt. Der Sync-Button neben der Aufgabenliste zieht Remote-Änderungen, schreibt lokale Anpassungen zurück und sammelt echte Konflikte in einem Review-Dialog je Aufgabe. Über \"An Jira übertragen\" (Zeilenaktion) oder die Checkbox \"Auch in Jira anlegen\" im Aufgabendialog wird ein neues Issue erstellt. Notizen ↔ Jira-Beschreibung sind verlustbehaftet – Rich-Text wird beim Sync zu Klartext. Jira-verwaltete Felder (Zugewiesener, Wiedereröffnen) sind in der App gesperrt. Tragen Sie das Ablaufdatum Ihres Tokens unter \"Token läuft ab am\" ein, um vor dem Ablauf (und danach) eine Erinnerung zu erhalten; erkennt ein Sync ein abgelaufenes oder ungültiges Token oder ist Jira nicht erreichbar, erscheint eine klare, handlungsleitende Meldung statt eines generischen Fehlers.",
   helpSecStorageTitle: "Speicherort",
   helpSecStorageBody:
     "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen. Die mitgelieferte sample-workspace-small.sqlite3 lässt sich direkt in eine Turso-Datenbank importieren (z. B. per Turso-CLI: turso db create lop-demo --from-file sample-workspace-small.sqlite3); anschließend die Datenbank-URL und den Token unter Einstellungen → Integrationen eintragen.",
@@ -1209,7 +1210,14 @@ export const de: Record<TranslationKey, string> = {
   jiraPushPrereq:
     "Bitte Jira in den Einstellungen aktivieren und ein Projekt wählen, bevor Aufgaben übertragen werden.",
   jiraManagedTooltip: "In Jira verwaltet",
-  jiraSyncedReadOnly: "Mit Jira synchronisiert — Ziehen und manuelle Statusänderung deaktiviert",
+  jiraExtraProjectsLabel: "Auch aus anderen Projekten synchronisieren",
+  jiraExtraProjectsHint: "Das primäre Projekt oben bleibt bidirektional. Zusatzprojekte sind standardmäßig schreibgeschützt (nur beobachten); stelle eines auf bidirektional, um Änderungen zurückzuschreiben.",
+  jiraExtraProjectInclude: "Einbeziehen",
+  jiraExtraProjectRemove: "Entfernen",
+  jiraReadOnly: "Schreibgeschützt",
+  jiraSyncedTwoWay: "Mit Jira synchronisiert (bidirektional) – Status wird in Jira verwaltet",
+  jiraSyncedReadOnlyProject: "Aus Jira beobachtet – schreibgeschützt",
+  jiraReadOnlyBanner: "Schreibgeschützt – beobachtet aus Jira-Projekt {0}. Jira-verwaltete Felder werden hier nicht gespeichert und beim nächsten Sync verworfen.",
 
   navTimelog: "Zeitbuchungen",
   timelogModuleDesc: "Ist-Zeitbuchungen aus Timelog abrufen und mit deinem Budget vergleichen",
@@ -1692,7 +1700,7 @@ export const de: Record<TranslationKey, string> = {
   integrationsOutlookContactsTooltip: "Kontakte aus Outlook in das Ressourcenverzeichnis importieren.",
   integrationsOutlookCalendarTooltip: "Abwesenheits- und Außer-Haus-Termine aus Ihrem Outlook-Kalender in Ihre Abwesenheiten importieren.",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",
-  integrationsTursoUrlTooltip: "Ihre Turso-Datenbank-URL (libsql://, https:// oder http:// für einen lokalen Server).",
+  integrationsTursoUrlTooltip: "Cloud-Datenbank: die libsql://-URL (oder https://) aus `turso db show <db>` verwenden. Lokaler/selbst gehosteter Server: http:// nur auf localhost (127.0.0.1/::1), ganz ohne Token.",
   tursoUrlRegionWarning: "Dies sieht nach einem regionsspezifischen Host aus (z. B. .aws-eu-west-1.turso.io). Turso lehnt ihn meist mit „no route configured for host“ ab. Verwenden Sie die routbare URL aus `turso db show <db>` (ohne Regionssegment).",
   integrationsTursoTokenTooltip: "Auth-Token für die Turso-Datenbank. Für einen lokalen Server ohne Token leer lassen.",
   storageTooltip: "Wo Ihr Workspace gespeichert wird. Beim Wechsel werden Ihre aktuellen Daten konvertiert und in den neuen Speicher geschrieben.",

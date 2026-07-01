@@ -662,9 +662,11 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   — both header mounts share the ONE gated element.
   • Task-editor actions render ONLY in the editor surface (TaskEditView footer / TaskFormModal), NEVER the
   top bar — `ModernShell` takes no `editActions`/`primaryAction` for the edit case.
-  • `task-jira-badge.tsx` = SHARED read-only Jira badge (lock SVG `aria-hidden` + `jiraSyncedReadOnly`
-  title/aria; link variant when `href`), used by BOTH the Kanban card and the table row; takes everything as
-  PROPS (board renders outside RowContextProvider).
+  • `task-jira-badge.tsx` = SHARED Jira badge, TWO variants via `readOnlyProject?: boolean`: read-only project →
+  padlock + `jiraSyncedReadOnlyProject` title/aria; two-way → sync-arrows glyph + `jiraSyncedTwoWay` (link variant
+  when `href`). Used by BOTH the Kanban card and the table row; takes everything as PROPS (board renders outside
+  RowContextProvider). ★ Callers pass `readOnlyProject={isReadOnlyIssue(task.jiraKey, {projectKey, extraProjects})}`
+  — the SINGLE classifier (see multi-project Jira bullet); an unknown/removed project reads read-only.
   • Settings-section deep-link is GENERAL: dashboard `onNavigate(view, section?: SettingsSectionId)` →
   task-manager `onOpenSettingsSection(section)` → `settingsSectionRequest` → SettingsView. `SettingsSectionId`
   (mirrored in `dashboard-coaching.ts`) is a SUBSET of settings-view `SectionId`.
@@ -1052,6 +1054,23 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 - **AI master switch:** `settings.ai.enabled` (default OFF, even for existing users) gates ALL AI features. Use `isAiEnabled(settings.ai)` (enabled && key present) / `aiKeyIfEnabled(settings.ai)` — NOT a raw `apiKey` read — at every AI activation site (chat, action analysis, scheduled jobs, weight suggestions, create-wizard). `sanitizeAiConfig` sets `enabled: obj.enabled === true`. AiSection collapses its config body until enabled.
 - **Integration disclaimer:** `integration-disclaimer.tsx` — a one-time security note shown the FIRST time any enable checkbox is ticked (AI/Jira/M365/Turso/Timelog). Context provider (no-op default) so the five checkboxes fire `useIntegrationDisclaimer().notifyEnable()` without prop-threading; gated by per-device `settings.integrationDisclaimerSeen`. Mounted at SettingsView + backend-setup-wizard + backend-config-modal. ★ memoize the context value (`useCallback`+`useMemo`) — an unstable value re-fires. NOT shown in popouts.
 - **Jira lives INSIDE Integrations:** `IntegrationsSection` renders `JiraSettingsSection` (below Timelog) gated on `!hideJira`; the wizard passes `hideJira` (it has a dedicated Jira step). `settings.jira` stays TOP-LEVEL.
+- **Multi-project Jira sync (per-project read-only):** `settings.jira` keeps a single PRIMARY `projectKey` (two-way,
+  the create target + issue-type/user-picker source) PLUS `extraProjects: {key,name,readOnly}[]` (opt-in reads, each
+  with its own read-only flag, default read-only ON). Pure dep-light `jira-projects.ts` (kept OUT of the lazy
+  `jira-api.ts` so `use-settings`/badge/settings-UI import it cheaply): `jiraProjectKeyOf`, `jiraProjectKeys` (deduped
+  union), `isReadOnlyIssue` (primary→false, extra→its flag, UNKNOWN/removed project→**true**), `sanitizeJiraExtraProjects`
+  (drops primary-colliding/dup/`[A-Za-z0-9_]`-invalid keys, default readOnly true, cap 20). `buildJql` unions keys →
+  `project in (...)` (single-project BYTE-IDENTICAL). ★★ `isReadOnlyIssue` is the SINGLE classifier across ALL surfaces
+  — sync, conflict-resolution guard, badge, editor banner (thread `projectKey`+`extraProjects`, NOT a pre-filtered
+  key list, or the surfaces diverge for a removed project). Read-only rows in `use-jira-sync` are PULL-ONLY: never
+  `updateIssue`/`transitionIssueTo`, never queue a conflict; always pull (revert stray local edits, clear
+  `localModifiedAt`), local-only fields (blockers/group/inquiriesSent) preserved. ★ `sanitizeJiraExtraProjects` runs on
+  the settings LOAD merge in `use-settings.ts` (JiraConfig otherwise has NO sanitizer). ★★ PERSISTENCE: `extraProjects`
+  rides `settings.jira` via the `writeSettings` spread — per-device, NOT a Workspace field: OUT of exports/Turso/CSV/MD,
+  no six-write-path, no golden fixture. Settings UI = checkbox list + per-row read-only toggle + a degraded-state
+  fallback (manage/remove configured extras when the project list isn't loaded); row-unique aria-labels (Settings is
+  axe-scanned). Editor read-only banner (`jira-readonly-banner.tsx`) threads to BOTH TaskEditView + TaskFormModal (the
+  latter via `app-modals.tsx`).
 
 ### Guided tour + demo
 

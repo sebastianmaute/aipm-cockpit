@@ -61,6 +61,7 @@ import { GlobalSearchConnected } from "./global-search-box";
 import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
 import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
+import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
@@ -1684,6 +1685,14 @@ function TaskManagerInner() {
       : null;
   const editingIsJiraLinked = !!editingTask?.jiraKey;
 
+  const editingReadOnlyJiraProjectName = (() => {
+    if (!editingTask?.jiraKey) return undefined;
+    if (!isReadOnlyIssue(editingTask.jiraKey, settings.jira)) return undefined;
+    const proj = jiraProjectKeyOf(editingTask.jiraKey);
+    const extra = (settings.jira.extraProjects ?? []).find((p) => p.key === proj);
+    return extra?.name || extra?.key || proj;
+  })();
+
   // Render gate: hold first paint until the active-language dictionary is
   // in memory. Lifts in the next microtask for en-US/en-GB (no fetch);
   // briefly delays initial paint for de while ./i18n.de loads. Must come
@@ -1894,6 +1903,7 @@ function TaskManagerInner() {
       isPopout={isPopout}
       onLearnMoreHint={requestHelpConcept}
       jiraSiteUrl={settings.jira.siteUrl}
+      jiraExtraProjects={settings.jira.extraProjects ?? []}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}
       onJumpToRaid={onJumpToRaid}
@@ -2007,6 +2017,7 @@ function TaskManagerInner() {
       uniqueGroups={uniqueGroups}
       uniqueLabels={uniqueLabels}
       editingIsJiraLinked={editingIsJiraLinked}
+      readOnlyJiraProjectName={editingReadOnlyJiraProjectName}
       jiraEnabled={settings.jira.enabled}
       fieldErrors={fieldErrors}
       submitted={submitted}
@@ -2233,6 +2244,7 @@ function TaskManagerInner() {
         uniqueGroups={uniqueGroups}
         uniqueLabels={uniqueLabels}
         editingIsJiraLinked={editingIsJiraLinked}
+        readOnlyJiraProjectName={editingReadOnlyJiraProjectName}
         jiraEnabled={settings.jira.enabled}
         fieldErrors={fieldErrors}
         submitted={submitted}

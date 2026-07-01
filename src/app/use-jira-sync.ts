@@ -8,6 +8,7 @@ import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Settings } from "./settings-types";
 import type { Task } from "./types";
 import { daysUntil } from "./jira-token-status";
+import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { useWorkspace } from "./workspace-context";
 
 // ── Lazy-load cache ──────────────────────────────────────────────────────────
@@ -125,6 +126,36 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         const remoteChanged = lastSync ? remoteUpdated > lastSync : true;
         const localChanged = lastSync ? localMod > lastSync : false;
 
+        // Read-only project: never push/transition, never queue a conflict.
+        // Remote is authoritative — pull (reverting any stray local edit) or
+        // just refresh the stamp when nothing moved.
+        if (isReadOnlyIssue(row.jiraKey, jiraCfg)) {
+          if (remoteChanged || localChanged) {
+            const patch = issueToTaskFields(issue, todayNow);
+            pulled++;
+            next.push({
+              ...row,
+              taskName: patch.taskName ?? row.taskName,
+              assignee: patch.assignee ?? row.assignee,
+              assigneeEmail: patch.assigneeEmail ?? row.assigneeEmail,
+              dueDate: patch.dueDate ?? row.dueDate,
+              lastUpdateDate: patch.lastUpdateDate ?? row.lastUpdateDate,
+              priority: patch.priority ?? row.priority,
+              labels: patch.labels ?? row.labels,
+              notes: patch.notes ?? row.notes,
+              status: patch.status,
+              completedDate: patch.completedDate,
+              jiraKey: issue.key,
+              jiraIssueType: patch.jiraIssueType ?? row.jiraIssueType,
+              localModifiedAt: undefined,
+              lastSyncedAt: syncStamp,
+            });
+          } else {
+            next.push({ ...row, lastSyncedAt: syncStamp });
+          }
+          continue;
+        }
+
         if (remoteChanged && localChanged) {
           // Both sides moved — queue for user review. Don't touch the row;
           // the conflicts modal will resolve it after the user picks per field.
@@ -236,7 +267,11 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           // undefined — keeping the `status==="Done" ⟺ completedDate set` invariant.
           completedDate: patch.completedDate,
           inquiriesSent: 0,
-          group: jiraCfg.projectName || jiraCfg.projectKey || "",
+          group: (() => {
+            const proj = jiraProjectKeyOf(issue.key);
+            if (proj === jiraCfg.projectKey) return jiraCfg.projectName || jiraCfg.projectKey || "";
+            return (jiraCfg.extraProjects ?? []).find((p) => p.key === proj)?.name || proj;
+          })(),
           labels: patch.labels ?? [],
           jiraKey: issue.key,
           jiraIssueType: patch.jiraIssueType,
@@ -308,6 +343,8 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       const original = tasksRef.current.find((row) => row.id === res.taskId);
       const conflict = jiraConflictsRef.current.find((c) => c.taskId === res.taskId);
       if (!original || !conflict) continue;
+      // Read-only projects never push, even if a stale conflict resolution asks to.
+      if (isReadOnlyIssue(conflict.jiraKey, jiraCfg)) continue;
 
       const merged: Task = { ...original };
       let anyLocalPicked = false;

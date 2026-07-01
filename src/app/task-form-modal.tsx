@@ -7,6 +7,7 @@ import { useDraggable } from "./use-draggable";
 import type { listContacts } from "./contacts";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
+import { JiraReadOnlyBanner } from "./jira-readonly-banner";
 import { Modal } from "./modal";
 import { useTaskForm } from "./task-form-context";
 import type { Absence, Resource, Task } from "./types";
@@ -42,6 +43,8 @@ export interface TaskFormModalProps {
   leadingActions?: ReactNode;
   /** Destructive Delete button rendered on the left of the footer. */
   deleteAction?: ReactNode;
+  /** When set, the task's Jira project is read-only; show a warning banner. */
+  readOnlyJiraProjectName?: string;
 }
 
 export function TaskFormModal({
@@ -71,6 +74,7 @@ export function TaskFormModal({
   onAddAssigneeToAddressBook,
   leadingActions,
   deleteAction,
+  readOnlyJiraProjectName,
 }: TaskFormModalProps) {
   const { editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
@@ -105,6 +109,9 @@ export function TaskFormModal({
           onSubmit={onSubmit}
           className="min-h-0 flex-1 overflow-y-auto space-y-6 p-6"
         >
+          {readOnlyJiraProjectName && (
+            <JiraReadOnlyBanner lang={lang} projectName={readOnlyJiraProjectName} />
+          )}
           <TaskFormFields
             lang={lang}
             today={today}

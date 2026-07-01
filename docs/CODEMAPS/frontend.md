@@ -282,7 +282,8 @@ prerendered.
 | `use-reminder-snooze.ts` | `useReminderSnooze(kind) → { isSnoozed, snooze, clear }` | Client hook |
 | `birthdays.ts` | `getUpcomingBirthdays` pure engine | No React |
 | **Integrations** | | |
-| `jira-settings.tsx` | Jira URL / email / token input + test-connection | |
+| `jira-settings.tsx` | Jira URL / email / token input + test-connection + multi-project extra-projects list with per-project read-only toggle | |
+| `jira-projects.ts` | Pure multi-project Jira sync helpers: `jiraProjectKeyOf(issueKey)`, `jiraProjectKeys(config)`, `isReadOnlyIssue(issueKey, config)`, `sanitizeJiraExtraProjects(raw, primaryKey)` — cheap boot-time imports for task badge, settings UI, and use-settings | Pure; 0.156.0+ |
 | `jira-api.ts` | Jira client; `JiraApiError` + `classifyJiraError` | Lazy-imported |
 | `jira-conflicts-modal.tsx` | Sync conflict resolution UI | Dynamic-imported |
 | `adf.ts` | Plain-text ↔ ADF conversion | Shared with server routes |

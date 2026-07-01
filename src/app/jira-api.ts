@@ -5,6 +5,7 @@
 
 import { adfToText, textToAdf } from "./adf";
 import { jiraCategoryToStatus } from "./jira-status-map";
+import { jiraProjectKeys } from "./jira-projects";
 import {
   sanitizeAssignee,
   sanitizeEmail,
@@ -157,8 +158,13 @@ function escapeJqlString(v: string): string {
  * scope is too incomplete to be useful (e.g. no project).
  */
 export function buildJql(config: JiraConfig): string | null {
-  if (!config.projectKey) return null;
-  const parts: string[] = [`project = "${escapeJqlString(config.projectKey)}"`];
+  const keys = jiraProjectKeys(config);
+  if (keys.length === 0) return null;
+  const projectClause =
+    keys.length === 1
+      ? `project = "${escapeJqlString(keys[0])}"`
+      : `project in (${keys.map((k) => `"${escapeJqlString(k)}"`).join(", ")})`;
+  const parts: string[] = [projectClause];
 
   if (config.assigneeMode === "currentUser") {
     parts.push("assignee = currentUser()");

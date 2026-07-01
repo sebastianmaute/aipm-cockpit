@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.156.0] - 2026-07-01 "Bear"
+
+### Added
+- **Multi-project Jira sync**: the Jira integration now syncs more than one project. A single **primary project** stays fully two-way and remains the target for creating new Jira issues and for the issue-type / assignee pickers, while Settings → Integrations → Jira → **"Also sync from other projects"** lets you add extra projects to sync — each with a per-project **read-only** toggle (default on). Read-only projects are pull-only: their issues sync into the app but your local edits never push back (Jira-managed fields revert on the next sync), whereas two-way extras behave like the primary. The sync JQL queries all selected projects at once; a single-project setup is unchanged. Configured extras remain manageable (read-only toggle + remove) even before a fresh connection test reloads the project list.
+- **Read-only telegraph**: a task's Jira badge distinguishes a **watched / read-only** project (padlock) from a **two-way** one (sync arrows), and the task editor shows a read-only warning banner naming the project — so it is always clear which edits will stick.
+
+### Notes
+- The extra-projects list is per-device Jira settings (`settings.jira.extraProjects`), not workspace/project data: it is excluded from exports and never written to Turso, CSV, or Markdown. Existing single-project configurations load and sync unchanged.
+
 ## [0.155.0] - 2026-07-01 "Egan"
 
 ### Changed

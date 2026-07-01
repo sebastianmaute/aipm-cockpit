@@ -17,6 +17,9 @@ interface JiraBadgeProps {
   lang: Lang;
   href?: string;
   issueType?: string;
+  /** true = the issue's project is read-only (watch); false = two-way. Drives the
+   *  glyph + tooltip wording. Defaults to two-way. */
+  readOnlyProject?: boolean;
 }
 
 const BADGE_CLASS =
@@ -36,31 +39,42 @@ const lockIcon: ReactNode = (
   </svg>
 );
 
-function JiraBadgeImpl({ jiraKey, lang, href, issueType }: JiraBadgeProps) {
-  const readOnly = t(lang, "jiraSyncedReadOnly");
+// Two circular arrows — signals a two-way synced link (vs the read-only padlock).
+const syncIcon: ReactNode = (
+  <svg
+    aria-hidden="true"
+    viewBox="0 0 24 24"
+    className="inline-block h-2.5 w-2.5 mr-0.5 align-[-1px]"
+    fill="currentColor"
+  >
+    <path d="M12 4V1L8 5l4 4V6a6 6 0 0 1 6 6h2a8 8 0 0 0-8-8zm-6 8H4a8 8 0 0 0 8 8v3l4-4-4-4v3a6 6 0 0 1-6-6z" />
+  </svg>
+);
+
+function JiraBadgeImpl({ jiraKey, lang, href, issueType, readOnlyProject = false }: JiraBadgeProps) {
+  const label = t(lang, readOnlyProject ? "jiraSyncedReadOnlyProject" : "jiraSyncedTwoWay");
+  const glyph = readOnlyProject ? lockIcon : syncIcon;
 
   if (href) {
-    const title = issueType
-      ? `${jiraKey} (${issueType}) — ${readOnly}`
-      : `${jiraKey} — ${readOnly}`;
+    const title = issueType ? `${jiraKey} (${issueType}) — ${label}` : `${jiraKey} — ${label}`;
     return (
       <a
         href={href}
         target="_blank"
         rel="noopener noreferrer"
         title={title}
-        aria-label={readOnly}
+        aria-label={label}
         className={`${BADGE_CLASS} hover:underline ${INTERACTIVE}`}
       >
-        {lockIcon}
+        {glyph}
         {jiraKey}
       </a>
     );
   }
 
   return (
-    <span title={readOnly} aria-label={readOnly} className={BADGE_CLASS}>
-      {lockIcon}
+    <span title={label} aria-label={label} className={BADGE_CLASS}>
+      {glyph}
       {jiraKey}
     </span>
   );

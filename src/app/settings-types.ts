@@ -128,6 +128,15 @@ export const defaultNotificationsConfig: NotificationsConfig = {
 
 export type JiraAssigneeMode = "currentUser" | "any" | "specific";
 
+export type JiraExtraProject = {
+  /** Jira project key, e.g. "OPS". */
+  key: string;
+  /** Display name (cached for UI). */
+  name: string;
+  /** true = watch/read-only (never push); false = two-way like the primary. */
+  readOnly: boolean;
+};
+
 export type JiraConfig = {
   enabled: boolean;
   /** e.g. "https://acme.atlassian.net" — no trailing slash */
@@ -138,6 +147,10 @@ export type JiraConfig = {
   projectKey: string;
   /** Display name of the project (cached for UI). */
   projectName: string;
+  /** Additional projects to READ (union into the sync JQL). The primary
+   *  `projectKey` stays the two-way create target. Each carries its own
+   *  read-only flag; default read-only ON. */
+  extraProjects: JiraExtraProject[];
   /** Selected issue types by name, e.g. ["Task", "Story", "Bug"]. */
   issueTypes: string[];
   assigneeMode: JiraAssigneeMode;
@@ -157,6 +170,7 @@ export const defaultJiraConfig: JiraConfig = {
   apiToken: "",
   projectKey: "",
   projectName: "",
+  extraProjects: [],
   issueTypes: [],
   assigneeMode: "currentUser",
   assigneeAccountId: "",
