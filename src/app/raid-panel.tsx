@@ -523,7 +523,7 @@ function RaidPanelBody({
               checked={!!calendarEnabled}
               onChange={(e) => onToggleCalendar(e.target.checked)}
               aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, "calendarSyncEntityRaid")}`}
-              className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+              className={`h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
             />
             {t(lang, "calendarSyncEnable")}
           </label>
