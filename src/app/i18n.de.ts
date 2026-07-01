@@ -1704,6 +1704,7 @@ export const de: Record<TranslationKey, string> = {
   calendarSyncHeading: "Kalender-Rückschreibung",
   calendarSyncDesc: "App-Einträge zu deinem Outlook-Kalender hinzufügen. Pro Typ aktivieren; optional automatisch synchron halten.",
   calendarSyncEntityTask: "Aufgaben (Fälligkeitsdaten)",
+  calendarSyncEntityRaid: "RAID-Einträge (Überprüfungstermine)",
   calendarSyncEnable: "Zum Outlook-Kalender hinzufügen",
   calendarSyncAuto: "Automatisch synchron halten",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",
