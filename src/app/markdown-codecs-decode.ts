@@ -510,6 +510,7 @@ function markdownToTasks(md: string): Task[] {
     else if (norm === "timespentmin" || norm === "timespentminutes")
       colMap[idx] = "timeSpentMinutes";
     else if (norm === "documentlinks") colMap[idx] = "documentLinks";
+    else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
   });
 
   const tasks: Task[] = [];
@@ -546,6 +547,7 @@ function markdownToTasks(md: string): Task[] {
       jiraIssueType: obj.jiraIssueType || undefined,
       lastSyncedAt: obj.lastSyncedAt || undefined,
       localModifiedAt: obj.localModifiedAt || undefined,
+      outlookEventId: obj.outlookEventId || undefined,
       healthOverride: parseHealthOverride(obj.healthOverride),
       resourceId: fkIdOrUndefined(obj.resourceId),
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
