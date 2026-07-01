@@ -2,7 +2,7 @@
 
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { type Lang, loadI18n, migrateLang } from "./i18n";
-import { defaultSettings, sanitizeIntegrations, type Settings, type NextActionsLearningConfig } from "./settings-types";
+import { defaultSettings, sanitizeIntegrations, sanitizeOutlookCalendar, type Settings, type NextActionsLearningConfig } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
 import { defaultNotificationsConfig, resolveSnapshotSettings, resolveNextActionsConfig, sanitizeAiConfig, sanitizeExportConfig, sanitizeBranding } from "./settings-types";
 import type { StakeholderQuadrant } from "./stakeholders";
@@ -268,6 +268,7 @@ export function useSettings(): {
             versionHistoryRetention: sanitizeVersionRetention((parsed as Record<string, unknown>).versionHistoryRetention),
             templates: sanitizeTemplates((parsed as Record<string, unknown>).templates),
             export: sanitizeExportConfig((parsed as Record<string, unknown>).export),
+            outlookCalendar: sanitizeOutlookCalendar((parsed as Record<string, unknown>).outlookCalendar),
             // Fall back to the default branding (seeds the app slogan) when the
             // stored blob has none, so settings.branding.footerSlogan is populated.
             branding: sanitizeBranding((parsed as Record<string, unknown>).branding) ?? defaultSettings.branding,
