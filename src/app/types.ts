@@ -293,6 +293,9 @@ export type ChangeItem = {
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
   documentLinks?: DocumentLink[];
+  /** Outlook calendar event id for this change's decision-date write-back
+   *  (SP3). Set by the push; absent until first synced. */
+  outlookEventId?: string;
 };
 
 // ----------------------------------------------------------------------------

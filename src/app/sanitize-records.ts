@@ -137,6 +137,7 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
   const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
   if (dl.length) item.documentLinks = dl;
+  const oeid = sanitizeText(o.outlookEventId, 1024); if (oeid) item.outlookEventId = oeid;
   return item;
 }
 

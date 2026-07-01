@@ -362,7 +362,7 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
 export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
   "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
   "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
-  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "documentLinks",
+  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "documentLinks", "outlookEventId",
 ];
 
 export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {

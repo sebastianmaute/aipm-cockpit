@@ -25,4 +25,12 @@ describe("sanitizeChangeItem", () => {
     expect(c?.linkedRaidIds).toEqual([5]);
     expect(c?.stakeholderIds).toEqual([8, 9]);
   });
+  it("preserves outlookEventId, capped at 1024", () => {
+    const ok = sanitizeChangeItem({ id: 1, title: "t", status: "Approved", decisionDate: "2026-06-09", outlookEventId: "evt-123", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] });
+    expect(ok?.outlookEventId).toBe("evt-123");
+    const long = sanitizeChangeItem({ id: 2, title: "t", status: "Approved", outlookEventId: "x".repeat(2000), linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] });
+    expect(long?.outlookEventId?.length).toBe(1024);
+    const none = sanitizeChangeItem({ id: 3, title: "t", status: "Proposed", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] });
+    expect(none?.outlookEventId).toBeUndefined();
+  });
 });

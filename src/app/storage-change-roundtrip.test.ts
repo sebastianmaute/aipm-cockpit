@@ -31,7 +31,7 @@ describe("change CSV column encode/decode", () => {
     expect(CHANGES_CSV_COLUMNS).toEqual([
       "id","title","description","type","status","impact","impactDescription","scheduleImpactDays",
       "costImpact","requestedBy","raisedDate","decisionBy","decisionDate","resolutionNotes",
-      "linkedTaskIds","linkedRaidIds","stakeholderIds","localModifiedAt","documentLinks",
+      "linkedTaskIds","linkedRaidIds","stakeholderIds","localModifiedAt","documentLinks","outlookEventId",
     ]);
   });
   it("changeFieldToString encodes id-lists pipe-joined; buildChangeFromObj round-trips", () => {

@@ -473,6 +473,7 @@ const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = 
   { key: "stakeholderIds", label: "StakeholderIds" },
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "documentLinks", label: "DocumentLinks" },
+  { key: "outlookEventId", label: "OutlookEventId" },
 ];
 
 function changesToMarkdown(changes: readonly ChangeItem[]): string {
@@ -512,6 +513,7 @@ export function markdownToChanges(md: string): ChangeItem[] {
       else if (norm === "stakeholderids" || norm === "stakeholders") mapped["stakeholderIds"] = val;
       else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
       else if (norm === "documentlinks") mapped["documentLinks"] = val;
+      else if (norm === "outlookeventid") mapped["outlookEventId"] = val;
     }
     return buildChangeFromObj(mapped);
   }).filter((c): c is ChangeItem => c !== null);
