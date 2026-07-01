@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
-  milestoneToGraphEvent, categoryFor, updateEvent, deleteEvent, GraphCalendarError,
+  milestoneToGraphEvent, categoryFor, taskToGraphEvent, updateEvent, deleteEvent, GraphCalendarError,
 } from "./outlook-calendar-write";
-import type { Milestone } from "./types";
+import type { Milestone, Task } from "./types";
 
 const EVENT = milestoneToGraphEvent({ id: 1, name: "X", date: "2026-08-01", linkedTaskIds: [] }, "p");
 
@@ -21,6 +21,27 @@ describe("milestoneToGraphEvent", () => {
   });
   it("throws on a malformed milestone date", () => {
     expect(() => milestoneToGraphEvent({ id: 1, name: "X", date: "not-a-date", linkedTaskIds: [] }, "p")).toThrow();
+  });
+});
+
+describe("categoryFor entityType", () => {
+  it("is bare for milestones/committee (back-compat)", () => {
+    expect(categoryFor("p1")).toBe("AIPM:p1");
+  });
+  it("is type-scoped for new entities", () => {
+    expect(categoryFor("p1", "task")).toBe("AIPM:p1:task");
+  });
+});
+
+describe("taskToGraphEvent", () => {
+  const task = { id: 3, taskName: "Ship SP1", dueDate: "2026-07-10", status: "In Progress", assignee: "Alice" } as Task;
+  it("all-day event on the due date with the task-scoped category", () => {
+    const e = taskToGraphEvent(task, "p1");
+    expect(e.isAllDay).toBe(true);
+    expect(e.subject).toBe("Ship SP1");
+    expect(e.start.dateTime).toBe("2026-07-10T00:00:00");
+    expect(e.end.dateTime).toBe("2026-07-11T00:00:00");
+    expect(e.categories).toEqual(["AIPM:p1:task"]);
   });
 });
 
