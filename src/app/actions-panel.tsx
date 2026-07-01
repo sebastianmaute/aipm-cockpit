@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
-import { ResetSizeButton } from "./task-manager-ui";
+import { ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { Modal } from "./modal";
 import { ActionRow } from "./action-row";
 import { ActionHeroCard } from "./action-hero-card";
@@ -86,7 +86,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   const hero = groups[0] && groups[0].tier !== "monitor" ? groups[0] : null;
   const heroKey = hero?.key;
   return (
-    <div ref={ref} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <div ref={ref} className={`${VIEW_PANE_RESIZABLE_CLASS} print-root`}>
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div>
@@ -103,7 +103,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               aria-busy={aiAnalysis.busy}
               aria-label={t(lang, "actionAiAnalyze")}
               title={t(lang, "actionAiAnalyze")}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:opacity-50 print:hidden"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
                 <path d="M10 1.5l1.6 4.3 4.3 1.6-4.3 1.6L10 13.3 8.4 9 4.1 7.4l4.3-1.6L10 1.5zM15.5 12l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />
@@ -112,7 +112,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             </button>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 print:hidden">
           {expertMode && (
             <button
               type="button"
@@ -131,6 +131,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               </span>
             </button>
           )}
+          <PrintButton lang={lang} />
           <ResetSizeButton onClick={reset} lang={lang} />
         </div>
       </div>
