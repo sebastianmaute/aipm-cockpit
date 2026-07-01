@@ -238,6 +238,14 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   pre-existing `"status"` col key is the RAG/health DOT (header "Health"/DE "Ampel"). ★ The tasks view
   ("Open Points") IS in axe `A11Y_VIEWS`, so the inline status `<select>` needs a row-UNIQUE label
   (`Status – <task>`).
+- **Open Points + Milestones toolbars = ONE flat wrapping row** (`flex flex-wrap items-center gap-2`, no
+  `<h2>` heading/count) with the search input `flex-1` so it expands and pushes trailing controls right
+  (mirrors the changes-panel toolbar). Tasks `PrintButton` is `iconOnly`. ★ Tasks "Clear all" opens a
+  `TypeToConfirmDialog` (type `"yes, clear all tasks"`) — the shared `handleClearAll` (`use-bulk-operations.ts`)
+  no longer self-confirms via `window.confirm`; the button path is dialog-gated, the VOICE `clearAll` command
+  keeps its own `window.confirm` at the call site. All saved-views controls (`panel-views-control`/
+  `saved-views-control`/`reports-views-control`) use the standard `FOCUS_RING` (ring-2) — a bare
+  `focus:ring-AIPM-green` sets colour only (no width) and is invisible.
 - **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
   component is **`task-kanban-board.tsx`** — NOT `task-kanban.tsx` (the pure `task-kanban.ts` engine
   shadows a `.tsx` sibling via `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card
@@ -481,6 +489,14 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   lists, add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix` 5×5 picker, Risk items
   only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField` — the two chip-picker
   sections, threaded handlers/state as props). RAID IS in axe `A11Y_VIEWS`.
+- **Stakeholder Influence/Interest map drag:** `stakeholder-map-panel.tsx` chips drag between the 2×2 quadrants
+  (native HTML5 DnD, no lib). Pure i18n-free `applyQuadrantMove(s, quadrant)` in `stakeholders.ts` uses
+  **preserve-Medium**: high side → "High"; low side demotes only a "High" → "Medium", keeps existing Medium/Low;
+  returns `null` on a no-op drop. ★ round-trips are NOT identity (Low → keep-satisfied → monitor yields Medium — the
+  2×2 can't express Medium so a demotion out of the high band lands there). Gated on the panel's `onSaveStakeholder`
+  prop (omitted → read-only popout mirror, chips not draggable); reuses `handleSaveStakeholder` (functional setter +
+  `localModifiedAt` stamp + `stakeholder.updated` log). Chips stay plain (no level badge). The map is NOT in axe
+  `A11Y_VIEWS` — drag is a mouse enhancement; the edit modal's High/Med/Low selects are the keyboard path.
 - **OOXML export map:** hand-rolled Office export (no lib; own `zip.ts` writer) split by format:
   `export-docx.ts` (`buildDocx`), `export-xlsx.ts` (`buildXlsx`), `export-pptx.ts` (`buildPptx`) over shared
   `export-ooxml-shared.ts` (brand palette consts, `xmlEscape`, `todayHuman`, `PPTX_MAX_ROWS_PER_SECTION`).
@@ -1034,6 +1050,42 @@ the meeting obj, not a map) → the panel stashes it in `pendingDeleteEventIds` 
 clear (info-instances ARE map-tracked so they prune automatically). ★★ `outlook-calendar-write.ts` `graph()`
 tolerates 404 ONLY for DELETE; PATCH/POST THROW `GraphCalendarError(404)` so an event deleted in Outlook gets
 re-created next push (committee + milestone hooks self-heal by clearing the stale id).
+
+### Calendar write-back engine (generic — milestones/committee + tasks)
+
+Milestone + committee push use the BARE category `categoryFor(projectId)` = `AIPM:${projectId}` and are LIST-BASED
+(`listProjectEvents` deletes any bare-category event NOT in the kept set). A GENERIC engine now serves other
+entities: ★★ NEW entity types MUST use a TYPE-SCOPED category `categoryFor(projectId, entityType)` =
+`AIPM:${projectId}:${type}` — if a new entity shared the bare tag, a milestone push would CROSS-DELETE its events
+(OData `$filter` is exact-eq, so distinct type-scoped strings never match each other's list). Pure i18n-free
+`planEntityReconcile<T extends HasEventLink>` (`calendar-reconcile.ts`, alongside the milestone `planCalendarReconcile`)
++ `listEntityEvents(token,projectId,type)` + per-entity `*ToGraphEvent` (`outlook-calendar-write.ts`); React hook
+`useEntityCalendarPush<T>` (`use-entity-calendar-push.ts`) = a parameterized `useOutlookCalendarPush` clone (same
+404-on-PATCH self-heal, popout no-op). ★★ A MODULE-LEVEL `inFlightReconcile` Set keyed `${projectId}:${type}`
+serializes the auto + manual push instances so a manual click during an in-flight auto reconcile can't DOUBLE-CREATE
+(check-then-add is synchronous before the first await; released in `finally`). ★ `interactive:false` (auto runner)
+→ non-interactive token + FULLY SILENT (no result/partial/no-access toasts). **Tasks (SP1, v0.157+):**
+`Task.outlookEventId?` persists across the 6 write paths (mirrors `Milestone.outlookEventId` — CSV `CSV_COLUMNS`
+generic `fieldToString` default arm; MD decoder lives in `markdown-codecs-decode.ts` not `-core`; Turso derives from
+`CSV_COLUMNS`; JSON/IDB whole-object pass-through, no task sanitizer). Per-device `settings.outlookCalendar?:
+Partial<Record<CalendarEntityType,{enabled,auto}>>` (`calendar-sync-config.ts` `calendarSyncFor`, `sanitizeOutlookCalendar`;
+writeSettings SPREAD, no allowlist edit); toggled in BOTH Settings→Integrations AND the tasks pane — ★ BOTH sites
+force `auto:false` when un-enabling (else re-enabling silently reactivates auto). Manual "Push to Outlook" button
+(pushable = `!isTaskFinished && !!dueDate`) + debounced `use-calendar-auto-sync.ts` runner (mounted in task-manager,
+4s, fail-once-per-change; ★ content-key EXCLUDES `outlookEventId` — it's an OUTPUT the push writes back, including it
+re-fires one redundant round). ALL activation sites gated on M365-configured + `!isPopout`. **RAID (SP2, v0.157+):**
+pushes active (`isRaidActiveForReview` — the shared predicate EXPORTED from `raid-review.ts`, used by BOTH the review
+engine and the pane filter) items WITH a `targetDate`, event on that date; `raidToGraphEvent` mirrors `taskToGraphEvent`
+(body owner/severity/status); `RaidItem.outlookEventId` rides the same 6 paths + `RAID_CSV_COLUMNS`/`RAID_MD_COLUMNS`
+column (MD decode arm in `markdown-codecs-decode.ts`; `sanitizeRaidItem` caps 1024). ★★ `RaidPanel` is a THIN
+callback-prop pane (parent owns `raid`), so — UNLIKE the fat `tasks-section` — ALL calendar logic lives in `task-manager`
+(manual + silent-auto `useEntityCalendarPush<RaidItem>`, `useCalendarAutoSync`, `setRaidForCalendar` bridge,
+`onToggleCalendarRaid`) and threads FIVE props (`m365Configured`/`calendarRaidEnabled`/`onToggleCalendarRaid`/
+`pushRaidToOutlook`/`calendarRaidPushBusy`) through `workspace-section-types` → `workspace-section` → the pane (renamed
+to `calendarEnabled`/`onToggleCalendar`/`onPushCalendar`/`calendarPushBusy` at the pane boundary). The central Settings
+rows are a reusable `CalendarSyncEntityRow` helper (`integrations-section.tsx`). SP3–4 (Change decision dates /
+Resource absences) reuse the engine: add the entity's `outlookEventId` column + a `CalendarEntityType` config entry +
+`*ToGraphEvent` + pane/task-manager wiring.
 
 ### Timelog integration
 
