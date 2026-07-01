@@ -87,11 +87,20 @@ describe("absenceToGraphEvent", () => {
     expect(ev.start).toEqual({ dateTime: "2026-01-05T00:00:00", timeZone: "UTC" });
     expect(ev.end).toEqual({ dateTime: "2026-01-10T00:00:00", timeZone: "UTC" });
   });
-  it("tags a type-scoped absence category", () => {
-    expect(absenceToGraphEvent(abs, "proj-1").categories).toEqual(["AIPM:proj-1:absence"]);
+  it("keeps the reconcile category first and adds the type as a secondary tag", () => {
+    const cats = absenceToGraphEvent(abs, "proj-1").categories;
+    expect(cats[0]).toBe("AIPM:proj-1:absence");
+    expect(cats).toContain("vacation");
+    expect(cats).toEqual(["AIPM:proj-1:absence", "vacation"]);
   });
   it("puts assignee and type in the subject", () => {
     expect(absenceToGraphEvent(abs, "proj-1").subject).toBe("Jane Doe – vacation");
+  });
+  it("shows out-of-office for vacation/sick/other and busy for training", () => {
+    expect(absenceToGraphEvent({ ...abs, type: "vacation" }, "p").showAs).toBe("oof");
+    expect(absenceToGraphEvent({ ...abs, type: "sick" }, "p").showAs).toBe("oof");
+    expect(absenceToGraphEvent({ ...abs, type: "other" }, "p").showAs).toBe("oof");
+    expect(absenceToGraphEvent({ ...abs, type: "training" }, "p").showAs).toBe("busy");
   });
 });
 
