@@ -2177,6 +2177,7 @@ const enUS = {
   actionTierSoon: "Soon",
   actionTierMonitor: "Monitor",
   actionMonitoredCount: "{0} monitored",
+  actionHeroEyebrow: "Do this first",
   actionMoreReasons: "+{0} more reasons",
   actionMoreActions: "More actions",
   actionMarkDone: "Mark done",

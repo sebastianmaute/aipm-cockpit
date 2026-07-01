@@ -2153,6 +2153,7 @@ export const de: Record<TranslationKey, string> = {
   actionTierSoon: "Bald",
   actionTierMonitor: "Beobachten",
   actionMonitoredCount: "{0} überwacht",
+  actionHeroEyebrow: "Zuerst erledigen",
   actionMoreReasons: "+{0} weitere Gründe",
   actionMoreActions: "Weitere Aktionen",
   actionMarkDone: "Als erledigt markieren",
