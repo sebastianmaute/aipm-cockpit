@@ -18,6 +18,9 @@ export interface GraphEvent {
   end: { dateTime: string; timeZone: "UTC" };
   categories: string[];
   body: { contentType: "Text"; content: string };
+  /** Free/busy status shown in Outlook. Optional — only entity types that
+   *  care about availability (absences) set it; others omit it. */
+  showAs?: "free" | "tentative" | "busy" | "oof" | "workingElsewhere";
 }
 
 export class GraphCalendarError extends Error {
@@ -137,7 +140,12 @@ export function absenceToGraphEvent(absence: Absence, projectId: string): GraphE
     isAllDay: true,
     start: { dateTime: `${absence.startDate}T00:00:00`, timeZone: "UTC" },
     end: { dateTime: `${nextDay(absence.endDate)}T00:00:00`, timeZone: "UTC" },
-    categories: [categoryFor(projectId, "absence")],
+    // Reconcile category MUST stay first; the type is a secondary display tag
+    // (Outlook per-type filtering). listEntityEvents matches with any(c: c eq …),
+    // so the extra tag never affects list/delete.
+    categories: [categoryFor(projectId, "absence"), absence.type],
+    // Training = still working (elsewhere/engaged) → busy; vacation/sick/other → out-of-office.
+    showAs: absence.type === "training" ? "busy" : "oof",
     body: {
       contentType: "Text",
       content: [

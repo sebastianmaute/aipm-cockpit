@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.159.1] - 2026-07-01 "Gladstone"
+
+### Changed
+- **Absence calendar-sync polish.** Pushed resource-absence Outlook events are richer: each now carries a **free/busy status** (`training` shows as **busy**, all other types as **out-of-office**), a **secondary Outlook category** matching the absence type (vacation / sick / training / other) so events can be filtered by type, and the event body **re-syncs automatically when the absence note changes** (previously a note-only edit needed a manual push). No settings or storage changes; the reconcile category is unchanged so existing synced events are unaffected.
+
 ## [0.159.0] - 2026-07-01 "Gladstone"
 
 ### Added
