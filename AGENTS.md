@@ -1104,7 +1104,12 @@ EXCLUDING `outlookEventId`, `setAbsenceForCalendar` functional bridge, manual + 
 `workspace-section-types` → `workspace-section` → the Resources pane (`resources-panel.tsx` renders the toggle+push
 in the shared `headerActions`, renamed to `calendarEnabled`/`onToggleCalendar`/`onPushCalendar`/`calendarPushBusy`).
 ★ Resources IS in axe `A11Y_VIEWS` — the toggle carries an aria-label. ROADMAP COMPLETE (tasks · RAID · changes ·
-absences); no entities remain.
+absences); no entities remain. **Polish (v0.159.1):** the absence event carries `showAs` (`training`→`busy`,
+else `oof`) — the shared `GraphEvent` interface gained an OPTIONAL `showAs?` (other `*ToGraphEvent` builders omit
+it); a SECONDARY category = `absence.type` rides alongside the reconcile category (`categories: [categoryFor(pid,
+"absence"), a.type]` — reconcile cat stays FIRST; `listEntityEvents`' `any(c: c eq …)` match is unaffected); and
+`absenceAutoSyncKey` now INCLUDES `note` (a note-only edit re-pushes the body). True multi-calendar routing (vs the
+single `/me/events` + category-filter engine) remains OUT of scope — a separate future slice.
 
 ### Timelog integration
 

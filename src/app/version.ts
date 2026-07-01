@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.159.0";
-export const APP_BUILD_DATE = "2026-07-01"; // 0.159.0: Resource-absence Outlook calendar write-back (SP4) — current+future non-sick absences pushed as multi-day all-day events over their date range; manual + auto per-entity toggle in the Resources view and Settings; completes the calendar write-back roadmap (Gladstone)
+export const APP_VERSION = "0.159.1";
+export const APP_BUILD_DATE = "2026-07-01"; // 0.159.1: Absence calendar-sync polish — pushed absence events now carry a free/busy status (training=busy, else out-of-office), a secondary Outlook category tag per absence type, and re-push automatically when the note changes (Gladstone)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.159.x line is "Gladstone" (Max Gladstone). */
 export const APP_MILESTONE = "Gladstone";
