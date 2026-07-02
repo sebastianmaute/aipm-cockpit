@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.163.0] - 2026-07-02 "Sapkowski"
+
+### Added
+- **Absence two-way Outlook calendar pull (SP4)**: the final entity of the two-way calendar sync. A manual **"Pull from Outlook"** button on the **Resources** view fetches the current dates of the absence calendar events and applies **reschedules made in Outlook back onto absences**. Absences are the only **multi-day** entity, so the pull is **faithful to the whole range** — it reads both the event's **start and end** and maps them back, reflecting an Outlook **move _or_ resize** (the inclusive end is derived from Graph's exclusive all-day end). Conflicts follow the same **app-wins** rule: an Outlook change is auto-applied **only when the absence is unchanged since the last agreed baseline** — otherwise it is surfaced as a **per-row conflict** you resolve (keep the app's dates or take Outlook's), never a silent overwrite. Events **removed or cancelled in Outlook** raise a **deletion notice**, and a **summary modal** lists what was applied, the conflicts, and the deletions. Absences only in this slice. Requires Microsoft 365; pop-out windows are read-only. **The pull roadmap (milestones · tasks · RAID · changes · absences) is now complete** — only auto-pull (SP5) remains.
+
+### Notes
+- The shared pull engine, read helper, generic hook, and summary modal gained an **optional event end date** so absences can carry a range; every new field is optional, so the four single-date entities (milestones/tasks/RAID/changes) stay **byte-identical** (baseline value unchanged, no extra plan-object keys, no changed rendering). The per-device sync baseline (`lop-app:calendar-sync-baseline`) stores a range as `"start|end"`. No new persisted `Workspace` field or column (`Absence.outlookEventId` already exists), no new golden fixtures. Like RAID/Change, absence is a thin callback-prop pane, so the pull hook + summary modal live in `task-manager.tsx` and thread through `workspace-section` to `resources-panel`.
+
 ## [0.162.0] - 2026-07-02 "Bennett"
 
 ### Added

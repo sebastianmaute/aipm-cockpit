@@ -167,6 +167,7 @@ const enUS = {
   versionHighlightCalendarPull: "Outlook date reschedules pull back into milestones",
   versionHighlightCalendarPullTask: "Outlook date reschedules pull back into tasks",
   versionHighlightCalendarPullRaidChange: "Outlook date reschedules pull back into RAID and changes",
+  versionHighlightCalendarPullAbsence: "Outlook date reschedules pull back into absences",
 
   tasks: "Tasks",
   tasksCount: "({0})",
