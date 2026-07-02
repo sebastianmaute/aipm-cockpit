@@ -12,6 +12,11 @@
 //
 // Adding a new calendar-synced entity ⇒ add one row here; forgetting a codec
 // column ⇒ this fails instead of dropping the field in production.
+//
+// SCOPE: this is CODEC-scoped. The seeds go straight through the codecs and do
+// NOT run each entity's per-entity sanitizeX validator, so it would not catch a
+// sanitizer that stripped the field on the save path — the sanitizer suites
+// (sanitize-*.test.ts) cover that. Here we guard only the CSV/MD/Turso columns.
 import { describe, expect, it } from "vitest";
 import {
   emptyWorkspace,
