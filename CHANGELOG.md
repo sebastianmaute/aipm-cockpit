@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.160.0] - 2026-07-02 "Ellison"
+
+### Added
+- **Milestone two-way Outlook calendar pull (SP1)**: the calendar sync — until now write-only (app → Outlook) — gains its first **pull** direction. A manual **"Pull from Outlook"** button in the Milestones toolbar (next to "Push to Outlook") fetches the current dates of the milestone calendar events and applies **date reschedules made in Outlook back onto the milestones**. Conflicts follow an **app-wins** rule: an Outlook move is auto-applied **only when the milestone is unchanged since the last agreed baseline** — otherwise it is surfaced as a **per-row conflict** you resolve (keep the app's date or take Outlook's), never a silent overwrite. Events that were **removed or cancelled in Outlook** raise a **deletion notice**. A **summary modal** lists what was applied, the conflicts to resolve, and the deletions; a **per-device sync baseline** records each event's last-agreed date. Milestones only in this slice. Requires Microsoft 365; pop-out windows are read-only.
+
+### Notes
+- No new persisted `Workspace` field or column: the sync baseline is a per-device localStorage store (key `lop-app:calendar-sync-baseline`), excluded from exports and Turso and cleared on app reset. First of a multi-slice two-way calendar sync roadmap (tasks · RAID · changes · absences to follow).
+
 ## [0.159.1] - 2026-07-01 "Gladstone"
 
 ### Changed

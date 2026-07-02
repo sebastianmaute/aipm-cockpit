@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.159.1";
-export const APP_BUILD_DATE = "2026-07-01"; // 0.159.1: Absence calendar-sync polish — pushed absence events now carry a free/busy status (training=busy, else out-of-office), a secondary Outlook category tag per absence type, and re-push automatically when the note changes (Gladstone)
+export const APP_VERSION = "0.160.0";
+export const APP_BUILD_DATE = "2026-07-02"; // 0.160.0: Milestone two-way Outlook calendar pull — a manual "Pull from Outlook" button applies Outlook date reschedules onto milestones with app-wins conflict handling and deletion notices (Ellison)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.159.x line is "Gladstone" (Max Gladstone). */
-export const APP_MILESTONE = "Gladstone";
+ *  0.160.x line is "Ellison" (Harlan Ellison). */
+export const APP_MILESTONE = "Ellison";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -177,4 +177,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCalendarWriteback",
   "versionHighlightCalendarChange",
   "versionHighlightCalendarAbsence",
+  "versionHighlightCalendarPull",
 ] as const;

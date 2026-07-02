@@ -167,6 +167,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightCalendarWriteback: "Outlook-Kalender-Rückschreibung: Aufgaben (nach Fälligkeitsdatum) und RAID-Einträge (nach Überprüfungstermin) als ganztägige Termine nach Outlook schreiben – manuell oder automatisch, pro Entität im jeweiligen Bereich und zentral unter Einstellungen → Integrationen umschaltbar",
   versionHighlightCalendarChange: "Änderungsentscheidungen werden an ihren Entscheidungsterminen mit Outlook synchronisiert",
   versionHighlightCalendarAbsence: "Ressourcenabwesenheiten werden als mehrtägige Outlook-Termine synchronisiert",
+  versionHighlightCalendarPull: "Outlook-Terminverschiebungen werden in Meilensteine zurückgespielt",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

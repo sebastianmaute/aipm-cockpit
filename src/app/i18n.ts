@@ -164,6 +164,7 @@ const enUS = {
   versionHighlightCalendarWriteback: "Outlook calendar write-back: push tasks (by due date) and RAID items (by review date) to Outlook as all-day events — manually or automatically, toggled per entity in its pane and centrally in Settings → Integrations",
   versionHighlightCalendarChange: "Change decisions sync to Outlook on their decision dates",
   versionHighlightCalendarAbsence: "Resource absences sync to Outlook as multi-day calendar events",
+  versionHighlightCalendarPull: "Outlook date reschedules pull back into milestones",
 
   tasks: "Tasks",
   tasksCount: "({0})",
