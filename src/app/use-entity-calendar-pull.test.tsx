@@ -123,6 +123,22 @@ describe("useEntityCalendarPull background auto-pull mode", () => {
     expect(result.current.result).toBeNull();
   });
 
+  it("(b-dedupe) background conflict toast fires ONCE across repeated pulls with the same unresolved conflict", async () => {
+    loadBaseline.mockReturnValue({});
+    const { result } = renderPullOpts(
+      [{ id: 1, outlookEventId: "evt", d: "2026-07-01" }],
+      { background: true },
+    );
+    fetchProjectEventDates.mockResolvedValueOnce([{ id: "evt", date: "2026-07-10" }]);
+    await act(async () => { await result.current.pull(); });
+    fetchProjectEventDates.mockResolvedValueOnce([{ id: "evt", date: "2026-07-10" }]);
+    await act(async () => { await result.current.pull(); });
+    const conflictToasts = showToast.mock.calls.filter(
+      (c) => c[1] === t("en-US", "calendarPullConflictsPending", 1),
+    );
+    expect(conflictToasts).toHaveLength(1);
+  });
+
   it("(c-bg) background definitive deletion prunes the link + baseline", async () => {
     // Item's event id is not among the fetched events → definitive deletion.
     fetchProjectEventDates.mockResolvedValueOnce([]);

@@ -2160,6 +2160,7 @@ export const de: Record<TranslationKey, string> = {
   calendarPullKeepApp: "App-Termin behalten",
   calendarPullTakeOutlook: "Outlook-Termin übernehmen",
   calendarPullInSync: "Bereits mit Outlook synchron",
+  calendarPullConflictsPending: "{0} Kalenderkonflikte — im Pull auflösen",
   calendarPullEventRemoved: "Der Outlook-Termin wurde entfernt",
   settingsOutlookCalendarPush:
     "Meilensteine in meinen Outlook-Kalender übertragen",

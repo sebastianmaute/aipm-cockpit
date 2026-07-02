@@ -2141,6 +2141,7 @@ const enUS = {
   calendarPullKeepApp: "Keep app date",
   calendarPullTakeOutlook: "Take Outlook date",
   calendarPullInSync: "Already in sync with Outlook",
+  calendarPullConflictsPending: "{0} calendar conflicts — open Pull to resolve",
   calendarPullEventRemoved: "Its Outlook event was removed",
   settingsOutlookCalendarPush: "Push milestones to my Outlook calendar",
   settingsOutlookCalendarPushHint:

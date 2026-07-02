@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
@@ -39,6 +39,13 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
   const showToast = useToastContext();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ plan: PullPlan } | null>(null);
+  // Signature of the conflict set last surfaced by a BACKGROUND pull. The count
+  // toast is the only background notice, and background never opens the modal —
+  // so without this dedupe the SAME toast would re-fire on every 15-min tick and
+  // every tab refocus while a conflict stays unresolved (non-actionable nag).
+  // Re-toast only when the set changes; reset to null when it clears so a fresh
+  // conflict later re-announces.
+  const lastConflictSigRef = useRef<string | null>(null);
 
   const applyMove = useCallback((id: number, eventId: string, newDate: string, newEndDate?: string) => {
     setItems((prev) => prev.map((i) => (i.id === id ? withDate(i, newDate, newEndDate) : i)));
@@ -103,7 +110,13 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
       for (const d of plan.deletions) prune(d.id, d.eventId);
       if (background) {
         if (plan.conflicts.length > 0) {
-          showToast("info", t(lang, "calendarPullConflictsPending", plan.conflicts.length));
+          const sig = plan.conflicts.map((c) => c.eventId).sort().join(",");
+          if (sig !== lastConflictSigRef.current) {
+            lastConflictSigRef.current = sig;
+            showToast("info", t(lang, "calendarPullConflictsPending", plan.conflicts.length));
+          }
+        } else {
+          lastConflictSigRef.current = null; // conflicts cleared → re-announce a future one
         }
         // background NEVER opens the modal; applies + deletions already acted on silently.
       } else {
