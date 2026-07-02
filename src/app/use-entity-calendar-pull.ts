@@ -6,7 +6,7 @@ import { t, type Lang } from "./i18n";
 import { CALENDAR_READWRITE_SCOPE, updateEvent, type GraphEvent } from "./outlook-calendar-write";
 import { fetchProjectEventDates } from "./outlook-calendar-read";
 import { planCalendarPull, type PullPlan } from "./calendar-pull";
-import { loadBaseline, writeBaselineDate } from "./calendar-sync-baseline";
+import { loadBaseline, writeBaselineDate, removeBaselineEntry } from "./calendar-sync-baseline";
 
 interface Args<T extends { id: number; outlookEventId?: string }> {
   items: readonly T[];
@@ -21,6 +21,8 @@ interface Args<T extends { id: number; outlookEventId?: string }> {
   isPopout: boolean;
   lang: Lang;
   enabled: boolean;
+  /** Background auto-pull: non-interactive token, never opens the modal, silent on no-access/error. */
+  background?: boolean;
 }
 
 /**
@@ -31,7 +33,7 @@ interface Args<T extends { id: number; outlookEventId?: string }> {
  * Jira-synced tasks whose dates Jira owns). Popouts are read-only.
  */
 export function useEntityCalendarPull<T extends { id: number; outlookEventId?: string }>(
-  { items, entityType, projectId, getDate, getEndDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled }: Args<T>,
+  { items, entityType, projectId, getDate, getEndDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled, background }: Args<T>,
 ) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
@@ -42,6 +44,13 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
     setItems((prev) => prev.map((i) => (i.id === id ? withDate(i, newDate, newEndDate) : i)));
     writeBaselineDate(projectId, entityType, eventId, newEndDate !== undefined ? `${newDate}|${newEndDate}` : newDate);
   }, [setItems, withDate, projectId, entityType]);
+
+  // A definitively-gone event (missing/cancelled): clear the entity's stored link
+  // and drop its baseline so the item stops re-appearing on every subsequent pull.
+  const prune = useCallback((id: number, eventId: string) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, outlookEventId: undefined } : i)));
+    removeBaselineEntry(projectId, entityType, eventId);
+  }, [setItems, projectId, entityType]);
 
   const keepApp = useCallback(async (c: { id: number; eventId: string; appDate: string; appEndDate?: string }) => {
     // App-wins: converge Outlook to the entity's (kept) date so baseline===appDate
@@ -66,8 +75,8 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
     if (isPopout || !enabled) return;
     setBusy(true);
     try {
-      const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
-      if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
+      const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: !background }).catch(() => null);
+      if (!token) { if (!background) showToast("error", t(lang, "calendarPushNoAccess")); return; }
       const events = await fetchProjectEventDates(token, projectId, entityType);
       const baseline = loadBaseline(projectId, entityType);
       const pullable = isPullable ? items.filter(isPullable) : items;
@@ -90,15 +99,25 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
           }
         }
       }
-      const hasRows = plan.applies.length + plan.conflicts.length + plan.deletions.length > 0;
-      if (hasRows) setResult({ plan });
-      else showToast("info", t(lang, "calendarPullInSync"));
-    } catch {
-      showToast("error", t(lang, "calendarPushNoAccess"));
+      // Prune definitively-gone events in BOTH modes: clear the entity link + baseline.
+      for (const d of plan.deletions) prune(d.id, d.eventId);
+      if (background) {
+        if (plan.conflicts.length > 0) {
+          showToast("info", t(lang, "calendarPullConflictsPending", plan.conflicts.length));
+        }
+        // background NEVER opens the modal; applies + deletions already acted on silently.
+      } else {
+        const hasRows = plan.applies.length + plan.conflicts.length + plan.deletions.length > 0;
+        if (hasRows) setResult({ plan });
+        else showToast("info", t(lang, "calendarPullInSync"));
+      }
+    } catch (e) {
+      if (background) console.warn("calendar auto-pull failed", e);
+      else showToast("error", t(lang, "calendarPushNoAccess"));
     } finally {
       setBusy(false);
     }
-  }, [isPopout, enabled, acquireToken, showToast, lang, items, projectId, entityType, getDate, getEndDate, isPullable, applyMove]);
+  }, [isPopout, enabled, background, acquireToken, showToast, lang, items, projectId, entityType, getDate, getEndDate, isPullable, applyMove, prune]);
 
   return { pull, busy, result, clearResult: useCallback(() => setResult(null), []), keepApp, applyMove };
 }

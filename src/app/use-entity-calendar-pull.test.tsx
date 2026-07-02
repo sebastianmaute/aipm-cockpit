@@ -18,13 +18,16 @@ vi.mock("./outlook-calendar-read", () => ({
 }));
 
 const writeBaselineDate = vi.fn();
+const removeBaselineEntry = vi.fn();
 const loadBaseline = vi.fn<(...a: unknown[]) => Record<string, string>>(() => ({}));
 vi.mock("./calendar-sync-baseline", () => ({
   loadBaseline: (...a: unknown[]) => loadBaseline(...a),
   writeBaselineDate: (...a: unknown[]) => writeBaselineDate(...a),
+  removeBaselineEntry: (...a: unknown[]) => removeBaselineEntry(...a),
 }));
 
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
+import { t } from "./i18n";
 
 interface FakeItem {
   id: number;
@@ -34,7 +37,7 @@ interface FakeItem {
 }
 
 const setItems = vi.fn();
-const renderPull = (items: FakeItem[]) =>
+const renderPullOpts = (items: FakeItem[], opts?: { background?: boolean }) =>
   renderHook(() =>
     useEntityCalendarPull<FakeItem>({
       items,
@@ -49,7 +52,9 @@ const renderPull = (items: FakeItem[]) =>
       isPopout: false,
       lang: "en-US",
       enabled: true,
+      background: opts?.background,
     }));
+const renderPull = (items: FakeItem[]) => renderPullOpts(items);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -84,6 +89,97 @@ describe("useEntityCalendarPull pull()", () => {
     // no rows → "in sync" info toast, no result plan
     expect(result.current.result).toBeNull();
     expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+});
+
+describe("useEntityCalendarPull background auto-pull mode", () => {
+  it("(a) background apply: auto-applies + writes baseline, does NOT open the modal", async () => {
+    fetchProjectEventDates.mockResolvedValueOnce([{ id: "evt", date: "2026-07-10" }]);
+    loadBaseline.mockReturnValue({ evt: "2026-07-01" });
+    const { result } = renderPullOpts(
+      [{ id: 1, outlookEventId: "evt", d: "2026-07-01" }],
+      { background: true },
+    );
+    await act(async () => {
+      await result.current.pull();
+    });
+    expect(setItems).toHaveBeenCalledTimes(1);
+    expect(writeBaselineDate).toHaveBeenCalledWith("p", "task", "evt", "2026-07-10");
+    expect(result.current.result).toBeNull();
+  });
+
+  it("(b) background conflict: fires the conflicts-pending info toast, does NOT setResult", async () => {
+    // Event moved but no baseline → the engine classifies it a conflict.
+    fetchProjectEventDates.mockResolvedValueOnce([{ id: "evt", date: "2026-07-10" }]);
+    loadBaseline.mockReturnValue({});
+    const { result } = renderPullOpts(
+      [{ id: 1, outlookEventId: "evt", d: "2026-07-01" }],
+      { background: true },
+    );
+    await act(async () => {
+      await result.current.pull();
+    });
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "calendarPullConflictsPending", 1));
+    expect(result.current.result).toBeNull();
+  });
+
+  it("(c-bg) background definitive deletion prunes the link + baseline", async () => {
+    // Item's event id is not among the fetched events → definitive deletion.
+    fetchProjectEventDates.mockResolvedValueOnce([]);
+    loadBaseline.mockReturnValue({});
+    const { result } = renderPullOpts(
+      [{ id: 1, outlookEventId: "gone", d: "2026-07-01" }],
+      { background: true },
+    );
+    await act(async () => {
+      await result.current.pull();
+    });
+    expect(removeBaselineEntry).toHaveBeenCalledWith("p", "task", "gone");
+    // the setItems updater clears outlookEventId
+    const updater = setItems.mock.calls.at(-1)![0] as (prev: FakeItem[]) => FakeItem[];
+    const next = updater([{ id: 1, outlookEventId: "gone", d: "2026-07-01" }]);
+    expect(next[0].outlookEventId).toBeUndefined();
+    // background never opens the modal
+    expect(result.current.result).toBeNull();
+  });
+
+  it("(e) background with no token returns silently (no error toast)", async () => {
+    acquireToken.mockResolvedValueOnce(null);
+    const { result } = renderPullOpts(
+      [{ id: 1, outlookEventId: "evt", d: "2026-07-01" }],
+      { background: true },
+    );
+    await act(async () => {
+      await result.current.pull();
+    });
+    expect(showToast).not.toHaveBeenCalled();
+    expect(setItems).not.toHaveBeenCalled();
+  });
+});
+
+describe("useEntityCalendarPull manual deletion prune + modal", () => {
+  it("(c-manual) definitive deletion prunes link + baseline", async () => {
+    fetchProjectEventDates.mockResolvedValueOnce([]);
+    loadBaseline.mockReturnValue({});
+    const { result } = renderPull([{ id: 1, outlookEventId: "gone", d: "2026-07-01" }]);
+    await act(async () => {
+      await result.current.pull();
+    });
+    expect(removeBaselineEntry).toHaveBeenCalledWith("p", "task", "gone");
+    const updater = setItems.mock.calls.at(-1)![0] as (prev: FakeItem[]) => FakeItem[];
+    const next = updater([{ id: 1, outlookEventId: "gone", d: "2026-07-01" }]);
+    expect(next[0].outlookEventId).toBeUndefined();
+  });
+
+  it("(d) manual with rows opens the modal (result set)", async () => {
+    fetchProjectEventDates.mockResolvedValueOnce([{ id: "evt", date: "2026-07-10" }]);
+    loadBaseline.mockReturnValue({});
+    const { result } = renderPull([{ id: 1, outlookEventId: "evt", d: "2026-07-01" }]);
+    await act(async () => {
+      await result.current.pull();
+    });
+    expect(result.current.result).not.toBeNull();
+    expect(result.current.result?.plan.conflicts.length).toBe(1);
   });
 });
 
