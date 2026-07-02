@@ -28,6 +28,10 @@ npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next 
                             # `.toISOString()` throws — pass `{noInvalidDate:true}` or map an integer
                             # ms range to `new Date(ms)`; the regex `/s` (dotAll) flag fails tsc
                             # (target < es2018) — use `[\s\S]` instead.
+                            # ★ The IDE language-server's inline diagnostics are MID-EDIT snapshots —
+                            # after a multi-file edit they routinely show phantom "Cannot find module"/
+                            # "implicitly any" that a real `npx tsc --noEmit` (exit 0) contradicts. Trust
+                            # tsc, not the squiggles.
 npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout = 20s
                             # (raised from the 5s default in vitest.config) — the CPU-heavy
                             # fast-check property suites (`*.property.test.ts`, ~100 runs each) +
