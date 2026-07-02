@@ -51,6 +51,21 @@ typecheck:
   script:
     - npx tsc --noEmit
 
+# SAST — warn-only for the first 2 weeks (allow_failure), then Phase 4 flips it
+# to blocking. Runs in Semgrep's own image, needs no node_modules → needs: [].
+semgrep:
+  stage: quality
+  needs: []
+  image: semgrep/semgrep:latest
+  allow_failure: true
+  script:
+    - semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten
+        --error --json --output semgrep.json .
+  artifacts:
+    when: always
+    paths: [semgrep.json]
+    expire_in: 1 week
+
 unit-tests:
   stage: quality
   needs: [install]
