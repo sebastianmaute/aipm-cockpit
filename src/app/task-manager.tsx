@@ -70,6 +70,7 @@ import { useMilestoneCalendarPull } from "./use-milestone-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
+import { useCalendarAutoPull } from "./use-calendar-auto-pull";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
 import { calendarSyncFor } from "./calendar-sync-config";
 import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent } from "./outlook-calendar-write";
@@ -1963,6 +1964,41 @@ function TaskManagerInner() {
     isPopout,
     lang,
     enabled: calendarAbsenceEnabled,
+  });
+
+  // --- Background auto-pull (two-way SP5) — periodic reverse-sync for the four
+  // entities carrying a per-entity `.auto` flag. Each background pull self-gates
+  // on its own `<entity>AutoSyncActive` (`.auto && m365Enabled && !isPopout`) and
+  // is inert otherwise; the runner below owns only the cadence. Milestone is
+  // excluded (different sync model, no `.auto` flag).
+  const { pull: autoPullTasks } = useEntityCalendarPull<Task>({
+    items: pushableTasks, entityType: "task", projectId: calendarProjectId,
+    getDate: (x) => x.dueDate, withDate: (x, date) => ({ ...x, dueDate: date }),
+    toGraphEvent: taskToGraphEvent, setItems: setTasksForAuto,
+    isPullable: (x) => !x.jiraKey, isPopout, lang, enabled: taskAutoSyncActive, background: true,
+  });
+  const { pull: autoPullRaid } = useEntityCalendarPull<RaidItem>({
+    items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
+    getDate: (r) => r.targetDate, withDate: (r, date) => ({ ...r, targetDate: date }),
+    toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
+    isPopout, lang, enabled: raidAutoSyncActive, background: true,
+  });
+  const { pull: autoPullChange } = useEntityCalendarPull<ChangeItem>({
+    items: pushableChanges, entityType: "change", projectId: calendarProjectId,
+    getDate: (c) => c.decisionDate, withDate: (c, date) => ({ ...c, decisionDate: date }),
+    toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
+    isPopout, lang, enabled: changeAutoSyncActive, background: true,
+  });
+  const { pull: autoPullAbsence } = useEntityCalendarPull<Absence>({
+    items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
+    getDate: (a) => a.startDate, getEndDate: (a) => a.endDate,
+    withDate: (a, start, end) => ({ ...a, startDate: start, endDate: end ?? a.endDate }),
+    toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
+    isPopout, lang, enabled: absenceAutoSyncActive, background: true,
+  });
+  useCalendarAutoPull({
+    enabled: m365Enabled && !isPopout,
+    pulls: [autoPullTasks, autoPullRaid, autoPullChange, autoPullAbsence],
   });
 
   if (!i18nReady) return null;
