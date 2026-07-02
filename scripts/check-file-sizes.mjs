@@ -1,7 +1,6 @@
 // Ratchet: fails when a NEW file exceeds LIMIT, or an already-oversized file GROWS.
 // Regenerate baseline: node scripts/check-file-sizes.mjs --update
-import { readFileSync, writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 
 const LIMIT = 800;
 const BASELINE = "docs/baselines/file-sizes.json";
@@ -9,9 +8,11 @@ const BASELINE = "docs/baselines/file-sizes.json";
 // and are exempt from the 800-line component/module budget.
 const EXEMPT = [/src\/app\/i18n(\.de)?\.ts$/];
 
-const files = execSync("git ls-files src", { encoding: "utf8" })
-  .split("\n")
-  .filter(Boolean)
+// Walk src with node's fs (NOT `git ls-files`) — the slim CI image has no git,
+// and this keeps the ratchet runnable anywhere. Paths use forward slashes so the
+// baseline JSON and EXEMPT regexes match on every OS.
+const files = readdirSync("src", { recursive: true, encoding: "utf8" })
+  .map((f) => `src/${f}`.replace(/\\/g, "/"))
   .filter((f) => /\.tsx?$/.test(f))
   .filter((f) => !/\.test\.|\.property\./.test(f))
   .filter((f) => !EXEMPT.some((re) => re.test(f)));
