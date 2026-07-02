@@ -2147,6 +2147,16 @@ export const de: Record<TranslationKey, string> = {
     "Outlook-Kalender aktualisiert: {0} erstellt, {1} aktualisiert, {2} entfernt.",
   calendarPushPartial: "{0} Termin(e) konnten nicht synchronisiert werden.",
   calendarPushNoAccess: "Zugriff auf den Outlook-Kalender wurde nicht erteilt.",
+  calendarPull: "Aus Outlook abrufen",
+  calendarPulling: "Wird abgerufen…",
+  calendarPullSummaryTitle: "Outlook-Kalenderänderungen",
+  calendarPullApplied: "Termine aktualisiert",
+  calendarPullConflicts: "Konflikte (Termin auswählen)",
+  calendarPullDeletions: "In Outlook entfernt",
+  calendarPullKeepApp: "App-Termin behalten",
+  calendarPullTakeOutlook: "Outlook-Termin übernehmen",
+  calendarPullInSync: "Bereits mit Outlook synchron",
+  calendarPullEventRemoved: "Der Outlook-Termin wurde entfernt",
   settingsOutlookCalendarPush:
     "Meilensteine in meinen Outlook-Kalender übertragen",
   settingsOutlookCalendarPushHint:
