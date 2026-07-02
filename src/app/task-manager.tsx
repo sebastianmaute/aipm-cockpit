@@ -2364,6 +2364,23 @@ function TaskManagerInner() {
 
   const modalsBlock = (
     <>
+      {(() => {
+        const plan = calendarPull.result?.plan;
+        if (!plan) return null;
+        const nameOf = (id: number) => milestones.find((m) => m.id === id)?.name ?? String(id);
+        return (
+          <CalendarPullSummaryModal
+            lang={lang}
+            open={!!calendarPull.result}
+            onClose={calendarPull.clearResult}
+            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
+            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
+            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
+            onKeepApp={calendarPull.keepApp}
+            onTakeOutlook={(c) => calendarPull.applyMove(c.id, c.eventId, c.outlookDate)}
+          />
+        );
+      })()}
       <CommSendPreviewModal
         open={commSend.previewModal.open}
         req={commSend.previewModal.req}
@@ -2571,23 +2588,6 @@ function TaskManagerInner() {
           onShowMe={(step) => tour.showMe(step, setActiveTab)}
         />
       )}
-      {(() => {
-        const plan = calendarPull.result?.plan;
-        if (!plan) return null;
-        const nameOf = (id: number) => milestones.find((m) => m.id === id)?.name ?? String(id);
-        return (
-          <CalendarPullSummaryModal
-            lang={lang}
-            open={!!calendarPull.result}
-            onClose={calendarPull.clearResult}
-            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
-            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
-            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
-            onKeepApp={calendarPull.keepApp}
-            onTakeOutlook={(c) => calendarPull.applyMove(c.id, c.eventId, c.outlookDate)}
-          />
-        );
-      })()}
       {modalsBlock}
     </>
   );
