@@ -6,7 +6,7 @@
 // (e.g. the calendar prop-bag consolidation renames these) — it is NOT a golden
 // fixture. Coarse on purpose: a tripwire, not a spec.
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 // Capture the props task-manager threads into WorkspaceSection. Preserve every
 // other real export (types/re-exports) via importOriginal so the module graph
@@ -33,15 +33,17 @@ function seedRegistry() {
 }
 
 describe("@characterization task-manager → WorkspaceSection prop contract", () => {
-  beforeEach(() => {
+  // Render TaskManager ONCE (it's a heavy mount) and assert against the captured
+  // props in each test — the prop bag is identical across the three groups.
+  beforeAll(async () => {
     window.localStorage.clear();
     captured.props = null;
     seedRegistry();
-  });
-
-  it("threads the calendar push/pull prop keys for every entity (Phase 3: use-calendar-integrations)", async () => {
     render(<TaskManager />);
     await screen.findByTestId("ws-section-mock");
+  });
+
+  it("threads the calendar push/pull prop keys for every entity (Phase 3: use-calendar-integrations)", () => {
     const p = captured.props!;
     for (const key of [
       // milestone (manual)
@@ -70,9 +72,7 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
     }
   });
 
-  it("threads the action-center handler bundles (Phase 3: use-action-center-handlers)", async () => {
-    render(<TaskManager />);
-    await screen.findByTestId("ws-section-mock");
+  it("threads the action-center handler bundles (Phase 3: use-action-center-handlers)", () => {
     const p = captured.props!;
     for (const key of [
       "nextActions",
@@ -91,9 +91,7 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
     }
   });
 
-  it("threads the AI orchestration + activity props (Phase 3: use-ai-orchestration)", async () => {
-    render(<TaskManager />);
-    await screen.findByTestId("ws-section-mock");
+  it("threads the AI orchestration + activity props (Phase 3: use-ai-orchestration)", () => {
     const p = captured.props!;
     for (const key of ["dispatcher", "aiAnalysis", "logActivity", "activityLog", "guides"]) {
       expect(p, `missing threaded prop: ${key}`).toHaveProperty(key);
