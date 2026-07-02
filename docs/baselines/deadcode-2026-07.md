@@ -20,11 +20,34 @@ Two detectors, cross-referenced. A finding is **UNAMBIGUOUS** only when both too
 | devDep `tailwindcss` | Tailwind v4 auto-scans all files; not a JS import. Core build dependency. |
 | `workspace-panels.tsx`, `export-ooxml.ts` | Explicitly ignored in `knip.json` — lazy `dynamic()` registry + `await import()` barrel (roadmap Phase 1 do-not-touch). |
 
-## AMBIGUOUS (Phase 2 Task 4 — review before deleting)
+## AMBIGUOUS — RESOLVED in Phase 2 Task 4 (2026-07-02): all false-positive
 
-The remaining ~55 "unused export" hits (color/threshold consts like `BUDGET_OVER_AMBER`, `EVM_INDEX_RED`, `QUADRANT_TARGET`; helper components `FormSection`/`Field`/`inputClass` in `*-form-fields.tsx`; `parseCreds` in `timelog/_helpers.ts`; `saveSchemes`; `isValidDocumentLink`; `isFolder`; `MAX_AI_ACTIONS`; etc.). Each needs the per-item `grep src e2e scripts` + dynamic-import check (Phase 2 Task 4 Step 1) — several are plausibly test-only exports or recently-orphaned consts. NOT touched in Phase 1.
+Every one of the ~55 remaining "unused export" hits was per-item verified with
+`grep -rw <sym> src e2e scripts` + a dynamic-import check. **None is dead code.**
+They fall into three live categories:
 
-Note: `parseCreds` (timelog) is exported for its unit test — likely a test-only export, keep or mark `@public`; decide in Phase 2.
+1. **Used in-module** — the symbol is consumed within its own file, so the `export`
+   keyword is redundant but the code is live. Verified refs: `BUDGET_OVER_AMBER`
+   (budget-health.ts:22), `QUADRANT_TARGET` (stakeholders.ts:53), `isFolder` (5×),
+   `inputClass` (66×), `FormSection`/`Field`/`TaskFormSection`, `saveSchemes` (4×),
+   `isValidDocumentLink`, `compareStrOrNum`, `applyFavicon`, `colDdl`,
+   `migrateWorkspaceV8`, `APP_VERSION` (→ `APP_VERSION_LABEL`), the color/threshold
+   consts (`EVM_INDEX_*`, `COST_PERF_*`, `MARGIN_GREEN_PCT`, `TIER_SOON`,
+   `TREND_LOOKBACK`), the branding/calendar consts, etc.
+2. **Barrel / byte-stable contract exports** — the `storageMod`-tagged codec
+   functions (`*ToCsv`/`*ToMarkdown`), consumed via the `csv-codecs`/`markdown-codecs`
+   barrels and the round-trip tests; knip doesn't trace `export *` re-exports.
+3. **Test-only exports** — e.g. `parseCreds` (timelog), imported by its unit test.
+
+**Decision:** keep all as-is. Removing 60 redundant `export` keywords would be
+low-value churn that risks breaking the barrel/re-export patterns knip can't see,
+for no runtime benefit. No `@public` markers added (they would be noise on 60
+symbols). The codebase carries no ambiguous dead code — consistent with the single
+unambiguous deletion in Phase 1 being the only real find.
+
+Note: knip's export-analysis is unreliable here — it flagged `APP_VERSION` (release
+infrastructure, used by `APP_VERSION_LABEL` in the same file) as unused. Treat future
+knip "unused export" output as a review prompt, not a delete list.
 
 ## Baseline metrics
 - Unused files: **1** (deleted).
