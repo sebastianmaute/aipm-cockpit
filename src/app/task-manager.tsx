@@ -1901,7 +1901,7 @@ function TaskManagerInner() {
   );
 
   // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
-  // built together in useShellChrome so a new top-bar control lands in BOTH.
+  // built together in buildShellChrome so a new top-bar control lands in BOTH.
   const { appHeaderEl, topBarMenus } = buildShellChrome({
     handleCancelEdit,
     setTaskModalOpen,

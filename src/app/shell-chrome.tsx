@@ -1,4 +1,4 @@
-// src/app/use-shell-chrome.tsx
+// src/app/shell-chrome.tsx
 //
 // Builds the two header mounts — the classic `AppHeader` element (`appHeaderEl`)
 // and the modern TopBar's trailing `topBarMenus` slot — from ONE input set, so
