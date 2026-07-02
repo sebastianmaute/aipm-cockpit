@@ -54,3 +54,45 @@ everything that had a real seam; what remains is the orchestrator by definition.
 Phase 4 note: if the root is revisited, the higher-leverage move is reducing the
 number of top-level hooks/effects (consolidating related state), not slicing the
 render tree. Do not re-open this as a line-count task.
+
+## Phase 3 Tasks 6–11 — outcomes + scope decisions
+
+Tasks 6–11 (panel splits, prop-bag + toolbar dedup, persistence guard, proxy
+security) all landed move-only behind the characterization net. Notable outcomes
+and deliberate deviations from the plan sketch:
+
+| Task | Outcome |
+|---|---|
+| T6 | `workspace-section.tsx` 1009→849; tab-strip chrome → `workspace-section-chrome.tsx`. |
+| T7 | `raid-panel.tsx` 905→517; toolbar → `raid-panel-toolbar.tsx`, table → `raid-panel-rows.tsx`, cols → `raid-panel-columns.ts` (gantt pattern). |
+| T8 | 18 flat calendar props (raid/change/absence) → 3 `EntityCalendarProps` bags on the pane contract; milestone stays flat (manual-only). Consolidated at the WorkspaceSectionProps boundary — panes keep their uniform flat interface, so leaf panes + their tests were untouched. |
+| T9 | Shared `CalendarSyncControls` replaces the calendar toggle/push/pull block duplicated verbatim in the RAID/Change/Absence toolbars. |
+| T10 | `entity-persistence-registry.test.ts` guards `outlookEventId` across CSV+MD (+Turso via CSV cols) for all 5 calendar-synced entities. |
+| T11 | Byte-identical SSRF classifier (`isPrivateHost`/`mappedIpv4ToDotted`) → `api/_shared/proxy-ssrf.ts`, shared by jira+timelog. |
+
+**Deliberate scope calls (YAGNI / risk-over-reward):**
+- **T10 `makeEntityCrudHandlers` factory — NOT done.** The save/delete handlers
+  the plan assumed were an inline task-manager cluster already live in cohesive
+  per-entity hooks (`useResourcePlanner` / `useChangeLog` / `useStakeholders`).
+  Forcing them through a uniform factory would add risk without cohesion; each
+  hook already encapsulates its entity's divergent behavior. The high-value half
+  (the persistence-registry guard test) was done.
+- **T11 full `ProxyConfig` factory — NOT done.** Only the byte-identical SSRF
+  primitives were shared. The provider-specific normalize/auth/URL chains
+  (Atlassian full-URL vs Timelog host+tenant, Basic vs Bearer, path allowlist)
+  genuinely diverge; parameterizing divergent *security* guards into one factory
+  adds config surface where a mistake silently weakens a guard. The route tests
+  (jira 21 + timelog 18 SSRF cases) pinned behavior across the change.
+
+**dup:check gate NOT met (documented, not a defect).** Exit target was ≤50% of
+the Phase 1 baseline (3.065% → ≤1.53%). That is a *repo-wide* halving of all
+clones, not something the toolbar/prop dedup in this phase can deliver. T8+T9
+moved the needle 2.85%→2.82% (3 calendar-block copies → 1 component). Remaining
+duplication is spread across edit-modals and unrelated panels; a repo-wide dedup
+is its own future effort, not a Phase 3 line item.
+
+**task-manager characterization pins retained.** The plan's Task 5 optionally
+replaced the characterization pins with per-hook unit tests; the pins were kept
+(and updated for the Task 8 bag rename) — they are a cheap, coarse routing/prop
+tripwire that still adds value, and deleting them to add narrower tests is churn
+without benefit here.

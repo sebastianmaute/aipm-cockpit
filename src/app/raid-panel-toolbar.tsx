@@ -10,6 +10,7 @@ import { PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manag
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { PanelViewsControl } from "./panel-views-control";
 import { ColumnConfigPopover } from "./column-config-popover";
+import { CalendarSyncControls } from "./calendar-sync-controls";
 import { RAID_CONFIG_COLS, type RaidCol } from "./raid-panel-columns";
 
 export interface RaidToolbarProps {
@@ -147,44 +148,18 @@ export function RaidToolbar({
       )}
       <ColumnConfigPopover lang={lang} cols={RAID_CONFIG_COLS} hidden={hiddenSet} onToggle={onToggleColumn} />
       <PanelViewsControl lang={lang} view="raid" onApply={() => { if (filterTaskId !== null) onClearTaskFilter?.(); }} />
-      {m365Configured && !isPopout && onToggleCalendar && (
-        <>
-          <label className="flex items-center gap-1.5 text-xs text-foreground">
-            <input
-              type="checkbox"
-              checked={!!calendarEnabled}
-              onChange={(e) => onToggleCalendar(e.target.checked)}
-              aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, "calendarSyncEntityRaid")}`}
-              className={`h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-            />
-            {t(lang, "calendarSyncEnable")}
-          </label>
-          {calendarEnabled && onPushCalendar && (
-            <button
-              type="button"
-              onClick={onPushCalendar}
-              disabled={calendarPushBusy}
-              aria-label={t(lang, "calendarPush")}
-              title={t(lang, "calendarPush")}
-              className={`rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-            >
-              {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
-            </button>
-          )}
-          {calendarEnabled && onPullCalendar && (
-            <button
-              type="button"
-              onClick={onPullCalendar}
-              disabled={calendarPullBusy}
-              aria-label={t(lang, "calendarPull")}
-              title={t(lang, "calendarPull")}
-              className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-            >
-              {calendarPullBusy ? t(lang, "calendarPulling") : t(lang, "calendarPull")}
-            </button>
-          )}
-        </>
-      )}
+      <CalendarSyncControls
+        lang={lang}
+        entityLabelKey="calendarSyncEntityRaid"
+        m365Configured={m365Configured}
+        isPopout={isPopout}
+        calendarEnabled={calendarEnabled}
+        onToggleCalendar={onToggleCalendar}
+        onPushCalendar={onPushCalendar}
+        calendarPushBusy={calendarPushBusy}
+        onPullCalendar={onPullCalendar}
+        calendarPullBusy={calendarPullBusy}
+      />
       <PrintButton lang={lang} />
       <ResetColWidthsButton onClick={onResetColWidths} lang={lang} />
       <ResetSizeButton onClick={onResetSize} lang={lang} />
