@@ -19,9 +19,11 @@ vi.mock("./outlook-calendar-read", () => ({
 }));
 
 const writeBaselineDate = vi.fn();
+const removeBaselineEntry = vi.fn();
 vi.mock("./calendar-sync-baseline", () => ({
   loadBaseline: () => ({}),
   writeBaselineDate: (...a: unknown[]) => writeBaselineDate(...a),
+  removeBaselineEntry: (...a: unknown[]) => removeBaselineEntry(...a),
 }));
 
 import { useMilestoneCalendarPull } from "./use-milestone-calendar-pull";
@@ -70,5 +72,26 @@ describe("useMilestoneCalendarPull keepApp (converge Outlook to app date)", () =
     expect(updateEvent).not.toHaveBeenCalled();
     expect(writeBaselineDate).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+  });
+});
+
+describe("useMilestoneCalendarPull pull (prune stale link on deletion)", () => {
+  it("clears outlookEventId and removes the baseline entry for a definitively-gone event, still opening the modal", async () => {
+    // Event "evt" is NOT among the fetched events -> a definitive deletion.
+    fetchProjectEventDates.mockResolvedValueOnce([]);
+    const { result } = renderPull([ms(1, { outlookEventId: "evt", date: "2026-07-01" })]);
+    await act(async () => {
+      await result.current.pull();
+    });
+    // The stale baseline entry is pruned.
+    expect(removeBaselineEntry).toHaveBeenCalledWith("p", "milestone", "evt");
+    // The milestone's outlookEventId is cleared via the functional setter.
+    expect(setMilestones).toHaveBeenCalled();
+    const updater = setMilestones.mock.calls.at(-1)![0] as (prev: Milestone[]) => Milestone[];
+    const next = updater([ms(1, { outlookEventId: "evt", date: "2026-07-01" })]);
+    expect(next[0].outlookEventId).toBeUndefined();
+    // The modal still opens (plan.deletions is non-empty).
+    expect(result.current.result).not.toBeNull();
+    expect(result.current.result!.plan.deletions).toHaveLength(1);
   });
 });

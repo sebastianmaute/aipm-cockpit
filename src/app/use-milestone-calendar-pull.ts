@@ -6,7 +6,7 @@ import { t, type Lang } from "./i18n";
 import { CALENDAR_READWRITE_SCOPE, updateEvent, milestoneToGraphEvent } from "./outlook-calendar-write";
 import { fetchProjectEventDates } from "./outlook-calendar-read";
 import { planCalendarPull, type PullPlan } from "./calendar-pull";
-import { loadBaseline, writeBaselineDate } from "./calendar-sync-baseline";
+import { loadBaseline, writeBaselineDate, removeBaselineEntry } from "./calendar-sync-baseline";
 import type { Milestone } from "./types";
 
 interface Args {
@@ -72,6 +72,13 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
           }
         }
       }
+      // Prune the stale link for events that are definitively gone in Outlook, so
+      // they stop re-appearing in the "removed" list every pull (deletions are
+      // definitive — missing/cancelled — since the engine skips transient reads).
+      for (const d of plan.deletions) {
+        setMilestones((prev) => prev.map((m) => (m.id === d.id ? { ...m, outlookEventId: undefined } : m)));
+        removeBaselineEntry(projectId, "milestone", d.eventId);
+      }
       const hasRows = plan.applies.length + plan.conflicts.length + plan.deletions.length > 0;
       if (hasRows) setResult({ plan });
       else showToast("info", t(lang, "calendarPullInSync"));
@@ -80,7 +87,7 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
     } finally {
       setBusy(false);
     }
-  }, [isPopout, enabled, acquireToken, showToast, lang, milestones, projectId, applyMove]);
+  }, [isPopout, enabled, acquireToken, showToast, lang, milestones, projectId, applyMove, setMilestones]);
 
   return { pull, busy, result, clearResult: useCallback(() => setResult(null), []), keepApp, applyMove };
 }
