@@ -27,21 +27,13 @@ import { useHolidaySet } from "./use-holiday-set";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useCommTemplates } from "./use-comm-templates";
 import { useOperatingGuides } from "./use-operating-guides";
-import { renderTemplate, buildStakeholderUpdateVars } from "./comm-templates";
-import { htmlToPlainText } from "./html-to-text";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Milestone } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from "./types";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
-import { applyOwnerAssignment } from "./action-assign-owner";
-import { planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
-import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
-import type { RebaselineBundle } from "./rebaseline-popover";
-import type { RescheduleBundle } from "./reschedule-popover";
-import { applyStatusChange } from "./task-status";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -67,6 +59,7 @@ import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { useCalendarIntegrations } from "./use-calendar-integrations";
+import { useActionCenterHandlers } from "./use-action-center-handlers";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -93,8 +86,6 @@ import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
-import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
-import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
 import { useActionLearning } from "./use-action-learning";
@@ -103,9 +94,7 @@ import { VoiceCommandProvider } from "./voice-command-context";
 import { AiUsageProvider } from "./ai-usage-context";
 import { useMsAuth } from "./use-ms-auth";
 import { useCommSend } from "./use-comm-send";
-import { plainTextToHtml } from "./comm-send";
 import { CommSendPreviewModal } from "./comm-send-preview-modal";
-import { sanitizeTemplateHtml } from "./sanitize-html";
 import { SidebarFooter } from "./sidebar-footer";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
 import { useOutlookContacts } from "./use-outlook-contacts";
@@ -148,8 +137,6 @@ import { useScheduledJobRunner } from "./use-scheduled-job-runner";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends, summarizeTrendsForPrompt } from "./next-actions/trends";
-import { buildTaskSeedFromAction } from "./action-task-seed";
-import { emptyForm } from "./task-form-context";
 import { todayInZone, resolveTimezone } from "./timezone";
 import { DisplayTimezoneProvider, useDisplayTimezone } from "./display-timezone-context";
 import { DisplayTzSwitcher } from "./display-tz-switcher";
@@ -1188,69 +1175,6 @@ function TaskManagerInner() {
     pendingLinkRaidIdRef,
   });
 
-  const assignOwnerBundle = useMemo(
-    () =>
-      isPopout
-        ? undefined
-        : {
-            resources,
-            onCreateResource: handleCreateResource,
-            onAssign: (
-              action: SuggestedAction,
-              v: { name: string; email: string; resourceId: number | null },
-            ) => {
-              if (action.cta.kind !== "open") return;
-              const id = Number(action.cta.id);
-              if (action.cta.view === "open-points") {
-                setTasks((prev) => prev.map((tk) =>
-                  tk.id === id
-                    ? { ...tk, assignee: v.name, assigneeEmail: v.email, resourceId: v.resourceId ?? undefined }
-                    : tk));
-                void recordLearning(action, "acted");
-                showToast("info", t(lang, "actionOwnerAssigned", id));
-                return;
-              }
-              const next = applyOwnerAssignment(raid, id, v);
-              if (next === raid) return; // no matching item → no write, no toast
-              setRaid(next as RaidItem[]);
-              void recordLearning(action, "acted");
-              showToast("info", t(lang, "actionOwnerAssigned", id));
-            },
-          },
-    [isPopout, resources, handleCreateResource, raid, setRaid, setTasks, showToast, lang, recordLearning],
-  );
-
-  const handleCreateTaskFromAction = useCallback(
-    (action: SuggestedAction) => {
-      void recordLearning(action, "acted");
-      handleCancelEdit(); // reset editor (clears editingId, form, and the pending ref)
-      const seed = buildTaskSeedFromAction(action, lang);
-      setForm(() => ({ ...emptyForm(), taskName: seed.taskName, notes: seed.notes }));
-      pendingLinkRaidIdRef.current =
-        action.source === "raid" && action.cta.kind === "open"
-          ? Number(action.cta.id)
-          : null;
-      setTaskModalOpen(true);
-    },
-    [handleCancelEdit, lang, setForm, setTaskModalOpen, pendingLinkRaidIdRef, recordLearning],
-  );
-
-  const handleMarkDoneFromAction = useCallback((action: SuggestedAction) => {
-    if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
-    const id = Number(action.cta.id);
-    setTasks((prev) => prev.map((tk) => (tk.id === id ? applyStatusChange(tk, "Done", today) : tk)));
-    void recordLearning(action, "acted");
-    showToast("info", t(lang, "actionTaskCompleted"));
-  }, [setTasks, today, recordLearning, showToast, lang]);
-
-  const handleClearBlockerFromAction = useCallback((action: SuggestedAction) => {
-    if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
-    const id = Number(action.cta.id);
-    setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, blockers: "" } : tk)));
-    void recordLearning(action, "acted");
-    showToast("info", t(lang, "actionBlockerCleared"));
-  }, [setTasks, recordLearning, showToast, lang]);
-
   // Deep-link: when a suggested-action chip requests opening a task, open its
   // edit modal once and clear the pending signal so it does not re-fire.
   useEffect(() => {
@@ -1301,123 +1225,45 @@ function TaskManagerInner() {
     sendCommTemplate: commSend.send,
   });
 
-  const handleDraftMessageFromAction = useCallback(
-    (action: SuggestedAction) => {
-      const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
-      if (action.source === "task-due") {
-        const task = tasks.find((t) => t.id === id);
-        if (task) { onSendInquiry(task); void recordLearning(action, "acted"); }
-        return;
-      }
-      if (action.source === "stakeholder-comms") {
-        const sh = stakeholders.find((s) => s.id === id);
-        if (!sh) return;
-        const email = resolveDraftRecipient(
-          sh,
-          resources,
-          () => window.prompt(t(lang, "promptEmail", sh.name), ""),
-          isValidEmail,
-          () => window.alert(t(lang, "errorInvalidEmail")),
-        );
-        if (!email) return;
-        const subject = t(lang, "commsEmailSubject", project?.name ?? "");
-        const tplBody = resolveCommBody("stakeholder-update");
-        const body = tplBody != null
-          ? htmlToPlainText(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
-          : t(lang, "commsEmailBodyTemplate", sh.name);
-        const html = tplBody != null
-          ? sanitizeTemplateHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
-          : plainTextToHtml(body);
-        commSend.send({ to: email, subject, html, plain: body });
-        void recordLearning(action, "acted");
-      }
-    },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning],
-  );
-
-  const handleEscalate = useCallback(
-    (
-      action: SuggestedAction,
-      recipient: { name: string; email: string; resourceId: number | null },
-    ) => {
-      if (action.cta.kind !== "open") return;
-      const id = Number(action.cta.id);
-      const item = raid.find((r) => r.id === id);
-      if (!item) return; // deleted-source safe
-      if (!isValidEmail(recipient.email)) { window.alert(t(lang, "errorInvalidEmail")); return; }
-      const plan = planEscalation(item);
-      if (plan.to) {
-        const next = applyEscalation(raid, id, plan.to);
-        if (next !== raid) setRaid(next as RaidItem[]);
-      }
-      const { subject, body } = buildEscalationMail(lang, item, plan, project?.name ?? "");
-      window.location.href = buildMailtoUrl(recipient.email, subject, body);
-      void recordLearning(action, "acted");
-    },
-    [raid, setRaid, lang, project, recordLearning],
-  );
-
-  const escalateBundle = useMemo(
-    () =>
-      isPopout
-        ? undefined
-        : {
-            resources,
-            onCreateResource: handleCreateResource,
-            raid,
-            onEscalate: handleEscalate,
-          },
-    [isPopout, resources, handleCreateResource, raid, handleEscalate],
-  );
-
-  const handleRebaselineMilestone = useCallback(
-    (action: SuggestedAction, id: number, newDate: string) => {
-      if (!isValidIsoDate(newDate)) { window.alert(t(lang, "errorInvalidDate")); return; }
-      const next = applyMilestoneRebaseline(milestones, id, newDate);
-      if (next !== milestones) {
-        setMilestones(next as Milestone[]);
-        void recordLearning(action, "acted");
-      }
-    },
-    [milestones, setMilestones, lang, recordLearning],
-  );
-
-  const snapshotsRebaselineNow = snapshots.rebaselineNow;
-  const handleRebaselineSnapshot = useCallback((action: SuggestedAction) => {
-    void recordLearning(action, "acted");
-    void snapshotsRebaselineNow();
-  }, [snapshotsRebaselineNow, recordLearning]);
-
-  const rebaselineBundle = useMemo<RebaselineBundle | undefined>(
-    () =>
-      isPopout
-        ? undefined
-        : {
-            milestones,
-            tasks,
-            onRebaselineMilestone: handleRebaselineMilestone,
-            snapshotActive: trendsActive,
-            onRebaselineSnapshot: handleRebaselineSnapshot,
-            busy: snapshots.busy,
-          },
-    [isPopout, milestones, tasks, handleRebaselineMilestone, handleRebaselineSnapshot, trendsActive, snapshots.busy],
-  );
-
-  const rescheduleBundle = useMemo<RescheduleBundle | undefined>(
-    () =>
-      isPopout
-        ? undefined
-        : {
-            onReschedule: (action: SuggestedAction, isoDate: string) => {
-              if (action.cta.kind !== "open" || action.cta.view !== "open-points" || !isValidIsoDate(isoDate)) return;
-              const id = Number(action.cta.id);
-              setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, dueDate: isoDate } : tk)));
-              void recordLearning(action, "acted");
-              showToast("info", t(lang, "actionRescheduled"));
-            },
-          },
-    [isPopout, setTasks, recordLearning, showToast, lang],
-  );
+  // Action-Center CTA handlers (assign / create-task / mark-done / clear-blocker
+  // / draft-message / escalate / rebaseline / reschedule) extracted to
+  // useActionCenterHandlers. Called AFTER useTaskRowHandlers because
+  // draft-message reads onSendInquiry. Same names as the former inline defs.
+  const {
+    assignOwnerBundle,
+    handleCreateTaskFromAction,
+    handleMarkDoneFromAction,
+    handleClearBlockerFromAction,
+    handleDraftMessageFromAction,
+    escalateBundle,
+    rebaselineBundle,
+    rescheduleBundle,
+  } = useActionCenterHandlers({
+    isPopout,
+    lang,
+    today,
+    resources,
+    tasks,
+    stakeholders,
+    raid,
+    milestones,
+    project,
+    trendsActive,
+    snapshots,
+    commSend,
+    onSendInquiry,
+    resolveCommBody,
+    handleCreateResource,
+    handleCancelEdit,
+    setForm,
+    setTaskModalOpen,
+    setTasks,
+    setRaid,
+    setMilestones,
+    pendingLinkRaidIdRef,
+    recordLearning,
+    showToast,
+  });
 
   // Keep the forwarding ref current after every commit (it's only ever read
   // from event handlers, never during render).
