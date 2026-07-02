@@ -170,6 +170,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightCalendarPull: "Outlook-Terminverschiebungen werden in Meilensteine zurückgespielt",
   versionHighlightCalendarPullTask: "Outlook-Terminverschiebungen werden in Aufgaben zurückgespielt",
   versionHighlightCalendarPullRaidChange: "Outlook-Terminverschiebungen werden in RAID und Änderungen zurückgespielt",
+  versionHighlightCalendarPullAbsence: "Outlook-Terminverschiebungen werden in Abwesenheiten zurückgespielt",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

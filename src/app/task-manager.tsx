@@ -1950,6 +1950,20 @@ function TaskManagerInner() {
     })),
     [setSettings],
   );
+  // Manual "Pull from Outlook" for Absence (two-way SP4) — the only multi-day entity (start+end range).
+  const absencePull = useEntityCalendarPull<Absence>({
+    items: pushableAbsences,
+    entityType: "absence",
+    projectId: calendarProjectId,
+    getDate: (a) => a.startDate,
+    getEndDate: (a) => a.endDate,
+    withDate: (a, start, end) => ({ ...a, startDate: start, endDate: end ?? a.endDate }),
+    toGraphEvent: absenceToGraphEvent,
+    setItems: setAbsenceForCalendar,
+    isPopout,
+    lang,
+    enabled: calendarAbsenceEnabled,
+  });
 
   if (!i18nReady) return null;
 
@@ -1988,6 +2002,8 @@ function TaskManagerInner() {
     onToggleCalendarAbsence,
     pushAbsenceToOutlook,
     calendarAbsencePushBusy,
+    pullAbsenceFromOutlook: calendarAbsenceEnabled ? absencePull.pull : undefined,
+    calendarAbsencePullBusy: calendarAbsenceEnabled ? absencePull.busy : undefined,
     changes,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
@@ -2443,6 +2459,28 @@ function TaskManagerInner() {
             deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
             onKeepApp={changePull.keepApp}
             onTakeOutlook={(c) => changePull.applyMove(c.id, c.eventId, c.outlookDate)}
+          />
+        );
+      })()}
+      {(() => {
+        const plan = absencePull.result?.plan;
+        if (!plan) return null;
+        const nameOf = (id: number) => {
+          const a = pushableAbsences.find((x) => x.id === id);
+          // Include startDate so two same-type absences for the same person get
+          // a row-UNIQUE accessible name in the conflict list (WCAG 2.4.6).
+          return a ? `${a.assignee} (${a.type}) – ${a.startDate}` : String(id);
+        };
+        return (
+          <CalendarPullSummaryModal
+            lang={lang}
+            open={!!absencePull.result}
+            onClose={absencePull.clearResult}
+            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate, newEndDate: a.newEndDate }))}
+            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate, appEndDate: c.appEndDate, outlookEndDate: c.outlookEndDate }))}
+            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
+            onKeepApp={absencePull.keepApp}
+            onTakeOutlook={(c) => absencePull.applyMove(c.id, c.eventId, c.outlookDate, c.outlookEndDate)}
           />
         );
       })()}

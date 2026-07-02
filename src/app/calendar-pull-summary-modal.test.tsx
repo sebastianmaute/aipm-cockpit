@@ -120,3 +120,140 @@ describe("CalendarPullSummaryModal", () => {
     ).toBeNull();
   });
 });
+
+describe("CalendarPullSummaryModal date-range (absence) rows", () => {
+  it("renders an applied range row as 'name → start – end'", () => {
+    render(
+      <CalendarPullSummaryModal
+        lang="en-US"
+        open
+        onClose={vi.fn()}
+        applied={[
+          { id: 1, name: "Holiday", newDate: "2026-08-01", newEndDate: "2026-08-05" },
+        ]}
+        conflicts={[]}
+        deletions={[]}
+        onKeepApp={vi.fn()}
+        onTakeOutlook={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Holiday → 2026-08-01 – 2026-08-05")).toBeTruthy();
+  });
+
+  it("renders an applied single-date row without any end suffix", () => {
+    render(
+      <CalendarPullSummaryModal
+        lang="en-US"
+        open
+        onClose={vi.fn()}
+        applied={[{ id: 1, name: "Kickoff", newDate: "2026-08-01" }]}
+        conflicts={[]}
+        deletions={[]}
+        onKeepApp={vi.fn()}
+        onTakeOutlook={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Kickoff → 2026-08-01")).toBeTruthy();
+  });
+
+  it("Take Outlook on a range conflict fires onTakeOutlook WITH outlookEndDate", () => {
+    const onTakeOutlook = vi.fn();
+    render(
+      <CalendarPullSummaryModal
+        lang="en-US"
+        open
+        onClose={vi.fn()}
+        applied={[]}
+        conflicts={[
+          {
+            id: 7,
+            eventId: "evt-7",
+            name: "Sabbatical",
+            appDate: "2026-09-01",
+            appEndDate: "2026-09-10",
+            outlookDate: "2026-09-02",
+            outlookEndDate: "2026-09-12",
+          },
+        ]}
+        deletions={[]}
+        onKeepApp={vi.fn()}
+        onTakeOutlook={onTakeOutlook}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "calendarPullTakeOutlook")} – Sabbatical`,
+      }),
+    );
+    expect(onTakeOutlook).toHaveBeenCalledWith({
+      id: 7,
+      eventId: "evt-7",
+      outlookDate: "2026-09-02",
+      outlookEndDate: "2026-09-12",
+    });
+  });
+
+  it("Keep app on a range conflict fires onKeepApp WITH appEndDate", () => {
+    const onKeepApp = vi.fn();
+    render(
+      <CalendarPullSummaryModal
+        lang="en-US"
+        open
+        onClose={vi.fn()}
+        applied={[]}
+        conflicts={[
+          {
+            id: 7,
+            eventId: "evt-7",
+            name: "Sabbatical",
+            appDate: "2026-09-01",
+            appEndDate: "2026-09-10",
+            outlookDate: "2026-09-02",
+            outlookEndDate: "2026-09-12",
+          },
+        ]}
+        deletions={[]}
+        onKeepApp={onKeepApp}
+        onTakeOutlook={vi.fn()}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "calendarPullKeepApp")} – Sabbatical`,
+      }),
+    );
+    expect(onKeepApp).toHaveBeenCalledWith({
+      id: 7,
+      eventId: "evt-7",
+      appDate: "2026-09-01",
+      appEndDate: "2026-09-10",
+    });
+  });
+
+  it("renders both range endpoints on a conflict row", () => {
+    render(
+      <CalendarPullSummaryModal
+        lang="en-US"
+        open
+        onClose={vi.fn()}
+        applied={[]}
+        conflicts={[
+          {
+            id: 7,
+            eventId: "evt-7",
+            name: "Sabbatical",
+            appDate: "2026-09-01",
+            appEndDate: "2026-09-10",
+            outlookDate: "2026-09-02",
+            outlookEndDate: "2026-09-12",
+          },
+        ]}
+        deletions={[]}
+        onKeepApp={vi.fn()}
+        onTakeOutlook={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/2026-09-01 – 2026-09-10/)).toBeTruthy();
+    expect(screen.getByText(/2026-09-02 – 2026-09-12/)).toBeTruthy();
+  });
+});

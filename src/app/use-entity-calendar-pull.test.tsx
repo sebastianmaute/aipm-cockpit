@@ -110,3 +110,76 @@ describe("useEntityCalendarPull keepApp (converge Outlook to app date)", () => {
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 });
+
+interface FakeRangeItem {
+  id: number;
+  outlookEventId?: string;
+  d?: string;
+  end?: string;
+}
+
+const renderRangePull = (items: FakeRangeItem[]) =>
+  renderHook(() =>
+    useEntityCalendarPull<FakeRangeItem>({
+      items,
+      entityType: "absence",
+      projectId: "p",
+      getDate: (x) => x.d,
+      getEndDate: (x) => x.end,
+      withDate: (x, date, endDate) => ({ ...x, d: date, end: endDate ?? x.end }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      toGraphEvent: (x) => ({ subject: String(x.id) } as any),
+      setItems,
+      isPopout: false,
+      lang: "en-US",
+      enabled: true,
+    }));
+
+describe("useEntityCalendarPull date-range (absence) entities", () => {
+  it("applies a moved range event: setItems sets BOTH dates, baseline = 'start|end'", async () => {
+    fetchProjectEventDates.mockResolvedValueOnce([
+      { id: "evt", date: "2026-07-10", endDate: "2026-07-14" },
+    ]);
+    loadBaseline.mockReturnValue({ evt: "2026-07-01|2026-07-05" });
+    const { result } = renderRangePull([
+      { id: 1, outlookEventId: "evt", d: "2026-07-01", end: "2026-07-05" },
+    ]);
+    await act(async () => {
+      await result.current.pull();
+    });
+    expect(setItems).toHaveBeenCalledTimes(1);
+    // the setItems updater applies withDate with BOTH dates
+    const updater = setItems.mock.calls[0][0] as (prev: FakeRangeItem[]) => FakeRangeItem[];
+    const next = updater([
+      { id: 1, outlookEventId: "evt", d: "2026-07-01", end: "2026-07-05" },
+    ]);
+    expect(next[0]).toMatchObject({ d: "2026-07-10", end: "2026-07-14" });
+    expect(writeBaselineDate).toHaveBeenCalledWith(
+      "p",
+      "absence",
+      "evt",
+      "2026-07-10|2026-07-14",
+    );
+  });
+
+  it("keepApp with appEndDate writes baseline 'start|end' after updateEvent resolves", async () => {
+    const { result } = renderRangePull([
+      { id: 1, outlookEventId: "evt", d: "2026-07-01", end: "2026-07-05" },
+    ]);
+    await act(async () => {
+      await result.current.keepApp({
+        id: 1,
+        eventId: "evt",
+        appDate: "2026-07-01",
+        appEndDate: "2026-07-05",
+      });
+    });
+    expect(updateEvent).toHaveBeenCalledTimes(1);
+    expect(writeBaselineDate).toHaveBeenCalledWith(
+      "p",
+      "absence",
+      "evt",
+      "2026-07-01|2026-07-05",
+    );
+  });
+});

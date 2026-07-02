@@ -7,18 +7,20 @@
 export interface PulledEvent {
   id: string;
   date: string | null; // all-day start as YYYY-MM-DD; null if missing/malformed
+  endDate: string | null; // INCLUSIVE all-day end as YYYY-MM-DD (exclusive-end - 1 day); null if missing/malformed
   isCancelled: boolean;
 }
 
 export interface PullEntity {
   id: number;
-  date: string; // current entity anchor date, YYYY-MM-DD
+  date: string; // current entity anchor date (or range start), YYYY-MM-DD
+  endDate?: string; // present only for range entities (absences); inclusive range end
   outlookEventId?: string;
 }
 
 export interface PullPlan {
-  applies: { id: number; eventId: string; newDate: string }[];
-  conflicts: { id: number; eventId: string; appDate: string; outlookDate: string }[];
+  applies: { id: number; eventId: string; newDate: string; newEndDate?: string }[];
+  conflicts: { id: number; eventId: string; appDate: string; outlookDate: string; appEndDate?: string; outlookEndDate?: string }[];
   deletions: { id: number; eventId: string }[];
 }
 
@@ -34,15 +36,25 @@ export function planCalendarPull(args: {
     const eventId = ent.outlookEventId;
     if (!eventId) continue;
     const ev = byId.get(eventId);
-    if (!ev || ev.isCancelled || ev.date === null) {
+    const hasEnd = ent.endDate !== undefined;
+    if (!ev || ev.isCancelled || ev.date === null || (hasEnd && ev.endDate === null)) {
       plan.deletions.push({ id: ent.id, eventId });
       continue;
     }
-    if (ev.date === ent.date) continue; // in sync
-    if (baseline[eventId] === ent.date) {
-      plan.applies.push({ id: ent.id, eventId, newDate: ev.date });
+    const startMatch = ev.date === ent.date;
+    const endMatch = !hasEnd || ev.endDate === ent.endDate;
+    if (startMatch && endMatch) continue; // in sync
+    const entKey = hasEnd ? `${ent.date}|${ent.endDate}` : ent.date;
+    if (baseline[eventId] === entKey) {
+      plan.applies.push({ id: ent.id, eventId, newDate: ev.date, ...(hasEnd ? { newEndDate: ev.endDate! } : {}) });
     } else {
-      plan.conflicts.push({ id: ent.id, eventId, appDate: ent.date, outlookDate: ev.date });
+      plan.conflicts.push({
+        id: ent.id,
+        eventId,
+        appDate: ent.date,
+        outlookDate: ev.date,
+        ...(hasEnd ? { appEndDate: ent.endDate, outlookEndDate: ev.endDate! } : {}),
+      });
     }
   }
   return plan;

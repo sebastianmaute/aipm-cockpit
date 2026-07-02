@@ -15,6 +15,7 @@ interface AppliedRow {
   id: number;
   name: string;
   newDate: string;
+  newEndDate?: string; // present only for range entities (absences)
 }
 
 interface ConflictRow {
@@ -23,6 +24,8 @@ interface ConflictRow {
   name: string;
   appDate: string;
   outlookDate: string;
+  appEndDate?: string; // present only for range entities (absences)
+  outlookEndDate?: string;
 }
 
 interface DeletionRow {
@@ -37,11 +40,12 @@ interface CalendarPullSummaryModalProps {
   applied: AppliedRow[];
   conflicts: ConflictRow[];
   deletions: DeletionRow[];
-  onKeepApp: (c: { id: number; eventId: string; appDate: string }) => void;
+  onKeepApp: (c: { id: number; eventId: string; appDate: string; appEndDate?: string }) => void;
   onTakeOutlook: (c: {
     id: number;
     eventId: string;
     outlookDate: string;
+    outlookEndDate?: string;
   }) => void;
 }
 
@@ -87,6 +91,7 @@ export function CalendarPullSummaryModal({
                 {applied.map((a) => (
                   <li key={a.id}>
                     {a.name} → {a.newDate}
+                    {a.newEndDate ? ` – ${a.newEndDate}` : ""}
                   </li>
                 ))}
               </ul>
@@ -108,8 +113,10 @@ export function CalendarPullSummaryModal({
                       {c.name}
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {t(lang, "calendarFrom")}: {c.appDate} · Outlook:{" "}
+                      {t(lang, "calendarFrom")}: {c.appDate}
+                      {c.appEndDate ? ` – ${c.appEndDate}` : ""} · Outlook:{" "}
                       {c.outlookDate}
+                      {c.outlookEndDate ? ` – ${c.outlookEndDate}` : ""}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
@@ -120,6 +127,7 @@ export function CalendarPullSummaryModal({
                             id: c.id,
                             eventId: c.eventId,
                             appDate: c.appDate,
+                            appEndDate: c.appEndDate,
                           })
                         }
                         className={`${BUTTON_CLASS} ${INTERACTIVE}`}
@@ -134,6 +142,7 @@ export function CalendarPullSummaryModal({
                             id: c.id,
                             eventId: c.eventId,
                             outlookDate: c.outlookDate,
+                            outlookEndDate: c.outlookEndDate,
                           })
                         }
                         className={`${BUTTON_CLASS} ${INTERACTIVE}`}

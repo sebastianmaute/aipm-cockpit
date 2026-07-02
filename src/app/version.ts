@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.162.0";
-export const APP_BUILD_DATE = "2026-07-02"; // 0.162.0: RAID + Change two-way Outlook calendar pull — manual "Pull from Outlook" applies Outlook date reschedules onto RAID target dates + change decision dates with app-wins conflicts + deletion notices (Bennett)
+export const APP_VERSION = "0.163.0";
+export const APP_BUILD_DATE = "2026-07-02"; // 0.163.0: Absence two-way Outlook calendar pull (SP4) — manual "Pull from Outlook" applies Outlook reschedules onto the absence start+end RANGE (faithful move AND resize; single-date entities byte-identical) with app-wins conflicts + deletion notices; pull roadmap SP1–SP4 complete (Sapkowski)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.162.x line is "Bennett" (Robert Jackson Bennett). */
-export const APP_MILESTONE = "Bennett";
+ *  0.163.x line is "Sapkowski" (Andrzej Sapkowski). */
+export const APP_MILESTONE = "Sapkowski";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -180,4 +180,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCalendarPull",
   "versionHighlightCalendarPullTask",
   "versionHighlightCalendarPullRaidChange",
+  "versionHighlightCalendarPullAbsence",
 ] as const;

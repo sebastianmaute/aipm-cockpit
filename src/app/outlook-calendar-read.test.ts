@@ -20,10 +20,31 @@ describe("fetchProjectEventDates", () => {
     });
     const out = await fetchProjectEventDates("tok", "proj-1");
     expect(out).toEqual([
-      { id: "e1", date: "2026-04-01", isCancelled: false },
-      { id: "e2", date: "2026-04-05", isCancelled: true },
-      { id: "e3", date: null, isCancelled: false },
+      { id: "e1", date: "2026-04-01", endDate: null, isCancelled: false },
+      { id: "e2", date: "2026-04-05", endDate: null, isCancelled: true },
+      { id: "e3", date: null, endDate: null, isCancelled: false },
     ]);
+  });
+  it("converts an exclusive all-day end back to an inclusive endDate", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (graphGet as any).mockResolvedValueOnce({
+      value: [
+        { id: "e1", start: { dateTime: "2026-04-01T00:00:00.0000000" }, end: { dateTime: "2026-04-02T00:00:00.0000000" }, isCancelled: false },
+      ],
+    });
+    const out = await fetchProjectEventDates("tok", "proj-1", "absence");
+    // Graph all-day end is EXCLUSIVE (2026-04-02) => inclusive endDate is the day before.
+    expect(out).toEqual([{ id: "e1", date: "2026-04-01", endDate: "2026-04-01", isCancelled: false }]);
+  });
+  it("selects the event end field in the built URL", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (graphGet as any).mockClear();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (graphGet as any).mockResolvedValueOnce({ value: [] });
+    await fetchProjectEventDates("tok", "proj-1");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const url = (graphGet as any).mock.calls[0][1] as string;
+    expect(url).toContain("$select=id,start,end,isCancelled");
   });
   it("follows @odata.nextLink paging", async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

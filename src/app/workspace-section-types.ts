@@ -196,6 +196,8 @@ export interface WorkspaceSectionProps {
   onToggleCalendarAbsence?: (enabled: boolean) => void;
   pushAbsenceToOutlook?: () => void;
   calendarAbsencePushBusy?: boolean;
+  pullAbsenceFromOutlook?: () => void;
+  calendarAbsencePullBusy?: boolean;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
 }

@@ -13,7 +13,8 @@ interface Args<T extends { id: number; outlookEventId?: string }> {
   entityType: string;
   projectId: string;
   getDate: (item: T) => string | undefined;
-  withDate: (item: T, date: string) => T;
+  getEndDate?: (item: T) => string | undefined;
+  withDate: (item: T, date: string, endDate?: string) => T;
   toGraphEvent: (item: T, projectId: string) => GraphEvent;
   setItems: (updater: (prev: T[]) => T[]) => void;
   isPullable?: (item: T) => boolean;
@@ -30,19 +31,19 @@ interface Args<T extends { id: number; outlookEventId?: string }> {
  * Jira-synced tasks whose dates Jira owns). Popouts are read-only.
  */
 export function useEntityCalendarPull<T extends { id: number; outlookEventId?: string }>(
-  { items, entityType, projectId, getDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled }: Args<T>,
+  { items, entityType, projectId, getDate, getEndDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled }: Args<T>,
 ) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ plan: PullPlan } | null>(null);
 
-  const applyMove = useCallback((id: number, eventId: string, newDate: string) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? withDate(i, newDate) : i)));
-    writeBaselineDate(projectId, entityType, eventId, newDate);
+  const applyMove = useCallback((id: number, eventId: string, newDate: string, newEndDate?: string) => {
+    setItems((prev) => prev.map((i) => (i.id === id ? withDate(i, newDate, newEndDate) : i)));
+    writeBaselineDate(projectId, entityType, eventId, newEndDate !== undefined ? `${newDate}|${newEndDate}` : newDate);
   }, [setItems, withDate, projectId, entityType]);
 
-  const keepApp = useCallback(async (c: { id: number; eventId: string; appDate: string }) => {
+  const keepApp = useCallback(async (c: { id: number; eventId: string; appDate: string; appEndDate?: string }) => {
     // App-wins: converge Outlook to the entity's (kept) date so baseline===appDate
     // becomes GENUINELY true. Just refreshing the baseline would make the next pull
     // see baseline===date and silently auto-apply the Outlook date the user rejected.
@@ -52,7 +53,7 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
     if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
     try {
       await updateEvent(token, c.eventId, toGraphEvent(item, projectId));
-      writeBaselineDate(projectId, entityType, c.eventId, c.appDate);
+      writeBaselineDate(projectId, entityType, c.eventId, c.appEndDate !== undefined ? `${c.appDate}|${c.appEndDate}` : c.appDate);
       showToast("info", t(lang, "calendarPushResult", 0, 1, 0));
     } catch {
       // Do NOT write baseline on failure — leave it non-matching so it re-conflicts
@@ -71,18 +72,21 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
       const baseline = loadBaseline(projectId, entityType);
       const pullable = isPullable ? items.filter(isPullable) : items;
       const entities = pullable
-        .map((i) => ({ id: i.id, date: getDate(i) ?? "", outlookEventId: i.outlookEventId }))
+        .map((i) => ({ id: i.id, date: getDate(i) ?? "", endDate: getEndDate?.(i), outlookEventId: i.outlookEventId }))
         .filter((e) => e.date);
       const plan = planCalendarPull({ entities, events, baseline });
       // auto-apply non-conflicting moves
-      for (const a of plan.applies) applyMove(a.id, a.eventId, a.newDate);
+      for (const a of plan.applies) applyMove(a.id, a.eventId, a.newDate, a.newEndDate);
       // self-heal baseline for events already in sync but missing a baseline
       for (const i of pullable) {
         if (i.outlookEventId) {
           const ev = events.find((e) => e.id === i.outlookEventId);
           const d = getDate(i);
-          if (ev && d && ev.date === d && baseline[i.outlookEventId] !== d) {
-            writeBaselineDate(projectId, entityType, i.outlookEventId, d);
+          const end = getEndDate?.(i);
+          const inSync = ev && d && ev.date === d && (end === undefined || ev.endDate === end);
+          const entKey = end !== undefined ? `${d}|${end}` : d;
+          if (inSync && baseline[i.outlookEventId] !== entKey) {
+            writeBaselineDate(projectId, entityType, i.outlookEventId, entKey!);
           }
         }
       }
@@ -94,7 +98,7 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
     } finally {
       setBusy(false);
     }
-  }, [isPopout, enabled, acquireToken, showToast, lang, items, projectId, entityType, getDate, isPullable, applyMove]);
+  }, [isPopout, enabled, acquireToken, showToast, lang, items, projectId, entityType, getDate, getEndDate, isPullable, applyMove]);
 
   return { pull, busy, result, clearResult: useCallback(() => setResult(null), []), keepApp, applyMove };
 }
