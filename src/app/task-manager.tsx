@@ -66,6 +66,8 @@ import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
 import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
+import { useMilestoneCalendarPull } from "./use-milestone-calendar-pull";
+import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
 import { calendarSyncFor } from "./calendar-sync-config";
@@ -1748,6 +1750,14 @@ function TaskManagerInner() {
   });
   const calendarPushToOutlook = calendarPush.pushToOutlook;
   const calendarPushBusy = calendarPush.busy;
+  const calendarPull = useMilestoneCalendarPull({
+    milestones,
+    projectId: calendarProjectId,
+    setMilestones: setMilestonesForPush,
+    isPopout,
+    lang,
+    enabled: calendarPushEnabled,
+  });
 
   // Push the steering committee's meetings + info-pack reminders to Outlook.
   // Reuses the SAME M365 enablement gate and stable project id as milestones.
@@ -2050,6 +2060,8 @@ function TaskManagerInner() {
     aiAnalysis: isPopout ? undefined : aiAnalysisBundle,
     onPushMilestonesToOutlook: calendarPushEnabled ? calendarPushToOutlook : undefined,
     calendarPushBusy: calendarPushEnabled ? calendarPushBusy : undefined,
+    onPullMilestonesFromOutlook: calendarPushEnabled ? calendarPull.pull : undefined,
+    calendarPullBusy: calendarPushEnabled ? calendarPull.busy : undefined,
     committeeOutlookPush:
       calendarPushEnabled && !isPopout
         ? { onPush: committeePush.pushToOutlook, busy: committeePush.busy }
@@ -2352,6 +2364,23 @@ function TaskManagerInner() {
 
   const modalsBlock = (
     <>
+      {(() => {
+        const plan = calendarPull.result?.plan;
+        if (!plan) return null;
+        const nameOf = (id: number) => milestones.find((m) => m.id === id)?.name ?? String(id);
+        return (
+          <CalendarPullSummaryModal
+            lang={lang}
+            open={!!calendarPull.result}
+            onClose={calendarPull.clearResult}
+            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
+            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
+            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
+            onKeepApp={calendarPull.keepApp}
+            onTakeOutlook={(c) => calendarPull.applyMove(c.id, c.eventId, c.outlookDate)}
+          />
+        );
+      })()}
       <CommSendPreviewModal
         open={commSend.previewModal.open}
         req={commSend.previewModal.req}

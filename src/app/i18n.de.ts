@@ -167,6 +167,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightCalendarWriteback: "Outlook-Kalender-Rückschreibung: Aufgaben (nach Fälligkeitsdatum) und RAID-Einträge (nach Überprüfungstermin) als ganztägige Termine nach Outlook schreiben – manuell oder automatisch, pro Entität im jeweiligen Bereich und zentral unter Einstellungen → Integrationen umschaltbar",
   versionHighlightCalendarChange: "Änderungsentscheidungen werden an ihren Entscheidungsterminen mit Outlook synchronisiert",
   versionHighlightCalendarAbsence: "Ressourcenabwesenheiten werden als mehrtägige Outlook-Termine synchronisiert",
+  versionHighlightCalendarPull: "Outlook-Terminverschiebungen werden in Meilensteine zurückgespielt",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -2147,6 +2148,16 @@ export const de: Record<TranslationKey, string> = {
     "Outlook-Kalender aktualisiert: {0} erstellt, {1} aktualisiert, {2} entfernt.",
   calendarPushPartial: "{0} Termin(e) konnten nicht synchronisiert werden.",
   calendarPushNoAccess: "Zugriff auf den Outlook-Kalender wurde nicht erteilt.",
+  calendarPull: "Aus Outlook abrufen",
+  calendarPulling: "Wird abgerufen…",
+  calendarPullSummaryTitle: "Outlook-Kalenderänderungen",
+  calendarPullApplied: "Termine aktualisiert",
+  calendarPullConflicts: "Konflikte (Termin auswählen)",
+  calendarPullDeletions: "In Outlook entfernt",
+  calendarPullKeepApp: "App-Termin behalten",
+  calendarPullTakeOutlook: "Outlook-Termin übernehmen",
+  calendarPullInSync: "Bereits mit Outlook synchron",
+  calendarPullEventRemoved: "Der Outlook-Termin wurde entfernt",
   settingsOutlookCalendarPush:
     "Meilensteine in meinen Outlook-Kalender übertragen",
   settingsOutlookCalendarPushHint:

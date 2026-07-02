@@ -211,6 +211,50 @@ describe("MilestonesPanel", () => {
     });
     expect(btn).toBeDisabled();
   });
+
+  it("renders a Pull-from-Outlook button when onPullFromOutlook is provided and calls it on click", () => {
+    const onPullFromOutlook = vi.fn();
+    render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10")]} />
+        <MilestonesPanel
+          {...baseProps}
+          onPullFromOutlook={onPullFromOutlook}
+        />
+      </>,
+      { wrapper },
+    );
+    const btn = screen.getByRole("button", {
+      name: t("en-US", "calendarPull"),
+    });
+    fireEvent.click(btn);
+    expect(onPullFromOutlook).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render a Pull-from-Outlook button when onPullFromOutlook is absent", () => {
+    renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "calendarPull") }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the busy label and disables the Pull-from-Outlook button when calendarPullBusy", () => {
+    render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10")]} />
+        <MilestonesPanel
+          {...baseProps}
+          onPullFromOutlook={vi.fn()}
+          calendarPullBusy
+        />
+      </>,
+      { wrapper },
+    );
+    const btn = screen.getByRole("button", {
+      name: t("en-US", "calendarPulling"),
+    });
+    expect(btn).toBeDisabled();
+  });
 });
 
 describe("Milestones bulk edit", () => {

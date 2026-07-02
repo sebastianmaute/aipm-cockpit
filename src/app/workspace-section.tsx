@@ -181,6 +181,8 @@ export function WorkspaceSection({
   aiAnalysis,
   onPushMilestonesToOutlook,
   calendarPushBusy,
+  onPullMilestonesFromOutlook,
+  calendarPullBusy,
   committeeOutlookPush,
   m365Configured,
   calendarRaidEnabled,
@@ -805,6 +807,8 @@ export function WorkspaceSection({
               onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}
               calendarPushBusy={calendarPushBusy}
+              onPullFromOutlook={onPullMilestonesFromOutlook}
+              calendarPullBusy={calendarPullBusy}
               showHints={settings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

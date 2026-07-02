@@ -170,6 +170,8 @@ export interface WorkspaceSectionProps {
   aiAnalysis?: AiAnalysisBundle;
   onPushMilestonesToOutlook?: () => void;
   calendarPushBusy?: boolean;
+  onPullMilestonesFromOutlook?: () => void;
+  calendarPullBusy?: boolean;
   committeeOutlookPush?: { onPush: () => void; busy: boolean };
   /** M365 configured — gates the RAID calendar toggle/button (hidden otherwise). */
   m365Configured?: boolean;

@@ -79,6 +79,8 @@ type MilestonesPanelProps = {
   onCreateConsumed?: () => void;
   onPushToOutlook?: () => void;
   calendarPushBusy?: boolean;
+  onPullFromOutlook?: () => void;
+  calendarPullBusy?: boolean;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -101,6 +103,8 @@ function MilestonesPanelBody({
   onCreateConsumed,
   onPushToOutlook,
   calendarPushBusy,
+  onPullFromOutlook,
+  calendarPullBusy,
   showHints,
   isPopout,
   onLearnMore,
@@ -273,6 +277,16 @@ function MilestonesPanelBody({
             className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
           >
             {t(lang, calendarPushBusy ? "calendarPushing" : "calendarPush")}
+          </button>
+        ) : null}
+        {onPullFromOutlook ? (
+          <button
+            type="button"
+            onClick={onPullFromOutlook}
+            disabled={calendarPullBusy}
+            className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60 ${INTERACTIVE}`}
+          >
+            {t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
           </button>
         ) : null}
         <input
