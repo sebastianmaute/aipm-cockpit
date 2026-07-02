@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.164.0] - 2026-07-02 "Cixin"
+
+### Added
+- **Opt-in background auto-pull + deletion-semantics (SP5)** — the final slice; **the two-way calendar sync roadmap is now complete**. Each entity's existing **auto-sync** toggle is now **bidirectional**: in addition to auto-pushing changes to Outlook, it runs a **background auto-pull every 15 minutes** (and on tab re-focus) that applies **Outlook date reschedules back into the app** for **tasks, RAID items, changes, and absences**. Safe moves (unchanged since the last agreed baseline) apply **silently**; a move you also changed locally is skipped and surfaced as a single, **de-duplicated** "N calendar conflicts — open Pull to resolve" toast (the summary modal still opens only on a **manual** Pull). Each silent auto-apply is recorded in the **activity log**. **Deletion-semantics**: when an event is **definitively gone** (removed or cancelled in Outlook) the app now **prunes the stale calendar link and its sync baseline** so it stops re-appearing on every pull — and this is **truncation-safe** (an event merely beyond the fetch page-cap is never mistaken for a deletion). Milestones keep manual pull only. Requires Microsoft 365; pop-out windows are read-only.
+
+### Notes
+- Auto-pull reuses the existing per-entity `.auto` flag (no new settings/UI), the generic pull hook (new `background` mode: non-interactive token, no modal, prune, deduped count toast), and the proven scheduled-job-runner pattern for the runner (`use-calendar-auto-pull.ts`, ref-stable, overlap-guarded). A cross-instance in-flight lock keeps a manual and a background pull for the same entity from stacking. **Known behaviour**: with auto-push also enabled, a pruned event whose entity is still pushable is re-created on the next push (matches the existing write-back self-heal); a permanent per-item opt-out is future work. No new persisted `Workspace` field or column, no golden fixtures.
+
 ## [0.163.0] - 2026-07-02 "Sapkowski"
 
 ### Added
