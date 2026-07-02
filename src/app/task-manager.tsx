@@ -60,6 +60,7 @@ import { WorkspaceSection } from "./workspace-section";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { useCalendarIntegrations } from "./use-calendar-integrations";
 import { useActionCenterHandlers } from "./use-action-center-handlers";
+import { useAiOrchestration } from "./use-ai-orchestration";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -78,9 +79,7 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { aiKeyIfEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, isAiEnabled, resolveNextActionsConfig, type Settings } from "./settings-types";
-import { buildSuggestionContext } from "./weight-suggestion-ai";
-import { type SuggestionScope } from "./next-actions-tuning";
+import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type Settings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -130,13 +129,9 @@ import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import { computeNextActions } from "./next-actions";
 import { buildActionInput } from "./next-actions-input";
-import { useActionAnalysis } from "./use-action-analysis";
-import { buildAnalysisContext, buildGroundingIndex, groundEntity, type AiAction } from "./action-ai";
-import { useScheduledJobs } from "./use-scheduled-jobs";
-import { useScheduledJobRunner } from "./use-scheduled-job-runner";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
-import { computeActionTrends, summarizeTrendsForPrompt } from "./next-actions/trends";
+import { computeActionTrends } from "./next-actions/trends";
 import { todayInZone, resolveTimezone } from "./timezone";
 import { DisplayTimezoneProvider, useDisplayTimezone } from "./display-timezone-context";
 import { DisplayTzSwitcher } from "./display-tz-switcher";
@@ -161,7 +156,6 @@ const VERSION_IDLE_MS = 180_000; // 3 minutes
 
 // Cap on the per-kind lines in the SP-C weight-suggestion learning summary,
 // keeping the AI context token-bounded.
-const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
@@ -764,94 +758,27 @@ function TaskManagerInner() {
     setActiveTab("open-points");
   }, [setActiveTab]);
 
-  // Action Center "Analyze with AI": one forced-tool Anthropic call (no agentic
-  // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
-  const actionAnalysis = useActionAnalysis({
-    apiKey: aiKeyIfEnabled(settings.ai),
-    model: settings.ai?.model ?? "claude-sonnet-4-6",
+  // AI advisory orchestration (Action-Center analyze + weight-suggestion
+  // context builder + SP5 scheduled-job runner) extracted to useAiOrchestration.
+  const { aiAnalysisBundle, buildWeightSuggestionContext } = useAiOrchestration({
+    isPopout,
+    settings,
+    lang,
+    today,
+    project,
+    tasks,
+    raid,
+    milestones,
+    changes,
+    stakeholders,
+    nextActions,
+    learning,
+    trendsActive,
+    actionTrends,
+    tursoConfig,
+    requestOpen,
+    requestChat,
   });
-  // Hoisted member reads (exhaustive-deps rejects `obj.member` deps; the hook
-  // returns a fresh object each render so depending on the whole thing defeats
-  // every downstream memo).
-  const aiAnalyze = actionAnalysis.analyze;
-  const groundingIndex = useMemo(
-    () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
-    [tasks, raid, milestones, changes, stakeholders],
-  );
-  // Shared workspace digest builder — used by the Action Center "Analyze with
-  // AI" button AND the SP5 scheduled-job runner (both feed the same SP4 call).
-  const buildAiContext = useCallback(
-    () =>
-      buildAnalysisContext({
-        projectName: project?.name ?? "",
-        today,
-        mode: deriveMode(settings.features),
-        enabledModules: settings.features,
-        taskCount: tasks.length,
-        tasks: tasks.map((x) => ({ id: x.id, title: x.taskName })),
-        raid: raid.map((x) => ({ id: x.id, title: x.title })),
-        milestones: milestones.map((x) => ({ id: x.id, title: x.name })),
-        changes: changes.map((x) => ({ id: x.id, title: x.title })),
-        stakeholders: stakeholders.map((x) => ({ id: x.id, name: x.name })),
-        queue: nextActions.map((a) => ({
-          title: t(lang, a.title.key, ...(a.title.params ?? [])),
-          why: t(lang, a.why.key, ...(a.why.params ?? [])),
-          tier: a.tier,
-        })),
-      }),
-    [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
-  );
-  const runActionAnalysis = useCallback(() => {
-    void aiAnalyze(buildAiContext());
-  }, [aiAnalyze, buildAiContext]);
-  // SP-C: compact, token-bounded context for the AI weight-suggestion call.
-  // The workspace digest is reused from the SP4/SP5 builder; the learning
-  // summary is one line per signal kind (act/snooze/dismiss counts). Trends
-  // are a compact direction summary of the live snapshot trends when active
-  // (Turso); otherwise a "(no snapshots)" sentinel.
-  const learningState = learning.state;
-  const learningEnabled = (settings.nextActionsLearning ?? defaultNextActionsLearning).enabled;
-  const buildWeightSuggestionContext = useCallback(
-    (scope: SuggestionScope) => {
-      const kinds = Object.entries(learningState);
-      const learningSummary = !learningEnabled
-        ? "(learning disabled)"
-        : kinds.length === 0
-          ? "(no history)"
-          : kinds
-              .slice(0, MAX_LEARNING_SUMMARY_ENTRIES)
-              .map(([kind, s]) => `- ${kind}: acted ${s.acted}, snoozed ${s.snoozed}, dismissed ${s.dismissed}`)
-              .join("\n");
-      return buildSuggestionContext({
-        workspaceDigest: buildAiContext(),
-        current: resolveNextActionsConfig(settings.nextActions),
-        scope,
-        learning: learningSummary,
-        trends: trendsActive && actionTrends ? summarizeTrendsForPrompt(actionTrends) : "(no snapshots)",
-        learningEnabled,
-      });
-    },
-    [buildAiContext, settings.nextActions, learningState, learningEnabled, trendsActive, actionTrends],
-  );
-  const onActAi = useCallback(
-    (a: AiAction) => {
-      const g = groundEntity(a.entity, groundingIndex);
-      if (g) requestOpen(g.view as AppView, g.id);
-      else requestChat(`${a.title}\n\n${a.why}`, true);
-    },
-    [groundingIndex, requestOpen, requestChat],
-  );
-  // Hoisted member reads (exhaustive-deps rejects `obj.member` deps).
-  const aiClear = actionAnalysis.clear;
-  const aiCancel = actionAnalysis.cancel;
-  const aiBusy = actionAnalysis.busy;
-  const aiError = actionAnalysis.error;
-  const aiResult = actionAnalysis.result;
-  const aiEnabled = isAiEnabled(settings.ai) && settings.ai?.actionSuggestions !== false;
-  const aiAnalysisBundle = useMemo(
-    () => ({ enabled: aiEnabled, busy: aiBusy, error: aiError, result: aiResult, onAnalyze: runActionAnalysis, onCancel: aiCancel, onClear: aiClear, onActAi }),
-    [aiEnabled, aiBusy, aiError, aiResult, runActionAnalysis, aiCancel, aiClear, onActAi],
-  );
 
   useActionNotifications({
     actions: nextActions,
@@ -860,33 +787,6 @@ function TaskManagerInner() {
     lang,
     requestOpen,
     openActionCenter,
-  });
-
-  // SP5 scheduled jobs: recurring advisory analysis runs (due-on-open / tick).
-  // Opt-in (default OFF), key required, never in popouts. Reuses the SP4
-  // context builder + analysis call; results surface as a desktop notification
-  // and in the Settings "Scheduled jobs" run history.
-  const scheduledJobs = useScheduledJobs({ config: tursoConfig });
-  const notifyScheduledJob = useCallback(
-    (jobName: string, summary: string) => {
-      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-      try {
-        new Notification(t(lang, "scheduledJobNotifyTitle", jobName), {
-          body: t(lang, "scheduledJobNotifyBody", summary),
-        });
-      } catch {
-        /* notification fire is best-effort */
-      }
-    },
-    [lang],
-  );
-  useScheduledJobRunner({
-    enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
-    jobs: scheduledJobs.jobs,
-    recordRun: scheduledJobs.recordRun,
-    buildContext: buildAiContext,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
-    notify: notifyScheduledJob,
   });
 
   const snoozeAction = useCallback(
