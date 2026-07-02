@@ -91,3 +91,14 @@ _Status: run + triaged. 0 fail; the one real LOW (X-Powered-By) fixed. Re-run on
 ## CRITICAL gate
 
 CRITICAL findings requiring pre-merge fix: **0.** Phase gate satisfied.
+
+---
+
+## Phase 2 audit delta (2026-07-02)
+
+- **HIGH findings burn-down (Phase 2 Task 8):** Phase 1 identified **0 HIGH** findings, so there is nothing to fix. Closed.
+- **Input-validation audit (Phase 2 Task 9):** re-verified every untrusted-input path.
+  - **AI write tools** (`use-chat-dispatcher.ts`): 45 `sanitize*` calls + 20 `isReadOnly` guards. Every entity write tool builds its object through the entity's `sanitizeX` (`sanitizeTaskName`/`sanitizeRaidItem`/`sanitizeChangeItem`/`sanitizeMilestone`/`sanitizeStakeholder` + field sanitizers) and throws `readOnlyError()` in popouts before mutating. No raw model value reaches a state setter.
+  - **AI advisory paths:** `parseAnalysis`/`groundEntity` (action-ai) and `parseWeightSuggestions` → `NEXT_ACTIONS_FIELD_COERCE` still re-validate model output before any deep-link or settings write (unchanged since Phase 1).
+  - **`/api/*` routes:** validated in Phase 1 (PX-1..PX-9) — host allowlist, path allowlist, `pageId` `^\d+$`, `sanitizeIssueFields` field allowlist. No new routes added since.
+  - **Verdict:** no validation gaps. Nothing to fix.
