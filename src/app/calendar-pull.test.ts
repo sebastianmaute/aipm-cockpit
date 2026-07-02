@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { planCalendarPull, type PulledEvent } from "./calendar-pull";
 
-const ev = (id: string, date: string | null, isCancelled = false): PulledEvent => ({ id, date, isCancelled });
+const ev = (id: string, date: string | null, isCancelled = false): PulledEvent => ({ id, date, endDate: null, isCancelled });
+const rangeEv = (id: string, date: string | null, endDate: string | null, isCancelled = false): PulledEvent => ({ id, date, endDate, isCancelled });
 
 describe("planCalendarPull", () => {
   it("applies an Outlook move when the entity is unchanged since last sync", () => {
@@ -51,5 +52,69 @@ describe("planCalendarPull", () => {
   it("ignores entities without an outlookEventId", () => {
     const plan = planCalendarPull({ entities: [{ id: 1, date: "2026-02-01" }], events: [], baseline: {} });
     expect(plan).toEqual({ applies: [], conflicts: [], deletions: [] });
+  });
+
+  // --- Range (absence) support: single-date path must stay byte-identical ---
+  it("keeps the single-date apply object free of range keys (no newEndDate)", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [ev("e1", "2026-02-10")],
+      baseline: { e1: "2026-02-01" },
+    });
+    // Exact match: an extra newEndDate key would fail this.
+    expect(plan.applies[0]).toEqual({ id: 1, eventId: "e1", newDate: "2026-02-10" });
+  });
+  it("keeps the single-date conflict object free of range keys", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-05", outlookEventId: "e1" }],
+      events: [ev("e1", "2026-02-10")],
+      baseline: { e1: "2026-02-01" },
+    });
+    expect(plan.conflicts[0]).toEqual({ id: 1, eventId: "e1", appDate: "2026-02-05", outlookDate: "2026-02-10" });
+  });
+  it("is a no-op for a range entity when both start and end match", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", endDate: "2026-02-05", outlookEventId: "e1" }],
+      events: [rangeEv("e1", "2026-02-01", "2026-02-05")],
+      baseline: {},
+    });
+    expect(plan).toEqual({ applies: [], conflicts: [], deletions: [] });
+  });
+  it("applies a start-only move on a range entity, carrying newEndDate", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", endDate: "2026-02-05", outlookEventId: "e1" }],
+      events: [rangeEv("e1", "2026-02-02", "2026-02-05")],
+      baseline: { e1: "2026-02-01|2026-02-05" },
+    });
+    expect(plan.applies).toEqual([{ id: 1, eventId: "e1", newDate: "2026-02-02", newEndDate: "2026-02-05" }]);
+    expect(plan.conflicts).toEqual([]);
+  });
+  it("applies an end-only resize on a range entity", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", endDate: "2026-02-05", outlookEventId: "e1" }],
+      events: [rangeEv("e1", "2026-02-01", "2026-02-07")],
+      baseline: { e1: "2026-02-01|2026-02-05" },
+    });
+    expect(plan.applies).toEqual([{ id: 1, eventId: "e1", newDate: "2026-02-01", newEndDate: "2026-02-07" }]);
+    expect(plan.conflicts).toEqual([]);
+  });
+  it("flags a range conflict (with appEndDate + outlookEndDate) on baseline mismatch", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-02", endDate: "2026-02-06", outlookEventId: "e1" }],
+      events: [rangeEv("e1", "2026-02-03", "2026-02-08")],
+      baseline: { e1: "2026-02-01|2026-02-05" },
+    });
+    expect(plan.applies).toEqual([]);
+    expect(plan.conflicts).toEqual([
+      { id: 1, eventId: "e1", appDate: "2026-02-02", outlookDate: "2026-02-03", appEndDate: "2026-02-06", outlookEndDate: "2026-02-08" },
+    ]);
+  });
+  it("flags a deletion for a range entity whose event has a null endDate", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", endDate: "2026-02-05", outlookEventId: "e1" }],
+      events: [rangeEv("e1", "2026-02-01", null)],
+      baseline: { e1: "2026-02-01|2026-02-05" },
+    });
+    expect(plan.deletions).toEqual([{ id: 1, eventId: "e1" }]);
   });
 });
