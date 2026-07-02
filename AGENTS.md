@@ -41,6 +41,8 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
 npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
+npm run dup:check           # jscpd duplication report (baseline docs/baselines/jscpd-2026-07.json)
+npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
 ```
 
 ## Hard constraints (CI-enforced — these gate merges)
@@ -93,7 +95,10 @@ npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
   local gate and fail ONLY in CI.
-- **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → lint → typecheck → unit → build → e2e.
+- **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
+  warn-only · **dependency-audit** blocking · **file-size-ratchet** warn-only · unit) → build → e2e. A weekly
+  `schedule` pipeline also runs `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise).
+  New CI gate → also update this line.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + milestone), add `CHANGELOG.md` entry,
   append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings).
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/

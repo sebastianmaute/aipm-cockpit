@@ -59,11 +59,17 @@ export default defineConfig({
       // 91.9 / branch 81.3 as of 2026-06-12) to lock in the gains and catch
       // regressions, with a few points of headroom for normal churn. Raise
       // these as coverage climbs; never lower them just to make a PR pass.
+      // Phase 2 ratchet (2026-07-02): raised to ~measured-minus-1 to lock in the
+      // current floor. Measured this date: lines 92.67 / funcs 91.44 /
+      // branches 80.89 / stmts 89.46 (the scoped .ts logic layer; the new
+      // characterization suites exercise task-manager/workspace-section .tsx,
+      // which are excluded from the % gate — line 48 — so they raise the floor
+      // only transitively).
       thresholds: {
-        lines: 90,
-        functions: 89,
-        branches: 78,
-        statements: 87,
+        lines: 91,
+        functions: 90,
+        branches: 79,
+        statements: 88,
       },
     },
   },

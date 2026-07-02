@@ -27,6 +27,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Suppress the `X-Powered-By: Next.js` response header — it discloses the
+  // tech stack for no functional benefit (ZAP baseline alert 10037).
+  poweredByHeader: false,
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
