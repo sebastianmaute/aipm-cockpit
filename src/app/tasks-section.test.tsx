@@ -21,6 +21,17 @@ vi.mock("./use-deeplink-row-flash", () => ({
   useDeepLinkRowFlash: () => ({ flashId: null, containerRef: { current: null } }),
   flashOutlineClass: () => "",
 }));
+const { pullSpy } = vi.hoisted(() => ({ pullSpy: vi.fn() }));
+vi.mock("./use-entity-calendar-pull", () => ({
+  useEntityCalendarPull: () => ({
+    pull: pullSpy,
+    busy: false,
+    result: null,
+    clearResult: vi.fn(),
+    keepApp: vi.fn(),
+    applyMove: vi.fn(),
+  }),
+}));
 
 import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";
@@ -165,6 +176,7 @@ describe("TasksSection", () => {
     stubTaskForm();
     stubSettings();
     stubHolidaySet();
+    pullSpy.mockClear();
   });
 
   it("renders 'no tasks' placeholder when tasks list is empty", () => {
@@ -446,6 +458,35 @@ describe("TasksSection", () => {
     expect(
       screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows the Pull-from-Outlook button when M365 is configured and task calendar sync is enabled", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured />);
+    expect(
+      screen.getByRole("button", { name: t("en-US", "calendarPull") }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the Pull-from-Outlook button when task calendar sync is disabled", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: false, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured />);
+    expect(
+      screen.queryByRole("button", { name: t("en-US", "calendarPull") }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clicking Pull-from-Outlook invokes the pull hook", () => {
+    stubSettings({ outlookCalendar: { task: { enabled: true, auto: false } } });
+    const task = { id: 1, taskName: "T1", status: "To Do", dueDate: "2026-06-01" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} m365Configured />);
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPull") }));
+    expect(pullSpy).toHaveBeenCalledTimes(1);
   });
 
   it("hides the calendar controls in a popout (push can never fire there)", () => {
