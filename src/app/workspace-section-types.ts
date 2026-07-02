@@ -62,6 +62,21 @@ import type {
   SettingsSectionId,
 } from "./dashboard-coaching";
 
+/**
+ * Consolidated two-way Outlook calendar controls for one entity (RAID / Change /
+ * Absence). Replaces the former six entity-qualified flat props per entity. The
+ * pane still consumes the flat `calendarEnabled`/`onToggleCalendar`/… interface;
+ * workspace-section spreads this bag into it. Absent in popouts.
+ */
+export interface EntityCalendarProps {
+  enabled?: boolean;
+  onToggle?: (enabled: boolean) => void;
+  onPush?: () => void;
+  onPull?: () => void;
+  pushBusy?: boolean;
+  pullBusy?: boolean;
+}
+
 export interface WorkspaceSectionProps {
   today: string;
   holidaySet: Set<string>;
@@ -173,31 +188,14 @@ export interface WorkspaceSectionProps {
   onPullMilestonesFromOutlook?: () => void;
   calendarPullBusy?: boolean;
   committeeOutlookPush?: { onPush: () => void; busy: boolean };
-  /** M365 configured — gates the RAID calendar toggle/button (hidden otherwise). */
+  /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
   m365Configured?: boolean;
-  /** RAID review-date Outlook write-back (SP2). Absent in popouts. */
-  calendarRaidEnabled?: boolean;
-  onToggleCalendarRaid?: (enabled: boolean) => void;
-  pushRaidToOutlook?: () => void;
-  calendarRaidPushBusy?: boolean;
-  /** RAID Pull-from-Outlook (two-way SP3). Absent in popouts. */
-  pullRaidFromOutlook?: () => void;
-  calendarRaidPullBusy?: boolean;
-  /** Change decision-date Outlook write-back (SP3). Absent in popouts. */
-  calendarChangeEnabled?: boolean;
-  onToggleCalendarChange?: (enabled: boolean) => void;
-  pushChangeToOutlook?: () => void;
-  calendarChangePushBusy?: boolean;
-  /** Change Pull-from-Outlook (two-way SP3). Absent in popouts. */
-  pullChangeFromOutlook?: () => void;
-  calendarChangePullBusy?: boolean;
-  /** Absence Outlook write-back (SP4). Absent in popouts. */
-  calendarAbsenceEnabled?: boolean;
-  onToggleCalendarAbsence?: (enabled: boolean) => void;
-  pushAbsenceToOutlook?: () => void;
-  calendarAbsencePushBusy?: boolean;
-  pullAbsenceFromOutlook?: () => void;
-  calendarAbsencePullBusy?: boolean;
+  /** RAID review-date two-way Outlook sync (SP2/SP3). Absent in popouts. */
+  raidCalendar?: EntityCalendarProps;
+  /** Change decision-date two-way Outlook sync (SP3). Absent in popouts. */
+  changeCalendar?: EntityCalendarProps;
+  /** Absence two-way Outlook sync (SP4). Absent in popouts. */
+  absenceCalendar?: EntityCalendarProps;
   guides?: readonly OperatingGuide[];
   guidesReady?: boolean;
 }

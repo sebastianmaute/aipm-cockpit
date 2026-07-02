@@ -48,26 +48,15 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
   it("threads the calendar push/pull prop keys for every entity (Phase 3: use-calendar-integrations)", () => {
     const p = captured.props!;
     for (const key of [
-      // milestone (manual)
+      // milestone (manual — stays flat, no toggle)
       "onPushMilestonesToOutlook",
       "onPullMilestonesFromOutlook",
       "calendarPushBusy",
       "calendarPullBusy",
-      // raid
-      "calendarRaidEnabled",
-      "onToggleCalendarRaid",
-      "pushRaidToOutlook",
-      "pullRaidFromOutlook",
-      // change
-      "calendarChangeEnabled",
-      "onToggleCalendarChange",
-      "pushChangeToOutlook",
-      "pullChangeFromOutlook",
-      // absence
-      "calendarAbsenceEnabled",
-      "onToggleCalendarAbsence",
-      "pushAbsenceToOutlook",
-      "pullAbsenceFromOutlook",
+      // raid / change / absence consolidated into EntityCalendarProps bags (Task 8)
+      "raidCalendar",
+      "changeCalendar",
+      "absenceCalendar",
       "m365Configured",
     ]) {
       expect(p, `missing threaded calendar prop: ${key}`).toHaveProperty(key);

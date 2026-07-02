@@ -178,24 +178,9 @@ export function WorkspaceSection({
   calendarPullBusy,
   committeeOutlookPush,
   m365Configured,
-  calendarRaidEnabled,
-  onToggleCalendarRaid,
-  pushRaidToOutlook,
-  calendarRaidPushBusy,
-  pullRaidFromOutlook,
-  calendarRaidPullBusy,
-  calendarChangeEnabled,
-  onToggleCalendarChange,
-  pushChangeToOutlook,
-  calendarChangePushBusy,
-  pullChangeFromOutlook,
-  calendarChangePullBusy,
-  calendarAbsenceEnabled,
-  onToggleCalendarAbsence,
-  pushAbsenceToOutlook,
-  calendarAbsencePushBusy,
-  pullAbsenceFromOutlook,
-  calendarAbsencePullBusy,
+  raidCalendar,
+  changeCalendar,
+  absenceCalendar,
   guides = [],
   guidesReady = true,
 }: WorkspaceSectionProps) {
@@ -386,12 +371,12 @@ export function WorkspaceSection({
             isPopout={isPopout}
             onLearnMore={requestHelpConcept}
             m365Configured={m365Configured}
-            calendarEnabled={calendarRaidEnabled}
-            onToggleCalendar={onToggleCalendarRaid}
-            onPushCalendar={pushRaidToOutlook}
-            calendarPushBusy={calendarRaidPushBusy}
-            onPullCalendar={pullRaidFromOutlook}
-            calendarPullBusy={calendarRaidPullBusy}
+            calendarEnabled={raidCalendar?.enabled}
+            onToggleCalendar={raidCalendar?.onToggle}
+            onPushCalendar={raidCalendar?.onPush}
+            calendarPushBusy={raidCalendar?.pushBusy}
+            onPullCalendar={raidCalendar?.onPull}
+            calendarPullBusy={raidCalendar?.pullBusy}
           />
         </div>
 
@@ -473,12 +458,12 @@ export function WorkspaceSection({
               onAddResource={onAddResource}
               onImportOutlookCalendar={onImportOutlookCalendar}
               m365Configured={m365Configured}
-              calendarEnabled={calendarAbsenceEnabled}
-              onToggleCalendar={onToggleCalendarAbsence}
-              onPushCalendar={pushAbsenceToOutlook}
-              calendarPushBusy={calendarAbsencePushBusy}
-              onPullCalendar={pullAbsenceFromOutlook}
-              calendarPullBusy={calendarAbsencePullBusy}
+              calendarEnabled={absenceCalendar?.enabled}
+              onToggleCalendar={absenceCalendar?.onToggle}
+              onPushCalendar={absenceCalendar?.onPush}
+              calendarPushBusy={absenceCalendar?.pushBusy}
+              onPullCalendar={absenceCalendar?.onPull}
+              calendarPullBusy={absenceCalendar?.pullBusy}
               showHints={settings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
@@ -543,12 +528,12 @@ export function WorkspaceSection({
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
               m365Configured={m365Configured}
-              calendarEnabled={calendarChangeEnabled}
-              onToggleCalendar={onToggleCalendarChange}
-              onPushCalendar={pushChangeToOutlook}
-              calendarPushBusy={calendarChangePushBusy}
-              onPullCalendar={pullChangeFromOutlook}
-              calendarPullBusy={calendarChangePullBusy}
+              calendarEnabled={changeCalendar?.enabled}
+              onToggleCalendar={changeCalendar?.onToggle}
+              onPushCalendar={changeCalendar?.onPush}
+              calendarPushBusy={changeCalendar?.pushBusy}
+              onPullCalendar={changeCalendar?.onPull}
+              calendarPullBusy={changeCalendar?.pullBusy}
             />
           </div>
         )}
