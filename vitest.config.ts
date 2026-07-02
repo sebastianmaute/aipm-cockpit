@@ -46,6 +46,19 @@ export default defineConfig({
         "src/app/i18n.de.ts",
         // React UI components — validated via component/E2E tests, not this gate:
         "src/app/**/*.tsx",
+        // Render-scope hook factories extracted from the (excluded) task-manager.tsx
+        // orchestrator in the Phase 3 decomposition. They take a live render-scope
+        // `deps` object and return UI event handlers — the SAME UI/render glue the
+        // .tsx exclusion above covers (they are .ts only because a .ts hook may
+        // receive refs, per the react-hooks purity rule). Their handlers run on user
+        // interaction and are exercised by the task-manager characterization suites +
+        // E2E, not unit-testable in isolation; the pure engines they call (next-actions,
+        // calendar-reconcile, etc.) live in separate .ts files that REMAIN gated.
+        // Excluding here keeps the gate on the pure logic/data layer, matching how this
+        // code was treated (unmeasured, inside task-manager.tsx) before extraction.
+        "src/app/use-calendar-integrations.ts",
+        "src/app/use-action-center-handlers.ts",
+        "src/app/use-ai-orchestration.ts",
         // External-format serializers, binary packing, speech & network clients
         // (integration/E2E-tested, not unit-coverage-gated):
         "src/app/export-ooxml.ts",

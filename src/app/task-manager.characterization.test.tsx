@@ -1,10 +1,12 @@
-// @characterization — pins the task-manager → WorkspaceSection prop contract
-// BEFORE the Phase 3 decomposition (extracting use-calendar-integrations,
-// use-action-center-handlers, use-ai-orchestration, use-shell-chrome). It asserts
-// the load-bearing prop KEYS still reach the child after those hooks move out of
-// task-manager. It MAY be updated freely during Phase 3 when a diff is understood
-// (e.g. the calendar prop-bag consolidation renames these) — it is NOT a golden
-// fixture. Coarse on purpose: a tripwire, not a spec.
+// @characterization — pins the task-manager → WorkspaceSection prop contract.
+// The Phase 3 decomposition is DONE: the calendar wiring, Action-Center
+// handlers, AI orchestration, dual-header assembly, and pull-summary modals now
+// live in use-calendar-integrations / use-action-center-handlers /
+// use-ai-orchestration / shell-chrome (buildShellChrome) / calendar-summary-modals.
+// This suite proved (and now guards) that those move-only extractions kept the
+// load-bearing prop KEYS reaching the child. It MAY be updated freely when a diff
+// is understood (e.g. the future calendar prop-bag consolidation renames these) —
+// it is NOT a golden fixture. Coarse on purpose: a tripwire, not a spec.
 import { render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -46,26 +48,15 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
   it("threads the calendar push/pull prop keys for every entity (Phase 3: use-calendar-integrations)", () => {
     const p = captured.props!;
     for (const key of [
-      // milestone (manual)
+      // milestone (manual — stays flat, no toggle)
       "onPushMilestonesToOutlook",
       "onPullMilestonesFromOutlook",
       "calendarPushBusy",
       "calendarPullBusy",
-      // raid
-      "calendarRaidEnabled",
-      "onToggleCalendarRaid",
-      "pushRaidToOutlook",
-      "pullRaidFromOutlook",
-      // change
-      "calendarChangeEnabled",
-      "onToggleCalendarChange",
-      "pushChangeToOutlook",
-      "pullChangeFromOutlook",
-      // absence
-      "calendarAbsenceEnabled",
-      "onToggleCalendarAbsence",
-      "pushAbsenceToOutlook",
-      "pullAbsenceFromOutlook",
+      // raid / change / absence consolidated into EntityCalendarProps bags (Task 8)
+      "raidCalendar",
+      "changeCalendar",
+      "absenceCalendar",
       "m365Configured",
     ]) {
       expect(p, `missing threaded calendar prop: ${key}`).toHaveProperty(key);

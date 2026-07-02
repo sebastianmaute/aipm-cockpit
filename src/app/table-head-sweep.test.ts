@@ -14,7 +14,9 @@ const FORBIDDEN_HEADS = [
 // Files swept so far. Grown in Tasks 5 and 6.
 const SWEPT_FILES = [
   "tasks-section.tsx",
-  "raid-panel.tsx",
+  // The RAID table markup (with TABLE_HEAD_CLASS) moved to raid-panel-rows.tsx
+  // in the Phase 3 split; raid-panel.tsx is now the header-less orchestrator.
+  "raid-panel-rows.tsx",
   "raid-report-panel.tsx",
   "activity-log-panel.tsx",
   "resource-directory.tsx",

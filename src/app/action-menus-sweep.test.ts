@@ -5,11 +5,14 @@ import { join } from "node:path";
 
 // Both consumers MUST source the action cluster from ./action-menus so the
 // classic header and the modern top bar never diverge (Phase 4 Workstream C).
+// app-header.tsx builds the classic header's cluster; shell-chrome.tsx builds
+// the modern top bar's `topBarMenus` slot (the ActionMenus mount moved there
+// out of task-manager in the Phase 3 shell-chrome extraction).
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 const CONSUMERS = [
   "src/app/app-header.tsx",
-  "src/app/task-manager.tsx",
+  "src/app/shell-chrome.tsx",
 ] as const;
 
 const FORBIDDEN_DIRECT_IMPORTS = [

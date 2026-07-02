@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import type { SettingsSectionId } from "./dashboard-coaching";
 import { getBucketReminders } from "./budget-report";
-import { type Lang, t } from "./i18n";
+import { t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
@@ -27,21 +27,13 @@ import { useHolidaySet } from "./use-holiday-set";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useCommTemplates } from "./use-comm-templates";
 import { useOperatingGuides } from "./use-operating-guides";
-import { renderTemplate, buildStakeholderUpdateVars } from "./comm-templates";
-import { htmlToPlainText } from "./html-to-text";
 import { useTaskSubmit } from "./use-task-submit";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Milestone, type Task } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from "./types";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
 import { buildRaidByTaskIndex } from "./raid";
-import { applyOwnerAssignment } from "./action-assign-owner";
-import { planEscalation, applyEscalation, buildEscalationMail } from "./action-escalate";
-import { applyMilestoneRebaseline, isValidIsoDate } from "./action-rebaseline";
-import type { RebaselineBundle } from "./rebaseline-popover";
-import type { RescheduleBundle } from "./reschedule-popover";
-import { applyStatusChange, isTaskFinished } from "./task-status";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -56,7 +48,6 @@ import {
 import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
-import { AppHeader } from "./app-header";
 import { GlobalSearchConnected } from "./global-search-box";
 import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
 import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
@@ -65,17 +56,11 @@ import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { getJiraTokenAlert } from "./jira-token-status";
 import { effectiveLeadDays } from "./notifications-lead";
 import { WorkspaceSection } from "./workspace-section";
-import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
-import { useMilestoneCalendarPull } from "./use-milestone-calendar-pull";
-import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
-import { useEntityCalendarPush } from "./use-entity-calendar-push";
-import { useEntityCalendarPull } from "./use-entity-calendar-pull";
-import { useCalendarAutoPull } from "./use-calendar-auto-pull";
-import { useCalendarAutoSync } from "./use-calendar-auto-sync";
-import { calendarSyncFor } from "./calendar-sync-config";
-import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent } from "./outlook-calendar-write";
-import { isRaidActiveForReview } from "./raid-review";
-import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
+import { CalendarSummaryModals } from "./calendar-summary-modals";
+import { useCalendarIntegrations } from "./use-calendar-integrations";
+import { useActionCenterHandlers } from "./use-action-center-handlers";
+import { useAiOrchestration } from "./use-ai-orchestration";
+import { buildShellChrome } from "./shell-chrome";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -94,16 +79,11 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { aiKeyIfEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, isAiEnabled, resolveNextActionsConfig, type Settings } from "./settings-types";
-import { buildSuggestionContext } from "./weight-suggestion-ai";
-import { type SuggestionScope } from "./next-actions-tuning";
+import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type Settings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
-import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
-import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
-import { isValidEmail } from "./sanitize";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
 import { useActionLearning } from "./use-action-learning";
@@ -112,9 +92,7 @@ import { VoiceCommandProvider } from "./voice-command-context";
 import { AiUsageProvider } from "./ai-usage-context";
 import { useMsAuth } from "./use-ms-auth";
 import { useCommSend } from "./use-comm-send";
-import { plainTextToHtml } from "./comm-send";
 import { CommSendPreviewModal } from "./comm-send-preview-modal";
-import { sanitizeTemplateHtml } from "./sanitize-html";
 import { SidebarFooter } from "./sidebar-footer";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
 import { useOutlookContacts } from "./use-outlook-contacts";
@@ -125,7 +103,7 @@ import { useOutlookCalendar } from "./use-outlook-calendar";
 import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
 import { dedupeKey, type OutlookEvent, type AbsenceImportTarget } from "./outlook-calendar";
 import { isoAddDays } from "./due-dates";
-import type { Absence, AbsenceType, ProjectMeta } from "./types";
+import type { AbsenceType, ProjectMeta } from "./types";
 import {
   loadRegistry,
   saveRegistry,
@@ -150,28 +128,17 @@ import type { ProjectListEntry } from "./turso-tenant-schema";
 import type { ProjectRegistryEntry } from "./projects-registry";
 import { computeNextActions } from "./next-actions";
 import { buildActionInput } from "./next-actions-input";
-import { useActionAnalysis } from "./use-action-analysis";
-import { buildAnalysisContext, buildGroundingIndex, groundEntity, type AiAction } from "./action-ai";
-import { useScheduledJobs } from "./use-scheduled-jobs";
-import { useScheduledJobRunner } from "./use-scheduled-job-runner";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
-import { computeActionTrends, summarizeTrendsForPrompt } from "./next-actions/trends";
-import { buildTaskSeedFromAction } from "./action-task-seed";
-import { emptyForm } from "./task-form-context";
+import { computeActionTrends } from "./next-actions/trends";
 import { todayInZone, resolveTimezone } from "./timezone";
-import { DisplayTimezoneProvider, useDisplayTimezone } from "./display-timezone-context";
-import { DisplayTzSwitcher } from "./display-tz-switcher";
+import { DisplayTimezoneProvider } from "./display-timezone-context";
 
 // Today (YYYY-MM-DD) in the resolved effective zone. A module fn so the
 // `new Date()` read stays out of the render body (react-hooks purity rule).
 // Connected display-timezone switcher. A module-level wrapper (static-components
 // rule) so it can read the DisplayTimezoneContext that wraps both shells — the
 // header element it produces is rendered inside the provider in both layouts.
-function DisplayTzSwitcherConnected({ lang, additionalTimezones }: { lang: Lang; additionalTimezones: readonly string[] }) {
-  const ctx = useDisplayTimezone();
-  return <DisplayTzSwitcher lang={lang} ctx={ctx} additionalTimezones={additionalTimezones} />;
-}
 
 function effectiveToday(tz: string): string {
   return todayInZone(new Date(), tz);
@@ -183,7 +150,6 @@ const VERSION_IDLE_MS = 180_000; // 3 minutes
 
 // Cap on the per-kind lines in the SP-C weight-suggestion learning summary,
 // keeping the AI context token-bounded.
-const MAX_LEARNING_SUMMARY_ENTRIES = 20;
 
 // TaskManagerInner consumes the FiltersProvider context. The default
 // export below wraps this in <FiltersProvider> so useFilters() works.
@@ -786,94 +752,27 @@ function TaskManagerInner() {
     setActiveTab("open-points");
   }, [setActiveTab]);
 
-  // Action Center "Analyze with AI": one forced-tool Anthropic call (no agentic
-  // loop). Reuses the live in-memory key; surfaced via the aiAnalysisBundle prop.
-  const actionAnalysis = useActionAnalysis({
-    apiKey: aiKeyIfEnabled(settings.ai),
-    model: settings.ai?.model ?? "claude-sonnet-4-6",
+  // AI advisory orchestration (Action-Center analyze + weight-suggestion
+  // context builder + SP5 scheduled-job runner) extracted to useAiOrchestration.
+  const { aiAnalysisBundle, buildWeightSuggestionContext } = useAiOrchestration({
+    isPopout,
+    settings,
+    lang,
+    today,
+    project,
+    tasks,
+    raid,
+    milestones,
+    changes,
+    stakeholders,
+    nextActions,
+    learning,
+    trendsActive,
+    actionTrends,
+    tursoConfig,
+    requestOpen,
+    requestChat,
   });
-  // Hoisted member reads (exhaustive-deps rejects `obj.member` deps; the hook
-  // returns a fresh object each render so depending on the whole thing defeats
-  // every downstream memo).
-  const aiAnalyze = actionAnalysis.analyze;
-  const groundingIndex = useMemo(
-    () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
-    [tasks, raid, milestones, changes, stakeholders],
-  );
-  // Shared workspace digest builder — used by the Action Center "Analyze with
-  // AI" button AND the SP5 scheduled-job runner (both feed the same SP4 call).
-  const buildAiContext = useCallback(
-    () =>
-      buildAnalysisContext({
-        projectName: project?.name ?? "",
-        today,
-        mode: deriveMode(settings.features),
-        enabledModules: settings.features,
-        taskCount: tasks.length,
-        tasks: tasks.map((x) => ({ id: x.id, title: x.taskName })),
-        raid: raid.map((x) => ({ id: x.id, title: x.title })),
-        milestones: milestones.map((x) => ({ id: x.id, title: x.name })),
-        changes: changes.map((x) => ({ id: x.id, title: x.title })),
-        stakeholders: stakeholders.map((x) => ({ id: x.id, name: x.name })),
-        queue: nextActions.map((a) => ({
-          title: t(lang, a.title.key, ...(a.title.params ?? [])),
-          why: t(lang, a.why.key, ...(a.why.params ?? [])),
-          tier: a.tier,
-        })),
-      }),
-    [project, today, settings.features, tasks, raid, milestones, changes, stakeholders, nextActions, lang],
-  );
-  const runActionAnalysis = useCallback(() => {
-    void aiAnalyze(buildAiContext());
-  }, [aiAnalyze, buildAiContext]);
-  // SP-C: compact, token-bounded context for the AI weight-suggestion call.
-  // The workspace digest is reused from the SP4/SP5 builder; the learning
-  // summary is one line per signal kind (act/snooze/dismiss counts). Trends
-  // are a compact direction summary of the live snapshot trends when active
-  // (Turso); otherwise a "(no snapshots)" sentinel.
-  const learningState = learning.state;
-  const learningEnabled = (settings.nextActionsLearning ?? defaultNextActionsLearning).enabled;
-  const buildWeightSuggestionContext = useCallback(
-    (scope: SuggestionScope) => {
-      const kinds = Object.entries(learningState);
-      const learningSummary = !learningEnabled
-        ? "(learning disabled)"
-        : kinds.length === 0
-          ? "(no history)"
-          : kinds
-              .slice(0, MAX_LEARNING_SUMMARY_ENTRIES)
-              .map(([kind, s]) => `- ${kind}: acted ${s.acted}, snoozed ${s.snoozed}, dismissed ${s.dismissed}`)
-              .join("\n");
-      return buildSuggestionContext({
-        workspaceDigest: buildAiContext(),
-        current: resolveNextActionsConfig(settings.nextActions),
-        scope,
-        learning: learningSummary,
-        trends: trendsActive && actionTrends ? summarizeTrendsForPrompt(actionTrends) : "(no snapshots)",
-        learningEnabled,
-      });
-    },
-    [buildAiContext, settings.nextActions, learningState, learningEnabled, trendsActive, actionTrends],
-  );
-  const onActAi = useCallback(
-    (a: AiAction) => {
-      const g = groundEntity(a.entity, groundingIndex);
-      if (g) requestOpen(g.view as AppView, g.id);
-      else requestChat(`${a.title}\n\n${a.why}`, true);
-    },
-    [groundingIndex, requestOpen, requestChat],
-  );
-  // Hoisted member reads (exhaustive-deps rejects `obj.member` deps).
-  const aiClear = actionAnalysis.clear;
-  const aiCancel = actionAnalysis.cancel;
-  const aiBusy = actionAnalysis.busy;
-  const aiError = actionAnalysis.error;
-  const aiResult = actionAnalysis.result;
-  const aiEnabled = isAiEnabled(settings.ai) && settings.ai?.actionSuggestions !== false;
-  const aiAnalysisBundle = useMemo(
-    () => ({ enabled: aiEnabled, busy: aiBusy, error: aiError, result: aiResult, onAnalyze: runActionAnalysis, onCancel: aiCancel, onClear: aiClear, onActAi }),
-    [aiEnabled, aiBusy, aiError, aiResult, runActionAnalysis, aiCancel, aiClear, onActAi],
-  );
 
   useActionNotifications({
     actions: nextActions,
@@ -882,33 +781,6 @@ function TaskManagerInner() {
     lang,
     requestOpen,
     openActionCenter,
-  });
-
-  // SP5 scheduled jobs: recurring advisory analysis runs (due-on-open / tick).
-  // Opt-in (default OFF), key required, never in popouts. Reuses the SP4
-  // context builder + analysis call; results surface as a desktop notification
-  // and in the Settings "Scheduled jobs" run history.
-  const scheduledJobs = useScheduledJobs({ config: tursoConfig });
-  const notifyScheduledJob = useCallback(
-    (jobName: string, summary: string) => {
-      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-      try {
-        new Notification(t(lang, "scheduledJobNotifyTitle", jobName), {
-          body: t(lang, "scheduledJobNotifyBody", summary),
-        });
-      } catch {
-        /* notification fire is best-effort */
-      }
-    },
-    [lang],
-  );
-  useScheduledJobRunner({
-    enabled: !isPopout && isAiEnabled(settings.ai) && settings.ai?.scheduledJobs === true,
-    jobs: scheduledJobs.jobs,
-    recordRun: scheduledJobs.recordRun,
-    buildContext: buildAiContext,
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
-    notify: notifyScheduledJob,
   });
 
   const snoozeAction = useCallback(
@@ -1072,7 +944,7 @@ function TaskManagerInner() {
     } finally {
       setImportLoading(false);
     }
-  }, [fetchOutlookContacts, lang]);
+  }, [fetchOutlookContacts, lang, setImportOpen, setImportError, setImportContacts, setImportLoading]);
 
   const existingResourceEmails = useMemo(
     () =>
@@ -1096,7 +968,7 @@ function TaskManagerInner() {
       setImportOpen(false);
       showToast("info", t(lang, "outlookImportedN", selected.length));
     },
-    [handleImportResources, setContacts, showToast, lang],
+    [handleImportResources, setContacts, showToast, lang, setImportOpen],
   );
 
   const outlookCalendarEnabled =
@@ -1156,7 +1028,7 @@ function TaskManagerInner() {
     } finally {
       setCalImportLoading(false);
     }
-  }, [fetchOutlookEvents, today, lang]);
+  }, [fetchOutlookEvents, today, lang, setCalImportOpen, setCalImportError, setCalImportEvents, setCalImportLoading]);
 
   const handleConfirmCalendarImport = useCallback(
     (rows: { event: OutlookEvent; type: AbsenceType }[]) => {
@@ -1164,7 +1036,7 @@ function TaskManagerInner() {
       setCalImportOpen(false);
       showToast("info", t(lang, "outlookCalImportedN", rows.length));
     },
-    [handleImportAbsences, calendarTarget, showToast, lang],
+    [handleImportAbsences, calendarTarget, showToast, lang, setCalImportOpen],
   );
 
   const tasksRef = useRef(tasks);
@@ -1196,69 +1068,6 @@ function TaskManagerInner() {
     setRaid,
     pendingLinkRaidIdRef,
   });
-
-  const assignOwnerBundle = useMemo(
-    () =>
-      isPopout
-        ? undefined
-        : {
-            resources,
-            onCreateResource: handleCreateResource,
-            onAssign: (
-              action: SuggestedAction,
-              v: { name: string; email: string; resourceId: number | null },
-            ) => {
-              if (action.cta.kind !== "open") return;
-              const id = Number(action.cta.id);
-              if (action.cta.view === "open-points") {
-                setTasks((prev) => prev.map((tk) =>
-                  tk.id === id
-                    ? { ...tk, assignee: v.name, assigneeEmail: v.email, resourceId: v.resourceId ?? undefined }
-                    : tk));
-                void recordLearning(action, "acted");
-                showToast("info", t(lang, "actionOwnerAssigned", id));
-                return;
-              }
-              const next = applyOwnerAssignment(raid, id, v);
-              if (next === raid) return; // no matching item → no write, no toast
-              setRaid(next as RaidItem[]);
-              void recordLearning(action, "acted");
-              showToast("info", t(lang, "actionOwnerAssigned", id));
-            },
-          },
-    [isPopout, resources, handleCreateResource, raid, setRaid, setTasks, showToast, lang, recordLearning],
-  );
-
-  const handleCreateTaskFromAction = useCallback(
-    (action: SuggestedAction) => {
-      void recordLearning(action, "acted");
-      handleCancelEdit(); // reset editor (clears editingId, form, and the pending ref)
-      const seed = buildTaskSeedFromAction(action, lang);
-      setForm(() => ({ ...emptyForm(), taskName: seed.taskName, notes: seed.notes }));
-      pendingLinkRaidIdRef.current =
-        action.source === "raid" && action.cta.kind === "open"
-          ? Number(action.cta.id)
-          : null;
-      setTaskModalOpen(true);
-    },
-    [handleCancelEdit, lang, setForm, setTaskModalOpen, pendingLinkRaidIdRef, recordLearning],
-  );
-
-  const handleMarkDoneFromAction = useCallback((action: SuggestedAction) => {
-    if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
-    const id = Number(action.cta.id);
-    setTasks((prev) => prev.map((tk) => (tk.id === id ? applyStatusChange(tk, "Done", today) : tk)));
-    void recordLearning(action, "acted");
-    showToast("info", t(lang, "actionTaskCompleted"));
-  }, [setTasks, today, recordLearning, showToast, lang]);
-
-  const handleClearBlockerFromAction = useCallback((action: SuggestedAction) => {
-    if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
-    const id = Number(action.cta.id);
-    setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, blockers: "" } : tk)));
-    void recordLearning(action, "acted");
-    showToast("info", t(lang, "actionBlockerCleared"));
-  }, [setTasks, recordLearning, showToast, lang]);
 
   // Deep-link: when a suggested-action chip requests opening a task, open its
   // edit modal once and clear the pending signal so it does not re-fire.
@@ -1310,123 +1119,45 @@ function TaskManagerInner() {
     sendCommTemplate: commSend.send,
   });
 
-  const handleDraftMessageFromAction = useCallback(
-    (action: SuggestedAction) => {
-      const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
-      if (action.source === "task-due") {
-        const task = tasks.find((t) => t.id === id);
-        if (task) { onSendInquiry(task); void recordLearning(action, "acted"); }
-        return;
-      }
-      if (action.source === "stakeholder-comms") {
-        const sh = stakeholders.find((s) => s.id === id);
-        if (!sh) return;
-        const email = resolveDraftRecipient(
-          sh,
-          resources,
-          () => window.prompt(t(lang, "promptEmail", sh.name), ""),
-          isValidEmail,
-          () => window.alert(t(lang, "errorInvalidEmail")),
-        );
-        if (!email) return;
-        const subject = t(lang, "commsEmailSubject", project?.name ?? "");
-        const tplBody = resolveCommBody("stakeholder-update");
-        const body = tplBody != null
-          ? htmlToPlainText(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
-          : t(lang, "commsEmailBodyTemplate", sh.name);
-        const html = tplBody != null
-          ? sanitizeTemplateHtml(renderTemplate(tplBody, "stakeholder-update", buildStakeholderUpdateVars(sh, project?.name ?? "")))
-          : plainTextToHtml(body);
-        commSend.send({ to: email, subject, html, plain: body });
-        void recordLearning(action, "acted");
-      }
-    },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning],
-  );
-
-  const handleEscalate = useCallback(
-    (
-      action: SuggestedAction,
-      recipient: { name: string; email: string; resourceId: number | null },
-    ) => {
-      if (action.cta.kind !== "open") return;
-      const id = Number(action.cta.id);
-      const item = raid.find((r) => r.id === id);
-      if (!item) return; // deleted-source safe
-      if (!isValidEmail(recipient.email)) { window.alert(t(lang, "errorInvalidEmail")); return; }
-      const plan = planEscalation(item);
-      if (plan.to) {
-        const next = applyEscalation(raid, id, plan.to);
-        if (next !== raid) setRaid(next as RaidItem[]);
-      }
-      const { subject, body } = buildEscalationMail(lang, item, plan, project?.name ?? "");
-      window.location.href = buildMailtoUrl(recipient.email, subject, body);
-      void recordLearning(action, "acted");
-    },
-    [raid, setRaid, lang, project, recordLearning],
-  );
-
-  const escalateBundle = useMemo(
-    () =>
-      isPopout
-        ? undefined
-        : {
-            resources,
-            onCreateResource: handleCreateResource,
-            raid,
-            onEscalate: handleEscalate,
-          },
-    [isPopout, resources, handleCreateResource, raid, handleEscalate],
-  );
-
-  const handleRebaselineMilestone = useCallback(
-    (action: SuggestedAction, id: number, newDate: string) => {
-      if (!isValidIsoDate(newDate)) { window.alert(t(lang, "errorInvalidDate")); return; }
-      const next = applyMilestoneRebaseline(milestones, id, newDate);
-      if (next !== milestones) {
-        setMilestones(next as Milestone[]);
-        void recordLearning(action, "acted");
-      }
-    },
-    [milestones, setMilestones, lang, recordLearning],
-  );
-
-  const snapshotsRebaselineNow = snapshots.rebaselineNow;
-  const handleRebaselineSnapshot = useCallback((action: SuggestedAction) => {
-    void recordLearning(action, "acted");
-    void snapshotsRebaselineNow();
-  }, [snapshotsRebaselineNow, recordLearning]);
-
-  const rebaselineBundle = useMemo<RebaselineBundle | undefined>(
-    () =>
-      isPopout
-        ? undefined
-        : {
-            milestones,
-            tasks,
-            onRebaselineMilestone: handleRebaselineMilestone,
-            snapshotActive: trendsActive,
-            onRebaselineSnapshot: handleRebaselineSnapshot,
-            busy: snapshots.busy,
-          },
-    [isPopout, milestones, tasks, handleRebaselineMilestone, handleRebaselineSnapshot, trendsActive, snapshots.busy],
-  );
-
-  const rescheduleBundle = useMemo<RescheduleBundle | undefined>(
-    () =>
-      isPopout
-        ? undefined
-        : {
-            onReschedule: (action: SuggestedAction, isoDate: string) => {
-              if (action.cta.kind !== "open" || action.cta.view !== "open-points" || !isValidIsoDate(isoDate)) return;
-              const id = Number(action.cta.id);
-              setTasks((prev) => prev.map((tk) => (tk.id === id ? { ...tk, dueDate: isoDate } : tk)));
-              void recordLearning(action, "acted");
-              showToast("info", t(lang, "actionRescheduled"));
-            },
-          },
-    [isPopout, setTasks, recordLearning, showToast, lang],
-  );
+  // Action-Center CTA handlers (assign / create-task / mark-done / clear-blocker
+  // / draft-message / escalate / rebaseline / reschedule) extracted to
+  // useActionCenterHandlers. Called AFTER useTaskRowHandlers because
+  // draft-message reads onSendInquiry. Same names as the former inline defs.
+  const {
+    assignOwnerBundle,
+    handleCreateTaskFromAction,
+    handleMarkDoneFromAction,
+    handleClearBlockerFromAction,
+    handleDraftMessageFromAction,
+    escalateBundle,
+    rebaselineBundle,
+    rescheduleBundle,
+  } = useActionCenterHandlers({
+    isPopout,
+    lang,
+    today,
+    resources,
+    tasks,
+    stakeholders,
+    raid,
+    milestones,
+    project,
+    trendsActive,
+    snapshots,
+    commSend,
+    onSendInquiry,
+    resolveCommBody,
+    handleCreateResource,
+    handleCancelEdit,
+    setForm,
+    setTaskModalOpen,
+    setTasks,
+    setRaid,
+    setMilestones,
+    pendingLinkRaidIdRef,
+    recordLearning,
+    showToast,
+  });
 
   // Keep the forwarding ref current after every commit (it's only ever read
   // from event handlers, never during render).
@@ -1722,287 +1453,57 @@ function TaskManagerInner() {
     [isPopout, handleCommand, showToast],
   );
 
-  // Push milestones to the Outlook calendar (write-back). Gated on M365 being
-  // enabled AND the explicit calendar-push setting, and never in a popout.
-  const calendarPushEnabled =
-    !isPopout &&
-    (settings.integrations?.m365?.enabled ?? false) &&
-    (settings.integrations?.m365?.outlookCalendarPush ?? false);
-  // The Outlook event category "AIPM:<projectId>" depends on a STABLE id so events
-  // are not orphaned when the (display) name changes: registry/turso current id
-  // → ProjectMeta.code → the literal "default". `portfolioCurrentId` is the stable
-  // registry/tenant id. LIMITATION: the `project?.code` fallback (single-project
-  // file mode) is user-editable — renaming the project code after a push orphans
-  // existing Outlook events (they keep the old category). Acceptable for v1.
-  const calendarProjectId = portfolioCurrentId || project?.code || "default";
-  // The workspace setter is Dispatch<SetStateAction<readonly Milestone[]>>; the
-  // hook wants (updater: (prev: Milestone[]) => Milestone[]) => void — bridge it.
-  const setMilestonesForPush = useCallback(
-    (updater: (prev: Milestone[]) => Milestone[]) =>
-      setMilestones((prev) => updater([...prev])),
-    [setMilestones],
-  );
-  const calendarPush = useOutlookCalendarPush({
-    milestones,
-    projectId: calendarProjectId,
-    setMilestones: setMilestonesForPush,
+  // All Outlook calendar write-back (push/pull/background auto-sync) for
+  // milestones, the steering committee, and the four two-way entities lives in
+  // useCalendarIntegrations (extracted). Called unconditionally; returns the
+  // same names the block declared inline, so downstream wiring is unchanged.
+  const {
+    calendarProjectId,
+    calendarPushEnabled,
+    calendarPushToOutlook,
+    calendarPushBusy,
+    calendarPull,
+    committeePush,
+    pushableRaid,
+    pushableChanges,
+    pushableAbsences,
+    calendarRaidEnabled,
+    onToggleCalendarRaid,
+    pushRaidToOutlook,
+    calendarRaidPushBusy,
+    raidPull,
+    calendarChangeEnabled,
+    onToggleCalendarChange,
+    pushChangeToOutlook,
+    calendarChangePushBusy,
+    changePull,
+    calendarAbsenceEnabled,
+    onToggleCalendarAbsence,
+    pushAbsenceToOutlook,
+    calendarAbsencePushBusy,
+    absencePull,
+  } = useCalendarIntegrations({
     isPopout,
+    settings,
+    m365Enabled,
+    portfolioCurrentId,
+    project,
     lang,
-    enabled: calendarPushEnabled,
-  });
-  const calendarPushToOutlook = calendarPush.pushToOutlook;
-  const calendarPushBusy = calendarPush.busy;
-  const calendarPull = useMilestoneCalendarPull({
-    milestones,
-    projectId: calendarProjectId,
-    setMilestones: setMilestonesForPush,
-    isPopout,
-    lang,
-    enabled: calendarPushEnabled,
-  });
-
-  // Push the steering committee's meetings + info-pack reminders to Outlook.
-  // Reuses the SAME M365 enablement gate and stable project id as milestones.
-  const committeePush = useCommitteeOutlookPush({
-    committee: steeringCommittee,
-    committeeName: steeringCommittee?.name ?? "",
-    projectId: calendarProjectId,
     today,
+    logActivity,
+    setSettings,
+    milestones,
+    setMilestones,
+    steeringCommittee,
     setSteeringCommittee,
-    isPopout,
-    lang,
-    enabled: calendarPushEnabled,
-  });
-
-  // Background AUTO calendar-sync for tasks (opt-in enable + auto). When the
-  // pushable task set changes it silently reconciles Outlook (debounced 4s),
-  // without the manual Push button. Popout/M365-gated + non-interactive token
-  // (no consent popup, no error toast on a missing session). Fail-once-per-change.
-  const taskSync = calendarSyncFor(settings, "task");
-  const taskAutoSyncActive = taskSync.auto && m365Enabled && !isPopout;
-  const pushableTasks = useMemo(
-    () => tasks.filter((x) => !isTaskFinished(x) && !!x.dueDate),
-    [tasks],
-  );
-  // NOTE: deliberately EXCLUDES outlookEventId — that is an OUTPUT the push
-  // writes back, not an input. Including it would re-fire the debounce one extra
-  // time after every create (a redundant no-op reconcile round).
-  const taskAutoSyncKey = useMemo(
-    () => pushableTasks
-      .map((t) => `${t.id}|${t.dueDate}|${t.taskName}|${t.status}`)
-      .join(";"),
-    [pushableTasks],
-  );
-  // Bridge the workspace setter to the hook's (prev: Task[]) => Task[] shape.
-  const setTasksForAuto = useCallback(
-    (updater: (prev: Task[]) => Task[]) => setTasks((prev) => updater([...prev])),
-    [setTasks],
-  );
-  const { pushToOutlook: autoPushTasks } = useEntityCalendarPush<Task>({
-    items: pushableTasks,
-    entityType: "task",
-    projectId: calendarProjectId,
-    toGraphEvent: taskToGraphEvent,
-    setItems: setTasksForAuto,
-    isPopout,
-    lang,
-    enabled: taskAutoSyncActive,
-    interactive: false,
-  });
-  useCalendarAutoSync({ active: taskAutoSyncActive, contentKey: taskAutoSyncKey, push: autoPushTasks });
-
-  // --- RAID review-date calendar write-back (SP2) — mirrors the task block ---
-  const raidSync = calendarSyncFor(settings, "raid");
-  const calendarRaidEnabled = raidSync.enabled && m365Enabled && !isPopout;
-  const raidAutoSyncActive = raidSync.auto && m365Enabled && !isPopout;
-  const pushableRaid = useMemo(
-    () => raid.filter((r) => isRaidActiveForReview(r) && !!r.targetDate),
-    [raid],
-  );
-  // EXCLUDES outlookEventId — an OUTPUT the push writes back (see task block).
-  const raidAutoSyncKey = useMemo(
-    () => pushableRaid.map((r) => `${r.id}|${r.targetDate}|${r.title}|${r.status}`).join(";"),
-    [pushableRaid],
-  );
-  const setRaidForCalendar = useCallback(
-    (updater: (prev: RaidItem[]) => RaidItem[]) => setRaid((prev) => updater([...prev])),
-    [setRaid],
-  );
-  const { pushToOutlook: pushRaidToOutlook, busy: calendarRaidPushBusy } = useEntityCalendarPush<RaidItem>({
-    items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
-    toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: calendarRaidEnabled,
-  });
-  const { pushToOutlook: autoPushRaid } = useEntityCalendarPush<RaidItem>({
-    items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
-    toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: raidAutoSyncActive, interactive: false,
-  });
-  useCalendarAutoSync({ active: raidAutoSyncActive, contentKey: raidAutoSyncKey, push: autoPushRaid });
-  const onToggleCalendarRaid = useCallback(
-    (enabled: boolean) => setSettings((s) => ({
-      ...s,
-      outlookCalendar: {
-        ...s.outlookCalendar,
-        raid: { enabled, auto: enabled ? (s.outlookCalendar?.raid?.auto ?? false) : false },
-      },
-    })),
-    [setSettings],
-  );
-  // Manual "Pull from Outlook" for RAID (two-way SP3) — mirrors milestone pull.
-  const raidPull = useEntityCalendarPull<RaidItem>({
-    items: pushableRaid,
-    entityType: "raid",
-    projectId: calendarProjectId,
-    getDate: (r) => r.targetDate,
-    withDate: (r, date) => ({ ...r, targetDate: date }),
-    toGraphEvent: raidToGraphEvent,
-    setItems: setRaidForCalendar,
-    isPopout,
-    lang,
-    enabled: calendarRaidEnabled,
-  });
-
-  // --- Change decision-date calendar write-back (SP3) — mirrors the RAID block ---
-  const changeSync = calendarSyncFor(settings, "change");
-  const calendarChangeEnabled = changeSync.enabled && m365Enabled && !isPopout;
-  const changeAutoSyncActive = changeSync.auto && m365Enabled && !isPopout;
-  const pushableChanges = useMemo(() => changes.filter((c) => !!c.decisionDate), [changes]);
-  // EXCLUDES outlookEventId — an OUTPUT the push writes back.
-  const changeAutoSyncKey = useMemo(
-    () => pushableChanges.map((c) => `${c.id}|${c.decisionDate}|${c.title}|${c.status}`).join(";"),
-    [pushableChanges],
-  );
-  const setChangeForCalendar = useCallback(
-    (updater: (prev: ChangeItem[]) => ChangeItem[]) => setChanges((prev) => updater([...prev])),
-    [setChanges],
-  );
-  const { pushToOutlook: pushChangeToOutlook, busy: calendarChangePushBusy } = useEntityCalendarPush<ChangeItem>({
-    items: pushableChanges, entityType: "change", projectId: calendarProjectId,
-    toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: calendarChangeEnabled,
-  });
-  const { pushToOutlook: autoPushChange } = useEntityCalendarPush<ChangeItem>({
-    items: pushableChanges, entityType: "change", projectId: calendarProjectId,
-    toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: changeAutoSyncActive, interactive: false,
-  });
-  useCalendarAutoSync({ active: changeAutoSyncActive, contentKey: changeAutoSyncKey, push: autoPushChange });
-  const onToggleCalendarChange = useCallback(
-    (enabled: boolean) => setSettings((s) => ({
-      ...s,
-      outlookCalendar: {
-        ...s.outlookCalendar,
-        change: { enabled, auto: enabled ? (s.outlookCalendar?.change?.auto ?? false) : false },
-      },
-    })),
-    [setSettings],
-  );
-  // Manual "Pull from Outlook" for Change (two-way SP3) — mirrors RAID pull.
-  const changePull = useEntityCalendarPull<ChangeItem>({
-    items: pushableChanges,
-    entityType: "change",
-    projectId: calendarProjectId,
-    getDate: (c) => c.decisionDate,
-    withDate: (c, date) => ({ ...c, decisionDate: date }),
-    toGraphEvent: changeToGraphEvent,
-    setItems: setChangeForCalendar,
-    isPopout,
-    lang,
-    enabled: calendarChangeEnabled,
-  });
-
-  // --- Absence calendar write-back (SP4) — mirrors the Change block ---
-  const absenceSync = calendarSyncFor(settings, "absence");
-  const calendarAbsenceEnabled = absenceSync.enabled && m365Enabled && !isPopout;
-  const absenceAutoSyncActive = absenceSync.auto && m365Enabled && !isPopout;
-  const pushableAbsences = useMemo(
-    () => absences.filter((a) => a.type !== "sick" && !!a.startDate && !!a.endDate && a.endDate >= today),
-    [absences, today],
-  );
-  // EXCLUDES outlookEventId — an OUTPUT the push writes back. Includes `note`
-  // so a note-only edit re-pushes the event body (it appears in the Graph body).
-  const absenceAutoSyncKey = useMemo(
-    () => pushableAbsences.map((a) => `${a.id}|${a.startDate}|${a.endDate}|${a.type}|${a.assignee}|${a.note ?? ""}`).join(";"),
-    [pushableAbsences],
-  );
-  const setAbsenceForCalendar = useCallback(
-    (updater: (prev: Absence[]) => Absence[]) => setAbsences((prev) => updater([...prev])),
-    [setAbsences],
-  );
-  const { pushToOutlook: pushAbsenceToOutlook, busy: calendarAbsencePushBusy } = useEntityCalendarPush<Absence>({
-    items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
-    toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: calendarAbsenceEnabled,
-  });
-  const { pushToOutlook: autoPushAbsence } = useEntityCalendarPush<Absence>({
-    items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
-    toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: absenceAutoSyncActive, interactive: false,
-  });
-  useCalendarAutoSync({ active: absenceAutoSyncActive, contentKey: absenceAutoSyncKey, push: autoPushAbsence });
-  const onToggleCalendarAbsence = useCallback(
-    (enabled: boolean) => setSettings((s) => ({
-      ...s,
-      outlookCalendar: {
-        ...s.outlookCalendar,
-        absence: { enabled, auto: enabled ? (s.outlookCalendar?.absence?.auto ?? false) : false },
-      },
-    })),
-    [setSettings],
-  );
-  // Manual "Pull from Outlook" for Absence (two-way SP4) — the only multi-day entity (start+end range).
-  const absencePull = useEntityCalendarPull<Absence>({
-    items: pushableAbsences,
-    entityType: "absence",
-    projectId: calendarProjectId,
-    getDate: (a) => a.startDate,
-    getEndDate: (a) => a.endDate,
-    withDate: (a, start, end) => ({ ...a, startDate: start, endDate: end ?? a.endDate }),
-    toGraphEvent: absenceToGraphEvent,
-    setItems: setAbsenceForCalendar,
-    isPopout,
-    lang,
-    enabled: calendarAbsenceEnabled,
-  });
-
-  // --- Background auto-pull (two-way SP5) — periodic reverse-sync for the four
-  // entities carrying a per-entity `.auto` flag. Each background pull self-gates
-  // on its own `<entity>AutoSyncActive` (`.auto && m365Enabled && !isPopout`) and
-  // is inert otherwise; the runner below owns only the cadence. Milestone is
-  // excluded (different sync model, no `.auto` flag).
-  const { pull: autoPullTasks } = useEntityCalendarPull<Task>({
-    items: pushableTasks, entityType: "task", projectId: calendarProjectId,
-    getDate: (x) => x.dueDate, withDate: (x, date) => ({ ...x, dueDate: date }),
-    toGraphEvent: taskToGraphEvent, setItems: setTasksForAuto,
-    isPullable: (x) => !x.jiraKey, isPopout, lang, enabled: taskAutoSyncActive, background: true,
-    onBackgroundApply: (n) => logActivity("calendar.autoPulled", n, t(lang, "calendarSyncEntityTask")),
-  });
-  const { pull: autoPullRaid } = useEntityCalendarPull<RaidItem>({
-    items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
-    getDate: (r) => r.targetDate, withDate: (r, date) => ({ ...r, targetDate: date }),
-    toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
-    isPopout, lang, enabled: raidAutoSyncActive, background: true,
-    onBackgroundApply: (n) => logActivity("calendar.autoPulled", n, t(lang, "calendarSyncEntityRaid")),
-  });
-  const { pull: autoPullChange } = useEntityCalendarPull<ChangeItem>({
-    items: pushableChanges, entityType: "change", projectId: calendarProjectId,
-    getDate: (c) => c.decisionDate, withDate: (c, date) => ({ ...c, decisionDate: date }),
-    toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
-    isPopout, lang, enabled: changeAutoSyncActive, background: true,
-    onBackgroundApply: (n) => logActivity("calendar.autoPulled", n, t(lang, "calendarSyncEntityChange")),
-  });
-  const { pull: autoPullAbsence } = useEntityCalendarPull<Absence>({
-    items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
-    getDate: (a) => a.startDate, getEndDate: (a) => a.endDate,
-    withDate: (a, start, end) => ({ ...a, startDate: start, endDate: end ?? a.endDate }),
-    toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
-    isPopout, lang, enabled: absenceAutoSyncActive, background: true,
-    onBackgroundApply: (n) => logActivity("calendar.autoPulled", n, t(lang, "calendarSyncEntityAbsence")),
-  });
-  useCalendarAutoPull({
-    enabled: m365Enabled && !isPopout,
-    pulls: [autoPullTasks, autoPullRaid, autoPullChange, autoPullAbsence],
+    tasks,
+    setTasks,
+    raid,
+    setRaid,
+    changes,
+    setChanges,
+    absences,
+    setAbsences,
   });
 
   if (!i18nReady) return null;
@@ -2026,24 +1527,30 @@ function TaskManagerInner() {
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
     m365Configured: m365Enabled,
-    calendarRaidEnabled,
-    onToggleCalendarRaid,
-    pushRaidToOutlook,
-    calendarRaidPushBusy,
-    pullRaidFromOutlook: calendarRaidEnabled ? raidPull.pull : undefined,
-    calendarRaidPullBusy: calendarRaidEnabled ? raidPull.busy : undefined,
-    calendarChangeEnabled,
-    onToggleCalendarChange,
-    pushChangeToOutlook,
-    calendarChangePushBusy,
-    pullChangeFromOutlook: calendarChangeEnabled ? changePull.pull : undefined,
-    calendarChangePullBusy: calendarChangeEnabled ? changePull.busy : undefined,
-    calendarAbsenceEnabled,
-    onToggleCalendarAbsence,
-    pushAbsenceToOutlook,
-    calendarAbsencePushBusy,
-    pullAbsenceFromOutlook: calendarAbsenceEnabled ? absencePull.pull : undefined,
-    calendarAbsencePullBusy: calendarAbsenceEnabled ? absencePull.busy : undefined,
+    raidCalendar: {
+      enabled: calendarRaidEnabled,
+      onToggle: onToggleCalendarRaid,
+      onPush: pushRaidToOutlook,
+      pushBusy: calendarRaidPushBusy,
+      onPull: calendarRaidEnabled ? raidPull.pull : undefined,
+      pullBusy: calendarRaidEnabled ? raidPull.busy : undefined,
+    },
+    changeCalendar: {
+      enabled: calendarChangeEnabled,
+      onToggle: onToggleCalendarChange,
+      onPush: pushChangeToOutlook,
+      pushBusy: calendarChangePushBusy,
+      onPull: calendarChangeEnabled ? changePull.pull : undefined,
+      pullBusy: calendarChangeEnabled ? changePull.busy : undefined,
+    },
+    absenceCalendar: {
+      enabled: calendarAbsenceEnabled,
+      onToggle: onToggleCalendarAbsence,
+      onPush: pushAbsenceToOutlook,
+      pushBusy: calendarAbsencePushBusy,
+      onPull: calendarAbsenceEnabled ? absencePull.pull : undefined,
+      pullBusy: calendarAbsenceEnabled ? absencePull.busy : undefined,
+    },
     changes,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
@@ -2399,27 +1906,33 @@ function TaskManagerInner() {
     </span>
   );
 
-  // Session display-timezone switcher. Sits in both header sites alongside the
-  // Ask-Claude pill (dual-header rule); never in popouts (they have no header).
-  const displayTzSwitcherEl = settings.showDisplayTzSwitcher ? (
-    <DisplayTzSwitcherConnected lang={lang} additionalTimezones={settings.additionalTimezones ?? []} />
-  ) : null;
-
-  const topBarMenus = (
-    <>
-      {displayTzSwitcherEl}
-      <ActionMenus
-        lang={lang}
-        onCommand={handleCommand}
-        onVoiceError={(msg) => showToast("error", msg)}
-        exportConfig={settings.export ?? defaultExportConfig}
-        templates={projectTemplates}
-        onSaveTemplate={handleSaveTemplate}
-        onApplyTemplate={handleApplyTemplate}
-        expertMode={settings.expertMode}
-      />
-    </>
-  );
+  // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
+  // built together in buildShellChrome so a new top-bar control lands in BOTH.
+  const { appHeaderEl, topBarMenus } = buildShellChrome({
+    handleCancelEdit,
+    setTaskModalOpen,
+    showToast,
+    handleCommand,
+    storageDescription,
+    storageOk,
+    onPickStorageFile,
+    onOpenStorageFile,
+    onGrantWriteAccess,
+    onRequestStorageSwitch,
+    setSettings,
+    settings,
+    projectSwitcher,
+    lang,
+    activeTab,
+    nowCount,
+    setActiveTab,
+    migrateCurrentProjectToTurso,
+    openPopoutWindow,
+    requestChat,
+    projectTemplates,
+    handleSaveTemplate,
+    handleApplyTemplate,
+  });
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic
   // tree (rendered after AppHeader) and the modern tree (ModernShell `banners`
@@ -2451,79 +1964,17 @@ function TaskManagerInner() {
 
   const modalsBlock = (
     <>
-      {(() => {
-        const plan = calendarPull.result?.plan;
-        if (!plan) return null;
-        const nameOf = (id: number) => milestones.find((m) => m.id === id)?.name ?? String(id);
-        return (
-          <CalendarPullSummaryModal
-            lang={lang}
-            open={!!calendarPull.result}
-            onClose={calendarPull.clearResult}
-            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
-            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
-            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
-            onKeepApp={calendarPull.keepApp}
-            onTakeOutlook={(c) => calendarPull.applyMove(c.id, c.eventId, c.outlookDate)}
-          />
-        );
-      })()}
-      {(() => {
-        const plan = raidPull.result?.plan;
-        if (!plan) return null;
-        const nameOf = (id: number) => pushableRaid.find((x) => x.id === id)?.title ?? String(id);
-        return (
-          <CalendarPullSummaryModal
-            lang={lang}
-            open={!!raidPull.result}
-            onClose={raidPull.clearResult}
-            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
-            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
-            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
-            onKeepApp={raidPull.keepApp}
-            onTakeOutlook={(c) => raidPull.applyMove(c.id, c.eventId, c.outlookDate)}
-          />
-        );
-      })()}
-      {(() => {
-        const plan = changePull.result?.plan;
-        if (!plan) return null;
-        const nameOf = (id: number) => pushableChanges.find((x) => x.id === id)?.title ?? String(id);
-        return (
-          <CalendarPullSummaryModal
-            lang={lang}
-            open={!!changePull.result}
-            onClose={changePull.clearResult}
-            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
-            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
-            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
-            onKeepApp={changePull.keepApp}
-            onTakeOutlook={(c) => changePull.applyMove(c.id, c.eventId, c.outlookDate)}
-          />
-        );
-      })()}
-      {(() => {
-        const plan = absencePull.result?.plan;
-        if (!plan) return null;
-        const nameOf = (id: number) => {
-          const a = pushableAbsences.find((x) => x.id === id);
-          // Include startDate so two same-type absences for the same person get
-          // a row-UNIQUE accessible name in the conflict list (WCAG 2.4.6).
-          return a ? `${a.assignee} (${a.type}) – ${a.startDate}` : String(id);
-        };
-        return (
-          <CalendarPullSummaryModal
-            lang={lang}
-            open={!!absencePull.result}
-            onClose={absencePull.clearResult}
-            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate, newEndDate: a.newEndDate }))}
-            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate, appEndDate: c.appEndDate, outlookEndDate: c.outlookEndDate }))}
-            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
-            onKeepApp={absencePull.keepApp}
-            onTakeOutlook={(c) => absencePull.applyMove(c.id, c.eventId, c.outlookDate, c.outlookEndDate)}
-          />
-        );
-      })()}
+      <CalendarSummaryModals
+        lang={lang}
+        milestones={milestones}
+        pushableRaid={pushableRaid}
+        pushableChanges={pushableChanges}
+        pushableAbsences={pushableAbsences}
+        calendarPull={calendarPull}
+        raidPull={raidPull}
+        changePull={changePull}
+        absencePull={absencePull}
+      />
       <CommSendPreviewModal
         open={commSend.previewModal.open}
         req={commSend.previewModal.req}
@@ -2613,36 +2064,6 @@ function TaskManagerInner() {
 
   // The existing tree. Its root className already branches on isPopout, so this
   // single definition serves both the classic main window AND every popout.
-  const appHeaderEl = (
-    <AppHeader
-      handleCancelEdit={handleCancelEdit}
-      setTaskModalOpen={setTaskModalOpen}
-      bannerCount={nowCount}
-      onShowAlerts={() => setActiveTab("actions")}
-      showToast={showToast}
-      handleCommand={handleCommand}
-      storageDescription={storageDescription}
-      storageReady={storageOk}
-      onPickStorageFile={onPickStorageFile}
-      onOpenStorageFile={onOpenStorageFile}
-      onGrantStorageWrite={onGrantWriteAccess}
-      onRequestStorageSwitch={onRequestStorageSwitch}
-      onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
-      settings={settings}
-      setSettings={setSettings}
-      lang={lang}
-      onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
-      currentView={activeTab}
-      onAskClaude={(body) => requestChat(body, true)}
-      projectSwitcher={projectSwitcher}
-      trailing={
-        <div className="flex items-center gap-2">
-          <GlobalSearchConnected lang={lang} />
-          {displayTzSwitcherEl}
-        </div>
-      }
-    />
-  );
 
   // Popout windows keep the simple scrolling flow. The classic main window is a
   // viewport-height flex column: the header pins at the top, only the content

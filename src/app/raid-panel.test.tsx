@@ -301,8 +301,10 @@ describe("RaidPanel — owner ResourcePicker", () => {
 });
 
 test("raid toolbar: add-item precedes search; no open-report button", () => {
-  const src = readFileSync(join(__dirname, "raid-panel.tsx"), "utf8");
-  const addIdx = src.indexOf("openNew()");
+  // Toolbar markup lives in raid-panel-toolbar.tsx after the Phase 3 split
+  // (mirrors the gantt-chrome markup-order source test).
+  const src = readFileSync(join(__dirname, "raid-panel-toolbar.tsx"), "utf8");
+  const addIdx = src.indexOf("onClick={onAddNew}");
   const searchIdx = src.indexOf('type="search"');
   expect(addIdx).toBeGreaterThan(-1);
   expect(addIdx).toBeLessThan(searchIdx);
