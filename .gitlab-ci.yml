@@ -100,6 +100,17 @@ unit-tests:
     paths: [coverage/]
     expire_in: 1 week
 
+# File-size ratchet — warn-only for now (allow_failure); Phase 4 flips to blocking.
+# Freezes the 3 oversized files at their current size and blocks new oversized
+# files. Regenerate the baseline with `node scripts/check-file-sizes.mjs --update`
+# when a decomposition legitimately lowers a file below the limit.
+file-size-ratchet:
+  stage: quality
+  needs: []
+  allow_failure: true
+  script:
+    - npm run size:check
+
 build:
   stage: build
   needs: [install]

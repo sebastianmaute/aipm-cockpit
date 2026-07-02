@@ -126,6 +126,7 @@ No environment variables are required to run the app — every integration is co
 | `npm run docs:scripts` | Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json` |
 | `npm run docs:scripts:check` | Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode) |
 | `npm run dup:check` | Report code duplication in `src/` via jscpd (Phase 1 tech-debt baseline) |
+| `npm run size:check` | Fail if a src file exceeds 800 lines or grows past its baselined size (ratchet) |
 <!-- END AUTO-GENERATED -->
 
 ## Storage Backends
