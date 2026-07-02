@@ -51,17 +51,29 @@
 
 ---
 
-## SAST (Semgrep) — pending first CI run
+## SAST (Semgrep) — CI job live, awaiting first run
 
-Semgrep runs warn-only in CI (`.gitlab-ci.yml semgrep` job, `p/typescript` + `p/react` + `p/owasp-top-ten`). No Docker on the dev box, so the first authoritative run is the MR pipeline. Triage rule: real findings land here severity-tagged; baseline file committed so only NEW findings ever block after the grace period.
+Semgrep runs warn-only in CI (`.gitlab-ci.yml semgrep` job, `p/typescript` + `p/react` + `p/owasp-top-ten`), emitting **GitLab-native SAST format** (`gl-sast-report.json` under `artifacts:reports:sast`).
+
+**Where findings appear:**
+- **Security tab / MR security widget / Vulnerability Report** — populated from the SAST report (these UI surfaces need GitLab **Ultimate**; on lower tiers the report is still a downloadable artifact).
+- **`semgrep` job log** — Semgrep prints the findings table.
+- **`gl-sast-report.json` artifact** — downloadable for 1 week.
+
+No Docker on the dev box → the first authoritative run is the MR pipeline. Triage rule: real findings land here severity-tagged.
 
 _Status: awaiting first pipeline run._
 
-## DAST (ZAP baseline) — pending
+## DAST (OWASP ZAP baseline) — CI job added (manual + scheduled), unvalidated
 
-No Docker locally → deferred. When run: `npm run build && npm run start`, then `zap-baseline.py -t http://localhost:3000 -I`. Server surface is only `/api/{jira,confluence,timelog,ecb}` + static assets (client-heavy app), so expected findings are header/CSP nits — CSP already hardened in `proxy.ts`.
+A `dast-zap` CI job (`.gitlab-ci.yml`, `e2e` stage) builds the app from `Dockerfile.dast`, runs it, and baseline-scans it from a sibling ZAP container on a shared docker network. Runs on the **weekly schedule** and on **manual trigger** only (DAST is slow/infra-heavy), `allow_failure`.
 
-_Status: not yet run; low expected yield given the small server surface._
+**Where findings appear:**
+- **`zap-report.html` + `zap-report.json` artifacts** on the `dast-zap` job (plain artifacts — raw ZAP JSON is NOT GitLab's `gl-dast-report.json` schema, so it does **not** feed the Security-tab DAST widget; that would need the GitLab DAST analyzer pointed at a deployed review-app, which this pipeline has no deploy stage for yet).
+
+**★ Requires a dind-capable (privileged) runner — UNVALIDATED locally.** Verify on the first manual run; if the runners can't do docker-in-docker, switch to the DAST-analyzer + review-app approach. Server surface is only `/api/{jira,confluence,timelog,ecb}` + static assets, so expected findings are header/CSP nits (CSP already hardened in `proxy.ts`).
+
+_Status: job added; not yet run. Trigger manually from the pipeline to produce the first report._
 
 ---
 
