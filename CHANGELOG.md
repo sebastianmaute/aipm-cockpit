@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.161.0] - 2026-07-02 "Newitz"
+
+### Added
+- **Task two-way Outlook calendar pull (SP2)**: the two-way calendar sync — which gained its first pull direction for milestones in 0.160 — now extends to **tasks**. A manual **"Pull from Outlook"** button on the Tasks (**Open Points**) view fetches the current dates of the task calendar events and applies **due-date reschedules made in Outlook back onto the tasks**. Conflicts follow the same **app-wins** rule: an Outlook move is auto-applied **only when the task is unchanged since the last agreed baseline** — otherwise it is surfaced as a **per-row conflict** you resolve (keep the app's date or take Outlook's), never a silent overwrite. Events **removed or cancelled in Outlook** raise a **deletion notice**, and a **summary modal** lists what was applied, the conflicts, and the deletions. **Jira-synced tasks are excluded** (Jira owns their dates). Tasks only in this slice. Requires Microsoft 365; pop-out windows are read-only.
+
+### Notes
+- Reuses the SP1 pull engine, per-device sync baseline (`lop-app:calendar-sync-baseline`), and summary modal. No new persisted `Workspace` field or column (`Task.outlookEventId` already exists), no new golden fixtures. RAID + changes (SP3), absences (SP4), and auto-pull (SP5) follow.
+
 ## [0.160.0] - 2026-07-02 "Ellison"
 
 ### Added

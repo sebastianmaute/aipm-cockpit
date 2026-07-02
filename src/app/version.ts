@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.160.0";
-export const APP_BUILD_DATE = "2026-07-02"; // 0.160.0: Milestone two-way Outlook calendar pull — a manual "Pull from Outlook" button applies Outlook date reschedules onto milestones with app-wins conflict handling and deletion notices (Ellison)
+export const APP_VERSION = "0.161.0";
+export const APP_BUILD_DATE = "2026-07-02"; // 0.161.0: Task two-way Outlook calendar pull — a manual "Pull from Outlook" button on the Tasks view applies Outlook due-date reschedules onto tasks with app-wins conflicts + deletion notices; Jira-synced tasks excluded (Newitz)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.160.x line is "Ellison" (Harlan Ellison). */
-export const APP_MILESTONE = "Ellison";
+ *  0.161.x line is "Newitz" (Annalee Newitz). */
+export const APP_MILESTONE = "Newitz";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -178,4 +178,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCalendarChange",
   "versionHighlightCalendarAbsence",
   "versionHighlightCalendarPull",
+  "versionHighlightCalendarPullTask",
 ] as const;

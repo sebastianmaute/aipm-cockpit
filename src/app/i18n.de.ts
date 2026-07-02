@@ -168,6 +168,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightCalendarChange: "Änderungsentscheidungen werden an ihren Entscheidungsterminen mit Outlook synchronisiert",
   versionHighlightCalendarAbsence: "Ressourcenabwesenheiten werden als mehrtägige Outlook-Termine synchronisiert",
   versionHighlightCalendarPull: "Outlook-Terminverschiebungen werden in Meilensteine zurückgespielt",
+  versionHighlightCalendarPullTask: "Outlook-Terminverschiebungen werden in Aufgaben zurückgespielt",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
