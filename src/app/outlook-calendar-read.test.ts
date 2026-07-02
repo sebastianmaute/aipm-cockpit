@@ -33,4 +33,15 @@ describe("fetchProjectEventDates", () => {
     const out = await fetchProjectEventDates("tok", "proj-1");
     expect(out.map((e) => e.id)).toEqual(["e1", "e2"]);
   });
+  it("filters by the type-scoped category when entityType is given", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (graphGet as any).mockClear();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (graphGet as any).mockResolvedValueOnce({ value: [] });
+    await fetchProjectEventDates("tok", "proj-1", "task");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const url = (graphGet as any).mock.calls[0][1] as string;
+    expect(url).toContain(encodeURIComponent("AIPM:proj-1:task"));
+    expect(url).toContain(encodeURIComponent("categories/any(c:c eq 'AIPM:proj-1:task')"));
+  });
 });

@@ -16,6 +16,8 @@ import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
+import { useEntityCalendarPull } from "./use-entity-calendar-pull";
+import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { taskToGraphEvent } from "./outlook-calendar-write";
 import { calendarSyncFor } from "./calendar-sync-config";
 import { DEFAULT_COL_WIDTHS } from "./use-column-manager";
@@ -227,6 +229,21 @@ export function TasksSection({
     projectId: projectId ?? "default",
     toGraphEvent: taskToGraphEvent,
     setItems: setTasksForPush,
+    isPopout: !!isPopout,
+    lang,
+    enabled: !!m365Configured && !isPopout,
+  });
+  // Outlook calendar two-way sync (SP2): manual pull of due dates from Outlook.
+  // Jira-synced tasks are excluded (Jira owns their dates).
+  const taskPull = useEntityCalendarPull<Task>({
+    items: pushableTasks,
+    entityType: "task",
+    projectId: projectId ?? "default",
+    getDate: (x) => x.dueDate,
+    withDate: (x, date) => ({ ...x, dueDate: date }),
+    toGraphEvent: taskToGraphEvent,
+    setItems: setTasksForPush,
+    isPullable: (x) => !x.jiraKey,
     isPopout: !!isPopout,
     lang,
     enabled: !!m365Configured && !isPopout,
@@ -539,6 +556,18 @@ export function TasksSection({
                 {calPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
               </button>
             )}
+            {calendarTaskEnabled && (
+              <button
+                type="button"
+                onClick={() => void taskPull.pull()}
+                disabled={taskPull.busy}
+                aria-label={t(lang, "calendarPull")}
+                title={t(lang, "calendarPull")}
+                className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+              >
+                {taskPull.busy ? t(lang, "calendarPulling") : t(lang, "calendarPull")}
+              </button>
+            )}
           </>
         )}
         <PrintButton lang={lang} iconOnly />
@@ -748,6 +777,23 @@ export function TasksSection({
         )}
       </div>
       )}
+
+      {taskPull.result && (() => {
+        const plan = taskPull.result.plan;
+        const nameOf = (id: number) => pushableTasks.find((x) => x.id === id)?.taskName ?? String(id);
+        return (
+          <CalendarPullSummaryModal
+            lang={lang}
+            open
+            onClose={taskPull.clearResult}
+            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
+            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
+            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
+            onKeepApp={taskPull.keepApp}
+            onTakeOutlook={(c) => taskPull.applyMove(c.id, c.eventId, c.outlookDate)}
+          />
+        );
+      })()}
     </section>
   );
 }

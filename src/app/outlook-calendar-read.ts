@@ -16,10 +16,11 @@ function toDate(raw: RawEvent): string | null {
 }
 
 /** Fetch the current date + cancel state of every event tagged with the project's
- *  bare category. Milestones share this category with committee events; the caller
- *  matches by stored outlookEventId, so non-milestone events simply don't match. */
-export async function fetchProjectEventDates(token: string, projectId: string): Promise<PulledEvent[]> {
-  const cat = categoryFor(projectId).replace(/'/g, "''");
+ *  category. Without `entityType` this is the BARE category (milestones/committee share
+ *  it; the caller matches by stored outlookEventId, so non-milestone events don't match);
+ *  with `entityType` it is the TYPE-SCOPED category `AIPM:<projectId>:<entityType>`. */
+export async function fetchProjectEventDates(token: string, projectId: string, entityType?: string): Promise<PulledEvent[]> {
+  const cat = categoryFor(projectId, entityType).replace(/'/g, "''");
   let url: string | null =
     `${GRAPH}/me/events?$filter=${encodeURIComponent(`categories/any(c:c eq '${cat}')`)}&$select=id,start,isCancelled&$top=100`;
   const out: PulledEvent[] = [];

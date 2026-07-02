@@ -165,6 +165,7 @@ const enUS = {
   versionHighlightCalendarChange: "Change decisions sync to Outlook on their decision dates",
   versionHighlightCalendarAbsence: "Resource absences sync to Outlook as multi-day calendar events",
   versionHighlightCalendarPull: "Outlook date reschedules pull back into milestones",
+  versionHighlightCalendarPullTask: "Outlook date reschedules pull back into tasks",
 
   tasks: "Tasks",
   tasksCount: "({0})",
