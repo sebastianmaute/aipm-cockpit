@@ -36,11 +36,17 @@ export function planCalendarPull(args: {
     const eventId = ent.outlookEventId;
     if (!eventId) continue;
     const ev = byId.get(eventId);
-    const hasEnd = ent.endDate !== undefined;
-    if (!ev || ev.isCancelled || ev.date === null || (hasEnd && ev.endDate === null)) {
+    if (!ev || ev.isCancelled) {
+      // Definitive deletion: the event is gone or cancelled in Outlook.
       plan.deletions.push({ id: ent.id, eventId });
       continue;
     }
+    if (ev.date === null || (ent.endDate !== undefined && ev.endDate === null)) {
+      // Transient/unreadable read (present event, malformed date) — neither in-sync
+      // nor a deletion; the next pull with a readable date reconciles it.
+      continue;
+    }
+    const hasEnd = ent.endDate !== undefined;
     const startMatch = ev.date === ent.date;
     const endMatch = !hasEnd || ev.endDate === ent.endDate;
     if (startMatch && endMatch) continue; // in sync
