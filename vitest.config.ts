@@ -59,11 +59,14 @@ export default defineConfig({
       // 91.9 / branch 81.3 as of 2026-06-12) to lock in the gains and catch
       // regressions, with a few points of headroom for normal churn. Raise
       // these as coverage climbs; never lower them just to make a PR pass.
+      // Phase 2 ratchet (2026-07-02): raised to ~measured-minus-1 after the
+      // characterization suites added task-manager/workspace-section coverage.
+      // Measured this date: lines 92.67 / funcs 91.44 / branches 80.89 / stmts 89.46.
       thresholds: {
-        lines: 90,
-        functions: 89,
-        branches: 78,
-        statements: 87,
+        lines: 91,
+        functions: 90,
+        branches: 79,
+        statements: 88,
       },
     },
   },
