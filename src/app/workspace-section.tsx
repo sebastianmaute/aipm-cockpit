@@ -201,6 +201,8 @@ export function WorkspaceSection({
   onToggleCalendarAbsence,
   pushAbsenceToOutlook,
   calendarAbsencePushBusy,
+  pullAbsenceFromOutlook,
+  calendarAbsencePullBusy,
   guides = [],
   guidesReady = true,
 }: WorkspaceSectionProps) {
@@ -635,6 +637,8 @@ export function WorkspaceSection({
               onToggleCalendar={onToggleCalendarAbsence}
               onPushCalendar={pushAbsenceToOutlook}
               calendarPushBusy={calendarAbsencePushBusy}
+              onPullCalendar={pullAbsenceFromOutlook}
+              calendarPullBusy={calendarAbsencePullBusy}
               showHints={settings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

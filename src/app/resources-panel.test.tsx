@@ -286,6 +286,20 @@ describe("ResourcesPanel — Outlook calendar toggle (SP4)", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPush") }));
     expect(onPushCalendar).toHaveBeenCalledTimes(1);
   });
+
+  test("shows the Pull button only when calendarEnabled and calls onPullCalendar", () => {
+    const onPullCalendar = vi.fn();
+    const { rerender } = render(
+      <ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPushCalendar={vi.fn()} />,
+    );
+    expect(screen.queryByRole("button", { name: t("en-US", "calendarPull") })).toBeNull();
+
+    rerender(
+      <ResourcesPanel {...baseProps} view="workload" m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPullCalendar={onPullCalendar} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPull") }));
+    expect(onPullCalendar).toHaveBeenCalledTimes(1);
+  });
 });
 
 test("custom calendar view has a Today button that resets to the current month", () => {
