@@ -442,4 +442,27 @@ describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPush") }));
     expect(onPushCalendar).toHaveBeenCalledTimes(1);
   });
+
+  it("shows the Pull button only when calendarEnabled and onPullCalendar, and calls it", () => {
+    const onPullCalendar = vi.fn();
+    // Absent without onPullCalendar even when calendarEnabled.
+    const { rerender } = renderPanel(
+      makeProps({ m365Configured: true, onToggleCalendar: vi.fn(), calendarEnabled: true }),
+    );
+    expect(screen.queryByRole("button", { name: t("en-US", "calendarPull") })).toBeNull();
+
+    rerender(
+      <FiltersProvider>
+        <WorkspaceProvider>
+          <WorkspaceTabProvider>
+            <RaidPanel
+              {...makeProps({ m365Configured: true, onToggleCalendar: vi.fn(), calendarEnabled: true, onPullCalendar })}
+            />
+          </WorkspaceTabProvider>
+        </WorkspaceProvider>
+      </FiltersProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "calendarPull") }));
+    expect(onPullCalendar).toHaveBeenCalledTimes(1);
+  });
 });

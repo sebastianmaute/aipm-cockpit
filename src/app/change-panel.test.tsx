@@ -165,6 +165,23 @@ describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
     fireEvent.click(getByRole("button", { name: t("en-US", "calendarPush") }));
     expect(onPushCalendar).toHaveBeenCalledTimes(1);
   });
+
+  it("shows the Pull button only when calendarEnabled and onPullCalendar, and calls it", () => {
+    const onPullCalendar = vi.fn();
+    // Absent without onPullCalendar even when calendarEnabled.
+    const { queryByRole } = render(
+      <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} calendarEnabled />,
+      { wrapper: Providers },
+    );
+    expect(queryByRole("button", { name: t("en-US", "calendarPull") })).toBeNull();
+
+    const { getByRole } = render(
+      <ChangePanel {...base} m365Configured onToggleCalendar={vi.fn()} calendarEnabled onPullCalendar={onPullCalendar} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("button", { name: t("en-US", "calendarPull") }));
+    expect(onPullCalendar).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("Changes bulk edit", () => {

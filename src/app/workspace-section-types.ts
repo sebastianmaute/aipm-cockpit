@@ -180,11 +180,17 @@ export interface WorkspaceSectionProps {
   onToggleCalendarRaid?: (enabled: boolean) => void;
   pushRaidToOutlook?: () => void;
   calendarRaidPushBusy?: boolean;
+  /** RAID Pull-from-Outlook (two-way SP3). Absent in popouts. */
+  pullRaidFromOutlook?: () => void;
+  calendarRaidPullBusy?: boolean;
   /** Change decision-date Outlook write-back (SP3). Absent in popouts. */
   calendarChangeEnabled?: boolean;
   onToggleCalendarChange?: (enabled: boolean) => void;
   pushChangeToOutlook?: () => void;
   calendarChangePushBusy?: boolean;
+  /** Change Pull-from-Outlook (two-way SP3). Absent in popouts. */
+  pullChangeFromOutlook?: () => void;
+  calendarChangePullBusy?: boolean;
   /** Absence Outlook write-back (SP4). Absent in popouts. */
   calendarAbsenceEnabled?: boolean;
   onToggleCalendarAbsence?: (enabled: boolean) => void;

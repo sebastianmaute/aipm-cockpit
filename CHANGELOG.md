@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.162.0] - 2026-07-02 "Bennett"
+
+### Added
+- **RAID + Change two-way Outlook calendar pull (SP3)**: the two-way calendar sync — which gained pull directions for milestones in 0.160 and tasks in 0.161 — now extends to **RAID items and changes**. A manual **"Pull from Outlook"** button on the RAID and Change panes fetches the current dates of their calendar events and applies **date reschedules made in Outlook back onto RAID target dates and change decision dates**. Conflicts follow the same **app-wins** rule: an Outlook move is auto-applied **only when the item is unchanged since the last agreed baseline** — otherwise it is surfaced as a **per-row conflict** you resolve (keep the app's date or take Outlook's), never a silent overwrite. Events **removed or cancelled in Outlook** raise a **deletion notice**, and a **summary modal** lists what was applied, the conflicts, and the deletions. RAID + changes only in this slice. Requires Microsoft 365; pop-out windows are read-only.
+
+### Notes
+- Reuses the SP1/SP2 generic pull engine, hook, and per-device sync baseline (`lop-app:calendar-sync-baseline`), and summary modal. Unlike the fat Tasks pane, RAID and Change are thin callback-prop panes, so both pull hooks live in `task-manager.tsx` and thread through `workspace-section`. No new persisted `Workspace` field or column (`RaidItem.outlookEventId` / `ChangeItem.outlookEventId` already exist), no new golden fixtures. Absences (SP4) and auto-pull (SP5) follow.
+
 ## [0.161.0] - 2026-07-02 "Newitz"
 
 ### Added
