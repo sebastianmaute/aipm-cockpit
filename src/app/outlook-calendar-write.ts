@@ -2,9 +2,10 @@
 // given an access token: no MSAL, no React. graph.microsoft.com is already CSP-allowlisted.
 import type { Milestone, CommitteeMeeting, Task, RaidItem, ChangeItem, Absence } from "./types";
 import type { ExistingEvent } from "./calendar-reconcile";
+import { GRAPH, MAX_PAGES, graphGet, GraphCalendarError } from "./outlook-graph";
 
-const GRAPH = "https://graph.microsoft.com/v1.0";
-const MAX_PAGES = 100;
+// Re-exported so existing importers (tests) keep resolving GraphCalendarError from here.
+export { GraphCalendarError } from "./outlook-graph";
 
 export const CALENDAR_READWRITE_SCOPE = ["Calendars.ReadWrite"] as const;
 
@@ -21,13 +22,6 @@ export interface GraphEvent {
   /** Free/busy status shown in Outlook. Optional — only entity types that
    *  care about availability (absences) set it; others omit it. */
   showAs?: "free" | "tentative" | "busy" | "oof" | "workingElsewhere";
-}
-
-export class GraphCalendarError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-    this.name = "GraphCalendarError";
-  }
 }
 
 function nextDay(isoDate: string): string {
@@ -219,14 +213,6 @@ async function graph(token: string, method: string, path: string, payload?: unkn
     throw new GraphCalendarError(res.status, `Graph ${method} ${path} failed (${res.status})`);
   }
   return res;
-}
-
-/** GET an absolute Graph URL, returning the parsed JSON or throwing on non-ok.
- *  Mirrors graph() but for GET (no body), against a full URL (for pagination). */
-async function graphGet<T>(token: string, url: string): Promise<T> {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new GraphCalendarError(res.status, `Graph GET failed (${res.status})`);
-  return (await res.json()) as T;
 }
 
 /** All project-tagged events (id only), paginated. */
