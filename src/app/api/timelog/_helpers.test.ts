@@ -1,9 +1,17 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { parseTimelogRequest, callTimelog, type TimelogCreds } from "./_helpers";
+import { MAX_REQUESTS } from "../jira/_rate-limit";
 
 const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
 function req(body: unknown): Request {
   return new Request("http://localhost/api/timelog", { method: "POST", body: JSON.stringify(body) });
+}
+function reqIp(body: unknown, ip: string): Request {
+  return new Request("http://localhost/api/timelog", {
+    method: "POST",
+    headers: { "x-forwarded-for": ip },
+    body: JSON.stringify(body),
+  });
 }
 afterEach(() => vi.restoreAllMocks());
 
@@ -55,5 +63,16 @@ describe("timelog proxy SSRF guard", () => {
   it("parseTimelogRequest rejects a path with CRLF injection", async () => {
     const out = await parseTimelogRequest(req({ ...creds, path: "/v1/x\r\nX: y" }));
     expect("error" in out && (out.error as Response).status).toBe(400);
+  });
+  it("parseTimelogRequest surfaces the rate limiter's 429 once the per-IP window is exhausted", async () => {
+    // Unique IP + the "timelog" scope isolate this from the shared bucket store.
+    const ip = "203.0.113.201";
+    const body = { ...creds, path: "/v1/time-tracking-item/get-by-date" };
+    for (let i = 0; i < MAX_REQUESTS; i++) {
+      const ok = await parseTimelogRequest(reqIp(body, ip));
+      expect("error" in ok).toBe(false);
+    }
+    const blocked = await parseTimelogRequest(reqIp(body, ip));
+    expect("error" in blocked && (blocked.error as Response).status).toBe(429);
   });
 });
