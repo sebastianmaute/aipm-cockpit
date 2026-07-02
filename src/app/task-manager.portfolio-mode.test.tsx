@@ -61,7 +61,10 @@ describe("TaskManager portfolio mode (Turso)", () => {
 
     // The empty-state modal (title + Create button) appears only after the
     // shared-DB list resolves empty — proving turso mode drives the gate.
-    expect(await screen.findByText("Create a new project")).toBeTruthy();
+    // Extra timeout headroom: this heavy TaskManager mount + async DB resolve can
+    // exceed the 20s default under full-suite coverage load on a slow machine
+    // (the documented load-timeout flake; passes in isolation and CI).
+    expect(await screen.findByText("Create a new project", undefined, { timeout: 40000 })).toBeTruthy();
     expect(listProjects).toHaveBeenCalled();
   });
 
