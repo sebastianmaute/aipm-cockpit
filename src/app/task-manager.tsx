@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import type { SettingsSectionId } from "./dashboard-coaching";
 import { getBucketReminders } from "./budget-report";
-import { type Lang, t } from "./i18n";
+import { t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
 import { ActivityLogProvider } from "./activity-log-context";
@@ -48,7 +48,6 @@ import {
 import { TasksSection } from "./tasks-section";
 import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
-import { AppHeader } from "./app-header";
 import { GlobalSearchConnected } from "./global-search-box";
 import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
 import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
@@ -61,6 +60,7 @@ import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { useCalendarIntegrations } from "./use-calendar-integrations";
 import { useActionCenterHandlers } from "./use-action-center-handlers";
 import { useAiOrchestration } from "./use-ai-orchestration";
+import { buildShellChrome } from "./shell-chrome";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -83,7 +83,6 @@ import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSetting
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
-import { ActionMenus } from "./action-menus";
 import { makeEditGuard } from "./read-only-guard";
 import { SettingsView } from "./settings-view";
 import { LearningInsights } from "./learning-insights";
@@ -133,18 +132,13 @@ import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends } from "./next-actions/trends";
 import { todayInZone, resolveTimezone } from "./timezone";
-import { DisplayTimezoneProvider, useDisplayTimezone } from "./display-timezone-context";
-import { DisplayTzSwitcher } from "./display-tz-switcher";
+import { DisplayTimezoneProvider } from "./display-timezone-context";
 
 // Today (YYYY-MM-DD) in the resolved effective zone. A module fn so the
 // `new Date()` read stays out of the render body (react-hooks purity rule).
 // Connected display-timezone switcher. A module-level wrapper (static-components
 // rule) so it can read the DisplayTimezoneContext that wraps both shells — the
 // header element it produces is rendered inside the provider in both layouts.
-function DisplayTzSwitcherConnected({ lang, additionalTimezones }: { lang: Lang; additionalTimezones: readonly string[] }) {
-  const ctx = useDisplayTimezone();
-  return <DisplayTzSwitcher lang={lang} ctx={ctx} additionalTimezones={additionalTimezones} />;
-}
 
 function effectiveToday(tz: string): string {
   return todayInZone(new Date(), tz);
@@ -950,7 +944,7 @@ function TaskManagerInner() {
     } finally {
       setImportLoading(false);
     }
-  }, [fetchOutlookContacts, lang]);
+  }, [fetchOutlookContacts, lang, setImportOpen, setImportError, setImportContacts, setImportLoading]);
 
   const existingResourceEmails = useMemo(
     () =>
@@ -974,7 +968,7 @@ function TaskManagerInner() {
       setImportOpen(false);
       showToast("info", t(lang, "outlookImportedN", selected.length));
     },
-    [handleImportResources, setContacts, showToast, lang],
+    [handleImportResources, setContacts, showToast, lang, setImportOpen],
   );
 
   const outlookCalendarEnabled =
@@ -1034,7 +1028,7 @@ function TaskManagerInner() {
     } finally {
       setCalImportLoading(false);
     }
-  }, [fetchOutlookEvents, today, lang]);
+  }, [fetchOutlookEvents, today, lang, setCalImportOpen, setCalImportError, setCalImportEvents, setCalImportLoading]);
 
   const handleConfirmCalendarImport = useCallback(
     (rows: { event: OutlookEvent; type: AbsenceType }[]) => {
@@ -1042,7 +1036,7 @@ function TaskManagerInner() {
       setCalImportOpen(false);
       showToast("info", t(lang, "outlookCalImportedN", rows.length));
     },
-    [handleImportAbsences, calendarTarget, showToast, lang],
+    [handleImportAbsences, calendarTarget, showToast, lang, setCalImportOpen],
   );
 
   const tasksRef = useRef(tasks);
@@ -1906,27 +1900,33 @@ function TaskManagerInner() {
     </span>
   );
 
-  // Session display-timezone switcher. Sits in both header sites alongside the
-  // Ask-Claude pill (dual-header rule); never in popouts (they have no header).
-  const displayTzSwitcherEl = settings.showDisplayTzSwitcher ? (
-    <DisplayTzSwitcherConnected lang={lang} additionalTimezones={settings.additionalTimezones ?? []} />
-  ) : null;
-
-  const topBarMenus = (
-    <>
-      {displayTzSwitcherEl}
-      <ActionMenus
-        lang={lang}
-        onCommand={handleCommand}
-        onVoiceError={(msg) => showToast("error", msg)}
-        exportConfig={settings.export ?? defaultExportConfig}
-        templates={projectTemplates}
-        onSaveTemplate={handleSaveTemplate}
-        onApplyTemplate={handleApplyTemplate}
-        expertMode={settings.expertMode}
-      />
-    </>
-  );
+  // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
+  // built together in useShellChrome so a new top-bar control lands in BOTH.
+  const { appHeaderEl, topBarMenus } = buildShellChrome({
+    handleCancelEdit,
+    setTaskModalOpen,
+    showToast,
+    handleCommand,
+    storageDescription,
+    storageOk,
+    onPickStorageFile,
+    onOpenStorageFile,
+    onGrantWriteAccess,
+    onRequestStorageSwitch,
+    setSettings,
+    settings,
+    projectSwitcher,
+    lang,
+    activeTab,
+    nowCount,
+    setActiveTab,
+    migrateCurrentProjectToTurso,
+    openPopoutWindow,
+    requestChat,
+    projectTemplates,
+    handleSaveTemplate,
+    handleApplyTemplate,
+  });
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic
   // tree (rendered after AppHeader) and the modern tree (ModernShell `banners`
@@ -2120,36 +2120,6 @@ function TaskManagerInner() {
 
   // The existing tree. Its root className already branches on isPopout, so this
   // single definition serves both the classic main window AND every popout.
-  const appHeaderEl = (
-    <AppHeader
-      handleCancelEdit={handleCancelEdit}
-      setTaskModalOpen={setTaskModalOpen}
-      bannerCount={nowCount}
-      onShowAlerts={() => setActiveTab("actions")}
-      showToast={showToast}
-      handleCommand={handleCommand}
-      storageDescription={storageDescription}
-      storageReady={storageOk}
-      onPickStorageFile={onPickStorageFile}
-      onOpenStorageFile={onOpenStorageFile}
-      onGrantStorageWrite={onGrantWriteAccess}
-      onRequestStorageSwitch={onRequestStorageSwitch}
-      onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
-      settings={settings}
-      setSettings={setSettings}
-      lang={lang}
-      onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
-      currentView={activeTab}
-      onAskClaude={(body) => requestChat(body, true)}
-      projectSwitcher={projectSwitcher}
-      trailing={
-        <div className="flex items-center gap-2">
-          <GlobalSearchConnected lang={lang} />
-          {displayTzSwitcherEl}
-        </div>
-      }
-    />
-  );
 
   // Popout windows keep the simple scrolling flow. The classic main window is a
   // viewport-height flex column: the header pins at the top, only the content
