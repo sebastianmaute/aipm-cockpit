@@ -26,3 +26,31 @@ Recorded from `npm outdated` on 2026-07-02. Order: security-relevant → tooling
 ## Range-pinned (no action — semver range holds them)
 
 `next` (forked, A7 — never auto-bump), `eslint-config-next`, `react`, `react-dom` — all report `Wanted == Current`; the latest is outside the pinned range by design.
+
+## Phase 3 residual — `task-manager.tsx` size (documented, not force-split)
+
+Phase 3 (decomposition) extracted the five clearly-separable clusters from
+`task-manager.tsx` behind the Phase 2 characterization net, all move-only:
+
+| Extraction | Module | Kind |
+|---|---|---|
+| Outlook calendar push/pull/auto-sync (milestones + committee + task/raid/change/absence) | `use-calendar-integrations.ts` | hook factory |
+| Action-Center CTA handlers (assign/create/mark-done/clear-blocker/draft/escalate/rebaseline/reschedule) | `use-action-center-handlers.ts` | hook factory |
+| AI advisory orchestration (analyze + weight-suggestion ctx + scheduled-job runner) | `use-ai-orchestration.ts` | hook factory |
+| Dual-header assembly (classic AppHeader + modern topBarMenus) | `shell-chrome.tsx` (`buildShellChrome`) | render builder |
+| Four two-way calendar pull-summary modals | `calendar-summary-modals.tsx` | props-only component |
+
+Result: `task-manager.tsx` **2,841 → ~2,246 lines** (−595, ~21%).
+
+**The ≤800-line target is NOT met and is deliberately not pursued further.** The
+residual is genuine root-orchestrator glue: workspace state + ~40 hook mounts,
+the load/save/broadcast effects and their refs, view routing, and the
+classic/modern/popout render trees. Any further split would produce
+pass-through modules with no independent cohesion (thread N deps in, return N
+values out) — a YAGNI violation that trades one large cohesive file for several
+coupled ones without improving testability. The five extractions above removed
+everything that had a real seam; what remains is the orchestrator by definition.
+
+Phase 4 note: if the root is revisited, the higher-leverage move is reducing the
+number of top-level hooks/effects (consolidating related state), not slicing the
+render tree. Do not re-open this as a line-count task.
