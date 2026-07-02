@@ -9,6 +9,7 @@ import {
 } from "./recovery-config";
 import { SETTINGS_KEY } from "./use-settings";
 import { MODE_KEY, CURRENT_TURSO_PROJECT_KEY } from "./portfolio-mode";
+import { SECRETS_KEY } from "./secrets-store";
 
 describe("recovery-config", () => {
   beforeEach(() => window.localStorage.clear());
@@ -19,6 +20,12 @@ describe("recovery-config", () => {
 
   it("CONFIG_KEYS matches the real config key constants (drift guard)", () => {
     expect(CONFIG_KEYS).toEqual([SETTINGS_KEY, MODE_KEY, CURRENT_TURSO_PROJECT_KEY]);
+  });
+
+  it("CONFIG_KEYS never includes the encrypted secrets store (recovery/export exclusion)", () => {
+    // The secrets ciphertext must stay OUT of recovery backups and config
+    // export — it is device-key-wrapped and worthless (or a leak) elsewhere.
+    expect(CONFIG_KEYS as readonly string[]).not.toContain(SECRETS_KEY);
   });
 
   it("quarantine copies each present key to a backup key, then removes the live key", () => {

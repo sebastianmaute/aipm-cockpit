@@ -19,7 +19,9 @@
     "e2e:visual:update": "playwright test --project=visual --update-snapshots",
     "e2e:install": "playwright install --with-deps chromium",
     "docs:scripts": "node scripts/sync-script-docs.mjs",
-    "docs:scripts:check": "node scripts/sync-script-docs.mjs --check"
+    "docs:scripts:check": "node scripts/sync-script-docs.mjs --check",
+    "dup:check": "jscpd src --min-tokens 50 --ignore \"**/*.test.*,**/*.property.test.*,**/__fixtures__/**,**/i18n*.ts\" --reporters console",
+    "size:check": "node scripts/check-file-sizes.mjs"
   },
   "scriptsDescriptions": {
     "dev": "Start Next.js dev server with hot reload on http://localhost:3000",
@@ -36,7 +38,9 @@
     "e2e:visual:update": "Regenerate visual snapshot baselines for the current platform",
     "e2e:install": "One-time: download Chromium browser binary",
     "docs:scripts": "Regenerate AUTO-GENERATED scripts tables in repo docs from `package.json`",
-    "docs:scripts:check": "Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode)"
+    "docs:scripts:check": "Verify AUTO-GENERATED scripts tables are in sync; exit non-zero on drift (CI mode)",
+    "dup:check": "Report code duplication in `src/` via jscpd (Phase 1 tech-debt baseline)",
+    "size:check": "Fail if a src file exceeds 800 lines or grows past its baselined size (ratchet)"
   },
   "dependencies": {
     "@azure/msal-browser": "^4.30.0",
@@ -68,6 +72,7 @@
     "eslint-config-next": "16.2.6",
     "fake-indexeddb": "^6.2.5",
     "fast-check": "^4.8.0",
+    "jscpd": "^5.0.11",
     "jsdom": "^25.0.1",
     "msw": "^2.14.6",
     "tailwindcss": "^4",

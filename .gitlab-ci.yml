@@ -19,6 +19,7 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "schedule"   # weekly full dependency audit
 
 variables:
   npm_config_cache: "$CI_PROJECT_DIR/.npm"
@@ -51,6 +52,48 @@ typecheck:
   script:
     - npx tsc --noEmit
 
+# SAST — warn-only for the first 2 weeks (allow_failure), then Phase 4 flips it
+# to blocking. Runs in Semgrep's own image, needs no node_modules → needs: [].
+# Emits GitLab-native SAST format so findings populate the MR security widget +
+# pipeline "Security" tab + Vulnerability Report (those UI surfaces require the
+# GitLab Ultimate tier; on lower tiers the report is still downloadable as an
+# artifact and the job log prints the findings table). Native SAST jobs succeed
+# and report via the widget rather than failing — so no --error here.
+semgrep:
+  stage: quality
+  needs: []
+  image: semgrep/semgrep:latest
+  allow_failure: true
+  script:
+    - semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten
+        --gitlab-sast --output gl-sast-report.json .
+  artifacts:
+    when: always
+    reports:
+      sast: gl-sast-report.json
+    paths: [gl-sast-report.json]
+    expire_in: 1 week
+
+# Blocking audit of production dependencies. Currently 0 vulns at every level
+# (measured 2026-07-02), so this cannot break existing MRs — it guards against
+# a NEW high/critical CVE landing between merges.
+dependency-audit:
+  stage: quality
+  needs: [install]
+  script:
+    - npm audit --omit=dev --audit-level=high
+
+# Weekly full audit (all severities, incl. dev deps) via a GitLab pipeline
+# schedule. Warn-only: informational, not a merge gate.
+dependency-audit-full:
+  stage: quality
+  needs: [install]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: true
+  script:
+    - npm audit --audit-level=low
+
 unit-tests:
   stage: quality
   needs: [install]
@@ -63,6 +106,17 @@ unit-tests:
       junit: junit.xml
     paths: [coverage/]
     expire_in: 1 week
+
+# File-size ratchet — warn-only for now (allow_failure); Phase 4 flips to blocking.
+# Freezes the 3 oversized files at their current size and blocks new oversized
+# files. Regenerate the baseline with `node scripts/check-file-sizes.mjs --update`
+# when a decomposition legitimately lowers a file below the limit.
+file-size-ratchet:
+  stage: quality
+  needs: []
+  allow_failure: true
+  script:
+    - npm run size:check
 
 build:
   stage: build
@@ -93,4 +147,52 @@ e2e:
   artifacts:
     when: always
     paths: [playwright-report/]
+    expire_in: 1 week
+
+# DAST — OWASP ZAP baseline scan against the running app.
+#
+# ★★ UNVALIDATED LOCALLY (no Docker on the authoring box) — verify on the first
+# manual run and adjust for this project's runner. Requires a DOCKER-IN-DOCKER
+# capable runner (privileged mode / the `docker`+`dind` tag). If the runners
+# can't do dind, the alternative is GitLab's DAST analyzer pointed at a deployed
+# review-app (needs a deploy stage this pipeline doesn't have yet).
+#
+# Runs only on the weekly SCHEDULE and on MANUAL trigger — DAST is slow and
+# infra-heavy, not something to gate every MR on. allow_failure so a scan hiccup
+# never blocks. Publishes the ZAP HTML + JSON as plain artifacts (raw ZAP JSON is
+# NOT GitLab's `gl-dast-report.json` schema, so it does NOT populate the Security
+# tab widget — that needs the GitLab DAST analyzer + a deployed target).
+dast-zap:
+  stage: e2e
+  needs: [build]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - when: manual
+      allow_failure: true
+  image: docker:27
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    # Build + run the app, then scan it from a sibling ZAP container on a shared
+    # docker network (so ZAP reaches the app at http://app:3000).
+    - docker build -t lop-app-dast -f Dockerfile.dast .
+    - docker network create dastnet
+    - docker run -d --name app --network dastnet lop-app-dast
+    - |
+      echo "waiting for app to accept connections…"
+      for i in $(seq 1 60); do
+        if docker run --rm --network dastnet curlimages/curl -sf http://app:3000 >/dev/null 2>&1; then
+          echo "app is up"; break
+        fi
+        sleep 3
+      done
+    # -I = do not fail the job on warn/alert (allow_failure already covers infra).
+    - |
+      docker run --rm --network dastnet -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+        zap-baseline.py -t http://app:3000 -I -r zap-report.html -J zap-report.json || true
+  artifacts:
+    when: always
+    paths: [zap-report.html, zap-report.json]
     expire_in: 1 week

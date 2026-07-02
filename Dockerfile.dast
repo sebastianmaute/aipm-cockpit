@@ -1,0 +1,15 @@
+# Throwaway image used ONLY by the `dast-zap` CI job to run the app so ZAP can
+# scan it. NOT a production deployment artifact — no multi-stage slimming,
+# standalone output, or non-root hardening (the DAST target is ephemeral).
+FROM node:20-bookworm-slim
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+EXPOSE 3000
+# next start (prod server) — the surface ZAP baseline-scans.
+CMD ["npm", "run", "start"]

@@ -7,6 +7,7 @@ import {
   forwardJsonResponse,
   type Creds,
 } from "./_helpers";
+import { MAX_REQUESTS } from "./_rate-limit";
 
 const CREDS: Creds = {
   siteUrl: "https://acme.atlassian.net",
@@ -238,6 +239,18 @@ describe("parseJiraRequest", () => {
       expect(result.error.status).toBe(400);
       await expect(result.error.json()).resolves.toEqual({ error: "missing-credentials" });
     }
+  });
+
+  it("surfaces the rate limiter's 429 once the per-IP window is exhausted", async () => {
+    // Unique IP isolates this test's bucket from the module-level shared store.
+    const ip = "203.0.113.200";
+    for (let i = 0; i < MAX_REQUESTS; i++) {
+      const ok = await parseJiraRequest(jsonRequest(CREDS, ip));
+      expect("error" in ok).toBe(false);
+    }
+    const blocked = await parseJiraRequest(jsonRequest(CREDS, ip));
+    expect("error" in blocked).toBe(true);
+    if ("error" in blocked) expect(blocked.error.status).toBe(429);
   });
 });
 
