@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.163.0";
-export const APP_BUILD_DATE = "2026-07-02"; // 0.163.0: Absence two-way Outlook calendar pull (SP4) — manual "Pull from Outlook" applies Outlook reschedules onto the absence start+end RANGE (faithful move AND resize; single-date entities byte-identical) with app-wins conflicts + deletion notices; pull roadmap SP1–SP4 complete (Sapkowski)
+export const APP_VERSION = "0.164.0";
+export const APP_BUILD_DATE = "2026-07-02"; // 0.164.0: Opt-in background auto-pull (SP5) — the per-entity auto-sync flag is now bidirectional (auto-push + a 15-min background auto-pull) for task/raid/change/absence, with silent apply + a deduped conflict-count toast; deletion-semantics prune the stale link+baseline for definitively-gone (missing/cancelled) events, truncation-safe; two-way calendar roadmap COMPLETE (Cixin)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.163.x line is "Sapkowski" (Andrzej Sapkowski). */
-export const APP_MILESTONE = "Sapkowski";
+ *  0.164.x line is "Cixin" (Liu Cixin). */
+export const APP_MILESTONE = "Cixin";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -181,4 +181,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCalendarPullTask",
   "versionHighlightCalendarPullRaidChange",
   "versionHighlightCalendarPullAbsence",
+  "versionHighlightCalendarAutoPull",
 ] as const;

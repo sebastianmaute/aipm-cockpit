@@ -6,7 +6,7 @@ import { t, type Lang } from "./i18n";
 import { CALENDAR_READWRITE_SCOPE, updateEvent, milestoneToGraphEvent } from "./outlook-calendar-write";
 import { fetchProjectEventDates } from "./outlook-calendar-read";
 import { planCalendarPull, type PullPlan } from "./calendar-pull";
-import { loadBaseline, writeBaselineDate } from "./calendar-sync-baseline";
+import { loadBaseline, writeBaselineDate, removeBaselineEntry } from "./calendar-sync-baseline";
 import type { Milestone } from "./types";
 
 interface Args {
@@ -17,6 +17,10 @@ interface Args {
   lang: Lang;
   enabled: boolean;
 }
+
+// Own module-level in-flight lock keyed `${projectId}:milestone` — milestone keys
+// never collide with the generic entities' set, so a separate one is fine.
+const inFlightPull = new Set<string>();
 
 export function useMilestoneCalendarPull({ milestones, projectId, setMilestones, isPopout, lang, enabled }: Args) {
   const { acquireToken } = useMsAuth(enabled);
@@ -50,16 +54,20 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
 
   const pull = useCallback(async () => {
     if (isPopout || !enabled) return;
+    const lockKey = `${projectId}:milestone`;
+    if (inFlightPull.has(lockKey)) return; // another milestone pull is already running
+    inFlightPull.add(lockKey);
     setBusy(true);
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
       if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
-      const events = await fetchProjectEventDates(token, projectId);
+      const { events, truncated } = await fetchProjectEventDates(token, projectId);
       const baseline = loadBaseline(projectId, "milestone");
       const plan = planCalendarPull({
         entities: milestones.map((m) => ({ id: m.id, date: m.date, outlookEventId: m.outlookEventId })),
         events,
         baseline,
+        eventsComplete: !truncated,
       });
       // auto-apply non-conflicting moves
       for (const a of plan.applies) applyMove(a.id, a.eventId, a.newDate);
@@ -72,15 +80,23 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
           }
         }
       }
+      // Prune the stale link for events that are definitively gone in Outlook, so
+      // they stop re-appearing in the "removed" list every pull (deletions are
+      // definitive — missing/cancelled — since the engine skips transient reads).
+      for (const d of plan.deletions) {
+        setMilestones((prev) => prev.map((m) => (m.id === d.id ? { ...m, outlookEventId: undefined } : m)));
+        removeBaselineEntry(projectId, "milestone", d.eventId);
+      }
       const hasRows = plan.applies.length + plan.conflicts.length + plan.deletions.length > 0;
       if (hasRows) setResult({ plan });
       else showToast("info", t(lang, "calendarPullInSync"));
     } catch {
       showToast("error", t(lang, "calendarPushNoAccess"));
     } finally {
+      inFlightPull.delete(lockKey);
       setBusy(false);
     }
-  }, [isPopout, enabled, acquireToken, showToast, lang, milestones, projectId, applyMove]);
+  }, [isPopout, enabled, acquireToken, showToast, lang, milestones, projectId, applyMove, setMilestones]);
 
   return { pull, busy, result, clearResult: useCallback(() => setResult(null), []), keepApp, applyMove };
 }

@@ -168,6 +168,7 @@ const enUS = {
   versionHighlightCalendarPullTask: "Outlook date reschedules pull back into tasks",
   versionHighlightCalendarPullRaidChange: "Outlook date reschedules pull back into RAID and changes",
   versionHighlightCalendarPullAbsence: "Outlook date reschedules pull back into absences",
+  versionHighlightCalendarAutoPull: "Optional background auto-pull of Outlook reschedules",
 
   tasks: "Tasks",
   tasksCount: "({0})",
@@ -1399,6 +1400,7 @@ const enUS = {
   activityDocLinkAdded: "Linked document {0}",
   activityDocLinkRemoved: "Removed document link {0}",
   activityHistoryRestore: "Restored {0} change(s) from version {1}",
+  activityCalendarAutoPulled: "Auto-applied {0} Outlook date change(s) to {1}",
   taskDueDateAbsenceWarning:
     "Note: {0} is on {1} from {2} to {3}.",
   resourcesWorkdayHours: "Hours per work day",
@@ -2141,6 +2143,7 @@ const enUS = {
   calendarPullKeepApp: "Keep app date",
   calendarPullTakeOutlook: "Take Outlook date",
   calendarPullInSync: "Already in sync with Outlook",
+  calendarPullConflictsPending: "{0} calendar conflicts — open Pull to resolve",
   calendarPullEventRemoved: "Its Outlook event was removed",
   settingsOutlookCalendarPush: "Push milestones to my Outlook calendar",
   settingsOutlookCalendarPushHint:

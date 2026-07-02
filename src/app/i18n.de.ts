@@ -171,6 +171,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightCalendarPullTask: "Outlook-Terminverschiebungen werden in Aufgaben zurückgespielt",
   versionHighlightCalendarPullRaidChange: "Outlook-Terminverschiebungen werden in RAID und Änderungen zurückgespielt",
   versionHighlightCalendarPullAbsence: "Outlook-Terminverschiebungen werden in Abwesenheiten zurückgespielt",
+  versionHighlightCalendarAutoPull: "Optionales automatisches Zurückspielen von Outlook-Terminverschiebungen",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -1393,6 +1394,7 @@ export const de: Record<TranslationKey, string> = {
   activityDocLinkAdded: "Dokument verknüpft {0}",
   activityDocLinkRemoved: "Dokumentverknüpfung entfernt {0}",
   activityHistoryRestore: "{0} Änderung(en) aus Version {1} wiederhergestellt",
+  activityCalendarAutoPulled: "{0} Outlook-Terminänderung(en) automatisch auf {1} angewendet",
   taskDueDateAbsenceWarning:
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
   resourcesWorkdayHours: "Stunden pro Arbeitstag",
@@ -2160,6 +2162,7 @@ export const de: Record<TranslationKey, string> = {
   calendarPullKeepApp: "App-Termin behalten",
   calendarPullTakeOutlook: "Outlook-Termin übernehmen",
   calendarPullInSync: "Bereits mit Outlook synchron",
+  calendarPullConflictsPending: "{0} Kalenderkonflikte — im Pull auflösen",
   calendarPullEventRemoved: "Der Outlook-Termin wurde entfernt",
   settingsOutlookCalendarPush:
     "Meilensteine in meinen Outlook-Kalender übertragen",

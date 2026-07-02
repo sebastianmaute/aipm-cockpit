@@ -33,13 +33,52 @@ describe("planCalendarPull", () => {
     expect(plan.conflicts).toHaveLength(1);
     expect(plan.applies).toEqual([]);
   });
-  it("flags a deletion for a missing or cancelled or null-date event", () => {
+  it("flags a deletion for a missing or cancelled event only (definitive)", () => {
     const args = (events: PulledEvent[]) => planCalendarPull({
       entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }], events, baseline: { e1: "2026-02-01" },
     });
+    // Missing event (no matching id) => definitive deletion.
     expect(args([]).deletions).toEqual([{ id: 1, eventId: "e1" }]);
+    // Cancelled event => definitive deletion.
     expect(args([ev("e1", "2026-02-01", true)]).deletions).toEqual([{ id: 1, eventId: "e1" }]);
-    expect(args([ev("e1", null)]).deletions).toEqual([{ id: 1, eventId: "e1" }]);
+  });
+  it("does NOT delete a missing event when the fetch was truncated (eventsComplete:false)", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [], // e1 absent — but the fetch was incomplete, so it may be unfetched
+      baseline: { e1: "2026-02-01" },
+      eventsComplete: false,
+    });
+    expect(plan.deletions).toEqual([]);
+  });
+  it("DELETES a missing event when the fetch was complete (eventsComplete:true / omitted)", () => {
+    const complete = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [], baseline: { e1: "2026-02-01" }, eventsComplete: true,
+    });
+    expect(complete.deletions).toEqual([{ id: 1, eventId: "e1" }]);
+    const omitted = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [], baseline: { e1: "2026-02-01" },
+    });
+    expect(omitted.deletions).toEqual([{ id: 1, eventId: "e1" }]);
+  });
+  it("STILL deletes a cancelled event even when the fetch was truncated (definitive)", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [ev("e1", "2026-02-01", true)],
+      baseline: { e1: "2026-02-01" },
+      eventsComplete: false,
+    });
+    expect(plan.deletions).toEqual([{ id: 1, eventId: "e1" }]);
+  });
+  it("skips a present event with a null start date (transient/unreadable, not a deletion)", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [ev("e1", null)],
+      baseline: { e1: "2026-02-01" },
+    });
+    expect(plan).toEqual({ applies: [], conflicts: [], deletions: [] });
   });
   it("is a no-op when dates already match", () => {
     const plan = planCalendarPull({
@@ -109,12 +148,12 @@ describe("planCalendarPull", () => {
       { id: 1, eventId: "e1", appDate: "2026-02-02", outlookDate: "2026-02-03", appEndDate: "2026-02-06", outlookEndDate: "2026-02-08" },
     ]);
   });
-  it("flags a deletion for a range entity whose event has a null endDate", () => {
+  it("skips a range entity whose event has a valid start but null endDate (transient/unreadable, not a deletion)", () => {
     const plan = planCalendarPull({
       entities: [{ id: 1, date: "2026-02-01", endDate: "2026-02-05", outlookEventId: "e1" }],
       events: [rangeEv("e1", "2026-02-01", null)],
       baseline: { e1: "2026-02-01|2026-02-05" },
     });
-    expect(plan.deletions).toEqual([{ id: 1, eventId: "e1" }]);
+    expect(plan).toEqual({ applies: [], conflicts: [], deletions: [] });
   });
 });
