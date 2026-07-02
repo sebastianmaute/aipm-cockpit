@@ -22,7 +22,7 @@ lop-app is in unusually good shape for a codebase of its size (546 source files,
 | Files > 800-line project limit | 4 (`i18n.ts` 3053, `i18n.de.ts` 2974 — dictionaries, exempt; `task-manager.tsx` 2840; `workspace-section.tsx` 1009) | measured |
 | Files 600–800 lines (watch list) | ~18 (raid-panel 905, tasks-section 799, resources-panel 786, chat-panel 743, timelog-panel 742, change-edit-modal 718, …) | measured |
 | npm audit vulnerabilities | 0 (info/low/moderate/high/critical all 0) across 719 deps | `npm audit` |
-| Coverage gate | ~70% (vitest) | vitest config / repo memory |
+| Coverage gate | lines 90 / funcs 89 / branches 78 / stmts 87 on the scoped logic layer (framework glue excluded) | `vitest.config.ts` thresholds, verified 2026-07-02 — supersedes the "~70%" figure from repo memory; coverage-ratchet tasks in the phase plans use these real numbers | 
 | CI quality gates | lint `--max-warnings=0`, `tsc --noEmit` (incl. i18n EN/DE key parity), unit, build, e2e incl. 39-pass axe gate (13 views × 3 themes) | `.gitlab-ci.yml` / AGENTS.md |
 
 **Stated assumptions (context missing — verify before committing tickets):**
