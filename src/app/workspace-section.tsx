@@ -189,10 +189,14 @@ export function WorkspaceSection({
   onToggleCalendarRaid,
   pushRaidToOutlook,
   calendarRaidPushBusy,
+  pullRaidFromOutlook,
+  calendarRaidPullBusy,
   calendarChangeEnabled,
   onToggleCalendarChange,
   pushChangeToOutlook,
   calendarChangePushBusy,
+  pullChangeFromOutlook,
+  calendarChangePullBusy,
   calendarAbsenceEnabled,
   onToggleCalendarAbsence,
   pushAbsenceToOutlook,
@@ -544,6 +548,8 @@ export function WorkspaceSection({
             onToggleCalendar={onToggleCalendarRaid}
             onPushCalendar={pushRaidToOutlook}
             calendarPushBusy={calendarRaidPushBusy}
+            onPullCalendar={pullRaidFromOutlook}
+            calendarPullBusy={calendarRaidPullBusy}
           />
         </div>
 
@@ -697,6 +703,8 @@ export function WorkspaceSection({
               onToggleCalendar={onToggleCalendarChange}
               onPushCalendar={pushChangeToOutlook}
               calendarPushBusy={calendarChangePushBusy}
+              onPullCalendar={pullChangeFromOutlook}
+              calendarPullBusy={calendarChangePullBusy}
             />
           </div>
         )}

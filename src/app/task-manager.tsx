@@ -69,6 +69,7 @@ import { useOutlookCalendarPush } from "./use-outlook-calendar-push";
 import { useMilestoneCalendarPull } from "./use-milestone-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
+import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { useCalendarAutoSync } from "./use-calendar-auto-sync";
 import { calendarSyncFor } from "./calendar-sync-config";
 import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent } from "./outlook-calendar-write";
@@ -1847,6 +1848,19 @@ function TaskManagerInner() {
     })),
     [setSettings],
   );
+  // Manual "Pull from Outlook" for RAID (two-way SP3) — mirrors milestone pull.
+  const raidPull = useEntityCalendarPull<RaidItem>({
+    items: pushableRaid,
+    entityType: "raid",
+    projectId: calendarProjectId,
+    getDate: (r) => r.targetDate,
+    withDate: (r, date) => ({ ...r, targetDate: date }),
+    toGraphEvent: raidToGraphEvent,
+    setItems: setRaidForCalendar,
+    isPopout,
+    lang,
+    enabled: calendarRaidEnabled,
+  });
 
   // --- Change decision-date calendar write-back (SP3) — mirrors the RAID block ---
   const changeSync = calendarSyncFor(settings, "change");
@@ -1883,6 +1897,19 @@ function TaskManagerInner() {
     })),
     [setSettings],
   );
+  // Manual "Pull from Outlook" for Change (two-way SP3) — mirrors RAID pull.
+  const changePull = useEntityCalendarPull<ChangeItem>({
+    items: pushableChanges,
+    entityType: "change",
+    projectId: calendarProjectId,
+    getDate: (c) => c.decisionDate,
+    withDate: (c, date) => ({ ...c, decisionDate: date }),
+    toGraphEvent: changeToGraphEvent,
+    setItems: setChangeForCalendar,
+    isPopout,
+    lang,
+    enabled: calendarChangeEnabled,
+  });
 
   // --- Absence calendar write-back (SP4) — mirrors the Change block ---
   const absenceSync = calendarSyncFor(settings, "absence");
@@ -1949,10 +1976,14 @@ function TaskManagerInner() {
     onToggleCalendarRaid,
     pushRaidToOutlook,
     calendarRaidPushBusy,
+    pullRaidFromOutlook: calendarRaidEnabled ? raidPull.pull : undefined,
+    calendarRaidPullBusy: calendarRaidEnabled ? raidPull.busy : undefined,
     calendarChangeEnabled,
     onToggleCalendarChange,
     pushChangeToOutlook,
     calendarChangePushBusy,
+    pullChangeFromOutlook: calendarChangeEnabled ? changePull.pull : undefined,
+    calendarChangePullBusy: calendarChangeEnabled ? changePull.busy : undefined,
     calendarAbsenceEnabled,
     onToggleCalendarAbsence,
     pushAbsenceToOutlook,
@@ -2378,6 +2409,40 @@ function TaskManagerInner() {
             deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
             onKeepApp={calendarPull.keepApp}
             onTakeOutlook={(c) => calendarPull.applyMove(c.id, c.eventId, c.outlookDate)}
+          />
+        );
+      })()}
+      {(() => {
+        const plan = raidPull.result?.plan;
+        if (!plan) return null;
+        const nameOf = (id: number) => pushableRaid.find((x) => x.id === id)?.title ?? String(id);
+        return (
+          <CalendarPullSummaryModal
+            lang={lang}
+            open={!!raidPull.result}
+            onClose={raidPull.clearResult}
+            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
+            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
+            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
+            onKeepApp={raidPull.keepApp}
+            onTakeOutlook={(c) => raidPull.applyMove(c.id, c.eventId, c.outlookDate)}
+          />
+        );
+      })()}
+      {(() => {
+        const plan = changePull.result?.plan;
+        if (!plan) return null;
+        const nameOf = (id: number) => pushableChanges.find((x) => x.id === id)?.title ?? String(id);
+        return (
+          <CalendarPullSummaryModal
+            lang={lang}
+            open={!!changePull.result}
+            onClose={changePull.clearResult}
+            applied={plan.applies.map((a) => ({ id: a.id, name: nameOf(a.id), newDate: a.newDate }))}
+            conflicts={plan.conflicts.map((c) => ({ id: c.id, eventId: c.eventId, name: nameOf(c.id), appDate: c.appDate, outlookDate: c.outlookDate }))}
+            deletions={plan.deletions.map((d) => ({ id: d.id, name: nameOf(d.id) }))}
+            onKeepApp={changePull.keepApp}
+            onTakeOutlook={(c) => changePull.applyMove(c.id, c.eventId, c.outlookDate)}
           />
         );
       })()}

@@ -110,6 +110,9 @@ export type ChangePanelProps = {
   onToggleCalendar?: (enabled: boolean) => void;
   onPushCalendar?: () => void;
   calendarPushBusy?: boolean;
+  /** Change Pull-from-Outlook (two-way SP3). Absent in popouts. */
+  onPullCalendar?: () => void;
+  calendarPullBusy?: boolean;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -178,6 +181,8 @@ function ChangePanelBody({
   onToggleCalendar,
   onPushCalendar,
   calendarPushBusy,
+  onPullCalendar,
+  calendarPullBusy,
 }: ChangePanelProps) {
   const pf = usePanelFilters();
   const hiddenSet = new Set(pf.hiddenCols ?? []);
@@ -408,6 +413,18 @@ function ChangePanelBody({
               className={`rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
             >
               {calendarPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
+            </button>
+          )}
+          {calendarEnabled && onPullCalendar && (
+            <button
+              type="button"
+              onClick={onPullCalendar}
+              disabled={calendarPullBusy}
+              aria-label={t(lang, "calendarPull")}
+              title={t(lang, "calendarPull")}
+              className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            >
+              {calendarPullBusy ? t(lang, "calendarPulling") : t(lang, "calendarPull")}
             </button>
           )}
         </>
