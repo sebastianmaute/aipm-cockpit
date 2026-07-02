@@ -71,9 +71,20 @@ A `dast-zap` CI job (`.gitlab-ci.yml`, `e2e` stage) builds the app from `Dockerf
 **Where findings appear:**
 - **`zap-report.html` + `zap-report.json` artifacts** on the `dast-zap` job (plain artifacts — raw ZAP JSON is NOT GitLab's `gl-dast-report.json` schema, so it does **not** feed the Security-tab DAST widget; that would need the GitLab DAST analyzer pointed at a deployed review-app, which this pipeline has no deploy stage for yet).
 
-**★ Requires a dind-capable (privileged) runner — UNVALIDATED locally.** Verify on the first manual run; if the runners can't do docker-in-docker, switch to the DAST-analyzer + review-app approach. Server surface is only `/api/{jira,confluence,timelog,ecb}` + static assets, so expected findings are header/CSP nits (CSP already hardened in `proxy.ts`).
+The `dast-zap` job is **validated** — it ran successfully on the project's dind runner (MR !171 pipeline, 2026-07-02), scanned 33 URLs, and uploaded `zap-report.html`/`zap-report.json`.
 
-_Status: job added; not yet run. Trigger manually from the pipeline to produce the first report._
+### First scan results — 2026-07-02
+
+**FAIL-NEW: 0 · WARN-NEW: 4 · PASS: 63.** No failures. ZAP PASSed the load-bearing checks against the live app: CSP header set [10038], anti-clickjacking [10020], X-Content-Type-Options [10021], HSTS [10035], no debug-error/source-code disclosure, private IP not leaked — confirming the `proxy.ts` + `next.config.ts` header hardening holds under a live scan.
+
+| ID | Sev | Alert | Verdict | Action |
+|---|---|---|---|---|
+| DAST-1 | **LOW** | Server leaks `X-Powered-By: Next.js` [10037] ×3 | Real — tech-stack disclosure, no functional value | **FIXED** — `poweredByHeader: false` in `next.config.ts` |
+| DAST-2 | **LOW** | Cross-Origin-Embedder-Policy header missing [90004] ×7 | Defense-in-depth; COEP only needed for cross-origin isolation / SharedArrayBuffer, which the app doesn't use. Adding `require-corp` risks breaking cross-origin resource loads. | Not applied — accepted; revisit only if COOP/COEP isolation becomes needed |
+| DAST-3 | — | Non-Storable Content [10049] ×10 | Informational (cache-control note on dynamic responses), not a vulnerability | none |
+| DAST-4 | — | Modern Web Application [10109] ×3 | Informational (ZAP noting the SPA shape) | none |
+
+_Status: run + triaged. 0 fail; the one real LOW (X-Powered-By) fixed. Re-run on the weekly schedule._
 
 ---
 
