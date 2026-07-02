@@ -19,6 +19,7 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
+    - if: $CI_PIPELINE_SOURCE == "schedule"   # weekly full dependency audit
 
 variables:
   npm_config_cache: "$CI_PROJECT_DIR/.npm"
@@ -65,6 +66,26 @@ semgrep:
     when: always
     paths: [semgrep.json]
     expire_in: 1 week
+
+# Blocking audit of production dependencies. Currently 0 vulns at every level
+# (measured 2026-07-02), so this cannot break existing MRs — it guards against
+# a NEW high/critical CVE landing between merges.
+dependency-audit:
+  stage: quality
+  needs: [install]
+  script:
+    - npm audit --omit=dev --audit-level=high
+
+# Weekly full audit (all severities, incl. dev deps) via a GitLab pipeline
+# schedule. Warn-only: informational, not a merge gate.
+dependency-audit-full:
+  stage: quality
+  needs: [install]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: true
+  script:
+    - npm audit --audit-level=low
 
 unit-tests:
   stage: quality
