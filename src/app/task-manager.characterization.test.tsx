@@ -41,7 +41,7 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
     seedRegistry();
     render(<TaskManager />);
     await screen.findByTestId("ws-section-mock");
-  });
+  }, 45000); // heavy TaskManager mount — headroom over the 20s hookTimeout under coverage load
 
   it("threads the calendar push/pull prop keys for every entity (Phase 3: use-calendar-integrations)", () => {
     const p = captured.props!;
