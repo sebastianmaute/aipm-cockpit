@@ -2467,7 +2467,9 @@ function TaskManagerInner() {
         if (!plan) return null;
         const nameOf = (id: number) => {
           const a = pushableAbsences.find((x) => x.id === id);
-          return a ? `${a.assignee} (${a.type})` : String(id);
+          // Include startDate so two same-type absences for the same person get
+          // a row-UNIQUE accessible name in the conflict list (WCAG 2.4.6).
+          return a ? `${a.assignee} (${a.type}) – ${a.startDate}` : String(id);
         };
         return (
           <CalendarPullSummaryModal
