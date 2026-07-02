@@ -4,6 +4,7 @@
 // are never persisted server-side.
 
 import { rateLimit } from "../jira/_rate-limit";
+import { isPrivateHost, isAllowedHostSuffix } from "../_shared/proxy-ssrf";
 
 export type TimelogCreds = { host: string; tenant: string; token: string };
 
@@ -17,79 +18,17 @@ export function parseCreds(body: unknown): TimelogCreds | null {
   return { host, tenant, token };
 }
 
-/**
- * Recover the embedded IPv4 from an IPv4-mapped IPv6 suffix (the part after
- * "::ffff:"). The input may be dotted-decimal ("10.0.0.1") OR — because the URL
- * parser canonicalizes mapped addresses to hex — two hex groups ("a00:1").
- * Returns null when the suffix can't be decoded, so callers can fail closed.
- */
-function mappedIpv4ToDotted(suffix: string): string | null {
-  if (suffix.includes(".")) return suffix;
-  const groups = suffix.split(":");
-  if (groups.length !== 2) return null;
-  const hi = Number.parseInt(groups[0], 16);
-  const lo = Number.parseInt(groups[1], 16);
-  if (!Number.isInteger(hi) || !Number.isInteger(lo)) return null;
-  if (hi < 0 || hi > 0xffff || lo < 0 || lo > 0xffff) return null;
-  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
-}
-
-function isPrivateHost(hostname: string): boolean {
-  // Strip IPv6 brackets (e.g. "[::1]" → "::1").
-  const h = hostname.startsWith("[") ? hostname.slice(1, -1) : hostname;
-  const lower = h.toLowerCase();
-  if (lower === "localhost" || lower === "::1" || lower === "::" || lower === "0.0.0.0")
-    return true;
-  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10) — internal-only ranges.
-  if (/^f[cd][0-9a-f]*:/.test(lower)) return true;
-  if (/^fe[89ab][0-9a-f]*:/.test(lower)) return true;
-  // NAT64 well-known prefix (64:ff9b::/96, RFC 6052) embeds an IPv4 address in
-  // its low 32 bits and can reach internal IPv4 hosts where NAT64 is deployed.
-  // No legitimate Timelog site is a NAT64 literal — block the prefix.
-  if (/^64:ff9b:/.test(lower)) return true;
-  // IPv4-mapped IPv6 (e.g. "::ffff:10.0.0.1", which the URL parser canonicalizes
-  // to hex "::ffff:a00:1") — recover the embedded IPv4 and re-check it. A mapped
-  // address we cannot decode is treated as private (fail closed) — a legitimate
-  // Timelog host is always a DNS hostname, never an IP literal.
-  let ipv4 = h;
-  if (lower.startsWith("::ffff:")) {
-    const mapped = mappedIpv4ToDotted(lower.slice(7));
-    if (mapped === null) return true;
-    ipv4 = mapped;
-  }
-  const parts = ipv4.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((p) => !Number.isInteger(p) || p < 0 || p > 255))
-    return false;
-  const [a, b] = parts;
-  // 127.0.0.0/8 — loopback
-  if (a === 127) return true;
-  // 10.0.0.0/8 — private
-  if (a === 10) return true;
-  // 172.16.0.0/12 — private
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  // 192.168.0.0/16 — private
-  if (a === 192 && b === 168) return true;
-  // 169.254.0.0/16 — link-local / cloud instance metadata (e.g. 169.254.169.254)
-  if (a === 169 && b === 254) return true;
-  return false;
-}
-
-// Every Timelog site lives under timelog.com or *.timelog.com. The leading dot
-// in the suffix check is load-bearing: it rejects lookalikes such as
-// "eviltimelog.com" and "timelog.com.attacker.com" while accepting the bare apex
-// and any real "<site>.timelog.com" subdomain.
-function isAllowedTimelogHost(h: string): boolean {
-  const l = h.toLowerCase();
-  return l === "timelog.com" || l.endsWith(".timelog.com");
-}
-
+// Every Timelog site lives under timelog.com or *.timelog.com. The shared
+// isAllowedHostSuffix enforces that (the leading-dot check rejects lookalikes
+// such as "eviltimelog.com" and "timelog.com.attacker.com" while accepting the
+// bare apex and any real "<site>.timelog.com" subdomain).
 function normalizeHost(host: string): string | null {
   // A bare DNS hostname never contains userinfo ("@") or a port (":"). Reject
   // both up front so credential-injection ("evil.com@app.timelog.com") and
   // port-bearing ("app.timelog.com:8080") forms can't slip past the suffix match.
   if (host.includes("@") || host.includes(":")) return null;
   const h = host.toLowerCase();
-  if (!isAllowedTimelogHost(h)) return null;
+  if (!isAllowedHostSuffix(h, "timelog.com")) return null;
   if (isPrivateHost(h)) return null;
   return h;
 }
