@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
-import { CALENDAR_READWRITE_SCOPE } from "./outlook-calendar-write";
+import { CALENDAR_READWRITE_SCOPE, updateEvent, milestoneToGraphEvent } from "./outlook-calendar-write";
 import { fetchProjectEventDates } from "./outlook-calendar-read";
 import { planCalendarPull, type PullPlan } from "./calendar-pull";
 import { loadBaseline, writeBaselineDate } from "./calendar-sync-baseline";
@@ -29,10 +29,24 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
     writeBaselineDate(projectId, "milestone", eventId, newDate);
   }, [setMilestones, projectId]);
 
-  const keepApp = useCallback((c: { id: number; eventId: string; appDate: string }) => {
-    // resolve conflict app-wins: refresh baseline so it stops conflicting
-    writeBaselineDate(projectId, "milestone", c.eventId, c.appDate);
-  }, [projectId]);
+  const keepApp = useCallback(async (c: { id: number; eventId: string; appDate: string }) => {
+    // App-wins: converge Outlook to the milestone's (kept) date so baseline===appDate
+    // becomes GENUINELY true. Just refreshing the baseline would make the next pull
+    // see baseline===date and silently auto-apply the Outlook date the user rejected.
+    const m = milestones.find((x) => x.id === c.id);
+    if (!m) return;
+    const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
+    if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
+    try {
+      await updateEvent(token, c.eventId, milestoneToGraphEvent(m, projectId));
+      writeBaselineDate(projectId, "milestone", c.eventId, c.appDate);
+      showToast("info", t(lang, "calendarPushResult", 0, 1, 0));
+    } catch {
+      // Do NOT write baseline on failure — leave it non-matching so it re-conflicts
+      // next pull (never falsely "in sync").
+      showToast("error", t(lang, "calendarPushPartial", 1));
+    }
+  }, [milestones, acquireToken, showToast, lang, projectId]);
 
   const pull = useCallback(async () => {
     if (isPopout || !enabled) return;
