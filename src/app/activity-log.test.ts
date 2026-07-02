@@ -168,6 +168,7 @@ describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both local
     "role.updated",
     "role.deleted",
     "settings.updated",
+    "calendar.autoPulled",
   ];
 
   test.each(NEW_KINDS)("%s has a non-empty en-US label", (kind) => {

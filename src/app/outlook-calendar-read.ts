@@ -38,7 +38,11 @@ function toEndDate(raw: RawEvent): string | null {
  *  category. Without `entityType` this is the BARE category (milestones/committee share
  *  it; the caller matches by stored outlookEventId, so non-milestone events don't match);
  *  with `entityType` it is the TYPE-SCOPED category `AIPM:<projectId>:<entityType>`. */
-export async function fetchProjectEventDates(token: string, projectId: string, entityType?: string): Promise<PulledEvent[]> {
+export async function fetchProjectEventDates(
+  token: string,
+  projectId: string,
+  entityType?: string,
+): Promise<{ events: PulledEvent[]; truncated: boolean }> {
   const cat = categoryFor(projectId, entityType).replace(/'/g, "''");
   let url: string | null =
     `${GRAPH}/me/events?$filter=${encodeURIComponent(`categories/any(c:c eq '${cat}')`)}&$select=id,start,end,isCancelled&$top=100`;
@@ -48,5 +52,7 @@ export async function fetchProjectEventDates(token: string, projectId: string, e
     for (const e of json.value ?? []) out.push({ id: e.id, date: toDate(e), endDate: toEndDate(e), isCancelled: e.isCancelled === true });
     url = json["@odata.nextLink"] ?? null;
   }
-  return out;
+  // If the loop exited with `url` still set, it stopped because `i` reached MAX_PAGES:
+  // events beyond the cap are UNFETCHED, so an absent event may not be a real deletion.
+  return { events: out, truncated: url !== null };
 }

@@ -47,7 +47,8 @@ export type ActivityKind =
   | "settings.updated"
   | "doc.linkAdded"
   | "doc.linkRemoved"
-  | "history.restore";
+  | "history.restore"
+  | "calendar.autoPulled";
 
 export interface ActivityEntry {
   /** Monotonic id within the current log; not a timestamp. Used as a React key. */
@@ -102,6 +103,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "doc.linkAdded": "activityDocLinkAdded",
   "doc.linkRemoved": "activityDocLinkRemoved",
   "history.restore": "activityHistoryRestore",
+  "calendar.autoPulled": "activityCalendarAutoPulled",
 };
 
 const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(

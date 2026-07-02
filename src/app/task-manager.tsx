@@ -1976,18 +1976,21 @@ function TaskManagerInner() {
     getDate: (x) => x.dueDate, withDate: (x, date) => ({ ...x, dueDate: date }),
     toGraphEvent: taskToGraphEvent, setItems: setTasksForAuto,
     isPullable: (x) => !x.jiraKey, isPopout, lang, enabled: taskAutoSyncActive, background: true,
+    onBackgroundApply: (n) => logActivity("calendar.autoPulled", n, t(lang, "calendarSyncEntityTask")),
   });
   const { pull: autoPullRaid } = useEntityCalendarPull<RaidItem>({
     items: pushableRaid, entityType: "raid", projectId: calendarProjectId,
     getDate: (r) => r.targetDate, withDate: (r, date) => ({ ...r, targetDate: date }),
     toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
     isPopout, lang, enabled: raidAutoSyncActive, background: true,
+    onBackgroundApply: (n) => logActivity("calendar.autoPulled", n, t(lang, "calendarSyncEntityRaid")),
   });
   const { pull: autoPullChange } = useEntityCalendarPull<ChangeItem>({
     items: pushableChanges, entityType: "change", projectId: calendarProjectId,
     getDate: (c) => c.decisionDate, withDate: (c, date) => ({ ...c, decisionDate: date }),
     toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
     isPopout, lang, enabled: changeAutoSyncActive, background: true,
+    onBackgroundApply: (n) => logActivity("calendar.autoPulled", n, t(lang, "calendarSyncEntityChange")),
   });
   const { pull: autoPullAbsence } = useEntityCalendarPull<Absence>({
     items: pushableAbsences, entityType: "absence", projectId: calendarProjectId,
@@ -1995,6 +1998,7 @@ function TaskManagerInner() {
     withDate: (a, start, end) => ({ ...a, startDate: start, endDate: end ?? a.endDate }),
     toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
     isPopout, lang, enabled: absenceAutoSyncActive, background: true,
+    onBackgroundApply: (n) => logActivity("calendar.autoPulled", n, t(lang, "calendarSyncEntityAbsence")),
   });
   useCalendarAutoPull({
     enabled: m365Enabled && !isPopout,

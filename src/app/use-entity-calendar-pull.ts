@@ -23,7 +23,15 @@ interface Args<T extends { id: number; outlookEventId?: string }> {
   enabled: boolean;
   /** Background auto-pull: non-interactive token, never opens the modal, silent on no-access/error. */
   background?: boolean;
+  /** Called once per background pull that auto-applied ≥1 Outlook move, with the
+   *  applied count — lets the caller record an audit-trail activity entry. */
+  onBackgroundApply?: (count: number) => void;
 }
+
+// Cross-instance in-flight lock keyed `${projectId}:${entityType}` so a manual pull
+// and a background tick for the SAME entity can't run concurrently (mirrors the
+// push side's module-level guard).
+const inFlightPull = new Set<string>();
 
 /**
  * Generic "pull from Outlook" hook — a parameterized clone of
@@ -33,7 +41,7 @@ interface Args<T extends { id: number; outlookEventId?: string }> {
  * Jira-synced tasks whose dates Jira owns). Popouts are read-only.
  */
 export function useEntityCalendarPull<T extends { id: number; outlookEventId?: string }>(
-  { items, entityType, projectId, getDate, getEndDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled, background }: Args<T>,
+  { items, entityType, projectId, getDate, getEndDate, withDate, toGraphEvent, setItems, isPullable, isPopout, lang, enabled, background, onBackgroundApply }: Args<T>,
 ) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
@@ -80,17 +88,27 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
 
   const pull = useCallback(async () => {
     if (isPopout || !enabled) return;
-    setBusy(true);
+    const lockKey = `${projectId}:${entityType}`;
+    if (inFlightPull.has(lockKey)) return; // another pull for this entity is already running
+    inFlightPull.add(lockKey);
+    if (!background) setBusy(true);
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: !background }).catch(() => null);
-      if (!token) { if (!background) showToast("error", t(lang, "calendarPushNoAccess")); return; }
-      const events = await fetchProjectEventDates(token, projectId, entityType);
+      if (!token) {
+        // A background pull that can't confirm the current conflict set must forget
+        // its dedupe signature, so a genuinely-new re-conflict re-toasts once truth
+        // is re-established on the next successful pull.
+        if (background) lastConflictSigRef.current = null;
+        else showToast("error", t(lang, "calendarPushNoAccess"));
+        return;
+      }
+      const { events, truncated } = await fetchProjectEventDates(token, projectId, entityType);
       const baseline = loadBaseline(projectId, entityType);
       const pullable = isPullable ? items.filter(isPullable) : items;
       const entities = pullable
         .map((i) => ({ id: i.id, date: getDate(i) ?? "", endDate: getEndDate?.(i), outlookEventId: i.outlookEventId }))
         .filter((e) => e.date);
-      const plan = planCalendarPull({ entities, events, baseline });
+      const plan = planCalendarPull({ entities, events, baseline, eventsComplete: !truncated });
       // auto-apply non-conflicting moves
       for (const a of plan.applies) applyMove(a.id, a.eventId, a.newDate, a.newEndDate);
       // self-heal baseline for events already in sync but missing a baseline
@@ -109,6 +127,9 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
       // Prune definitively-gone events in BOTH modes: clear the entity link + baseline.
       for (const d of plan.deletions) prune(d.id, d.eventId);
       if (background) {
+        // Audit trail: a background auto-apply silently changes an entity's date —
+        // let the caller log it (once per pull, not per item).
+        if (plan.applies.length > 0) onBackgroundApply?.(plan.applies.length);
         if (plan.conflicts.length > 0) {
           const sig = plan.conflicts.map((c) => c.eventId).sort().join(",");
           if (sig !== lastConflictSigRef.current) {
@@ -125,12 +146,19 @@ export function useEntityCalendarPull<T extends { id: number; outlookEventId?: s
         else showToast("info", t(lang, "calendarPullInSync"));
       }
     } catch (e) {
-      if (background) console.warn("calendar auto-pull failed", e);
-      else showToast("error", t(lang, "calendarPushNoAccess"));
+      if (background) {
+        // Can't confirm the conflict set on a failed background pull → reset the
+        // dedupe ref so a persisting/new conflict re-announces on the next success.
+        lastConflictSigRef.current = null;
+        console.warn("calendar auto-pull failed", e);
+      } else {
+        showToast("error", t(lang, "calendarPushNoAccess"));
+      }
     } finally {
-      setBusy(false);
+      inFlightPull.delete(lockKey);
+      if (!background) setBusy(false);
     }
-  }, [isPopout, enabled, background, acquireToken, showToast, lang, items, projectId, entityType, getDate, getEndDate, isPullable, applyMove, prune]);
+  }, [isPopout, enabled, background, acquireToken, showToast, lang, items, projectId, entityType, getDate, getEndDate, isPullable, applyMove, prune, onBackgroundApply]);
 
   return { pull, busy, result, clearResult: useCallback(() => setResult(null), []), keepApp, applyMove };
 }

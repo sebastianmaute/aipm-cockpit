@@ -42,6 +42,36 @@ describe("planCalendarPull", () => {
     // Cancelled event => definitive deletion.
     expect(args([ev("e1", "2026-02-01", true)]).deletions).toEqual([{ id: 1, eventId: "e1" }]);
   });
+  it("does NOT delete a missing event when the fetch was truncated (eventsComplete:false)", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [], // e1 absent — but the fetch was incomplete, so it may be unfetched
+      baseline: { e1: "2026-02-01" },
+      eventsComplete: false,
+    });
+    expect(plan.deletions).toEqual([]);
+  });
+  it("DELETES a missing event when the fetch was complete (eventsComplete:true / omitted)", () => {
+    const complete = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [], baseline: { e1: "2026-02-01" }, eventsComplete: true,
+    });
+    expect(complete.deletions).toEqual([{ id: 1, eventId: "e1" }]);
+    const omitted = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [], baseline: { e1: "2026-02-01" },
+    });
+    expect(omitted.deletions).toEqual([{ id: 1, eventId: "e1" }]);
+  });
+  it("STILL deletes a cancelled event even when the fetch was truncated (definitive)", () => {
+    const plan = planCalendarPull({
+      entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],
+      events: [ev("e1", "2026-02-01", true)],
+      baseline: { e1: "2026-02-01" },
+      eventsComplete: false,
+    });
+    expect(plan.deletions).toEqual([{ id: 1, eventId: "e1" }]);
+  });
   it("skips a present event with a null start date (transient/unreadable, not a deletion)", () => {
     const plan = planCalendarPull({
       entities: [{ id: 1, date: "2026-02-01", outlookEventId: "e1" }],

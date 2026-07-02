@@ -18,6 +18,10 @@ interface Args {
   enabled: boolean;
 }
 
+// Own module-level in-flight lock keyed `${projectId}:milestone` — milestone keys
+// never collide with the generic entities' set, so a separate one is fine.
+const inFlightPull = new Set<string>();
+
 export function useMilestoneCalendarPull({ milestones, projectId, setMilestones, isPopout, lang, enabled }: Args) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
@@ -50,16 +54,20 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
 
   const pull = useCallback(async () => {
     if (isPopout || !enabled) return;
+    const lockKey = `${projectId}:milestone`;
+    if (inFlightPull.has(lockKey)) return; // another milestone pull is already running
+    inFlightPull.add(lockKey);
     setBusy(true);
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
       if (!token) { showToast("error", t(lang, "calendarPushNoAccess")); return; }
-      const events = await fetchProjectEventDates(token, projectId);
+      const { events, truncated } = await fetchProjectEventDates(token, projectId);
       const baseline = loadBaseline(projectId, "milestone");
       const plan = planCalendarPull({
         entities: milestones.map((m) => ({ id: m.id, date: m.date, outlookEventId: m.outlookEventId })),
         events,
         baseline,
+        eventsComplete: !truncated,
       });
       // auto-apply non-conflicting moves
       for (const a of plan.applies) applyMove(a.id, a.eventId, a.newDate);
@@ -85,6 +93,7 @@ export function useMilestoneCalendarPull({ milestones, projectId, setMilestones,
     } catch {
       showToast("error", t(lang, "calendarPushNoAccess"));
     } finally {
+      inFlightPull.delete(lockKey);
       setBusy(false);
     }
   }, [isPopout, enabled, acquireToken, showToast, lang, milestones, projectId, applyMove, setMilestones]);

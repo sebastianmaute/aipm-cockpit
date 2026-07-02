@@ -13,10 +13,14 @@ vi.mock("./outlook-calendar-write", () => ({
   milestoneToGraphEvent: (m: { id: number }) => ({ subject: `M${m.id}` }),
 }));
 
-const fetchProjectEventDates = vi.fn<(...a: unknown[]) => Promise<unknown[]>>(async () => []);
+const fetchProjectEventDates = vi.fn<(...a: unknown[]) => Promise<{ events: unknown[]; truncated: boolean }>>(
+  async () => ({ events: [], truncated: false }),
+);
 vi.mock("./outlook-calendar-read", () => ({
   fetchProjectEventDates: (...a: unknown[]) => fetchProjectEventDates(...a),
 }));
+const mockEvents = (events: unknown[], truncated = false) =>
+  fetchProjectEventDates.mockResolvedValueOnce({ events, truncated });
 
 const writeBaselineDate = vi.fn();
 const removeBaselineEntry = vi.fn();
@@ -78,7 +82,7 @@ describe("useMilestoneCalendarPull keepApp (converge Outlook to app date)", () =
 describe("useMilestoneCalendarPull pull (prune stale link on deletion)", () => {
   it("clears outlookEventId and removes the baseline entry for a definitively-gone event, still opening the modal", async () => {
     // Event "evt" is NOT among the fetched events -> a definitive deletion.
-    fetchProjectEventDates.mockResolvedValueOnce([]);
+    mockEvents([]);
     const { result } = renderPull([ms(1, { outlookEventId: "evt", date: "2026-07-01" })]);
     await act(async () => {
       await result.current.pull();

@@ -1393,6 +1393,7 @@ export const de: Record<TranslationKey, string> = {
   activityDocLinkAdded: "Dokument verknüpft {0}",
   activityDocLinkRemoved: "Dokumentverknüpfung entfernt {0}",
   activityHistoryRestore: "{0} Änderung(en) aus Version {1} wiederhergestellt",
+  activityCalendarAutoPulled: "{0} Outlook-Terminänderung(en) automatisch auf {1} angewendet",
   taskDueDateAbsenceWarning:
     "Hinweis: {0} ist von {2} bis {3} ({1}).",
   resourcesWorkdayHours: "Stunden pro Arbeitstag",

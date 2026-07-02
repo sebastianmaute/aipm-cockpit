@@ -28,16 +28,26 @@ export function planCalendarPull(args: {
   entities: readonly PullEntity[];
   events: readonly PulledEvent[];
   baseline: Readonly<Record<string, string>>;
+  /** False when the Graph fetch was TRUNCATED (hit the page cap): an absent event
+   *  may just be unfetched, so a MISSING event must NOT be treated as a deletion.
+   *  A cancelled event is definitive regardless. Default true (back-compatible). */
+  eventsComplete?: boolean;
 }): PullPlan {
-  const { entities, events, baseline } = args;
+  const { entities, events, baseline, eventsComplete } = args;
   const byId = new Map(events.map((e) => [e.id, e]));
   const plan: PullPlan = { applies: [], conflicts: [], deletions: [] };
   for (const ent of entities) {
     const eventId = ent.outlookEventId;
     if (!eventId) continue;
     const ev = byId.get(eventId);
-    if (!ev || ev.isCancelled) {
-      // Definitive deletion: the event is gone or cancelled in Outlook.
+    if (!ev) {
+      // Missing event: a deletion ONLY when the fetch was complete. If truncated,
+      // the event may simply be past the page cap — skip (never a false prune).
+      if (eventsComplete !== false) plan.deletions.push({ id: ent.id, eventId });
+      continue;
+    }
+    if (ev.isCancelled) {
+      // Definitive deletion regardless of truncation: cancelled in Outlook.
       plan.deletions.push({ id: ent.id, eventId });
       continue;
     }
