@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.164.1] - 2026-07-03 "Cixin"
+
+### Changed
+- **Relicensed from Apache-2.0 to the European Union Public Licence v1.2 (EUPL-1.2).** The `LICENSE` file now carries the official English EUPL-1.2 text; the SPDX identifier in `package.json` and the in-app license link (Settings footer / Help panel) point to the [European Commission's EUPL-1.2 page](https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12). The `NOTICE` file was removed — the EUPL, unlike Apache-2.0, has no NOTICE mechanism. The bundled leadership operating-guide's embedded license notice was updated to match. No functional/code behaviour changes.
+
 ## [0.164.0] - 2026-07-02 "Cixin"
 
 ### Added

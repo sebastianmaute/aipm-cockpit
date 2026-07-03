@@ -1,6 +1,6 @@
 # Project Delivery Leadership — Senior Project Manager Operating Guide
 
-*Version 1.2. Licensed under the Apache License, Version 2.0 (see License).*
+*Version 1.2. Licensed under the European Union Public Licence v1.2 (see License).*
 
 ## About this guide
 
@@ -376,16 +376,16 @@ Trademarks belong to their respective owners and are named here only for referen
 Copyright 2026 Sebastian Maute, Acme GmbH
 Contact: sebastian.maute@example.com
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Licensed under the European Union Public Licence v1.2 (the "Licence");
+you may not use this file except in compliance with the Licence.
+You may obtain a copy of the Licence at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+    https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12
 
 Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
+distributed under the Licence is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+See the Licence for the specific language governing permissions and
+limitations under the Licence.
 
-The full Apache 2.0 license text and the attribution notices are maintained at the distribution level — in the LICENSE and NOTICE files of the application this document is bundled with — and are not duplicated here. Ensure this document's copyright (above) is reflected in that NOTICE file. When redistributing or adapting, comply with the Apache License, retain this header, and state any changes you make. This is a documentation work: the Apache 2.0 boilerplate above refers to "software," but the license applies to this document and its derivatives. Provided "as is," without warranty; not professional or legal advice.
+The full EUPL-1.2 licence text is maintained at the distribution level — in the LICENSE file of the application this document is bundled with — and is not duplicated here. When redistributing or adapting, comply with the Licence, retain this header, and state any changes you make. This is a documentation work: the licence applies to this document and its derivatives. Provided "as is," without warranty; not professional or legal advice.

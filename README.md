@@ -2,8 +2,8 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.156.0_%22Bear%22-2e7d32)](./CHANGELOG.md)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
+[![version](https://img.shields.io/badge/version-v0.164.1_%22Cixin%22-2e7d32)](./CHANGELOG.md)
+[![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > A project-command surface for project leads with a context-aware Claude copilot that knows your current view and is grounded in your operating guides. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents), syncs with Jira (primary two-way project plus optional read-only extra projects), and pulls actual time bookings from Timelog — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.
 
@@ -301,4 +301,5 @@ If WebCrypto / IndexedDB is unavailable the app degrades to holding the secrets 
 
 ## License
 
-Apache 2.0 — see the [LICENSE](./LICENSE) file for the full text.
+European Union Public Licence v1.2 (EUPL-1.2) — see the [LICENSE](./LICENSE) file for the
+full text, also available at the [European Commission](https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12).

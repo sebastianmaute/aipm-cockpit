@@ -1,8 +1,8 @@
 {
   "name": "lop-app",
-  "version": "0.164.0",
+  "version": "0.164.1",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "EUPL-1.2",
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/sync-script-docs.mjs --check && node scripts/gen-operating-guide.mjs",
