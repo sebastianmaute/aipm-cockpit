@@ -165,7 +165,7 @@ e2e:
   # Keep this tag in lockstep with @playwright/test in package-lock.json. The
   # `npx playwright install` below is a safety net: if the resolved client ever
   # drifts from the image, it downloads the matching browser instead of failing.
-  image: mcr.microsoft.com/playwright:v1.60.0-jammy
+  image: mcr.microsoft.com/playwright:v1.61.1-jammy
   needs: [build]
   dependencies: []                       # fresh install — don't reuse glibc-mismatched modules
   rules:
