@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.164.0";
-export const APP_BUILD_DATE = "2026-07-02"; // 0.164.0: Opt-in background auto-pull (SP5) — the per-entity auto-sync flag is now bidirectional (auto-push + a 15-min background auto-pull) for task/raid/change/absence, with silent apply + a deduped conflict-count toast; deletion-semantics prune the stale link+baseline for definitively-gone (missing/cancelled) events, truncation-safe; two-way calendar roadmap COMPLETE (Cixin)
+export const APP_VERSION = "0.164.1";
+export const APP_BUILD_DATE = "2026-07-03"; // 0.164.1: Relicensed from Apache-2.0 to the European Union Public Licence v1.2 (EUPL-1.2) — LICENSE replaced with the official EN text, NOTICE removed (EUPL has no NOTICE mechanism), package.json/version.ts/README/in-app footer link + bundled operating-guide notice updated (Cixin)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.164.x line is "Cixin" (Liu Cixin). */
 export const APP_MILESTONE = "Cixin";
@@ -13,8 +13,9 @@ export const APP_REPO_URL = "https://www.example.com";
 
 /** Open-source license (SPDX id) and its canonical reference URL, shown in the
  *  Settings footer and the Help panel. Mirrors package.json `license`. */
-export const APP_LICENSE = "Apache-2.0";
-export const APP_LICENSE_URL = "https://opensource.org/license/Apache-2.0";
+export const APP_LICENSE = "EUPL-1.2";
+export const APP_LICENSE_URL =
+  "https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12";
 
 /** Translation keys for the high-level feature highlights shown in the
  *  Version popover. Update both EN and DE in i18n.ts when you add to this. */
