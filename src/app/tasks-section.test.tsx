@@ -32,12 +32,30 @@ vi.mock("./use-entity-calendar-pull", () => ({
     applyMove: vi.fn(),
   }),
 }));
+// Inline "Ask Claude" task edit (SP1): stub the hook out entirely so this
+// suite stays focused on the pane's own rendering/behavior; the hook itself
+// is covered by use-inline-ai-edit.test.ts.
+vi.mock("./use-inline-ai-edit", () => ({
+  useInlineAiEdit: () => ({
+    activeTask: null,
+    phase: "idle",
+    plan: null,
+    clarifyText: "",
+    errorText: "",
+    aiEditEnabled: () => false,
+    openFor: vi.fn(),
+    submit: vi.fn(),
+    apply: vi.fn(),
+    cancel: vi.fn(),
+  }),
+}));
 
 import { useWorkspace } from "./workspace-context";
 import { useFilters } from "./filters-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { useSettings } from "./use-settings";
 import type { Settings } from "./settings-types";
+import type { ToolDispatcher } from "./chat-tools";
 import { useHolidaySet } from "./use-holiday-set";
 import { TasksSection, type TasksSectionProps } from "./tasks-section";
 
@@ -167,6 +185,8 @@ function makeProps(): TasksSectionProps {
     handleBulkSendInquiry: vi.fn(),
     applyBulkEdit: vi.fn(),
     cancelBulkEdit: vi.fn(),
+    // Inline "Ask Claude" task edit (SP1)
+    dispatcher: { getSnapshot: () => ({}) } as unknown as ToolDispatcher,
   };
 }
 

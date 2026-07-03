@@ -39,6 +39,10 @@ export interface RowContextValue {
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
+  // Inline "Ask Claude" task edit (SP1): per-row trigger + its enablement gate,
+  // threaded from the single useInlineAiEdit instance in TasksSection.
+  onAiEdit: (task: Task) => void;
+  aiEditEnabled: (task: Task) => boolean;
 }
 
 const RowContext = createContext<RowContextValue | undefined>(undefined);
@@ -192,7 +196,7 @@ function TaskRowImpl({
   return (
     <tr
       data-deeplink-row={task.id}
-      className={["align-top", stateClass, flashOutlineClass(isFlashed)]
+      className={["group align-top", stateClass, flashOutlineClass(isFlashed)]
         .filter(Boolean)
         .join(" ")}
     >
@@ -385,6 +389,8 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
     onPushToJira,
     onEdit,
     onDelete,
+    onAiEdit,
+    aiEditEnabled,
   } = useTaskRowContext();
   return (
     <div className="flex flex-col gap-1 whitespace-nowrap">
@@ -431,6 +437,19 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
         >
           {t(lang, "delete")}
         </button>
+        {aiEditEnabled(task) && (
+          <button
+            type="button"
+            onClick={() => onAiEdit(task)}
+            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
+            title={t(lang, "inlineAiEdit")}
+            className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+              <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );

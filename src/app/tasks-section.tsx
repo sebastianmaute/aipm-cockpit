@@ -3,13 +3,19 @@ import type React from "react";
 import { useCallback, useMemo, useState } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
-import type { JiraExtraProject } from "./settings-types";
+import { aiKeyIfEnabled, type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
+import { useToastContext } from "./toast-context";
+import { useAiUsageContext } from "./ai-usage-context";
+import { useInlineAiEdit } from "./use-inline-ai-edit";
+import { InlineAiEditPopover } from "./inline-ai-edit-popover";
+import type { ToolDispatcher } from "./chat-tools";
+import type { ActivityKind } from "./activity-log";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
@@ -133,6 +139,11 @@ export interface TasksSectionProps {
   // Push button (hidden when M365 is not configured).
   projectId?: string;
   m365Configured?: boolean;
+  // Inline "Ask Claude" task edit (SP1): the ToolDispatcher backing the single
+  // useInlineAiEdit instance owned here, plus optional activity logging —
+  // both threaded from task-manager.
+  dispatcher: ToolDispatcher;
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
 }
 
 export function TasksSection({
@@ -187,6 +198,8 @@ export function TasksSection({
   onLearnMoreHint,
   projectId,
   m365Configured,
+  dispatcher,
+  logActivity,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -197,14 +210,36 @@ export function TasksSection({
     sortKey, sortDir, setSortKey, setSortDir,
   } = useFilters();
 
+  const workspaceCtx = useWorkspace();
   const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById, setTasks } =
-    useWorkspace();
+    workspaceCtx;
 
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
 
   const { settings, setSettings } = useSettings();
   const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
   const { flashId, containerRef } = useDeepLinkRowFlash("open-points");
+
+  // Inline "Ask Claude" task edit (SP1): one instance manages the single active
+  // per-row AI edit popover; openFor/aiEditEnabled thread into RowContext so
+  // each row can trigger it.
+  const showToast = useToastContext();
+  const { record } = useAiUsageContext();
+  const inlineEdit = useInlineAiEdit({
+    dispatcher,
+    ai: settings.ai,
+    apiKey: aiKeyIfEnabled(settings.ai),
+    isPopout: isPopout ?? false,
+    lang,
+    logActivity,
+    showToast,
+    ws: workspaceCtx,
+    guides: [],
+    recordUsage: (u) => record({ input: u.input_tokens, output: u.output_tokens }),
+  });
+  // Hoisted locals (not `inlineEdit.member`) so the rowContextValue useMemo dep
+  // array below stays exhaustive-deps clean — an `obj.member` dep is fatal lint.
+  const { openFor: onAiEdit, aiEditEnabled } = inlineEdit;
 
   const hideFinished = settings.hideFinishedTasks ?? false;
   const tasksViewMode = settings.tasksViewMode ?? "table";
@@ -272,6 +307,8 @@ export function TasksSection({
       onStatusChange,
       onEdit,
       onDelete,
+      onAiEdit,
+      aiEditEnabled,
     }),
     [
       lang,
@@ -292,6 +329,8 @@ export function TasksSection({
       onStatusChange,
       onEdit,
       onDelete,
+      onAiEdit,
+      aiEditEnabled,
     ],
   );
 
@@ -794,6 +833,20 @@ export function TasksSection({
           />
         );
       })()}
+
+      {inlineEdit.activeTask && (
+        <InlineAiEditPopover
+          lang={lang}
+          task={inlineEdit.activeTask}
+          phase={inlineEdit.phase}
+          plan={inlineEdit.plan}
+          clarifyText={inlineEdit.clarifyText}
+          errorText={inlineEdit.errorText}
+          onSubmit={inlineEdit.submit}
+          onApply={inlineEdit.apply}
+          onCancel={inlineEdit.cancel}
+        />
+      )}
     </section>
   );
 }
