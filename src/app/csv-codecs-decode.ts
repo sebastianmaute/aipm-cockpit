@@ -267,11 +267,20 @@ function parsePlanLine(line: string): ResourcePlan | null {
   return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3] }, today);
 }
 
-function csvToAbsences(csv: string): Absence[] {
+/**
+ * Decode a section-marked CSV block into entities: skip blank/comment lines to
+ * the header row, then map each data row (header-keyed) through `build`,
+ * dropping rows `build` rejects (returns null). Shared by the per-entity section
+ * decoders that follow this exact shape. `csvToTasks` diverges (extra handling)
+ * and keeps its own loop.
+ */
+function decodeCsvSection<T>(
+  csv: string,
+  build: (obj: Record<string, string>) => T | null,
+): T[] {
   const rows = parseCsv(csv);
   if (rows.length === 0) return [];
-  // Find the header row — skip blank/comment lines that survived the
-  // section split.
+  // Find the header row — skip blank/comment lines that survived the section split.
   let headerIdx = -1;
   for (let i = 0; i < rows.length; i++) {
     if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
@@ -281,7 +290,7 @@ function csvToAbsences(csv: string): Absence[] {
   }
   if (headerIdx < 0) return [];
   const headers = rows[headerIdx];
-  const items: Absence[] = [];
+  const items: T[] = [];
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const row = rows[i];
     if (row.length === 1 && row[0] === "") continue;
@@ -289,140 +298,34 @@ function csvToAbsences(csv: string): Absence[] {
     headers.forEach((h, idx) => {
       obj[h] = row[idx] ?? "";
     });
-    const sanitized = sanitizeAbsence(obj);
-    if (sanitized) items.push(sanitized);
+    const item = build(obj);
+    if (item) items.push(item);
   }
   return items;
+}
+
+function csvToAbsences(csv: string): Absence[] {
+  return decodeCsvSection(csv, sanitizeAbsence);
 }
 
 function csvToShifts(csv: string): Shift[] {
-  const rows = parseCsv(csv);
-  if (rows.length === 0) return [];
-  let headerIdx = -1;
-  for (let i = 0; i < rows.length; i++) {
-    if (
-      rows[i].length > 0 &&
-      rows[i][0].trim() !== "" &&
-      !rows[i][0].startsWith("#")
-    ) {
-      headerIdx = i;
-      break;
-    }
-  }
-  if (headerIdx < 0) return [];
-  const headers = rows[headerIdx];
-  const items: Shift[] = [];
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (row.length === 1 && row[0] === "") continue;
-    const obj: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      obj[h] = row[idx] ?? "";
-    });
-    const sanitized = sanitizeShift(obj);
-    if (sanitized) items.push(sanitized);
-  }
-  return items;
+  return decodeCsvSection(csv, sanitizeShift);
 }
 
 function csvToMilestones(csv: string): Milestone[] {
-  const rows = parseCsv(csv);
-  if (rows.length === 0) return [];
-  let headerIdx = -1;
-  for (let i = 0; i < rows.length; i++) {
-    if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
-      headerIdx = i;
-      break;
-    }
-  }
-  if (headerIdx < 0) return [];
-  const headers = rows[headerIdx];
-  const items: Milestone[] = [];
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (row.length === 1 && row[0] === "") continue;
-    const obj: Record<string, string> = {};
-    headers.forEach((h, idx) => { obj[h] = rows[i][idx] ?? ""; });
-    const item = buildMilestoneFromObj(obj);
-    if (item) items.push(item);
-  }
-  return items;
+  return decodeCsvSection(csv, buildMilestoneFromObj);
 }
 
 function csvToChanges(csv: string): ChangeItem[] {
-  const rows = parseCsv(csv);
-  if (rows.length === 0) return [];
-  let headerIdx = -1;
-  for (let i = 0; i < rows.length; i++) {
-    if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
-      headerIdx = i;
-      break;
-    }
-  }
-  if (headerIdx < 0) return [];
-  const headers = rows[headerIdx];
-  const items: ChangeItem[] = [];
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (row.length === 1 && row[0] === "") continue;
-    const obj: Record<string, string> = {};
-    headers.forEach((h, idx) => { obj[h] = rows[i][idx] ?? ""; });
-    const item = buildChangeFromObj(obj);
-    if (item) items.push(item);
-  }
-  return items;
+  return decodeCsvSection(csv, buildChangeFromObj);
 }
 
 export function csvToStakeholders(csv: string): Stakeholder[] {
-  const rows = parseCsv(csv);
-  if (rows.length === 0) return [];
-  let headerIdx = -1;
-  for (let i = 0; i < rows.length; i++) {
-    if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
-      headerIdx = i;
-      break;
-    }
-  }
-  if (headerIdx < 0) return [];
-  const headers = rows[headerIdx];
-  const items: Stakeholder[] = [];
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (row.length === 1 && row[0] === "") continue;
-    const obj: Record<string, string> = {};
-    headers.forEach((h, idx) => { obj[h] = rows[i][idx] ?? ""; });
-    const item = buildStakeholderFromObj(obj);
-    if (item) items.push(item);
-  }
-  return items;
+  return decodeCsvSection(csv, buildStakeholderFromObj);
 }
 
 function csvToRaid(csv: string): RaidItem[] {
-  const rows = parseCsv(csv);
-  if (rows.length === 0) return [];
-  // Find the header row — skip blank/comment lines that survived the
-  // section split.
-  let headerIdx = -1;
-  for (let i = 0; i < rows.length; i++) {
-    if (rows[i].length > 0 && rows[i][0].trim() !== "" && !rows[i][0].startsWith("#")) {
-      headerIdx = i;
-      break;
-    }
-  }
-  if (headerIdx < 0) return [];
-  const headers = rows[headerIdx];
-  const items: RaidItem[] = [];
-  for (let i = headerIdx + 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (row.length === 1 && row[0] === "") continue;
-    const obj: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      obj[h] = row[idx] ?? "";
-    });
-    const item = buildRaidItemFromObj(obj);
-    if (item) items.push(item);
-  }
-  return items;
+  return decodeCsvSection(csv, buildRaidItemFromObj);
 }
 
 /** Parses all sections out of a (possibly section-marked) CSV string. */
