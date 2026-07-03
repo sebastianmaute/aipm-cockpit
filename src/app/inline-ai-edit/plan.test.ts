@@ -41,4 +41,22 @@ describe("describeToolCalls", () => {
     const plan = describeToolCalls([block("list_tasks", {})], { task, ws });
     expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
   });
+
+  it("ignores startDate/resourceId in update_task (not dispatcher-writable)", () => {
+    const plan = describeToolCalls([block("update_task", { id: 42, startDate: "2026-01-01", resourceId: 5 })], { task, ws });
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([]);
+  });
+
+  it("deletes the target task but rejects delete_task on a different task", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const other = { id: 43, taskName: "Other" } as any;
+    const ws2 = { tasks: [task, other], raid: [], milestones: [], changes: [], stakeholders: [] } as unknown as Workspace;
+    const del = describeToolCalls([block("delete_task", { id: 42 })], { task, ws: ws2 });
+    expect(del.deletes).toEqual([{ entity: "task", label: "Fix login bug", toolName: "delete_task", id: 42 }]);
+    expect(del.rejected).toEqual([]);
+    const rej = describeToolCalls([block("delete_task", { id: 43 })], { task, ws: ws2 });
+    expect(rej.deletes).toEqual([]);
+    expect(rej.rejected).toEqual([{ toolName: "delete_task", reason: "unsupported", detail: "43" }]);
+  });
 });

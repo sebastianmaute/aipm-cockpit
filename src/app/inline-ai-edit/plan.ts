@@ -13,9 +13,13 @@ export interface Deletion { entity: string; label: string; toolName: string; id:
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
 export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[] }
 
+// Exactly the fields the dispatcher's update_task can write (use-chat-dispatcher
+// `cleanPatch` + status). startDate/resourceId are NOT writable there, so they
+// are intentionally excluded — showing a diff we can't apply would break the
+// preview→apply contract (silent drop).
 const TASK_DIFF_FIELDS: Array<keyof Task> = [
-  "taskName", "assignee", "assigneeEmail", "dueDate", "startDate", "status",
-  "priority", "notes", "blockers", "group", "labels", "resourceId",
+  "taskName", "assignee", "assigneeEmail", "dueDate", "status",
+  "priority", "notes", "blockers", "group", "labels",
 ];
 
 const CREATE_TOOLS: Record<string, string> = {
@@ -79,6 +83,13 @@ export function describeToolCalls(
     if (name in DELETE_TOOLS) {
       const { entity, wsKey } = DELETE_TOOLS[name];
       const id = Number(input.id);
+      // An inline edit may only DELETE the task it was opened on. Cross-entity
+      // deletes (raid/change/milestone/stakeholder) are allowed; deleting a
+      // DIFFERENT task is not (mirrors the update_task target-only guard).
+      if (name === "delete_task" && id !== ctx.task.id) {
+        plan.rejected.push({ toolName: name, reason: "unsupported", detail: str(input.id) });
+        continue;
+      }
       const rows = ctx.ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string }>;
       const found = Array.isArray(rows) ? rows.find((r) => r.id === id) : undefined;
       if (!found) { plan.rejected.push({ toolName: name, reason: "unknown-id", detail: str(input.id) }); continue; }
