@@ -1390,3 +1390,42 @@ describe("useStorageBackend — Turso portfolio flows", () => {
     }
   });
 });
+
+describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("does NOT wipe a populated project when the backend load returns empty and the user declines", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount load applies the 1 task
+    expect(result.current.tasks).toHaveLength(1);
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.tasks).toHaveLength(1); // content preserved — empty load NOT applied
+  });
+
+  it("applies the empty load when the user confirms", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Bye" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(result.current.tasks).toHaveLength(0);
+  });
+
+  it("reloads without a confirm when the current workspace is already empty (recovery case)", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount empty (default)
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 9, taskName: "Recovered" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(result.current.tasks).toHaveLength(1);
+  });
+});

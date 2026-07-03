@@ -110,6 +110,24 @@ export type Workspace = {
 
 const SCHEMA_VERSION = 11;
 
+/** True when a workspace holds NO user records in any collection (a default
+ *  plan / empty config does not count). Guards a reload from silently replacing
+ *  a populated project with an empty backend read — a real data-loss vector. */
+export function isWorkspaceEmpty(ws: Workspace): boolean {
+  return (ws.tasks?.length ?? 0) === 0
+    && (ws.raid?.length ?? 0) === 0
+    && (ws.absences?.length ?? 0) === 0
+    && (ws.shifts?.length ?? 0) === 0
+    && (ws.resources?.length ?? 0) === 0
+    && (ws.roles?.length ?? 0) === 0
+    && (ws.disciplines?.length ?? 0) === 0
+    && (ws.grades?.length ?? 0) === 0
+    && (ws.budgets?.length ?? 0) === 0
+    && (ws.milestones?.length ?? 0) === 0
+    && (ws.changes?.length ?? 0) === 0
+    && (ws.stakeholders?.length ?? 0) === 0;
+}
+
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
   return {

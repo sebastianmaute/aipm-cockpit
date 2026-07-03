@@ -2937,6 +2937,8 @@ const enUS = {
   projectsNew: "New project",
   reloadProject: "Reload project",
   reloadProjectHint: "Re-fetch the current project's data from its storage. Use this to recover if an error left the app without its data.",
+  reloadEmptyConfirm: "Reloading would replace this project with empty data (the saved copy has no records). This usually means a failed read. Reload anyway and discard the current content?",
+  historyRestoreNothing: "Nothing to restore — this version has no differences from the current project (it may be an empty snapshot).",
   projectsSwitch: "Switch project",
   projectsEdit: "Edit project",
   projectsExport: "Export project",

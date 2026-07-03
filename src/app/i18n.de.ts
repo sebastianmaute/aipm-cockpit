@@ -2918,6 +2918,8 @@ export const de: Record<TranslationKey, string> = {
   projectsNew: "Neues Projekt",
   reloadProject: "Projekt neu laden",
   reloadProjectHint: "Ruft die Daten des aktuellen Projekts erneut aus dem Speicher ab. Damit können Sie den Zustand wiederherstellen, falls ein Fehler die App ohne ihre Daten zurückgelassen hat.",
+  reloadEmptyConfirm: "Das Neuladen würde dieses Projekt durch leere Daten ersetzen (die gespeicherte Kopie enthält keine Einträge). Das deutet meist auf einen fehlgeschlagenen Lesevorgang hin. Trotzdem neu laden und den aktuellen Inhalt verwerfen?",
+  historyRestoreNothing: "Nichts wiederherzustellen — diese Version unterscheidet sich nicht vom aktuellen Projekt (möglicherweise ein leerer Snapshot).",
   projectsSwitch: "Projekt wechseln",
   projectsEdit: "Projekt bearbeiten",
   projectsExport: "Projekt exportieren",

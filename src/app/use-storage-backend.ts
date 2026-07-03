@@ -16,6 +16,7 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
+import { isWorkspaceEmpty } from "./workspace";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -542,6 +543,20 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     reloadInFlightRef.current = true;
     try {
       const workspace = await backend.load();
+      // ★ DATA-LOSS GUARD: a reload that would EMPTY a populated project is
+      // almost always a transient/failed backend read, not intent — applying it
+      // wipes the in-memory workspace and autosave then persists the empty (a
+      // real loss we hit). Only replace a NON-empty project with an empty load
+      // after an explicit confirm; default is to keep the current data untouched.
+      if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+        const confirmed =
+          typeof window !== "undefined" &&
+          window.confirm(t(langRef.current, "reloadEmptyConfirm"));
+        if (!confirmed) {
+          args.onStorageOutcome?.(null);
+          return;
+        }
+      }
       applyWorkspace(workspace);
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
