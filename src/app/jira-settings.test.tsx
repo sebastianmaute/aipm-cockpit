@@ -98,7 +98,13 @@ describe("JiraSettingsSection — extra projects block", () => {
     );
     // Drive the connection-test flow that populates `projects`.
     fireEvent.click(screen.getByRole("button", { name: /test connection/i }));
-    await screen.findByText(/also sync from other projects/i);
+    // Wait on a project checkbox from the POPULATED list, not the section
+    // heading — the heading also renders in the degraded-state fallback (shown
+    // when `extraProjects` exist but the project list hasn't loaded yet), so
+    // `findByText(heading)` can resolve before `listProjects` mounts the
+    // checkboxes, leaving the tests' synchronous `getByRole` queries to race
+    // the mock resolution (flakes only under full-suite load).
+    await screen.findByRole("checkbox", { name: /include – ops \(ops\)/i });
     return { onChange };
   }
 
