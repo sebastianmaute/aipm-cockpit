@@ -41,7 +41,7 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
 npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
-npm run dup:check           # jscpd duplication GATE (--threshold 2.8, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
+npm run dup:check           # jscpd duplication GATE (--threshold 2.7, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
 ```
 
@@ -98,7 +98,7 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
-  BLOCKING [jscpd `--threshold 2.8`, per-format] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  BLOCKING [jscpd `--threshold 2.7`, per-format] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`]) → build → e2e. All quality gates are ratchets and
   carry a commented `quality-gate-bypass` escape-hatch rules block. A weekly `schedule` pipeline also runs
   `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
