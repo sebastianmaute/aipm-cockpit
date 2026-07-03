@@ -18,6 +18,10 @@ export interface ProjectSwitcherProps {
    *  (folder icon + name, no chevron, no dropdown). Used by popout windows,
    *  which mirror the main window and cannot switch projects. */
   readOnly?: boolean;
+  /** Reload the current project's data from its backend (recovery affordance
+   *  when an error leaves the app unpopulated). Renders a reload icon button
+   *  beside the switcher when provided; omitted in readOnly/popout. */
+  onReload?: () => void;
   /** Turso mode: hide the "Load from file" dropdown item (Turso has no file
    *  load). Defaults to "file". */
   mode?: "file" | "turso";
@@ -44,6 +48,7 @@ export function ProjectSwitcher({
   onLoadFromFile,
   onNew,
   readOnly = false,
+  onReload,
   mode = "file",
   dataTourId,
 }: ProjectSwitcherProps) {
@@ -78,6 +83,7 @@ export function ProjectSwitcher({
   }
 
   return (
+    <div className="flex items-center gap-1">
     <div ref={ref} data-tour-id={dataTourId} className="relative">
       <button
         type="button"
@@ -189,6 +195,24 @@ export function ProjectSwitcher({
           </button>
         </div>
       )}
+    </div>
+    {onReload && (
+      <button
+        type="button"
+        onClick={onReload}
+        aria-label={t(lang, "reloadProject")}
+        title={t(lang, "reloadProject")}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted text-AIPM-dark-blue hover:bg-surface focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-light-grey"
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+          <path
+            fillRule="evenodd"
+            d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h1.633a.75.75 0 000-1.5H3.744a.75.75 0 00-.75.75v3.994a.75.75 0 001.5 0v-1.68l.311.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V3.176a.75.75 0 00-1.5 0v1.683l-.312-.311A7 7 0 003.489 7.686a.75.75 0 101.449.39 5.5 5.5 0 019.201-2.466l.312.311H12.82a.75.75 0 000 1.5h3.994a.75.75 0 00.53-.219z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+    )}
     </div>
   );
 }

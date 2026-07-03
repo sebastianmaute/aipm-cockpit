@@ -24,19 +24,26 @@ function createdAtMs(m: LiveModel): number {
 }
 
 /** Build the dropdown option list. Live claude-* models (newest first) when
- *  present, else the registry; the current selection is always included. */
+ *  present, else the registry; the current selection is always included.
+ *  `registryAsBase` (default true) keeps the offline registry as the fallback
+ *  base list; pass false to leave the list EMPTY until a live poll succeeds
+ *  (the current selection is still included, labelled via the registry). */
 export function buildModelOptions(
   registry: ReadonlyArray<{ id: string; label: string }>,
   liveModels: readonly LiveModel[],
   currentId: string,
+  opts?: { registryAsBase?: boolean },
 ): ModelOption[] {
+  const registryAsBase = opts?.registryAsBase ?? true;
   const claude = liveModels.filter((m) => m.id.startsWith("claude-"));
   const base: ModelOption[] =
     claude.length > 0
       ? [...claude]
           .sort((a, b) => createdAtMs(b) - createdAtMs(a) || a.id.localeCompare(b.id))
           .map((m) => ({ id: m.id, label: m.display_name || m.id }))
-      : registry.map((r) => ({ id: r.id, label: r.label }));
+      : registryAsBase
+        ? registry.map((r) => ({ id: r.id, label: r.label }))
+        : [];
 
   const seen = new Set<string>();
   const out: ModelOption[] = [];

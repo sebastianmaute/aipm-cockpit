@@ -36,6 +36,17 @@ describe("buildModelOptions", () => {
     expect(opts.map((o) => o.id)).toEqual(["claude-sonnet-4-6", "claude-opus-4-8"]);
   });
 
+  it("registryAsBase:false — returns ONLY the current selection when live is empty (no pre-fill)", () => {
+    const opts = buildModelOptions(REG, [], "claude-sonnet-4-6", { registryAsBase: false });
+    expect(opts).toEqual([{ id: "claude-sonnet-4-6", label: expect.any(String) }]);
+  });
+
+  it("registryAsBase:false — still uses live models when present", () => {
+    const live: LiveModel[] = [{ id: "claude-opus-4-8", display_name: "Claude Opus 4.8", created_at: "2026-01-01T00:00:00Z" }];
+    const opts = buildModelOptions(REG, live, "claude-opus-4-8", { registryAsBase: false });
+    expect(opts.map((o) => o.id)).toEqual(["claude-opus-4-8"]);
+  });
+
   it("always includes currentId, prepended when absent from live", () => {
     const live: LiveModel[] = [{ id: "claude-opus-4-8", display_name: "Claude Opus 4.8", created_at: "2026-01-01T00:00:00Z" }];
     const opts = buildModelOptions(REG, live, "claude-legacy-9");

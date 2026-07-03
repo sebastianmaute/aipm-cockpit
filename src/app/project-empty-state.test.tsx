@@ -84,7 +84,7 @@ describe("ProjectEmptyState", () => {
     expect(screen.queryByLabelText(/close/i)).toBeNull();
   });
 
-  it("offers a Configure database / M365 button and a Run setup wizard button", () => {
+  it("offers Configure database / M365, Run setup wizard, and Configure AI assistant buttons", () => {
     setup();
     expect(
       screen.getByRole("button", { name: /configure database \/ m365/i }),
@@ -92,12 +92,13 @@ describe("ProjectEmptyState", () => {
     expect(
       screen.getByRole("button", { name: /run setup wizard/i }),
     ).toBeInTheDocument();
-    // The standalone M365 + AI-assistant CTAs were folded into the above two.
+    // Dedicated AI-config CTA for the new-project situation (opens AiSection).
+    expect(
+      screen.getByRole("button", { name: /configure ai assistant/i }),
+    ).toBeInTheDocument();
+    // The standalone M365 CTA stays folded into "Configure database / M365".
     expect(
       screen.queryByRole("button", { name: /configure m365 integration/i }),
-    ).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: /configure ai assistant/i }),
     ).toBeNull();
   });
 

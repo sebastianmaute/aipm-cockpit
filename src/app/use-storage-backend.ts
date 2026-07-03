@@ -530,6 +530,23 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextSaveRef,
   });
 
+  // Re-load the CURRENT project's workspace from its backend, discarding the
+  // in-memory state. Recovery affordance for when an error (or a partial load)
+  // leaves the app unpopulated — unlike switchToProject, which early-returns on
+  // the same id, this always re-fetches. Mirrors the load effect's apply path
+  // (suppress the save-back the apply would otherwise trigger).
+  const reloadCurrentProject = async (): Promise<void> => {
+    try {
+      const workspace = await backend.load();
+      applyWorkspace(workspace);
+      suppressNextSaveRef.current = true;
+      await refreshBackendStatus();
+      args.onStorageOutcome?.(null);
+    } catch (err) {
+      args.onStorageOutcome?.(err);
+    }
+  };
+
   return {
     storageDescription,
     storageReady,
@@ -537,6 +554,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     onGrantWriteAccess,
     onOpenStorageFile,
     onRequestStorageSwitch,
+    reloadCurrentProject,
     switchToProject,
     createProject,
     createDemoProject,

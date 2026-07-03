@@ -23,7 +23,8 @@ describe("useChatModels", () => {
       ],
     });
     const { result } = renderHook(() => useChatModels(KEY, true, "claude-sonnet-4-6"));
-    await waitFor(() => expect(result.current.map((o) => o.id)).toEqual(["claude-opus-4-8", "claude-sonnet-4-6"]));
+    await waitFor(() => expect(result.current.options.map((o) => o.id)).toEqual(["claude-opus-4-8", "claude-sonnet-4-6"]));
+    expect(result.current.loaded).toBe(true);
   });
 
   it("sends the three Anthropic headers", async () => {
@@ -37,10 +38,13 @@ describe("useChatModels", () => {
     expect(headers["anthropic-dangerous-direct-browser-access"]).toBe("true");
   });
 
-  it("falls back to the registry on a non-2xx response (no throw)", async () => {
+  it("does NOT pre-fill from the registry on a non-2xx response — only the current selection, loaded=false", async () => {
     mockFetchOnce({}, false, 401);
     const { result } = renderHook(() => useChatModels(KEY, true, "claude-sonnet-4-6"));
-    await waitFor(() => expect(result.current.some((o) => o.id === "claude-sonnet-4-6")).toBe(true));
+    // No live poll → the dropdown holds ONLY the current selection (not the whole
+    // offline registry), and `loaded` stays false so the UI can show the key hint.
+    await waitFor(() => expect(result.current.options).toEqual([{ id: "claude-sonnet-4-6", label: expect.any(String) }]));
+    expect(result.current.loaded).toBe(false);
   });
 
   it("aborts the in-flight request on unmount", async () => {

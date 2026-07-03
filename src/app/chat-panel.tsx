@@ -138,7 +138,7 @@ function ChatPanelInner({
   const { record: recordUsage } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
-  const modelOptions = useChatModels((unlockedKey ?? ai.apiKey) || "", ai.enabled === true, ai.model);
+  const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai.enabled === true, ai.model);
 
   useEffect(() => {
     if (!scrollerRef.current) return;

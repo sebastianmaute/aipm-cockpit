@@ -1710,6 +1710,7 @@ const enUS = {
   aiApiKeyTooltip: "Your Anthropic API key. Stored locally in this browser only.",
   aiKeyInvalid: "That doesn't look like a valid Anthropic API key (sk-ant-…). It was not saved.",
   aiModelTooltip: "Which Claude model the assistant uses.",
+  aiModelNeedsKey: "Enter a valid Anthropic API key to load available models.",
   integrationsTooltip: "Connect external services like Microsoft 365 and Turso.",
   integrationsM365Tooltip: "Sign in with Microsoft 365 to use SharePoint storage and Outlook import.",
   integrationsM365ClientIdTooltip: "The Application (client) ID of your Azure app registration.",
@@ -2918,6 +2919,8 @@ const enUS = {
   // Management view / empty-state / switcher
   projectsTitle: "Projects",
   projectsNew: "New project",
+  reloadProject: "Reload project",
+  reloadProjectHint: "Re-fetch the current project's data from its storage. Use this to recover if an error left the app without its data.",
   projectsSwitch: "Switch project",
   projectsEdit: "Edit project",
   projectsExport: "Export project",

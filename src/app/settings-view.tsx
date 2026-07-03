@@ -42,6 +42,8 @@ interface SettingsViewProps {
   onOpenStorageFile: () => Promise<void>;
   onGrantStorageWrite: () => Promise<void>;
   onRequestStorageSwitch: (kind: StorageKind) => void;
+  /** Reload the current project's data from its backend (recovery). Omitted in popouts. */
+  onReloadProject?: () => void;
   onMigrateToTurso?: () => void;
   commTemplatesEnabled?: boolean;
   commTemplates?: UseCommTemplatesResult;
@@ -297,6 +299,7 @@ export function SettingsView(props: SettingsViewProps) {
               onPickFile={props.onPickStorageFile}
               onOpenFile={props.onOpenStorageFile}
               onGrantWrite={props.onGrantStorageWrite}
+              onReloadProject={props.onReloadProject}
               m365Enabled={settings.integrations?.m365?.enabled ?? false}
               sharepointEnabled={settings.integrations?.m365?.sharepoint ?? false}
               tursoEnabled={settings.integrations?.turso?.enabled ?? false}
