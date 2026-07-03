@@ -2202,8 +2202,12 @@ function TaskManagerInner() {
   // loading placeholder — otherwise the main app renders over an empty in-memory
   // workspace and then bounces to the empty-state when an empty list resolves
   // (the "full app flash before the new-project screen" bug on portfolio switch).
+  // ★ Gate on `!storageError`: if the list fetch FAILS (unreachable DB / bad
+  // token), `tursoListLoaded` never flips, so without this the skeleton would
+  // render forever with no banner/nav. Falling through to the app tree on an
+  // error restores the storage-error banner + Settings recovery path.
   const showTursoListLoading =
-    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock;
+    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !storageError;
 
   return (
     <ActivityLogProvider value={logActivity}>

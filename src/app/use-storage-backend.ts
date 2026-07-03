@@ -126,6 +126,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextSaveRef = useRef(false);
   // Suppresses the load effect that fires after onRequestStorageSwitch sets new config
   const suppressNextLoadRef = useRef(false);
+  // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
+  const reloadInFlightRef = useRef(false);
 
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
@@ -536,6 +538,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the same id, this always re-fetches. Mirrors the load effect's apply path
   // (suppress the save-back the apply would otherwise trigger).
   const reloadCurrentProject = async (): Promise<void> => {
+    if (reloadInFlightRef.current) return; // ignore a re-entrant click while loading
+    reloadInFlightRef.current = true;
     try {
       const workspace = await backend.load();
       applyWorkspace(workspace);
@@ -544,6 +548,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       args.onStorageOutcome?.(null);
     } catch (err) {
       args.onStorageOutcome?.(err);
+    } finally {
+      reloadInFlightRef.current = false;
     }
   };
 
