@@ -33,7 +33,8 @@ import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 
 export interface StakeholderEditModalProps {
   lang: Lang;
@@ -355,46 +356,19 @@ export function StakeholderEditModal({
             </div>
           )}
 
-          {error && (
-            <p
-              role="alert"
-              className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15 sm:col-span-2"
-            >
-              {error}
-            </p>
-          )}
+          {error && <ModalFieldError error={error} />}
 
-          <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(t(lang, "stakeholderConfirmDelete"))) onDelete();
-                }}
-                disabled={isNew}
-                aria-label={t(lang, "stakeholdersDelete")}
-                className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 ${INTERACTIVE}`}
-              >
-                {t(lang, "delete")}
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onCancel}
-                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-              >
-                {t(lang, "cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={saveDisabled}
-                className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                {t(lang, "raidSave")}
-              </button>
-            </div>
-          </footer>
+          <ModalEditFooter
+            lang={lang}
+            onDelete={onDelete}
+            deleteConfirmKey="stakeholderConfirmDelete"
+            deleteLabelKey="delete"
+            deleteAriaLabelKey="stakeholdersDelete"
+            deleteDisabled={isNew}
+            onCancel={onCancel}
+            saveDisabled={saveDisabled}
+            saveLabelKey="raidSave"
+          />
         </form>
       </div>
     </Modal>

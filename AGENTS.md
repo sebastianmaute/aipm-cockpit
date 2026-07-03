@@ -41,7 +41,7 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
 npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
-npm run dup:check           # jscpd duplication GATE (--threshold 3.3, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
+npm run dup:check           # jscpd duplication GATE (--threshold 3.1, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
 ```
 
@@ -98,7 +98,7 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
-  BLOCKING [jscpd `--threshold 3.3`, per-format] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  BLOCKING [jscpd `--threshold 3.1`, per-format] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`]) → build → e2e. All quality gates are ratchets and
   carry a commented `quality-gate-bypass` escape-hatch rules block. A weekly `schedule` pipeline also runs
   `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
@@ -538,6 +538,14 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   lists, add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix` 5×5 picker, Risk items
   only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField` — the two chip-picker
   sections, threaded handlers/state as props). RAID IS in axe `A11Y_VIEWS`.
+- **Shared edit-modal chrome (`edit-modal-chrome.tsx`):** three presentational atoms the change/raid/
+  stakeholder edit modals repeated verbatim (top cross-file jscpd clones, TD-6): `ModalFieldError` (the
+  `<p role="alert">` AIPM-pink banner — caller keeps the `{error && …}` guard), `StakeholderChipPicker` (the
+  linked-stakeholders checkbox chip list — caller keeps its own field-visibility gate; change + raid),
+  `ModalEditFooter` (bordered footer, destructive delete left + cancel/submit right — change + stakeholder;
+  takes `deleteConfirmKey`/`deleteLabelKey`/`deleteAriaLabelKey?`/`deleteDisabled`/`saveDisabled`/
+  `saveLabelKey`). ★ RAID's footer stays BESPOKE (border-less + `InfoTooltip`, no submit-disabled) — divergent,
+  deliberately NOT folded in. Presentational only; edit shared modal markup/a11y HERE.
 - **Stakeholder Influence/Interest map drag:** `stakeholder-map-panel.tsx` chips drag between the 2×2 quadrants
   (native HTML5 DnD, no lib). Pure i18n-free `applyQuadrantMove(s, quadrant)` in `stakeholders.ts` uses
   **preserve-Medium**: high side → "High"; low side demotes only a "High" → "Medium", keeps existing Medium/Low;
@@ -1352,6 +1360,14 @@ a valid zone).
   each `sort` non-null and casts `key:string`→the table's key union (`as AssigneeSort`/`as GroupOrLabelSort`).
   Column widths/pane size persist separately. OUT of exports/Turso, cleared by `clearAppConfig`. Reports IS
   axe-scanned (single labeled controls).
+- **Shared control shell (`SavedViewsMenu`, `saved-views-menu.tsx`):** all THREE controls
+  (`panel-views-control`/`saved-views-control`/`reports-views-control`) render ONE shared presentational
+  `SavedViewsMenu` (the select + save-as name/confirm/cancel + delete shell; owns the local UI state —
+  selection, save-name draft, stale-selection `selectionValid` derivation). Each control is a THIN wrapper
+  passing its `views` list + `onApplyView(id)`/`onSaveView(name)`/`onDeleteView(id)` — divergent STORE logic
+  (which hook, apply/capture/delete) stays in the wrapper. Edit shared markup/a11y HERE, not in a wrapper.
+  ★ the confirm button carries `aria-label={savedViewsSave}` (accessible name "Save current view" ⊇ visible
+  "Save" — WCAG 2.5.3 ok); reused across the three so a control-level a11y change touches one file.
 
 ### Installable PWA
 
