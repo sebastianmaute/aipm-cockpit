@@ -13,9 +13,14 @@ dates are quarterly from creation; next sweep **2026-10-03**.
 | TD-1 | Forked Next.js pinned — upgrade path unowned | Roadmap A7 | tech-lead | 2026-10-03 | Explicitly out of scope; pinned unless a CVE forces action. |
 | TD-2 | Six-write-path persistence — full storage rewrite deferred | Phase 3 T10 | tech-lead | 2026-10-03 | `entity-persistence-registry.test.ts` mitigates (CSV+MD+Turso columns for `outlookEventId`); a unified codec/schema rewrite remains out of scope. |
 | TD-3 | Auto-pull re-creates a pruned event when the entity is still pushable | v0.164 (SP5) | tech-lead | 2026-10-03 | Documented SP5 limit; a permanent per-item opt-out is future work. |
-| TD-4 | `sanitize*.ts` branch coverage 84.82% < the ≥90 pure-engine target | Phase 4 T2 | tech-lead | 2026-10-03 | Floor set at the honest measured level (`vitest.config.ts`); add validator branch tests to reach 90, then raise the floor. Not faked. |
 | TD-5 | `task-manager.tsx` residual size > 800 lines | Phase 3 T5 | tech-lead | 2026-10-03 | Deliberate — orchestrator glue after 5 move-only extractions; further splitting = pass-through modules (YAGNI). Higher-leverage future move: consolidate top-level hooks/effects, not slice the render tree. See `tech-debt-register-inputs.md` history in git. |
 | TD-6 | Duplication ≈ 2.83% (gate ratchet at 3.7%) — not ≤50% of the Phase 1 baseline | Phase 3/4 | tech-lead | 2026-10-03 | The ≤50% roadmap target is a repo-wide halving, not toolbar/prop-dedup-achievable. Remaining clones are across edit-modals + unrelated panels; a repo-wide dedup is its own effort. Ratchet the gate DOWN opportunistically. |
+
+## Resolved
+
+| ID | Item | Origin | Resolved | Notes |
+|---|---|---|---|---|
+| TD-4 | `sanitize*.ts` branch coverage 84.82% < the ≥90 pure-engine target | Phase 4 T2 | 2026-07-03 | `sanitize-branches.test.ts` added the validator reject/fallback/clamp arms → branch **95.70%** (lines 98.33%). Floor ratcheted to 94/95 in `vitest.config.ts`. Not faked. |
 
 ## Deferred major dependency upgrades (Phase 4 T4 — one major per MR)
 
