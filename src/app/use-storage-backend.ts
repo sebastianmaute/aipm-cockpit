@@ -17,6 +17,7 @@ import {
   requestWriteAccessForBackend,
 } from "./storage";
 import { isWorkspaceEmpty, nonEmptyCollectionCount } from "./workspace";
+import { recordDataLossEvent } from "./dataloss-forensics";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -190,6 +191,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         // autosave then persists the empty. On initial mount the current
         // workspace is empty, so a normal first load is never blocked.
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+          recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
           args.showToast("info", t(langRef.current, "storageKeptCurrentData"));
           await refreshBackendStatus();
           args.onStorageOutcome?.(null);
@@ -249,9 +251,16 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // signature (a full applyWorkspace(empty), NOT an incremental single-collection
     // user delete/clear, which the ≥2 threshold never blocks). The backend keeps
     // the data; a reload restores it.
-    if (curCollections === 0 && prevCollectionCountRef.current >= 2) {
-      args.showToast("info", t(langRef.current, "storageRefusedWipe"));
-      return; // keep prevCollectionCountRef so a later change re-evaluates
+    if (curCollections === 0 && prevCollectionCountRef.current >= 1) {
+      // Forensics: record EVERY full-empty over a populated project (with the
+      // caller stack), whether or not Layer 3 refuses it — so a single-collection
+      // wipe that L3 lets through still leaves a trigger trail.
+      const refused = prevCollectionCountRef.current >= 2;
+      recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: 0, refused });
+      if (refused) {
+        args.showToast("info", t(langRef.current, "storageRefusedWipe"));
+        return; // keep prevCollectionCountRef so a later change re-evaluates
+      }
     }
     prevCollectionCountRef.current = curCollections;
     // Fire-and-forget save with the effect's full error handling — the .catch
@@ -580,6 +589,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         const confirmed =
           typeof window !== "undefined" &&
           window.confirm(t(langRef.current, "reloadEmptyConfirm"));
+        recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: !confirmed });
         if (!confirmed) {
           args.onStorageOutcome?.(null);
           return;
