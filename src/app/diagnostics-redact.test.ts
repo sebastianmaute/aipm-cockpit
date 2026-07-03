@@ -24,4 +24,14 @@ describe("redactFields", () => {
     const out = redactFields({ msg: "x".repeat(500) })!;
     expect((out.msg as string).length).toBeLessThanOrEqual(200);
   });
+
+  it("returns undefined when a non-empty input has all values filtered out", () => {
+    expect(redactFields({ d: { x: 1 }, e: [1, 2] })).toBeUndefined();
+  });
+
+  it("redacts a secret-shaped key even with a non-string value", () => {
+    const out = redactFields({ apiKeyLength: 32, auth_token: true })!;
+    expect(out.apiKeyLength).toBe("[redacted]");
+    expect(out.auth_token).toBe("[redacted]");
+  });
 });

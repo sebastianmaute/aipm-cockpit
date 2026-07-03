@@ -9,7 +9,7 @@ const SECRET_KEY_PARTS = [
 const FIELD_MAX = 200;
 
 function isSecretKey(key: string): boolean {
-  const k = key.toLowerCase();
+  const k = key.toLowerCase().replace(/[^a-z0-9]/g, "");
   return SECRET_KEY_PARTS.some((p) => k.includes(p));
 }
 
