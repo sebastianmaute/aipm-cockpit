@@ -16,7 +16,8 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Status model: To Do, In Progress, On Hold, In Review, Cancelled, Done — Done auto-stamps a completed date.
 - Tasks can link to RAID items (a task may resolve a risk, issue, or dependency).
 - Jira-synced tasks (those with a Jira key): tasks from the primary project are editable; tasks from read-only extra projects have their Jira fields locked until the next sync.
-- AI: create/update tasks including setting status; cannot toggle the Board view or change a Jira-synced task's status (explain + point to Jira).
+- Inline "Ask Claude" edit: an in-place popover on a task row/card (or its row menu) takes a short instruction (e.g. "push this out a week and add a risk for the vendor delay"); it previews the proposed field changes and any related items it would create before anything is applied, and only writes them once the user confirms. Not available on Jira-synced tasks or in a pop-out window.
+- AI: create/update tasks including setting status; cannot toggle the Board view or change a Jira-synced task's status (explain + point to Jira). Via the inline edit popover specifically, it can change task fields and create a linked RAID item, change item, milestone, or stakeholder as part of one instruction — always preview-then-confirm, never applied without the user's confirmation.
 
 ## Action Center
 

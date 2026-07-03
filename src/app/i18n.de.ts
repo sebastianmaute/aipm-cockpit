@@ -172,6 +172,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightCalendarPullRaidChange: "Outlook-Terminverschiebungen werden in RAID und Änderungen zurückgespielt",
   versionHighlightCalendarPullAbsence: "Outlook-Terminverschiebungen werden in Abwesenheiten zurückgespielt",
   versionHighlightCalendarAutoPull: "Optionales automatisches Zurückspielen von Outlook-Terminverschiebungen",
+  versionHighlightInlineAiEdit: "Aufgaben direkt per natürlicher Sprache bearbeiten — ein Inline-Popover „Claude fragen“ schlägt Änderungen vor, die Sie prüfen und anwenden",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

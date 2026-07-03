@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.164.1";
-export const APP_BUILD_DATE = "2026-07-03"; // 0.164.1: Relicensed from Apache-2.0 to the European Union Public Licence v1.2 (EUPL-1.2) — LICENSE replaced with the official EN text, NOTICE removed (EUPL has no NOTICE mechanism), package.json/version.ts/README/in-app footer link + bundled operating-guide notice updated (Cixin)
+export const APP_VERSION = "0.165.0";
+export const APP_BUILD_DATE = "2026-07-03"; // 0.165.0: Inline "Ask Claude" per-item task edit — a natural-language popover on a task row/Kanban card proposes changes you preview and apply in place (no chat window); plus the new-project/recovery UX batch (Turso portfolio-switch flash fix, Reload-project affordance, model-picker gating, empty-state Configure-AI button) and TD-6 dedup slice 6 (Chiang)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.164.x line is "Cixin" (Liu Cixin). */
-export const APP_MILESTONE = "Cixin";
+ *  0.165.x line is "Chiang" (Ted Chiang). */
+export const APP_MILESTONE = "Chiang";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -183,4 +183,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCalendarPullRaidChange",
   "versionHighlightCalendarPullAbsence",
   "versionHighlightCalendarAutoPull",
+  "versionHighlightInlineAiEdit",
 ] as const;
