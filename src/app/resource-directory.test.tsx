@@ -35,13 +35,17 @@ describe("ResourceDirectory", () => {
     const onAdd = vi.fn();
     render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={onAdd} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /add resource/i }));
-    expect(onAdd).toHaveBeenCalled();
+    // Must be called with NO argument — forwarding the click event as `seed`
+    // pollutes the resource draft with a PointerEvent and crashes BroadcastChannel.
+    expect(onAdd).toHaveBeenCalledWith();
   });
   it("fires onAddAbsence from the Add Absence button", () => {
     const onAdd = vi.fn();
     render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={onAdd} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "resourcesAddAbsence") }));
-    expect(onAdd).toHaveBeenCalled();
+    // Must be called with NO argument — forwarding the click event as `seed`
+    // pollutes the absence draft with a PointerEvent and crashes BroadcastChannel.
+    expect(onAdd).toHaveBeenCalledWith();
   });
 
   it("filters rows by the search box", () => {

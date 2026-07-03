@@ -198,14 +198,14 @@ function ResourceDirectoryInner({
       <div className="mb-2 flex shrink-0 items-center gap-2 print:hidden">
         <button
           type="button"
-          onClick={onAddResource}
+          onClick={() => onAddResource()}
           className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
         >
           {t(lang, "resourcesAddResource")}
         </button>
         <button
           type="button"
-          onClick={onAddAbsence}
+          onClick={() => onAddAbsence()}
           className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
         >
           {t(lang, "resourcesAddAbsence")}
