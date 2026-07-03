@@ -207,6 +207,50 @@ function CountHead({
   );
 }
 
+// Shared scroller + table + head shell for the four count tables. Each table
+// passes its own tbody rows as children (simple {name,count} rows via
+// SimpleCountRows, or a bespoke row map for the impact/requestor variants).
+function CountTableBody({
+  lang,
+  labelKey,
+  sort,
+  click,
+  w,
+  sr,
+  children,
+}: {
+  lang: Lang;
+  labelKey: TranslationKey;
+  sort: SortState<CountSortKey>;
+  click: (k: CountSortKey) => void;
+  w: { label: number; count: number };
+  sr: (col: string, e: React.MouseEvent) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-md border border-line">
+      <table className="min-w-full text-left text-sm">
+        <CountHead lang={lang} labelKey={labelKey} sort={sort} click={click} w={w} sr={sr} />
+        <tbody className="divide-y divide-line">{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+// The plain label + count body rows shared verbatim by the Type and Status tables.
+function SimpleCountRows({ rows }: { rows: readonly { key: string; name: string; count: number }[] }) {
+  return (
+    <>
+      {rows.map((row) => (
+        <tr key={row.key}>
+          <td className="px-3 py-2 font-medium text-foreground">{row.name}</td>
+          <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // By Type
 // ---------------------------------------------------------------------------
@@ -224,19 +268,9 @@ function TypeTable({ lang, counts, colResize }: { lang: Lang; counts: Record<(ty
 
   return (
     <Section title={t(lang, "changeReportByType")}>
-      <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <CountHead lang={lang} labelKey="changeFieldType" sort={sort} click={click} w={w} sr={sr} />
-          <tbody className="divide-y divide-line">
-            {sorted.map((row) => (
-              <tr key={row.key}>
-                <td className="px-3 py-2 font-medium text-foreground">{row.name}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CountTableBody lang={lang} labelKey="changeFieldType" sort={sort} click={click} w={w} sr={sr}>
+        <SimpleCountRows rows={sorted} />
+      </CountTableBody>
     </Section>
   );
 }
@@ -258,19 +292,9 @@ function StatusTable({ lang, counts, colResize }: { lang: Lang; counts: Record<(
 
   return (
     <Section title={t(lang, "changeReportByStatus")}>
-      <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <CountHead lang={lang} labelKey="changeFieldStatus" sort={sort} click={click} w={w} sr={sr} />
-          <tbody className="divide-y divide-line">
-            {sorted.map((row) => (
-              <tr key={row.key}>
-                <td className="px-3 py-2 font-medium text-foreground">{row.name}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CountTableBody lang={lang} labelKey="changeFieldStatus" sort={sort} click={click} w={w} sr={sr}>
+        <SimpleCountRows rows={sorted} />
+      </CountTableBody>
     </Section>
   );
 }
@@ -293,24 +317,19 @@ function ImpactTable({ lang, items, colResize }: { lang: Lang; items: readonly C
 
   return (
     <Section title={t(lang, "changeReportByImpact")}>
-      <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <CountHead lang={lang} labelKey="changeFieldImpact" sort={sort} click={click} w={w} sr={sr} />
-          <tbody className="divide-y divide-line">
-            {sorted.map((row) => (
-              <tr key={row.key}>
-                <td className="px-3 py-2 font-medium text-foreground">
-                  <span className="inline-flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${healthDot[changeImpactRag(row.key)]}`} aria-hidden />
-                    {row.name}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CountTableBody lang={lang} labelKey="changeFieldImpact" sort={sort} click={click} w={w} sr={sr}>
+        {sorted.map((row) => (
+          <tr key={row.key}>
+            <td className="px-3 py-2 font-medium text-foreground">
+              <span className="inline-flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${healthDot[changeImpactRag(row.key)]}`} aria-hidden />
+                {row.name}
+              </span>
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
+          </tr>
+        ))}
+      </CountTableBody>
     </Section>
   );
 }
@@ -339,21 +358,16 @@ function RequestorTable({ lang, items, colResize }: { lang: Lang; items: readonl
   return (
     <Section title={t(lang, "changeReportByRequestor")}>
       <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="raidReportFilterOwner" />
-      <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <CountHead lang={lang} labelKey="changeFieldRequestedBy" sort={sort} click={click} w={w} sr={sr} />
-          <tbody className="divide-y divide-line">
-            {sorted.map((row) => (
-              <tr key={row.name}>
-                <td className="px-3 py-2 font-medium text-foreground">
-                  {row.name === unassigned ? <span className="italic text-muted-foreground">{row.name}</span> : row.name}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CountTableBody lang={lang} labelKey="changeFieldRequestedBy" sort={sort} click={click} w={w} sr={sr}>
+        {sorted.map((row) => (
+          <tr key={row.name}>
+            <td className="px-3 py-2 font-medium text-foreground">
+              {row.name === unassigned ? <span className="italic text-muted-foreground">{row.name}</span> : row.name}
+            </td>
+            <td className="px-3 py-2 text-right tabular-nums">{row.count}</td>
+          </tr>
+        ))}
+      </CountTableBody>
     </Section>
   );
 }

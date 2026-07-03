@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { SegmentedControl } from "./segmented-control";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { type Lang, t } from "./i18n";
+import { type Lang, t, type TranslationKey } from "./i18n";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
@@ -101,6 +101,11 @@ type OwnerSortKey = "name" | "risks" | "assumptions" | "issues" | "dependencies"
 type TopOpenSortKey = "name" | "id" | "category" | "severity" | "owner" | "ageDays";
 type CategorySortKey = "name" | "open" | "closed" | "overdue";
 type DetailSortKey = "name" | "id" | "category" | "severity" | "status" | "owner" | "raisedDate" | "targetDate" | "ageDays" | "linkedTaskCount";
+
+// Severity and Owner share this exact 6-key union and identical column widths,
+// so they share the RaidCountHead / RaidCountRow presentational helpers below.
+type RaidCountSortKey = "name" | "risks" | "assumptions" | "issues" | "dependencies" | "total";
+type RaidCountCol = "label" | "risks" | "assumptions" | "issues" | "dependencies" | "total";
 
 type SortState<K extends string> = { key: K; dir: SortDir };
 
@@ -234,31 +239,24 @@ function SeverityTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport
     <Section title={t(lang, "raidReportBySeverity")}>
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
-            <tr>
-              <SortResizeTh label={t(lang, "raidReportBySeverity")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategoryRisk")} sortCol="risks" width={w.risks} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategoryAssumption")} sortCol="assumptions" width={w.assumptions} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategoryIssue")} sortCol="issues" width={w.issues} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategoryDependency")} sortCol="dependencies" width={w.dependencies} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColTotal")} sortCol="total" width={w.total} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-            </tr>
-          </thead>
+          <RaidCountHead lang={lang} firstLabelKey="raidReportBySeverity" w={w} sort={sort} click={click} sr={sr} />
           <tbody className="divide-y divide-line">
             {sorted.map((row) => (
               <tr key={row.severity}>
-                <td className="px-3 py-2 font-medium text-foreground">
-                  {row.severity === "Unrated" ? (
-                    <span className="italic text-muted-foreground">{t(lang, "raidReportSeverityUnrated")}</span>
-                  ) : (
-                    row.severity
-                  )}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.risks}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.assumptions}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.issues}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.dependencies}</td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium">{row.total}</td>
+                <RaidCountRow
+                  firstCell={
+                    row.severity === "Unrated" ? (
+                      <span className="italic text-muted-foreground">{t(lang, "raidReportSeverityUnrated")}</span>
+                    ) : (
+                      row.severity
+                    )
+                  }
+                  risks={row.risks}
+                  assumptions={row.assumptions}
+                  issues={row.issues}
+                  dependencies={row.dependencies}
+                  total={row.total}
+                />
               </tr>
             ))}
           </tbody>
@@ -336,25 +334,18 @@ function OwnerTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["b
       <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="raidReportFilterOwner" />
       <div className="overflow-x-auto rounded-md border border-line">
         <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
-            <tr>
-              <SortResizeTh label={t(lang, "raidReportByOwner")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategoryRisk")} sortCol="risks" width={w.risks} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategoryAssumption")} sortCol="assumptions" width={w.assumptions} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategoryIssue")} sortCol="issues" width={w.issues} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategoryDependency")} sortCol="dependencies" width={w.dependencies} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColTotal")} sortCol="total" width={w.total} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-            </tr>
-          </thead>
+          <RaidCountHead lang={lang} firstLabelKey="raidReportByOwner" w={w} sort={sort} click={click} sr={sr} />
           <tbody className="divide-y divide-line">
             {sorted.map((row) => (
               <tr key={row.owner}>
-                <td className="px-3 py-2 font-medium text-foreground">{ownerCell(lang, row.owner)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.openR}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.openA}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.openI}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{row.openD}</td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium">{row.total}</td>
+                <RaidCountRow
+                  firstCell={ownerCell(lang, row.owner)}
+                  risks={row.openR}
+                  assumptions={row.openA}
+                  issues={row.openI}
+                  dependencies={row.openD}
+                  total={row.total}
+                />
               </tr>
             ))}
           </tbody>
@@ -582,6 +573,67 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
 // ---------------------------------------------------------------------------
 // Shared sub-components
 // ---------------------------------------------------------------------------
+
+// Shared 6-column head (label + risk/assumption/issue/dependency/total counts)
+// for the By Severity and By Owner tables — only the first column's label key
+// differs.
+function RaidCountHead({
+  lang,
+  firstLabelKey,
+  w,
+  sort,
+  click,
+  sr,
+}: {
+  lang: Lang;
+  firstLabelKey: TranslationKey;
+  w: Record<RaidCountCol, number>;
+  sort: SortState<RaidCountSortKey>;
+  click: (k: RaidCountSortKey) => void;
+  sr: (col: string, e: React.MouseEvent) => void;
+}) {
+  return (
+    <thead className={TABLE_HEAD_CLASS}>
+      <tr>
+        <SortResizeTh label={t(lang, firstLabelKey)} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+        <SortResizeTh label={t(lang, "raidCategoryRisk")} sortCol="risks" width={w.risks} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+        <SortResizeTh label={t(lang, "raidCategoryAssumption")} sortCol="assumptions" width={w.assumptions} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+        <SortResizeTh label={t(lang, "raidCategoryIssue")} sortCol="issues" width={w.issues} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+        <SortResizeTh label={t(lang, "raidCategoryDependency")} sortCol="dependencies" width={w.dependencies} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+        <SortResizeTh label={t(lang, "raidReportColTotal")} sortCol="total" width={w.total} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+      </tr>
+    </thead>
+  );
+}
+
+// Shared 6-cell body row for the By Severity and By Owner tables; the first
+// cell content varies (severity label vs. owner cell).
+function RaidCountRow({
+  firstCell,
+  risks,
+  assumptions,
+  issues,
+  dependencies,
+  total,
+}: {
+  firstCell: React.ReactNode;
+  risks: number;
+  assumptions: number;
+  issues: number;
+  dependencies: number;
+  total: number;
+}) {
+  return (
+    <>
+      <td className="px-3 py-2 font-medium text-foreground">{firstCell}</td>
+      <td className="px-3 py-2 text-right tabular-nums">{risks}</td>
+      <td className="px-3 py-2 text-right tabular-nums">{assumptions}</td>
+      <td className="px-3 py-2 text-right tabular-nums">{issues}</td>
+      <td className="px-3 py-2 text-right tabular-nums">{dependencies}</td>
+      <td className="px-3 py-2 text-right tabular-nums font-medium">{total}</td>
+    </>
+  );
+}
 
 function ownerCell(lang: Lang, owner: string) {
   if (owner === UNASSIGNED_OWNER) {
