@@ -22,14 +22,14 @@ dates are quarterly from creation; next sweep **2026-10-03**.
 Recorded from `npm outdated` 2026-07-02. Order: security → tooling → runtime. Update the
 Status column as each lands or is blocked.
 
-| Package | Current | Latest major | Status | Notes |
+| Package | From | To | Status | Notes |
 |---|---|---|---|---|
-| `@azure/msal-browser` | 4.30.0 | 5.16.0 | pending | auth lib — review token-cache/API breaking changes; test M365 flows |
-| `eslint` | 9.39.4 | 10.6.0 | pending | pairs with `eslint-config-next` v10 support; check flat-config compat |
-| `typescript` | 5.9.3 | 6.0.3 | pending | full `tsc --noEmit` + build; watch for stricter checks |
-| `jsdom` | 25.0.1 | 29.1.1 | pending | test env — verify the layout-stub landmines still hold |
-| `@vitejs/plugin-react` | 4.7.0 | 6.0.3 | pending | vitest transform — verify property suites |
-| `@types/node` | 20.19.41 | 26.1.0 | pending | bump WITH the Node runtime (CI is node:20); a v26 types on node 20 over-declares APIs |
+| `@azure/msal-browser` | 4.30.0 | 5.16.0 | ✅ LANDED (2026-07-03) | tsc+lint+build+unit green. Caveat: MSAL is mocked in unit tests — live M365 token flow needs a real-tenant smoke test (no CI tenant). |
+| `typescript` | 5.9.3 | 6.0.3 | ✅ LANDED (2026-07-03) | tsc 0 errors (no stricter-check breakage), lint+build+unit green. |
+| `jsdom` | 25.0.1 | 29.1.1 | ✅ LANDED (2026-07-03) | Layout-stub landmines hold; unit 5382/5382. |
+| `@vitejs/plugin-react` | 4.7.0 | 6.0.3 | ✅ LANDED (2026-07-03) | Vitest transform + property suites green. |
+| `eslint` | 9.39.4 | 10.6.0 | ⛔ BLOCKED | `eslint-config-next`'s bundled `eslint-plugin-react` calls `context.getFilename` (removed in eslint 10's flat-config API) → lint crashes. `eslint-config-next` is tied to the forked Next.js (A7, out of scope). Unblock requires upgrading eslint-config-next / the react plugin. Owner: tech-lead. |
+| `@types/node` | 20.19.41 | 26.1.0 | ⏸ DEFERRED | Bump WITH the Node runtime — CI is `node:20`; v26 types on node 20 over-declare APIs. Land when the runtime moves off node 20. Owner: tech-lead. |
 
 ### Held — CI-image lockstep (bump both together in one MR)
 
