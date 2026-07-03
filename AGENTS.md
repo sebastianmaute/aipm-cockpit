@@ -1020,8 +1020,11 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ENGLISH-ONLY (no i18n). Knowledge only — adds NO new AI tools.
 - **AI model picker:** `CHAT_MODELS` (`settings-types.ts`) is the SINGLE source for the dropdown; `ChatModel` is widened to
   `string` (open — pick any live model), sanitized on load by `/^claude-[\w.-]+$/` (≤64 chars, else `defaultAiConfig.model`).
-  `use-chat-models.ts` `useChatModels(apiKey, enabled, currentId)` fetches Anthropic `GET /v1/models?limit=1000`
-  browser-direct (augment mode: live `claude-*` newest-first, registry as offline fallback; key never logged). Pure
+  `use-chat-models.ts` `useChatModels(apiKey, enabled, currentId)` → `{options, loaded}` fetches Anthropic
+  `GET /v1/models?limit=1000` browser-direct (live `claude-*` newest-first; key never logged). ★★ v0.165: NO
+  offline pre-fill — `buildModelOptions(reg, live, currentId, {registryAsBase:false})` keeps the dropdown EMPTY
+  (bar the current selection, still registry-labelled) until a live poll SUCCEEDS; `loaded` gates the
+  `aiModelNeedsKey` hint (`ai-section.tsx`). Pure
   `chat-models.ts` `buildModelOptions`/`isValidAnthropicApiKey` (format `sk-ant-…`). ★ the AI key seals only when
   format-valid and is DISCARDED on blur with a toast (`ai-section.tsx`).
 - **AI write tools:** tool SCHEMAS (`TOOL_DEFS` + per-entity field-property helpers `taskFields`/`raidFields`/…
