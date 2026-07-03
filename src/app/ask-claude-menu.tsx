@@ -4,7 +4,8 @@
 // open/close/outside-click/Escape pattern as ExportMenu. Picking a prompt calls
 // onAsk(promptBody) — wired upstream to requestChat(body, true), which switches
 // to the chat tab and auto-sends.
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { AppView } from "./nav-config";
@@ -55,21 +56,7 @@ export function AskClaudeMenu({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  usePopoverDismiss(open, ref, () => setOpen(false));
 
   const { onPage, general } = promptsForView(currentView);
 

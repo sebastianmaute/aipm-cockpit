@@ -8,7 +8,8 @@
 // Format-specific hints are surfaced in the popover so users know roughly
 // what each output looks like before they pick one.
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 import { INTERACTIVE } from "./interaction-styles";
 import { type ExportFormat, exportWorkspace } from "./export";
 import { type Lang, type TranslationKey, t } from "./i18n";
@@ -60,23 +61,7 @@ export function ExportMenu({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  usePopoverDismiss(open, ref, () => setOpen(false));
 
   function pick(format: ExportFormat) {
     setOpen(false);
