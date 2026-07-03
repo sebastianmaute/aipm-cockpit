@@ -45,4 +45,12 @@ describe("diagnostics ring", () => {
     clearDiagLog();
     expect(readDiagLog()).toEqual([]);
   });
+
+  it("evicts oldest info first, preserving warn/error under noise", () => {
+    logDiag("warn", "dataloss.refused", { path: "save" });
+    for (let i = 0; i < 250; i++) logDiag("info", `noise${i}`);
+    const log = readDiagLog();
+    expect(log).toHaveLength(200);
+    expect(log.some((e) => e.code === "dataloss.refused")).toBe(true);
+  });
 });

@@ -7,13 +7,14 @@ const SECRET_KEY_PARTS = [
   "apikey", "authtoken", "apitoken", "token", "passphrase",
   "password", "secret", "authorization", "bearer",
 ];
-const FIELD_MAX = 200;
+const FIELD_MAX = 500;
 
 const SECRET_VALUE_PATTERNS: RegExp[] = [
   /sk-ant-[A-Za-z0-9_-]+/g,                 // Anthropic API keys
   /Bearer\s+[A-Za-z0-9._-]+/gi,             // bearer tokens
   /eyJ[A-Za-z0-9._-]{20,}/g,                // JWTs
-  /(?:api[_-]?key|api[_-]?token|auth[_-]?token|password|passphrase)=[^&\s]+/gi, // key=value pairs
+  /\bATATT[A-Za-z0-9_=.\-]+/g,              // Atlassian Jira API tokens
+  /(?:api[_-]?key|api[_-]?token|auth[_-]?token|token|secret|authorization|password|passphrase)=[^&\s]+/gi, // key=value pairs
 ];
 
 function isSecretKey(key: string): boolean {

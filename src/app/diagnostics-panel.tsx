@@ -75,9 +75,11 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
             <tbody className="divide-y divide-line">
               {events.map((e, i) => (
                 <tr key={i}>
-                  <td className="py-1 pr-2 font-mono text-muted-foreground">{e.at.slice(11, 19)}</td>
-                  <td className="py-1 pr-2">{e.level}</td>
-                  <td className="py-1 pr-2 font-medium">{e.code}</td>
+                  <td className="py-1 pr-2 font-mono text-muted-foreground">
+                    {String(e.at ?? "").slice(11, 19)}
+                  </td>
+                  <td className="py-1 pr-2">{String(e.level ?? "")}</td>
+                  <td className="py-1 pr-2 font-medium">{String(e.code ?? "")}</td>
                   <td className="py-1 font-mono text-muted-foreground">
                     {e.fields ? JSON.stringify(e.fields) : ""}
                   </td>

@@ -28,11 +28,27 @@ export function readDiagLog(): DiagEvent[] {
   }
 }
 
+// Cap the ring, evicting the OLDEST info-level events first so rare warn/error
+// (data-loss, uncaught) survive a burst of info noise.
+function capRing(events: DiagEvent[]): DiagEvent[] {
+  if (events.length <= DIAG_MAX) return events;
+  const result = [...events];
+  while (result.length > DIAG_MAX) {
+    let idx = -1;
+    for (let i = result.length - 1; i >= 0; i--) {
+      if (result[i].level === "info") { idx = i; break; }
+    }
+    if (idx === -1) { result.length = DIAG_MAX; break; } // no info left → hard-trim oldest
+    result.splice(idx, 1);
+  }
+  return result;
+}
+
 export function logDiag(level: DiagLevel, code: string, fields?: Record<string, unknown>): void {
   try {
     if (typeof window === "undefined") return;
     const entry: DiagEvent = { at: new Date().toISOString(), level, code, fields: redactFields(fields) };
-    const next = [entry, ...readDiagLog()].slice(0, DIAG_MAX);
+    const next = capRing([entry, ...readDiagLog()]);
     window.localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
     /* never let diagnostics break the app */

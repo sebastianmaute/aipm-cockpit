@@ -21,8 +21,9 @@ describe("redactFields", () => {
   });
 
   it("caps long strings", () => {
-    const out = redactFields({ msg: "x".repeat(500) })!;
-    expect((out.msg as string).length).toBeLessThanOrEqual(200);
+    const out = redactFields({ msg: "x".repeat(800) })!;
+    expect((out.msg as string).length).toBeLessThanOrEqual(500);
+    expect((out.msg as string).length).toBeGreaterThan(200);
   });
 
   it("returns undefined when a non-empty input has all values filtered out", () => {
@@ -43,5 +44,17 @@ describe("redactFields", () => {
     expect(out.message).not.toContain("sk-ant-api03-ABC123xyz");
     expect(out.message).toContain("[redacted]");
     expect(out.header as string).not.toContain("abc.def.ghijklmnop");
+  });
+
+  it("scrubs Atlassian tokens and bare token=/secret= in values", () => {
+    const out = redactFields({
+      a: "jira ATATT3xFfGF0abcDEF_123 failed",
+      b: "url https://x?token=abc123&ok=1",
+      c: "secret=topsecretvalue",
+    })!;
+    expect(out.a as string).not.toContain("ATATT3xFfGF0abcDEF_123");
+    expect(out.b as string).not.toContain("abc123");
+    expect(out.b as string).toContain("ok=1"); // benign query kept
+    expect(out.c as string).not.toContain("topsecretvalue");
   });
 });

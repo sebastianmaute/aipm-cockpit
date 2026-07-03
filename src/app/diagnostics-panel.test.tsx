@@ -18,4 +18,9 @@ describe("DiagnosticsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /clear log/i }));
     expect(readDiagLog()).toEqual([]);
   });
+
+  it("does not crash on a malformed ring", () => {
+    window.localStorage.setItem("lop-app:diag-log", JSON.stringify([1, 2, { at: null }]));
+    expect(() => render(<DiagnosticsPanel lang="en-US" />)).not.toThrow();
+  });
 });
