@@ -20,7 +20,7 @@
     "e2e:install": "playwright install --with-deps chromium",
     "docs:scripts": "node scripts/sync-script-docs.mjs",
     "docs:scripts:check": "node scripts/sync-script-docs.mjs --check",
-    "dup:check": "jscpd src --min-tokens 50 --ignore \"**/*.test.*,**/*.property.test.*,**/__fixtures__/**,**/i18n*.ts\" --reporters console --threshold 3.7",
+    "dup:check": "jscpd src --min-tokens 50 --ignore \"**/*.test.*,**/*.property.test.*,**/__fixtures__/**,**/i18n*.ts\" --reporters console --threshold 3.3",
     "size:check": "node scripts/check-file-sizes.mjs"
   },
   "scriptsDescriptions": {
