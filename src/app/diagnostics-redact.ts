@@ -1,6 +1,7 @@
 // Pure write-time redaction for the diagnostic log. Secrets NEVER reach storage;
-// only primitive, length-capped structured fields survive. No free-text content
-// by contract (callers pass ids/counts/codes).
+// only primitive, length-capped structured fields survive. Free-text values
+// (e.g. error messages) are scrubbed for known secret patterns AND length-capped;
+// callers should still prefer ids/counts/codes.
 
 const SECRET_KEY_PARTS = [
   "apikey", "authtoken", "apitoken", "token", "passphrase",
@@ -8,9 +9,22 @@ const SECRET_KEY_PARTS = [
 ];
 const FIELD_MAX = 200;
 
+const SECRET_VALUE_PATTERNS: RegExp[] = [
+  /sk-ant-[A-Za-z0-9_-]+/g,                 // Anthropic API keys
+  /Bearer\s+[A-Za-z0-9._-]+/gi,             // bearer tokens
+  /eyJ[A-Za-z0-9._-]{20,}/g,                // JWTs
+  /(?:api[_-]?key|api[_-]?token|auth[_-]?token|password|passphrase)=[^&\s]+/gi, // key=value pairs
+];
+
 function isSecretKey(key: string): boolean {
   const k = key.toLowerCase().replace(/[^a-z0-9]/g, "");
   return SECRET_KEY_PARTS.some((p) => k.includes(p));
+}
+
+function scrubSecretValues(s: string): string {
+  let out = s;
+  for (const re of SECRET_VALUE_PATTERNS) out = out.replace(re, "[redacted]");
+  return out;
 }
 
 export function redactFields(
@@ -26,7 +40,8 @@ export function redactFields(
     if (typeof value === "number" || typeof value === "boolean") {
       out[key] = value;
     } else if (typeof value === "string") {
-      out[key] = value.length > FIELD_MAX ? value.slice(0, FIELD_MAX) : value;
+      const scrubbed = scrubSecretValues(value);
+      out[key] = scrubbed.length > FIELD_MAX ? scrubbed.slice(0, FIELD_MAX) : scrubbed;
     }
     // objects/arrays/functions/undefined -> dropped
   }

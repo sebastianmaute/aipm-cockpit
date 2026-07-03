@@ -34,4 +34,14 @@ describe("redactFields", () => {
     expect(out.apiKeyLength).toBe("[redacted]");
     expect(out.auth_token).toBe("[redacted]");
   });
+
+  it("scrubs secret patterns embedded in string VALUES under benign keys", () => {
+    const out = redactFields({
+      message: "auth failed for sk-ant-api03-ABC123xyz calling api",
+      header: "Authorization: Bearer abc.def.ghijklmnop",
+    })!;
+    expect(out.message).not.toContain("sk-ant-api03-ABC123xyz");
+    expect(out.message).toContain("[redacted]");
+    expect(out.header as string).not.toContain("abc.def.ghijklmnop");
+  });
 });

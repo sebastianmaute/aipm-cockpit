@@ -200,6 +200,7 @@ export const de: Record<TranslationKey, string> = {
   diagnosticsCopyBundle: "Diagnosepaket kopieren",
   diagnosticsDownloadBundle: "Diagnosepaket herunterladen",
   diagnosticsClear: "Protokoll leeren",
+  diagnosticsRefresh: "Aktualisieren",
   diagnosticsEmpty: "Keine Diagnoseereignisse aufgezeichnet.",
   diagnosticsCopied: "Diagnosepaket in die Zwischenablage kopiert.",
   print: "Drucken",

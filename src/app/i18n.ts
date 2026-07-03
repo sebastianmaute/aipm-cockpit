@@ -197,6 +197,7 @@ const enUS = {
   diagnosticsCopyBundle: "Copy diagnostic bundle",
   diagnosticsDownloadBundle: "Download diagnostic bundle",
   diagnosticsClear: "Clear log",
+  diagnosticsRefresh: "Refresh",
   diagnosticsEmpty: "No diagnostic events recorded.",
   diagnosticsCopied: "Diagnostic bundle copied to clipboard.",
   print: "Print",
