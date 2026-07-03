@@ -13,7 +13,8 @@
 // data-fetching inside, so they're unit-testable in isolation. The parent owns
 // useTemplates()/useWorkspace() and builds the workspace + toast side effects.
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 import { type Lang, t } from "./i18n";
 import type { ProjectTemplate } from "./templates";
 import type { SaveTemplateInput } from "./templates";
@@ -33,24 +34,10 @@ const FIELD_CLASS =
 const PRIMARY_BTN_CLASS =
   "rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
 
-/** Close the popover on outside-click / Escape — same handler ExportMenu uses. */
+/** Close the popover on outside-click / Escape; owns the wrapper ref. */
 function useDismiss(open: boolean, close: () => void) {
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) close();
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open, close]);
+  usePopoverDismiss(open, ref, close);
   return ref;
 }
 

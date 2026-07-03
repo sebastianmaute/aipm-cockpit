@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 import { t } from "./i18n";
 import { JiraSettingsSection } from "./jira-settings";
 import { type StorageKind } from "./storage";
@@ -51,23 +52,7 @@ export function SettingsMenu({
   const ref = useRef<HTMLDivElement>(null);
   const lang = settings.language;
 
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open, setOpen]);
+  usePopoverDismiss(open, ref, () => setOpen(false));
 
   return (
     <div ref={ref} className="relative">
