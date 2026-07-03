@@ -11,6 +11,24 @@ import { mergeImportedResources, type OutlookContact } from "./outlook-contacts"
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
 
+// Envelope-level defense against a caller accidentally forwarding a DOM/synthetic
+// event as `seed` (e.g. `onClick={onAddResource}`). Spreading an event injects a
+// non-cloneable PointerEvent into persisted state, which then crashes
+// BroadcastChannel's structured clone. Accept only a plain `{}`-literal envelope
+// (this deliberately rejects the rare `Object.create(null)` too); it does NOT
+// deep-check property values, so a plain object holding a DOM node still slips
+// through — the real guard is not forwarding events in the first place. On
+// rejection we warn in dev so a future recurrence surfaces loudly instead of
+// degrading to a silently-blank Add draft.
+function plainSeed<T>(seed: T | undefined): T | undefined {
+  if (seed == null) return undefined;
+  if (Object.getPrototypeOf(seed) === Object.prototype) return seed;
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("[useResourcePlanner] non-plain seed dropped (event forwarded as seed?)", seed);
+  }
+  return undefined;
+}
+
 function emptyAbsenceDraft(id: number, today: string): Absence {
   return {
     id,
@@ -179,7 +197,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         absences.length > 0 ? Math.max(...absences.map((a) => a.id)) + 1 : 1;
       const draft: Absence = {
         ...emptyAbsenceDraft(nextId, today),
-        ...seed,
+        ...plainSeed(seed),
         id: nextId,
       };
       setEditingAbsence({ absence: draft, isNew: true });
@@ -317,7 +335,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         roleId: null,
         utilizationMode: "percent",
         utilization: {},
-        ...seed,
+        ...plainSeed(seed),
         id, // authoritative regardless of seed
       };
       setEditingResource({ resource: draft, isNew: true });

@@ -113,7 +113,7 @@ export interface WorkspaceSectionProps {
   activityLog: ActivityEntry[];
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   handleClearActivityLog: () => void;
-  handleOpenAddAbsence: () => void;
+  handleOpenAddAbsence: (seed?: Partial<Absence>) => void;
   handleEditAbsence: (absence: Absence) => void;
   handleOpenShiftEditor: (
     existingShift: Shift | null,

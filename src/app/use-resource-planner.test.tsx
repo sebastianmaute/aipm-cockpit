@@ -68,6 +68,30 @@ describe("useResourcePlanner", () => {
       expect(result.current.planner.editingAbsence!.absence.id).toBe(1);
     });
 
+    it("handleOpenAddAbsence drops a non-plain (event-like) seed instead of spreading it", () => {
+      const { result } = renderPlanner();
+      // Simulate `onClick={onAddAbsence}` forwarding a React synthetic event.
+      // A real SyntheticEvent is a CLASS INSTANCE (non-Object prototype) carrying
+      // own-enumerable `nativeEvent`/`target` — exactly what plainSeed must reject.
+      class FakeSyntheticEvent {
+        nativeEvent = {};
+        target = {};
+        currentTarget = {};
+        type = "click";
+      }
+      const eventLike = new FakeSyntheticEvent();
+      act(() => {
+        // @ts-expect-error — deliberately passing an event-like object, not a Partial<Absence>.
+        result.current.planner.handleOpenAddAbsence(eventLike);
+      });
+      const draft = result.current.planner.editingAbsence!.absence;
+      expect(draft).not.toHaveProperty("nativeEvent");
+      expect(draft).not.toHaveProperty("target");
+      // Falls back to the empty draft shape.
+      expect(draft.assignee).toBe("");
+      expect(draft.id).toBe(1);
+    });
+
     it("handleEditAbsence sets editingAbsence with isNew=false", () => {
       const { result } = renderPlanner();
       const absence: Absence = {
