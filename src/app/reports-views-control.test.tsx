@@ -18,7 +18,10 @@ describe("ReportsViewsControl", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save current view" }));
     fireEvent.change(screen.getByRole("textbox", { name: "View name" }), { target: { value: "Mine" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    // The confirm button now carries an aria-label (unified with the panel/saved
+    // controls via SavedViewsMenu) → its accessible name is "Save current view";
+    // the toggle is unmounted while saving, so the match stays unambiguous.
+    fireEvent.click(screen.getByRole("button", { name: "Save current view" }));
 
     fireEvent.change(screen.getByRole("combobox", { name: "Apply a saved view" }), {
       target: { value: screen.getByRole("option", { name: "Mine" }).getAttribute("value")! },
@@ -30,7 +33,10 @@ describe("ReportsViewsControl", () => {
     render(<ReportsViewsControl lang="en-US" currentState={current} onApply={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "Save current view" }));
     fireEvent.change(screen.getByRole("textbox", { name: "View name" }), { target: { value: "Mine" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    // The confirm button now carries an aria-label (unified with the panel/saved
+    // controls via SavedViewsMenu) → its accessible name is "Save current view";
+    // the toggle is unmounted while saving, so the match stays unambiguous.
+    fireEvent.click(screen.getByRole("button", { name: "Save current view" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Apply a saved view" }), {
       target: { value: screen.getByRole("option", { name: "Mine" }).getAttribute("value")! },
     });
