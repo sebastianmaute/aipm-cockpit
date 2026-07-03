@@ -149,6 +149,33 @@ export function nonEmptyCollectionCount(ws: Workspace): number {
   return n;
 }
 
+/** Total user records across all collections. Drives the Layer-B save invariant
+ *  that refuses an unexplained MASS deletion (a large fraction lost in one save). */
+export function workspaceRecordCount(ws: Workspace): number {
+  return (ws.tasks?.length ?? 0)
+    + (ws.raid?.length ?? 0)
+    + (ws.absences?.length ?? 0)
+    + (ws.shifts?.length ?? 0)
+    + (ws.resources?.length ?? 0)
+    + (ws.roles?.length ?? 0)
+    + (ws.disciplines?.length ?? 0)
+    + (ws.grades?.length ?? 0)
+    + (ws.budgets?.length ?? 0)
+    + (ws.milestones?.length ?? 0)
+    + (ws.changes?.length ?? 0)
+    + (ws.stakeholders?.length ?? 0);
+}
+
+/** Layer-B invariant: is this save an unexplained MASS deletion? True when it
+ *  removes at least `floor` records AND leaves ≤ `fraction` of the previous
+ *  total — the "lost almost everything in one step" signature. Normal edits
+ *  (remove a few) and moderate bulk deletes are NOT flagged. `prev`/`cur` are
+ *  total record counts. */
+export function isMassDeletion(prev: number, cur: number, floor = 5, fraction = 0.1): boolean {
+  if (cur >= prev) return false;
+  return (prev - cur) >= floor && cur <= prev * fraction;
+}
+
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
   return {

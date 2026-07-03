@@ -381,7 +381,7 @@ function TaskManagerInner() {
 
   const {
     storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
-    onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject,
+    onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
@@ -1714,7 +1714,7 @@ function TaskManagerInner() {
       handleJiraSync={handleJiraSync}
       handleCancelEdit={handleCancelEdit}
       setTaskModalOpen={setTaskModalOpen}
-      handleClearAll={handleClearAll}
+      handleClearAll={() => { allowDestructiveSave(); handleClearAll(); }}
       selectedIds={selectedIds}
       allVisibleSelected={allVisibleSelected}
       selectedJiraCount={selectedJiraCount}

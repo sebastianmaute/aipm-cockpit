@@ -1456,3 +1456,31 @@ describe("useStorageBackend — Layer 3 wipe guard (persistence choke point)", (
     expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
   });
 });
+
+describe("useStorageBackend — Layer B mass-deletion guard", () => {
+  const many = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, taskName: "T" })) as unknown as Task[];
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("refuses an unexplained mass deletion (big project → near-empty in one save)", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: many, raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // prev: 20 records
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); }); // remove 19
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+
+  it("allowDestructiveSave() bypasses the guard for a confirmed bulk delete", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: many, raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    await act(async () => { result.current.allowDestructiveSave(); result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+});

@@ -16,7 +16,7 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
-import { isWorkspaceEmpty, nonEmptyCollectionCount } from "./workspace";
+import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
@@ -133,6 +133,17 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Non-empty-collection count of the last observed workspace — drives the
   // Layer-3 persistence guard against a multi-collection simultaneous wipe.
   const prevCollectionCountRef = useRef(0);
+  // Total record count of the last observed workspace — drives the Layer-B
+  // mass-deletion guard.
+  const prevRecordCountRef = useRef(0);
+  // One-shot bypass for the L3/B guards, set by an explicit user bulk-op
+  // (clear-all / bulk delete) via allowDestructiveSave() and consumed by the
+  // next save.
+  const allowDestructiveRef = useRef(false);
+  /** Arm a one-shot bypass so the NEXT save may destroy data (a confirmed
+   *  clear-all / bulk delete). Without this an unexplained mass deletion is
+   *  refused by the persistence guard. */
+  const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
 
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
@@ -241,28 +252,34 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (args.isPopout) return;
     const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders } as Workspace;
     const curCollections = nonEmptyCollectionCount(outgoing);
+    const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
-      prevCollectionCountRef.current = curCollections; // sync baseline on a load/apply
+      prevCollectionCountRef.current = curCollections; // sync baselines on a load/apply
+      prevRecordCountRef.current = curRecords;
       return;
     }
-    // ★ LAYER 3 DATA-LOSS GUARD (persistence choke point): refuse to AUTO-persist
-    // a MULTI-collection simultaneous wipe over a populated project — the bug
-    // signature (a full applyWorkspace(empty), NOT an incremental single-collection
-    // user delete/clear, which the ≥2 threshold never blocks). The backend keeps
-    // the data; a reload restores it.
-    if (curCollections === 0 && prevCollectionCountRef.current >= 1) {
-      // Forensics: record EVERY full-empty over a populated project (with the
-      // caller stack), whether or not Layer 3 refuses it — so a single-collection
-      // wipe that L3 lets through still leaves a trigger trail.
-      const refused = prevCollectionCountRef.current >= 2;
-      recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: 0, refused });
-      if (refused) {
-        args.showToast("info", t(langRef.current, "storageRefusedWipe"));
-        return; // keep prevCollectionCountRef so a later change re-evaluates
-      }
+    // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends):
+    //   L3 — a full wipe of a >=2-collection project (protects small projects).
+    //   B  — an unexplained MASS deletion: >=5 records removed leaving <=10% of the
+    //        prior total (protects big projects; catches partial-but-catastrophic
+    //        loss L3 misses). An explicit user bulk-op (clear-all / bulk delete)
+    //        sets allowDestructiveRef one-shot to bypass. On refusal the backend
+    //        keeps the data; a reload restores it.
+    const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
+    const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
+    if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
+      recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: curCollections, refused: true });
+      args.showToast("info", t(langRef.current, "storageRefusedWipe"));
+      return; // keep baselines so a later change re-evaluates
     }
+    if (curCollections === 0 && prevCollectionCountRef.current === 1) {
+      // A single-collection full-empty L3 lets through — leave a forensic trail.
+      recordDataLossEvent({ path: "save-effect", prevCollections: 1, nextCollections: 0, refused: false });
+    }
+    allowDestructiveRef.current = false; // consume the one-shot bypass
     prevCollectionCountRef.current = curCollections;
+    prevRecordCountRef.current = curRecords;
     // Fire-and-forget save with the effect's full error handling — the .catch
     // routes every rejection to the storage-outcome/toast path, so neither the
     // timer nor the flush-on-hide below can produce an unhandled rejection.
@@ -614,6 +631,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     onOpenStorageFile,
     onRequestStorageSwitch,
     reloadCurrentProject,
+    allowDestructiveSave,
     switchToProject,
     createProject,
     createDemoProject,
