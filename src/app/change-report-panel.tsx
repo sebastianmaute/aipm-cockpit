@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { ColumnResizeHandle } from "./task-manager-ui";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { healthDot } from "./health";
@@ -12,7 +11,7 @@ import {
   Section,
   Tile,
   TableFilter,
-  SortHeaderButton,
+  SortResizeTh,
   useSortableFilter,
   type SortDir,
 } from "./report-table";
@@ -201,14 +200,8 @@ function CountHead({
   return (
     <thead className={TABLE_HEAD_CLASS}>
       <tr>
-        <th className="relative px-3 py-2 font-medium" style={{ width: w.label, minWidth: w.label }}>
-          <SortHeaderButton label={t(lang, labelKey)} active={sort.key === "name" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("name")} />
-          <ColumnResizeHandle col="label" onMouseDown={sr} />
-        </th>
-        <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.count, minWidth: w.count }}>
-          <SortHeaderButton label={t(lang, "changeReportCount")} active={sort.key === "count" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("count")} />
-          <ColumnResizeHandle col="count" onMouseDown={sr} />
-        </th>
+        <SortResizeTh label={t(lang, labelKey)} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+        <SortResizeTh label={t(lang, "changeReportCount")} sortCol="count" width={w.count} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
       </tr>
     </thead>
   );
@@ -391,22 +384,10 @@ function TopPendingTable({ lang, items, colResize }: { lang: Lang; items: readon
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.id, minWidth: w.id }}>
-                <SortHeaderButton label={t(lang, "id")} active={sort.key === "id" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("id")} />
-                <ColumnResizeHandle col="id" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.title, minWidth: w.title }}>
-                <SortHeaderButton label={t(lang, "changeFieldTitle")} active={sort.key === "name" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("name")} />
-                <ColumnResizeHandle col="title" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.impact, minWidth: w.impact }}>
-                <SortHeaderButton label={t(lang, "changeFieldImpact")} active={sort.key === "impact" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("impact")} />
-                <ColumnResizeHandle col="impact" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.raised, minWidth: w.raised }}>
-                <SortHeaderButton label={t(lang, "changeFieldRaisedDate")} active={sort.key === "raised" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("raised")} />
-                <ColumnResizeHandle col="raised" onMouseDown={sr} />
-              </th>
+              <SortResizeTh label={t(lang, "id")} sortCol="id" width={w.id} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "changeFieldTitle")} sortCol="name" resizeCol="title" width={w.title} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "changeFieldImpact")} sortCol="impact" width={w.impact} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "changeFieldRaisedDate")} sortCol="raised" width={w.raised} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">

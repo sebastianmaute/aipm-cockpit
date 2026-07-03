@@ -41,7 +41,7 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
 npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
-npm run dup:check           # jscpd duplication GATE (--threshold 3.1, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
+npm run dup:check           # jscpd duplication GATE (--threshold 2.9, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
 ```
 
@@ -98,7 +98,7 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
-  BLOCKING [jscpd `--threshold 3.1`, per-format] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  BLOCKING [jscpd `--threshold 2.9`, per-format] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`]) → build → e2e. All quality gates are ratchets and
   carry a commented `quality-gate-bypass` escape-hatch rules block. A weekly `schedule` pipeline also runs
   `dependency-audit-full` + a **dast-zap** ZAP baseline (dind-based, manual otherwise). (Phases 1-4 of the
@@ -324,6 +324,16 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
   `REPORTS_*_COL_WIDTHS` consts and `AssigneeSort`/`GroupOrLabelSort` types). One-way dep (reports →
   reports-tables → reports-stats); per-type report engines/panels (budget/raid/resource/stakeholder) live
   in their own files. Reports IS in axe `A11Y_VIEWS`.
+- **Shared sortable/resizable header cell (`SortResizeTh<K>` in `report-table.tsx`):** the
+  `<th className="relative px-3 py-2[ text-right] font-medium"> + SortHeaderButton + ColumnResizeHandle`
+  trio every report panel repeated per column (top cross-file jscpd clones, TD-6) is now ONE generic
+  component beside `SortHeaderButton`. `K` is fixed by the `sortKey` prop (the table's typed sort union),
+  so `sortCol` must be a valid key and `onSort={click}` typechecks with no cast. ★ `resizeCol` (defaults to
+  `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
+  width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
+  `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). Used by raid-report (34) / resources-report
+  (16) / change-report (6); `reports-tables`/`budget-report` use different local sort-var names and were left
+  as-is. NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` + `ColumnResizeHandle`.
 
 ### Dashboard landing cockpit
 

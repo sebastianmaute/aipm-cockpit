@@ -4,6 +4,7 @@ import type React from "react";
 import { useCallback, useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import {
+  ColumnResizeHandle,
   PrintButton,
   ResetColWidthsButton,
   ResetSizeButton,
@@ -136,6 +137,66 @@ export function SortHeaderButton({
       {button}
       <InfoTooltip text={hint} />
     </span>
+  );
+}
+
+/**
+ * A sortable + resizable data-table header cell: the
+ * `<th>` + `SortHeaderButton` + `ColumnResizeHandle` trio that every report
+ * panel repeated per column (the top cross-file jscpd clones, TD-6).
+ *
+ * `sortCol` drives the sort button (active/click); `resizeCol` (defaults to
+ * `sortCol`) drives the resize handle + is the width key — they diverge on the
+ * name/label column where the sort key differs from the stored width key.
+ *
+ * Header-cell abstractions, by domain: this `SortResizeTh` = generic REPORT
+ * tables (own sort-state union per panel); `SortableTh` (task-manager-ui) = the
+ * TASKS table (bound to its `SortKey`, takes `lang`); `Th` (task-manager-ui) =
+ * a bare resizable cell with no sort button.
+ */
+export function SortResizeTh<K extends string>({
+  label,
+  sortCol,
+  resizeCol,
+  width,
+  sortKey,
+  sortDir,
+  onSort,
+  onResize,
+  align = "left",
+  hint,
+}: {
+  label: string;
+  sortCol: K;
+  /** Resize/width key; defaults to `sortCol`. */
+  resizeCol?: string;
+  width: number;
+  /** The table's active sort key — also fixes `K` so `sortCol` must be valid. */
+  sortKey: K;
+  sortDir: SortDir;
+  onSort: (col: K) => void;
+  onResize: (col: string, e: React.MouseEvent) => void;
+  align?: "left" | "right";
+  hint?: string;
+}) {
+  return (
+    <th
+      className={
+        align === "right"
+          ? "relative px-3 py-2 text-right font-medium"
+          : "relative px-3 py-2 font-medium"
+      }
+      style={{ width, minWidth: width }}
+    >
+      <SortHeaderButton
+        label={label}
+        active={sortKey === sortCol && sortDir !== "off"}
+        dir={sortDir}
+        onClick={() => onSort(sortCol)}
+        hint={hint}
+      />
+      <ColumnResizeHandle col={resizeCol ?? sortCol} onMouseDown={onResize} />
+    </th>
   );
 }
 

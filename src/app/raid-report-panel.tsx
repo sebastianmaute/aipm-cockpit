@@ -12,7 +12,7 @@ import {
   Section,
   Tile,
   TableFilter,
-  SortHeaderButton,
+  SortResizeTh,
   useSortableFilter,
   type SortDir,
 } from "./report-table";
@@ -236,30 +236,12 @@ function SeverityTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.label, minWidth: w.label }}>
-                <SortHeaderButton label={t(lang, "raidReportBySeverity")} active={sort.key === "name" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("name")} />
-                <ColumnResizeHandle col="label" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.risks, minWidth: w.risks }}>
-                <SortHeaderButton label={t(lang, "raidCategoryRisk")} active={sort.key === "risks" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("risks")} />
-                <ColumnResizeHandle col="risks" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.assumptions, minWidth: w.assumptions }}>
-                <SortHeaderButton label={t(lang, "raidCategoryAssumption")} active={sort.key === "assumptions" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("assumptions")} />
-                <ColumnResizeHandle col="assumptions" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.issues, minWidth: w.issues }}>
-                <SortHeaderButton label={t(lang, "raidCategoryIssue")} active={sort.key === "issues" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("issues")} />
-                <ColumnResizeHandle col="issues" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.dependencies, minWidth: w.dependencies }}>
-                <SortHeaderButton label={t(lang, "raidCategoryDependency")} active={sort.key === "dependencies" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("dependencies")} />
-                <ColumnResizeHandle col="dependencies" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.total, minWidth: w.total }}>
-                <SortHeaderButton label={t(lang, "raidReportColTotal")} active={sort.key === "total" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("total")} />
-                <ColumnResizeHandle col="total" onMouseDown={sr} />
-              </th>
+              <SortResizeTh label={t(lang, "raidReportBySeverity")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategoryRisk")} sortCol="risks" width={w.risks} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategoryAssumption")} sortCol="assumptions" width={w.assumptions} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategoryIssue")} sortCol="issues" width={w.issues} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategoryDependency")} sortCol="dependencies" width={w.dependencies} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColTotal")} sortCol="total" width={w.total} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -309,14 +291,8 @@ function StatusTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.label, minWidth: w.label }}>
-                <SortHeaderButton label={t(lang, "raidReportByStatus")} active={sort.key === "name" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("name")} />
-                <ColumnResizeHandle col="label" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.open, minWidth: w.open }}>
-                <SortHeaderButton label={t(lang, "raidReportColOpen")} active={sort.key === "open" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("open")} />
-                <ColumnResizeHandle col="open" onMouseDown={sr} />
-              </th>
+              <SortResizeTh label={t(lang, "raidReportByStatus")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColOpen")} sortCol="open" width={w.open} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -362,30 +338,12 @@ function OwnerTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["b
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.label, minWidth: w.label }}>
-                <SortHeaderButton label={t(lang, "raidReportByOwner")} active={sort.key === "name" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("name")} />
-                <ColumnResizeHandle col="label" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.risks, minWidth: w.risks }}>
-                <SortHeaderButton label={t(lang, "raidCategoryRisk")} active={sort.key === "risks" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("risks")} />
-                <ColumnResizeHandle col="risks" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.assumptions, minWidth: w.assumptions }}>
-                <SortHeaderButton label={t(lang, "raidCategoryAssumption")} active={sort.key === "assumptions" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("assumptions")} />
-                <ColumnResizeHandle col="assumptions" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.issues, minWidth: w.issues }}>
-                <SortHeaderButton label={t(lang, "raidCategoryIssue")} active={sort.key === "issues" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("issues")} />
-                <ColumnResizeHandle col="issues" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.dependencies, minWidth: w.dependencies }}>
-                <SortHeaderButton label={t(lang, "raidCategoryDependency")} active={sort.key === "dependencies" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("dependencies")} />
-                <ColumnResizeHandle col="dependencies" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.total, minWidth: w.total }}>
-                <SortHeaderButton label={t(lang, "raidReportColTotal")} active={sort.key === "total" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("total")} />
-                <ColumnResizeHandle col="total" onMouseDown={sr} />
-              </th>
+              <SortResizeTh label={t(lang, "raidReportByOwner")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategoryRisk")} sortCol="risks" width={w.risks} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategoryAssumption")} sortCol="assumptions" width={w.assumptions} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategoryIssue")} sortCol="issues" width={w.issues} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategoryDependency")} sortCol="dependencies" width={w.dependencies} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColTotal")} sortCol="total" width={w.total} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -433,30 +391,12 @@ function TopOpenTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport[
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.id, minWidth: w.id }}>
-                <SortHeaderButton label={t(lang, "id")} active={sort.key === "id" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("id")} />
-                <ColumnResizeHandle col="id" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.category, minWidth: w.category }}>
-                <SortHeaderButton label={t(lang, "raidCategory")} active={sort.key === "category" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("category")} />
-                <ColumnResizeHandle col="category" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.title, minWidth: w.title }}>
-                <SortHeaderButton label={t(lang, "raidTitle")} active={sort.key === "name" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("name")} />
-                <ColumnResizeHandle col="title" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.severity, minWidth: w.severity }}>
-                <SortHeaderButton label={t(lang, "raidSeverity")} hint={t(lang, "raidSeverityHint")} active={sort.key === "severity" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("severity")} />
-                <ColumnResizeHandle col="severity" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.owner, minWidth: w.owner }}>
-                <SortHeaderButton label={t(lang, "raidOwner")} active={sort.key === "owner" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("owner")} />
-                <ColumnResizeHandle col="owner" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.age, minWidth: w.age }}>
-                <SortHeaderButton label={t(lang, "raidReportColAge")} hint={t(lang, "raidReportColAgeHint")} active={sort.key === "ageDays" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("ageDays")} />
-                <ColumnResizeHandle col="age" onMouseDown={sr} />
-              </th>
+              <SortResizeTh label={t(lang, "id")} sortCol="id" width={w.id} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategory")} sortCol="category" width={w.category} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidTitle")} sortCol="name" resizeCol="title" width={w.title} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidSeverity")} sortCol="severity" width={w.severity} hint={t(lang, "raidSeverityHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidOwner")} sortCol="owner" width={w.owner} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColAge")} sortCol="ageDays" resizeCol="age" width={w.age} align="right" hint={t(lang, "raidReportColAgeHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -504,22 +444,10 @@ function CategoryTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.label, minWidth: w.label }}>
-                <SortHeaderButton label={t(lang, "raidReportByCategory")} active={sort.key === "name" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("name")} />
-                <ColumnResizeHandle col="label" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.open, minWidth: w.open }}>
-                <SortHeaderButton label={t(lang, "raidReportColOpen")} active={sort.key === "open" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("open")} />
-                <ColumnResizeHandle col="open" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.closed, minWidth: w.closed }}>
-                <SortHeaderButton label={t(lang, "raidReportColClosed")} active={sort.key === "closed" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("closed")} />
-                <ColumnResizeHandle col="closed" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.overdue, minWidth: w.overdue }}>
-                <SortHeaderButton label={t(lang, "raidReportColOverdue")} active={sort.key === "overdue" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("overdue")} />
-                <ColumnResizeHandle col="overdue" onMouseDown={sr} />
-              </th>
+              <SortResizeTh label={t(lang, "raidReportByCategory")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColOpen")} sortCol="open" width={w.open} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColClosed")} sortCol="closed" width={w.closed} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColOverdue")} sortCol="overdue" width={w.overdue} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -613,46 +541,16 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.id, minWidth: w.id }}>
-                <SortHeaderButton label={t(lang, "id")} active={sort.key === "id" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("id")} />
-                <ColumnResizeHandle col="id" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.category, minWidth: w.category }}>
-                <SortHeaderButton label={t(lang, "raidCategory")} active={sort.key === "category" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("category")} />
-                <ColumnResizeHandle col="category" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.title, minWidth: w.title }}>
-                <SortHeaderButton label={t(lang, "raidTitle")} active={sort.key === "name" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("name")} />
-                <ColumnResizeHandle col="title" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.severity, minWidth: w.severity }}>
-                <SortHeaderButton label={t(lang, "raidSeverity")} hint={t(lang, "raidSeverityHint")} active={sort.key === "severity" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("severity")} />
-                <ColumnResizeHandle col="severity" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.status, minWidth: w.status }}>
-                <SortHeaderButton label={t(lang, "raidStatus")} active={sort.key === "status" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("status")} />
-                <ColumnResizeHandle col="status" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.owner, minWidth: w.owner }}>
-                <SortHeaderButton label={t(lang, "raidOwner")} active={sort.key === "owner" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("owner")} />
-                <ColumnResizeHandle col="owner" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.raisedDate, minWidth: w.raisedDate }}>
-                <SortHeaderButton label={t(lang, "raidReportColRaised")} active={sort.key === "raisedDate" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("raisedDate")} />
-                <ColumnResizeHandle col="raisedDate" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 font-medium" style={{ width: w.targetDate, minWidth: w.targetDate }}>
-                <SortHeaderButton label={t(lang, "raidReportColTarget")} active={sort.key === "targetDate" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("targetDate")} />
-                <ColumnResizeHandle col="targetDate" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.ageDays, minWidth: w.ageDays }}>
-                <SortHeaderButton label={t(lang, "raidReportColAge")} hint={t(lang, "raidReportColAgeHint")} active={sort.key === "ageDays" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("ageDays")} />
-                <ColumnResizeHandle col="ageDays" onMouseDown={sr} />
-              </th>
-              <th className="relative px-3 py-2 text-right font-medium" style={{ width: w.linkedTaskCount, minWidth: w.linkedTaskCount }}>
-                <SortHeaderButton label={t(lang, "raidReportColLinkedTasks")} active={sort.key === "linkedTaskCount" && sort.dir !== "off"} dir={sort.dir} onClick={() => click("linkedTaskCount")} />
-                <ColumnResizeHandle col="linkedTaskCount" onMouseDown={sr} />
-              </th>
+              <SortResizeTh label={t(lang, "id")} sortCol="id" width={w.id} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidCategory")} sortCol="category" width={w.category} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidTitle")} sortCol="name" resizeCol="title" width={w.title} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidSeverity")} sortCol="severity" width={w.severity} hint={t(lang, "raidSeverityHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidStatus")} sortCol="status" width={w.status} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidOwner")} sortCol="owner" width={w.owner} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColRaised")} sortCol="raisedDate" width={w.raisedDate} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColTarget")} sortCol="targetDate" width={w.targetDate} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColAge")} sortCol="ageDays" width={w.ageDays} align="right" hint={t(lang, "raidReportColAgeHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh label={t(lang, "raidReportColLinkedTasks")} sortCol="linkedTaskCount" width={w.linkedTaskCount} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
