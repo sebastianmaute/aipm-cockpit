@@ -43,7 +43,7 @@ import {
 import { type Workspace, migrateWorkspaceV9 } from "./workspace";
 import { buildRaidItemFromObj, decodeRatesMap, parseHealthOverride } from "./csv-codecs";
 import {
-  markdownTableToObjects,
+  decodeMdTable,
   markdownToChanges,
   markdownToFeatures,
   markdownToFieldVisibility,
@@ -137,181 +137,77 @@ function splitMarkdownSections(md: string): {
   };
 }
 
+const ABSENCE_ALIASES: Record<string, string> = {
+  id: "id", assignee: "assignee", email: "assigneeEmail", assigneeemail: "assigneeEmail",
+  start: "startDate", startdate: "startDate", end: "endDate", enddate: "endDate",
+  type: "type", note: "note",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+  outlookeventid: "outlookEventId",
+};
+
 function markdownToAbsences(md: string): Absence[] {
-  const lines = md.split(/\r?\n/);
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    if (line.startsWith("|") && line.includes("|", 1)) {
-      const next = (lines[i + 1] ?? "").trim();
-      if (/^\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(next)) break;
-    }
-    i++;
-  }
-  if (i + 2 > lines.length) return [];
-  const headers = splitMdRow(lines[i]);
-  const idIdx = headers.findIndex((h) => h.toLowerCase() === "id");
-  if (idIdx < 0) return [];
-
-  const colMap: Record<string, keyof Absence | undefined> = {};
-  headers.forEach((h, idx) => {
-    const norm = h.toLowerCase().replace(/\s+/g, "");
-    if (norm === "id") colMap[idx] = "id";
-    else if (norm === "assignee") colMap[idx] = "assignee";
-    else if (norm === "email" || norm === "assigneeemail")
-      colMap[idx] = "assigneeEmail";
-    else if (norm === "start" || norm === "startdate") colMap[idx] = "startDate";
-    else if (norm === "end" || norm === "enddate") colMap[idx] = "endDate";
-    else if (norm === "type") colMap[idx] = "type";
-    else if (norm === "note") colMap[idx] = "note";
-    else if (norm === "localmodified" || norm === "localmodifiedat")
-      colMap[idx] = "localModifiedAt";
-    else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
-  });
-
-  const items: Absence[] = [];
-  for (let j = i + 2; j < lines.length; j++) {
-    const raw = lines[j];
-    if (!raw.trim().startsWith("|")) continue;
-    const cells = splitMdRow(raw);
-    const obj: Record<string, string> = {};
-    cells.forEach((cell, idx) => {
-      const field = colMap[idx];
-      if (field) obj[field] = mdUnescape(cell);
-    });
-    const sanitized = sanitizeAbsence(obj);
-    if (sanitized) items.push(sanitized);
-  }
-  return items;
+  return decodeMdTable(md, ABSENCE_ALIASES, sanitizeAbsence);
 }
 
+const SHIFT_ALIASES: Record<string, string> = {
+  id: "id", assignee: "assignee", email: "assigneeEmail", assigneeemail: "assigneeEmail",
+  resourceid: "resourceId",
+  sun: "sunHours", sunhours: "sunHours", mon: "monHours", monhours: "monHours",
+  tue: "tueHours", tuehours: "tueHours", wed: "wedHours", wedhours: "wedHours",
+  thu: "thuHours", thuhours: "thuHours", fri: "friHours", frihours: "friHours",
+  sat: "satHours", sathours: "satHours", note: "note",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+};
+
 function markdownToShifts(md: string): Shift[] {
-  const lines = md.split(/\r?\n/);
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    if (line.startsWith("|") && line.includes("|", 1)) {
-      const next = (lines[i + 1] ?? "").trim();
-      if (/^\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(next)) break;
-    }
-    i++;
-  }
-  if (i + 2 > lines.length) return [];
-  const headers = splitMdRow(lines[i]);
-  const idIdx = headers.findIndex((h) => h.toLowerCase() === "id");
-  if (idIdx < 0) return [];
-
-  const colMap: Record<number, string | undefined> = {};
-  headers.forEach((h, idx) => {
-    const norm = h.toLowerCase().replace(/\s+/g, "");
-    if (norm === "id") colMap[idx] = "id";
-    else if (norm === "assignee") colMap[idx] = "assignee";
-    else if (norm === "email" || norm === "assigneeemail")
-      colMap[idx] = "assigneeEmail";
-    else if (norm === "resourceid") colMap[idx] = "resourceId";
-    else if (norm === "sun" || norm === "sunhours") colMap[idx] = "sunHours";
-    else if (norm === "mon" || norm === "monhours") colMap[idx] = "monHours";
-    else if (norm === "tue" || norm === "tuehours") colMap[idx] = "tueHours";
-    else if (norm === "wed" || norm === "wedhours") colMap[idx] = "wedHours";
-    else if (norm === "thu" || norm === "thuhours") colMap[idx] = "thuHours";
-    else if (norm === "fri" || norm === "frihours") colMap[idx] = "friHours";
-    else if (norm === "sat" || norm === "sathours") colMap[idx] = "satHours";
-    else if (norm === "note") colMap[idx] = "note";
-    else if (norm === "localmodified" || norm === "localmodifiedat")
-      colMap[idx] = "localModifiedAt";
-  });
-
-  const items: Shift[] = [];
-  for (let j = i + 2; j < lines.length; j++) {
-    const raw = lines[j];
-    if (!raw.trim().startsWith("|")) continue;
-    const cells = splitMdRow(raw);
-    const obj: Record<string, string> = {};
-    cells.forEach((cell, idx) => {
-      const field = colMap[idx];
-      if (field) obj[field] = mdUnescape(cell);
-    });
-    const sanitized = sanitizeShift(obj);
-    if (sanitized) items.push(sanitized);
-  }
-  return items;
+  return decodeMdTable(md, SHIFT_ALIASES, sanitizeShift);
 }
 
 
 
 /** Map MD column labels to sanitizer field keys for resources. */
+const RESOURCE_ALIASES: Record<string, string> = {
+  id: "id", first: "firstName", firstname: "firstName", last: "lastName", lastname: "lastName",
+  name: "name", // legacy single-name files
+  title: "title", phone: "businessPhone", businessphone: "businessPhone",
+  location: "location", department: "department", email: "email", company: "company",
+  birthday: "birthday", notes: "notes", roleid: "roleId",
+  mode: "utilizationMode", utilizationmode: "utilizationMode", utilization: "utilization",
+  absenceoverride: "absenceOverride", active: "active",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+};
+
 function markdownToResources(md: string): Resource[] {
-  return markdownTableToObjects(md).map((row) => {
-    const mapped: Record<string, string> = {};
-    for (const [label, val] of Object.entries(row)) {
-      const norm = label.toLowerCase().replace(/\s+/g, "");
-      if (norm === "id") mapped["id"] = val;
-      else if (norm === "first" || norm === "firstname") mapped["firstName"] = val;
-      else if (norm === "last" || norm === "lastname") mapped["lastName"] = val;
-      else if (norm === "name") mapped["name"] = val; // legacy single-name files
-      else if (norm === "title") mapped["title"] = val;
-      else if (norm === "phone" || norm === "businessphone") mapped["businessPhone"] = val;
-      else if (norm === "location") mapped["location"] = val;
-      else if (norm === "department") mapped["department"] = val;
-      else if (norm === "email") mapped["email"] = val;
-      else if (norm === "company") mapped["company"] = val;
-      else if (norm === "birthday") mapped["birthday"] = val;
-      else if (norm === "notes") mapped["notes"] = val;
-      else if (norm === "roleid") mapped["roleId"] = val;
-      else if (norm === "mode" || norm === "utilizationmode") mapped["utilizationMode"] = val;
-      else if (norm === "utilization") mapped["utilization"] = val;
-      else if (norm === "absenceoverride") mapped["absenceOverride"] = val;
-      else if (norm === "active") mapped["active"] = val;
-      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
-    }
-    return sanitizeResource(mapped);
-  }).filter((r): r is Resource => r !== null);
+  return decodeMdTable(md, RESOURCE_ALIASES, sanitizeResource);
 }
 
 /** Map MD column labels to sanitizer field keys for roles. */
+const ROLE_ALIASES: Record<string, string> = {
+  id: "id", disciplineid: "disciplineId", gradeid: "gradeId",
+  internalrate: "internalRate", externalrate: "externalRate",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+};
+
 function markdownToRoles(md: string): Role[] {
-  return markdownTableToObjects(md).map((row) => {
-    const mapped: Record<string, string> = {};
-    for (const [label, val] of Object.entries(row)) {
-      const norm = label.toLowerCase().replace(/\s+/g, "");
-      if (norm === "id") mapped["id"] = val;
-      else if (norm === "disciplineid") mapped["disciplineId"] = val;
-      else if (norm === "gradeid") mapped["gradeId"] = val;
-      else if (norm === "internalrate") mapped["internalRate"] = val;
-      else if (norm === "externalrate") mapped["externalRate"] = val;
-      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
-    }
-    return sanitizeRole(mapped);
-  }).filter((r): r is Role => r !== null);
+  return decodeMdTable(md, ROLE_ALIASES, sanitizeRole);
 }
 
+const BUDGET_ALIASES: Record<string, string> = {
+  id: "id", name: "name", po: "poNumber", ponumber: "poNumber", type: "type",
+  currency: "currency", fixedprice: "fixedPriceAmount", fixedpriceamount: "fixedPriceAmount",
+  start: "startDate", startdate: "startDate", end: "endDate", enddate: "endDate",
+  successorid: "successorId", status: "status",
+  closed: "closedDate", closeddate: "closedDate",
+  fxoverride: "fxRateOverride", fxrateoverride: "fxRateOverride",
+  allocations: "allocations",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+  order: "order", planningmode: "planningMode",
+  disciplineallocations: "disciplineAllocations",
+  rateoverrideinternal: "rateOverrideInternal", rateoverrideexternal: "rateOverrideExternal",
+};
+
 function markdownToBudgets(md: string): BudgetBucket[] {
-  return markdownTableToObjects(md).map((row) => {
-    const mapped: Record<string, string> = {};
-    for (const [label, val] of Object.entries(row)) {
-      const norm = label.toLowerCase().replace(/\s+/g, "");
-      if (norm === "id") mapped["id"] = val;
-      else if (norm === "name") mapped["name"] = val;
-      else if (norm === "po" || norm === "ponumber") mapped["poNumber"] = val;
-      else if (norm === "type") mapped["type"] = val;
-      else if (norm === "currency") mapped["currency"] = val;
-      else if (norm === "fixedprice" || norm === "fixedpriceamount") mapped["fixedPriceAmount"] = val;
-      else if (norm === "start" || norm === "startdate") mapped["startDate"] = val;
-      else if (norm === "end" || norm === "enddate") mapped["endDate"] = val;
-      else if (norm === "successorid") mapped["successorId"] = val;
-      else if (norm === "status") mapped["status"] = val;
-      else if (norm === "closed" || norm === "closeddate") mapped["closedDate"] = val;
-      else if (norm === "fxoverride" || norm === "fxrateoverride") mapped["fxRateOverride"] = val;
-      else if (norm === "allocations") mapped["allocations"] = val;
-      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
-      else if (norm === "order") mapped["order"] = val;
-      else if (norm === "planningmode") mapped["planningMode"] = val;
-      else if (norm === "disciplineallocations") mapped["disciplineAllocations"] = val;
-      else if (norm === "rateoverrideinternal") mapped["rateOverrideInternal"] = val;
-      else if (norm === "rateoverrideexternal") mapped["rateOverrideExternal"] = val;
-    }
-    return sanitizeBudgetBucket(mapped);
-  }).filter((b): b is BudgetBucket => b !== null);
+  return decodeMdTable(md, BUDGET_ALIASES, sanitizeBudgetBucket);
 }
 
 function parseFxRatesMarkdown(md: string): FxRates | null {
@@ -326,20 +222,16 @@ function parseFxRatesMarkdown(md: string): FxRates | null {
 }
 
 /** Map MD column labels to sanitizer field keys for disciplines/grades. */
+const REF_ALIASES: Record<string, string> = {
+  id: "id", name: "name",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+};
+
 function markdownToRefs<T extends Discipline | Grade>(
   md: string,
   sanitize: (input: unknown) => T | null,
 ): T[] {
-  return markdownTableToObjects(md).map((row) => {
-    const mapped: Record<string, string> = {};
-    for (const [label, val] of Object.entries(row)) {
-      const norm = label.toLowerCase().replace(/\s+/g, "");
-      if (norm === "id") mapped["id"] = val;
-      else if (norm === "name") mapped["name"] = val;
-      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
-    }
-    return sanitize(mapped);
-  }).filter((r): r is T => r !== null);
+  return decodeMdTable(md, REF_ALIASES, sanitize);
 }
 
 function parsePlanMarkdown(md: string): ResourcePlan | null {
@@ -354,74 +246,24 @@ function parsePlanMarkdown(md: string): ResourcePlan | null {
   return null;
 }
 
+const RAID_ALIASES: Record<string, string> = {
+  id: "id", category: "category", title: "title", description: "description",
+  severity: "severity", probability: "probability", impact: "impact", status: "status",
+  owner: "owner", owneremail: "ownerEmail", ownerresourceid: "ownerResourceId",
+  mitigation: "mitigation",
+  linkedtasks: "linkedTaskIds", linkedtaskids: "linkedTaskIds",
+  raised: "raisedDate", raiseddate: "raisedDate",
+  target: "targetDate", targetdate: "targetDate",
+  closed: "closedDate", closeddate: "closedDate",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+  causedbyids: "causedByRaidIds", causedbyraidids: "causedByRaidIds",
+  causedby: "causedByRaidIds", causedbyraidid: "causedByRaidIds",
+  stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
+  documentlinks: "documentLinks", outlookeventid: "outlookEventId",
+};
+
 function markdownToRaid(md: string): RaidItem[] {
-  const lines = md.split(/\r?\n/);
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    if (line.startsWith("|") && line.includes("|", 1)) {
-      const next = (lines[i + 1] ?? "").trim();
-      if (/^\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?$/.test(next)) break;
-    }
-    i++;
-  }
-  if (i + 2 > lines.length) return [];
-  const headers = splitMdRow(lines[i]);
-  const idIdx = headers.findIndex((h) => h.toLowerCase() === "id");
-  if (idIdx < 0) return [];
-
-  const colMap: Record<string, keyof RaidItem | undefined> = {};
-  headers.forEach((h, idx) => {
-    const norm = h.toLowerCase().replace(/\s+/g, "");
-    if (norm === "id") colMap[idx] = "id";
-    else if (norm === "category") colMap[idx] = "category";
-    else if (norm === "title") colMap[idx] = "title";
-    else if (norm === "description") colMap[idx] = "description";
-    else if (norm === "severity") colMap[idx] = "severity";
-    else if (norm === "probability") colMap[idx] = "probability";
-    else if (norm === "impact") colMap[idx] = "impact";
-    else if (norm === "status") colMap[idx] = "status";
-    else if (norm === "owner") colMap[idx] = "owner";
-    else if (norm === "owneremail") colMap[idx] = "ownerEmail";
-    else if (norm === "ownerresourceid") colMap[idx] = "ownerResourceId";
-    else if (norm === "mitigation") colMap[idx] = "mitigation";
-    else if (norm === "linkedtasks" || norm === "linkedtaskids")
-      colMap[idx] = "linkedTaskIds";
-    else if (norm === "raised" || norm === "raiseddate")
-      colMap[idx] = "raisedDate";
-    else if (norm === "target" || norm === "targetdate")
-      colMap[idx] = "targetDate";
-    else if (norm === "closed" || norm === "closeddate")
-      colMap[idx] = "closedDate";
-    else if (norm === "localmodified" || norm === "localmodifiedat")
-      colMap[idx] = "localModifiedAt";
-    else if (
-      norm === "causedbyids" ||
-      norm === "causedbyraidids" ||
-      norm === "causedby" ||
-      norm === "causedbyraidid"
-    )
-      colMap[idx] = "causedByRaidIds";
-    else if (norm === "stakeholderids" || norm === "stakeholders")
-      colMap[idx] = "stakeholderIds";
-    else if (norm === "documentlinks") colMap[idx] = "documentLinks";
-    else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
-  });
-
-  const items: RaidItem[] = [];
-  for (let j = i + 2; j < lines.length; j++) {
-    const raw = lines[j];
-    if (!raw.trim().startsWith("|")) continue;
-    const cells = splitMdRow(raw);
-    const obj: Record<string, string> = {};
-    cells.forEach((cell, idx) => {
-      const field = colMap[idx];
-      if (field) obj[field] = mdUnescape(cell);
-    });
-    const item = buildRaidItemFromObj(obj);
-    if (item) items.push(item);
-  }
-  return items;
+  return decodeMdTable(md, RAID_ALIASES, buildRaidItemFromObj);
 }
 
 /** Parses all sections out of a (possibly multi-section) markdown string. */

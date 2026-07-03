@@ -435,23 +435,16 @@ function milestonesToMarkdown(milestones: readonly Milestone[]): string {
   return lines.join("\n") + "\n";
 }
 
+const MILESTONE_ALIASES: Record<string, string> = {
+  id: "id", name: "name", date: "date", description: "description",
+  achieved: "achievedDate", achieveddate: "achievedDate",
+  linkedtasks: "linkedTaskIds", linkedtaskids: "linkedTaskIds",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+  documentlinks: "documentLinks", outlookeventid: "outlookEventId",
+};
+
 export function markdownToMilestones(md: string): Milestone[] {
-  return markdownTableToObjects(md).map((row) => {
-    const mapped: Record<string, string> = {};
-    for (const [label, val] of Object.entries(row)) {
-      const norm = label.toLowerCase().replace(/\s+/g, "");
-      if (norm === "id") mapped["id"] = val;
-      else if (norm === "name") mapped["name"] = val;
-      else if (norm === "date") mapped["date"] = val;
-      else if (norm === "description") mapped["description"] = val;
-      else if (norm === "achieved" || norm === "achieveddate") mapped["achievedDate"] = val;
-      else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
-      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
-      else if (norm === "documentlinks") mapped["documentLinks"] = val;
-      else if (norm === "outlookeventid") mapped["outlookEventId"] = val;
-    }
-    return buildMilestoneFromObj(mapped);
-  }).filter((m): m is Milestone => m !== null);
+  return decodeMdTable(md, MILESTONE_ALIASES, buildMilestoneFromObj);
 }
 
 const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = [
@@ -490,34 +483,21 @@ function changesToMarkdown(changes: readonly ChangeItem[]): string {
   return lines.join("\n") + "\n";
 }
 
+const CHANGE_ALIASES: Record<string, string> = {
+  id: "id", title: "title", description: "description", type: "type",
+  status: "status", impact: "impact", impactdescription: "impactDescription",
+  scheduleimpactdays: "scheduleImpactDays", costimpact: "costImpact",
+  requestedby: "requestedBy", raiseddate: "raisedDate", decisionby: "decisionBy",
+  decisiondate: "decisionDate", resolutionnotes: "resolutionNotes",
+  linkedtasks: "linkedTaskIds", linkedtaskids: "linkedTaskIds",
+  linkedraid: "linkedRaidIds", linkedraidids: "linkedRaidIds",
+  stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+  documentlinks: "documentLinks", outlookeventid: "outlookEventId",
+};
+
 export function markdownToChanges(md: string): ChangeItem[] {
-  return markdownTableToObjects(md).map((row) => {
-    const mapped: Record<string, string> = {};
-    for (const [label, val] of Object.entries(row)) {
-      const norm = label.toLowerCase().replace(/\s+/g, "");
-      if (norm === "id") mapped["id"] = val;
-      else if (norm === "title") mapped["title"] = val;
-      else if (norm === "description") mapped["description"] = val;
-      else if (norm === "type") mapped["type"] = val;
-      else if (norm === "status") mapped["status"] = val;
-      else if (norm === "impact") mapped["impact"] = val;
-      else if (norm === "impactdescription") mapped["impactDescription"] = val;
-      else if (norm === "scheduleimpactdays") mapped["scheduleImpactDays"] = val;
-      else if (norm === "costimpact") mapped["costImpact"] = val;
-      else if (norm === "requestedby") mapped["requestedBy"] = val;
-      else if (norm === "raiseddate") mapped["raisedDate"] = val;
-      else if (norm === "decisionby") mapped["decisionBy"] = val;
-      else if (norm === "decisiondate") mapped["decisionDate"] = val;
-      else if (norm === "resolutionnotes") mapped["resolutionNotes"] = val;
-      else if (norm === "linkedtasks" || norm === "linkedtaskids") mapped["linkedTaskIds"] = val;
-      else if (norm === "linkedraid" || norm === "linkedraidids") mapped["linkedRaidIds"] = val;
-      else if (norm === "stakeholderids" || norm === "stakeholders") mapped["stakeholderIds"] = val;
-      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
-      else if (norm === "documentlinks") mapped["documentLinks"] = val;
-      else if (norm === "outlookeventid") mapped["outlookEventId"] = val;
-    }
-    return buildChangeFromObj(mapped);
-  }).filter((c): c is ChangeItem => c !== null);
+  return decodeMdTable(md, CHANGE_ALIASES, buildChangeFromObj);
 }
 
 const STAKEHOLDERS_MD_COLUMNS: readonly { key: keyof Stakeholder; label: string }[] = [
@@ -549,27 +529,16 @@ function stakeholdersToMarkdown(stakeholders: readonly Stakeholder[]): string {
   return lines.join("\n") + "\n";
 }
 
+const STAKEHOLDER_ALIASES: Record<string, string> = {
+  id: "id", name: "name", organization: "organization", title: "title",
+  email: "email", category: "category", influence: "influence",
+  interest: "interest", notes: "notes", resourceid: "resourceId", raci: "raci",
+  localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
+  documentlinks: "documentLinks",
+};
+
 export function markdownToStakeholders(md: string): Stakeholder[] {
-  return markdownTableToObjects(md).map((row) => {
-    const mapped: Record<string, string> = {};
-    for (const [label, val] of Object.entries(row)) {
-      const norm = label.toLowerCase().replace(/\s+/g, "");
-      if (norm === "id") mapped["id"] = val;
-      else if (norm === "name") mapped["name"] = val;
-      else if (norm === "organization") mapped["organization"] = val;
-      else if (norm === "title") mapped["title"] = val;
-      else if (norm === "email") mapped["email"] = val;
-      else if (norm === "category") mapped["category"] = val;
-      else if (norm === "influence") mapped["influence"] = val;
-      else if (norm === "interest") mapped["interest"] = val;
-      else if (norm === "notes") mapped["notes"] = val;
-      else if (norm === "resourceid") mapped["resourceId"] = val;
-      else if (norm === "raci") mapped["raci"] = val;
-      else if (norm === "localmodified" || norm === "localmodifiedat") mapped["localModifiedAt"] = val;
-      else if (norm === "documentlinks") mapped["documentLinks"] = val;
-    }
-    return buildStakeholderFromObj(mapped);
-  }).filter((s): s is Stakeholder => s !== null);
+  return decodeMdTable(md, STAKEHOLDER_ALIASES, buildStakeholderFromObj);
 }
 
 function fxRatesToMarkdown(fx: FxRates): string {
@@ -690,4 +659,28 @@ export function markdownTableToObjects(md: string): Record<string, string>[] {
     out.push(obj);
   }
   return out;
+}
+
+/**
+ * Decode a markdown table into entities: read each row (label→value, already
+ * mdUnescaped by markdownTableToObjects), remap column labels to canonical
+ * sanitizer field keys via `aliases` (normalized label → field), then run each
+ * mapped row through `build`, dropping rows `build` rejects (null). Collapses
+ * the per-entity decoders that share this exact shape.
+ */
+export function decodeMdTable<T>(
+  md: string,
+  aliases: Record<string, string>,
+  build: (obj: Record<string, string>) => T | null,
+): T[] {
+  return markdownTableToObjects(md)
+    .map((row) => {
+      const mapped: Record<string, string> = {};
+      for (const [label, val] of Object.entries(row)) {
+        const canonical = aliases[label.toLowerCase().replace(/\s+/g, "")];
+        if (canonical) mapped[canonical] = val;
+      }
+      return build(mapped);
+    })
+    .filter((x): x is T => x !== null);
 }

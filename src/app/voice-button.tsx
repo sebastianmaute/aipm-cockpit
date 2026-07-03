@@ -23,15 +23,12 @@ function MicIcon({ className }: { className?: string }) {
   );
 }
 
-export function VoiceCommandButton({
-  lang,
-  onCommand,
-  onError,
-}: {
-  lang: Lang;
-  onCommand: (cmd: Command, originalText: string) => void;
-  onError: (msg: string) => void;
-}) {
+// Shared speech-recognition state + lifecycle for the two mic buttons below.
+// Only the `onFinal` transcript handler differs between call sites, so it is
+// passed into `toggle` at click time; everything else (listening/supported
+// state, the SSR-safe `supported` hydration, start/stop bookkeeping, and the
+// permission/error mapping) is identical and lives here.
+function useVoiceRecognition(lang: Lang, onError: (msg: string) => void) {
   const [listening, setListening] = useState(false);
   const stopRef = useRef<(() => void) | null>(null);
   // `isVoiceSupported()` reads `window.SpeechRecognition`, which doesn't
@@ -50,7 +47,7 @@ export function VoiceCommandButton({
     };
   }, []);
 
-  function handleClick() {
+  function toggle(onFinal: (text: string) => void) {
     if (listening) {
       stopRef.current?.();
       return;
@@ -62,10 +59,7 @@ export function VoiceCommandButton({
     setListening(true);
     const stop = startRecognition({
       lang,
-      onFinal: (text) => {
-        const cmd = parseCommand(text, lang);
-        onCommand(cmd, text);
-      },
+      onFinal,
       onEnd: () => {
         setListening(false);
         stopRef.current = null;
@@ -82,6 +76,27 @@ export function VoiceCommandButton({
     });
     stopRef.current = stop;
     if (!stop) setListening(false);
+  }
+
+  return { listening, supported, toggle };
+}
+
+export function VoiceCommandButton({
+  lang,
+  onCommand,
+  onError,
+}: {
+  lang: Lang;
+  onCommand: (cmd: Command, originalText: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const { listening, supported, toggle } = useVoiceRecognition(lang, onError);
+
+  function handleClick() {
+    toggle((text) => {
+      const cmd = parseCommand(text, lang);
+      onCommand(cmd, text);
+    });
   }
 
   return (
@@ -120,53 +135,11 @@ export function InlineMicButton({
   onTranscript: (text: string) => void;
   onError: (msg: string) => void;
 }) {
-  const [listening, setListening] = useState(false);
-  const stopRef = useRef<(() => void) | null>(null);
-  // Same SSR-hydration concern as VoiceCommandButton. This component
-  // currently only mounts inside the (initially closed) task modal, so the
-  // mismatch doesn't fire in practice — but the lazy useState pattern is
-  // the right shape regardless and protects against future refactors that
-  // would surface this button during initial render.
-  const [supported, setSupported] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only hydration; lazy initializer would run during SSR
-    setSupported(isVoiceSupported());
-    return () => {
-      stopRef.current?.();
-    };
-  }, []);
+  const { listening, supported, toggle } = useVoiceRecognition(lang, onError);
 
   function handleClick(e: React.MouseEvent) {
     e.preventDefault();
-    if (listening) {
-      stopRef.current?.();
-      return;
-    }
-    if (!supported) {
-      onError(t(lang, "voiceUnsupported"));
-      return;
-    }
-    setListening(true);
-    const stop = startRecognition({
-      lang,
-      onFinal: (text) => onTranscript(text),
-      onEnd: () => {
-        setListening(false);
-        stopRef.current = null;
-      },
-      onError: (err) => {
-        setListening(false);
-        stopRef.current = null;
-        if (err === "not-allowed" || err === "service-not-allowed") {
-          onError(t(lang, "voicePermissionDenied"));
-        } else if (err !== "aborted" && err !== "no-speech") {
-          onError(t(lang, "voiceFailed"));
-        }
-      },
-    });
-    stopRef.current = stop;
-    if (!stop) setListening(false);
+    toggle((text) => onTranscript(text));
   }
 
   if (!supported) return null;

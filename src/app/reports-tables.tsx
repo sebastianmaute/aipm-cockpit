@@ -49,6 +49,49 @@ export type AssigneeSort = { key: AssigneeSortKey; dir: SortDir };
 export type GroupOrLabelSortKey = "name" | "total" | "open" | "completed" | "overdue" | "inquiries";
 export type GroupOrLabelSort = { key: GroupOrLabelSortKey; dir: SortDir };
 
+// Sortable/resizable header cell shared by both report tables below. The name
+// column omits `align`; numeric columns pass `align="right"`.
+function SortTh({
+  col,
+  label,
+  align,
+  width,
+  active,
+  dir,
+  onClick,
+  onStartResize,
+}: {
+  col: string;
+  label: string;
+  align?: "right";
+  width: number;
+  active: boolean;
+  dir: SortDir;
+  onClick: () => void;
+  onStartResize: (col: string, e: React.MouseEvent) => void;
+}) {
+  return (
+    <th
+      className={align === "right" ? "relative px-3 py-2 text-right" : "relative px-3 py-2"}
+      style={{ width, minWidth: width }}
+    >
+      <SortHeaderButton label={label} active={active} dir={dir} onClick={onClick} />
+      <ColumnResizeHandle col={col} onMouseDown={onStartResize} />
+    </th>
+  );
+}
+
+// The "no rows match the filter" body row shared by both report tables.
+function NoMatchesRow({ lang, colSpan }: { lang: Lang; colSpan: number }) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="px-3 py-3 text-center text-xs text-muted-foreground">
+        {t(lang, "reportsNoMatches")}
+      </td>
+    </tr>
+  );
+}
+
 export function GroupOrLabelTable({
   rows,
   lang,
@@ -92,15 +135,15 @@ export function GroupOrLabelTable({
         <table className="min-w-full text-left text-xs">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2" style={{ width: colWidths.label, minWidth: colWidths.label }}>
-                <SortHeaderButton
-                  label={t(lang, headerKey)}
-                  active={sort.key === "name" && sort.dir !== "off"}
-                  dir={sort.dir}
-                  onClick={() => click("name")}
-                />
-                <ColumnResizeHandle col="label" onMouseDown={onStartResize} />
-              </th>
+              <SortTh
+                col="label"
+                label={t(lang, headerKey)}
+                width={colWidths.label}
+                active={sort.key === "name" && sort.dir !== "off"}
+                dir={sort.dir}
+                onClick={() => click("name")}
+                onStartResize={onStartResize}
+              />
               {(["total", "open", "completed", "overdue", "inquiries"] as const).map((k) => {
                 const labelKey = {
                   total: "reportsTotal",
@@ -109,28 +152,25 @@ export function GroupOrLabelTable({
                   overdue: "reportsOverdue",
                   inquiries: "reportsInquiriesCol",
                 } as const;
-                const active = sort.key === k && sort.dir !== "off";
                 return (
-                  <th key={k} className="relative px-3 py-2 text-right" style={{ width: colWidths[k], minWidth: colWidths[k] }}>
-                    <SortHeaderButton
-                      label={t(lang, labelKey[k])}
-                      active={active}
-                      dir={sort.dir}
-                      onClick={() => click(k)}
-                    />
-                    <ColumnResizeHandle col={k} onMouseDown={onStartResize} />
-                  </th>
+                  <SortTh
+                    key={k}
+                    col={k}
+                    align="right"
+                    label={t(lang, labelKey[k])}
+                    width={colWidths[k]}
+                    active={sort.key === k && sort.dir !== "off"}
+                    dir={sort.dir}
+                    onClick={() => click(k)}
+                    onStartResize={onStartResize}
+                  />
                 );
               })}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {sorted.length === 0 && filter !== "" ? (
-              <tr>
-                <td colSpan={6} className="px-3 py-3 text-center text-xs text-muted-foreground">
-                  {t(lang, "reportsNoMatches")}
-                </td>
-              </tr>
+              <NoMatchesRow lang={lang} colSpan={6} />
             ) : (
               sorted.map((row) => (
                 <tr key={row.name}>
@@ -185,15 +225,15 @@ export function AssigneeTable({
         <table className="min-w-full text-left text-xs">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <th className="relative px-3 py-2" style={{ width: colWidths.assignee, minWidth: colWidths.assignee }}>
-                <SortHeaderButton
-                  label={t(lang, "assignee")}
-                  active={sort.key === "assignee" && sort.dir !== "off"}
-                  dir={sort.dir}
-                  onClick={() => click("assignee")}
-                />
-                <ColumnResizeHandle col="assignee" onMouseDown={onStartResize} />
-              </th>
+              <SortTh
+                col="assignee"
+                label={t(lang, "assignee")}
+                width={colWidths.assignee}
+                active={sort.key === "assignee" && sort.dir !== "off"}
+                dir={sort.dir}
+                onClick={() => click("assignee")}
+                onStartResize={onStartResize}
+              />
               {(["total", "open", "overdue", "onTime", "late", "inquiries"] as const).map((k) => {
                 const labelKey = {
                   total: "reportsTotal",
@@ -203,28 +243,25 @@ export function AssigneeTable({
                   late: "reportsCompletedLate",
                   inquiries: "reportsInquiriesCol",
                 } as const;
-                const active = sort.key === k && sort.dir !== "off";
                 return (
-                  <th key={k} className="relative px-3 py-2 text-right" style={{ width: colWidths[k], minWidth: colWidths[k] }}>
-                    <SortHeaderButton
-                      label={t(lang, labelKey[k])}
-                      active={active}
-                      dir={sort.dir}
-                      onClick={() => click(k)}
-                    />
-                    <ColumnResizeHandle col={k} onMouseDown={onStartResize} />
-                  </th>
+                  <SortTh
+                    key={k}
+                    col={k}
+                    align="right"
+                    label={t(lang, labelKey[k])}
+                    width={colWidths[k]}
+                    active={sort.key === k && sort.dir !== "off"}
+                    dir={sort.dir}
+                    onClick={() => click(k)}
+                    onStartResize={onStartResize}
+                  />
                 );
               })}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {sorted.length === 0 && filter !== "" ? (
-              <tr>
-                <td colSpan={7} className="px-3 py-3 text-center text-xs text-muted-foreground">
-                  {t(lang, "reportsNoMatches")}
-                </td>
-              </tr>
+              <NoMatchesRow lang={lang} colSpan={7} />
             ) : (
               sorted.map((row) => (
                 <tr key={row.name}>
