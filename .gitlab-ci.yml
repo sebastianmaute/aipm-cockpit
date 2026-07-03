@@ -130,6 +130,17 @@ file-size-ratchet:
   script:
     - npm run size:check
 
+# Duplication gate — BLOCKING as of Phase 4 (ratchet, not absolute). jscpd exits
+# non-zero if any format's duplication % exceeds the `--threshold` set in the
+# `dup:check` script (Phase-3 exit level 2.83% / tsx 3.22% + headroom = 3.7).
+# Ratchet the threshold DOWN in package.json as duplication falls; never raise it
+# to make a PR pass. Emergency bypass: MR label "quality-gate-bypass" + follow-up.
+duplication-gate:
+  stage: quality
+  needs: [install]
+  script:
+    - npm run dup:check
+
 build:
   stage: build
   needs: [install]
