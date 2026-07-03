@@ -21,6 +21,7 @@ dates are quarterly from creation; next sweep **2026-10-03**.
 | ID | Item | Origin | Resolved | Notes |
 |---|---|---|---|---|
 | TD-4 | `sanitize*.ts` branch coverage 84.82% < the ≥90 pure-engine target | Phase 4 T2 | 2026-07-03 | `sanitize-branches.test.ts` added the validator reject/fallback/clamp arms → branch **95.70%** (lines 98.33%). Floor ratcheted to 94/95 in `vitest.config.ts`. Not faked. |
+| Playwright + axe CI-image lockstep | `@playwright/test` 1.60→1.61.1, `@axe-core/playwright` 4.11.3→4.12.1 + e2e image `v1.60.0-jammy`→`v1.61.1-jammy` | Phase 4 held | 2026-07-03 | Client + image bumped together in one MR. Local verify: `playwright --version` 1.61.1, config parses (52 tests), tsc 0 (axe 4.12 types compatible). Real e2e/axe run validated at CI-time (the e2e stage gates the MR); `npx playwright install` in the job is the browser safety net. |
 
 ## Deferred major dependency upgrades (Phase 4 T4 — one major per MR)
 
@@ -40,8 +41,6 @@ Status column as each lands or is blocked.
 
 | Package | Current | Wanted | Why held |
 |---|---|---|---|
-| `@playwright/test` | 1.60.0 | 1.61.1 | CI e2e image is pinned `mcr.microsoft.com/playwright:v1.60.0-jammy`; bump the client + image tag together. |
-| `@axe-core/playwright` | 4.11.3 | 4.12.1 | peers on `@playwright/test`; bump alongside the playwright pair. |
 | `@tiptap/react` + `@tiptap/starter-kit` | 3.26.1 | 3.27.1 | bumping to 3.27 skews the sub-packages → `tsc` TS2769 in `rich-text-editor.tsx`; needs a coordinated bump of the whole `@tiptap/*` set. |
 
 ### Range-pinned (no action — semver range holds them)
