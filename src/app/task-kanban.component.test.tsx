@@ -82,4 +82,43 @@ describe("TaskKanban", () => {
     );
     expect(screen.getByTestId("kanban-card-4").className).not.toContain("outline-AIPM-green");
   });
+  // Inline "Ask Claude" (SP1 board wiring): the board must not crash on a
+  // RAID-linked card (renders OUTSIDE RowContextProvider) AND must surface the
+  // per-card trigger when enabled, wired straight to onAiEdit.
+  it("shows the Ask Claude trigger on a RAID-linked card and fires onAiEdit", () => {
+    const onAiEdit = vi.fn();
+    const raidByTask = new Map<number, RaidItem[]>([
+      [3, [{ id: 1, category: "R", title: "R1" } as RaidItem]],
+    ]);
+    const task = t({ id: 3, status: "To Do" });
+    render(
+      <TaskKanban
+        lang="en-US"
+        tasks={[task]}
+        raidByTask={raidByTask}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onJumpToRaid={vi.fn()}
+        onAiEdit={onAiEdit}
+        aiEditEnabled={() => true}
+      />,
+    );
+    expect(screen.getByTestId("kanban-card-3")).toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: /ask claude/i });
+    fireEvent.click(trigger);
+    expect(onAiEdit).toHaveBeenCalledWith(task);
+  });
+  it("omits the Ask Claude trigger when aiEditEnabled returns false", () => {
+    render(
+      <TaskKanban
+        lang="en-US"
+        tasks={[t({ id: 4, status: "To Do" })]}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onAiEdit={vi.fn()}
+        aiEditEnabled={() => false}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /ask claude/i })).not.toBeInTheDocument();
+  });
 });

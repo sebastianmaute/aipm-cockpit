@@ -710,6 +710,8 @@ export function TasksSection({
           jiraExtraProjects={jiraExtraProjects}
           containerRef={containerRef}
           flashId={flashId}
+          onAiEdit={onAiEdit}
+          aiEditEnabled={aiEditEnabled}
         />
       ) : (
       <div
