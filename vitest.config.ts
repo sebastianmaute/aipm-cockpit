@@ -95,7 +95,10 @@ export default defineConfig({
         "src/app/markdown-codecs*.ts": { lines: 96, branches: 90 }, // 98.98 / 93.66
         // sanitize branch coverage (84.82) is BELOW the >=90 engine target; the
         // floor is set at the honest measured level and tracked in the debt
-        // register (TD: add validator branch tests to reach 90). Not faked.
+        // register (TD-4: add validator branch tests to reach 90). Not faked.
+        // NOTE: this glob is ALL sanitize* source (the sanitize-core/entities/
+        // records barrel trio PLUS sanitize-html.ts / sanitize-report.ts), not
+        // only the three-file barrel — the 84.82 aggregate is across all of them.
         "src/app/sanitize*.ts": { lines: 93, branches: 82 }, // 95.46 / 84.82
       },
     },

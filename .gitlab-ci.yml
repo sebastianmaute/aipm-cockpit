@@ -53,14 +53,18 @@ typecheck:
     - npx tsc --noEmit
 
 # SAST — BLOCKING as of Phase 4 (was warn-only allow_failure in Phase 1). Runs in
-# Semgrep's own image, needs no node_modules → needs: []. Emits GitLab-native SAST
-# format so findings populate the MR security widget + pipeline "Security" tab +
-# Vulnerability Report (those UI surfaces require the GitLab Ultimate tier; on
-# lower tiers the report is still downloadable as an artifact and the job log
-# prints the findings table). `--error` makes the job FAIL on findings (removed
-# the Phase-1 "no --error" report-only posture) so it gates; `--severity ERROR`
-# scopes the gate to high-severity findings only (warning/info still report via
-# the widget artifact but do not block).
+# Semgrep's own image, needs no node_modules → needs: []. TWO scans, on purpose:
+#   1. FULL-severity scan → gl-sast-report.json. Exits 0 (native SAST, no --error)
+#      so it never blocks by itself; its job is VISIBILITY — ALL findings (error/
+#      warning/info) populate the MR security widget + pipeline "Security" tab +
+#      Vulnerability Report (those UI surfaces need GitLab Ultimate; on lower tiers
+#      the report is a downloadable artifact + the job log prints the table). This
+#      preserves the Phase-1 all-severity reporting.
+#   2. GATE scan, ERROR-severity only, `--error` → the job FAILS on high-severity
+#      findings. `--severity ERROR` scopes ONLY the gate; because it is a SEPARATE
+#      scan, it does NOT narrow the report above (warning/info stay visible via
+#      scan 1). Blocking on ERROR only (not all severities) avoids failing the
+#      pipeline on the large volume of WARNING-level owasp/react/ts rules.
 # Emergency bypass: MR label "quality-gate-bypass" + mandatory follow-up ticket
 # (enable the rules block below to activate the label mechanism).
 #   rules:
@@ -72,8 +76,12 @@ semgrep:
   needs: []
   image: semgrep/semgrep:latest
   script:
+    # 1. Full-severity report (all findings → widget; non-gating).
     - semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten
-        --gitlab-sast --output gl-sast-report.json --error --severity ERROR .
+        --gitlab-sast --output gl-sast-report.json .
+    # 2. Gate: fail only on ERROR-severity findings.
+    - semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten
+        --severity ERROR --error .
   artifacts:
     when: always
     reports:
