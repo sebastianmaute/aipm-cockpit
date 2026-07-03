@@ -8,6 +8,21 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.165.0] - 2026-07-03 "Chiang"
+
+### Added
+- **Inline "Ask Claude" per-item task edit**: a ✨ hover icon on a task's table row / Kanban card (also available from the row menu) opens a popover where you describe a change in plain language; Claude proposes the edit in **one bounded call** (no agentic loop), and the popover shows a **preview diff** — field changes plus any related items it would create (RAID / change / milestone / stakeholder) — before anything is written. Confirm applies the changes via the existing AI CRUD tools, so every write still runs through its entity sanitizer. Gated behind the AI master switch; disabled in pop-out windows and on Jira-synced tasks (Jira owns those fields); a stale response from an earlier request is discarded. No chat window needed for a quick one-off edit.
+- **"Reload project" affordance**: a new control next to the project switcher (and in Settings → Storage) re-fetches the current project's data after a load error, without navigating away.
+- **"Configure AI assistant" button** on the new-project screen, so you can set up the AI master switch and API key without leaving the create flow.
+
+### Changed
+- **AI model picker no longer pre-fills from the offline model registry.** The dropdown stays empty (aside from the currently-selected model) until a successful live `/v1/models` poll returns real models, with a hint to enter a valid API key when it can't reach Anthropic.
+- **Portfolio-storage switch removed from the empty state** — it could only ever land you in a different, still-empty portfolio, so the control was dropped from that screen (it remains available in Settings → Integrations).
+- **Tech-debt: duplication-reduction slice 6.** A generic `decodeMdTable` markdown-table decoder replaced several near-identical per-entity decoders, plus an intra-file tsx self-clone extraction; the duplication gate ratcheted from 2.7% to **2.4%**.
+
+### Fixed
+- **Turso portfolio-switch flash**: switching to Turso portfolio storage no longer flashes the current screen before bouncing to the new-project screen — a loading state now covers the project-list load so the transition is clean.
+
 ## [0.164.1] - 2026-07-03 "Cixin"
 
 ### Changed

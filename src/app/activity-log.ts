@@ -48,7 +48,8 @@ export type ActivityKind =
   | "doc.linkAdded"
   | "doc.linkRemoved"
   | "history.restore"
-  | "calendar.autoPulled";
+  | "calendar.autoPulled"
+  | "ai.inlineEdit";
 
 export interface ActivityEntry {
   /** Monotonic id within the current log; not a timestamp. Used as a React key. */
@@ -104,6 +105,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "doc.linkRemoved": "activityDocLinkRemoved",
   "history.restore": "activityHistoryRestore",
   "calendar.autoPulled": "activityCalendarAutoPulled",
+  "ai.inlineEdit": "activityAiInlineEdit",
 };
 
 const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(

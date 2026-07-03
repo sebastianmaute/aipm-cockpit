@@ -37,6 +37,11 @@ interface TaskKanbanProps {
    *  Optional so lightweight callers/tests can omit them. */
   containerRef?: React.RefObject<HTMLDivElement | null>;
   flashId?: number | null;
+  /** Inline "Ask Claude" task edit (SP1 board wiring): per-card trigger + its
+   *  enablement gate, threaded from the same useInlineAiEdit instance the
+   *  table rows use. Optional so lightweight callers/tests can omit them. */
+  onAiEdit?: (task: Task) => void;
+  aiEditEnabled?: (task: Task) => boolean;
 }
 
 const EMPTY_HOLIDAYS: Set<string> = new Set();
@@ -57,6 +62,8 @@ export function TaskKanban({
   onJumpToRaid = NOOP_JUMP_TO_RAID,
   containerRef,
   flashId = null,
+  onAiEdit,
+  aiEditEnabled,
 }: TaskKanbanProps) {
   const cols = useMemo(() => groupByStatus(tasks), [tasks]);
   return (
@@ -88,7 +95,7 @@ export function TaskKanban({
                   data-deeplink-row={task.id}
                   draggable={!synced}
                   onDragStart={(e) => e.dataTransfer.setData("text/plain", String(task.id))}
-                  className={["rounded-lg border border-line bg-surface-muted p-2 text-sm", flashOutlineClass(flashId === task.id)]
+                  className={["group rounded-lg border border-line bg-surface-muted p-2 text-sm", flashOutlineClass(flashId === task.id)]
                     .filter(Boolean)
                     .join(" ")}
                 >
@@ -103,6 +110,8 @@ export function TaskKanban({
                     onEdit={onEdit}
                     onJumpToRaid={onJumpToRaid}
                     readOnlyProject={!!task.jiraKey && isReadOnlyIssue(task.jiraKey, { projectKey: jiraProjectKey, extraProjects: jiraExtraProjects })}
+                    onAiEdit={onAiEdit}
+                    aiEditEnabled={aiEditEnabled}
                   />
                 </article>
               );

@@ -1,6 +1,6 @@
 {
   "name": "lop-app",
-  "version": "0.164.1",
+  "version": "0.165.0",
   "private": true,
   "license": "EUPL-1.2",
   "scripts": {

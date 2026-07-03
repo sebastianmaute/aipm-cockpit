@@ -3,13 +3,16 @@ import type React from "react";
 import { useCallback, useMemo, useState } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
-import type { JiraExtraProject } from "./settings-types";
+import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
+import { useTasksInlineAiEdit } from "./use-tasks-inline-ai-edit";
+import type { ToolDispatcher } from "./chat-tools";
+import type { ActivityKind } from "./activity-log";
 import { BulkEditModal } from "./bulk-edit-modal";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
@@ -133,6 +136,11 @@ export interface TasksSectionProps {
   // Push button (hidden when M365 is not configured).
   projectId?: string;
   m365Configured?: boolean;
+  // Inline "Ask Claude" task edit (SP1): the ToolDispatcher backing the single
+  // useInlineAiEdit instance owned here, plus optional activity logging —
+  // both threaded from task-manager.
+  dispatcher: ToolDispatcher;
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
 }
 
 export function TasksSection({
@@ -187,6 +195,8 @@ export function TasksSection({
   onLearnMoreHint,
   projectId,
   m365Configured,
+  dispatcher,
+  logActivity,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -197,14 +207,26 @@ export function TasksSection({
     sortKey, sortDir, setSortKey, setSortDir,
   } = useFilters();
 
+  const workspaceCtx = useWorkspace();
   const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById, setTasks } =
-    useWorkspace();
+    workspaceCtx;
 
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
 
   const { settings, setSettings } = useSettings();
   const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
   const { flashId, containerRef } = useDeepLinkRowFlash("open-points");
+
+  // Inline "Ask Claude" task edit (SP1) — wired via a dedicated glue hook so this
+  // pane stays lean; it owns the single active-edit popover element.
+  const { onAiEdit, aiEditEnabled, popover: inlineAiEditPopover } = useTasksInlineAiEdit({
+    dispatcher,
+    settings,
+    isPopout: isPopout ?? false,
+    lang,
+    logActivity,
+    workspaceCtx,
+  });
 
   const hideFinished = settings.hideFinishedTasks ?? false;
   const tasksViewMode = settings.tasksViewMode ?? "table";
@@ -272,6 +294,8 @@ export function TasksSection({
       onStatusChange,
       onEdit,
       onDelete,
+      onAiEdit,
+      aiEditEnabled,
     }),
     [
       lang,
@@ -292,6 +316,8 @@ export function TasksSection({
       onStatusChange,
       onEdit,
       onDelete,
+      onAiEdit,
+      aiEditEnabled,
     ],
   );
 
@@ -671,6 +697,8 @@ export function TasksSection({
           jiraExtraProjects={jiraExtraProjects}
           containerRef={containerRef}
           flashId={flashId}
+          onAiEdit={onAiEdit}
+          aiEditEnabled={aiEditEnabled}
         />
       ) : (
       <div
@@ -794,6 +822,8 @@ export function TasksSection({
           />
         );
       })()}
+
+      {inlineAiEditPopover}
     </section>
   );
 }

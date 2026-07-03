@@ -65,6 +65,8 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     onStatusChange: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
+    onAiEdit: vi.fn(),
+    aiEditEnabled: () => false,
     ...overrides,
   };
 }
@@ -601,6 +603,52 @@ describe("TaskActions", () => {
     fireEvent.click(getByText("Delete"));
     expect(ctx.onDelete).toHaveBeenCalledTimes(1);
     expect(ctx.onDelete).toHaveBeenCalledWith(99);
+  });
+
+  test("renders the Ask Claude trigger with a row-unique label when enabled, and fires onAiEdit", () => {
+    const onAiEdit = vi.fn();
+    const ctx = makeContext({ onAiEdit, aiEditEnabled: () => true });
+    const task = makeTask({ id: 30, taskName: "Draft the report" });
+
+    const { getByRole } = render(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <RowContextProvider value={ctx}>
+                <TaskActions task={task} isPushing={false} />
+              </RowContextProvider>
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+
+    const trigger = getByRole("button", { name: "Ask Claude – Draft the report" });
+    fireEvent.click(trigger);
+    expect(onAiEdit).toHaveBeenCalledTimes(1);
+    expect(onAiEdit).toHaveBeenCalledWith(task);
+  });
+
+  test("hides the Ask Claude trigger when aiEditEnabled returns false", () => {
+    const ctx = makeContext({ aiEditEnabled: () => false });
+    const task = makeTask({ id: 31, taskName: "Skip AI" });
+
+    const { queryByRole } = render(
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <RowContextProvider value={ctx}>
+                <TaskActions task={task} isPushing={false} />
+              </RowContextProvider>
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+
+    expect(queryByRole("button", { name: /Ask Claude/ })).toBeNull();
   });
 });
 

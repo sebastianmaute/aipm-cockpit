@@ -24,6 +24,10 @@ interface TaskKanbanCardProps {
   onEdit: (task: Task) => void;
   onJumpToRaid: (taskId: number) => void;
   readOnlyProject?: boolean;
+  /** Inline "Ask Claude" task edit (SP1 board wiring). Optional so lightweight
+   *  callers/tests can omit them (mirrors task-row.tsx's context-driven gate). */
+  onAiEdit?: (task: Task) => void;
+  aiEditEnabled?: (task: Task) => boolean;
 }
 
 export function TaskKanbanCard({
@@ -37,6 +41,8 @@ export function TaskKanbanCard({
   onEdit,
   onJumpToRaid,
   readOnlyProject,
+  onAiEdit,
+  aiEditEnabled,
 }: TaskKanbanCardProps) {
   const health: TaskHealth = computeTaskHealth(task, today, holidaySet);
   const healthTip = formatHealthTooltip(health, lang);
@@ -99,7 +105,22 @@ export function TaskKanbanCard({
         )}
       </div>
 
-      <TaskStatusSelect lang={lang} task={task} onStatusChange={onStatusChange} />
+      <div className="flex items-center justify-between gap-1.5">
+        <TaskStatusSelect lang={lang} task={task} onStatusChange={onStatusChange} />
+        {aiEditEnabled?.(task) && (
+          <button
+            type="button"
+            onClick={() => onAiEdit?.(task)}
+            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
+            title={t(lang, "inlineAiEdit")}
+            className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+              <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

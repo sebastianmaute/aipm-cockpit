@@ -1681,6 +1681,8 @@ function TaskManagerInner() {
       onLearnMoreHint={requestHelpConcept}
       projectId={calendarProjectId}
       m365Configured={m365Enabled}
+      dispatcher={dispatcher}
+      logActivity={logActivity}
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? []}
       onToggleSelect={onToggleSelect}

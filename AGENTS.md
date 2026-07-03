@@ -1036,6 +1036,20 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
   `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip the
   no-unused-vars rule).
+- **Inline "Ask Claude" edit (SP1):** a per-item edit popover (✨ hover icon on the task table row + Kanban
+  card, or the row menu) takes a natural-language instruction and INVERTS the chat loop: ONE bounded
+  `callClaude` call proposes tool calls but nothing executes yet. Pure `inline-ai-edit/plan.ts`
+  `describeToolCalls` turns the returned tool_use blocks into a preview `EditPlan` (field diffs + related-item
+  creates — RAID/change/milestone/stakeholder) the user reviews before Confirm; Confirm replays each call
+  through the EXISTING `runTool` dispatcher (same per-entity `sanitizeX`), so it's plan-then-apply layered ON
+  TOP of the chat tool schemas — ZERO new AI tools, Workspace fields, or backend write paths. New modules:
+  `inline-ai-edit-call.ts` (the bounded call), `use-inline-ai-edit.ts` (the propose→preview→confirm/cancel
+  state machine), `inline-ai-edit-popover.tsx` (the UI), `use-tasks-inline-ai-edit.tsx` (tasks-pane glue — a
+  `.tsx` hook, coverage-EXCLUDED like the other Phase-3 glue hooks, keeping `tasks-section` under the size
+  ratchet). Gated `isAiEnabled && !isPopout && !task.jiraKey`. ★ a request-generation nonce discards a stale
+  proposal/confirm if the popover is reopened with a new instruction before the in-flight call resolves. Logs
+  a new `ai.inlineEdit` activity kind. Wired into `task-row.tsx` (`RowContextValue`) + `task-kanban-card.tsx`
+  (props — the board renders outside `RowContextProvider`, see the Kanban board bullet above).
 - **AI doc ingestion / multimodal:** `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
   (image/document) from pure `chat-attachments.ts` (classify by mime+extension, 20 MB cap, build the Anthropic
   block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing lib, Claude reads
