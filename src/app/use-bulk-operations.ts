@@ -30,6 +30,9 @@ export interface UseBulkOperationsArgs {
   onCancelEdit: () => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showToast: (kind: "info" | "error", text: string) => void;
+  /** Arm the storage layer's one-shot destructive-save bypass before a clear-all
+   *  — else the persistence data-loss guard refuses the mass deletion. */
+  allowDestructiveSave?: () => void;
 }
 
 export function useBulkOperations(args: UseBulkOperationsArgs) {
@@ -49,12 +52,14 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const handlersRef = useRef(args.handlers);
   const onCancelEditRef = useRef(args.onCancelEdit);
   const setSettingsRef = useRef(args.setSettings);
+  const allowDestructiveSaveRef = useRef(args.allowDestructiveSave);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
   useEffect(() => { handlersRef.current = args.handlers; }, [args.handlers]);
   useEffect(() => { onCancelEditRef.current = args.onCancelEdit; }, [args.onCancelEdit]);
   useEffect(() => { setSettingsRef.current = args.setSettings; }, [args.setSettings]);
+  useEffect(() => { allowDestructiveSaveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -174,6 +179,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   // with TypeToConfirmDialog; the voice command below gates it with window.confirm).
   const handleClearAll = useCallback(() => {
     if (tasks.length === 0) return;
+    allowDestructiveSaveRef.current?.(); // arm the storage destructive-save bypass (button + voice)
     setTasks([]);
     setSelectedIds(new Set());
     onCancelEditRef.current();

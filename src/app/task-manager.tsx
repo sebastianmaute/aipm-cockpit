@@ -1188,6 +1188,7 @@ function TaskManagerInner() {
     onCancelEdit: handleCancelEdit,
     logActivity,
     showToast,
+    allowDestructiveSave,
   });
   // Sync deselectIdRef so onDelete (defined above) can call it without
   // depending on useBulkOperations being declared first. Written in an effect
@@ -1714,7 +1715,7 @@ function TaskManagerInner() {
       handleJiraSync={handleJiraSync}
       handleCancelEdit={handleCancelEdit}
       setTaskModalOpen={setTaskModalOpen}
-      handleClearAll={() => { allowDestructiveSave(); handleClearAll(); }}
+      handleClearAll={handleClearAll}
       selectedIds={selectedIds}
       allVisibleSelected={allVisibleSelected}
       selectedJiraCount={selectedJiraCount}

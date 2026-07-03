@@ -20,4 +20,9 @@ describe("relationalReadIsEmpty", () => {
     expect(() => relationalReadIsEmpty([ok(0), malformed, ok(0)] as never)).toThrow(/malformed/i);
     expect(() => relationalReadIsEmpty([ok(1), noResponse] as never)).toThrow(/malformed/i);
   });
+
+  it("THROWS on a TRUNCATED read (fewer results than expected) — not masked as empty", () => {
+    expect(() => relationalReadIsEmpty([ok(0), ok(0)] as never, 3)).toThrow(/truncated|expected/i);
+    expect(relationalReadIsEmpty([ok(0), ok(0), ok(0)] as never, 3)).toBe(true); // full + empty → ok
+  });
 });
