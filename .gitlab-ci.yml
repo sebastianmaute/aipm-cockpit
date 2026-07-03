@@ -52,21 +52,28 @@ typecheck:
   script:
     - npx tsc --noEmit
 
-# SAST — warn-only for the first 2 weeks (allow_failure), then Phase 4 flips it
-# to blocking. Runs in Semgrep's own image, needs no node_modules → needs: [].
-# Emits GitLab-native SAST format so findings populate the MR security widget +
-# pipeline "Security" tab + Vulnerability Report (those UI surfaces require the
-# GitLab Ultimate tier; on lower tiers the report is still downloadable as an
-# artifact and the job log prints the findings table). Native SAST jobs succeed
-# and report via the widget rather than failing — so no --error here.
+# SAST — BLOCKING as of Phase 4 (was warn-only allow_failure in Phase 1). Runs in
+# Semgrep's own image, needs no node_modules → needs: []. Emits GitLab-native SAST
+# format so findings populate the MR security widget + pipeline "Security" tab +
+# Vulnerability Report (those UI surfaces require the GitLab Ultimate tier; on
+# lower tiers the report is still downloadable as an artifact and the job log
+# prints the findings table). `--error` makes the job FAIL on findings (removed
+# the Phase-1 "no --error" report-only posture) so it gates; `--severity ERROR`
+# scopes the gate to high-severity findings only (warning/info still report via
+# the widget artifact but do not block).
+# Emergency bypass: MR label "quality-gate-bypass" + mandatory follow-up ticket
+# (enable the rules block below to activate the label mechanism).
+#   rules:
+#     - if: $CI_MERGE_REQUEST_LABELS =~ /quality-gate-bypass/
+#       allow_failure: true
+#     - when: on_success
 semgrep:
   stage: quality
   needs: []
   image: semgrep/semgrep:latest
-  allow_failure: true
   script:
     - semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten
-        --gitlab-sast --output gl-sast-report.json .
+        --gitlab-sast --output gl-sast-report.json --error --severity ERROR .
   artifacts:
     when: always
     reports:
@@ -107,14 +114,19 @@ unit-tests:
     paths: [coverage/]
     expire_in: 1 week
 
-# File-size ratchet — warn-only for now (allow_failure); Phase 4 flips to blocking.
-# Freezes the 3 oversized files at their current size and blocks new oversized
-# files. Regenerate the baseline with `node scripts/check-file-sizes.mjs --update`
-# when a decomposition legitimately lowers a file below the limit.
+# File-size ratchet — BLOCKING as of Phase 4 (was warn-only allow_failure).
+# Freezes the oversized files at their current size and blocks new oversized
+# files (>800 lines, i18n dictionaries exempt). Regenerate the baseline with
+# `node scripts/check-file-sizes.mjs --update` when a decomposition legitimately
+# lowers a file below the limit.
+# Emergency bypass: MR label "quality-gate-bypass" + mandatory follow-up ticket.
+#   rules:
+#     - if: $CI_MERGE_REQUEST_LABELS =~ /quality-gate-bypass/
+#       allow_failure: true
+#     - when: on_success
 file-size-ratchet:
   stage: quality
   needs: []
-  allow_failure: true
   script:
     - npm run size:check
 
