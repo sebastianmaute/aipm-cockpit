@@ -21,6 +21,7 @@ import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { ModeSection } from "./settings-sections/mode-section";
 import { TemplatesSection } from "./settings-sections/templates-section";
 import { InformationFlowsSection } from "./settings-sections/information-flows-section";
+import { DiagnosticsSection } from "./settings-sections/diagnostics-section";
 import { ExportSection } from "./settings-sections/export-section";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 import { StorageConfigSection } from "./storage-config";
@@ -74,7 +75,7 @@ interface SettingsViewProps {
 type SectionId =
   | "mode" | "templates" | "appearance" | "localization" | "general" | "notifications"
   | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows"
-  | "commTemplates" | "scheduledJobs";
+  | "commTemplates" | "scheduledJobs" | "diagnostics";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
@@ -91,6 +92,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "nextActions", labelKey: "settingsSectionNextActions" },
   { id: "informationFlows", labelKey: "settingsSectionInformationFlows" },
   { id: "commTemplates", labelKey: "settingsSectionCommTemplates" },
+  { id: "diagnostics", labelKey: "diagnosticsTitle" },
 ];
 
 // Advanced sections revealed only in expert mode.
@@ -100,6 +102,9 @@ const INTEGRATION_IDS: readonly SectionId[] = ["ai", "scheduledJobs", "integrati
 // Storage gets its own divider group between connectivity and information flows.
 const STORAGE_ID: SectionId = "storage";
 const FLOWS_ID: SectionId = "informationFlows";
+// Diagnostics gets its own divider group at the very bottom of the rail,
+// below Information flows — the most technical/system-facing entry.
+const DIAGNOSTICS_ID: SectionId = "diagnostics";
 
 export function SettingsView(props: SettingsViewProps) {
   const { lang, settings, onChange } = props;
@@ -166,6 +171,7 @@ export function SettingsView(props: SettingsViewProps) {
     (r) =>
       r.id !== FLOWS_ID &&
       r.id !== STORAGE_ID &&
+      r.id !== DIAGNOSTICS_ID &&
       r.id !== "commTemplates" &&
       !INTEGRATION_IDS.includes(r.id) &&
       (expert || !EXPERT_IDS.includes(r.id)),
@@ -182,6 +188,7 @@ export function SettingsView(props: SettingsViewProps) {
   })();
   const integrationEntries = RAIL.filter((r) => INTEGRATION_IDS.includes(r.id)).sort(byLabel);
   const flowsEntry = RAIL.find((r) => r.id === FLOWS_ID);
+  const diagnosticsEntry = RAIL.find((r) => r.id === DIAGNOSTICS_ID);
 
   const toggleExpert = (next: boolean) => {
     onChange({ ...settings, expertMode: next });
@@ -245,6 +252,12 @@ export function SettingsView(props: SettingsViewProps) {
           <>
             <hr className="my-1 border-line" />
             {renderRailButton(flowsEntry)}
+          </>
+        )}
+        {diagnosticsEntry && (
+          <>
+            <hr className="my-1 border-line" />
+            {renderRailButton(diagnosticsEntry)}
           </>
         )}
       </nav>
@@ -368,6 +381,7 @@ export function SettingsView(props: SettingsViewProps) {
         {active === "informationFlows" && (
           <InformationFlowsSection lang={lang} />
         )}
+        {active === "diagnostics" && <DiagnosticsSection lang={lang} />}
       </section>
     </div>
 
