@@ -44,6 +44,7 @@ import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
 
 export type RaidEditModalProps = {
   lang: Lang;
@@ -567,42 +568,15 @@ export function RaidEditModal({
 
           {/* Stakeholders ------------------------------------------- */}
           {stakeholdersEnabled && isVisible("linkedStakeholders") && (
-            <div className="sm:col-span-2">
-              <span className="mb-2 block text-sm font-medium text-foreground">
-                {t(lang, "fieldStakeholders")}
-              </span>
-              {stakeholders.length === 0 ? (
-                <span className="text-xs italic text-muted-foreground">—</span>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {stakeholders.map((sh) => (
-                    <label
-                      key={sh.id}
-                      className="inline-flex items-center gap-1.5 rounded border border-line bg-surface px-2 py-1 text-xs text-foreground"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={(draft.stakeholderIds ?? []).includes(sh.id)}
-                        onChange={() => toggleStakeholder(sh.id)}
-                        aria-label={sh.name}
-                        className={`accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
-                      />
-                      <span className="max-w-[200px] truncate">{sh.name}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            <StakeholderChipPicker
+              lang={lang}
+              stakeholders={stakeholders}
+              selectedIds={draft.stakeholderIds ?? []}
+              onToggle={toggleStakeholder}
+            />
           )}
 
-          {error && (
-            <p
-              role="alert"
-              className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15 sm:col-span-2"
-            >
-              {error}
-            </p>
-          )}
+          {error && <ModalFieldError error={error} />}
 
           <div className="flex justify-between gap-2 sm:col-span-2">
             <span className="inline-flex items-center gap-1">

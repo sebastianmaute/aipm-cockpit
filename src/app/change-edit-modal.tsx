@@ -34,6 +34,11 @@ import { useToastContext } from "./toast-context";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import {
+  ModalFieldError,
+  StakeholderChipPicker,
+  ModalEditFooter,
+} from "./edit-modal-chrome";
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -644,73 +649,26 @@ export function ChangeEditModal({
 
           {/* Stakeholders (part of the `links` field group) --------- */}
           {isVisible("links") && stakeholdersEnabled && (
-            <div className="sm:col-span-2">
-              <span className="mb-2 block text-sm font-medium text-foreground">
-                {t(lang, "fieldStakeholders")}
-              </span>
-              {stakeholders.length === 0 ? (
-                <span className="text-xs italic text-muted-foreground">—</span>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {stakeholders.map((sh) => (
-                    <label
-                      key={sh.id}
-                      className="inline-flex items-center gap-1.5 rounded border border-line bg-surface px-2 py-1 text-xs text-foreground"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={(draft.stakeholderIds ?? []).includes(sh.id)}
-                        onChange={() => toggleStakeholder(sh.id)}
-                        aria-label={sh.name}
-                        className={`accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
-                      />
-                      <span className="max-w-[200px] truncate">{sh.name}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            <StakeholderChipPicker
+              lang={lang}
+              stakeholders={stakeholders}
+              selectedIds={draft.stakeholderIds ?? []}
+              onToggle={toggleStakeholder}
+            />
           )}
 
-          {error && (
-            <p
-              role="alert"
-              className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15 sm:col-span-2"
-            >
-              {error}
-            </p>
-          )}
+          {error && <ModalFieldError error={error} />}
 
-          <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm(t(lang, "raidConfirmDelete"))) onDelete();
-                }}
-                disabled={isNew}
-                className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 ${INTERACTIVE}`}
-              >
-                {t(lang, "delete")}
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onCancel}
-                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-              >
-                {t(lang, "cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={saveDisabled}
-                className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                {t(lang, "raidSave")}
-              </button>
-            </div>
-          </footer>
+          <ModalEditFooter
+            lang={lang}
+            onDelete={onDelete}
+            deleteConfirmKey="raidConfirmDelete"
+            deleteLabelKey="delete"
+            deleteDisabled={isNew}
+            onCancel={onCancel}
+            saveDisabled={saveDisabled}
+            saveLabelKey="raidSave"
+          />
         </form>
       </div>
     </Modal>
