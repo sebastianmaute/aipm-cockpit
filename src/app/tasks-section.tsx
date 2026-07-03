@@ -3,17 +3,14 @@ import type React from "react";
 import { useCallback, useMemo, useState } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
-import { aiKeyIfEnabled, type JiraExtraProject } from "./settings-types";
+import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
-import { useToastContext } from "./toast-context";
-import { useAiUsageContext } from "./ai-usage-context";
-import { useInlineAiEdit } from "./use-inline-ai-edit";
-import { InlineAiEditPopover } from "./inline-ai-edit-popover";
+import { useTasksInlineAiEdit } from "./use-tasks-inline-ai-edit";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityKind } from "./activity-log";
 import { BulkEditModal } from "./bulk-edit-modal";
@@ -220,26 +217,16 @@ export function TasksSection({
   const { holidaySet } = useHolidaySet({ holidayCountries: settings.holidayCountries });
   const { flashId, containerRef } = useDeepLinkRowFlash("open-points");
 
-  // Inline "Ask Claude" task edit (SP1): one instance manages the single active
-  // per-row AI edit popover; openFor/aiEditEnabled thread into RowContext so
-  // each row can trigger it.
-  const showToast = useToastContext();
-  const { record } = useAiUsageContext();
-  const inlineEdit = useInlineAiEdit({
+  // Inline "Ask Claude" task edit (SP1) — wired via a dedicated glue hook so this
+  // pane stays lean; it owns the single active-edit popover element.
+  const { onAiEdit, aiEditEnabled, popover: inlineAiEditPopover } = useTasksInlineAiEdit({
     dispatcher,
-    ai: settings.ai,
-    apiKey: aiKeyIfEnabled(settings.ai),
+    settings,
     isPopout: isPopout ?? false,
     lang,
     logActivity,
-    showToast,
-    ws: workspaceCtx,
-    guides: [],
-    recordUsage: (u) => record({ input: u.input_tokens, output: u.output_tokens }),
+    workspaceCtx,
   });
-  // Hoisted locals (not `inlineEdit.member`) so the rowContextValue useMemo dep
-  // array below stays exhaustive-deps clean — an `obj.member` dep is fatal lint.
-  const { openFor: onAiEdit, aiEditEnabled } = inlineEdit;
 
   const hideFinished = settings.hideFinishedTasks ?? false;
   const tasksViewMode = settings.tasksViewMode ?? "table";
@@ -836,19 +823,7 @@ export function TasksSection({
         );
       })()}
 
-      {inlineEdit.activeTask && (
-        <InlineAiEditPopover
-          lang={lang}
-          task={inlineEdit.activeTask}
-          phase={inlineEdit.phase}
-          plan={inlineEdit.plan}
-          clarifyText={inlineEdit.clarifyText}
-          errorText={inlineEdit.errorText}
-          onSubmit={inlineEdit.submit}
-          onApply={inlineEdit.apply}
-          onCancel={inlineEdit.cancel}
-        />
-      )}
+      {inlineAiEditPopover}
     </section>
   );
 }
