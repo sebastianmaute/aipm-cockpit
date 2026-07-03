@@ -2,7 +2,7 @@
 //
 // Pure, i18n-free. Translate model tool-use blocks into a previewable EditPlan
 // for the inline "Ask Claude" task editor. No React, no i18n, no side effects.
-import { type Task } from "../types";
+import { type Task, type Priority, type TaskStatus, PRIORITIES, TASK_STATUSES } from "../types";
 import { type Workspace } from "../workspace";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
@@ -69,7 +69,19 @@ export function describeToolCalls(
         if (!(f in input)) continue;
         const before = str(ctx.task[f]);
         const after = str(input[f]);
-        if (before !== after) plan.updates.push({ field: f, before, after });
+        if (before === after) continue;
+        // Value-level guard: the dispatcher silently ignores an out-of-enum
+        // status/priority (leaves the field unchanged), so don't preview a diff
+        // that Apply won't make — reject it instead.
+        if (f === "status" && !TASK_STATUSES.includes(after as TaskStatus)) {
+          plan.rejected.push({ toolName: name, reason: "bad-input", detail: `status=${after}` });
+          continue;
+        }
+        if (f === "priority" && !PRIORITIES.includes(after as Priority)) {
+          plan.rejected.push({ toolName: name, reason: "bad-input", detail: `priority=${after}` });
+          continue;
+        }
+        plan.updates.push({ field: f, before, after });
       }
       continue;
     }

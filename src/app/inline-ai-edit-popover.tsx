@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type Task } from "./types";
 import { type EditPlan } from "./inline-ai-edit/plan";
@@ -23,7 +23,11 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
   const { lang, task, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
   const [value, setValue] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   usePopoverDismiss(true, ref, onCancel);
+  // Move focus into the dialog on open (aria-modal a11y — the NL input is the
+  // primary control). Not a state update, so no set-state-in-effect concern.
+  useEffect(() => { inputRef.current?.focus(); }, []);
   const busy = phase === "thinking" || phase === "applying";
 
   return (
@@ -44,6 +48,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
         {phase !== "preview" && (
           <form onSubmit={(e) => { e.preventDefault(); if (value.trim() && !busy) onSubmit(value.trim()); }}>
             <input
+              ref={inputRef}
               type="text"
               value={value}
               onChange={(e) => setValue(e.target.value)}

@@ -42,6 +42,15 @@ describe("describeToolCalls", () => {
     expect(plan).toEqual({ updates: [], creates: [], deletes: [], rejected: [] });
   });
 
+  it("rejects an out-of-enum status/priority instead of previewing an undroppable diff", () => {
+    const bad = describeToolCalls([block("update_task", { id: 42, status: "Frobnicate", priority: "Critical" })], { task, ws });
+    expect(bad.updates).toEqual([]);
+    expect(bad.rejected).toEqual([
+      { toolName: "update_task", reason: "bad-input", detail: "status=Frobnicate" },
+      { toolName: "update_task", reason: "bad-input", detail: "priority=Critical" },
+    ]);
+  });
+
   it("ignores startDate/resourceId in update_task (not dispatcher-writable)", () => {
     const plan = describeToolCalls([block("update_task", { id: 42, startDate: "2026-01-01", resourceId: 5 })], { task, ws });
     expect(plan.updates).toEqual([]);

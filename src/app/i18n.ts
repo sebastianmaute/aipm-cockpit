@@ -1720,6 +1720,8 @@ const enUS = {
   inlineAiEditDelete: "Delete {0}: {1}",
   inlineAiEditApply: "Apply",
   inlineAiEditNoChanges: "No changes to apply.",
+  inlineAiEditApplyFailed: "Could not apply the change.",
+  inlineAiEditPartial: "Some changes were applied, but a later step failed.",
   inlineAiEditClarify: "Claude needs more detail:",
   inlineAiEditError: "Couldn’t reach Claude. Try again.",
   inlineAiEditApplied: "Updated “{0}”",

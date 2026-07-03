@@ -1713,6 +1713,8 @@ export const de: Record<TranslationKey, string> = {
   inlineAiEditCreate: "Neu {0}: {1}",
   inlineAiEditDelete: "{0} löschen: {1}",
   inlineAiEditApply: "Anwenden",
+  inlineAiEditApplyFailed: "Änderung konnte nicht angewendet werden.",
+  inlineAiEditPartial: "Einige Änderungen wurden angewendet, aber ein späterer Schritt ist fehlgeschlagen.",
   inlineAiEditNoChanges: "Keine Änderungen anzuwenden.",
   inlineAiEditClarify: "Claude braucht mehr Details:",
   inlineAiEditError: "Claude nicht erreichbar. Bitte erneut versuchen.",

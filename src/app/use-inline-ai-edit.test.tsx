@@ -76,3 +76,50 @@ it("gates: aiEditEnabled false when disabled / popout / jira-synced", () => {
   expect(c.current.aiEditEnabled({ ...task, jiraKey: "OPS-1" } as unknown as Task)).toBe(false);
   expect(c.current.aiEditEnabled(task)).toBe(true);
 });
+
+it("partial apply: a later op fails after the update committed -> partial toast + close, not error", async () => {
+  vi.spyOn(call, "callInlineEdit").mockResolvedValue({
+    blocks: [
+      { type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "Done" } },
+      { type: "tool_use", id: "b2", name: "create_raid_item", input: { category: "Risk", title: "R" } },
+    ],
+    text: "", usage: { input_tokens: 1, output_tokens: 1 },
+  } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+  const runToolSpy = vi.spyOn(tools, "runTool")
+    .mockResolvedValueOnce({ id: 42 })
+    .mockRejectedValueOnce(new Error("bad"));
+  const deps = mkDeps();
+  const { result } = renderHook(() => useInlineAiEdit(deps));
+  act(() => result.current.openFor(task));
+  await act(async () => { await result.current.submit("x"); });
+  await act(async () => { await result.current.apply(); });
+  expect(runToolSpy).toHaveBeenCalledTimes(2);
+  expect(deps.showToast).toHaveBeenCalledWith("error", expect.any(String)); // partial notice
+  expect(deps.logActivity).toHaveBeenCalledWith("ai.inlineEdit", 42, "Fix login bug");
+  expect(result.current.phase).toBe("idle"); // closed, not stranded in error
+});
+
+it("discards a stale response when the active task changed mid-flight", async () => {
+  let resolveCall!: (v: Awaited<ReturnType<typeof call.callInlineEdit>>) => void;
+  vi.spyOn(call, "callInlineEdit").mockImplementation(
+    () => new Promise((r) => { resolveCall = r; }),
+  );
+  const taskB = { id: 43, taskName: "Other", status: "To Do" } as unknown as Task;
+  const wsAB = { tasks: [task, taskB], raid: [], milestones: [], changes: [], stakeholders: [] } as unknown as InlineAiEditDeps["ws"];
+  const { result } = renderHook(() => useInlineAiEdit(mkDeps({ ws: wsAB })));
+  act(() => result.current.openFor(task));
+  let submitPromise!: Promise<void>;
+  act(() => { submitPromise = result.current.submit("mark done"); });
+  act(() => result.current.openFor(taskB)); // switch while A's call is in-flight
+  await act(async () => {
+    resolveCall({
+      blocks: [{ type: "tool_use", id: "b1", name: "update_task", input: { id: 42, status: "Done" } }],
+      text: "", usage: { input_tokens: 1, output_tokens: 1 },
+    } as unknown as Awaited<ReturnType<typeof call.callInlineEdit>>);
+    await submitPromise;
+  });
+  // A's response must NOT land on B: no preview, plan stays null, active task is B.
+  expect(result.current.activeTask?.id).toBe(43);
+  expect(result.current.plan).toBeNull();
+  expect(result.current.phase).not.toBe("preview");
+});

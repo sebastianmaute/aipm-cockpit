@@ -54,8 +54,8 @@ function scopeBlock(task: Task): SystemBlock {
     text:
       "INLINE EDIT MODE. You are editing exactly ONE task (below). Use tool calls to " +
       "make the user's requested change: update_task for this task's fields, and you may " +
-      "create related items (create_raid_item / create_change / create_milestone / " +
-      "create_stakeholder) when asked. Do NOT update or delete any other task. Do NOT " +
+      "create related items (create_task / create_raid_item / create_change / " +
+      "create_milestone / create_stakeholder) when asked. Do NOT update or delete any other task. Do NOT " +
       "chat or explain unless you cannot proceed without more detail. Target task:\n" +
       fields,
   };
