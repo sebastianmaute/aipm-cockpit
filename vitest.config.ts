@@ -93,13 +93,13 @@ export default defineConfig({
         "src/app/next-actions/**": { lines: 97, branches: 90 }, // 100 / 95.81
         "src/app/csv-codecs*.ts": { lines: 95, branches: 84 }, // 97.91 / 86.77
         "src/app/markdown-codecs*.ts": { lines: 96, branches: 90 }, // 98.98 / 93.66
-        // sanitize branch coverage (84.82) is BELOW the >=90 engine target; the
-        // floor is set at the honest measured level and tracked in the debt
-        // register (TD-4: add validator branch tests to reach 90). Not faked.
+        // sanitize branch coverage now clears the >=90 pure-engine target
+        // (TD-4 closed: sanitize-branches.test.ts added the validator reject/
+        // fallback/clamp arms). Floor ratcheted to measured-minus-headroom.
         // NOTE: this glob is ALL sanitize* source (the sanitize-core/entities/
         // records barrel trio PLUS sanitize-html.ts / sanitize-report.ts), not
-        // only the three-file barrel — the 84.82 aggregate is across all of them.
-        "src/app/sanitize*.ts": { lines: 93, branches: 82 }, // 95.46 / 84.82
+        // only the three-file barrel — the aggregate is across all of them.
+        "src/app/sanitize*.ts": { lines: 95, branches: 94 }, // 98.33 / 95.70
       },
     },
   },
