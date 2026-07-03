@@ -2939,6 +2939,7 @@ const enUS = {
   reloadProjectHint: "Re-fetch the current project's data from its storage. Use this to recover if an error left the app without its data.",
   reloadEmptyConfirm: "Reloading would replace this project with empty data (the saved copy has no records). This usually means a failed read. Reload anyway and discard the current content?",
   storageKeptCurrentData: "Storage returned no data, so your current project was kept. Reload the page if this persists.",
+  storageRefusedWipe: "Storage blocked a sudden wipe of your whole project to protect it (likely a glitch). Your saved data is intact — reload the page to restore it.",
   historyRestoreNothing: "Nothing to restore — this version has no differences from the current project (it may be an empty snapshot).",
   projectsSwitch: "Switch project",
   projectsEdit: "Edit project",

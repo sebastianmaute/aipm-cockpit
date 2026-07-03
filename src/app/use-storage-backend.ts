@@ -16,7 +16,7 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
-import { isWorkspaceEmpty } from "./workspace";
+import { isWorkspaceEmpty, nonEmptyCollectionCount } from "./workspace";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -129,6 +129,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextLoadRef = useRef(false);
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
   const reloadInFlightRef = useRef(false);
+  // Non-empty-collection count of the last observed workspace — drives the
+  // Layer-3 persistence guard against a multi-collection simultaneous wipe.
+  const prevCollectionCountRef = useRef(0);
 
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
@@ -234,10 +237,23 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // "AbortError: Aborted due to security policy". Skipping it here removes
     // both problems.
     if (args.isPopout) return;
+    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders } as Workspace;
+    const curCollections = nonEmptyCollectionCount(outgoing);
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
+      prevCollectionCountRef.current = curCollections; // sync baseline on a load/apply
       return;
     }
+    // ★ LAYER 3 DATA-LOSS GUARD (persistence choke point): refuse to AUTO-persist
+    // a MULTI-collection simultaneous wipe over a populated project — the bug
+    // signature (a full applyWorkspace(empty), NOT an incremental single-collection
+    // user delete/clear, which the ≥2 threshold never blocks). The backend keeps
+    // the data; a reload restores it.
+    if (curCollections === 0 && prevCollectionCountRef.current >= 2) {
+      args.showToast("info", t(langRef.current, "storageRefusedWipe"));
+      return; // keep prevCollectionCountRef so a later change re-evaluates
+    }
+    prevCollectionCountRef.current = curCollections;
     // Fire-and-forget save with the effect's full error handling — the .catch
     // routes every rejection to the storage-outcome/toast path, so neither the
     // timer nor the flush-on-hide below can produce an unhandled rejection.

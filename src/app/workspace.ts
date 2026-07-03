@@ -128,6 +128,27 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     && (ws.stakeholders?.length ?? 0) === 0;
 }
 
+/** Number of user collections that hold at least one record. Used by the
+ *  persistence-layer data-loss guard to tell a MULTI-collection simultaneous
+ *  wipe (the applyWorkspace(empty) bug signature) from an incremental single-
+ *  collection user delete/clear. */
+export function nonEmptyCollectionCount(ws: Workspace): number {
+  let n = 0;
+  if (ws.tasks?.length) n++;
+  if (ws.raid?.length) n++;
+  if (ws.absences?.length) n++;
+  if (ws.shifts?.length) n++;
+  if (ws.resources?.length) n++;
+  if (ws.roles?.length) n++;
+  if (ws.disciplines?.length) n++;
+  if (ws.grades?.length) n++;
+  if (ws.budgets?.length) n++;
+  if (ws.milestones?.length) n++;
+  if (ws.changes?.length) n++;
+  if (ws.stakeholders?.length) n++;
+  return n;
+}
+
 /** A blank workspace with a default plan anchored to today. */
 export function emptyWorkspace(): Workspace {
   return {

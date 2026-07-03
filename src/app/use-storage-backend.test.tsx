@@ -1429,3 +1429,30 @@ describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
     expect(result.current.tasks).toHaveLength(1);
   });
 });
+
+describe("useStorageBackend — Layer 3 wipe guard (persistence choke point)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("refuses to persist a MULTI-collection simultaneous wipe (bug signature)", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], changes: [{ id: 5 }] as unknown as never[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount: 2 collections → prev=2
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    await act(async () => { result.current.setTasks([]); result.current.setChanges([]); }); // wipe both at once
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+
+  it("ALLOWS a single-collection clear (not the wipe signature)", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount: 1 collection → prev=1
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    await act(async () => { result.current.setTasks([]); }); // clear the only collection
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+});
