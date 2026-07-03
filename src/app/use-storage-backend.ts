@@ -16,6 +16,8 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
+import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace";
+import { recordDataLossEvent } from "./dataloss-forensics";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -128,6 +130,20 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextLoadRef = useRef(false);
   // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
   const reloadInFlightRef = useRef(false);
+  // Non-empty-collection count of the last observed workspace — drives the
+  // Layer-3 persistence guard against a multi-collection simultaneous wipe.
+  const prevCollectionCountRef = useRef(0);
+  // Total record count of the last observed workspace — drives the Layer-B
+  // mass-deletion guard.
+  const prevRecordCountRef = useRef(0);
+  // One-shot bypass for the L3/B guards, set by an explicit user bulk-op
+  // (clear-all / bulk delete) via allowDestructiveSave() and consumed by the
+  // next save.
+  const allowDestructiveRef = useRef(false);
+  /** Arm a one-shot bypass so the NEXT save may destroy data (a confirmed
+   *  clear-all / bulk delete). Without this an unexplained mass deletion is
+   *  refused by the persistence guard. */
+  const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
 
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
@@ -179,6 +195,19 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       try {
         const workspace = await backend.load();
         if (cancelled) return;
+        // ★ DATA-LOSS GUARD (mirrors reloadCurrentProject): never replace a
+        // POPULATED in-memory workspace with an EMPTY load. A load returning
+        // empty over non-empty state is a transient/edge read (Layer 1 already
+        // throws on a malformed/partial read) — applying it wipes the project and
+        // autosave then persists the empty. On initial mount the current
+        // workspace is empty, so a normal first load is never blocked.
+        if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+          recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
+          args.showToast("info", t(langRef.current, "storageKeptCurrentData"));
+          await refreshBackendStatus();
+          args.onStorageOutcome?.(null);
+          return;
+        }
         applyWorkspace(workspace);
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
@@ -221,10 +250,36 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // "AbortError: Aborted due to security policy". Skipping it here removes
     // both problems.
     if (args.isPopout) return;
+    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders } as Workspace;
+    const curCollections = nonEmptyCollectionCount(outgoing);
+    const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
+      prevCollectionCountRef.current = curCollections; // sync baselines on a load/apply
+      prevRecordCountRef.current = curRecords;
       return;
     }
+    // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends):
+    //   L3 — a full wipe of a >=2-collection project (protects small projects).
+    //   B  — an unexplained MASS deletion: >=5 records removed leaving <=10% of the
+    //        prior total (protects big projects; catches partial-but-catastrophic
+    //        loss L3 misses). An explicit user bulk-op (clear-all / bulk delete)
+    //        sets allowDestructiveRef one-shot to bypass. On refusal the backend
+    //        keeps the data; a reload restores it.
+    const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
+    const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
+    if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
+      recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: curCollections, refused: true });
+      args.showToast("info", t(langRef.current, "storageRefusedWipe"));
+      return; // keep baselines so a later change re-evaluates
+    }
+    if (curCollections === 0 && prevCollectionCountRef.current === 1) {
+      // A single-collection full-empty L3 lets through — leave a forensic trail.
+      recordDataLossEvent({ path: "save-effect", prevCollections: 1, nextCollections: 0, refused: false });
+    }
+    allowDestructiveRef.current = false; // consume the one-shot bypass
+    prevCollectionCountRef.current = curCollections;
+    prevRecordCountRef.current = curRecords;
     // Fire-and-forget save with the effect's full error handling — the .catch
     // routes every rejection to the storage-outcome/toast path, so neither the
     // timer nor the flush-on-hide below can produce an unhandled rejection.
@@ -542,6 +597,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     reloadInFlightRef.current = true;
     try {
       const workspace = await backend.load();
+      // ★ DATA-LOSS GUARD: a reload that would EMPTY a populated project is
+      // almost always a transient/failed backend read, not intent — applying it
+      // wipes the in-memory workspace and autosave then persists the empty (a
+      // real loss we hit). Only replace a NON-empty project with an empty load
+      // after an explicit confirm; default is to keep the current data untouched.
+      if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+        const confirmed =
+          typeof window !== "undefined" &&
+          window.confirm(t(langRef.current, "reloadEmptyConfirm"));
+        recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: !confirmed });
+        if (!confirmed) {
+          args.onStorageOutcome?.(null);
+          return;
+        }
+      }
       applyWorkspace(workspace);
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
@@ -561,6 +631,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     onOpenStorageFile,
     onRequestStorageSwitch,
     reloadCurrentProject,
+    allowDestructiveSave,
     switchToProject,
     createProject,
     createDemoProject,

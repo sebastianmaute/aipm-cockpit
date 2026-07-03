@@ -381,7 +381,7 @@ function TaskManagerInner() {
 
   const {
     storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
-    onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject,
+    onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
@@ -1188,6 +1188,7 @@ function TaskManagerInner() {
     onCancelEdit: handleCancelEdit,
     logActivity,
     showToast,
+    allowDestructiveSave,
   });
   // Sync deselectIdRef so onDelete (defined above) can call it without
   // depending on useBulkOperations being declared first. Written in an effect

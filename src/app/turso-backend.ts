@@ -59,6 +59,35 @@ function firstRowText(results: PipelineResultLike[], i: number): string | null {
   return cell && typeof cell.value === "string" ? cell.value : null;
 }
 
+/** Reduce the relational SELECT results of a load pipeline to "is the project
+ *  empty?" — but ONLY when EVERY result is a well-formed success. A malformed or
+ *  absent result means a PARTIAL/FAILED read; treating it as "0 rows" (the old
+ *  `?? 0`) masks a failure as an empty project and lets the caller wipe good
+ *  data — the version-history data-loss we hit. THROW on a malformed result so
+ *  the load surfaces the error (banner) instead of returning an empty workspace.
+ *  A genuinely-empty project (well-formed results, all 0 rows) still returns true. */
+export function relationalReadIsEmpty(
+  relational: readonly PipelineResultLike[],
+  expected?: number,
+): boolean {
+  // A TRUNCATED pipeline (fewer results than SELECT statements) would otherwise
+  // slip through the per-entry check and `.every([...])` as "empty" — the same
+  // masked-partial-read hole. Require the full expected count.
+  if (expected !== undefined && relational.length !== expected) {
+    throw new Error(
+      `Turso load returned ${relational.length} results, expected ${expected} — refusing to treat a truncated read as empty.`,
+    );
+  }
+  for (const r of relational) {
+    if (!Array.isArray(r?.response?.result?.rows)) {
+      throw new Error(
+        "Turso load returned a malformed/partial result — refusing to treat it as an empty project.",
+      );
+    }
+  }
+  return relational.every((r) => (r.response?.result?.rows ?? []).length === 0);
+}
+
 export class TursoBackend implements StorageBackend {
   readonly kind = "turso" as const;
 
@@ -224,7 +253,7 @@ export class TursoBackend implements StorageBackend {
     const selectCount = TABLE_NAMES.length;
     const relational = results.slice(ddlCount, ddlCount + selectCount);
     const blobResult = results[ddlCount + selectCount];
-    const isEmpty = relational.every((r) => (r?.response?.result?.rows?.length ?? 0) === 0);
+    const isEmpty = relationalReadIsEmpty(relational, selectCount);
     if (isEmpty) {
       const blob = firstRowText([blobResult], 0);
       if (typeof blob === "string" && blob.length > 0) return jsonToWorkspace(blob);
@@ -249,7 +278,7 @@ export class TursoBackend implements StorageBackend {
     const results = await runTursoPipeline(this.config, stmts, LOAD_TIMEOUT_MS);
     const relational = results.slice(ddl.length, ddl.length + TABLE_NAMES.length);
     const projectsResult = results[ddl.length + TABLE_NAMES.length];
-    const isEmpty = relational.every((r) => (r?.response?.result?.rows?.length ?? 0) === 0);
+    const isEmpty = relationalReadIsEmpty(relational, TABLE_NAMES.length);
     const ws = isEmpty ? emptyWorkspace() : rowsToWorkspace(relational);
     const meta = rowsToProjectList(projectsResult)[0]?.meta;
     return meta ? { ...ws, project: meta } : ws;

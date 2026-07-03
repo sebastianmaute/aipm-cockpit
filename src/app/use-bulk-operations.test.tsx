@@ -203,6 +203,18 @@ describe("useBulkOperations", () => {
       expect(result.current.bulk.selectedIds.size).toBe(0);
     });
 
+    it("arms allowDestructiveSave when clearing, but NOT when tasks is empty (no strand)", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderBulk({ allowDestructiveSave });
+      // empty → early-return before arming → not armed (no stranded one-shot)
+      act(() => { result.current.bulk.handleClearAll(); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // with tasks → armed (covers the button AND voice paths, which both call handleClearAll)
+      act(() => { result.current.workspace.setTasks([seedOne()]); });
+      act(() => { result.current.bulk.handleClearAll(); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
     it("voice 'clearAll' command clears only when window.confirm returns true", () => {
       const { result } = renderBulk();
       act(() => { result.current.workspace.setTasks([seedOne()]); });

@@ -13,6 +13,7 @@ import type { ProjectVersionMeta } from "./version-history";
 import type { VersionChange } from "./version-diff";
 import { VersionDiffView } from "./version-diff-view";
 import { changeKey, type RestoreSelection } from "./version-restore";
+import { useToastContext } from "./toast-context";
 import { EmptyState } from "./empty-state";
 import { PrintButton } from "./task-manager-ui";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
@@ -28,6 +29,7 @@ interface HistoryPanelProps {
 
 export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, restore }: HistoryPanelProps) {
   const { displayTz } = useDisplayTimezone();
+  const showToast = useToastContext();
   const [diff, setDiff] = useState<VersionChange[] | null>(null);
   const [comparing, setComparing] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -108,7 +110,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   // selective-restore machinery (no separate full-restore path needed).
   const restoreWholeVersion = async (v: ProjectVersionMeta) => {
     const changes = await loadDiff(v.id, "now");
-    if (changes.length === 0) return; // already identical to current
+    if (changes.length === 0) {
+      // Empty diff = this version is EMPTY or identical to the current state.
+      // Previously a SILENT no-op ("nothing happened") — now tell the user so a
+      // dead/empty snapshot isn't a mystery.
+      showToast("info", t(lang, "historyRestoreNothing"));
+      return;
+    }
     const sel: RestoreSelection = {};
     for (const c of changes) sel[changeKey(c.collection, c.recordId)] = "all";
     await restore(v.id, sel, labelOf(v));

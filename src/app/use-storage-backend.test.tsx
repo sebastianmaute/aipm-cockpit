@@ -1390,3 +1390,97 @@ describe("useStorageBackend — Turso portfolio flows", () => {
     }
   });
 });
+
+describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("does NOT wipe a populated project when the backend load returns empty and the user declines", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount load applies the 1 task
+    expect(result.current.tasks).toHaveLength(1);
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(result.current.tasks).toHaveLength(1); // content preserved — empty load NOT applied
+  });
+
+  it("applies the empty load when the user confirms", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Bye" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.load.mockResolvedValueOnce({ tasks: [], raid: [], absences: [], shifts: [] });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(result.current.tasks).toHaveLength(0);
+  });
+
+  it("reloads without a confirm when the current workspace is already empty (recovery case)", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount empty (default)
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 9, taskName: "Recovered" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(result.current.tasks).toHaveLength(1);
+  });
+});
+
+describe("useStorageBackend — Layer 3 wipe guard (persistence choke point)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("refuses to persist a MULTI-collection simultaneous wipe (bug signature)", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], changes: [{ id: 5 }] as unknown as never[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount: 2 collections → prev=2
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    await act(async () => { result.current.setTasks([]); result.current.setChanges([]); }); // wipe both at once
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+
+  it("ALLOWS a single-collection clear (not the wipe signature)", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "T" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount: 1 collection → prev=1
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    await act(async () => { result.current.setTasks([]); }); // clear the only collection
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+});
+
+describe("useStorageBackend — Layer B mass-deletion guard", () => {
+  const many = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, taskName: "T" })) as unknown as Task[];
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("refuses an unexplained mass deletion (big project → near-empty in one save)", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: many, raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // prev: 20 records
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); }); // remove 19
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+
+  it("allowDestructiveSave() bypasses the guard for a confirmed bulk delete", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: many, raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+    await act(async () => { result.current.allowDestructiveSave(); result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    expect(showToast).not.toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+});
