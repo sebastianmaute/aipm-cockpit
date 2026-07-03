@@ -88,3 +88,17 @@ The strongest surface — this is where the server makes outbound calls on the u
 ## Findings
 
 Detailed severity-tagged findings (proxy review, secrets review, URL-sink review, SAST, DAST) live in `docs/security/findings-2026-07.md`. Headline going in: **no CRITICAL or HIGH identified in the manual pass**; residual items are LOW and deployment-topology dependent (in-memory rate-limit store; loopback-plaintext Turso for self-host).
+
+---
+
+## Review cadence (Phase 4)
+
+Re-run the STRIDE pass on **every new trust boundary**, not on a fixed calendar:
+- A new external host in the CSP allowlist (`src/proxy.ts` `connect-src`/`frame-src`).
+- A new `SecretId` (the six-edit lockstep in `secrets.ts` / `writeSettings` / `readStore`).
+- A new `/api/*` proxy route (SSRF guard chain — reuse `api/_shared/proxy-ssrf.ts`; see AGENTS.md).
+
+Owner: security-lead. Enforced in MR review via the CSP/SecretId lockstep lists in
+AGENTS.md (a reviewer checks the new boundary was STRIDE-assessed before merge). The
+shared SSRF classifier (`proxy-ssrf.ts`) means the IP/allowlist guard is reviewed once
+and reused — only each route's normalize/auth/URL is new-boundary surface.
