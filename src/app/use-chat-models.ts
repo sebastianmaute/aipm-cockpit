@@ -11,9 +11,15 @@ import {
 } from "./chat-models";
 
 /** Live model list for the picker. Fetches Anthropic /v1/models browser-direct
- *  when AI is enabled and the key is well-formed; on any failure returns the
- *  registry options. Never logs the key or response body. */
-export function useChatModels(apiKey: string, enabled: boolean, currentId: string): ModelOption[] {
+ *  when AI is enabled and the key is well-formed. Until a poll SUCCEEDS the
+ *  option list is NOT pre-filled from the offline registry — it holds only the
+ *  current selection, and `loaded` is false (callers show a "enter a valid key"
+ *  hint). Never logs the key or response body. */
+export function useChatModels(
+  apiKey: string,
+  enabled: boolean,
+  currentId: string,
+): { options: ModelOption[]; loaded: boolean } {
   // Carry the source key alongside the models so a valid A->B key switch can't
   // momentarily surface A's models while B's request is in flight.
   const [liveState, setLiveState] = useState<{ key: string; models: readonly LiveModel[] }>({
@@ -61,7 +67,13 @@ export function useChatModels(apiKey: string, enabled: boolean, currentId: strin
   // memo so the dep is the stable `liveState` object, not a fresh array each
   // render.)
   return useMemo(() => {
-    const live = shouldFetch && liveState.key === key ? liveState.models : [];
-    return buildModelOptions(CHAT_MODELS, live, currentId);
+    const polled = shouldFetch && liveState.key === key && liveState.models.length > 0;
+    const live = polled ? liveState.models : [];
+    // registryAsBase:false — no offline pre-fill; the dropdown stays empty (bar
+    // the current selection) until a live /v1/models poll returns models.
+    return {
+      options: buildModelOptions(CHAT_MODELS, live, currentId, { registryAsBase: false }),
+      loaded: polled,
+    };
   }, [shouldFetch, liveState, key, currentId]);
 }

@@ -23,6 +23,7 @@
 import { useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
 import { BackendSetupWizard } from "./backend-setup-wizard";
+import { AiSection } from "./settings-sections/ai-section";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
@@ -96,6 +97,7 @@ export function ProjectEmptyState({
   const [view, setView] = useState<View>("choices");
   const [configOpen, setConfigOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [aiConfigOpen, setAiConfigOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
 
@@ -245,6 +247,13 @@ export function ProjectEmptyState({
                   >
                     {t(lang, "setupWizardRun")}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiConfigOpen(true)}
+                    className={SECONDARY_BUTTON_CLASS}
+                  >
+                    {t(lang, "emptyStateConfigAi")}
+                  </button>
                 </div>
               </div>
             </div>
@@ -272,7 +281,20 @@ export function ProjectEmptyState({
           settings={settings}
           onChangeSettings={onChangeSettings}
           onClose={() => setConfigOpen(false)}
+          hidePortfolioSwitch
         />
+      )}
+
+      {aiConfigOpen && (
+        <BackendConfigModal
+          lang={lang}
+          title={t(lang, "emptyStateConfigAi")}
+          settings={settings}
+          onChangeSettings={onChangeSettings}
+          onClose={() => setAiConfigOpen(false)}
+        >
+          <AiSection lang={lang} settings={settings} onChange={onChangeSettings} hideUsage />
+        </BackendConfigModal>
       )}
 
       {wizardOpen && (

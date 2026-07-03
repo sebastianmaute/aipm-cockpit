@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import type { SettingsSectionId } from "./dashboard-coaching";
 import { getBucketReminders } from "./budget-report";
+import { PanelSkeleton } from "./skeleton";
 import { t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
 import { useActivityLog } from "./use-activity-log";
@@ -380,7 +381,7 @@ function TaskManagerInner() {
 
   const {
     storageDescription, storageReady, onPickStorageFile, onGrantWriteAccess,
-    onOpenStorageFile, onRequestStorageSwitch,
+    onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
@@ -1825,6 +1826,7 @@ function TaskManagerInner() {
       onOpenStorageFile={onOpenStorageFile}
       onGrantStorageWrite={onGrantWriteAccess}
       onRequestStorageSwitch={onRequestStorageSwitch}
+      onReloadProject={isPopout ? undefined : () => { void reloadCurrentProject(); }}
       onMigrateToTurso={() => { void migrateCurrentProjectToTurso(); }}
       commTemplatesEnabled={commTemplatesActive}
       commTemplates={commTemplates}
@@ -1889,6 +1891,7 @@ function TaskManagerInner() {
         onSwitch: handleSwitchProjectByMode,
         onLoadFromFile: () => { void loadProjectFromFile(); },
         onNew: handleNewProject,
+        onReload: () => { void reloadCurrentProject(); },
         dataTourId: TOUR_ANCHORS.projectSwitcher,
       };
 
@@ -2194,6 +2197,18 @@ function TaskManagerInner() {
     isPassphraseLocked("tursoAuthToken") &&
     !(settings.integrations?.turso?.authToken ?? "").trim();
 
+  // Turso-mode load gate: the project list is fetched async after hydrate, and
+  // `showEmptyState` can only decide once it lands. Cover that window with a
+  // loading placeholder — otherwise the main app renders over an empty in-memory
+  // workspace and then bounces to the empty-state when an empty list resolves
+  // (the "full app flash before the new-project screen" bug on portfolio switch).
+  // ★ Gate on `!storageError`: if the list fetch FAILS (unreachable DB / bad
+  // token), `tursoListLoaded` never flips, so without this the skeleton would
+  // render forever with no banner/nav. Falling through to the app tree on an
+  // error restores the storage-error banner + Settings recovery path.
+  const showTursoListLoading =
+    hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !storageError;
+
   return (
     <ActivityLogProvider value={logActivity}>
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
@@ -2233,6 +2248,8 @@ function TaskManagerInner() {
                 onRestore={handleRestoreFromEmptyState}
                 onDeleteArchived={handleHardDeleteTursoProject}
               />
+            ) : showTursoListLoading ? (
+              <PanelSkeleton lang={lang} />
             ) : settings.layout === "classic" ? (
               legacyTree
             ) : (

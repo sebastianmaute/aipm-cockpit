@@ -126,6 +126,8 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   const suppressNextSaveRef = useRef(false);
   // Suppresses the load effect that fires after onRequestStorageSwitch sets new config
   const suppressNextLoadRef = useRef(false);
+  // Guards reloadCurrentProject against re-entrant clicks (redundant round-trips)
+  const reloadInFlightRef = useRef(false);
 
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
@@ -530,6 +532,27 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     suppressNextSaveRef,
   });
 
+  // Re-load the CURRENT project's workspace from its backend, discarding the
+  // in-memory state. Recovery affordance for when an error (or a partial load)
+  // leaves the app unpopulated — unlike switchToProject, which early-returns on
+  // the same id, this always re-fetches. Mirrors the load effect's apply path
+  // (suppress the save-back the apply would otherwise trigger).
+  const reloadCurrentProject = async (): Promise<void> => {
+    if (reloadInFlightRef.current) return; // ignore a re-entrant click while loading
+    reloadInFlightRef.current = true;
+    try {
+      const workspace = await backend.load();
+      applyWorkspace(workspace);
+      suppressNextSaveRef.current = true;
+      await refreshBackendStatus();
+      args.onStorageOutcome?.(null);
+    } catch (err) {
+      args.onStorageOutcome?.(err);
+    } finally {
+      reloadInFlightRef.current = false;
+    }
+  };
+
   return {
     storageDescription,
     storageReady,
@@ -537,6 +560,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     onGrantWriteAccess,
     onOpenStorageFile,
     onRequestStorageSwitch,
+    reloadCurrentProject,
     switchToProject,
     createProject,
     createDemoProject,

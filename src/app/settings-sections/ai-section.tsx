@@ -239,7 +239,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
 export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
   const showToast = useToastContext();
-  const modelOptions = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
+  const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
   const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = settings.ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
 
@@ -488,6 +488,11 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
             </option>
           ))}
         </select>
+        {!modelsLoaded && (
+          <span className="mt-1 block text-xs text-muted-foreground">
+            {t(lang, "aiModelNeedsKey")}
+          </span>
+        )}
       </label>
       <p className="mt-2 text-xs text-muted-foreground">
         {t(lang, "aiApiKeyHint")}

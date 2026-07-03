@@ -1704,6 +1704,7 @@ export const de: Record<TranslationKey, string> = {
   aiApiKeyTooltip: "Ihr Anthropic-API-Schlüssel. Wird nur lokal in diesem Browser gespeichert.",
   aiKeyInvalid: "Das sieht nicht wie ein gültiger Anthropic-API-Schlüssel aus (sk-ant-…). Er wurde nicht gespeichert.",
   aiModelTooltip: "Welches Claude-Modell der Assistent verwendet.",
+  aiModelNeedsKey: "Geben Sie einen gültigen Anthropic-API-Schlüssel ein, um verfügbare Modelle zu laden.",
   integrationsTooltip: "Externe Dienste wie Microsoft 365 und Turso verbinden.",
   integrationsM365Tooltip: "Mit Microsoft 365 anmelden, um SharePoint-Speicher und Outlook-Import zu nutzen.",
   integrationsM365ClientIdTooltip: "Die Anwendungs-(Client-)ID Ihrer Azure-App-Registrierung.",
@@ -2899,6 +2900,8 @@ export const de: Record<TranslationKey, string> = {
   // Management view / empty-state / switcher
   projectsTitle: "Projekte",
   projectsNew: "Neues Projekt",
+  reloadProject: "Projekt neu laden",
+  reloadProjectHint: "Ruft die Daten des aktuellen Projekts erneut aus dem Speicher ab. Damit können Sie den Zustand wiederherstellen, falls ein Fehler die App ohne ihre Daten zurückgelassen hat.",
   projectsSwitch: "Projekt wechseln",
   projectsEdit: "Projekt bearbeiten",
   projectsExport: "Projekt exportieren",

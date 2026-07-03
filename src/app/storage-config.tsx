@@ -25,6 +25,9 @@ type Props = {
   m365Enabled: boolean;
   sharepointEnabled: boolean;
   tursoEnabled: boolean;
+  /** Reload the current project's data from its backend (recovery affordance).
+   *  Omitted in popouts, where reloading isn't meaningful. */
+  onReloadProject?: () => void;
 };
 
 const STORAGE_OPTIONS: Array<{
@@ -54,6 +57,7 @@ export function StorageConfigSection({
   m365Enabled,
   sharepointEnabled,
   tursoEnabled,
+  onReloadProject,
 }: Props) {
   const [picking, setPicking] = useState<"save" | "open" | "grant" | null>(
     null,
@@ -302,6 +306,19 @@ export function StorageConfigSection({
       )}
       {isTurso && tursoEnabled && ready && description && (
         <p className="mt-2 text-xs text-muted-foreground">✓ {description}</p>
+      )}
+
+      {onReloadProject && (
+        <div className="mt-3 border-t border-line pt-3">
+          <button
+            type="button"
+            onClick={onReloadProject}
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+          >
+            {t(lang, "reloadProject")}
+          </button>
+          <p className="mt-1 text-xs text-muted-foreground">{t(lang, "reloadProjectHint")}</p>
+        </div>
       )}
     </div>
   );
