@@ -180,6 +180,18 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       try {
         const workspace = await backend.load();
         if (cancelled) return;
+        // ★ DATA-LOSS GUARD (mirrors reloadCurrentProject): never replace a
+        // POPULATED in-memory workspace with an EMPTY load. A load returning
+        // empty over non-empty state is a transient/edge read (Layer 1 already
+        // throws on a malformed/partial read) — applying it wipes the project and
+        // autosave then persists the empty. On initial mount the current
+        // workspace is empty, so a normal first load is never blocked.
+        if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
+          args.showToast("info", t(langRef.current, "storageKeptCurrentData"));
+          await refreshBackendStatus();
+          args.onStorageOutcome?.(null);
+          return;
+        }
         applyWorkspace(workspace);
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
