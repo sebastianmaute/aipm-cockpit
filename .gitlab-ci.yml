@@ -52,21 +52,36 @@ typecheck:
   script:
     - npx tsc --noEmit
 
-# SAST — warn-only for the first 2 weeks (allow_failure), then Phase 4 flips it
-# to blocking. Runs in Semgrep's own image, needs no node_modules → needs: [].
-# Emits GitLab-native SAST format so findings populate the MR security widget +
-# pipeline "Security" tab + Vulnerability Report (those UI surfaces require the
-# GitLab Ultimate tier; on lower tiers the report is still downloadable as an
-# artifact and the job log prints the findings table). Native SAST jobs succeed
-# and report via the widget rather than failing — so no --error here.
+# SAST — BLOCKING as of Phase 4 (was warn-only allow_failure in Phase 1). Runs in
+# Semgrep's own image, needs no node_modules → needs: []. TWO scans, on purpose:
+#   1. FULL-severity scan → gl-sast-report.json. Exits 0 (native SAST, no --error)
+#      so it never blocks by itself; its job is VISIBILITY — ALL findings (error/
+#      warning/info) populate the MR security widget + pipeline "Security" tab +
+#      Vulnerability Report (those UI surfaces need GitLab Ultimate; on lower tiers
+#      the report is a downloadable artifact + the job log prints the table). This
+#      preserves the Phase-1 all-severity reporting.
+#   2. GATE scan, ERROR-severity only, `--error` → the job FAILS on high-severity
+#      findings. `--severity ERROR` scopes ONLY the gate; because it is a SEPARATE
+#      scan, it does NOT narrow the report above (warning/info stay visible via
+#      scan 1). Blocking on ERROR only (not all severities) avoids failing the
+#      pipeline on the large volume of WARNING-level owasp/react/ts rules.
+# Emergency bypass: MR label "quality-gate-bypass" + mandatory follow-up ticket
+# (enable the rules block below to activate the label mechanism).
+#   rules:
+#     - if: $CI_MERGE_REQUEST_LABELS =~ /quality-gate-bypass/
+#       allow_failure: true
+#     - when: on_success
 semgrep:
   stage: quality
   needs: []
   image: semgrep/semgrep:latest
-  allow_failure: true
   script:
+    # 1. Full-severity report (all findings → widget; non-gating).
     - semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten
         --gitlab-sast --output gl-sast-report.json .
+    # 2. Gate: fail only on ERROR-severity findings.
+    - semgrep scan --config p/typescript --config p/react --config p/owasp-top-ten
+        --severity ERROR --error .
   artifacts:
     when: always
     reports:
@@ -107,16 +122,32 @@ unit-tests:
     paths: [coverage/]
     expire_in: 1 week
 
-# File-size ratchet — warn-only for now (allow_failure); Phase 4 flips to blocking.
-# Freezes the 3 oversized files at their current size and blocks new oversized
-# files. Regenerate the baseline with `node scripts/check-file-sizes.mjs --update`
-# when a decomposition legitimately lowers a file below the limit.
+# File-size ratchet — BLOCKING as of Phase 4 (was warn-only allow_failure).
+# Freezes the oversized files at their current size and blocks new oversized
+# files (>800 lines, i18n dictionaries exempt). Regenerate the baseline with
+# `node scripts/check-file-sizes.mjs --update` when a decomposition legitimately
+# lowers a file below the limit.
+# Emergency bypass: MR label "quality-gate-bypass" + mandatory follow-up ticket.
+#   rules:
+#     - if: $CI_MERGE_REQUEST_LABELS =~ /quality-gate-bypass/
+#       allow_failure: true
+#     - when: on_success
 file-size-ratchet:
   stage: quality
   needs: []
-  allow_failure: true
   script:
     - npm run size:check
+
+# Duplication gate — BLOCKING as of Phase 4 (ratchet, not absolute). jscpd exits
+# non-zero if any format's duplication % exceeds the `--threshold` set in the
+# `dup:check` script (Phase-3 exit level 2.83% / tsx 3.22% + headroom = 3.7).
+# Ratchet the threshold DOWN in package.json as duplication falls; never raise it
+# to make a PR pass. Emergency bypass: MR label "quality-gate-bypass" + follow-up.
+duplication-gate:
+  stage: quality
+  needs: [install]
+  script:
+    - npm run dup:check
 
 build:
   stage: build

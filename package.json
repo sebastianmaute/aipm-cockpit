@@ -20,7 +20,7 @@
     "e2e:install": "playwright install --with-deps chromium",
     "docs:scripts": "node scripts/sync-script-docs.mjs",
     "docs:scripts:check": "node scripts/sync-script-docs.mjs --check",
-    "dup:check": "jscpd src --min-tokens 50 --ignore \"**/*.test.*,**/*.property.test.*,**/__fixtures__/**,**/i18n*.ts\" --reporters console",
+    "dup:check": "jscpd src --min-tokens 50 --ignore \"**/*.test.*,**/*.property.test.*,**/__fixtures__/**,**/i18n*.ts\" --reporters console --threshold 3.7",
     "size:check": "node scripts/check-file-sizes.mjs"
   },
   "scriptsDescriptions": {
@@ -43,7 +43,7 @@
     "size:check": "Fail if a src file exceeds 800 lines or grows past its baselined size (ratchet)"
   },
   "dependencies": {
-    "@azure/msal-browser": "^4.30.0",
+    "@azure/msal-browser": "^5.16.0",
     "@tiptap/react": "^3.26.1",
     "@tiptap/starter-kit": "^3.26.1",
     "date-holidays": "^3.28.0",
@@ -66,17 +66,17 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.8",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "fake-indexeddb": "^6.2.5",
     "fast-check": "^4.8.0",
     "jscpd": "^5.0.11",
-    "jsdom": "^25.0.1",
+    "jsdom": "^29.1.1",
     "msw": "^2.14.6",
     "tailwindcss": "^4",
-    "typescript": "^5",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   },
   "allowScripts": {

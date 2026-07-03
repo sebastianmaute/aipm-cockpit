@@ -157,6 +157,41 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
   `workspace-context.tsx` = live workspace state + setters; `types.ts` = all entity shapes + enum
   consts; `sanitize.ts` = single per-entity validators (a BARREL — see "Sanitize module map");
   `i18n.ts`/`i18n.de.ts` = EN/DE strings; `nav-config.ts` = `AppView` list + nav labels.
+- **task-manager decomposition map (Phase 3):** the orchestrator's cross-cutting clusters were
+  extracted into **deps-object hook factories** (see "Extraction conventions") called
+  unconditionally before the single return, plus two render helpers. The wiring lives in:
+  `use-calendar-integrations.ts` (ALL Outlook push/pull/background-auto-sync for milestones +
+  committee + task/raid/change/absence), `use-action-center-handlers.ts` (assign / mark-done /
+  clear-blocker / reschedule / draft / escalate / rebaseline / create-task CTAs), `use-ai-orchestration.ts`
+  (Analyze-with-AI + weight-suggestion context + scheduled-job runner), `shell-chrome.tsx`
+  (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
+  `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ These three hook files are
+  RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
+  same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its
+  handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. The
+  task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
+- **Extraction conventions (Phase 3) — follow these by default for new work:**
+  1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`
+     object of live render-scope values, is named `use*` and called UNCONDITIONALLY before the single
+     return, and returns NON-memoized handlers (they read live scope each render). Pattern origin:
+     `use-storage-file-ops.ts`; Phase-3 instances above. A JSX-only builder with NO hook calls is a plain
+     `build*` fn (e.g. `buildShellChrome`), not a `use*`. ★ Such `.ts` hook files are coverage-gated —
+     add them to `vitest.config.ts` `coverage.exclude` if they are pure UI glue (see the decomposition note).
+  2. **Calendar bag.** A new calendar-capable entity threads ONE `EntityCalendarProps` on the pane
+     contract, never five flat props. `outlookEventId` persists across the six write paths + is guarded by
+     `entity-persistence-registry.test.ts`.
+  3. **Per-entity CRUD hooks.** Entity save/delete handlers live in a dedicated per-entity hook
+     (`useChangeLog` / `useStakeholders` / `useResourcePlanner`), NOT inlined in task-manager. Every save
+     handler is a FUNCTIONAL setter (`setX(prev => …)`) — the bulk-edit "N saves in one tick" landmine.
+     (A generic `makeEntityCrudHandlers` factory was evaluated and deliberately NOT built — the per-entity
+     hooks already encapsulate divergent behavior; a uniform factory adds risk without cohesion.)
+  4. **Shared SSRF core, per-route normalize.** A new external-API proxy REUSES `api/_shared/proxy-ssrf.ts`
+     for the IP-classification + host-allowlist checks and hand-rolls only its route-specific
+     normalize/auth/URL. Do NOT parameterize the divergent guard chains into one `createProxyHelpers`
+     factory (parameterizing divergent security guards is where a config slip silently weakens a guard).
+  5. **Panel split (gantt pattern).** A panel crossing ~700 lines splits into orchestrator + `*-rows` +
+     `*-toolbar` (+ a `*-columns` leaf for shared metadata) BEFORE it crosses the 800-line ratchet — rows
+     and toolbar are PURE presentational (data + handlers as props). Precedent: gantt, reports, raid-panel.
 - `src/app/` is flat, organized by feature. Pure domain logic lives in i18n-free modules/subdirs
   (e.g. `next-actions/`, serializers); React surfaces import them and translate — keep engines i18n-free.
   ★ Before creating `<name>.ts`, check for existing `<name>.tsx` (and vice versa) — a bare `./<name>`
@@ -561,7 +596,20 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   const`s — keep new lazy panels there) and the props contract `WorkspaceSectionProps` from
   `workspace-section-types.ts`, which it RE-EXPORTS. Static (non-lazy) panels
   (Dashboard/Milestones/SteeringCommittee/ResourceDirectory) stay imported directly. Routes the axe-scanned
-  views, so changes there re-scan them.
+  views, so changes there re-scan them. ★ The two tab-navigation strips (primary tablist + sub-tablist)
+  live in `workspace-section-chrome.tsx` (`WorkspaceTabStrip`, presentational, move-only Phase 3 split);
+  the router file keeps only the tabpanel switch. Routing pinned by `workspace-section.characterization.test.tsx`.
+- **RAID panel module map (gantt pattern):** `raid-panel.tsx` is the orchestrator (state, derivation, edit
+  modal); the toolbar is `raid-panel-toolbar.tsx` (`RaidToolbar`), the table is `raid-panel-rows.tsx`
+  (`RaidTable`), shared column metadata is the leaf `raid-panel-columns.ts` (`RAID_COL_WIDTHS`/`RAID_CONFIG_COLS`).
+  Both presentational pieces are PURE (data + handlers as props). ★ Two brittle source-scan guard tests read
+  the file the markup MOVED to: the add-before-search order test → `raid-panel-toolbar.tsx`; `table-head-sweep`
+  → `raid-panel-rows.tsx` (same precedent as `gantt-chrome`).
+- **Shared calendar toolbar controls:** the two-way Outlook toggle+push+pull toolbar block (duplicated
+  verbatim across the RAID / Change / Absence toolbars — only the entity aria-label differed) is one shared
+  `CalendarSyncControls` (`calendar-sync-controls.tsx`), keyed by an i18n `entityLabelKey`. Renders null
+  unless `m365Configured && !isPopout && onToggleCalendar`. Milestone push/pull stays SEPARATE (manual-only,
+  no enable toggle).
 - **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
   lazy). Uses the STANDARD resizable content-pane shell (`VIEW_PANE_RESIZABLE_CLASS` +
   `useResizable("lop-app:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
@@ -1099,7 +1147,15 @@ changes (`!!decisionDate`) as all-day events on the decision date; `changeToGrap
 logic lives in `task-manager` (manual + silent-auto `useEntityCalendarPush<ChangeItem>`, `useCalendarAutoSync`, the
 `setChangeForCalendar` bridge, `onToggleCalendarChange`) and threads FOUR props through `workspace-section-types` →
 `workspace-section` → the pane (renamed to `calendarEnabled`/`onToggleCalendar`/`onPushCalendar`/`calendarPushBusy` at the
-pane boundary). **Absence (SP4, v0.159+):** the FINAL entity — completes the roadmap. Pushes current+future
+pane boundary). ★★ **Pane-contract consolidation (Phase 3 T8):** on `WorkspaceSectionProps` the six flat
+per-entity calendar props for raid/change/absence are now ONE `EntityCalendarProps` bag each
+(`raidCalendar`/`changeCalendar`/`absenceCalendar` — `{enabled,onToggle,onPush,onPull,pushBusy,pullBusy}`, in
+`workspace-section-types.ts`); task-manager builds the bag, workspace-section spreads it into the pane's
+UNCHANGED flat `calendarEnabled`/… interface. Milestone stays flat (manual-only, no toggle). A new
+calendar-capable entity threads ONE bag, never five flat props. ★ Persistence of every entity's
+`outlookEventId` across CSV+MD (+Turso via the CSV columns) is guarded by `entity-persistence-registry.test.ts`
+(codec-scoped, not sanitizer-scoped) — adding a calendar-synced entity = one new row there.
+**Absence (SP4, v0.159+):** the FINAL entity — completes the roadmap. Pushes current+future
 non-sick absences (`a.type !== "sick" && a.endDate >= today`) as a SINGLE **multi-day** all-day event spanning
 the range: `absenceToGraphEvent` sets `start=startDate`, `end=nextDay(endDate)` (Graph all-day end is EXCLUSIVE —
 the ONLY structural difference from the single-day task/raid/change events). `Absence.outlookEventId` rides the
@@ -1128,7 +1184,7 @@ single `/me/events` + category-filter engine) remains OUT of scope — a separat
 ### Timelog integration
 
 Opt-in timekeeping integration (Settings → Integrations). Key landmines:
-- **Browser → proxy only (CORS):** all reads go through `src/app/api/timelog/route.ts` + `_helpers.ts` (clone of jira `_helpers`: allowlist `*.timelog.com`, private-IP block, reject `:`/`@` in host + `..`/CRLF/`#` in path, `/v1/` path allowlist, Bearer auth, 10s timeout, own `"timelog"` rate-limit scope). CSP needs NO new host — same-origin `/api/*` like Jira.
+- **Browser → proxy only (CORS):** all reads go through `src/app/api/timelog/route.ts` + `_helpers.ts` (allowlist `*.timelog.com`, private-IP block, reject `:`/`@` in host + `..`/CRLF/`#` in path, `/v1/` path allowlist, Bearer auth, 10s timeout, own `"timelog"` rate-limit scope). CSP needs NO new host — same-origin `/api/*` like Jira. ★★ **Shared SSRF core (Phase 3 T11):** the byte-identical `isPrivateHost` + `mappedIpv4ToDotted` classifier + `isAllowedHostSuffix(host, apex)` live ONCE in `src/app/api/_shared/proxy-ssrf.ts`, imported by BOTH jira and timelog `_helpers.ts` (was duplicated verbatim). Provider-specific normalize/auth/URL stays per-route (jira full-URL + Basic, timelog host+tenant + Bearer) — DON'T parameterize the divergent guards into one factory. Directly pinned by `proxy-ssrf.test.ts` (the allowlist short-circuits before `isPrivateHost` in the integration paths, so unit-test it directly). Adding a new proxy = reuse `proxy-ssrf` for the IP/allowlist checks; hand-roll the route-specific normalize.
 - **TAF envelope:** Timelog Web API v1 wraps responses as `{Entities:[{Properties}]}` (lists) or `{Properties}` (single) — `unwrapTaf` in `timelog-api.ts` normalises both. Time reads are self-scoped (token owner); org-wide needs the `approval/timesheets/...with-rejected-time-tracking-items?employeeUserId` endpoint, gated by `RegistrationAllTasks` privilege probe (`scopeMode` auto/self/org).
 - **Secret:** `timelogApiToken` is the 4th `SecretId` (device-sealed only; the 6-edit lockstep applies — `SecretId` union, `isSealedSecret` allowlist, `readStore` allowlist loop, `migratePlaintextSecrets`, `writeSettings` blank, `hydrateSecretsInto`, + `saveSecretValue` seal-on-edit in `timelog-settings.tsx`). `settings.timelog` is TOP-LEVEL (mirrors `settings.jira`, NOT under `integrations`).
 - **`Workspace.timelogLinks`** persists as a JSON meta-blob (same pattern as `steeringCommittee`): 6 write paths (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB). NOT a `TABLE_NAMES` entry, NOT a column; excluded from exports; absent workspace stays byte-stable.

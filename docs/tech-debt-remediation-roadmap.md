@@ -253,3 +253,11 @@ Watch-list files get the same treatment only where they exceed 800: `workspace-s
 | A5 | 2 engineers ~70% allocated; 16-week envelope scales linearly with capacity | Confirm with owner before committing dates |
 | A6 | Dead-code volume unknown | Phase 1 task 10 |
 | A7 | Forked Next.js upgrade path unknown — treated as pinned/out-of-scope | Owner decision required |
+
+---
+
+## Status
+
+Phases 1–4 completed 2026-07-03. Residual/deferred items now live in the living
+[tech-debt-register.md](tech-debt-register.md) (owners + quarterly review). The
+Phase-1 scratchpad `tech-debt-register-inputs.md` was migrated into it and removed.

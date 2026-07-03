@@ -79,10 +79,27 @@ export default defineConfig({
       // which are excluded from the % gate — line 48 — so they raise the floor
       // only transitively).
       thresholds: {
-        lines: 91,
-        functions: 90,
-        branches: 79,
-        statements: 88,
+        // Global floor for the gated .ts logic/data layer — ratcheted to
+        // measured-minus-headroom (measured 2026-07-03: lines 92.97 / funcs
+        // 91.56 / branches 81.6 / stmts 89.86). Raise as coverage climbs; never
+        // lower to make a PR pass.
+        lines: 92,
+        functions: 91,
+        branches: 80,
+        statements: 89,
+        // Pure-engine per-directory floors (roadmap: pure engines should sit
+        // >= 90). A glob key overrides the global floor for its matched files.
+        // Measured 2026-07-03 in the trailing comment.
+        "src/app/next-actions/**": { lines: 97, branches: 90 }, // 100 / 95.81
+        "src/app/csv-codecs*.ts": { lines: 95, branches: 84 }, // 97.91 / 86.77
+        "src/app/markdown-codecs*.ts": { lines: 96, branches: 90 }, // 98.98 / 93.66
+        // sanitize branch coverage (84.82) is BELOW the >=90 engine target; the
+        // floor is set at the honest measured level and tracked in the debt
+        // register (TD-4: add validator branch tests to reach 90). Not faked.
+        // NOTE: this glob is ALL sanitize* source (the sanitize-core/entities/
+        // records barrel trio PLUS sanitize-html.ts / sanitize-report.ts), not
+        // only the three-file barrel — the 84.82 aggregate is across all of them.
+        "src/app/sanitize*.ts": { lines: 93, branches: 82 }, // 95.46 / 84.82
       },
     },
   },
