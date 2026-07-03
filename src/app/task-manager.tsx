@@ -1187,8 +1187,7 @@ function TaskManagerInner() {
     handlers: { onEdit, onDelete, onSendInquiry },
     onCancelEdit: handleCancelEdit,
     logActivity,
-    showToast,
-    allowDestructiveSave,
+    showToast, allowDestructiveSave,
   });
   // Sync deselectIdRef so onDelete (defined above) can call it without
   // depending on useBulkOperations being declared first. Written in an effect
