@@ -3,6 +3,8 @@ import { render, fireEvent } from "@testing-library/react";
 import { RecoveryPanel } from "./recovery-panel";
 import * as recovery from "./recovery-config";
 import { SETTINGS_KEY } from "./use-settings";
+import { readDiagLog } from "./diagnostics";
+import { t } from "./i18n";
 
 describe("RecoveryPanel", () => {
   beforeEach(() => window.localStorage.clear());
@@ -28,6 +30,15 @@ describe("RecoveryPanel", () => {
     expect(q).toHaveBeenCalledTimes(1);
   });
 
+  it("shows a failure message and logs a diagnostic when the reset fails", () => {
+    vi.spyOn(recovery, "quarantineConfig").mockReturnValue({ ok: false, id: null });
+    const { getByText, queryByText } = render(<RecoveryPanel />);
+    fireEvent.click(getByText(/Reset to clean config/i));
+    expect(getByText(t("en-US", "guardRecoveryResetFailed"))).toBeTruthy();
+    expect(queryByText(t("en-US", "recoveryResetDone"))).toBeNull();
+    expect(readDiagLog().some((e) => e.code === "recovery.resetFailed")).toBe(true);
+  });
+
   it("lists backups for restore", () => {
     vi.spyOn(recovery, "listBackups").mockReturnValue([
       { id: "111", at: "2026-06-13T00:00:00.000Z", keys: [SETTINGS_KEY] },
@@ -36,6 +47,18 @@ describe("RecoveryPanel", () => {
     const { getByText } = render(<RecoveryPanel />);
     fireEvent.click(getByText(/Restore last config/i));
     expect(restore).toHaveBeenCalledWith("111");
+  });
+
+  it("shows a failure message and logs a diagnostic when the restore fails", () => {
+    vi.spyOn(recovery, "listBackups").mockReturnValue([
+      { id: "111", at: "2026-06-13T00:00:00.000Z", keys: [SETTINGS_KEY] },
+    ]);
+    vi.spyOn(recovery, "restoreConfig").mockReturnValue(false);
+    const { getByText, queryByText } = render(<RecoveryPanel />);
+    fireEvent.click(getByText(/Restore last config/i));
+    expect(getByText(t("en-US", "guardRecoveryRestoreFailed"))).toBeTruthy();
+    expect(queryByText(t("en-US", "recoveryRestoreDone"))).toBeNull();
+    expect(readDiagLog().some((e) => e.code === "recovery.restoreFailed")).toBe(true);
   });
 
   it("Download triggers an export", () => {
