@@ -44,6 +44,43 @@ function capRing(events: DiagEvent[]): DiagEvent[] {
   return result;
 }
 
+const LEGACY_DATALOSS_KEY = "lop-app:dataloss-log";
+
+/** One-time migration of the pre-fold `lop-app:dataloss-log` ring into the unified
+ *  ring. Consumes (removes) the legacy key even if parsing fails, so it runs once. */
+export function migrateLegacyDataLossLog(): void {
+  try {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(LEGACY_DATALOSS_KEY);
+    if (!raw) return;
+    window.localStorage.removeItem(LEGACY_DATALOSS_KEY);
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    const migrated: DiagEvent[] = parsed
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === "object")
+      .map((e) => {
+        const refused = Boolean(e.refused);
+        const level: DiagLevel = refused ? "warn" : "info";
+        return {
+          at: String(e.at ?? ""),
+          level,
+          code: `dataloss.${refused ? "refused" : "observed"}`,
+          fields: redactFields({
+            path: e.path,
+            prevCollections: e.prevCollections,
+            nextCollections: e.nextCollections,
+            refused,
+            stack: e.stack,
+          }),
+        };
+      });
+    if (migrated.length === 0) return;
+    window.localStorage.setItem(KEY, JSON.stringify(capRing([...migrated, ...readDiagLog()])));
+  } catch {
+    /* swallow — migration must never break boot */
+  }
+}
+
 export function logDiag(level: DiagLevel, code: string, fields?: Record<string, unknown>): void {
   try {
     if (typeof window === "undefined") return;

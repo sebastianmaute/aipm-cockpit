@@ -72,9 +72,17 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
       ) : (
         <div className="min-h-0 overflow-auto pr-2">
           <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="text-muted-foreground">
+                <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColTime")}</th>
+                <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColLevel")}</th>
+                <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColCode")}</th>
+                <th className="py-1 font-medium">{t(lang, "diagnosticsColDetails")}</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-line">
               {events.map((e, i) => (
-                <tr key={i}>
+                <tr key={`${String(e.at ?? "")}-${String(e.code ?? "")}-${i}`}>
                   <td className="py-1 pr-2 font-mono text-muted-foreground">
                     {String(e.at ?? "").slice(11, 19)}
                   </td>

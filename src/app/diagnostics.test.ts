@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { logDiag, readDiagLog, clearDiagLog, buildDiagnosticBundle } from "./diagnostics";
+import {
+  logDiag,
+  readDiagLog,
+  clearDiagLog,
+  buildDiagnosticBundle,
+  migrateLegacyDataLossLog,
+} from "./diagnostics";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -52,5 +58,19 @@ describe("diagnostics ring", () => {
     const log = readDiagLog();
     expect(log).toHaveLength(200);
     expect(log.some((e) => e.code === "dataloss.refused")).toBe(true);
+  });
+
+  it("migrates the legacy lop-app:dataloss-log into the ring once", () => {
+    window.localStorage.setItem(
+      "lop-app:dataloss-log",
+      JSON.stringify([{ at: "2026-07-01T00:00:00.000Z", path: "save-effect", prevCollections: 2, nextCollections: 0, refused: true, stack: "at x" }]),
+    );
+    migrateLegacyDataLossLog();
+    const log = readDiagLog();
+    expect(log.some((e) => e.code === "dataloss.refused" && e.fields?.path === "save-effect")).toBe(true);
+    expect(window.localStorage.getItem("lop-app:dataloss-log")).toBeNull(); // consumed
+    // idempotent: a second call does not re-add
+    migrateLegacyDataLossLog();
+    expect(readDiagLog().filter((e) => e.code === "dataloss.refused")).toHaveLength(1);
   });
 });
