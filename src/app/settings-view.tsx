@@ -22,6 +22,7 @@ import { ModeSection } from "./settings-sections/mode-section";
 import { TemplatesSection } from "./settings-sections/templates-section";
 import { InformationFlowsSection } from "./settings-sections/information-flows-section";
 import { DiagnosticsSection } from "./settings-sections/diagnostics-section";
+import { DictationSection } from "./settings-sections/dictation-section";
 import { ExportSection } from "./settings-sections/export-section";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 import { StorageConfigSection } from "./storage-config";
@@ -75,7 +76,7 @@ interface SettingsViewProps {
 type SectionId =
   | "mode" | "templates" | "appearance" | "localization" | "general" | "notifications"
   | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows"
-  | "commTemplates" | "scheduledJobs" | "diagnostics";
+  | "commTemplates" | "scheduledJobs" | "diagnostics" | "dictation";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
@@ -93,6 +94,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "informationFlows", labelKey: "settingsSectionInformationFlows" },
   { id: "commTemplates", labelKey: "settingsSectionCommTemplates" },
   { id: "diagnostics", labelKey: "diagnosticsTitle" },
+  { id: "dictation", labelKey: "dictationEngine" },
 ];
 
 // Advanced sections revealed only in expert mode.
@@ -382,6 +384,9 @@ export function SettingsView(props: SettingsViewProps) {
           <InformationFlowsSection lang={lang} />
         )}
         {active === "diagnostics" && <DiagnosticsSection lang={lang} />}
+        {active === "dictation" && (
+          <DictationSection lang={lang} settings={settings} onChange={onChange} />
+        )}
       </section>
     </div>
 

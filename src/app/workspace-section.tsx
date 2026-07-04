@@ -272,6 +272,7 @@ export function WorkspaceSection({
           <ChatPanel
             lang={lang}
             ai={settings.ai}
+            dictation={settings.dictation}
             dispatcher={dispatcher}
             onAcceptConsent={handleAcceptAiConsent}
             onChangeModel={(model) => setSettings((s) => ({ ...s, ai: { ...s.ai, model } }))}
