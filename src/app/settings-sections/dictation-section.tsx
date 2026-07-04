@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { SegmentedControl } from "../segmented-control";
 import { InfoTooltip } from "../info-tooltip";
 import { saveSecretValue } from "../use-secrets";
 import { loadSealed, removeSealed } from "../secrets-store";
-import { FOCUS_RING, TRANSITION } from "../interaction-styles";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { eventToCombo } from "../dictation-hotkey";
+
+const IGNORED_MODIFIER_KEYS = ["Control", "Shift", "Alt", "Meta"];
 
 interface DictationSectionProps {
   lang: Lang;
@@ -21,6 +24,8 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
   const dictation = settings.dictation;
   const engine: DictationEngineId = dictation?.engine ?? "web-speech";
   const [sttKeyStored, setSttKeyStored] = useState(() => loadSealed("sttApiKey") != null);
+  const [hotkeyArmed, setHotkeyArmed] = useState(false);
+  const hotkey = dictation?.hotkey ?? "F4";
 
   function setDictation(patch: Partial<NonNullable<Settings["dictation"]>>) {
     onChange({ ...settings, dictation: { engine, ...dictation, ...patch } });
@@ -38,6 +43,20 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
       removeSealed("sttApiKey");
       setSttKeyStored(false);
     }
+  }
+
+  function handleHotkeyCapture(e: KeyboardEvent<HTMLButtonElement>) {
+    if (!hotkeyArmed) return;
+    if (IGNORED_MODIFIER_KEYS.includes(e.key)) return;
+    e.preventDefault();
+    const combo = eventToCombo(e);
+    setDictation({ hotkey: combo });
+    setHotkeyArmed(false);
+  }
+
+  function handleHotkeyReset() {
+    setDictation({ hotkey: "F4" });
+    setHotkeyArmed(false);
   }
 
   return (
@@ -101,6 +120,33 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
           <p className="text-xs text-muted-foreground">{t(lang, "dictationSttNote")}</p>
         </div>
       )}
+
+      <div className="mt-3 flex flex-col gap-1">
+        <span className="mb-1 block text-sm font-medium text-foreground">
+          {t(lang, "dictationHotkey")}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label={t(lang, "dictationHotkey")}
+            onClick={() => setHotkeyArmed(true)}
+            onKeyDown={handleHotkeyCapture}
+            onBlur={() => setHotkeyArmed(false)}
+            className={`rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground ${INTERACTIVE}`}
+          >
+            {hotkeyArmed ? t(lang, "dictationHotkeySet") : hotkey}
+          </button>
+          <button
+            type="button"
+            aria-label={t(lang, "dictationHotkeyReset")}
+            onClick={handleHotkeyReset}
+            className={`rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground ${INTERACTIVE}`}
+          >
+            {t(lang, "dictationHotkeyReset")}
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">{t(lang, "dictationHotkeyNote")}</p>
+      </div>
     </div>
   );
 }
