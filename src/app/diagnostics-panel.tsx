@@ -3,6 +3,8 @@ import { useState } from "react";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import { readDiagLog, clearDiagLog, buildDiagnosticBundle } from "./diagnostics";
+import type { DiagLevel } from "./diagnostics";
+import { filterDiag, summarizeDiag } from "./diagnostics-filter";
 import { EmptyState } from "./empty-state";
 import { reportSilentFailure } from "./guard-feedback";
 import { INTERACTIVE } from "./interaction-styles";
@@ -11,6 +13,19 @@ import { useToastContext } from "./toast-context";
 export function DiagnosticsPanel({ lang }: { lang: Lang }) {
   const showToast = useToastContext();
   const [events, setEvents] = useState(() => readDiagLog());
+  const [levels, setLevels] = useState<Set<DiagLevel>>(() => new Set<DiagLevel>(["error", "warn", "info"]));
+  const [query, setQuery] = useState("");
+  const summary = summarizeDiag(events);
+  const shown = filterDiag(events, levels, query);
+  const labelFor = (lv: DiagLevel) =>
+    t(lang, lv === "error" ? "diagnosticsLevelError" : lv === "warn" ? "diagnosticsLevelWarn" : "diagnosticsLevelInfo");
+  const toggleLevel = (lv: DiagLevel) =>
+    setLevels((prev) => {
+      const next = new Set(prev);
+      if (next.has(lv)) next.delete(lv);
+      else next.add(lv);
+      return next;
+    });
 
   const refresh = () => setEvents(readDiagLog());
   const copy = async () => {
@@ -38,6 +53,7 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{t(lang, "diagnosticsIntro")}</p>
+      <p className="text-xs text-muted-foreground">{t(lang, "diagnosticsSummary", summary.error, summary.warn, summary.info)}</p>
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -71,32 +87,54 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
       {events.length === 0 ? (
         <EmptyState title={t(lang, "diagnosticsEmpty")} compact />
       ) : (
-        <div className="min-h-0 overflow-auto pr-2">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="text-muted-foreground">
-                <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColTime")}</th>
-                <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColLevel")}</th>
-                <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColCode")}</th>
-                <th className="py-1 font-medium">{t(lang, "diagnosticsColDetails")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {events.map((e, i) => (
-                <tr key={`${String(e.at ?? "")}-${String(e.code ?? "")}-${i}`}>
-                  <td className="py-1 pr-2 font-mono text-muted-foreground">
-                    {String(e.at ?? "").slice(11, 19)}
-                  </td>
-                  <td className="py-1 pr-2">{String(e.level ?? "")}</td>
-                  <td className="py-1 pr-2 font-medium">{String(e.code ?? "")}</td>
-                  <td className="py-1 font-mono text-muted-foreground">
-                    {e.fields ? JSON.stringify(e.fields) : ""}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            {(["error", "warn", "info"] as DiagLevel[]).map((lv) => (
+              <label key={lv} className="flex items-center gap-1 text-xs text-muted-foreground">
+                <input type="checkbox" checked={levels.has(lv)} onChange={() => toggleLevel(lv)} aria-label={labelFor(lv)} />
+                {labelFor(lv)}
+              </label>
+            ))}
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t(lang, "diagnosticsSearchCode")}
+              aria-label={t(lang, "diagnosticsSearchCode")}
+              className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs"
+            />
+          </div>
+          {shown.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{t(lang, "diagnosticsNoMatch")}</p>
+          ) : (
+            <div className="min-h-0 overflow-auto pr-2">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-muted-foreground">
+                    <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColTime")}</th>
+                    <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColLevel")}</th>
+                    <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColCode")}</th>
+                    <th className="py-1 font-medium">{t(lang, "diagnosticsColDetails")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {shown.map((e, i) => (
+                    <tr key={`${String(e.at ?? "")}-${String(e.code ?? "")}-${i}`}>
+                      <td className="py-1 pr-2 font-mono text-muted-foreground">
+                        {String(e.at ?? "").slice(11, 19)}
+                      </td>
+                      <td className="py-1 pr-2">{String(e.level ?? "")}</td>
+                      <td className="py-1 pr-2 font-medium">{String(e.code ?? "")}</td>
+                      <td className="py-1 font-mono text-muted-foreground">
+                        {e.fields ? JSON.stringify(e.fields) : ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
