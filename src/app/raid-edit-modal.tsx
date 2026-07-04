@@ -106,6 +106,14 @@ export function RaidEditModal({
     onAppendFinal: (txt) =>
       onChange({ ...draftRef.current, description: appendDictation(draftRef.current.description ?? "", txt) || undefined }),
   });
+  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "raidTitle"),
+    onAppendFinal: (txt) =>
+      onChange({ ...draftRef.current, title: describeTextCap(appendDictation(draftRef.current.title ?? "", txt), TASK_NAME_MAX).value }),
+  });
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [causePickerQuery, setCausePickerQuery] = useState("");
@@ -361,18 +369,21 @@ export function RaidEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidTitle")} *
               <InfoTooltip text={t(lang, "raidFieldTitleHint")} />
+              {titleMic}
             </span>
             <input
               type="text"
               required
               value={draft.title}
               onChange={(e) => onChange({ ...draft, title: e.target.value })}
-              onBlur={(e) => onChange({ ...draft, title: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() })}
+              onFocus={titleDictationReg.onFocus}
+              onBlur={(e) => { onChange({ ...draft, title: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() }); titleDictationReg.onBlur(); }}
               placeholder={t(lang, "raidPlaceholderTitle")}
               aria-describedby="raid-title-counter"
               className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.title} max={TASK_NAME_MAX} id="raid-title-counter" lang={lang} />
+            {titleDictationStatus}
           </label>
 
           {isVisible("description") && (
