@@ -16,9 +16,6 @@ function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-// Mock the lazy mic button — it pulls in Web Speech API shims not available in jsdom.
-vi.mock("./voice-button", () => ({ InlineMicButton: () => null }));
-
 // Mock M365 hooks consumed by DocumentLinksFieldGated — default: SharePoint off.
 vi.mock("./use-settings", () => ({
   useSettings: () => ({ settings: { integrations: { m365: { enabled: false, sharepoint: false } } } }),

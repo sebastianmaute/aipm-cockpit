@@ -59,7 +59,7 @@ describe("TaskFormFields dictation", () => {
     render(<Harness />, { wrapper: TestProviders });
     const notesLabel = screen.getByText("Notes").closest("label");
     expect(notesLabel).not.toBeNull();
-    const mics = screen.getAllByRole("button", { name: "Hold to dictate" });
+    const mics = screen.getAllByRole("button", { name: /hold to dictate/i });
     expect(mics.length).toBe(2);
     const notesMic = mics.find((m) => notesLabel!.contains(m));
     expect(notesMic).toBeDefined();
@@ -68,7 +68,7 @@ describe("TaskFormFields dictation", () => {
   it("renders a dictation mic button next to the task-name input", () => {
     render(<Harness />, { wrapper: TestProviders });
     const taskNameInput = screen.getByPlaceholderText("What needs to happen?");
-    const mics = screen.getAllByRole("button", { name: "Hold to dictate" });
+    const mics = screen.getAllByRole("button", { name: /hold to dictate/i });
     expect(mics.length).toBe(2);
     const titleMic = mics.find((m) => m.parentElement?.contains(taskNameInput));
     expect(titleMic).toBeDefined();
