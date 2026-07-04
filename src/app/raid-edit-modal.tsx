@@ -45,6 +45,9 @@ import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
+import { useDictationMic } from "./dictation-mic";
+import { appendDictation } from "./dictation-engine";
+import { useSettings } from "./use-settings";
 
 export type RaidEditModalProps = {
   lang: Lang;
@@ -92,6 +95,15 @@ export function RaidEditModal({
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("raid");
   const adj = useAdjustmentTracker();
+  const { settings } = useSettings();
+  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "raidDescription"),
+    onAppendFinal: (txt) =>
+      onChange({ ...draft, description: appendDictation(draft.description ?? "", txt) || undefined }),
+  });
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [causePickerQuery, setCausePickerQuery] = useState("");
@@ -366,6 +378,7 @@ export function RaidEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "raidDescription")}
               <InfoTooltip text={t(lang, "raidFieldDescriptionHint")} />
+              {descriptionMic}
             </span>
             <textarea
               rows={2}
@@ -373,12 +386,17 @@ export function RaidEditModal({
               onChange={(e) =>
                 onChange({ ...draft, description: e.target.value || undefined })
               }
-              onBlur={(e) => onChange({ ...draft, description: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
+              onFocus={descriptionDictationReg.onFocus}
+              onBlur={(e) => {
+                onChange({ ...draft, description: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined });
+                descriptionDictationReg.onBlur();
+              }}
               placeholder={t(lang, "raidPlaceholderDescription")}
               aria-describedby="raid-description-counter"
               className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="raid-description-counter" lang={lang} />
+            {descriptionDictationStatus}
           </label>
           )}
 

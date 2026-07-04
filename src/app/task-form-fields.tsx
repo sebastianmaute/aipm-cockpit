@@ -10,6 +10,9 @@ import { DependenciesEditor } from "./dependencies-editor";
 import { formatDuration, parseDuration } from "./duration";
 import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
+import { useDictationMic } from "./dictation-mic";
+import { appendDictation } from "./dictation-engine";
+import { useSettings } from "./use-settings";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import {
   computeTaskHealth,
@@ -97,6 +100,15 @@ export function TaskFormFields({
   const { form, setForm, editingId } = useTaskForm();
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
+  const { settings } = useSettings();
+  const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "notes"),
+    onAppendFinal: (txt) =>
+      setForm((prev) => ({ ...prev, notes: appendDictation(prev.notes ?? "", txt) })),
+  });
 
   // A field's error shows once it's been blurred (touched) or a submit was
   // attempted — a pristine form stays quiet. Reset when switching tasks via the
@@ -543,20 +555,27 @@ export function TaskFormFields({
         )}
 
         {isVisible("notes") && (
-        <Field label={t(lang, "notes")} className="sm:col-span-2">
+        <label className="block sm:col-span-2">
+          <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+            {t(lang, "notes")}
+            {notesMic}
+          </span>
           <textarea
             rows={3}
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            onBlur={(e) =>
-              setForm({ ...form, notes: describeTextCap(e.target.value, TEXTAREA_MAX).value })
-            }
+            onFocus={notesDictationReg.onFocus}
+            onBlur={(e) => {
+              setForm({ ...form, notes: describeTextCap(e.target.value, TEXTAREA_MAX).value });
+              notesDictationReg.onBlur();
+            }}
             placeholder={t(lang, "placeholderNotes")}
             aria-describedby="notes-counter"
             className={inputClass}
           />
           <CharCounter value={form.notes} max={TEXTAREA_MAX} id="notes-counter" lang={lang} />
-        </Field>
+          {notesDictationStatus}
+        </label>
         )}
 
         <Field label={t(lang, "documents")} className="sm:col-span-2">

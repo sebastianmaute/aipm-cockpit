@@ -14,6 +14,9 @@ import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { useDictationMic } from "./dictation-mic";
+import { appendDictation } from "./dictation-engine";
+import { useSettings } from "./use-settings";
 import type { Milestone, Task } from "./types";
 
 interface Props {
@@ -44,6 +47,15 @@ export function MilestoneEditModal({
   const [draft, setDraft] = useState<Milestone | null>(milestone);
   const [error, setError] = useState<string | null>(null);
   const { isVisible } = useModalVisibility("milestone");
+  const { settings } = useSettings();
+  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "milestoneDescription"),
+    onAppendFinal: (txt) =>
+      setDraft((p) => (p ? { ...p, description: appendDictation(p.description ?? "", txt) } : p)),
+  });
 
   if (prev !== milestone) {
     setPrev(milestone);
@@ -163,16 +175,20 @@ export function MilestoneEditModal({
 
           {isVisible("description") && (
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "milestoneDescription")}
+              {descriptionMic}
             </span>
             <textarea
               value={draft.description ?? ""}
               onChange={(e) =>
                 update("description", e.target.value || undefined)
               }
+              onFocus={descriptionDictationReg.onFocus}
+              onBlur={descriptionDictationReg.onBlur}
               className={`min-h-16 rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
+            {descriptionDictationStatus}
           </label>
           )}
 
