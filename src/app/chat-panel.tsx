@@ -163,6 +163,8 @@ function ChatPanelInner({
       setInterim("");
       if (err === "not-allowed") {
         reportCapabilityGap(showToast, lang, "dictation.micDenied", "dictationMicDenied");
+      } else if (err === "not-supported") {
+        showToast("error", t(lang, "dictationRecordUnsupported"));
       } else if (err.startsWith("stt-")) {
         showToast("error", t(lang, "dictationTranscribeFailed"));
       }

@@ -11,6 +11,7 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
   let chunks: BlobPart[] = [];
   let handlers: DictationHandlers | null = null;
   let stopped = false;
+  let started = false;
 
   const cleanupStream = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; };
 
@@ -35,6 +36,8 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
   return {
     start(h) {
       handlers = h;
+      if (started) return true; // already capturing / acquiring — ignore re-entry
+      started = true;
       stopped = false;
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
         h.onError("not-supported"); return false;
@@ -57,6 +60,7 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
     },
     stop() {
       stopped = true;
+      started = false;
       if (recorder && recorder.state !== "inactive") recorder.stop();
       else cleanupStream();
       recorder = null;

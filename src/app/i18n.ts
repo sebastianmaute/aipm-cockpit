@@ -560,6 +560,7 @@ const enUS = {
   dictationSttNote: "Audio is sent to the endpoint you configure here.",
   dictationTranscribing: "Transcribing…",
   dictationTranscribeFailed: "Transcription failed — check the endpoint, model, and key.",
+  dictationRecordUnsupported: "Audio recording isn't supported in this browser — switch the dictation engine to Browser (Web Speech) in Settings.",
   chatError: "Chat failed: {0}",
   chatGreeting:
     "I can list, add, update, delete tasks and send inquiries. Try \"show overdue tasks\" or \"add a task to review the pricing deck due Friday\".",

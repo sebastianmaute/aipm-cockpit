@@ -57,6 +57,14 @@ describe("stt-engine", () => {
     await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
     expect(h.onError).toHaveBeenCalledWith("stt-401");
   });
+  it("ignores a re-entrant start while already capturing", async () => {
+    const h = { onInterim: vi.fn(), onFinal: vi.fn(), onError: vi.fn(), onStatus: vi.fn() };
+    const eng = createSttEngine(cfg);
+    getUserMedia.mockClear();
+    eng.start(h); eng.start(h);
+    await Promise.resolve();
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+  });
   it("releases the mic if stopped while getUserMedia is still pending", async () => {
     let resolveGum: (v: Awaited<ReturnType<typeof getUserMedia>>) => void = () => {};
     getUserMedia.mockReturnValueOnce(new Promise((r) => { resolveGum = r; }));

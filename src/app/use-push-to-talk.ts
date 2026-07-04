@@ -6,6 +6,13 @@ import type { DictationEngine } from "./dictation-engine";
 
 const TAP_MS = 250;
 
+export function hashKey(s: string | undefined): string {
+  if (!s) return "";
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return String(h);
+}
+
 interface Args {
   lang: Lang;
   enabled: boolean;
@@ -24,7 +31,7 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
   const wasListeningRef = useRef(false);
   const listeningRef = useRef(false);
   const pressingRef = useRef(false);
-  const cfgKey = `${lang}|${dictation?.engine ?? "web-speech"}|${dictation?.sttBaseUrl ?? ""}|${dictation?.sttModel ?? ""}|${dictation?.sttApiKey ? "k" : ""}`;
+  const cfgKey = `${lang}|${dictation?.engine ?? "web-speech"}|${dictation?.sttBaseUrl ?? ""}|${dictation?.sttModel ?? ""}|${hashKey(dictation?.sttApiKey)}`;
   const cfgKeyRef = useRef(cfgKey);
 
   const engine = () => {

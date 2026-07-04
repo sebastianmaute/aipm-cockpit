@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { usePushToTalk } from "./use-push-to-talk";
+import { usePushToTalk, hashKey } from "./use-push-to-talk";
 
 interface MockDictationHandlers {
   onFinal: (t: string) => void;
@@ -11,11 +11,12 @@ interface MockDictationHandlers {
 
 const start = vi.fn((handlers: MockDictationHandlers) => { void handlers; return true; });
 const stop = vi.fn();
+const resolveDictationEngine = vi.fn(() => ({ start, stop }));
 vi.mock("./web-speech-engine", () => ({ createWebSpeechEngine: () => ({ start, stop }) }));
-vi.mock("./dictation-config", () => ({ resolveDictationEngine: () => ({ start, stop }) }));
+vi.mock("./dictation-config", () => ({ resolveDictationEngine: () => resolveDictationEngine() }));
 vi.mock("./voice", () => ({ getCtor: () => function () {}, startRecognition: () => stop }));
 
-beforeEach(() => { start.mockClear(); stop.mockClear(); start.mockReturnValue(true); vi.useFakeTimers(); });
+beforeEach(() => { start.mockClear(); stop.mockClear(); resolveDictationEngine.mockClear(); start.mockReturnValue(true); vi.useFakeTimers(); });
 afterEach(() => vi.useRealTimers());
 
 const mkArgs = () => ({ lang: "en-US" as const, enabled: true, onAppendFinal: vi.fn(), onInterim: vi.fn(), onError: vi.fn() });
@@ -92,6 +93,18 @@ describe("usePushToTalk", () => {
     const { result } = renderHook(() => usePushToTalk(a));
     act(() => { down(result); vi.advanceTimersByTime(300); up(result); });
     expect(a.onInterim).toHaveBeenLastCalledWith(""); // cleared on stop
+  });
+  it("hashKey distinguishes different non-empty key values (cfgKey no longer collapses to presence-only)", () => {
+    expect(hashKey("key-A")).not.toBe(hashKey("key-B"));
+    expect(hashKey("key-A")).toBe(hashKey("key-A"));
+    expect(hashKey(undefined)).toBe("");
+    expect(hashKey("")).toBe("");
+  });
+  it("builds the engine via resolveDictationEngine on first use (cfgKey path exercised)", () => {
+    const a = { ...mkArgs(), dictation: { engine: "stt" as const, sttApiKey: "key-A" } };
+    const { result } = renderHook(() => usePushToTalk(a));
+    act(() => { down(result); vi.advanceTimersByTime(300); up(result); });
+    expect(resolveDictationEngine).toHaveBeenCalledTimes(1);
   });
   it("tracks the transcribing state via onStatus", () => {
     const { result } = renderHook(() => usePushToTalk(mkArgs()));
