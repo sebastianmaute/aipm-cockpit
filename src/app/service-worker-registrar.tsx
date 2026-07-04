@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { registerDiagnosticsGlobalHandlers } from "./diagnostics-boot";
 
 /** Registers the minimal service worker (`/sw.js`) for PWA installability.
  *  Renders nothing. Must be a CLIENT component: the registration call ships in
@@ -9,6 +10,7 @@ import { useEffect } from "react";
  *  works identically without it (the SW does no caching). */
 export function ServiceWorkerRegistrar(): null {
   useEffect(() => {
+    registerDiagnosticsGlobalHandlers();
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => {
       /* best-effort: installability is a progressive enhancement */

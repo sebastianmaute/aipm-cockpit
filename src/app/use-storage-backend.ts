@@ -18,6 +18,7 @@ import {
 } from "./storage";
 import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace";
 import { recordDataLossEvent } from "./dataloss-forensics";
+import { logDiag } from "./diagnostics";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -209,12 +210,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           return;
         }
         applyWorkspace(workspace);
+        logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
         args.onStorageOutcome?.(null);
       } catch (err) {
         if (cancelled) return;
         args.onStorageOutcome?.(err);
+        logDiag("error", "storage.loadFailed", { kind: settingsRef.current.storageConfig.kind, message: String(err) });
         // Turso connectivity/auth failures surface as the persistent storage
         // banner (via onStorageOutcome) — skip the transient toast for those.
         if (err instanceof StorageNotReadyError) {
@@ -288,6 +291,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         args.onStorageOutcome?.(null);
       }).catch((err) => {
         args.onStorageOutcome?.(err);
+        logDiag("error", "storage.saveFailed", { message: String(err) });
         // Turso connectivity/auth failures show the persistent banner — skip the toast.
         if (tursoErrorKind(err)) return;
         if (err instanceof StorageNotReadyError) {

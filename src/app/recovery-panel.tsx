@@ -12,6 +12,7 @@ import {
 } from "./recovery-config";
 import { SETTINGS_KEY } from "./use-settings";
 import { MODE_KEY } from "./portfolio-mode";
+import { DiagnosticsPanel } from "./diagnostics-panel";
 
 interface ConfigSummary {
   backendKind: string;
@@ -119,6 +120,13 @@ export function RecoveryPanel() {
             {t(lang, summary.tursoConfigured ? "recoveryYes" : "recoveryNo")}
           </dd>
         </dl>
+      </section>
+
+      <section className="rounded-lg border border-line bg-surface p-4">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t(lang, "diagnosticsTitle")}
+        </h2>
+        <DiagnosticsPanel lang={lang} />
       </section>
 
       {message && <p className="text-sm text-AIPM-green-strong">{message}</p>}

@@ -1,30 +1,22 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { recordDataLossEvent, readDataLossLog } from "./dataloss-forensics";
+import { readDiagLog } from "./diagnostics";
 
 beforeEach(() => window.localStorage.clear());
 
-describe("dataloss-forensics", () => {
-  it("appends events newest-first with a timestamp + stack", () => {
+describe("dataloss-forensics (folded into diagnostics)", () => {
+  it("records into the unified diag ring under a dataloss.* code", () => {
     recordDataLossEvent({ path: "save-effect", prevCollections: 2, nextCollections: 0, refused: true });
+    const diag = readDiagLog();
+    expect(diag).toHaveLength(1);
+    expect(diag[0].code).toMatch(/^dataloss\./);
+    expect(diag[0].fields!.path).toBe("save-effect");
+  });
+
+  it("readDataLossLog returns only the dataloss slice, newest-first", () => {
     recordDataLossEvent({ path: "load", prevCollections: 3, nextCollections: 0, refused: true });
     const log = readDataLossLog();
-    expect(log).toHaveLength(2);
-    expect(log[0].path).toBe("load"); // newest first
-    expect(log[0].at).toMatch(/^\d{4}-/);
-    expect(typeof log[0].stack).toBe("string");
-  });
-
-  it("caps the ring at 25", () => {
-    for (let i = 0; i < 40; i++) {
-      recordDataLossEvent({ path: `p${i}`, prevCollections: 1, nextCollections: 0, refused: false });
-    }
-    const log = readDataLossLog();
-    expect(log).toHaveLength(25);
-    expect(log[0].path).toBe("p39"); // newest retained
-  });
-
-  it("returns [] and never throws on malformed storage", () => {
-    window.localStorage.setItem("lop-app:dataloss-log", "{not json");
-    expect(readDataLossLog()).toEqual([]);
+    expect(log).toHaveLength(1);
+    expect(log[0].path).toBe("load");
   });
 });
