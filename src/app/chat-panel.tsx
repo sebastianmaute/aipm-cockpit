@@ -28,6 +28,10 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
 import { unlockSecret } from "./use-secrets";
 import { isPassphraseLocked } from "./secrets-store";
+import { usePushToTalk } from "./use-push-to-talk";
+import { appendDictation } from "./dictation-engine";
+import { reportCapabilityGap } from "./guard-feedback";
+import { useToastContext } from "./toast-context";
 import {
   type AttachmentBlock,
   type AttachmentError,
@@ -139,6 +143,23 @@ function ChatPanelInner({
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.
   const { options: modelOptions } = useChatModels((unlockedKey ?? ai.apiKey) || "", ai.enabled === true, ai.model);
+  const showToast = useToastContext();
+  const [interim, setInterim] = useState("");
+  const ptt = usePushToTalk({
+    lang,
+    enabled: true,
+    onAppendFinal: (txt) => {
+      setInput((prev) => appendDictation(prev, txt));
+      setInterim("");
+    },
+    onInterim: (txt) => setInterim(txt),
+    onError: (err) => {
+      setInterim("");
+      if (err === "not-allowed") {
+        reportCapabilityGap(showToast, lang, "dictation.micDenied", "dictationMicDenied");
+      }
+    },
+  });
 
   useEffect(() => {
     if (!scrollerRef.current) return;
@@ -565,6 +586,13 @@ function ChatPanelInner({
         </ul>
       )}
 
+      {ptt.listening && (
+        <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
+          {t(lang, "dictationListening")}
+          {interim ? ` ${interim}` : ""}
+        </p>
+      )}
+
       <div className="mt-3 flex items-stretch gap-2">
         <input
           ref={fileInputRef}
@@ -598,6 +626,21 @@ function ChatPanelInner({
           >
             📎
           </button>
+          {ptt.supported && (
+            <button
+              type="button"
+              aria-pressed={ptt.listening}
+              aria-label={t(lang, "dictationHold")}
+              title={t(lang, "dictationHold")}
+              disabled={busy || apiKeyMissing || guidesPending}
+              className={`rounded-md border border-line px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE} ${
+                ptt.listening ? "bg-AIPM-green/10 text-AIPM-green-strong" : "bg-surface text-foreground hover:bg-surface-muted"
+              }`}
+              {...ptt.buttonHandlers}
+            >
+              🎙
+            </button>
+          )}
           {busy ? (
             <button
               type="button"
