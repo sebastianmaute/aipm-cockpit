@@ -14,7 +14,11 @@ export function createWebSpeechEngine(lang: Lang): DictationEngine {
       continuous: true,
       onInterim: handlers.onInterim,
       onFinal: handlers.onFinal,
-      onError: (e) => handlers.onError(e === "service-not-allowed" ? "not-allowed" : e),
+      onError: (e) => {
+        const code = e === "service-not-allowed" ? "not-allowed" : e;
+        if (code === "not-allowed" || code === "audio-capture") { active = false; stopFn = null; }
+        handlers.onError(code);
+      },
       onEnd: () => { if (active) begin(handlers); },
     });
     return stopFn !== null;

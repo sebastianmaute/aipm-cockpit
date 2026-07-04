@@ -46,6 +46,31 @@ describe("usePushToTalk", () => {
     act(() => handlers.onFinal("hello world"));
     expect(a.onAppendFinal).toHaveBeenCalledWith("hello world");
   });
+  it("resets listening when the engine reports a terminal error", () => {
+    const a = mkArgs();
+    const { result } = renderHook(() => usePushToTalk(a));
+    act(() => down(result));
+    expect(result.current.listening).toBe(true);
+    const handlers = start.mock.calls[0][0] as MockDictationHandlers;
+    act(() => handlers.onError("not-allowed"));
+    expect(result.current.listening).toBe(false);
+    expect(a.onError).toHaveBeenCalledWith("not-allowed");
+  });
+  it("keeps a latched session alive when the pointer leaves (not pressing)", () => {
+    const { result } = renderHook(() => usePushToTalk(mkArgs()));
+    act(() => { down(result); vi.advanceTimersByTime(50); up(result); });
+    expect(result.current.listening).toBe(true); // latched
+    act(() => result.current.buttonHandlers.onPointerLeave());
+    expect(result.current.listening).toBe(true); // survives — not pressing
+  });
+  it("stops on pointerLeave mid-hold (still pressing)", () => {
+    const { result } = renderHook(() => usePushToTalk(mkArgs()));
+    act(() => { down(result); vi.advanceTimersByTime(300); });
+    expect(result.current.listening).toBe(true);
+    act(() => result.current.buttonHandlers.onPointerLeave());
+    expect(result.current.listening).toBe(false);
+    expect(stop).toHaveBeenCalled();
+  });
   it("reports supported=false when getCtor is null", () => {
     vi.doMock("./voice", () => ({ getCtor: () => null, startRecognition: () => stop }));
     // supported is captured at mount from the mocked getCtor above (returns a ctor) → true here;

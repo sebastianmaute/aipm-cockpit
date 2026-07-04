@@ -21,25 +21,39 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
   const pressedAtRef = useRef(0);
   const wasListeningRef = useRef(false);
   const listeningRef = useRef(false);
+  const pressingRef = useRef(false);
+  const langRef = useRef(lang);
 
   const engine = () => {
-    if (!engineRef.current) engineRef.current = createWebSpeechEngine(lang);
+    if (!engineRef.current || langRef.current !== lang) {
+      engineRef.current?.stop();
+      engineRef.current = createWebSpeechEngine(lang);
+      langRef.current = lang;
+    }
     return engineRef.current;
   };
-
-  const startHold = useCallback(() => {
-    if (!enabled) { onError("disabled"); return; }
-    if (listeningRef.current) return;
-    const ok = engine().start({ onFinal: onAppendFinal, onInterim, onError });
-    if (ok) { listeningRef.current = true; setListening(true); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, lang, onAppendFinal, onInterim, onError]);
 
   const stopHold = useCallback(() => {
     engineRef.current?.stop();
     listeningRef.current = false;
     setListening(false);
   }, []);
+
+  const handleError = useCallback((err: string) => {
+    if (err === "not-allowed" || err === "not-supported" || err === "audio-capture") {
+      listeningRef.current = false;
+      setListening(false);
+    }
+    onError(err);
+  }, [onError]);
+
+  const startHold = useCallback(() => {
+    if (!enabled) { onError("disabled"); return; }
+    if (listeningRef.current) return;
+    const ok = engine().start({ onFinal: onAppendFinal, onInterim, onError: handleError });
+    if (ok) { listeningRef.current = true; setListening(true); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, lang, onAppendFinal, onInterim, onError, handleError]);
 
   const press = useCallback(() => {
     pressedAtRef.current = Date.now();
@@ -57,13 +71,13 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
   const toggle = useCallback(() => { if (listeningRef.current) stopHold(); else startHold(); }, [startHold, stopHold]);
 
   const buttonHandlers = useMemo(() => ({
-    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); press(); },
-    onPointerUp: () => release(),
-    onPointerLeave: () => { if (listeningRef.current) stopHold(); },
-    onPointerCancel: () => { if (listeningRef.current) stopHold(); },
+    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); pressingRef.current = true; press(); },
+    onPointerUp: () => { pressingRef.current = false; release(); },
+    onPointerLeave: () => { if (pressingRef.current) { pressingRef.current = false; release(); } },
+    onPointerCancel: () => { if (pressingRef.current) { pressingRef.current = false; release(); } },
     onKeyDown: (e: React.KeyboardEvent) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); press(); } },
     onKeyUp: (e: React.KeyboardEvent) => { if (e.key === " " || e.key === "Enter") release(); },
-  }), [press, release, stopHold]);
+  }), [press, release]);
 
   return { listening, supported, buttonHandlers, toggle };
 }
