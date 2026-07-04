@@ -15,6 +15,8 @@ import { type ExportFormat, exportWorkspace } from "./export";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, RaidItem, Resource, ResourcePlan, Role, Shift, Task } from "./types";
 import type { ExportConfig } from "./settings-types";
+import { reportSilentFailure } from "./guard-feedback";
+import { useToastContext } from "./toast-context";
 
 const OPTIONS: Array<{
   format: ExportFormat;
@@ -60,6 +62,7 @@ export function ExportMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const showToast = useToastContext();
 
   usePopoverDismiss(open, ref, () => setOpen(false));
 
@@ -69,7 +72,8 @@ export function ExportMenu({
     // pops the save dialog / new tab. Some browsers focus-steal the dialog
     // and the popover never visually closes otherwise.
     setTimeout(() => {
-      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format, exportConfig, lang);
+      void exportWorkspace({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates }, format, exportConfig, lang)
+        .catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     }, 0);
   }
 
