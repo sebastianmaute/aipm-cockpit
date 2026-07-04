@@ -7,6 +7,9 @@ import { useMemo, useState } from "react";
 import { t, type Lang } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
+import { useToastContext } from "./toast-context";
+import { logDiag } from "./diagnostics";
+import { reportSilentFailure } from "./guard-feedback";
 import { useTimelogSync } from "./use-timelog-sync";
 import { autoMatchUsers, autoMatchProjects, type TimelogProjectRef } from "./timelog-match";
 import { useRowSelection } from "./use-row-selection";
@@ -45,6 +48,7 @@ function customerMatcher(query: string): (name: string) => boolean {
 export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?: boolean }) {
   const ws = useWorkspace();
   const { settings, setSettings } = useSettings();
+  const showToast = useToastContext();
   const cfg = settings.timelog ?? defaultTimelogConfig;
 
   // Stable references hoisted out of useMemo deps to avoid obj.member lint errors
@@ -274,7 +278,15 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   async function handleFetchBookings() {
     if (isPopout || sync.busy) return;
     const { start, end } = fetchWindow();
-    await sync.fetchBookings(start, end, [...sel.selectedIds]);
+    const result = await sync.fetchBookings(start, end, [...sel.selectedIds]);
+    // Org/team scope fails soft per-employee (rate-limit friendly) — surface the
+    // count here so a partial fetch isn't a silent short total. Direct
+    // logDiag+showToast (not reportSilentFailure): the message interpolates
+    // the count via `{0}`, which reportSilentFailure's fixed msgKey can't do.
+    if (result && result.failedEmployees > 0) {
+      logDiag("warn", "timelog.partialFetch", { failedEmployees: result.failedEmployees });
+      showToast("error", t(lang, "guardTimelogPartialFetch", result.failedEmployees));
+    }
   }
 
   // Client-side narrowing of the loaded directory (text box above the table).
@@ -572,7 +584,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
               placeholder={t(lang, "timelogCustomerFilter")}
               value={customerFilter}
               disabled={isPopout}
-              onFocus={() => void sync.loadCustomers()}
+              onFocus={() =>
+                void sync
+                  .loadCustomers()
+                  .catch((e) => reportSilentFailure(showToast, lang, "timelog.customersLoadFailed", e, "guardTimelogCustomersFailed"))
+              }
               onChange={(e) => setCustomerFilter(e.target.value)}
               className={`w-32 rounded border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
             />
@@ -580,7 +596,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
               aria-label={t(lang, "timelogCustomerLabel")}
               value={projectCustomerId === "" ? "" : String(projectCustomerId)}
               disabled={isPopout}
-              onFocus={() => void sync.loadCustomers()}
+              onFocus={() =>
+                void sync
+                  .loadCustomers()
+                  .catch((e) => reportSilentFailure(showToast, lang, "timelog.customersLoadFailed", e, "guardTimelogCustomersFailed"))
+              }
               onChange={(e) => setProjectCustomerId(e.target.value === "" ? "" : Number(e.target.value))}
               className={`max-w-[16rem] rounded border border-line bg-surface px-2 py-1 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
             >
