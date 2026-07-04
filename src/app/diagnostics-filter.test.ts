@@ -21,6 +21,11 @@ describe("filterDiag", () => {
   it("empty level set returns none", () => {
     expect(filterDiag(evts, new Set(), "").length).toBe(0);
   });
+  it("does not throw on an event with a missing code", () => {
+    const bad = [{ at: "x", level: "info" } as unknown as DiagEvent];
+    expect(() => filterDiag(bad, new Set(["info"]), "storage")).not.toThrow();
+    expect(filterDiag(bad, new Set(["info"]), "storage")).toEqual([]); // no code → no substring match
+  });
 });
 
 describe("summarizeDiag", () => {

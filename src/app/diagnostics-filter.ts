@@ -3,7 +3,7 @@ import type { DiagEvent, DiagLevel } from "./diagnostics";
 /** Filter by an allowed-level set + a case-insensitive code substring (empty query = all). */
 export function filterDiag(events: readonly DiagEvent[], levels: ReadonlySet<DiagLevel>, codeQuery: string): DiagEvent[] {
   const q = codeQuery.trim().toLowerCase();
-  return events.filter((e) => levels.has(e.level) && (q === "" || e.code.toLowerCase().includes(q)));
+  return events.filter((e) => levels.has(e.level) && (q === "" || String(e.code ?? "").toLowerCase().includes(q)));
 }
 
 export interface DiagSummary { error: number; warn: number; info: number; newestErrorAt?: string; }

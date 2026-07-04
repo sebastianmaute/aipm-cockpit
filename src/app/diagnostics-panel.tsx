@@ -53,7 +53,9 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{t(lang, "diagnosticsIntro")}</p>
-      <p className="text-xs text-muted-foreground">{t(lang, "diagnosticsSummary", summary.error, summary.warn, summary.info)}</p>
+      {events.length > 0 && (
+        <p className="text-xs text-muted-foreground">{t(lang, "diagnosticsSummary", summary.error, summary.warn, summary.info)}</p>
+      )}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
