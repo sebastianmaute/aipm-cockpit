@@ -11,7 +11,7 @@ export function useFxRates(onLoaded: (fx: FxRates) => void) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<string | null> => {
     setLoading(true);
     setError(null);
     try {
@@ -21,8 +21,11 @@ export function useFxRates(onLoaded: (fx: FxRates) => void) {
       const fx = sanitizeFxRates(body);
       if (!fx) throw new Error("Invalid rate table");
       onLoaded(fx);
+      return null;
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      return msg;
     } finally {
       setLoading(false);
     }

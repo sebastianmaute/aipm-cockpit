@@ -1603,7 +1603,7 @@ function TaskManagerInner() {
         : undefined,
     onEditTask: openEditModal,
     onChangeBudgets: handleChangeBudgets,
-    onRefreshFx: refreshFx,
+    onRefreshFx: () => { void refreshFx().then((err) => { if (err) reportSilentFailure(showToast, lang, "fx.refreshFailed", new Error(err), "guardFxRefreshFailed"); }); },
     fxLoading,
     trends,
     versionHistory,
