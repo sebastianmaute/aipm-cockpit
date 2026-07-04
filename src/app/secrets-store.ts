@@ -15,7 +15,13 @@ function readStore(): Store {
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const out: Store = {};
-    for (const id of ["anthropicApiKey", "tursoAuthToken", "jiraApiToken", "timelogApiToken"] as const) {
+    for (const id of [
+      "anthropicApiKey",
+      "tursoAuthToken",
+      "jiraApiToken",
+      "timelogApiToken",
+      "sttApiKey",
+    ] as const) {
       if (isSealedSecret(parsed[id])) out[id] = parsed[id] as SealedSecret;
     }
     return out;
@@ -72,11 +78,19 @@ export async function migratePlaintextSecrets(input: {
   authToken?: string;
   jiraApiToken?: string;
   timelogApiToken?: string;
-}): Promise<{ apiKey: string; authToken: string; jiraApiToken: string; timelogApiToken: string }> {
+  sttApiKey?: string;
+}): Promise<{
+  apiKey: string;
+  authToken: string;
+  jiraApiToken: string;
+  timelogApiToken: string;
+  sttApiKey: string;
+}> {
   const apiKey = (input.apiKey ?? "").trim();
   const authToken = (input.authToken ?? "").trim();
   const jiraApiToken = (input.jiraApiToken ?? "").trim();
   const timelogApiToken = (input.timelogApiToken ?? "").trim();
+  const sttApiKey = (input.sttApiKey ?? "").trim();
   // Per-secret seal: a crypto/IndexedDB failure on one secret must neither
   // reject the whole migration nor blank a secret we failed to persist. On a
   // failed seal we return the ORIGINAL plaintext so the caller keeps it.
@@ -84,6 +98,7 @@ export async function migratePlaintextSecrets(input: {
   let authTokenOut = "";
   let jiraApiTokenOut = "";
   let timelogApiTokenOut = "";
+  let sttApiKeyOut = "";
   if (apiKey && !loadSealed("anthropicApiKey")) {
     try {
       saveSealed(await sealDevice("anthropicApiKey", apiKey));
@@ -112,5 +127,18 @@ export async function migratePlaintextSecrets(input: {
       timelogApiTokenOut = timelogApiToken; // seal failed → keep plaintext un-migrated
     }
   }
-  return { apiKey: apiKeyOut, authToken: authTokenOut, jiraApiToken: jiraApiTokenOut, timelogApiToken: timelogApiTokenOut };
+  if (sttApiKey && !loadSealed("sttApiKey")) {
+    try {
+      saveSealed(await sealDevice("sttApiKey", sttApiKey));
+    } catch {
+      sttApiKeyOut = sttApiKey; // seal failed → keep plaintext un-migrated
+    }
+  }
+  return {
+    apiKey: apiKeyOut,
+    authToken: authTokenOut,
+    jiraApiToken: jiraApiTokenOut,
+    timelogApiToken: timelogApiTokenOut,
+    sttApiKey: sttApiKeyOut,
+  };
 }

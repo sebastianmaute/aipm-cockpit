@@ -29,21 +29,23 @@ describe("secrets-store", () => {
     expect(loadSealed("anthropicApiKey")).toBeNull();
   });
 
-  it("migrates plaintext apiKey + authToken + jiraApiToken + timelogApiToken to device-sealed secrets, blanks input", async () => {
-    const blanked = await migratePlaintextSecrets({ apiKey: "sk-x", authToken: "tok-y", jiraApiToken: "jira-z", timelogApiToken: "timelog-z" });
-    expect(blanked).toEqual({ apiKey: "", authToken: "", jiraApiToken: "", timelogApiToken: "" });
+  it("migrates plaintext apiKey + authToken + jiraApiToken + timelogApiToken + sttApiKey to device-sealed secrets, blanks input", async () => {
+    const blanked = await migratePlaintextSecrets({ apiKey: "sk-x", authToken: "tok-y", jiraApiToken: "jira-z", timelogApiToken: "timelog-z", sttApiKey: "stt-z" });
+    expect(blanked).toEqual({ apiKey: "", authToken: "", jiraApiToken: "", timelogApiToken: "", sttApiKey: "" });
     expect(await readDeviceSecret("anthropicApiKey")).toBe("sk-x");
     expect(await readDeviceSecret("tursoAuthToken")).toBe("tok-y");
     expect(await readDeviceSecret("jiraApiToken")).toBe("jira-z");
     expect(await readDeviceSecret("timelogApiToken")).toBe("timelog-z");
+    expect(await readDeviceSecret("sttApiKey")).toBe("stt-z");
   });
 
   it("is a no-op when inputs are already blank", async () => {
     const blanked = await migratePlaintextSecrets({ apiKey: "", authToken: undefined });
-    expect(blanked).toEqual({ apiKey: "", authToken: "", jiraApiToken: "", timelogApiToken: "" });
+    expect(blanked).toEqual({ apiKey: "", authToken: "", jiraApiToken: "", timelogApiToken: "", sttApiKey: "" });
     expect(loadSealed("anthropicApiKey")).toBeNull();
     expect(loadSealed("jiraApiToken")).toBeNull();
     expect(loadSealed("timelogApiToken")).toBeNull();
+    expect(loadSealed("sttApiKey")).toBeNull();
   });
 
   it("migratePlaintextSecrets does not clobber an already-sealed (passphrase) secret", async () => {
@@ -55,9 +57,9 @@ describe("secrets-store", () => {
   it("does not reject when sealing fails (no IndexedDB/WebCrypto) and keeps the plaintext un-migrated", async () => {
     // Simulate a degraded env: sealDevice rejects (e.g. indexedDB.open / crypto.subtle absent).
     vi.spyOn(secrets, "sealDevice").mockRejectedValue(new Error("no IndexedDB"));
-    const result = await migratePlaintextSecrets({ apiKey: "sk-x", authToken: "tok-y", jiraApiToken: "jira-z", timelogApiToken: "timelog-z" });
+    const result = await migratePlaintextSecrets({ apiKey: "sk-x", authToken: "tok-y", jiraApiToken: "jira-z", timelogApiToken: "timelog-z", sttApiKey: "stt-z" });
     // Failed seals return the ORIGINAL plaintext so the caller keeps it for the session.
-    expect(result).toEqual({ apiKey: "sk-x", authToken: "tok-y", jiraApiToken: "jira-z", timelogApiToken: "timelog-z" });
+    expect(result).toEqual({ apiKey: "sk-x", authToken: "tok-y", jiraApiToken: "jira-z", timelogApiToken: "timelog-z", sttApiKey: "stt-z" });
     // Nothing was persisted to the secret store.
     expect(loadSealed("anthropicApiKey")).toBeNull();
     expect(loadSealed("tursoAuthToken")).toBeNull();

@@ -130,7 +130,7 @@ describe("useSettings", () => {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
       const { result } = renderHook(() => useSettings());
       await act(async () => {});
-      expect(result.current.settings.dictation).toEqual({ engine: "web-speech" });
+      expect(result.current.settings.dictation).toEqual({ engine: "web-speech", sttApiKey: "" });
     });
 
     it("dictation.engine coerces an invalid value to 'web-speech'", async () => {
@@ -140,7 +140,7 @@ describe("useSettings", () => {
       );
       const { result } = renderHook(() => useSettings());
       await act(async () => {});
-      expect(result.current.settings.dictation).toEqual({ engine: "web-speech" });
+      expect(result.current.settings.dictation).toEqual({ engine: "web-speech", sttApiKey: "" });
     });
 
     it("dictation.engine is 'stt' only when persisted strictly 'stt'", async () => {
@@ -150,7 +150,7 @@ describe("useSettings", () => {
       );
       const { result } = renderHook(() => useSettings());
       await act(async () => {});
-      expect(result.current.settings.dictation).toEqual({ engine: "stt" });
+      expect(result.current.settings.dictation).toEqual({ engine: "stt", sttApiKey: "" });
     });
 
     it("tourSeen defaults to undefined (auto-launch eligible)", () => {
