@@ -106,6 +106,30 @@ export function StakeholderEditModal({
     label: t(lang, "stakeholderFieldNotes"),
     onAppendFinal: (txt) => update("notes", appendDictation(draftRef.current.notes ?? "", txt)),
   });
+  const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "stakeholderFieldName"),
+    onAppendFinal: (txt) =>
+      update("name", describeTextCap(appendDictation(draftRef.current.name ?? "", txt), BUDGET_NAME_MAX).value),
+  });
+  const { mic: orgMic, status: orgDictationStatus, registration: orgDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "stakeholderFieldOrganization"),
+    onAppendFinal: (txt) =>
+      update("organization", describeTextCap(appendDictation(draftRef.current.organization ?? "", txt), BUDGET_NAME_MAX).value),
+  });
+  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "stakeholderFieldTitle"),
+    onAppendFinal: (txt) =>
+      update("title", describeTextCap(appendDictation(draftRef.current.title ?? "", txt), BUDGET_NAME_MAX).value),
+  });
 
   const { offset, handleProps } = useDraggable(true);
 
@@ -169,23 +193,28 @@ export function StakeholderEditModal({
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "stakeholderFieldName")} *<InfoTooltip text={t(lang, "stakeholderFieldNameHint")} />
+              {nameMic}
             </span>
-            <ResourcePicker
-              lang={lang}
-              value={{ name: draft.name, email: draft.email ?? "", resourceId: draft.resourceId }}
-              resources={resources}
-              contacts={[]}
-              onChange={(next) =>
-                onChange({ ...draft, name: next.name, resourceId: next.resourceId })
-              }
-              onBlur={(e) =>
-                onChange({ ...draft, name: describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim(), resourceId: draft.resourceId })
-              }
-              maxLength={BUDGET_NAME_MAX}
-              aria-required
-              aria-describedby="stakeholder-name-counter"
-            />
+            <div onFocus={nameDictationReg.onFocus}>
+              <ResourcePicker
+                lang={lang}
+                value={{ name: draft.name, email: draft.email ?? "", resourceId: draft.resourceId }}
+                resources={resources}
+                contacts={[]}
+                onChange={(next) =>
+                  onChange({ ...draft, name: next.name, resourceId: next.resourceId })
+                }
+                onBlur={(e) => {
+                  onChange({ ...draft, name: describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim(), resourceId: draft.resourceId });
+                  nameDictationReg.onBlur();
+                }}
+                maxLength={BUDGET_NAME_MAX}
+                aria-required
+                aria-describedby="stakeholder-name-counter"
+              />
+            </div>
             <CharCounter value={draft.name} max={BUDGET_NAME_MAX} id="stakeholder-name-counter" lang={lang} />
+            {nameDictationStatus}
           </label>
 
           {/* Organization */}
@@ -193,19 +222,23 @@ export function StakeholderEditModal({
             <label className="flex flex-col gap-1 text-sm">
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "stakeholderFieldOrganization")}<InfoTooltip text={t(lang, "stakeholderFieldOrganizationHint")} />
+                {orgMic}
               </span>
               <input
                 type="text"
                 value={draft.organization ?? ""}
                 onChange={(e) => update("organization", e.target.value || undefined)}
+                onFocus={orgDictationReg.onFocus}
                 onBlur={(e) => {
                   const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
                   update("organization", trimmed || undefined);
+                  orgDictationReg.onBlur();
                 }}
                 aria-describedby="stakeholder-organization-counter"
                 className={INPUT_CLASS}
               />
               <CharCounter value={draft.organization ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-organization-counter" lang={lang} />
+              {orgDictationStatus}
             </label>
           )}
 
@@ -216,19 +249,23 @@ export function StakeholderEditModal({
               <label className="flex flex-col gap-1 text-sm">
                 <span className="flex items-center gap-1 font-medium text-foreground">
                   {t(lang, "stakeholderFieldTitle")}<InfoTooltip text={t(lang, "stakeholderFieldTitleHint")} />
+                  {titleMic}
                 </span>
                 <input
                   type="text"
                   value={draft.title ?? ""}
                   onChange={(e) => update("title", e.target.value || undefined)}
+                  onFocus={titleDictationReg.onFocus}
                   onBlur={(e) => {
                     const trimmed = describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim();
                     update("title", trimmed || undefined);
+                    titleDictationReg.onBlur();
                   }}
                   aria-describedby="stakeholder-title-counter"
                   className={INPUT_CLASS}
                 />
                 <CharCounter value={draft.title ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-title-counter" lang={lang} />
+                {titleDictationStatus}
               </label>
 
               {/* Email */}

@@ -56,6 +56,14 @@ export function MilestoneEditModal({
     onAppendFinal: (txt) =>
       setDraft((p) => (p ? { ...p, description: appendDictation(p.description ?? "", txt) } : p)),
   });
+  const { mic: nameMic, status: nameDictationStatus, registration: nameDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "milestoneName"),
+    onAppendFinal: (txt) =>
+      setDraft((p) => (p ? { ...p, name: appendDictation(p.name ?? "", txt) } : p)),
+  });
 
   if (prev !== milestone) {
     setPrev(milestone);
@@ -147,15 +155,19 @@ export function MilestoneEditModal({
           className="flex flex-col gap-4 overflow-y-auto p-5"
         >
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-foreground">
+            <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "milestoneName")} *
+              {nameMic}
             </span>
             <input
               required
               value={draft.name}
               onChange={(e) => update("name", e.target.value)}
+              onFocus={nameDictationReg.onFocus}
+              onBlur={nameDictationReg.onBlur}
               className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
+            {nameDictationStatus}
           </label>
 
           {isVisible("targetDate") && (
