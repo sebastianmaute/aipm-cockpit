@@ -31,7 +31,6 @@ function Harness(props?: { fieldErrors?: TaskFieldErrors; submitted?: boolean })
         jiraProjectKey={undefined}
         jiraDefaultIssueType={undefined}
         onRemoveContact={vi.fn()}
-        onShowToast={vi.fn()}
         onAddAssigneeToAddressBook={vi.fn()}
       />
     </form>

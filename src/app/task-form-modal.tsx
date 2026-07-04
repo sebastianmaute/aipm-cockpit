@@ -37,7 +37,6 @@ export interface TaskFormModalProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
   onRemoveContact: (name: string) => void;
-  onShowToast: (kind: "info" | "error", text: string) => void;
   onAddAssigneeToAddressBook: (name: string, email: string) => void;
   /** Editor action buttons (Send inquiry / Push to Jira) rendered in the footer before Cancel/Save. */
   leadingActions?: ReactNode;
@@ -70,7 +69,6 @@ export function TaskFormModal({
   onSubmit,
   onCancel,
   onRemoveContact,
-  onShowToast,
   onAddAssigneeToAddressBook,
   leadingActions,
   deleteAction,
@@ -131,7 +129,6 @@ export function TaskFormModal({
             jiraProjectKey={jiraProjectKey}
             jiraDefaultIssueType={jiraDefaultIssueType}
             onRemoveContact={onRemoveContact}
-            onShowToast={onShowToast}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
           />
           <div className="flex items-center justify-between gap-2">

@@ -74,7 +74,6 @@ function defaultProps(overrides?: Partial<Parameters<typeof TaskFormModal>[0]>) 
     onSubmit: vi.fn(),
     onCancel: vi.fn(),
     onRemoveContact: vi.fn(),
-    onShowToast: vi.fn(),
     onAddAssigneeToAddressBook: vi.fn(),
     ...overrides,
   };

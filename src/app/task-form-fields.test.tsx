@@ -28,7 +28,6 @@ function Harness() {
         jiraProjectKey={undefined}
         jiraDefaultIssueType={undefined}
         onRemoveContact={vi.fn()}
-        onShowToast={vi.fn()}
         onAddAssigneeToAddressBook={vi.fn()}
       />
     </form>
@@ -70,7 +69,7 @@ describe("TaskFormFields", () => {
             editingIsJiraLinked={false} jiraEnabled={false}
             fieldErrors={{ taskName: "errorTaskNameRequired" }} submitted
             holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
-            onRemoveContact={vi.fn()} onShowToast={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
+            onRemoveContact={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
           />
         </form>
       );
@@ -92,7 +91,7 @@ describe("TaskFormFields", () => {
               editingIsJiraLinked={false} jiraEnabled={false}
               fieldErrors={{}} submitted={false}
               holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
-              onRemoveContact={vi.fn()} onShowToast={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
+              onRemoveContact={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
             />
           </form>
         </>

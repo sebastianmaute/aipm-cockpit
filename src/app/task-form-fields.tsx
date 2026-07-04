@@ -63,7 +63,6 @@ export interface TaskFormFieldsProps {
   jiraDefaultIssueType: string | undefined;
   /** Retained for the parent prop chain; unused here since the assignee field moved to ResourcePicker. Full removal is deferred to the contacts-retirement slice (SP4). */
   onRemoveContact: (name: string) => void;
-  onShowToast: (kind: "info" | "error", text: string) => void;
   onAddAssigneeToAddressBook: (name: string, email: string) => void;
 }
 

@@ -26,7 +26,6 @@ function setup(over: Partial<React.ComponentProps<typeof TaskEditView>> = {}) {
       jiraDefaultIssueType={undefined}
       onSubmit={onSubmit}
       onRemoveContact={vi.fn()}
-      onShowToast={vi.fn()}
       onAddAssigneeToAddressBook={vi.fn()}
       {...over}
     />,
@@ -58,7 +57,6 @@ describe("TaskEditView", () => {
         jiraDefaultIssueType={undefined}
         onSubmit={() => {}}
         onRemoveContact={vi.fn()}
-        onShowToast={vi.fn()}
         onAddAssigneeToAddressBook={vi.fn()}
         footer={<button type="button">FOOTER-CANCEL</button>}
       />,
