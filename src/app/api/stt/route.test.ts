@@ -55,4 +55,22 @@ describe("POST /api/stt", () => {
     expect(url).toBe("https://api.openai.com/v1/audio/transcriptions");
     expect((opts.headers as Record<string, string>).Authorization).toBe("Bearer sk-test");
   });
+
+  it("refuses an upstream redirect (SSRF via 3xx)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 302, headers: { location: "http://169.254.169.254/" } })),
+    );
+    const res = await POST(req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" }));
+    expect(res.status).toBe(502);
+  });
+
+  it("rejects an oversized upload (content-length cap)", async () => {
+    const r = req({ model: "whisper-1", baseUrl: "https://api.openai.com/v1" });
+    Object.defineProperty(r, "headers", {
+      value: new Headers({ "x-stt-key": "sk-test", "content-length": String(30 * 1024 * 1024) }),
+    });
+    const res = await POST(r);
+    expect(res.status).toBe(413);
+  });
 });

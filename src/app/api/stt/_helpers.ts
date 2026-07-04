@@ -21,6 +21,14 @@ export async function parseSttRequest(
   const key = request.headers.get("x-stt-key") ?? "";
   if (!key) return { error: new Response("missing key", { status: 400 }) };
 
+  // Cap the upload before request.formData() buffers the whole body — an
+  // unbounded multipart body is a trivial memory-DoS on the serverless function.
+  const MAX_BYTES = 25 * 1024 * 1024; // 25MB — short recordings only
+  const len = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(len) && len > MAX_BYTES) {
+    return { error: new Response("payload too large", { status: 413 }) };
+  }
+
   let form: FormData;
   try {
     form = await request.formData();
@@ -35,6 +43,13 @@ export async function parseSttRequest(
     return { error: new Response("missing fields", { status: 400 }) };
   }
 
+  // SSRF model: baseUrl is USER-configured (bring-your-own OpenAI-compatible
+  // endpoint), so there is no fixed vendor apex to allowlist. We block IP-literal
+  // private hosts (isPrivateHost) + require https, and callStt refuses redirects
+  // so an upstream can't 302 us into the internal network. Accepted residuals
+  // (inherent to an arbitrary user endpoint): DNS-rebinding (host resolves public
+  // at check time, private at connect time) and that this is a generic
+  // authenticated egress proxy to any public host.
   let u: URL;
   try {
     u = new URL(baseUrl);
@@ -65,7 +80,17 @@ export async function callStt(fwd: SttForward): Promise<Response> {
       headers: { Authorization: `Bearer ${fwd.key}` },
       body: fwd.form,
       signal: controller.signal,
+      // Refuse redirects: the SSRF host check ran on the initial baseUrl only, so
+      // a 302 to an internal host (169.254.169.254 metadata, 127.0.0.1, …) would
+      // bypass it if we followed. "manual" surfaces the 3xx so we can reject it.
+      redirect: "manual",
     });
+    if (res.status >= 300 && res.status < 400) {
+      return new Response(JSON.stringify({ error: "stt upstream redirect refused" }), {
+        status: 502,
+        headers: { "content-type": "application/json" },
+      });
+    }
     const text = await res.text();
     return new Response(text, {
       status: res.status,
