@@ -4,6 +4,7 @@ import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import { readDiagLog, clearDiagLog, buildDiagnosticBundle } from "./diagnostics";
 import { EmptyState } from "./empty-state";
+import { reportSilentFailure } from "./guard-feedback";
 import { INTERACTIVE } from "./interaction-styles";
 import { useToastContext } from "./toast-context";
 
@@ -16,8 +17,8 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
     try {
       await navigator.clipboard.writeText(buildDiagnosticBundle());
       showToast("info", t(lang, "diagnosticsCopied"));
-    } catch {
-      /* clipboard blocked — no-op */
+    } catch (e) {
+      reportSilentFailure(showToast, lang, "diagnostics.copyFailed", e, "guardClipboardCopyFailed");
     }
   };
   const download = () => {
