@@ -28,7 +28,7 @@ type SR = {
 
 type SRCtor = new () => SR;
 
-function getCtor(): SRCtor | null {
+export function getCtor(): SRCtor | null {
   if (typeof window === "undefined") return null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = window as any;
@@ -50,6 +50,7 @@ type StartOptions = {
   onFinal: (text: string) => void;
   onEnd?: () => void;
   onError?: (err: string) => void;
+  continuous?: boolean;
 };
 
 export function startRecognition(opts: StartOptions): (() => void) | null {
@@ -57,7 +58,7 @@ export function startRecognition(opts: StartOptions): (() => void) | null {
   if (!Ctor) return null;
   const recog = new Ctor();
   recog.lang = recogLang(opts.lang);
-  recog.continuous = false;
+  recog.continuous = Boolean(opts.continuous);
   recog.interimResults = Boolean(opts.onInterim);
   recog.maxAlternatives = 1;
 
