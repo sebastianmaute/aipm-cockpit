@@ -13,6 +13,7 @@ import {
 import { SETTINGS_KEY } from "./use-settings";
 import { MODE_KEY } from "./portfolio-mode";
 import { DiagnosticsPanel } from "./diagnostics-panel";
+import { logDiag } from "./diagnostics";
 
 interface ConfigSummary {
   backendKind: string;
@@ -41,7 +42,7 @@ function readSummary(): ConfigSummary {
   return { backendKind, portfolioMode, tursoConfigured };
 }
 
-function downloadJson(filename: string, json: string): void {
+function downloadJson(filename: string, json: string): boolean {
   try {
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -50,8 +51,9 @@ function downloadJson(filename: string, json: string): void {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    return true;
   } catch {
-    /* download unavailable — ignore */
+    return false;
   }
 }
 
@@ -80,7 +82,12 @@ export function RecoveryPanel() {
   };
 
   const onReset = () => {
-    quarantineConfig();
+    const r = quarantineConfig();
+    if (!r.ok) {
+      logDiag("error", "recovery.resetFailed", {});
+      setMessage(t(lang, "guardRecoveryResetFailed"));
+      return;
+    }
     setMessage(t(lang, "recoveryResetDone"));
     reopen();
   };
@@ -91,12 +98,21 @@ export function RecoveryPanel() {
       setMessage(t(lang, "recoveryNoBackups"));
       return;
     }
-    restoreConfig(latest.id);
+    if (!restoreConfig(latest.id)) {
+      logDiag("error", "recovery.restoreFailed", {});
+      setMessage(t(lang, "guardRecoveryRestoreFailed"));
+      return;
+    }
     setMessage(t(lang, "recoveryRestoreDone"));
     reopen();
   };
 
-  const onDownload = () => downloadJson("lop-config.json", exportConfig());
+  const onDownload = () => {
+    if (!downloadJson("lop-config.json", exportConfig())) {
+      logDiag("error", "recovery.backupDownloadFailed", {});
+      setMessage(t(lang, "guardRecoveryBackupDownloadFailed"));
+    }
+  };
 
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-6 p-8">

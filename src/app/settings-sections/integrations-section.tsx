@@ -30,6 +30,8 @@ import { TimelogSettings } from "../timelog-settings";
 import { JiraSettingsSection } from "../jira-settings";
 import { defaultTimelogConfig } from "../timelog-types";
 import { calendarSyncFor } from "../calendar-sync-config";
+import { useToastContext } from "../toast-context";
+import { reportSilentFailure } from "../guard-feedback";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -110,6 +112,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
   const auth = useMsAuth(m365.enabled);
+  const showToast = useToastContext();
   const envClientIdSet = !!process.env.NEXT_PUBLIC_MSAL_CLIENT_ID;
   const envTenantIdSet = !!process.env.NEXT_PUBLIC_MSAL_TENANT_ID;
   const envTursoUrlSet = !!process.env.NEXT_PUBLIC_TURSO_DATABASE_URL;
@@ -309,7 +312,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 </span>
                 <button
                   type="button"
-                  onClick={() => { void auth.signOut(); }}
+                  onClick={() => { void auth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
                   className={`rounded border border-line bg-surface px-2 py-1 text-xs hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "integrationsM365SignOut")}
@@ -318,7 +321,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             ) : (
               <button
                 type="button"
-                onClick={() => { void auth.signIn(); }}
+                onClick={() => { void auth.signIn().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
                 disabled={!envClientIdSet && !m365.clientId}
                 title={
                   !envClientIdSet && !m365.clientId

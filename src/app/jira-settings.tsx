@@ -82,8 +82,11 @@ export function JiraSettingsSection({
       .then((list) => {
         if (!cancelled) setIssueTypes(list);
       })
-      .catch(() => {
-        if (!cancelled) setIssueTypes([]);
+      .catch((e) => {
+        if (!cancelled) {
+          setIssueTypes([]);
+          reportSilentFailure(showToast, lang, "jira.issueTypesLoadFailed", e, "guardJiraIssueTypesFailed");
+        }
       });
     return () => {
       cancelled = true;

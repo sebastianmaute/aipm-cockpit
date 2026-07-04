@@ -113,7 +113,7 @@ import {
   type ProjectsRegistry,
 } from "./projects-registry";
 import { deleteHandle } from "./project-file-handles";
-import { exportWorkspace, type ExportFormat } from "./export";
+import { exportWorkspace, type ExportFormat } from "./export"; import { reportSilentFailure } from "./guard-feedback";
 import { ProjectEmptyState } from "./project-empty-state";
 import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
@@ -1317,9 +1317,9 @@ function TaskManagerInner() {
         tasks, raid, absences, shifts, resources, roles, disciplines, grades,
         plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
       };
-      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang);
+      void exportWorkspace(ws, format as ExportFormat, settings.export ?? defaultExportConfig, lang).catch((e) => reportSilentFailure(showToast, lang, "export.failed", e, "guardExportFailed"));
     },
-    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, lang],
+    [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, milestones, changes, stakeholders, settings.export, lang, showToast],
   );
 
   // De-register a project: drop it from the registry (observable copy updated),
@@ -1603,7 +1603,7 @@ function TaskManagerInner() {
         : undefined,
     onEditTask: openEditModal,
     onChangeBudgets: handleChangeBudgets,
-    onRefreshFx: refreshFx,
+    onRefreshFx: () => { void refreshFx().then((err) => { if (err) reportSilentFailure(showToast, lang, "fx.refreshFailed", new Error(err), "guardFxRefreshFailed"); }); },
     fxLoading,
     trends,
     versionHistory,
@@ -2128,7 +2128,7 @@ function TaskManagerInner() {
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => {
-              void msAuth.signOut();
+              void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed"));
             }}
           />
         }

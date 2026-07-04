@@ -2382,6 +2382,13 @@ const enUS = {
   guardCommVersionSaveFailed: "Couldn't save this template version.",
   guardTimelogCustomersFailed: "Couldn't load the customer list — showing all projects instead.",
   guardTrendsNotConfigured: "Trends needs a connected database — reconnect Turso in Settings to record snapshots.",
+  guardMsSignInFailed: "Microsoft sign-in didn't complete. Check for a blocked pop-up and try again.",
+  guardRecoveryResetFailed: "Reset didn't complete — your configuration may still be broken. Try again or use the manual steps below.",
+  guardRecoveryRestoreFailed: "Restore didn't complete — the backup may be corrupt or storage is unavailable.",
+  guardRecoveryBackupDownloadFailed: "Couldn't download the backup file. Copy the on-screen data manually before resetting.",
+  guardFxRefreshFailed: "Couldn't refresh exchange rates. Currency conversions may be stale or missing.",
+  guardExportFailed: "Export failed — nothing was downloaded. Please try again.",
+  guardJiraIssueTypesFailed: "Couldn't load issue types for this project. Jira sync may not pick up the types you expect — try reselecting the project.",
   // SP4 tour catalog titles + blurbs
   tourGettingStartedTitle: "Getting started",
   tourGettingStartedDesc: "A quick tour of the main areas — projects, tasks, actions, and the dashboard.",

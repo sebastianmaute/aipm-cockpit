@@ -1,17 +1,25 @@
 // src/app/recovery-banner.tsx
 "use client";
 
+import { useState } from "react";
 import { t } from "./i18n";
 import { isSafeMode } from "./safe-mode";
 import { quarantineConfig, readPersistedLang } from "./recovery-config";
+import { logDiag } from "./diagnostics";
 
 /** Sticky banner shown only in safe mode (?safe=1). Self-hides otherwise. */
 export function RecoveryBanner() {
+  const [failed, setFailed] = useState(false);
   if (!isSafeMode()) return null;
   const lang = readPersistedLang();
 
   const onResetNow = () => {
-    quarantineConfig();
+    const r = quarantineConfig();
+    if (!r.ok) {
+      logDiag("error", "recovery.resetFailed", {});
+      setFailed(true);
+      return;
+    }
     try {
       window.location.assign("/");
     } catch {
@@ -39,6 +47,7 @@ export function RecoveryBanner() {
         >
           {t(lang, "recoveryResetNow")}
         </button>
+        {failed && <span className="text-xs text-AIPM-pink-strong">{t(lang, "guardRecoveryResetFailed")}</span>}
       </span>
     </div>
   );
