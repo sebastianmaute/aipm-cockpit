@@ -3,6 +3,7 @@ export interface DictationHandlers {
   onInterim: (text: string) => void;
   onFinal: (text: string) => void;
   onError: (err: string) => void; // "not-allowed" | "not-supported" | SR error code
+  onStatus?: (status: "transcribing" | "idle") => void; // STT-only; web-speech ignores it
 }
 export interface DictationEngine {
   /** Begin capturing. Returns false if unsupported / failed to start. */
