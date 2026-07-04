@@ -29,7 +29,11 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 
 afterEach(() => {
   cleanup();
-  localStorage.clear();
+  // A handful of server-route tests override `// @vitest-environment node`
+  // (jsdom's Blob/FormData/Request don't interoperate with Node's undici
+  // multipart parser) — localStorage doesn't exist there, so guard it like
+  // the IntersectionObserver stub above.
+  if (typeof localStorage !== "undefined") localStorage.clear();
   server.resetHandlers();
 });
 
