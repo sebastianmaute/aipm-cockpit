@@ -274,6 +274,12 @@ export function useSettings(): {
                   : undefined;
                 return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 500) : undefined;
               })(),
+              hotkey: (() => {
+                const raw = isPlainObject((parsed as Record<string, unknown>).dictation)
+                  ? ((parsed as Record<string, unknown>).dictation as Record<string, unknown>).hotkey
+                  : undefined;
+                return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 40) : "F4";
+              })(),
             },
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
