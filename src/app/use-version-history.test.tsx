@@ -178,6 +178,20 @@ describe("useVersionHistory", () => {
     expect(logActivity).toHaveBeenCalledWith("history.restore", 1, "v1-label");
   });
 
+  it("restore surfaces onError when the version payload could not be loaded (not silent)", async () => {
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(null);
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    const applyWorkspace = vi.fn();
+    const onError = vi.fn();
+    const { result } = renderHook(() => useVersionHistory(args({ onError, applyWorkspace })));
+    await act(async () => { await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(applyWorkspace).not.toHaveBeenCalled(); // never reached — no false "restored" UI
+    expect(append).not.toHaveBeenCalled();
+  });
+
   it("loadDiff compares a version payload against the current workspace", async () => {
     const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
       grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };

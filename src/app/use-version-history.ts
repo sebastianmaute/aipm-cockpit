@@ -165,7 +165,7 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     if (count === 0) return;
     try {
       const verStr = await loadVersionPayload(config, versionId, projectId);
-      if (!verStr) return;
+      if (!verStr) { onError?.(new Error("version payload could not be loaded")); return; }
       const version = jsonToWorkspace(verStr);
       const now = jsonToWorkspace(getPayload());
       const changes = diffWorkspaces(version, now);
