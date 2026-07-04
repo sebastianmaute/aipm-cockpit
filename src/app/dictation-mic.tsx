@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { Settings } from "./settings-types";
@@ -34,7 +34,15 @@ export function useDictationMic({ lang, dictation, enabled = true, label, onAppe
     },
   });
 
-  const target = useMemo<DictationTarget>(() => ({ press: ptt.press, release: ptt.release, label }), [ptt.press, ptt.release, label]);
+  const pressRef = useRef(ptt.press);
+  const releaseRef = useRef(ptt.release);
+  useEffect(() => { pressRef.current = ptt.press; releaseRef.current = ptt.release; });
+
+  const target = useMemo<DictationTarget>(() => ({
+    press: () => pressRef.current(),
+    release: () => releaseRef.current(),
+    label,
+  }), [label]);
   const registration = useMemo(() => ({
     onFocus: () => setActiveDictationTarget(target),
     onBlur: () => clearDictationTargetIf(target),

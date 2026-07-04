@@ -29,4 +29,15 @@ describe("useDictationMic", () => {
     unmount();
     expect(getActiveDictationTarget()).toBeNull();
   });
+
+  it("keeps the active target across re-renders (stable identity)", () => {
+    const { result, rerender } = renderHook(
+      (props: { label: string }) => useDictationMic({ lang: "en-US", label: props.label, onAppendFinal: vi.fn() }),
+      { initialProps: { label: "Notes" } },
+    );
+    result.current.registration.onFocus();
+    expect(getActiveDictationTarget()?.label).toBe("Notes");
+    rerender({ label: "Notes" }); // same label → same target → cleanup must NOT null it
+    expect(getActiveDictationTarget()?.label).toBe("Notes");
+  });
 });

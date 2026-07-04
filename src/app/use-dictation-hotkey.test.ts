@@ -44,4 +44,15 @@ describe("useDictationHotkey", () => {
     expect(release).toHaveBeenCalled();
     key("keydown", "F4"); expect(press).toHaveBeenCalledTimes(2); // hotkey not stuck-dead
   });
+
+  it("releases the target pressed at keydown even if focus changed", () => {
+    const relA = vi.fn(); const relB = vi.fn();
+    setActiveDictationTarget({ press: vi.fn(), release: relA, label: "A" });
+    renderHook(() => useDictationHotkey("F4", false));
+    key("keydown", "F4");
+    setActiveDictationTarget({ press: vi.fn(), release: relB, label: "B" }); // focus moved
+    key("keyup", "F4");
+    expect(relA).toHaveBeenCalled();
+    expect(relB).not.toHaveBeenCalled();
+  });
 });

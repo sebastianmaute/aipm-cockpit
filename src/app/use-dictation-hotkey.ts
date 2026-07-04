@@ -11,6 +11,7 @@ export function useDictationHotkey(combo: string | undefined, isPopout: boolean)
     comboRef.current = combo;
   }, [combo]);
   const heldRef = useRef(false);
+  const heldTargetRef = useRef<{ release: () => void } | null>(null);
   useEffect(() => {
     if (isPopout) return;
     const onDown = (e: KeyboardEvent) => {
@@ -21,18 +22,24 @@ export function useDictationHotkey(combo: string | undefined, isPopout: boolean)
       if (!target) return;
       e.preventDefault();
       heldRef.current = true;
+      heldTargetRef.current = target;
       target.press();
     };
     const onUp = (e: KeyboardEvent) => {
       if (!heldRef.current) return;
-      void e;
+      const c = comboRef.current;
+      const mainKey = c ? c.split("+").pop() : undefined;
+      const evKey = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+      if (mainKey && evKey !== mainKey) return;
       heldRef.current = false;
-      getActiveDictationTarget()?.release();
+      heldTargetRef.current?.release();
+      heldTargetRef.current = null;
     };
     const onBlur = () => {
       if (!heldRef.current) return;
       heldRef.current = false;
-      getActiveDictationTarget()?.release();
+      heldTargetRef.current?.release();
+      heldTargetRef.current = null;
     };
     document.addEventListener("keydown", onDown);
     document.addEventListener("keyup", onUp);
