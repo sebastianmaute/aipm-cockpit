@@ -81,7 +81,6 @@ function makeProps(): AppModalsProps {
     handleSubmit: vi.fn(),
     handleCancelEdit: vi.fn(),
     handleRemoveContact: vi.fn(),
-    showToast: vi.fn(),
     editingResource: null,
     onSaveResource: vi.fn(),
     onDeleteResource: vi.fn(),

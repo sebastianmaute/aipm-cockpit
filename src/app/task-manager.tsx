@@ -1806,7 +1806,6 @@ function TaskManagerInner() {
       jiraDefaultIssueType={settings.jira.issueTypes[0]}
       onSubmit={handleSubmit}
       onRemoveContact={handleRemoveContact}
-      onShowToast={showToast}
       onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
       heading={editingId !== null ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")}
       onClose={handleCancelEdit}
@@ -2055,7 +2054,6 @@ function TaskManagerInner() {
         handleSubmit={handleSubmit}
         handleCancelEdit={handleCancelEdit}
         handleRemoveContact={handleRemoveContact}
-        showToast={showToast}
         onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
         editingResource={editingResource}
         onSaveResource={handleSaveResourceFromAnywhere}

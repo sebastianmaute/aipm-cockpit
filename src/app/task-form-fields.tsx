@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useId, useState } from "react";
 import { ComboInput } from "./combo-input";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
@@ -29,7 +28,6 @@ import {
   GROUP_MAX,
   TASK_NAME_MAX,
   TEXTAREA_MAX,
-  sanitizeVoiceTranscript,
 } from "./sanitize";
 import { describeTextCap } from "./sanitize-report";
 import { EffortProgressBar } from "./effort-progress-bar";
@@ -39,13 +37,6 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
 import { PRIORITIES, TASK_STATUSES, type Absence, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
-
-// voice-button is lazy-loaded — it transitively pulls the Web Speech API
-// shims in voice.ts which we only need when the user clicks the mic.
-const InlineMicButton = dynamic(
-  () => import("./voice-button").then((m) => m.InlineMicButton),
-  { ssr: false },
-);
 
 // Same compact input class the rest of the form uses. Declared here to avoid
 // a circular import back into task-form-modal.tsx.
@@ -72,7 +63,6 @@ export interface TaskFormFieldsProps {
   jiraDefaultIssueType: string | undefined;
   /** Retained for the parent prop chain; unused here since the assignee field moved to ResourcePicker. Full removal is deferred to the contacts-retirement slice (SP4). */
   onRemoveContact: (name: string) => void;
-  onShowToast: (kind: "info" | "error", text: string) => void;
   onAddAssigneeToAddressBook: (name: string, email: string) => void;
 }
 
@@ -94,7 +84,6 @@ export function TaskFormFields({
   holidaySet,
   jiraProjectKey,
   jiraDefaultIssueType,
-  onShowToast,
   onAddAssigneeToAddressBook,
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
@@ -108,6 +97,14 @@ export function TaskFormFields({
     label: t(lang, "notes"),
     onAppendFinal: (txt) =>
       setForm((prev) => ({ ...prev, notes: appendDictation(prev.notes ?? "", txt) })),
+  });
+  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "taskName"),
+    onAppendFinal: (txt) =>
+      setForm((prev) => ({ ...prev, taskName: describeTextCap(appendDictation(prev.taskName ?? "", txt), TASK_NAME_MAX).value })),
   });
 
   // A field's error shows once it's been blurred (touched) or a submit was
@@ -179,37 +176,27 @@ export function TaskFormFields({
           required
           className="sm:col-span-2"
         >
-          <div className="relative">
+          <div className="flex items-center gap-1">
             <input
               type="text"
               required
               value={form.taskName}
               onChange={(e) => setForm({ ...form, taskName: e.target.value })}
+              onFocus={titleDictationReg.onFocus}
               onBlur={(e) => {
                 setForm({ ...form, taskName: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() });
                 markTouched("taskName");
+                titleDictationReg.onBlur();
               }}
               placeholder={t(lang, "placeholderTaskName")}
               aria-invalid={errorFor("taskName") ? true : undefined}
               aria-describedby={describedBy("taskName", "taskName-counter")}
-              className={`${inputClass} pr-10`}
+              className={inputClass}
             />
-            <InlineMicButton
-              lang={lang}
-              onTranscript={(text) => {
-                const clean = sanitizeVoiceTranscript(text);
-                setForm((prev) => ({
-                  ...prev,
-                  taskName: (prev.taskName
-                    ? `${prev.taskName} ${clean}`
-                    : clean
-                  ).slice(0, TASK_NAME_MAX),
-                }));
-              }}
-              onError={(msg) => onShowToast("error", msg)}
-            />
+            {titleMic}
           </div>
           <CharCounter value={form.taskName} max={TASK_NAME_MAX} id="taskName-counter" lang={lang} />
+          {titleDictationStatus}
           <FieldError id="taskName-error">{errorFor("taskName")}</FieldError>
         </Field>
 

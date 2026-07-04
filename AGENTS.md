@@ -129,7 +129,9 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
 - **New Turso table NOT workspace data** (snapshots, version history, comm_templates)
   must stay OUT of `TABLE_NAMES` (guard test enforces) — else workspace save's
   per-table DELETE wipes it. `SqlArg.value` (turso-schema) is string-only even for ints (`String(v)`).
-- **Secrets at rest:** Anthropic `apiKey` + Turso `authToken` + Jira `apiToken` (`SecretId` union)
+- **Secrets at rest:** the `SecretId` union is now FIVE device-sealed ids — Anthropic `apiKey` +
+  Turso `authToken` + Jira `apiToken` + Timelog `timelogApiToken` + dictation-STT `sttApiKey` (5th;
+  lives under `settings.dictation`, browser→same-origin `/api/stt` SSRF proxy) — all
   ENCRYPTED via `secrets.ts` (AES-256-GCM; non-extractable device key in IndexedDB by default,
   optional per-secret PBKDF2 passphrase — Jira is device-only so far, no passphrase UI). ★ Adding a
   SecretId means SIX edits in lockstep: `SecretId` union, `isSealedSecret` id allowlist + `readStore`
@@ -1234,6 +1236,44 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 - **Paging (★):** all TimeLog list endpoints page at 10 by default but honour OData `$page`/`$pagesize` (uncapped — `callPaged` uses 500/page, `MAX_PAGES=100`). WITHOUT a paging loop the app silently ingests only the first 10 rows of any list (e.g. 10 of 77 bookings). The proxy `encodeURIComponent`s the `$` (`%24page`) — upstream decodes it. `callRaw` transparently RETRIES a 429 honouring `Retry-After` (else exp backoff, abortable via the same signal), bounded at `MAX_429_RETRIES`.
 - **Two-step fetch (`use-timelog-sync.ts`):** `loadDirectory()` pulls ONLY the directory (cheap); `fetchBookings(start,end,userIds?)` pulls timesheets — org scope iterates ONLY the passed (ticked) ids, else all loaded users. Split so org scope doesn't fire one request/employee for the whole org. `displayableUsers`/`isDisplayableUser` (`timelog-match.ts`) drop inactive/nameless directory rows. Hook also exposes `removeUsers`/`clearAll`/`cancel` (AbortController threaded to every call; loading modal's Cancel aborts) + `loadManagedProjects`/`loadCustomers`. ★ Plain (non-memoized) functions reading live state — like the storage handlers. ★ Fetched `users`+`projectRefs` cached per-device (cache `aggregates` is now OPTIONAL so a directory-only load persists); `loadDirectory` only writes cache when bookings already exist (no fabricated `fetchedAt`).
 - **Load my projects (`listManagedProjects`):** REST `/v1/project/get-all` exposes `ProjectManagerID`; filter `=== getMe().userId` (guard `managerUserId<=0`→[] so a bad /me can't match null-PM projects). `Project_GetAll` defaults `isActive=true` — pass `includeClosed` to ALSO pull `isActive=false`. `listProjectsForCustomer(customerId)` server-filters by `customerID` (NOT PM-scoped — lets a non-PM load a client's projects); `listCustomers` populates the picker (lazy on focus, no modal). Project allocations (people↔project) are Transactional-API only — NOT reachable via the REST employee token.
+
+### Diagnostics log · guard transparency · dictation
+
+- **Diagnostic log (`diagnostics.ts`):** `logDiag(level, code, fields?)` → a capped (200) per-device ring
+  `lop-app:diag-log` — OUT of workspace exports/Turso/recovery `CONFIG_KEYS`, swept by `clearAppConfig`'s
+  `lop-app:*` sweep, NEVER holds secrets. ★★ Level-aware eviction (drops oldest `info` first so rare
+  `warn`/`error` survive an info/error storm). ★★ Redaction (`diagnostics-redact.ts`) is TWO-layer: a
+  secret-KEY denylist (key normalized before match) AND a secret-VALUE scrub (`sk-ant-*`/`Bearer`/JWT/
+  `ATATT…`/`Basic <base64>`/`key=value`) — the EXPORTED bundle (`buildDiagnosticBundle`) must never carry a
+  secret. Inspect via `window.__lopDiag()`. Panel = Settings → Diagnostics (level/code filter + summary;
+  ★ Copy/Download export the FULL ring, never the filtered view). `dataloss-forensics.ts` folds in under
+  `dataloss.*` codes. ★ load() must THROW on a malformed/partial read, never mask it as an empty project
+  (`relationalReadIsEmpty`); the save effect refuses a full-wipe / mass-deletion over a populated project
+  unless `allowDestructiveSave()` armed (clear-all self-arms) — the data-loss defense.
+- **Guard transparency (`guard-feedback.ts`):** `reportSilentFailure(showToast, lang, code, err, msgKey)`
+  (error toast + `logDiag`) / `reportCapabilityGap(showToast, lang, code, guidanceKey)` (info toast +
+  `logDiag`) — the pattern for surfacing a swallowed user-action failure or an off/unconfigured-feature
+  no-op. Recovery pages (no ToastProvider) use `logDiag` + `setMessage` instead. ★ ADDITIVE — wire
+  alongside the existing bail; never change control flow (except the recovery ignored-return fixes).
+- **Dictation (push-to-talk):** `voice.ts` gained a NON-breaking `continuous?` flag + exported `getCtor`;
+  `dictation-engine.ts` = the `DictationEngine` interface + pure `appendDictation`; `resolveDictationEngine(
+  dictation, lang)` (`dictation-config.ts`) picks `web-speech-engine` (free, browser) vs `stt-engine`
+  (OpenAI-compatible; `MediaRecorder` → `/api/stt`). `usePushToTalk` (hold/tap 250ms threshold; exposes
+  `press`/`release`) → `useDictationMic` (shared mic button + interim/transcribing preview + centralized
+  mic-denied/stt/unsupported toasts) used by chat + the 5 edit-modal prose textareas + prose single-line
+  inputs. ★★ `dictation-target.ts` = ONE active target (registered on field focus, cleared on blur/unmount,
+  clear-ONLY-if-active); the global hold-to-talk hotkey (`use-dictation-hotkey.ts`, configurable
+  `settings.dictation.hotkey`, default `F4`) remote-triggers the focused field's mic — captures the pressed
+  target so a mid-hold focus change / window blur can't strand it. ★★ Web Speech fires `onFinal` MULTIPLE
+  times per hold → a field's `onAppendFinal` MUST read the LATEST state (functional setter or a ref), else
+  each segment overwrites the last (bit RAID/change/stakeholder). ★★ `DictationMic`'s `target` useMemo must
+  be identity-STABLE (route `press`/`release` through refs) or the unmount-cleanup effect nulls the live
+  target every render (bit the hotkey).
+- **`/api/stt` proxy (`api/stt/route.ts` + `_helpers.ts`):** browser → same-origin `/api/stt` (NO new CSP
+  host); REUSES `proxy-ssrf` `isPrivateHost` + https-only on the USER-configured BYO base URL (no fixed
+  apex allowlist — inherent BYO residual, documented), REFUSES upstream redirects (3xx→502, closes
+  redirect-SSRF), content-length + post-parse file-size cap (25MB), Bearer key only outbound, never logged.
+  `settings.dictation` = `{ engine: "web-speech"|"stt", sttBaseUrl?, sttModel?, sttApiKey?(sealed 5th SecretId), hotkey? }`.
 
 ### AI master switch + integration disclaimer
 

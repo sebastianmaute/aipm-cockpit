@@ -122,6 +122,14 @@ export function ChangeEditModal({
     label: t(lang, "changeFieldDescription"),
     onAppendFinal: (txt) => update("description", appendDictation(draftRef.current.description ?? "", txt)),
   });
+  const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "changeFieldTitle"),
+    onAppendFinal: (txt) =>
+      update("title", describeTextCap(appendDictation(draftRef.current.title ?? "", txt), BUDGET_NAME_MAX).value),
+  });
 
   const { offset, handleProps } = useDraggable(true);
 
@@ -255,17 +263,20 @@ export function ChangeEditModal({
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldTitle")} *<InfoTooltip text={t(lang, "changeFieldTitleHint")} />
+              {titleMic}
             </span>
             <input
               type="text"
               required
               value={draft.title}
               onChange={(e) => update("title", e.target.value)}
-              onBlur={(e) => update("title", describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim())}
+              onFocus={titleDictationReg.onFocus}
+              onBlur={(e) => { update("title", describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim()); titleDictationReg.onBlur(); }}
               aria-describedby="change-title-counter"
               className={INPUT_CLASS}
             />
             <CharCounter value={draft.title} max={BUDGET_NAME_MAX} id="change-title-counter" lang={lang} />
+            {titleDictationStatus}
           </label>
 
           {/* Type */}
