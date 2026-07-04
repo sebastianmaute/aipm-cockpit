@@ -250,6 +250,13 @@ export function useSettings(): {
             expertMode: (parsed as Record<string, unknown>).expertMode === true,
             hideFinishedTasks: (parsed as Record<string, unknown>).hideFinishedTasks === true,
             tasksViewMode: (parsed as Record<string, unknown>).tasksViewMode === "board" ? "board" : "table",
+            dictation: {
+              engine:
+                isPlainObject((parsed as Record<string, unknown>).dictation) &&
+                ((parsed as Record<string, unknown>).dictation as Record<string, unknown>).engine === "stt"
+                  ? "stt"
+                  : "web-speech",
+            },
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
                   (v): v is string => typeof v === "string",

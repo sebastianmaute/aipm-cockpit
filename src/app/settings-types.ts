@@ -479,6 +479,9 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device dictation engine preference. "stt" is reserved for a future
+   *  slice. Default "web-speech". */
+  dictation?: { engine: "web-speech" | "stt" };
   /** Per-device: show the contextual per-view Help callouts. Default ON
    *  (read as `!== false`); individual callouts can also be dismissed per-view. */
   showViewHints?: boolean;
@@ -534,6 +537,7 @@ export const defaultSettings: Settings = {
   hideFinishedTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
+  dictation: { engine: "web-speech" },
   showViewHints: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
   showDisplayTzSwitcher: false,

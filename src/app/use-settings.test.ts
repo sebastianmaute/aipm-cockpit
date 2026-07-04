@@ -124,6 +124,35 @@ describe("useSettings", () => {
       expect(result.current.settings.tasksViewMode).toBe("board");
     });
 
+    it("defaults dictation.engine to 'web-speech' when absent from persisted blob", async () => {
+      const legacy: Record<string, unknown> = { ...defaultSettings };
+      delete legacy.dictation;
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.dictation).toEqual({ engine: "web-speech" });
+    });
+
+    it("dictation.engine coerces an invalid value to 'web-speech'", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, dictation: { engine: "garbage" } }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.dictation).toEqual({ engine: "web-speech" });
+    });
+
+    it("dictation.engine is 'stt' only when persisted strictly 'stt'", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, dictation: { engine: "stt" } }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.dictation).toEqual({ engine: "stt" });
+    });
+
     it("tourSeen defaults to undefined (auto-launch eligible)", () => {
       expect(defaultSettings.tourSeen).toBeUndefined();
     });
