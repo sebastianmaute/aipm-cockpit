@@ -96,6 +96,37 @@ describe("useHashView", () => {
     removeSpy.mockRestore();
   });
 
+  it("removes the popstate listener on unmount", () => {
+    window.location.hash = "";
+    const removeSpy = vi.spyOn(window, "removeEventListener");
+    const { unmount } = renderHook(() => useHashView(), { wrapper });
+    unmount();
+    expect(removeSpy).toHaveBeenCalledWith("popstate", expect.any(Function));
+    removeSpy.mockRestore();
+  });
+
+  it("re-derives the view on popstate (browser back/forward via mouse/keyboard nav)", () => {
+    // Regression: a back/forward that changes the URL fragment via history
+    // traversal (pushState/replaceState do NOT fire `hashchange` per spec)
+    // left activeTab stale with only a hashchange listener wired up — the
+    // modern shell then rendered a stale/blank branch until F5. Handling
+    // popstate re-runs the same idempotent apply() that hashchange already
+    // uses, re-deriving the view from the current location.hash.
+    window.location.hash = "#gantt";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    expect(result.current.activeTab).toBe("gantt");
+
+    act(() => {
+      window.history.pushState(null, "", "#raid");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    expect(result.current.activeTab).toBe("raid");
+  });
+
   it("opens a deep-linked RAID item from #raid/123 on mount", () => {
     window.location.hash = "#raid/123";
     const seen: Array<{ view: string; id: number } | null> = [];
