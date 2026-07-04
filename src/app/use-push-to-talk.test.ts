@@ -78,4 +78,17 @@ describe("usePushToTalk", () => {
     const { result } = renderHook(() => usePushToTalk(mkArgs()));
     expect(result.current.supported).toBe(true);
   });
+  it("stops the engine on unmount (no leaked mic / restart loop)", () => {
+    const { result, unmount } = renderHook(() => usePushToTalk(mkArgs()));
+    act(() => { down(result); vi.advanceTimersByTime(50); up(result); });
+    expect(result.current.listening).toBe(true); // latched
+    unmount();
+    expect(stop).toHaveBeenCalled(); // engine.stop() ran on cleanup
+  });
+  it("clears the interim preview when stopping", () => {
+    const a = mkArgs();
+    const { result } = renderHook(() => usePushToTalk(a));
+    act(() => { down(result); vi.advanceTimersByTime(300); up(result); });
+    expect(a.onInterim).toHaveBeenLastCalledWith(""); // cleared on stop
+  });
 });

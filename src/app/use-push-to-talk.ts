@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lang } from "./i18n";
 import { getCtor } from "./voice";
 import { createWebSpeechEngine } from "./web-speech-engine";
@@ -37,15 +37,19 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
     engineRef.current?.stop();
     listeningRef.current = false;
     setListening(false);
-  }, []);
+    onInterim("");
+  }, [onInterim]);
 
   const handleError = useCallback((err: string) => {
     if (err === "not-allowed" || err === "not-supported" || err === "audio-capture") {
       listeningRef.current = false;
       setListening(false);
+      onInterim("");
     }
     onError(err);
-  }, [onError]);
+  }, [onInterim, onError]);
+
+  useEffect(() => () => { engineRef.current?.stop(); }, []);
 
   const startHold = useCallback(() => {
     if (!enabled) { onError("disabled"); return; }
