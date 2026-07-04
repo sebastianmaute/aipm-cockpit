@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type KeyboardEvent } from "react";
+import { useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent } from "react";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { SegmentedControl } from "../segmented-control";
@@ -8,7 +8,7 @@ import { InfoTooltip } from "../info-tooltip";
 import { saveSecretValue } from "../use-secrets";
 import { loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
-import { eventToCombo } from "../dictation-hotkey";
+import { eventToCombo, eventComboFromMouse, mouseButtonToToken } from "../dictation-hotkey";
 
 const IGNORED_MODIFIER_KEYS = ["Control", "Shift", "Alt", "Meta"];
 
@@ -56,6 +56,25 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
 
   function handleHotkeyReset() {
     setDictation({ hotkey: "F4" });
+    setHotkeyArmed(false);
+  }
+
+  /** While armed, intercept a capturable mouse button (middle / Back / Forward) before the
+   *  browser acts on it (Back/Forward nav) — mirrors handleHotkeyCapture's keyboard path.
+   *  A non-capturable button (left/right) just disarms without touching the event, so a normal
+   *  click/context-menu is never stolen. Bound to BOTH mousedown and auxclick since engines
+   *  differ on which event initiates history navigation. */
+  function handleHotkeyMouseCapture(e: ReactMouseEvent<HTMLButtonElement>) {
+    if (!hotkeyArmed) return;
+    const token = mouseButtonToToken(e.button);
+    if (!token) {
+      setHotkeyArmed(false);
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    const combo = eventComboFromMouse(e);
+    if (combo) setDictation({ hotkey: combo });
     setHotkeyArmed(false);
   }
 
@@ -131,6 +150,8 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
             aria-label={t(lang, "dictationHotkey")}
             onClick={() => setHotkeyArmed(true)}
             onKeyDown={handleHotkeyCapture}
+            onMouseDown={handleHotkeyMouseCapture}
+            onAuxClick={handleHotkeyMouseCapture}
             onBlur={() => setHotkeyArmed(false)}
             className={`rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground ${INTERACTIVE}`}
           >
