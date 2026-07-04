@@ -32,14 +32,22 @@ describe("DiagnosticsPanel", () => {
     await vi.waitFor(() => expect(readDiagLog().some((e) => e.code === "diagnostics.copyFailed")).toBe(true));
   });
 
-  it("shows a summary line with counts per level", () => {
+  it("shows a singular-aware summary line and the newest-error time", () => {
     logDiag("error", "boom.error");
     logDiag("warn", "boom.warn");
     logDiag("info", "boom.info");
     render(<DiagnosticsPanel lang="en-US" />);
-    expect(screen.getByText(/1 errors/)).toBeInTheDocument();
-    expect(screen.getByText(/1 warnings/)).toBeInTheDocument();
+    expect(screen.getByText(/1 error\b/)).toBeInTheDocument();
+    expect(screen.getByText(/1 warning\b/)).toBeInTheDocument();
     expect(screen.getByText(/1 info/)).toBeInTheDocument();
+    expect(screen.getByText(/newest error \d{2}:\d{2}:\d{2}/)).toBeInTheDocument();
+  });
+
+  it("pluralizes the summary counts when more than one event", () => {
+    logDiag("error", "boom.error.a");
+    logDiag("error", "boom.error.b");
+    render(<DiagnosticsPanel lang="en-US" />);
+    expect(screen.getByText(/2 errors\b/)).toBeInTheDocument();
   });
 
   it("hides a level's rows when its checkbox is unticked", () => {

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { Lang } from "./i18n";
+import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
 import { readDiagLog, clearDiagLog, buildDiagnosticBundle } from "./diagnostics";
 import type { DiagLevel } from "./diagnostics";
@@ -17,6 +17,14 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
   const [query, setQuery] = useState("");
   const summary = summarizeDiag(events);
   const shown = filterDiag(events, levels, query);
+  const seg = (n: number, one: TranslationKey, many: TranslationKey) => `${n} ${t(lang, n === 1 ? one : many)}`;
+  const summaryText =
+    [
+      seg(summary.error, "diagnosticsUnitErrorOne", "diagnosticsUnitErrorMany"),
+      seg(summary.warn, "diagnosticsUnitWarnOne", "diagnosticsUnitWarnMany"),
+      `${summary.info} ${t(lang, "diagnosticsUnitInfo")}`,
+    ].join(" · ") +
+    (summary.newestErrorAt ? ` · ${t(lang, "diagnosticsNewestError", String(summary.newestErrorAt).slice(11, 19))}` : "");
   const labelFor = (lv: DiagLevel) =>
     t(lang, lv === "error" ? "diagnosticsLevelError" : lv === "warn" ? "diagnosticsLevelWarn" : "diagnosticsLevelInfo");
   const toggleLevel = (lv: DiagLevel) =>
@@ -54,7 +62,7 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">{t(lang, "diagnosticsIntro")}</p>
       {events.length > 0 && (
-        <p className="text-xs text-muted-foreground">{t(lang, "diagnosticsSummary", summary.error, summary.warn, summary.info)}</p>
+        <p className="text-xs text-muted-foreground">{summaryText}</p>
       )}
       <div className="flex flex-wrap gap-2">
         <button
