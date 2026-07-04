@@ -19,7 +19,7 @@ const PROMPT_CHIPS: PromptChip[] = [
 ];
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
-import type { AiConfig } from "./settings-types";
+import type { AiConfig, Settings } from "./settings-types";
 import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
@@ -60,6 +60,7 @@ const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
 function ChatPanelImpl({
   lang,
   ai,
+  dictation,
   dispatcher,
   onAcceptConsent,
   onChangeModel,
@@ -70,6 +71,7 @@ function ChatPanelImpl({
 }: {
   lang: Lang;
   ai: AiConfig;
+  dictation?: Settings["dictation"];
   dispatcher: ToolDispatcher;
   onAcceptConsent: () => void;
   onChangeModel?: (model: string) => void;
@@ -85,6 +87,7 @@ function ChatPanelImpl({
     <ChatPanelInner
       lang={lang}
       ai={ai}
+      dictation={dictation}
       dispatcher={dispatcher}
       onChangeModel={onChangeModel}
       guides={guides}
@@ -104,6 +107,7 @@ export const ChatPanel = memo(ChatPanelImpl);
 function ChatPanelInner({
   lang,
   ai,
+  dictation,
   dispatcher,
   onChangeModel,
   guides = [],
@@ -113,6 +117,7 @@ function ChatPanelInner({
 }: {
   lang: Lang;
   ai: AiConfig;
+  dictation?: Settings["dictation"];
   dispatcher: ToolDispatcher;
   onChangeModel?: (model: string) => void;
   guides?: readonly OperatingGuide[];
@@ -148,6 +153,7 @@ function ChatPanelInner({
   const ptt = usePushToTalk({
     lang,
     enabled: true,
+    dictation,
     onAppendFinal: (txt) => {
       setInput((prev) => appendDictation(prev, txt));
       setInterim("");
@@ -157,6 +163,10 @@ function ChatPanelInner({
       setInterim("");
       if (err === "not-allowed") {
         reportCapabilityGap(showToast, lang, "dictation.micDenied", "dictationMicDenied");
+      } else if (err === "not-supported") {
+        showToast("error", t(lang, "dictationRecordUnsupported"));
+      } else if (err.startsWith("stt-")) {
+        showToast("error", t(lang, "dictationTranscribeFailed"));
       }
     },
   });
@@ -586,9 +596,9 @@ function ChatPanelInner({
         </ul>
       )}
 
-      {ptt.listening && (
+      {(ptt.listening || ptt.transcribing) && (
         <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
-          {t(lang, "dictationListening")}
+          {ptt.transcribing ? t(lang, "dictationTranscribing") : t(lang, "dictationListening")}
           {interim ? ` ${interim}` : ""}
         </p>
       )}

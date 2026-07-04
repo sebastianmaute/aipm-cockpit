@@ -30,6 +30,7 @@ export function writeSettings(settings: Settings): void {
       : settings.integrations,
     jira: settings.jira ? { ...settings.jira, apiToken: "" } : settings.jira,
     timelog: settings.timelog ? { ...settings.timelog, apiToken: "" } : settings.timelog,
+    dictation: settings.dictation ? { ...settings.dictation, sttApiKey: "" } : settings.dictation,
   };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
@@ -45,6 +46,7 @@ export async function hydrateSecretsInto(settings: Settings): Promise<Settings> 
   const token = await readDeviceSecret("tursoAuthToken");
   const jiraToken = await readDeviceSecret("jiraApiToken");
   const timelogToken = await readDeviceSecret("timelogApiToken");
+  const sttApiKey = await readDeviceSecret("sttApiKey");
   const turso = settings.integrations?.turso;
   return {
     ...settings,
@@ -61,6 +63,10 @@ export async function hydrateSecretsInto(settings: Settings): Promise<Settings> 
       settings.timelog && timelogToken !== null
         ? { ...settings.timelog, apiToken: timelogToken }
         : settings.timelog,
+    dictation:
+      settings.dictation && sttApiKey !== null
+        ? { ...settings.dictation, sttApiKey }
+        : settings.dictation,
   };
 }
 
@@ -256,6 +262,18 @@ export function useSettings(): {
                 ((parsed as Record<string, unknown>).dictation as Record<string, unknown>).engine === "stt"
                   ? "stt"
                   : "web-speech",
+              sttBaseUrl: (() => {
+                const raw = isPlainObject((parsed as Record<string, unknown>).dictation)
+                  ? ((parsed as Record<string, unknown>).dictation as Record<string, unknown>).sttBaseUrl
+                  : undefined;
+                return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 500) : undefined;
+              })(),
+              sttModel: (() => {
+                const raw = isPlainObject((parsed as Record<string, unknown>).dictation)
+                  ? ((parsed as Record<string, unknown>).dictation as Record<string, unknown>).sttModel
+                  : undefined;
+                return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 500) : undefined;
+              })(),
             },
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
@@ -311,6 +329,7 @@ export function useSettings(): {
                 authToken: merged.integrations?.turso?.authToken,
                 jiraApiToken: merged.jira?.apiToken,
                 timelogApiToken: merged.timelog?.apiToken,
+                sttApiKey: merged.dictation?.sttApiKey,
               });
               const mergedTurso = merged.integrations?.turso;
               const hydratedSettings = await hydrateSecretsInto({
@@ -321,6 +340,7 @@ export function useSettings(): {
                   : merged.integrations,
                 jira: merged.jira ? { ...merged.jira, apiToken: "" } : merged.jira,
                 timelog: merged.timelog ? { ...merged.timelog, apiToken: "" } : merged.timelog,
+                dictation: merged.dictation ? { ...merged.dictation, sttApiKey: "" } : merged.dictation,
               });
               // Re-merge any secret the seal failed to persist: hydration left
               // it blank (nothing was sealed), so without this the in-memory
@@ -328,6 +348,7 @@ export function useSettings(): {
               const turso = hydratedSettings.integrations?.turso;
               const jira = hydratedSettings.jira;
               const timelog = hydratedSettings.timelog;
+              const dictation = hydratedSettings.dictation;
               committed = {
                 ...hydratedSettings,
                 ai: {
@@ -346,6 +367,10 @@ export function useSettings(): {
                   timelog && unmigrated.timelogApiToken && !timelog.apiToken
                     ? { ...timelog, apiToken: unmigrated.timelogApiToken }
                     : timelog,
+                dictation:
+                  dictation && unmigrated.sttApiKey && !dictation.sttApiKey
+                    ? { ...dictation, sttApiKey: unmigrated.sttApiKey }
+                    : dictation,
               };
             } catch {
               // IndexedDB / WebCrypto unavailable — fall back to the in-memory

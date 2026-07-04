@@ -94,6 +94,15 @@ describe("hydrateSecretsInto", () => {
     expect(merged.timelog?.apiToken).toBe("timelog-live");
   });
 
+  it("hydrateSecretsInto merges the device-sealed STT apiKey into settings.dictation", async () => {
+    saveSealed(await sealDevice("sttApiKey", "stt-live"));
+    const merged = await hydrateSecretsInto({
+      ...defaultSettings,
+      dictation: { engine: "stt", sttApiKey: "" },
+    });
+    expect(merged.dictation?.sttApiKey).toBe("stt-live");
+  });
+
   it("hydrateSecretsInto leaves a passphrase-locked secret empty", async () => {
     saveSealed(await sealPassphrase("anthropicApiKey", "sk-live", "pw"));
     const merged = await hydrateSecretsInto({
@@ -112,5 +121,16 @@ describe("writeSettings timelog token blanking", () => {
     });
     const persisted = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
     expect(persisted.timelog.apiToken ?? "").toBe("");
+  });
+});
+
+describe("writeSettings STT apiKey blanking", () => {
+  it("writeSettings blanks settings.dictation.sttApiKey on disk", () => {
+    writeSettings({
+      ...defaultSettings,
+      dictation: { engine: "stt", sttApiKey: "stt-plaintext-secret" },
+    });
+    const persisted = JSON.parse(localStorage.getItem(SETTINGS_KEY)!);
+    expect(persisted.dictation.sttApiKey ?? "").toBe("");
   });
 });
