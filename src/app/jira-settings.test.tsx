@@ -4,7 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { JiraSettingsSection } from "./jira-settings";
 import { defaultJiraConfig, type JiraConfig } from "./settings-types";
-import { listProjects } from "./jira-api";
+import { listIssueTypes, listProjects } from "./jira-api";
 import { ToastProvider } from "./toast-context";
 import { readDiagLog, clearDiagLog } from "./diagnostics";
 
@@ -102,6 +102,41 @@ describe("JiraSettingsSection — project-list load failure after a successful t
     await waitFor(() => {
       expect(
         readDiagLog().some((ev) => ev.code === "jira.projectListLoadFailed"),
+      ).toBe(true);
+    });
+    expect(showToastSpy).toHaveBeenCalledWith("error", expect.any(String));
+  });
+});
+
+describe("JiraSettingsSection — issue-types load failure on project change", () => {
+  const showToastSpy = vi.fn();
+
+  beforeEach(() => {
+    clearDiagLog();
+    showToastSpy.mockClear();
+    vi.mocked(listIssueTypes).mockReset();
+  });
+
+  it("surfaces a rejected issue-types reload as a logged event + error toast, keeping issueTypes cleared", async () => {
+    vi.mocked(listIssueTypes).mockRejectedValueOnce(new Error("network down"));
+    const config: JiraConfig = {
+      ...defaultJiraConfig,
+      enabled: true,
+      siteUrl: "https://acme.atlassian.net",
+      email: "pm@acme.com",
+      apiToken: "ATATT-token",
+      projectKey: "LOP",
+      projectName: "LOP",
+    };
+    render(
+      <ToastProvider value={showToastSpy}>
+        <JiraSettingsSection lang="en-US" config={config} onChange={vi.fn()} alwaysOpen />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(
+        readDiagLog().some((ev) => ev.code === "jira.issueTypesLoadFailed"),
       ).toBe(true);
     });
     expect(showToastSpy).toHaveBeenCalledWith("error", expect.any(String));

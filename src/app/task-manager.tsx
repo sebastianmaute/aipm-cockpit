@@ -2128,7 +2128,7 @@ function TaskManagerInner() {
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => {
-              void msAuth.signOut();
+              void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed"));
             }}
           />
         }

@@ -11,6 +11,8 @@ import { useMsAuth } from "./use-ms-auth";
 import { InfoTooltip } from "./info-tooltip";
 import { parseSharePointFileUrl } from "./sharepoint-backend";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
+import { useToastContext } from "./toast-context";
+import { reportSilentFailure } from "./guard-feedback";
 
 type Props = {
   lang: Lang;
@@ -96,6 +98,7 @@ export function StorageConfigSection({
   const isTurso = config.kind === "turso";
 
   const auth = useMsAuth(m365Enabled);
+  const showToast = useToastContext();
   const spGateOk = m365Enabled && sharepointEnabled;
 
   function spUrlForConfig(): string {
@@ -243,7 +246,7 @@ export function StorageConfigSection({
           </p>
           <button
             type="button"
-            onClick={() => { void auth.signIn(); }}
+            onClick={() => { void auth.signIn().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
             className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
           >
             {t(lang, "integrationsM365SignIn")}
