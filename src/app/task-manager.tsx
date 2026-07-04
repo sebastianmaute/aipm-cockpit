@@ -272,16 +272,10 @@ function TaskManagerInner() {
     setTaskModalOpen,
   } = useTaskForm();
 
-  // Phase 2: in the modern main window the task editor is a full-page "edit"
-  // view, not the overlay modal. `taskModalOpen` stays the single "editor open"
-  // signal (set by every entry point, cleared by handleSubmit on success and by
-  // handleCancelEdit); this effect mirrors it into navigation, remembering the
-  // origin view so Save/Cancel return there. Classic mode and popouts keep the
-  // modal and are unaffected (the effect is gated on `useEditView`).
+  // Phase 2: modern (non-popout) shows the editor as a full-page "edit" view; `taskModalOpen` is the single open/close signal this effect mirrors into nav, remembering the origin view for Save/Cancel.
   const useEditView = settings.layout === "modern" && !isPopout;
   const editorReturnRef = useRef<AppView>("open-points");
-  // When a deep-link opened the full-page editor, remember the task id so we can
-  // flash its row/card on the list once the editor closes and the list re-mounts.
+  // Deep-link flash target: task id to flash once the editor closes and the list remounts.
   const flashOnEditReturnRef = useRef<number | null>(null);
   useEffect(() => {
     if (!useEditView) return;
@@ -2101,12 +2095,21 @@ function TaskManagerInner() {
     </div>
   );
 
+  // Nav click while editing: close the editor (like Cancel) instead of being silently reverted by the "edit" lock effect above.
+  const handleModernNavigate = (v: AppView) => {
+    if (useEditView && taskModalOpen) {
+      editorReturnRef.current = v;
+      handleCancelEdit();
+    } else {
+      setActiveTab(v);
+    }
+  };
   const modernTree = (
     <>
       <ModernShell
         lang={lang}
         activeView={activeTab}
-        onNavigate={(v) => setActiveTab(v)}
+        onNavigate={handleModernNavigate}
         version={APP_VERSION_LABEL}
         mode={appMode}
         bannerCount={nowCount}
