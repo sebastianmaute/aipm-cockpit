@@ -6,11 +6,13 @@ interface MockDictationHandlers {
   onFinal: (t: string) => void;
   onInterim: (t: string) => void;
   onError: (e: string) => void;
+  onStatus?: (s: "transcribing" | "idle") => void;
 }
 
 const start = vi.fn((handlers: MockDictationHandlers) => { void handlers; return true; });
 const stop = vi.fn();
 vi.mock("./web-speech-engine", () => ({ createWebSpeechEngine: () => ({ start, stop }) }));
+vi.mock("./dictation-config", () => ({ resolveDictationEngine: () => ({ start, stop }) }));
 vi.mock("./voice", () => ({ getCtor: () => function () {}, startRecognition: () => stop }));
 
 beforeEach(() => { start.mockClear(); stop.mockClear(); start.mockReturnValue(true); vi.useFakeTimers(); });
@@ -90,5 +92,14 @@ describe("usePushToTalk", () => {
     const { result } = renderHook(() => usePushToTalk(a));
     act(() => { down(result); vi.advanceTimersByTime(300); up(result); });
     expect(a.onInterim).toHaveBeenLastCalledWith(""); // cleared on stop
+  });
+  it("tracks the transcribing state via onStatus", () => {
+    const { result } = renderHook(() => usePushToTalk(mkArgs()));
+    act(() => result.current.buttonHandlers.onPointerDown({ preventDefault() {} } as React.PointerEvent));
+    const handlers = start.mock.calls[0][0] as { onStatus: (s: "transcribing" | "idle") => void };
+    act(() => handlers.onStatus("transcribing"));
+    expect(result.current.transcribing).toBe(true);
+    act(() => handlers.onStatus("idle"));
+    expect(result.current.transcribing).toBe(false);
   });
 });
