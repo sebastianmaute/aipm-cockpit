@@ -44,4 +44,45 @@ describe("TaskManager modern-shell nav while the full-page task editor is open",
       "page",
     );
   });
+
+  it("closes the editor when the alerts bell is clicked (top-bar nav path, not the sidebar)", async () => {
+    render(<TaskManager />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open Points" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add task" }));
+    expect((await screen.findAllByText("New task")).length).toBeGreaterThan(0);
+
+    // The alerts bell wires directly to setActiveTab("actions") — it never
+    // goes through the sidebar's onNavigate handler, so this exercises a
+    // different code path than the test above.
+    fireEvent.click(screen.getByRole("button", { name: "Show due-date notifications" }));
+
+    await waitFor(() => {
+      expect(screen.queryAllByText("New task").length).toBe(0);
+    });
+    expect(screen.getByRole("button", { name: "Next actions" }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+  });
+
+  it("closes the editor when the top-bar Ask-Claude menu navigates to chat, instead of snapping back to edit", async () => {
+    render(<TaskManager />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open Points" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add task" }));
+    expect((await screen.findAllByText("New task")).length).toBeGreaterThan(0);
+
+    // The Ask-Claude menu's onAsk wires to requestChat(body, true), which
+    // calls setActiveTab("chat") directly — another nav path that never goes
+    // through the sidebar's onNavigate handler (and, unlike global search,
+    // requestChat carries no item id so it does not write the URL hash,
+    // keeping this test's timing deterministic).
+    fireEvent.click(screen.getByRole("button", { name: "Ask Claude" }));
+    fireEvent.click(await screen.findByRole("button", { name: "What's next?" }));
+
+    await waitFor(() => {
+      expect(screen.queryAllByText("New task").length).toBe(0);
+    });
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("AI Assistant");
+  });
 });

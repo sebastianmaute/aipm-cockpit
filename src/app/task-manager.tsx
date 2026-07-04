@@ -277,21 +277,8 @@ function TaskManagerInner() {
   const editorReturnRef = useRef<AppView>("open-points");
   // Deep-link flash target: task id to flash once the editor closes and the list remounts.
   const flashOnEditReturnRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!useEditView) return;
-    if (taskModalOpen && activeTab !== "edit") {
-      editorReturnRef.current = activeTab;
-      setActiveTab("edit");
-    } else if (!taskModalOpen && activeTab === "edit") {
-      const back = editorReturnRef.current;
-      setActiveTab(back);
-      if (flashOnEditReturnRef.current !== null) {
-        const flashTaskId = flashOnEditReturnRef.current;
-        flashOnEditReturnRef.current = null;
-        if (back === "open-points") requestFlash("open-points", flashTaskId);
-      }
-    }
-  }, [useEditView, taskModalOpen, activeTab, setActiveTab, requestFlash]);
+  // Open-vs-nav-away flag for the sync effect below `useTaskSubmit` (it calls `handleCancelEdit`, defined there).
+  const editArmedRef = useRef(false);
 
   // Populated after useBulkOperations is called below; onDelete calls through
   // this ref so it doesn't depend on deselectId being defined first.
@@ -1062,6 +1049,28 @@ function TaskManagerInner() {
     setRaid,
     pendingLinkRaidIdRef,
   });
+
+  // taskModalOpen<->activeTab sync for the full-page editor. editArmedRef tells OPEN apart from NAV-AWAY (any setActiveTab while editing — sidebar/search/alerts/top-bar — used to look like an open and get silently reverted); nav-away skips setActiveTab since the target view's already set.
+  useEffect(() => {
+    if (!useEditView) return;
+    if (taskModalOpen && !editArmedRef.current) {
+      if (activeTab !== "edit") editorReturnRef.current = activeTab;
+      editArmedRef.current = true;
+      setActiveTab("edit");
+    } else if (taskModalOpen && editArmedRef.current && activeTab !== "edit") {
+      editArmedRef.current = false;
+      handleCancelEdit();
+    } else if (!taskModalOpen && activeTab === "edit") {
+      editArmedRef.current = false;
+      const back = editorReturnRef.current;
+      setActiveTab(back);
+      if (flashOnEditReturnRef.current !== null) {
+        const flashTaskId = flashOnEditReturnRef.current;
+        flashOnEditReturnRef.current = null;
+        if (back === "open-points") requestFlash("open-points", flashTaskId);
+      }
+    }
+  }, [useEditView, taskModalOpen, activeTab, setActiveTab, requestFlash, handleCancelEdit]);
 
   // Deep-link: when a suggested-action chip requests opening a task, open its
   // edit modal once and clear the pending signal so it does not re-fire.
@@ -2095,21 +2104,12 @@ function TaskManagerInner() {
     </div>
   );
 
-  // Nav click while editing: close the editor (like Cancel) instead of being silently reverted by the "edit" lock effect above.
-  const handleModernNavigate = (v: AppView) => {
-    if (useEditView && taskModalOpen) {
-      editorReturnRef.current = v;
-      handleCancelEdit();
-    } else {
-      setActiveTab(v);
-    }
-  };
   const modernTree = (
     <>
       <ModernShell
         lang={lang}
         activeView={activeTab}
-        onNavigate={handleModernNavigate}
+        onNavigate={setActiveTab}
         version={APP_VERSION_LABEL}
         mode={appMode}
         bannerCount={nowCount}
