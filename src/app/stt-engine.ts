@@ -10,6 +10,7 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
   let stream: MediaStream | null = null;
   let chunks: BlobPart[] = [];
   let handlers: DictationHandlers | null = null;
+  let stopped = false;
 
   const cleanupStream = () => { stream?.getTracks().forEach((t) => t.stop()); stream = null; };
 
@@ -34,11 +35,13 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
   return {
     start(h) {
       handlers = h;
+      stopped = false;
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
         h.onError("not-supported"); return false;
       }
       chunks = [];
       navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => {
+        if (stopped) { s.getTracks().forEach((t) => t.stop()); return; } // aborted during the permission prompt — release the mic
         stream = s;
         recorder = new MediaRecorder(s);
         recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
@@ -49,10 +52,11 @@ export function createSttEngine(cfg: SttConfig): DictationEngine {
           void transcribe(blob);
         };
         recorder.start();
-      }).catch(() => { h.onError("not-allowed"); });
+      }).catch(() => { if (!stopped) h.onError("not-allowed"); });
       return true; // async; mic-denied arrives via onError → hook resets
     },
     stop() {
+      stopped = true;
       if (recorder && recorder.state !== "inactive") recorder.stop();
       else cleanupStream();
       recorder = null;

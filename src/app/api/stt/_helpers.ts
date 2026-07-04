@@ -7,6 +7,11 @@
 import { isPrivateHost } from "../_shared/proxy-ssrf";
 
 const TIMEOUT_MS = 30_000;
+// 25MB — short recordings only. Checked twice: once via content-length before
+// formData() buffers the body (fast-path reject), and again post-parse on the
+// actual file size (a chunked request has no content-length and would
+// otherwise skip the pre-check, letting formData() buffer unbounded).
+const MAX_BYTES = 25 * 1024 * 1024;
 
 export interface SttForward {
   url: string;
@@ -23,7 +28,6 @@ export async function parseSttRequest(
 
   // Cap the upload before request.formData() buffers the whole body — an
   // unbounded multipart body is a trivial memory-DoS on the serverless function.
-  const MAX_BYTES = 25 * 1024 * 1024; // 25MB — short recordings only
   const len = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(len) && len > MAX_BYTES) {
     return { error: new Response("payload too large", { status: 413 }) };
@@ -41,6 +45,11 @@ export async function parseSttRequest(
   const baseUrl = String(form.get("baseUrl") ?? "");
   if (!(file instanceof Blob) || typeof model !== "string" || !baseUrl) {
     return { error: new Response("missing fields", { status: 400 }) };
+  }
+  // Defense-in-depth: a chunked request has no content-length (the pre-check
+  // above sees len=0 and skips), so re-check the actual parsed file size.
+  if (file instanceof Blob && file.size > MAX_BYTES) {
+    return { error: new Response("payload too large", { status: 413 }) };
   }
 
   // SSRF model: baseUrl is USER-configured (bring-your-own OpenAI-compatible

@@ -73,4 +73,15 @@ describe("POST /api/stt", () => {
     const res = await POST(r);
     expect(res.status).toBe(413);
   });
+
+  it("rejects an oversized file post-parse (chunked bypass defense)", async () => {
+    const big = new Blob([new Uint8Array(26 * 1024 * 1024)], { type: "audio/webm" }); // 26MB > 25MB cap
+    const form = new FormData();
+    form.append("file", big, "a.webm");
+    form.append("model", "whisper-1");
+    form.append("baseUrl", "https://api.openai.com/v1");
+    const r = new Request("http://localhost/api/stt", { method: "POST", headers: { "x-stt-key": "sk-test" }, body: form });
+    const res = await POST(r);
+    expect(res.status).toBe(413);
+  });
 });
