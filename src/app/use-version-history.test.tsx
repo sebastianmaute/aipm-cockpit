@@ -6,7 +6,7 @@ import { useVersionHistory } from "./use-version-history";
 vi.mock("./version-store", { spy: true });
 const cfg = { url: "x", authToken: "t" } as never;
 
-beforeEach(() => { vi.useFakeTimers(); });
+beforeEach(() => { vi.useFakeTimers(); localStorage.clear(); });
 afterEach(() => { vi.clearAllMocks(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 // Stable references so the hook's useCallback deps don't change every render
@@ -176,6 +176,22 @@ describe("useVersionHistory", () => {
     const applied = applyWorkspace.mock.calls[0][0];
     expect(applied.tasks[0].title).toBe("Old");
     expect(logActivity).toHaveBeenCalledWith("history.restore", 1, "v1-label");
+  });
+
+  it("restore surfaces onError when the version payload could not be loaded (not silent)", async () => {
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(null);
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    const applyWorkspace = vi.fn();
+    const onError = vi.fn();
+    const { result } = renderHook(() => useVersionHistory(args({ onError, applyWorkspace })));
+    await act(async () => { await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(applyWorkspace).not.toHaveBeenCalled(); // never reached — no false "restored" UI
+    expect(append).not.toHaveBeenCalled();
+    const { readDiagLog } = await import("./diagnostics");
+    expect(readDiagLog().some((e) => e.code === "history.restoreVersionMissing")).toBe(true);
   });
 
   it("loadDiff compares a version payload against the current workspace", async () => {

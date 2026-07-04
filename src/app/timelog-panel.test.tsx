@@ -43,6 +43,13 @@ vi.mock("./use-timelog-sync", () => ({
   useTimelogSync: vi.fn(),
 }));
 
+// vi.hoisted runs before the vi.mock factories below, making these mock fns
+// available both inside the factories and in test bodies (avoids the TDZ trap
+// documented in use-timelog-sync.test.ts).
+const { showToast, logDiag } = vi.hoisted(() => ({ showToast: vi.fn(), logDiag: vi.fn() }));
+vi.mock("./toast-context", () => ({ useToastContext: () => showToast }));
+vi.mock("./diagnostics", () => ({ logDiag }));
+
 // Default mock return (re-applied per test in beforeEach so error-state tests
 // that override it don't leak into the next test). Persistent mockReturnValue
 // (NOT ...Once) because React may render the component multiple times.
@@ -815,6 +822,86 @@ describe("TimelogPanel", () => {
 
       expect(screen.getByText(t("en-US", "timelogTestFail", "429"))).toBeInTheDocument();
       expect(screen.queryByText(/\{0\}/)).toBeNull();
+    });
+  });
+
+  describe("Guard feedback — partial fetch + customers-load failures", () => {
+    it("fires an error toast + diag log when the fetch comes back with failed employees", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        fetchBookings: vi.fn().mockResolvedValue({ failedEmployees: 2 }),
+      } as unknown as ReturnType<typeof useTimelogSync>);
+
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      // Settings hydrate async (secret migration) → the button is gated on a
+      // configured token; wait for it to enable before clicking.
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      fireEvent.click(btn);
+
+      await waitFor(() => {
+        expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardTimelogPartialFetch", 2));
+      });
+      expect(logDiag).toHaveBeenCalledWith("warn", "timelog.partialFetch", { failedEmployees: 2 });
+    });
+
+    it("does not toast when the fetch comes back with zero failed employees", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const fetchBookings = vi.fn().mockResolvedValue({ failedEmployees: 0 });
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        fetchBookings,
+      } as unknown as ReturnType<typeof useTimelogSync>);
+
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      fireEvent.click(btn);
+      await waitFor(() => expect(fetchBookings).toHaveBeenCalled());
+
+      expect(showToast).not.toHaveBeenCalled();
+      expect(logDiag).not.toHaveBeenCalled();
+    });
+
+    it("fires an info-guard toast + diag log when loadCustomers rejects on focus", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue({
+        ...defaultSyncReturn(),
+        loadCustomers: vi.fn().mockRejectedValue(new Error("boom")),
+      } as unknown as ReturnType<typeof useTimelogSync>);
+
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      fireEvent.focus(screen.getByRole("searchbox", { name: t("en-US", "timelogCustomerFilter") }));
+
+      await waitFor(() => {
+        expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardTimelogCustomersFailed"));
+      });
+      expect(logDiag).toHaveBeenCalledWith("error", "timelog.customersLoadFailed", { message: "boom" });
     });
   });
 });

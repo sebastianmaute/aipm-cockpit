@@ -1,10 +1,12 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import { fireEvent } from "@testing-library/react";
 import { JiraSettingsSection } from "./jira-settings";
 import { defaultJiraConfig, type JiraConfig } from "./settings-types";
 import { listProjects } from "./jira-api";
+import { ToastProvider } from "./toast-context";
+import { readDiagLog, clearDiagLog } from "./diagnostics";
 
 // Stub out Jira API calls — tests are pure UI
 vi.mock("./jira-api", () => ({
@@ -67,6 +69,42 @@ describe("JiraSettingsSection — alwaysOpen", () => {
     expect(
       screen.queryByRole("button", { name: /connect a jira project to sync tasks/i }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("JiraSettingsSection — project-list load failure after a successful test", () => {
+  const showToastSpy = vi.fn();
+
+  beforeEach(() => {
+    clearDiagLog();
+    showToastSpy.mockClear();
+  });
+
+  it("surfaces a rejected follow-up project-list load as a logged event + error toast, while the auth test still reports Connected", async () => {
+    vi.mocked(listProjects).mockRejectedValueOnce(new Error("network down"));
+    const config: JiraConfig = {
+      ...defaultJiraConfig,
+      enabled: true,
+      siteUrl: "https://acme.atlassian.net",
+      email: "pm@acme.com",
+      apiToken: "ATATT-token",
+    };
+    render(
+      <ToastProvider value={showToastSpy}>
+        <JiraSettingsSection lang="en-US" config={config} onChange={vi.fn()} alwaysOpen />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /test connection/i }));
+
+    // The auth test itself succeeded — status still shows Connected.
+    expect(await screen.findByText(/connected as test user/i)).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(
+        readDiagLog().some((ev) => ev.code === "jira.projectListLoadFailed"),
+      ).toBe(true);
+    });
+    expect(showToastSpy).toHaveBeenCalledWith("error", expect.any(String));
   });
 });
 

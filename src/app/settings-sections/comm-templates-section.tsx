@@ -12,6 +12,8 @@ import { CommTemplateDiffView } from "../comm-template-diff-view";
 import { InfoTooltip } from "../info-tooltip";
 import { EmptyState } from "../empty-state";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { reportSilentFailure } from "../guard-feedback";
+import { useToastContext } from "../toast-context";
 import dynamic from "next/dynamic";
 
 const RichTextEditor = dynamic(() => import("../rich-text-editor").then((m) => m.RichTextEditor), {
@@ -27,11 +29,11 @@ const CAT_LABEL_KEY: Record<CommTemplateCategory, TranslationKey> = {
 export interface CommTemplatesSectionProps {
   lang: Lang;
   templates: CommTemplate[];
-  onCreate: (category: CommTemplateCategory, name: string, body: string) => void;
-  onRename: (id: string, name: string) => void;
-  onSaveBody: (id: string, body: string) => void;
-  onRemove: (id: string) => void;
-  onSetDefault: (category: CommTemplateCategory, id: string) => void;
+  onCreate: (category: CommTemplateCategory, name: string, body: string) => Promise<void>;
+  onRename: (id: string, name: string) => Promise<void>;
+  onSaveBody: (id: string, body: string) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+  onSetDefault: (category: CommTemplateCategory, id: string) => Promise<void>;
   config: TursoConfig | null;
   settings: Settings;
   onChange: (s: Settings) => void;
@@ -39,6 +41,7 @@ export interface CommTemplatesSectionProps {
 
 export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   const { lang, templates } = props;
+  const showToast = useToastContext();
   const [category, setCategory] = useState<CommTemplateCategory>("status-inquiry");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
@@ -76,19 +79,27 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   function createTemplate() {
     const name = newName.trim();
     if (!name) return;
-    props.onCreate(category, name, "");
+    void props.onCreate(category, name, "").catch((e) =>
+      reportSilentFailure(showToast, lang, "commTemplates.saveFailed", e, "guardCommTemplateSaveFailed"),
+    );
     setNewName("");
   }
 
   function persistBody() {
-    if (selected && bodyDraft !== selected.body) props.onSaveBody(selected.id, bodyDraft);
+    if (selected && bodyDraft !== selected.body) {
+      void props.onSaveBody(selected.id, bodyDraft).catch((e) =>
+        reportSilentFailure(showToast, lang, "commTemplates.saveFailed", e, "guardCommTemplateSaveFailed"),
+      );
+    }
   }
 
   function saveCurrentVersion() {
     if (!selected) return;
     const name = window.prompt(t(lang, "commTplVersionNamePrompt"), "");
     if (!name || !name.trim()) return;
-    void versions.saveVersion(name.trim(), bodyDraft, false);
+    void versions.saveVersion(name.trim(), bodyDraft, false).catch((e) =>
+      reportSilentFailure(showToast, lang, "commTemplateVersions.saveFailed", e, "guardCommVersionSaveFailed"),
+    );
   }
 
   function cancelEdit() {
@@ -100,9 +111,13 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   function restoreVersion(body: string) {
     if (!selected) return;
     const stamp = new Date().toISOString();
-    void versions.saveVersion(`${t(lang, "commTplBeforeRestore")} — ${stamp}`, bodyDraft, true);
+    void versions.saveVersion(`${t(lang, "commTplBeforeRestore")} — ${stamp}`, bodyDraft, true).catch((e) =>
+      reportSilentFailure(showToast, lang, "commTemplateVersions.saveFailed", e, "guardCommVersionSaveFailed"),
+    );
     setBodyDraft(body);
-    props.onSaveBody(selected.id, body);
+    void props.onSaveBody(selected.id, body).catch((e) =>
+      reportSilentFailure(showToast, lang, "commTemplates.saveFailed", e, "guardCommTemplateSaveFailed"),
+    );
     setRestoreNonce((n) => n + 1);
   }
 
@@ -194,7 +209,11 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => props.onSetDefault(category, tpl.id)}
+                  onClick={() =>
+                    void props.onSetDefault(category, tpl.id).catch((e) =>
+                      reportSilentFailure(showToast, lang, "commTemplates.saveFailed", e, "guardCommTemplateSaveFailed"),
+                    )
+                  }
                   disabled={tpl.isDefault}
                   className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                 >
@@ -202,7 +221,12 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { props.onRemove(tpl.id); if (selectedId === tpl.id) { setSelectedId(null); setBodyDraft(""); } }}
+                  onClick={() => {
+                    void props.onRemove(tpl.id).catch((e) =>
+                      reportSilentFailure(showToast, lang, "commTemplates.saveFailed", e, "guardCommTemplateSaveFailed"),
+                    );
+                    if (selectedId === tpl.id) { setSelectedId(null); setBodyDraft(""); }
+                  }}
                   aria-label={`${t(lang, "commTplDelete")}: ${tpl.name}`}
                   className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs text-AIPM-purple hover:bg-surface-muted ${INTERACTIVE}`}
                 >
@@ -224,7 +248,14 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               defaultValue={selected.name}
               aria-label={t(lang, "commTplRename")}
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-              onBlur={(e) => { const n = e.target.value.trim(); if (n && n !== selected.name) props.onRename(selected.id, n); }}
+              onBlur={(e) => {
+                const n = e.target.value.trim();
+                if (n && n !== selected.name) {
+                  void props.onRename(selected.id, n).catch((err) =>
+                    reportSilentFailure(showToast, lang, "commTemplates.saveFailed", err, "guardCommTemplateSaveFailed"),
+                  );
+                }
+              }}
               className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
             />
           </label>

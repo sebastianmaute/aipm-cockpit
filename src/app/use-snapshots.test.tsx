@@ -25,9 +25,14 @@ const baseArgs = {
       evm: { spi: null, cpi: null } },
     tasks: [], milestones: [], planEndDate: "2026-07-31", currency: "EUR",
   }) as unknown as ReturnType<NonNullable<Parameters<typeof useSnapshots>[0]["buildContext"]>>,
+  showToast: vi.fn(),
+  lang: "en-US" as const,
 };
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  baseArgs.showToast.mockClear();
+});
 
 describe("useSnapshots", () => {
   it("loads history and auto-captures when the current bucket is missing", async () => {
@@ -47,11 +52,14 @@ describe("useSnapshots", () => {
     expect(append).not.toHaveBeenCalled();
   });
 
-  it("is inert when inactive (never touches the store)", async () => {
+  it("is inert when inactive (never touches the store, never toasts)", async () => {
     const load = vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
-    renderHook(() => useSnapshots({ ...baseArgs, active: false }));
+    const showToast = vi.fn();
+    renderHook(() => useSnapshots({ ...baseArgs, active: false, showToast }));
     await Promise.resolve();
     expect(load).not.toHaveBeenCalled();
+    // The auto-capture EFFECT (not a user action) must stay silent on mount.
+    expect(showToast).not.toHaveBeenCalled();
   });
 
   it("never runs the store when active but the Turso config is missing", async () => {
@@ -160,11 +168,36 @@ describe("useSnapshots", () => {
     expect(result.current.snapshots[0].id).toBe(snapC.id);
   });
 
-  it("deleteSnapshots is a no-op when inactive", async () => {
+  it("deleteSnapshots is a no-op when inactive, but reports a capability-gap toast", async () => {
     vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
     const delMany = vi.spyOn(store, "deleteSnapshots").mockResolvedValue();
-    const { result } = renderHook(() => useSnapshots({ ...baseArgs, active: false }));
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useSnapshots({ ...baseArgs, active: false, showToast }));
     await act(async () => { await result.current.deleteSnapshots(["x"]); });
     expect(delMany).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
+  });
+
+  it("captureNow/rebaselineNow/setBaseline/deleteSnapshot each report the same capability-gap toast when inactive", async () => {
+    vi.spyOn(store, "loadSnapshots").mockResolvedValue([]);
+    const append = vi.spyOn(store, "appendSnapshot").mockResolvedValue();
+    const setBase = vi.spyOn(store, "setBaseline").mockResolvedValue();
+    const del = vi.spyOn(store, "deleteSnapshot").mockResolvedValue();
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useSnapshots({ ...baseArgs, active: false, showToast }));
+
+    await act(async () => { await result.current.captureNow(); });
+    await act(async () => { await result.current.rebaselineNow(); });
+    await act(async () => { await result.current.setBaseline("x"); });
+    await act(async () => { await result.current.deleteSnapshot("x"); });
+
+    expect(append).not.toHaveBeenCalled();
+    expect(setBase).not.toHaveBeenCalled();
+    expect(del).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledTimes(4);
+    for (const call of showToast.mock.calls) {
+      expect(call[0]).toBe("info");
+      expect(typeof call[1]).toBe("string");
+    }
   });
 });

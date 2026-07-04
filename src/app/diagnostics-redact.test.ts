@@ -57,4 +57,10 @@ describe("redactFields", () => {
     expect(out.b as string).toContain("ok=1"); // benign query kept
     expect(out.c as string).not.toContain("topsecretvalue");
   });
+
+  it("scrubs a Basic auth base64 blob from values", () => {
+    const out = redactFields({ h: "Authorization: Basic dXNlckBleC5jb206c2VjcmV0VG9rZW4xMjM0" })!;
+    expect(out.h as string).not.toContain("dXNlckBleC5jb206c2VjcmV0VG9rZW4xMjM0");
+    expect(out.h as string).toContain("[redacted]");
+  });
 });

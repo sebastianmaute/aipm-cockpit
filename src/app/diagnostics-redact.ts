@@ -12,6 +12,7 @@ const FIELD_MAX = 500;
 const SECRET_VALUE_PATTERNS: RegExp[] = [
   /sk-ant-[A-Za-z0-9_-]+/g,                 // Anthropic API keys
   /Bearer\s+[A-Za-z0-9._-]+/gi,             // bearer tokens
+  /Basic\s+[A-Za-z0-9+/=]{16,}/g,           // HTTP Basic auth blobs
   /eyJ[A-Za-z0-9._-]{20,}/g,                // JWTs
   /\bATATT[A-Za-z0-9_=.\-]+/g,              // Atlassian Jira API tokens
   /(?:api[_-]?key|api[_-]?token|auth[_-]?token|token|secret|authorization|password|passphrase)=[^&\s]+/gi, // key=value pairs

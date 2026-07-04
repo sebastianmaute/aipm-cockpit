@@ -62,8 +62,11 @@ export function useTimelogSync(args: Args) {
   // Shared abort/busy/error wrapper. Plain functions (not memoized): they read
   // live render-scope state every call (users/aggregates/…), like the storage
   // handlers — memoizing would stale-capture them.
-  async function runGuarded(work: (signal: AbortSignal) => Promise<void>): Promise<void> {
-    if (isPopout) return; // read-only in popout
+  // Generic over `work`'s resolved value so a caller (e.g. fetchBookings) can
+  // surface a per-call result (like a partial-failure count) without a stale
+  // render-closure read; callers that don't need a result just ignore it.
+  async function runGuarded<T>(work: (signal: AbortSignal) => Promise<T>): Promise<T | undefined> {
+    if (isPopout) return undefined; // read-only in popout
     abortRef.current?.abort(); // supersede any prior in-flight run
     const controller = new AbortController();
     abortRef.current = controller;
@@ -71,14 +74,16 @@ export function useTimelogSync(args: Args) {
     setBusy(true);
     setError(null);
     try {
-      await work(signal);
+      const result = await work(signal);
       onTokenValid();
+      return result;
     } catch (e) {
       // User cancellation: leave prior data + state intact, surface no error.
-      if (signal.aborted || (e instanceof DOMException && e.name === "AbortError")) return;
+      if (signal.aborted || (e instanceof DOMException && e.name === "AbortError")) return undefined;
       const status = e instanceof TimelogError ? e.status : 0;
       setError(status > 0 ? status : -1); // -1 = unknown/non-HTTP error
       if (status === 401 || status === 403) onTokenInvalid();
+      return undefined;
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       setBusy(false);
@@ -105,15 +110,13 @@ export function useTimelogSync(args: Args) {
   // MANAGES (REST /v1/project/get-all filtered by ProjectManagerID) — lets a PM
   // link their projects to budgets WITHOUT first pulling any bookings.
   // Populate the customer picker on demand (first focus). Not via runGuarded —
-  // a cheap reference fetch shouldn't raise the blocking loading modal; failure
-  // just leaves the dropdown at "All customers".
+  // a cheap reference fetch shouldn't raise the blocking loading modal; on
+  // failure the dropdown just stays at "All customers" (no state change here),
+  // but the rejection now PROPAGATES to the caller so it isn't silently
+  // swallowed — the panel's call site surfaces it via a toast.
   async function loadCustomers(): Promise<void> {
     if (isPopout || customers.length > 0) return;
-    try {
-      setCustomers(await listCustomers(creds));
-    } catch {
-      // non-fatal — picker stays "All only"
-    }
+    setCustomers(await listCustomers(creds));
   }
 
   // A customer (>0) loads ALL that customer's projects (server-side filter, not
@@ -135,8 +138,12 @@ export function useTimelogSync(args: Args) {
   // STEP 2 — fetch bookings + aggregate. Org scope iterates ONLY `userIds` when
   // provided (the ticked people) — this is what keeps the request count under
   // the rate limit; empty/omitted falls back to all loaded directory users.
-  async function fetchBookings(startDate: string, endDate: string, userIds?: readonly number[]): Promise<void> {
-    await runGuarded(async (signal) => {
+  async function fetchBookings(
+    startDate: string,
+    endDate: string,
+    userIds?: readonly number[],
+  ): Promise<{ failedEmployees: number } | undefined> {
+    return runGuarded(async (signal) => {
       let resolvedScope = scopeMode;
       if (resolvedScope === "auto") {
         const priv = await getPrivileges(creds, signal);
@@ -144,6 +151,10 @@ export function useTimelogSync(args: Args) {
       }
 
       let items: TimelogTimeItem[] = [];
+      // Count of employees whose timesheet fetch failed (org/team scope only) —
+      // surfaced to the caller so a partial fetch isn't silently short; the
+      // per-employee loop below still swallows-and-continues (fail-soft).
+      let failedEmployees = 0;
       if (resolvedScope === "self") {
         items = await listTimeItemsSelf(creds, startDate, endDate, signal);
       } else {
@@ -159,6 +170,7 @@ export function useTimelogSync(args: Args) {
           } catch (e) {
             if (signal.aborted) throw e; // propagate the cancel out of the fail-soft loop
             // Swallow per-employee errors; continue with remaining employees
+            failedEmployees++;
           }
         }
       }
@@ -181,6 +193,7 @@ export function useTimelogSync(args: Args) {
       setProjectRefs(refs);
       setFetchedAt(at);
       saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users, projectRefs: refs });
+      return { failedEmployees };
     });
   }
 

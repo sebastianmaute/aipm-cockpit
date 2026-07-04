@@ -1,8 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { CommTemplatesSection } from "./comm-templates-section";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { CommTemplatesSection, type CommTemplatesSectionProps } from "./comm-templates-section";
 import type { CommTemplate } from "../comm-templates";
 import { defaultSettings } from "../settings-types";
+import { ToastProvider } from "../toast-context";
+import { readDiagLog, clearDiagLog } from "../diagnostics";
+
+const showToastSpy = vi.fn();
+
+beforeEach(() => {
+  clearDiagLog();
+  showToastSpy.mockClear();
+});
 
 const saveVersion = vi.fn(async () => {});
 vi.mock("../use-comm-template-versions", () => ({
@@ -38,9 +47,22 @@ const tpl = (over: Partial<CommTemplate> = {}): CommTemplate => ({
   id: "t1", category: "status-inquiry", name: "Inquiry A", body: "Hello ", isDefault: false, createdAt: "", updatedAt: "", ...over,
 });
 
-function setup(templates: CommTemplate[], onChange = vi.fn()) {
-  const handlers = { onCreate: vi.fn(), onRename: vi.fn(), onSaveBody: vi.fn(), onRemove: vi.fn(), onSetDefault: vi.fn() };
-  render(<CommTemplatesSection lang="en-US" templates={templates} config={null} settings={defaultSettings} onChange={onChange} {...handlers} />);
+type Handlers = Pick<CommTemplatesSectionProps, "onCreate" | "onRename" | "onSaveBody" | "onRemove" | "onSetDefault">;
+
+function setup(templates: CommTemplate[], onChange = vi.fn(), overrides: Partial<Handlers> = {}) {
+  const handlers: Handlers = {
+    onCreate: vi.fn(async () => {}),
+    onRename: vi.fn(async () => {}),
+    onSaveBody: vi.fn(async () => {}),
+    onRemove: vi.fn(async () => {}),
+    onSetDefault: vi.fn(async () => {}),
+    ...overrides,
+  };
+  render(
+    <ToastProvider value={showToastSpy}>
+      <CommTemplatesSection lang="en-US" templates={templates} config={null} settings={defaultSettings} onChange={onChange} {...handlers} />
+    </ToastProvider>,
+  );
   return { ...handlers, onChange };
 }
 
@@ -99,5 +121,16 @@ describe("CommTemplatesSection", () => {
     const { onChange } = setup([], vi.fn());
     fireEvent.click(screen.getByRole("radio", { name: "Outlook draft (HTML)" }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ commTemplateSendMode: "outlook-draft" }));
+  });
+
+  it("surfaces a create failure (rejected save) as a logged event + error toast instead of an unhandled rejection", async () => {
+    const onCreate = vi.fn(async () => { throw new Error("turso write failed"); });
+    setup([], vi.fn(), { onCreate });
+    fireEvent.change(screen.getByLabelText("Template name"), { target: { value: "Weekly ping" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() => {
+      expect(readDiagLog().some((ev) => ev.code === "commTemplates.saveFailed")).toBe(true);
+    });
+    expect(showToastSpy).toHaveBeenCalledWith("error", expect.any(String));
   });
 });

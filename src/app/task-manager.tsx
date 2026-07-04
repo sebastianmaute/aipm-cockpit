@@ -437,8 +437,7 @@ function TaskManagerInner() {
     !isPopout && snapshotsCfg.enabled &&
     isModuleEnabled("trends", settings.features);
   const snapshots = useSnapshots({
-    active: trendsActive,
-    cadence: snapshotsCfg.cadence,
+    active: trendsActive, cadence: snapshotsCfg.cadence,
     tursoConfig,
     projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
     today: new Date(),
@@ -463,6 +462,7 @@ function TaskManagerInner() {
       // other (e.g. manual-capture) errors so the banner isn't duplicated.
       if (!tursoErrorKind(err)) showToast("error", t(lang, "storageSaveFailed", String(err)));
     },
+    showToast, lang,
   });
   const trends = { ...snapshots, active: trendsActive };
 

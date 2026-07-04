@@ -122,8 +122,27 @@ it("org mode is fail-soft: one employee error does not abort the others", async 
   (api.listEmployeeTimeItems as ReturnType<typeof vi.fn>).mockResolvedValueOnce([item(5, 4)]).mockRejectedValueOnce(new MockTimelogError(500));
   const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "org" })));
   // Org bookings scoped to the explicitly-chosen user ids (the ticked people).
-  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30", [5, 6]); });
+  let fetchResult: { failedEmployees: number } | undefined;
+  await act(async () => { fetchResult = await result.current.fetchBookings("2026-06-01", "2026-06-30", [5, 6]); });
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  // The swallowed per-employee failure is still counted and surfaced to the
+  // caller, so a partial fetch doesn't silently look like a complete one.
+  expect(fetchResult?.failedEmployees).toBe(1);
+});
+
+it("fetchBookings surfaces failedEmployees:0 when every employee succeeds", async () => {
+  (api.listEmployeeTimeItems as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "org" })));
+  let fetchResult: { failedEmployees: number } | undefined;
+  await act(async () => { fetchResult = await result.current.fetchBookings("2026-06-01", "2026-06-30", [5]); });
+  expect(fetchResult?.failedEmployees).toBe(0);
+});
+
+it("loadCustomers propagates a fetch failure to the caller (no longer swallowed)", async () => {
+  (api.listCustomers as ReturnType<typeof vi.fn>).mockRejectedValue(new MockTimelogError(500));
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await expect(result.current.loadCustomers()).rejects.toThrow();
+  expect(result.current.customers).toEqual([]);
 });
 
 it("fetchBookings excludes non-project (ProjectID 0 absence) rows from projectRefs", async () => {

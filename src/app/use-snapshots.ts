@@ -10,6 +10,8 @@ import { bucketKey, buildSnapshot, computeVariance, detectGaps } from "./snapsho
 import type { SnapshotCadence, SnapshotRecord, SnapshotTrigger, VarianceRow } from "./snapshot";
 import type { BuildSnapshotInput } from "./snapshot";
 import type { TursoConfig } from "./turso-config";
+import { reportCapabilityGap } from "./guard-feedback";
+import type { Lang } from "./i18n";
 
 export interface UseSnapshotsArgs {
   /** True only when storage is Turso, this is not a popout, and recording is on. */
@@ -25,6 +27,10 @@ export interface UseSnapshotsArgs {
   buildContext: () => Omit<BuildSnapshotInput, "capturedAt" | "cadence" | "trigger">;
   /** Optional: surface a manual-capture error to the user. */
   onError?: (err: unknown) => void;
+  /** Surfaces a capability-gap toast when a user action bails on `!active`
+   *  (e.g. Turso quarantined mid-session after the panel/CTA already rendered). */
+  showToast: (kind: "info" | "error", text: string) => void;
+  lang: Lang;
 }
 
 export interface UseSnapshotsResult {
@@ -56,6 +62,8 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   const errRef = useRef(args.onError);
   const cfgRef = useRef(tursoConfig);
   const pidRef = useRef(args.projectId);
+  const toastRef = useRef(args.showToast);
+  const langRef = useRef(args.lang);
   // Bumped by every user mutation. A load in flight that sees this change
   // between its start and completion must NOT clobber state with stale history.
   const opSeqRef = useRef(0);
@@ -63,6 +71,17 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   useEffect(() => { errRef.current = args.onError; }, [args.onError]);
   useEffect(() => { cfgRef.current = tursoConfig; }, [tursoConfig]);
   useEffect(() => { pidRef.current = args.projectId; }, [args.projectId]);
+  useEffect(() => { toastRef.current = args.showToast; }, [args.showToast]);
+  useEffect(() => { langRef.current = args.lang; }, [args.lang]);
+
+  // Shared bail for the USER-INVOKED mutators below (captureNow/rebaselineNow/
+  // setBaseline/deleteSnapshot/deleteSnapshots): `active` can leak stale-true
+  // briefly (e.g. Turso quarantined mid-session after a button already
+  // rendered), so tell the user instead of silently no-oping. NOT used by the
+  // auto-capture effect below — that one must stay silent.
+  const reportInactiveBail = useCallback(() => {
+    reportCapabilityGap(toastRef.current, langRef.current, "trends.notConfigured", "guardTrendsNotConfigured");
+  }, []);
 
   const makeRecord = useCallback(
     (trigger: SnapshotTrigger, isBaseline: boolean, bucket: string): SnapshotRecord => {
@@ -116,7 +135,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
   }, [active, cadence, currentBucket, args.projectId]);
 
   const captureNow = useCallback(async () => {
-    if (!active) return;
+    if (!active) { reportInactiveBail(); return; }
     opSeqRef.current += 1;
     setBusy(true);
     try {
@@ -129,10 +148,10 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     } finally {
       setBusy(false);
     }
-  }, [active, snapshots.length, makeRecord, currentBucket]);
+  }, [active, snapshots.length, makeRecord, currentBucket, reportInactiveBail]);
 
   const rebaselineNow = useCallback(async () => {
-    if (!active) return;
+    if (!active) { reportInactiveBail(); return; }
     opSeqRef.current += 1;
     setBusy(true);
     try {
@@ -145,10 +164,10 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     } finally {
       setBusy(false);
     }
-  }, [active, makeRecord, currentBucket]);
+  }, [active, makeRecord, currentBucket, reportInactiveBail]);
 
   const setBaseline = useCallback(async (id: string) => {
-    if (!active) return;
+    if (!active) { reportInactiveBail(); return; }
     opSeqRef.current += 1;
     setBusy(true);
     try {
@@ -159,10 +178,10 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     } finally {
       setBusy(false);
     }
-  }, [active]);
+  }, [active, reportInactiveBail]);
 
   const deleteSnapshot = useCallback(async (id: string) => {
-    if (!active) return;
+    if (!active) { reportInactiveBail(); return; }
     opSeqRef.current += 1;
     setBusy(true);
     try {
@@ -173,10 +192,10 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     } finally {
       setBusy(false);
     }
-  }, [active]);
+  }, [active, reportInactiveBail]);
 
   const deleteSnapshots = useCallback(async (ids: readonly string[]) => {
-    if (!active) return;
+    if (!active) { reportInactiveBail(); return; }
     opSeqRef.current += 1;
     setBusy(true);
     try {
@@ -187,7 +206,7 @@ export function useSnapshots(args: UseSnapshotsArgs): UseSnapshotsResult {
     } finally {
       setBusy(false);
     }
-  }, [active]);
+  }, [active, reportInactiveBail]);
 
   const baseline = pickBaseline(snapshots);
   const sorted = [...snapshots].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
