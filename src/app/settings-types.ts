@@ -479,10 +479,10 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
-  /** Per-device dictation engine preference. "stt" is reserved for a future
-   *  slice. Default "web-speech". `sttApiKey` is the device-sealed STT
+  /** Per-device dictation engine preference. Default "web-speech". `sttBaseUrl`/
+   *  `sttModel` configure the STT endpoint; `sttApiKey` is the device-sealed STT
    *  endpoint API key — in-memory plaintext only, blanked by `writeSettings`. */
-  dictation?: { engine: "web-speech" | "stt"; sttApiKey?: string };
+  dictation?: { engine: "web-speech" | "stt"; sttBaseUrl?: string; sttModel?: string; sttApiKey?: string };
   /** Per-device: show the contextual per-view Help callouts. Default ON
    *  (read as `!== false`); individual callouts can also be dismissed per-view. */
   showViewHints?: boolean;

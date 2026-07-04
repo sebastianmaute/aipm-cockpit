@@ -262,6 +262,18 @@ export function useSettings(): {
                 ((parsed as Record<string, unknown>).dictation as Record<string, unknown>).engine === "stt"
                   ? "stt"
                   : "web-speech",
+              sttBaseUrl: (() => {
+                const raw = isPlainObject((parsed as Record<string, unknown>).dictation)
+                  ? ((parsed as Record<string, unknown>).dictation as Record<string, unknown>).sttBaseUrl
+                  : undefined;
+                return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 500) : undefined;
+              })(),
+              sttModel: (() => {
+                const raw = isPlainObject((parsed as Record<string, unknown>).dictation)
+                  ? ((parsed as Record<string, unknown>).dictation as Record<string, unknown>).sttModel
+                  : undefined;
+                return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 500) : undefined;
+              })(),
             },
             holidayCountries: Array.isArray(parsed.holidayCountries)
               ? (parsed.holidayCountries as unknown[]).filter(
