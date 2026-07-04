@@ -7,7 +7,7 @@
 // Built as a standalone component using the shared ModalHeader + useDraggable,
 // like resource-edit-modal.tsx / absence-edit-modal.tsx.
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
@@ -113,12 +113,14 @@ export function ChangeEditModal({
   const costNoticeId = useId();
   const adj = useAdjustmentTracker();
   const { settings } = useSettings();
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; });
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
     enabled: true,
     label: t(lang, "changeFieldDescription"),
-    onAppendFinal: (txt) => update("description", appendDictation(draft.description ?? "", txt)),
+    onAppendFinal: (txt) => update("description", appendDictation(draftRef.current.description ?? "", txt)),
   });
 
   const { offset, handleProps } = useDraggable(true);

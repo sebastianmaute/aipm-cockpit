@@ -6,7 +6,7 @@
 // Cancel+Save-right footer). Built as a standalone component using the shared
 // Modal + ModalHeader + useDraggable, like change-edit-modal.tsx.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
@@ -97,12 +97,14 @@ export function StakeholderEditModal({
   const adj = useAdjustmentTracker();
   const { isVisible } = useModalVisibility("stakeholder");
   const { settings } = useSettings();
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; });
   const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
     enabled: true,
     label: t(lang, "stakeholderFieldNotes"),
-    onAppendFinal: (txt) => update("notes", appendDictation(draft.notes ?? "", txt)),
+    onAppendFinal: (txt) => update("notes", appendDictation(draftRef.current.notes ?? "", txt)),
   });
 
   const { offset, handleProps } = useDraggable(true);

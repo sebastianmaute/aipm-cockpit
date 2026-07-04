@@ -21,4 +21,12 @@ describe("useDictationMic", () => {
     const { result } = renderHook(() => useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn() }));
     expect(result.current.mic).not.toBeNull();
   });
+
+  it("clears the active target on unmount", () => {
+    const { result, unmount } = renderHook(() => useDictationMic({ lang: "en-US", label: "Notes", onAppendFinal: vi.fn() }));
+    result.current.registration.onFocus();
+    expect(getActiveDictationTarget()?.label).toBe("Notes");
+    unmount();
+    expect(getActiveDictationTarget()).toBeNull();
+  });
 });

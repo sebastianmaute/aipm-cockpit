@@ -8,7 +8,7 @@
 // (change-edit-modal.tsx / stakeholder-edit-modal.tsx) the panel owns the
 // draft state and passes it down with change callbacks.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
@@ -96,13 +96,15 @@ export function RaidEditModal({
   const { isVisible } = useModalVisibility("raid");
   const adj = useAdjustmentTracker();
   const { settings } = useSettings();
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; });
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
     enabled: true,
     label: t(lang, "raidDescription"),
     onAppendFinal: (txt) =>
-      onChange({ ...draft, description: appendDictation(draft.description ?? "", txt) || undefined }),
+      onChange({ ...draftRef.current, description: appendDictation(draftRef.current.description ?? "", txt) || undefined }),
   });
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");

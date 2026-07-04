@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { Settings } from "./settings-types";
@@ -19,13 +19,15 @@ interface UseDictationMicArgs {
 
 export function useDictationMic({ lang, dictation, enabled = true, label, onAppendFinal }: UseDictationMicArgs) {
   const showToast = useToastContext();
+  const [interim, setInterim] = useState("");
   const ptt = usePushToTalk({
     lang,
     enabled,
     dictation,
-    onAppendFinal,
-    onInterim: () => {},
+    onAppendFinal: (txt) => { onAppendFinal(txt); setInterim(""); },
+    onInterim: (txt) => setInterim(txt),
     onError: (err) => {
+      setInterim("");
       if (err === "not-allowed") reportCapabilityGap(showToast, lang, "dictation.micDenied", "dictationMicDenied");
       else if (err.startsWith("stt-")) showToast("error", t(lang, "dictationTranscribeFailed"));
       else if (err === "not-supported") showToast("error", t(lang, "dictationRecordUnsupported"));
@@ -37,6 +39,7 @@ export function useDictationMic({ lang, dictation, enabled = true, label, onAppe
     onFocus: () => setActiveDictationTarget(target),
     onBlur: () => clearDictationTargetIf(target),
   }), [target]);
+  useEffect(() => () => { clearDictationTargetIf(target); }, [target]);
 
   const mic = ptt.supported ? (
     <button
@@ -54,6 +57,7 @@ export function useDictationMic({ lang, dictation, enabled = true, label, onAppe
   const status = (ptt.listening || ptt.transcribing) ? (
     <span className="text-xs text-muted-foreground" aria-live="polite">
       {ptt.transcribing ? t(lang, "dictationTranscribing") : t(lang, "dictationListening")}
+      {interim ? ` ${interim}` : ""}
     </span>
   ) : null;
 

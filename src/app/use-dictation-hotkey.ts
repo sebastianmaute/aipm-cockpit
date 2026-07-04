@@ -29,11 +29,18 @@ export function useDictationHotkey(combo: string | undefined, isPopout: boolean)
       heldRef.current = false;
       getActiveDictationTarget()?.release();
     };
+    const onBlur = () => {
+      if (!heldRef.current) return;
+      heldRef.current = false;
+      getActiveDictationTarget()?.release();
+    };
     document.addEventListener("keydown", onDown);
     document.addEventListener("keyup", onUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       document.removeEventListener("keydown", onDown);
       document.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", onBlur);
     };
   }, [isPopout]);
 }

@@ -34,4 +34,14 @@ describe("useDictationHotkey", () => {
     key("keydown", "F4");
     expect(press).not.toHaveBeenCalled();
   });
+
+  it("releases + resets held state on window blur (missed keyup)", () => {
+    const press = vi.fn(); const release = vi.fn();
+    setActiveDictationTarget({ press, release, label: "N" });
+    renderHook(() => useDictationHotkey("F4", false));
+    key("keydown", "F4"); expect(press).toHaveBeenCalledTimes(1);
+    window.dispatchEvent(new Event("blur"));
+    expect(release).toHaveBeenCalled();
+    key("keydown", "F4"); expect(press).toHaveBeenCalledTimes(2); // hotkey not stuck-dead
+  });
 });
