@@ -2360,6 +2360,15 @@ const enUS = {
   tourReplayCta: "Replay tour",
   tourStepCount: "{0} steps",
   tourDoneBadge: "Done",
+  // Guard-transparency: user-facing messages surfaced when a silent-fail guard trips
+  guardClipboardCopyFailed: "Couldn't copy to clipboard — check browser permissions and try again.",
+  guardRestoreVersionMissing: "This version could no longer be loaded — nothing was restored.",
+  guardCommTemplateSaveFailed: "Couldn't save the template — your change wasn't stored. Please retry.",
+  guardTimelogPartialFetch: "Bookings for {0} employee(s) couldn't be fetched — totals may be incomplete.",
+  guardJiraProjectListFailed: "Connected, but couldn't load your Jira projects — pick one manually or retry.",
+  guardCommVersionSaveFailed: "Couldn't save this template version.",
+  guardTimelogCustomersFailed: "Couldn't load the customer list — showing all projects instead.",
+  guardTrendsNotConfigured: "Trends needs a connected database — reconnect Turso in Settings to record snapshots.",
   // SP4 tour catalog titles + blurbs
   tourGettingStartedTitle: "Getting started",
   tourGettingStartedDesc: "A quick tour of the main areas — projects, tasks, actions, and the dashboard.",
