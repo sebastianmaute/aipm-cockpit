@@ -548,6 +548,9 @@ const enUS = {
   chatAttachmentReadFailed: "Could not read {0}",
   chatToolCall: "Used {0}",
   chatToolError: "Tool error",
+  dictationHold: "Hold to dictate",
+  dictationListening: "Listening…",
+  dictationMicDenied: "Microphone access was denied — allow it in your browser to dictate.",
   chatError: "Chat failed: {0}",
   chatGreeting:
     "I can list, add, update, delete tasks and send inquiries. Try \"show overdue tasks\" or \"add a task to review the pricing deck due Friday\".",

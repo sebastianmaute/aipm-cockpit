@@ -553,6 +553,9 @@ export const de: Record<TranslationKey, string> = {
   chatAttachmentReadFailed: "{0} konnte nicht gelesen werden",
   chatToolCall: "Werkzeug verwendet: {0}",
   chatToolError: "Werkzeugfehler",
+  dictationHold: "Zum Diktieren gedrückt halten",
+  dictationListening: "Hört zu …",
+  dictationMicDenied: "Mikrofonzugriff wurde verweigert — erlauben Sie ihn im Browser, um zu diktieren.",
   chatError: "Chat fehlgeschlagen: {0}",
   chatGreeting:
     "Ich kann Aufgaben anzeigen, anlegen, ändern, löschen und Anfragen senden. Probieren Sie \"zeige überfällige Aufgaben\" oder \"neue Aufgabe Pricing-Deck prüfen, fällig Freitag\".",
