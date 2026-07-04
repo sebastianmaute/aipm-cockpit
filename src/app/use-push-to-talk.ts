@@ -95,5 +95,5 @@ export function usePushToTalk({ lang, enabled, onAppendFinal, onInterim, onError
     onKeyUp: (e: React.KeyboardEvent) => { if (e.key === " " || e.key === "Enter") release(); },
   }), [press, release]);
 
-  return { listening, transcribing, supported, buttonHandlers, toggle };
+  return { listening, transcribing, supported, buttonHandlers, toggle, press, release };
 }

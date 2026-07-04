@@ -6,7 +6,7 @@
 // Cancel+Save-right footer). Built as a standalone component using the shared
 // Modal + ModalHeader + useDraggable, like change-edit-modal.tsx.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
@@ -35,6 +35,9 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { useDictationMic } from "./dictation-mic";
+import { appendDictation } from "./dictation-engine";
+import { useSettings } from "./use-settings";
 
 export interface StakeholderEditModalProps {
   lang: Lang;
@@ -93,6 +96,16 @@ export function StakeholderEditModal({
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
   const { isVisible } = useModalVisibility("stakeholder");
+  const { settings } = useSettings();
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; });
+  const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "stakeholderFieldNotes"),
+    onAppendFinal: (txt) => update("notes", appendDictation(draftRef.current.notes ?? "", txt)),
+  });
 
   const { offset, handleProps } = useDraggable(true);
 
@@ -290,19 +303,23 @@ export function StakeholderEditModal({
             <label className="flex flex-col gap-1 text-sm sm:col-span-2">
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "stakeholderFieldNotes")}<InfoTooltip text={t(lang, "stakeholderFieldNotesHint")} />
+                {notesMic}
               </span>
               <textarea
                 rows={2}
                 value={draft.notes ?? ""}
                 onChange={(e) => update("notes", e.target.value || undefined)}
+                onFocus={notesDictationReg.onFocus}
                 onBlur={(e) => {
                   const capped = describeTextCap(e.target.value, TEXTAREA_MAX).value;
                   update("notes", capped || undefined);
+                  notesDictationReg.onBlur();
                 }}
                 aria-describedby="stakeholder-notes-counter"
                 className={INPUT_CLASS}
               />
               <CharCounter value={draft.notes ?? ""} max={TEXTAREA_MAX} id="stakeholder-notes-counter" lang={lang} />
+              {notesDictationStatus}
             </label>
           )}
 

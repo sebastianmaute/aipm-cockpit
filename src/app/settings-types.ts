@@ -481,8 +481,15 @@ export type Settings = {
   dashboardDensity?: "comfortable" | "compact";
   /** Per-device dictation engine preference. Default "web-speech". `sttBaseUrl`/
    *  `sttModel` configure the STT endpoint; `sttApiKey` is the device-sealed STT
-   *  endpoint API key — in-memory plaintext only, blanked by `writeSettings`. */
-  dictation?: { engine: "web-speech" | "stt"; sttBaseUrl?: string; sttModel?: string; sttApiKey?: string };
+   *  endpoint API key — in-memory plaintext only, blanked by `writeSettings`.
+   *  `hotkey` is the global push-to-talk combo (e.g. "F4", "Ctrl+Shift+D"). Default "F4". */
+  dictation?: {
+    engine: "web-speech" | "stt";
+    sttBaseUrl?: string;
+    sttModel?: string;
+    sttApiKey?: string;
+    hotkey?: string;
+  };
   /** Per-device: show the contextual per-view Help callouts. Default ON
    *  (read as `!== false`); individual callouts can also be dismissed per-view. */
   showViewHints?: boolean;
@@ -538,7 +545,7 @@ export const defaultSettings: Settings = {
   hideFinishedTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
-  dictation: { engine: "web-speech" },
+  dictation: { engine: "web-speech", hotkey: "F4" },
   showViewHints: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
   showDisplayTzSwitcher: false,

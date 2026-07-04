@@ -7,7 +7,7 @@
 // Built as a standalone component using the shared ModalHeader + useDraggable,
 // like resource-edit-modal.tsx / absence-edit-modal.tsx.
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
@@ -39,6 +39,9 @@ import {
   StakeholderChipPicker,
   ModalEditFooter,
 } from "./edit-modal-chrome";
+import { useDictationMic } from "./dictation-mic";
+import { appendDictation } from "./dictation-engine";
+import { useSettings } from "./use-settings";
 
 export interface ChangeEditModalProps {
   lang: Lang;
@@ -109,6 +112,16 @@ export function ChangeEditModal({
   const scheduleNoticeId = useId();
   const costNoticeId = useId();
   const adj = useAdjustmentTracker();
+  const { settings } = useSettings();
+  const draftRef = useRef(draft);
+  useEffect(() => { draftRef.current = draft; });
+  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
+    lang,
+    dictation: settings.dictation,
+    enabled: true,
+    label: t(lang, "changeFieldDescription"),
+    onAppendFinal: (txt) => update("description", appendDictation(draftRef.current.description ?? "", txt)),
+  });
 
   const { offset, handleProps } = useDraggable(true);
 
@@ -302,16 +315,22 @@ export function ChangeEditModal({
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldDescription")}<InfoTooltip text={t(lang, "changeFieldDescriptionHint")} />
+              {descriptionMic}
             </span>
             <textarea
               rows={2}
               value={draft.description}
               onChange={(e) => update("description", e.target.value)}
-              onBlur={(e) => update("description", describeTextCap(e.target.value, TEXTAREA_MAX).value)}
+              onFocus={descriptionDictationReg.onFocus}
+              onBlur={(e) => {
+                update("description", describeTextCap(e.target.value, TEXTAREA_MAX).value);
+                descriptionDictationReg.onBlur();
+              }}
               aria-describedby="change-description-counter"
               className={INPUT_CLASS}
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="change-description-counter" lang={lang} />
+            {descriptionDictationStatus}
           </label>
           )}
 

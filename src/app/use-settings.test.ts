@@ -130,7 +130,7 @@ describe("useSettings", () => {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(legacy));
       const { result } = renderHook(() => useSettings());
       await act(async () => {});
-      expect(result.current.settings.dictation).toEqual({ engine: "web-speech", sttApiKey: "" });
+      expect(result.current.settings.dictation).toEqual({ engine: "web-speech", sttApiKey: "", hotkey: "F4" });
     });
 
     it("dictation.engine coerces an invalid value to 'web-speech'", async () => {
@@ -140,7 +140,7 @@ describe("useSettings", () => {
       );
       const { result } = renderHook(() => useSettings());
       await act(async () => {});
-      expect(result.current.settings.dictation).toEqual({ engine: "web-speech", sttApiKey: "" });
+      expect(result.current.settings.dictation).toEqual({ engine: "web-speech", sttApiKey: "", hotkey: "F4" });
     });
 
     it("dictation.engine is 'stt' only when persisted strictly 'stt'", async () => {
@@ -150,7 +150,27 @@ describe("useSettings", () => {
       );
       const { result } = renderHook(() => useSettings());
       await act(async () => {});
-      expect(result.current.settings.dictation).toEqual({ engine: "stt", sttApiKey: "" });
+      expect(result.current.settings.dictation).toEqual({ engine: "stt", sttApiKey: "", hotkey: "F4" });
+    });
+
+    it("dictation.hotkey is trimmed and capped at 40 chars, defaulting to 'F4'", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, dictation: { engine: "web-speech", hotkey: "  Ctrl+Shift+D  " } }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.dictation?.hotkey).toBe("Ctrl+Shift+D");
+    });
+
+    it("dictation.hotkey defaults to 'F4' when blank", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, dictation: { engine: "web-speech", hotkey: "   " } }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.dictation?.hotkey).toBe("F4");
     });
 
     it("tourSeen defaults to undefined (auto-launch eligible)", () => {

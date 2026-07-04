@@ -120,6 +120,7 @@ import { isPassphraseLocked } from "./secrets-store";
 import { unlockSecret } from "./use-secrets";
 import type { ProjectSwitcherProps } from "./project-switcher";
 import { useTour } from "./use-tour";
+import { useDictationHotkey } from "./use-dictation-hotkey";
 import { TourOverlay } from "./tour-overlay";
 import { TOUR_ANCHORS } from "./app-tour";
 import { loadPortfolioMode, type PortfolioMode } from "./portfolio-mode";
@@ -815,15 +816,13 @@ function TaskManagerInner() {
   // first-run user; re-launchable from the Help panel. State lives above the
   // view so it survives the view remount that the modern shell performs.
   const tour = useTour({
-    layout: settings.layout,
-    isPopout,
-    hydrated,
-    tourSeen: settings.tourSeen,
-    completedTours: settings.completedTours,
-    features: settings.features,
-    setSettings,
+    layout: settings.layout, isPopout, hydrated, tourSeen: settings.tourSeen,
+    completedTours: settings.completedTours, features: settings.features, setSettings,
   });
   const startTour = tour.start;
+
+  // Global push-to-talk hotkey: held combo drives the focused field's mic (dictation-target); disabled in popouts.
+  useDictationHotkey(settings.dictation?.hotkey, isPopout);
 
   // Load the curated sample workspace as a REAL, deletable demo project and kick
   // off the tour. The CTA is empty-state-only (no real project to clobber), so
