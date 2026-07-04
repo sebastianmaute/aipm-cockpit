@@ -13,6 +13,7 @@ import type { Workspace } from "./workspace";
 import { applyRestore } from "./version-restore";
 import type { RestoreSelection } from "./version-restore";
 import type { TursoConfig } from "./turso-config";
+import { logDiag } from "./diagnostics";
 import type { ProjectVersion, ProjectVersionMeta } from "./version-history";
 
 export interface UseVersionHistoryArgs {
@@ -165,7 +166,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     if (count === 0) return;
     try {
       const verStr = await loadVersionPayload(config, versionId, projectId);
-      if (!verStr) { onError?.(new Error("version payload could not be loaded")); return; }
+      if (!verStr) {
+        logDiag("warn", "history.restoreVersionMissing", { versionId });
+        onError?.(new Error("version payload could not be loaded"));
+        return;
+      }
       const version = jsonToWorkspace(verStr);
       const now = jsonToWorkspace(getPayload());
       const changes = diffWorkspaces(version, now);
