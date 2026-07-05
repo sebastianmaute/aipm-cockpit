@@ -7,6 +7,7 @@ import type { Settings } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { EmptyState } from "../empty-state";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { RemovableChipRow } from "./removable-chip-row";
 
 interface LocalizationSectionProps {
   lang: Lang;
@@ -96,33 +97,12 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
         ) : (
           <ul className="mt-2 space-y-1">
             {settings.holidayCountries.map((code) => (
-              <li
+              <RemovableChipRow
                 key={code}
-                className="flex items-center justify-between rounded-md bg-surface-muted px-3 py-1.5 text-sm"
-              >
-                <span className="text-foreground">
-                  {countryName(code)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => removeCountry(code)}
-                  aria-label={`${t(lang, "remove")} ${countryName(code)}`}
-                  className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
-                >
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-              </li>
+                label={countryName(code)}
+                ariaLabel={`${t(lang, "remove")} ${countryName(code)}`}
+                onRemove={() => removeCountry(code)}
+              />
             ))}
           </ul>
         )}
