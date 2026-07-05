@@ -255,6 +255,45 @@ describe("MilestonesPanel", () => {
     });
     expect(btn).toBeDisabled();
   });
+
+  it("renders a per-row Ask-Claude button when onAiEdit + aiEditEnabled(true) and calls onAiEdit with the milestone", () => {
+    const onAiEdit = vi.fn();
+    render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10", { id: 1 })]} />
+        <MilestonesPanel
+          {...baseProps}
+          onAiEdit={onAiEdit}
+          aiEditEnabled={() => true}
+        />
+      </>,
+      { wrapper },
+    );
+    // Row-unique accessible name: "Ask Claude – Alpha".
+    const btn = screen.getByRole("button", {
+      name: `${t("en-US", "inlineAiEdit")} – Alpha`,
+    });
+    fireEvent.click(btn);
+    expect(onAiEdit).toHaveBeenCalledTimes(1);
+    expect(onAiEdit.mock.calls[0][0]).toMatchObject({ id: 1, name: "Alpha" });
+  });
+
+  it("does not render the per-row Ask-Claude button when aiEditEnabled returns false", () => {
+    render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10", { id: 1 })]} />
+        <MilestonesPanel
+          {...baseProps}
+          onAiEdit={vi.fn()}
+          aiEditEnabled={() => false}
+        />
+      </>,
+      { wrapper },
+    );
+    expect(
+      screen.queryByRole("button", { name: /ask claude/i }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("Milestones bulk edit", () => {

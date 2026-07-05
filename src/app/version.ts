@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.165.0";
-export const APP_BUILD_DATE = "2026-07-03"; // 0.165.0: Inline "Ask Claude" per-item task edit — a natural-language popover on a task row/Kanban card proposes changes you preview and apply in place (no chat window); plus the new-project/recovery UX batch (Turso portfolio-switch flash fix, Reload-project affordance, model-picker gating, empty-state Configure-AI button) and TD-6 dedup slice 6 (Chiang)
+export const APP_VERSION = "0.166.0";
+export const APP_BUILD_DATE = "2026-07-05"; // 0.166.0: Inline "Ask Claude" per-item edit extended from tasks to RAID, changes, milestones, and stakeholders — the same natural-language preview-and-apply popover on every register row, via one generic engine driven by a per-entity descriptor; adds a focus-trapped edit dialog and an auto-close when its pane goes inactive (Egan)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.165.x line is "Chiang" (Ted Chiang). */
-export const APP_MILESTONE = "Chiang";
+ *  0.166.x line is "Egan" (Greg Egan). */
+export const APP_MILESTONE = "Egan";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -184,4 +184,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCalendarPullAbsence",
   "versionHighlightCalendarAutoPull",
   "versionHighlightInlineAiEdit",
+  "versionHighlightInlineAiEditSp2",
 ] as const;

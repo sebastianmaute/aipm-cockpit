@@ -1,9 +1,12 @@
 // src/app/inline-ai-edit/plan.ts
 //
 // Pure, i18n-free. Translate model tool-use blocks into a previewable EditPlan
-// for the inline "Ask Claude" task editor. No React, no i18n, no side effects.
-import { type Task, type Priority, type TaskStatus, PRIORITIES, TASK_STATUSES } from "../types";
+// for the inline "Ask Claude" editor, for any entity. No React, no i18n, no
+// side effects.
+import { type Task } from "../types";
 import { type Workspace } from "../workspace";
+import { sanitizeIsoDate } from "../sanitize";
+import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor } from "./entity-descriptor";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -13,15 +16,8 @@ export interface Deletion { entity: string; label: string; toolName: string; id:
 export interface Rejected { toolName: string; reason: "unknown-id" | "bad-input" | "unsupported"; detail: string }
 export interface EditPlan { updates: FieldDiff[]; creates: NewItem[]; deletes: Deletion[]; rejected: Rejected[] }
 
-// Exactly the fields the dispatcher's update_task can write (use-chat-dispatcher
-// `cleanPatch` + status). startDate/resourceId are NOT writable there, so they
-// are intentionally excluded — showing a diff we can't apply would break the
-// preview→apply contract (silent drop).
-const TASK_DIFF_FIELDS: Array<keyof Task> = [
-  "taskName", "assignee", "assigneeEmail", "dueDate", "status",
-  "priority", "notes", "blockers", "group", "labels",
-];
-
+// Any create_*/delete_* tool → its entity + workspace list key. Shared across
+// entities (an inline edit on any row may create/delete related items).
 const CREATE_TOOLS: Record<string, string> = {
   create_raid_item: "raid", create_change: "change",
   create_milestone: "milestone", create_stakeholder: "stakeholder", create_task: "task",
@@ -43,45 +39,70 @@ function titleOf(entity: string, input: Record<string, unknown>): string {
   return str(input.title ?? input.taskName ?? input.name ?? input.description ?? entity);
 }
 
-/** Build the plan. `ctx.task` is the row the popover was opened on; `ctx.ws` the
- *  live workspace (for id grounding + delete labels). Read-only tool calls and
- *  unknown tools are dropped; updates that don't target the current task (or a
- *  real workspace id) are rejected, never applied. */
-export function describeToolCalls(
+interface EntityItem { id: number; [k: string]: unknown }
+
+/** Build the plan for one entity. `ctx.item` is the row the popover opened on;
+ *  `ctx.ws` the live workspace (id grounding + delete labels); `ctx.descriptor`
+ *  drives which fields are diffable + how a value is validated so a previewed
+ *  diff never diverges from what the sanitizer would persist. */
+export function describeEntityCalls(
   blocks: readonly ToolUseLike[],
-  ctx: { task: Task; ws: Workspace },
+  ctx: { descriptor: EntityDescriptor; item: EntityItem; ws: Workspace },
 ): EditPlan {
+  const { descriptor: d, item, ws } = ctx;
   const plan: EditPlan = { updates: [], creates: [], deletes: [], rejected: [] };
-  const taskIds = new Set(ctx.ws.tasks.map((t) => t.id));
+  const ownIds = new Set((ws[d.wsKey] as ReadonlyArray<{ id: number }>).map((r) => r.id));
 
   for (const b of blocks) {
     if (b.type !== "tool_use" || typeof b.name !== "string") continue;
     const name = b.name;
     const input = (b.input && typeof b.input === "object" ? b.input : {}) as Record<string, unknown>;
 
-    if (name === "update_task") {
+    if (name === d.updateTool) {
       const id = Number(input.id);
-      if (id !== ctx.task.id) {
-        plan.rejected.push({ toolName: name, reason: taskIds.has(id) ? "unsupported" : "unknown-id", detail: str(input.id) });
+      if (id !== item.id) {
+        plan.rejected.push({ toolName: name, reason: ownIds.has(id) ? "unsupported" : "unknown-id", detail: str(input.id) });
         continue;
       }
-      for (const f of TASK_DIFF_FIELDS) {
+      // Accepted diffs so far — used both to validate a category-scoped enum
+      // (RAID status) against a CO-CHANGED category and to compute the effective
+      // item for the induced-reset pass below. Only VALID values land here.
+      const applied: Record<string, string> = {};
+      for (const f of d.diffFields) {
         if (!(f in input)) continue;
-        const before = str(ctx.task[f]);
+        const before = str(item[f]);
         const after = str(input[f]);
         if (before === after) continue;
-        // Value-level guard: the dispatcher silently ignores an out-of-enum
-        // status/priority (leaves the field unchanged), so don't preview a diff
-        // that Apply won't make — reject it instead.
-        if (f === "status" && !TASK_STATUSES.includes(after as TaskStatus)) {
-          plan.rejected.push({ toolName: name, reason: "bad-input", detail: `status=${after}` });
-          continue;
+        const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
+        if (d.requiredNonEmpty.has(f) && after === "") { bad(`${f}=empty`); continue; }
+        // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
+        // (1900-2100), returning the input verbatim when valid and "" otherwise,
+        // so a previewed date can never diverge from what apply persists.
+        if (d.dateFields.has(f) && after !== "" && sanitizeIsoDate(after) !== after) { bad(`${f}=${after}`); continue; }
+        const range = d.intRangeFields[f];
+        if (range) {
+          const n = Number(after);
+          if (!Number.isInteger(n) || n < range[0] || n > range[1]) { bad(`${f}=${after}`); continue; }
         }
-        if (f === "priority" && !PRIORITIES.includes(after as Priority)) {
-          plan.rejected.push({ toolName: name, reason: "bad-input", detail: `priority=${after}` });
-          continue;
-        }
+        if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
         plan.updates.push({ field: f, before, after });
+        applied[f] = after;
+      }
+      // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
+      // changed, whose current value is no longer valid for the item as patched,
+      // is silently reset by the sanitizer to the field's default (RAID status
+      // follows a co-changed category). Surface it so the preview matches the
+      // write instead of under-reporting a second field change.
+      const effective = { ...item, ...applied };
+      for (const f of Object.keys(d.enumFields)) {
+        if (f in applied) continue;
+        const cur = str(item[f]);
+        if (!cur) continue;
+        const valid = validSetFor(d.entity, f, effective);
+        if (valid.size === 0 || valid.has(cur)) continue;
+        const def = defaultEnumFor(d.entity, f, effective);
+        if (def === undefined || def === cur) continue;
+        plan.updates.push({ field: f, before: cur, after: def });
       }
       continue;
     }
@@ -95,14 +116,13 @@ export function describeToolCalls(
     if (name in DELETE_TOOLS) {
       const { entity, wsKey } = DELETE_TOOLS[name];
       const id = Number(input.id);
-      // An inline edit may only DELETE the task it was opened on. Cross-entity
-      // deletes (raid/change/milestone/stakeholder) are allowed; deleting a
-      // DIFFERENT task is not (mirrors the update_task target-only guard).
-      if (name === "delete_task" && id !== ctx.task.id) {
+      // The row's OWN entity may only delete the row it was opened on; other
+      // entities' deletes are allowed (cross-entity cleanup).
+      if (name === d.deleteTool && id !== item.id) {
         plan.rejected.push({ toolName: name, reason: "unsupported", detail: str(input.id) });
         continue;
       }
-      const rows = ctx.ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string }>;
+      const rows = ws[wsKey] as ReadonlyArray<{ id: number; title?: string; taskName?: string; name?: string }>;
       const found = Array.isArray(rows) ? rows.find((r) => r.id === id) : undefined;
       if (!found) { plan.rejected.push({ toolName: name, reason: "unknown-id", detail: str(input.id) }); continue; }
       plan.deletes.push({ entity, label: str(found.title ?? found.taskName ?? found.name ?? id), toolName: name, id });
@@ -110,6 +130,11 @@ export function describeToolCalls(
     }
   }
   return plan;
+}
+
+/** Task-bound wrapper preserving SP1's signature (its tests import this). */
+export function describeToolCalls(blocks: readonly ToolUseLike[], ctx: { task: Task; ws: Workspace }): EditPlan {
+  return describeEntityCalls(blocks, { descriptor: INLINE_DESCRIPTORS.task, item: ctx.task as unknown as EntityItem, ws: ctx.ws });
 }
 
 /** True when the plan would write nothing (used to disable Apply / show a note). */

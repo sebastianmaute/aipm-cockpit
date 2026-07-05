@@ -20,6 +20,7 @@ const CHANGE_FILTER_DEFAULTS: PanelFiltersState = {
 import { ChangeEditModal } from "./change-edit-modal";
 import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 import { CalendarSyncControls } from "./calendar-sync-controls";
+import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { ViewCallout } from "./view-callout";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
@@ -114,6 +115,10 @@ export type ChangePanelProps = {
   /** Change Pull-from-Outlook (two-way SP3). Absent in popouts. */
   onPullCalendar?: () => void;
   calendarPullBusy?: boolean;
+  /** Inline "Ask Claude" per-row edit (SP2). Absent when AI is off / in popouts. */
+  onAiEdit?: (item: ChangeItem) => void;
+  /** Per-row gate for the ✨ button (AI enabled && !jira-synced-style predicate). */
+  aiEditEnabled?: (item: ChangeItem) => boolean;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -184,6 +189,8 @@ function ChangePanelBody({
   calendarPushBusy,
   onPullCalendar,
   calendarPullBusy,
+  onAiEdit,
+  aiEditEnabled,
 }: ChangePanelProps) {
   const pf = usePanelFilters();
   const hiddenSet = new Set(pf.hiddenCols ?? []);
@@ -542,7 +549,7 @@ function ChangePanelBody({
                   key={item.id}
                   data-deeplink-row={item.id}
                   onClick={() => openEdit(item)}
-                  className={["cursor-pointer align-top hover:bg-surface-muted", flashOutlineClass(flashId === item.id)]
+                  className={["group cursor-pointer align-top hover:bg-surface-muted", flashOutlineClass(flashId === item.id)]
                     .filter(Boolean)
                     .join(" ")}
                 >
@@ -567,7 +574,12 @@ function ChangePanelBody({
                   )}
                   {!hiddenSet.has("title") && (
                   <td className="px-3 py-2 font-medium text-foreground">
-                    {item.title}
+                    <span className="inline-flex items-center gap-1">
+                      {item.title}
+                      {onAiEdit && aiEditEnabled?.(item) && (
+                        <InlineAiEditButton lang={lang} label={item.title} onClick={() => onAiEdit(item)} />
+                      )}
+                    </span>
                   </td>
                   )}
                   {!hiddenSet.has("impact") && (

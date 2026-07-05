@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.166.0] - 2026-07-05 "Egan"
+
+### Added
+- **Inline "Ask Claude" per-item edit on RAID, changes, milestones, and stakeholders** (SP2): the ✨ hover popover that shipped for tasks now works on every register row. Describe a change in plain language; Claude proposes it in **one bounded call**, and the popover shows a **preview diff** — field changes plus any related items it would create — before anything is written. Confirm applies through the existing AI CRUD tools, so every write runs through its entity sanitizer. Built on one generic engine driven by a per-entity descriptor (tasks refactored onto it), so the preview never diverges from what Apply persists — including surfacing a sanitizer-induced RAID status reset when a category change invalidates the current status. Gated behind the AI master switch; disabled in pop-out windows.
+
+### Changed
+- **Inline-edit dialog is now focus-trapped** and restores focus to the ✨ trigger on close (applies to the task popover too).
+
+### Fixed
+- **A left-open inline edit auto-closes when its pane stops being the active view**, so it can't reappear (and steal focus) after navigating away via search, a deep-link, or browser back/forward.
+
 ## [0.165.0] - 2026-07-03 "Chiang"
 
 ### Added

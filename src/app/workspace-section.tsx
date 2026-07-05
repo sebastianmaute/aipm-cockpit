@@ -13,6 +13,7 @@ import {
 import {
   useWorkspace,
 } from "./workspace-context";
+import { useEntityInlineAiEdit } from "./use-entity-inline-ai-edit";
 import {
   useWorkspaceTab,
 } from "./workspace-tab-context";
@@ -196,6 +197,18 @@ export function WorkspaceSection({
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee } = useWorkspace();
   const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
+  // Inline "Ask Claude" per-row edit glue (SP2). One instance per entity pane;
+  // each yields the row handlers threaded into the panel + its active-edit
+  // popover element. Called unconditionally (hook rules); the popover only
+  // renders when that pane is active and an edit is open.
+  const inlineAiDeps = { dispatcher, settings, isPopout, lang, logActivity };
+  // `active` auto-closes a left-open inline edit when its pane stops being the
+  // active view (non-mouse nav doesn't trigger the popover's outside-click
+  // dismiss). Tab keys match the tabpanel conditions below.
+  const raidInlineAi = useEntityInlineAiEdit("raid", { ...inlineAiDeps, active: activeTab === "raid" });
+  const changeInlineAi = useEntityInlineAiEdit("change", { ...inlineAiDeps, active: activeTab === "changes" });
+  const milestoneInlineAi = useEntityInlineAiEdit("milestone", { ...inlineAiDeps, active: activeTab === "milestones" });
+  const stakeholderInlineAi = useEntityInlineAiEdit("stakeholder", { ...inlineAiDeps, active: activeTab === "stakeholders" });
   // One-way signal: incrementing this opens the milestone create modal on the
   // Milestones tab (Gantt "Add milestone" parity with Add task).
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
@@ -378,7 +391,10 @@ export function WorkspaceSection({
             calendarPushBusy={raidCalendar?.pushBusy}
             onPullCalendar={raidCalendar?.onPull}
             calendarPullBusy={raidCalendar?.pullBusy}
+            onAiEdit={raidInlineAi.onAiEdit}
+            aiEditEnabled={raidInlineAi.aiEditEnabled}
           />
+          {raidInlineAi.popover}
         </div>
 
         {activeTab === "resources" && (
@@ -535,7 +551,10 @@ export function WorkspaceSection({
               calendarPushBusy={changeCalendar?.pushBusy}
               onPullCalendar={changeCalendar?.onPull}
               calendarPullBusy={changeCalendar?.pullBusy}
+              onAiEdit={changeInlineAi.onAiEdit}
+              aiEditEnabled={changeInlineAi.aiEditEnabled}
             />
+            {changeInlineAi.popover}
           </div>
         )}
 
@@ -559,7 +578,10 @@ export function WorkspaceSection({
               showHints={settings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
+              onAiEdit={stakeholderInlineAi.onAiEdit}
+              aiEditEnabled={stakeholderInlineAi.aiEditEnabled}
             />
+            {stakeholderInlineAi.popover}
           </div>
         )}
 
@@ -650,7 +672,10 @@ export function WorkspaceSection({
               showHints={settings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
+              onAiEdit={milestoneInlineAi.onAiEdit}
+              aiEditEnabled={milestoneInlineAi.aiEditEnabled}
             />
+            {milestoneInlineAi.popover}
           </div>
         )}
 

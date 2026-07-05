@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { type Task } from "./types";
 import { type EditPlan } from "./inline-ai-edit/plan";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
@@ -9,7 +8,8 @@ import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export interface InlineAiEditPopoverProps {
   lang: Lang;
-  task: Task;
+  itemTitle: string;
+  entityLabel: string;
   phase: InlinePhase;
   plan: EditPlan | null;
   clarifyText: string;
@@ -20,14 +20,33 @@ export interface InlineAiEditPopoverProps {
 }
 
 export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
-  const { lang, task, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
+  const { lang, itemTitle, entityLabel, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
   const [value, setValue] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   usePopoverDismiss(true, ref, onCancel);
-  // Move focus into the dialog on open (aria-modal a11y — the NL input is the
-  // primary control). Not a state update, so no set-state-in-effect concern.
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  // Focus management for the aria-modal dialog: move focus to the NL input on
+  // open and RESTORE it to the trigger (the ✨ button) on close. Not a state
+  // update, so no set-state-in-effect concern.
+  useEffect(() => {
+    const prevFocus = document.activeElement as HTMLElement | null;
+    inputRef.current?.focus();
+    return () => prevFocus?.focus?.();
+  }, []);
+  // Trap Tab within the dialog so keyboard focus can't escape to the background
+  // (parity with the shared Modal; the bespoke overlay isn't a Modal instance).
+  const onKeyDownTrap = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab") return;
+    const focusables = ref.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    );
+    const list = focusables ? Array.from(focusables) : [];
+    if (list.length === 0) return;
+    const first = list[0];
+    const last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
   const busy = phase === "thinking" || phase === "applying";
 
   return (
@@ -37,13 +56,14 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
         role="dialog"
         aria-modal="true"
         aria-label={t(lang, "inlineAiEdit")}
+        onKeyDown={onKeyDownTrap}
         className="w-[420px] max-w-[95vw] rounded-xl border border-line bg-surface p-4"
       >
         <div className="mb-2 flex items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">{t(lang, "inlineAiEditTitle")}</h2>
           <button type="button" onClick={onCancel} aria-label={t(lang, "cancel")} className={`rounded-md px-2 text-muted-foreground hover:text-foreground ${INTERACTIVE}`}>✕</button>
         </div>
-        <p className="mb-3 truncate text-xs text-muted-foreground">{task.taskName}</p>
+        <p className="mb-3 truncate text-xs text-muted-foreground"><span className="font-medium">{entityLabel}</span> · {itemTitle}</p>
 
         {phase !== "preview" && (
           <form onSubmit={(e) => { e.preventDefault(); if (value.trim() && !busy) onSubmit(value.trim()); }}>

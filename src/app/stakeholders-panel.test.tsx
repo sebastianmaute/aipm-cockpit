@@ -114,6 +114,48 @@ describe("StakeholdersPanel", () => {
   });
 });
 
+describe("Stakeholders inline AI edit", () => {
+  it("renders the ✨ Ask-Claude button and fires onAiEdit when aiEditEnabled is true", () => {
+    const onAiEdit = vi.fn();
+    const stakeholder = sampleStakeholder({ id: 7, name: "Dana" });
+    render(
+      <StakeholdersPanel
+        lang="en-US"
+        stakeholders={[stakeholder]}
+        resources={[]}
+        milestones={[]}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onAiEdit={onAiEdit}
+        aiEditEnabled={() => true}
+      />,
+      { wrapper },
+    );
+    const btn = screen.getByRole("button", {
+      name: `${t("en-US", "inlineAiEdit")} – Dana`,
+    });
+    fireEvent.click(btn);
+    expect(onAiEdit).toHaveBeenCalledWith(stakeholder);
+  });
+
+  it("hides the ✨ Ask-Claude button when aiEditEnabled returns false", () => {
+    render(
+      <StakeholdersPanel
+        lang="en-US"
+        stakeholders={[sampleStakeholder({ id: 8, name: "Dana" })]}
+        resources={[]}
+        milestones={[]}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onAiEdit={vi.fn()}
+        aiEditEnabled={() => false}
+      />,
+      { wrapper },
+    );
+    expect(screen.queryByRole("button", { name: /ask claude/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("Stakeholders column visibility", () => {
   it("hides the email column (header + cell) when unticked in the column config popover", () => {
     renderStakeholders({ stakeholders: [sampleStakeholder({ name: "Ada", email: "ada@example.com" })] });

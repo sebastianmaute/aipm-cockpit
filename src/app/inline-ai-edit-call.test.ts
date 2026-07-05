@@ -4,11 +4,11 @@ import { callInlineEdit, type InlineEditArgs } from "./inline-ai-edit-call";
 
 afterEach(() => vi.restoreAllMocks());
 
-const task = {
+const item: InlineEditArgs["item"] = {
   id: 42,
   taskName: "Fix login bug",
   status: "To Do",
-} as unknown as InlineEditArgs["task"];
+};
 
 const snapshot: InlineEditArgs["snapshot"] = {
   today: "2026-07-03",
@@ -36,7 +36,7 @@ describe("callInlineEdit", () => {
     vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
     const r = await callInlineEdit({
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", lang: "en-US",
-      task, instruction: "mark done", snapshot, guides: [], groundInGuides: false,
+      entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done", snapshot, guides: [], groundInGuides: false,
     });
     expect(r.blocks.map((b) => b.name)).toEqual(["update_task"]);
     expect(r.text).toContain("Sure");
@@ -50,7 +50,7 @@ describe("callInlineEdit", () => {
       usage: { input_tokens: 0, output_tokens: 0 },
     };
     const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(response);
-    await callInlineEdit({ apiKey: "sk-ant-secret000000000000", model: "claude-y", lang: "en-US", task, instruction: "x", snapshot, guides: [], groundInGuides: false });
+    await callInlineEdit({ apiKey: "sk-ant-secret000000000000", model: "claude-y", lang: "en-US", entity: "task", item, itemLabel: "x", instruction: "x", snapshot, guides: [], groundInGuides: false });
     expect(spy.mock.calls[0][0]).toBe("sk-ant-secret000000000000");
     expect(spy.mock.calls[0][1]).toBe("claude-y");
   });
