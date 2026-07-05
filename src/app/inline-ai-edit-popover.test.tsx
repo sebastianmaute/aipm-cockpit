@@ -20,6 +20,30 @@ it("renders the entity label + item title and submits the instruction", () => {
   expect(base.onSubmit).toHaveBeenCalledWith("mark done");
 });
 
+it("focuses the input on open and restores focus to the trigger on close", () => {
+  const trigger = document.createElement("button");
+  document.body.appendChild(trigger);
+  trigger.focus();
+  expect(document.activeElement).toBe(trigger);
+  const { unmount } = render(<InlineAiEditPopover {...base} />);
+  // Opens with focus in the NL input (aria-modal).
+  expect(document.activeElement).toBe(screen.getByLabelText(/ask claude to edit this task/i));
+  // Closing restores focus to whatever was focused before (the ✨ trigger).
+  unmount();
+  expect(document.activeElement).toBe(trigger);
+  trigger.remove();
+});
+
+it("traps Tab within the dialog (wraps last -> first)", () => {
+  render(<InlineAiEditPopover {...base} />);
+  const dialog = screen.getByRole("dialog");
+  const focusables = Array.from(dialog.querySelectorAll<HTMLElement>("button, input"));
+  const last = focusables[focusables.length - 1];
+  last.focus();
+  fireEvent.keyDown(dialog, { key: "Tab" });
+  expect(document.activeElement).toBe(focusables[0]);
+});
+
 it("shows the diff and an Apply button in preview", () => {
   render(<InlineAiEditPopover {...base} phase="preview" plan={{ updates: [{ field: "status", before: "To Do", after: "Done" }], creates: [], deletes: [], rejected: [] }} />);
   expect(screen.getByText(/status/i)).toBeInTheDocument();

@@ -25,9 +25,28 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   usePopoverDismiss(true, ref, onCancel);
-  // Move focus into the dialog on open (aria-modal a11y — the NL input is the
-  // primary control). Not a state update, so no set-state-in-effect concern.
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  // Focus management for the aria-modal dialog: move focus to the NL input on
+  // open and RESTORE it to the trigger (the ✨ button) on close. Not a state
+  // update, so no set-state-in-effect concern.
+  useEffect(() => {
+    const prevFocus = document.activeElement as HTMLElement | null;
+    inputRef.current?.focus();
+    return () => prevFocus?.focus?.();
+  }, []);
+  // Trap Tab within the dialog so keyboard focus can't escape to the background
+  // (parity with the shared Modal; the bespoke overlay isn't a Modal instance).
+  const onKeyDownTrap = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab") return;
+    const focusables = ref.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    );
+    const list = focusables ? Array.from(focusables) : [];
+    if (list.length === 0) return;
+    const first = list[0];
+    const last = list[list.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  };
   const busy = phase === "thinking" || phase === "applying";
 
   return (
@@ -37,6 +56,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
         role="dialog"
         aria-modal="true"
         aria-label={t(lang, "inlineAiEdit")}
+        onKeyDown={onKeyDownTrap}
         className="w-[420px] max-w-[95vw] rounded-xl border border-line bg-surface p-4"
       >
         <div className="mb-2 flex items-start justify-between gap-2">
