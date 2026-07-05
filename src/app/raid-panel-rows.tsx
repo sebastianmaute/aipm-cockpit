@@ -17,6 +17,7 @@ import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { useRowSelection } from "./use-row-selection";
+import { InlineAiEditButton } from "./inline-ai-edit-button";
 
 const categoryPillClass: Record<RaidCategory, string> = {
   R: "bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey",
@@ -51,6 +52,10 @@ export interface RaidTableProps {
   effectiveCategory: RaidCategory;
   openNew: (category?: RaidCategory) => void;
   flashId: number | null;
+  /** Inline "Ask Claude" per-row edit (SP2). Absent when AI is off/popout. */
+  onAiEdit?: (item: RaidItem) => void;
+  /** Gate the per-row ✨ button (e.g. AI enabled && not Jira-synced). */
+  aiEditEnabled?: (item: RaidItem) => boolean;
 }
 
 export function RaidTable({
@@ -71,6 +76,8 @@ export function RaidTable({
   effectiveCategory,
   openNew,
   flashId,
+  onAiEdit,
+  aiEditEnabled,
 }: RaidTableProps) {
   return (
     <table className="min-w-full text-left text-sm">
@@ -173,7 +180,7 @@ export function RaidTable({
               data-deeplink-row={item.id}
               onClick={() => openEdit(item)}
               className={[
-                "cursor-pointer align-top hover:bg-surface-muted",
+                "group cursor-pointer align-top hover:bg-surface-muted",
                 // De-emphasize terminal rows with a background tint, NOT opacity
                 // (opacity dims all text/badges below the WCAG AA threshold —
                 // mirrors the task-row precedent).
@@ -209,7 +216,12 @@ export function RaidTable({
               )}
               {!hiddenSet.has("title") && (
               <td className="px-3 py-2 font-medium text-foreground">
-                {item.title}
+                <span className="inline-flex items-center gap-1">
+                  <span>{item.title}</span>
+                  {onAiEdit && aiEditEnabled?.(item) && (
+                    <InlineAiEditButton lang={lang} label={item.title} onClick={() => onAiEdit(item)} />
+                  )}
+                </span>
               </td>
               )}
               {!hiddenSet.has("severity") && (

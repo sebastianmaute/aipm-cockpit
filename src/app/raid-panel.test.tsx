@@ -398,6 +398,30 @@ describe("RAID bulk edit", () => {
   });
 });
 
+describe("RaidPanel — inline Ask-Claude edit (SP2)", () => {
+  const aiLabel = `${t("en-US", "inlineAiEdit")} – Vendor risk`;
+
+  it("renders a row-unique ✨ button when onAiEdit + aiEditEnabled(true) are given", () => {
+    const onAiEdit = vi.fn();
+    const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" })];
+    renderPanel(makeProps({ raid, onAiEdit, aiEditEnabled: () => true }));
+    fireEvent.click(screen.getByRole("button", { name: aiLabel }));
+    expect(onAiEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+  });
+
+  it("hides the ✨ button when aiEditEnabled returns false", () => {
+    const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" })];
+    renderPanel(makeProps({ raid, onAiEdit: vi.fn(), aiEditEnabled: () => false }));
+    expect(screen.queryByRole("button", { name: aiLabel })).toBeNull();
+  });
+
+  it("hides the ✨ button when onAiEdit is absent", () => {
+    const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" })];
+    renderPanel(makeProps({ raid }));
+    expect(screen.queryByRole("button", { name: aiLabel })).toBeNull();
+  });
+});
+
 describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
   const calLabel = `${t("en-US", "calendarSyncEnable")} – ${t("en-US", "calendarSyncEntityRaid")}`;
 

@@ -106,6 +106,10 @@ export type RaidPanelProps = {
   /** RAID Pull-from-Outlook (two-way SP3). Absent in popouts. */
   onPullCalendar?: () => void;
   calendarPullBusy?: boolean;
+  /** Inline "Ask Claude" per-row edit (SP2). Absent when AI is off/popout. */
+  onAiEdit?: (item: RaidItem) => void;
+  /** Gate the per-row ✨ button (e.g. AI enabled && not Jira-synced). */
+  aiEditEnabled?: (item: RaidItem) => boolean;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -145,6 +149,8 @@ function RaidPanelBody({
   calendarPushBusy,
   onPullCalendar,
   calendarPullBusy,
+  onAiEdit,
+  aiEditEnabled,
 }: RaidPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
@@ -467,6 +473,8 @@ function RaidPanelBody({
           effectiveCategory={effectiveCategory}
           openNew={openNew}
           flashId={flashId}
+          onAiEdit={onAiEdit}
+          aiEditEnabled={aiEditEnabled}
         />
         )}
       </div>
