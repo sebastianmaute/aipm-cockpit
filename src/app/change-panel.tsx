@@ -21,7 +21,7 @@ import { ChangeEditModal } from "./change-edit-modal";
 import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 import { CalendarSyncControls } from "./calendar-sync-controls";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
-import { ViewCallout } from "./view-callout";
+import { PanelTableScaffold } from "./panel-table-scaffold";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import {
@@ -48,13 +48,11 @@ import {
 } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
-import { BulkEditBar } from "./bulk-edit-bar";
-import { BulkEditPanel, selectField, textField, type BulkField } from "./bulk-edit-panel";
+import { selectField, textField, type BulkField } from "./bulk-edit-panel";
 
 const CHANGE_COL_WIDTHS = {
   id: 60,
@@ -428,41 +426,49 @@ function ChangePanelBody({
   );
 
   return (
-    <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      {onLearnMore && (
-        <ViewCallout view="changes" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
-      )}
-      {toolbar}
-
-      <div className="print:hidden">
-        <BulkEditBar
-          lang={lang}
-          count={sel.count}
-          open={bulkOpen}
-          onToggleOpen={() => setBulkOpen((o) => !o)}
-          onClear={() => {
-            sel.clear();
-            setBulkOpen(false);
-          }}
-        />
-        {bulkOpen && sel.count > 0 && (
-          <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
-        )}
-      </div>
-
-      <div ref={containerRef} className={changes.length === 0 ? undefined : "min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"}>
-        {changes.length === 0 ? (
-          // Empty → clickable dashed box (mirrors the budget "+ add bucket"
-          // empty state): descriptive text + "+ Add change…", the box adds one.
-          <button
-            type="button"
-            onClick={openNew}
-            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            <span>{t(lang, "changeEmpty")}</span>
-            <span className="font-medium">+ {t(lang, "changesAdd")}…</span>
-          </button>
-        ) : (
+    <PanelTableScaffold
+      paneRef={paneRef}
+      containerRef={containerRef}
+      view="changes"
+      lang={lang}
+      showHints={showHints}
+      isPopout={isPopout}
+      onLearnMore={onLearnMore}
+      toolbar={toolbar}
+      bulk={{
+        count: sel.count,
+        open: bulkOpen,
+        onToggleOpen: () => setBulkOpen((o) => !o),
+        onClear: () => {
+          sel.clear();
+          setBulkOpen(false);
+        },
+        fields: bulkFields,
+        onApply: applyBulk,
+        onCancel: () => setBulkOpen(false),
+      }}
+      count={changes.length}
+      empty={{ text: t(lang, "changeEmpty"), addLabel: `+ ${t(lang, "changesAdd")}…`, onAdd: openNew }}
+      trailing={
+        draft && (
+          <ChangeEditModal
+            lang={lang}
+            tasks={tasks}
+            raid={raid}
+            draft={draft}
+            isNew={isNew}
+            raidEnabled={raidEnabled}
+            stakeholdersEnabled={stakeholdersEnabled}
+            stakeholders={stakeholders}
+            onChange={setDraft}
+            onApplyStatus={(s) => setDraft((d) => (d ? applyChangeStatus(d, s, today) : d))}
+            onSave={commitDraft}
+            onCancel={closeModal}
+            onDelete={commitDelete}
+          />
+        )
+      }
+    >
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -613,29 +619,7 @@ function ChangePanelBody({
             })}
           </tbody>
         </table>
-        )}
-      </div>
-
-      {draft && (
-        <ChangeEditModal
-          lang={lang}
-          tasks={tasks}
-          raid={raid}
-          draft={draft}
-          isNew={isNew}
-          raidEnabled={raidEnabled}
-          stakeholdersEnabled={stakeholdersEnabled}
-          stakeholders={stakeholders}
-          onChange={setDraft}
-          onApplyStatus={(s) =>
-            setDraft((d) => (d ? applyChangeStatus(d, s, today) : d))
-          }
-          onSave={commitDraft}
-          onCancel={closeModal}
-          onDelete={commitDelete}
-        />
-      )}
-    </div>
+    </PanelTableScaffold>
   );
 }
 

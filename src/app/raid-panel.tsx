@@ -41,13 +41,10 @@ import type { Contact } from "./contacts";
 import { RaidEditModal } from "./raid-edit-modal";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
-import { BulkEditBar } from "./bulk-edit-bar";
-import { BulkEditPanel, selectField, dateField, type BulkField } from "./bulk-edit-panel";
+import { PanelTableScaffold } from "./panel-table-scaffold";
+import { selectField, dateField, type BulkField } from "./bulk-edit-panel";
 import { resourceDisplayName } from "./resource-foundation";
-import { ViewCallout } from "./view-callout";
 import { RaidToolbar } from "./raid-panel-toolbar";
 import { RaidTable } from "./raid-panel-rows";
 import { RAID_COL_WIDTHS, type RaidCol } from "./raid-panel-columns";
@@ -396,65 +393,90 @@ function RaidPanelBody({
 
 
   return (
-    <div ref={raidRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      {onLearnMore && (
-        <ViewCallout view="raid" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
-      )}
-      <RaidToolbar
-        lang={lang}
-        search={search}
-        onSearchChange={pf.setSearch}
-        categoryFilter={categoryFilter}
-        severityFilter={severityFilter}
-        statusFilter={statusFilter}
-        onSetFilter={pf.setFilter}
-        onResetFilters={pf.resetFilters}
-        onToggleColumn={pf.toggleColumn}
-        hiddenSet={hiddenSet}
-        filterTaskId={filterTaskId}
-        onClearTaskFilter={onClearTaskFilter}
-        filtersActive={filtersActive}
-        onAddNew={() => openNew()}
-        onResetColWidths={resetColWidths}
-        onResetSize={resetRaidSize}
-        m365Configured={m365Configured}
-        isPopout={isPopout}
-        calendarEnabled={calendarEnabled}
-        onToggleCalendar={onToggleCalendar}
-        onPushCalendar={onPushCalendar}
-        calendarPushBusy={calendarPushBusy}
-        onPullCalendar={onPullCalendar}
-        calendarPullBusy={calendarPullBusy}
-      />
-
-      <BulkEditBar
-        lang={lang}
-        count={sel.count}
-        open={bulkOpen}
-        onToggleOpen={() => setBulkOpen((o) => !o)}
-        onClear={() => {
+    <PanelTableScaffold
+      paneRef={raidRef}
+      containerRef={containerRef}
+      view="raid"
+      lang={lang}
+      showHints={showHints}
+      isPopout={isPopout}
+      onLearnMore={onLearnMore}
+      bulkPrintHidden={false}
+      toolbar={
+        <RaidToolbar
+          lang={lang}
+          search={search}
+          onSearchChange={pf.setSearch}
+          categoryFilter={categoryFilter}
+          severityFilter={severityFilter}
+          statusFilter={statusFilter}
+          onSetFilter={pf.setFilter}
+          onResetFilters={pf.resetFilters}
+          onToggleColumn={pf.toggleColumn}
+          hiddenSet={hiddenSet}
+          filterTaskId={filterTaskId}
+          onClearTaskFilter={onClearTaskFilter}
+          filtersActive={filtersActive}
+          onAddNew={() => openNew()}
+          onResetColWidths={resetColWidths}
+          onResetSize={resetRaidSize}
+          m365Configured={m365Configured}
+          isPopout={isPopout}
+          calendarEnabled={calendarEnabled}
+          onToggleCalendar={onToggleCalendar}
+          onPushCalendar={onPushCalendar}
+          calendarPushBusy={calendarPushBusy}
+          onPullCalendar={onPullCalendar}
+          calendarPullBusy={calendarPullBusy}
+        />
+      }
+      bulk={{
+        count: sel.count,
+        open: bulkOpen,
+        onToggleOpen: () => setBulkOpen((o) => !o),
+        onClear: () => {
           sel.clear();
           setBulkOpen(false);
-        }}
-      />
-      {bulkOpen && sel.count > 0 && (
-        <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
-      )}
-
-      <div ref={containerRef} className={raid.length === 0 ? undefined : "min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"}>
-        {raid.length === 0 ? (
-          // Empty → clickable dashed box (budget/gantt empty-state convention):
-          // descriptive text + "+ Add RAID item…", the box opens the create form.
-          <button
-            type="button"
-            onClick={() => openNew(effectiveCategory)}
-            aria-label={t(lang, "raidAddItem")}
-            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            <span>{t(lang, "raidEmpty")}</span>
-            <span className="font-medium">{t(lang, "raidAddItem")}…</span>
-          </button>
-        ) : (
+        },
+        fields: bulkFields,
+        onApply: applyBulk,
+        onCancel: () => setBulkOpen(false),
+      }}
+      count={raid.length}
+      empty={{
+        text: t(lang, "raidEmpty"),
+        addLabel: `${t(lang, "raidAddItem")}…`,
+        onAdd: () => openNew(effectiveCategory),
+        ariaLabel: t(lang, "raidAddItem"),
+      }}
+      trailing={
+        draft && (
+          <RaidEditModal
+            lang={lang}
+            tasks={tasks}
+            raid={raid}
+            stakeholdersEnabled={stakeholdersEnabled}
+            stakeholders={stakeholders}
+            resources={resources}
+            contacts={contacts}
+            onCreateResource={onCreateResource}
+            draft={draft}
+            isNew={isNew}
+            onChange={setDraft}
+            onApplyStatus={(s) => setDraft((d) => (d ? applyStatus(d, s) : d))}
+            onApplyMatrix={(p, i) => setDraft((d) => (d ? applyMatrix(d, p, i) : d))}
+            onSave={commitDraft}
+            onCancel={closeModal}
+            onDelete={commitDelete}
+            onCreateMitigationTask={commitCreateMitigationTask}
+            onJumpToRaid={(id) => {
+              const target = raidById.get(id);
+              if (target) openEdit(target);
+            }}
+          />
+        )
+      }
+    >
         <RaidTable
           lang={lang}
           hiddenSet={hiddenSet}
@@ -476,37 +498,7 @@ function RaidPanelBody({
           onAiEdit={onAiEdit}
           aiEditEnabled={aiEditEnabled}
         />
-        )}
-      </div>
-
-      {draft && (
-        <RaidEditModal
-          lang={lang}
-          tasks={tasks}
-          raid={raid}
-          stakeholdersEnabled={stakeholdersEnabled}
-          stakeholders={stakeholders}
-          resources={resources}
-          contacts={contacts}
-          onCreateResource={onCreateResource}
-          draft={draft}
-          isNew={isNew}
-          onChange={setDraft}
-          onApplyStatus={(s) => setDraft((d) => (d ? applyStatus(d, s) : d))}
-          onApplyMatrix={(p, i) =>
-            setDraft((d) => (d ? applyMatrix(d, p, i) : d))
-          }
-          onSave={commitDraft}
-          onCancel={closeModal}
-          onDelete={commitDelete}
-          onCreateMitigationTask={commitCreateMitigationTask}
-          onJumpToRaid={(id) => {
-            const target = raidById.get(id);
-            if (target) openEdit(target);
-          }}
-        />
-      )}
-    </div>
+    </PanelTableScaffold>
   );
 }
 

@@ -14,8 +14,12 @@ const ROOT = join(process.cwd(), "src", "app");
 // CHAT_PANE_CLASS alias); asserted separately below.
 // roles-panel.tsx (Manage Roles) uses CENTERED_FIT_PANE_CLASS (fit-height,
 // capped at viewport); asserted separately below.
+// change/stakeholders/raid panels render their pane shell via the shared
+// PanelTableScaffold, which carries VIEW_PANE_RESIZABLE_CLASS — so the class is
+// asserted on panel-table-scaffold.tsx here, and the raid→scaffold wiring is
+// asserted separately below.
 const RESIZABLE_FILES = [
-  "raid-panel.tsx",
+  "panel-table-scaffold.tsx",
   "resources-panel.tsx",
   "gantt.tsx",
   "budget-panel.tsx",
@@ -73,6 +77,11 @@ describe("view-pane sweep", () => {
   it("activity-log-panel is resizable", () => {
     const src = readFileSync(join(__dirname, "activity-log-panel.tsx"), "utf8");
     expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
+  });
+
+  it("raid-panel renders its resizable pane shell via PanelTableScaffold", () => {
+    const src = readFileSync(join(__dirname, "raid-panel.tsx"), "utf8");
+    expect(src).toMatch(/PanelTableScaffold/);
   });
 
   it("view-styles exports CENTERED_HALF_PANE_CLASS (centered, half-size, resizable)", () => {
