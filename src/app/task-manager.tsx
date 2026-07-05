@@ -1058,7 +1058,7 @@ function TaskManagerInner() {
       editArmedRef.current = true;
       setActiveTab("edit");
     } else if (taskModalOpen && editArmedRef.current && activeTab !== "edit") {
-      editArmedRef.current = false;
+      editArmedRef.current = false; flashOnEditReturnRef.current = null;
       handleCancelEdit();
     } else if (!taskModalOpen && activeTab === "edit") {
       editArmedRef.current = false;
