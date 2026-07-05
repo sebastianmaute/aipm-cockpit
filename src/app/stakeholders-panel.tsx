@@ -8,7 +8,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
-import { ViewCallout } from "./view-callout";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import { compareStakeholder, nextStakeholderId, type StakeholderSortKey } from "./stakeholders";
@@ -29,14 +28,13 @@ import {
 } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { resourceDisplayName } from "./resource-foundation";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
-import { BulkEditBar } from "./bulk-edit-bar";
-import { BulkEditPanel, selectField, type BulkField } from "./bulk-edit-panel";
+import { PanelTableScaffold } from "./panel-table-scaffold";
+import { selectField, type BulkField } from "./bulk-edit-panel";
 
 const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null, hiddenCols: [] };
 
@@ -308,41 +306,53 @@ function StakeholdersPanelBody({
   );
 
   return (
-    <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      {onLearnMore && (
-        <ViewCallout view="stakeholders" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
-      )}
-      {toolbar}
-
-      <div className="print:hidden">
-        <BulkEditBar
-          lang={lang}
-          count={sel.count}
-          open={bulkOpen}
-          onToggleOpen={() => setBulkOpen((o) => !o)}
-          onClear={() => {
-            sel.clear();
-            setBulkOpen(false);
-          }}
-        />
-        {bulkOpen && sel.count > 0 && (
-          <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
-        )}
-      </div>
-
-      <div ref={containerRef} className={stakeholders.length === 0 ? undefined : "min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"}>
-        {stakeholders.length === 0 ? (
-          // Empty → clickable dashed box (mirrors the budget "+ add bucket"
-          // empty state): descriptive text + "+ Add stakeholder…", box adds one.
-          <button
-            type="button"
-            onClick={openNew}
-            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            <span>{t(lang, "stakeholdersEmpty")}</span>
-            <span className="font-medium">+ {t(lang, "stakeholdersAdd")}…</span>
-          </button>
-        ) : (
+    <PanelTableScaffold
+      paneRef={paneRef}
+      containerRef={containerRef}
+      view="stakeholders"
+      lang={lang}
+      showHints={showHints}
+      isPopout={isPopout}
+      onLearnMore={onLearnMore}
+      toolbar={toolbar}
+      bulk={{
+        count: sel.count,
+        open: bulkOpen,
+        onToggleOpen: () => setBulkOpen((o) => !o),
+        onClear: () => {
+          sel.clear();
+          setBulkOpen(false);
+        },
+        fields: bulkFields,
+        onApply: applyBulk,
+        onCancel: () => setBulkOpen(false),
+      }}
+      count={stakeholders.length}
+      empty={{ text: t(lang, "stakeholdersEmpty"), addLabel: `+ ${t(lang, "stakeholdersAdd")}…`, onAdd: openNew }}
+      trailing={
+        draft && (
+          <StakeholderEditModal
+            lang={lang}
+            draft={draft}
+            isNew={isNew}
+            milestones={milestones}
+            resources={resources}
+            commsPendingStakeholderIds={commsPendingStakeholderIds}
+            onJumpToComms={onJumpToComms}
+            onChange={setDraft}
+            onSave={() => {
+              onSave(draft);
+              closeModal();
+            }}
+            onCancel={closeModal}
+            onDelete={() => {
+              onDelete(draft.id, draft.name);
+              closeModal();
+            }}
+          />
+        )
+      }
+    >
         <table className="min-w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
@@ -554,31 +564,7 @@ function StakeholdersPanelBody({
             })}
           </tbody>
         </table>
-        )}
-      </div>
-
-      {draft && (
-        <StakeholderEditModal
-          lang={lang}
-          draft={draft}
-          isNew={isNew}
-          milestones={milestones}
-          resources={resources}
-          commsPendingStakeholderIds={commsPendingStakeholderIds}
-          onJumpToComms={onJumpToComms}
-          onChange={setDraft}
-          onSave={() => {
-            onSave(draft);
-            closeModal();
-          }}
-          onCancel={closeModal}
-          onDelete={() => {
-            onDelete(draft.id, draft.name);
-            closeModal();
-          }}
-        />
-      )}
-    </div>
+    </PanelTableScaffold>
   );
 }
 
