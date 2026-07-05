@@ -1,11 +1,34 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
 import { resourceDisplayName } from "./resource-foundation";
 import { formatExpiryDate } from "./date-format";
 import type { JiraTokenAlert } from "./jira-token-status";
+
+function DismissButton({ lang, onClick }: { lang: Lang; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-label={t(lang, "alertBannerDismiss")}
+      className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
+      {t(lang, "alertBannerDismiss")}
+    </button>
+  );
+}
+
+function AlertBanner({
+  ariaLabel, icon, children, actions,
+}: { ariaLabel: string; icon: string; children: ReactNode; actions: ReactNode }) {
+  return (
+    <div role="region" aria-label={ariaLabel}
+      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-pink/40 bg-AIPM-pink/10 px-4 py-3 dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15">
+      <span aria-hidden className="text-lg">{icon}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex gap-2">{actions}</div>
+    </div>
+  );
+}
 
 function SnoozeMenu({ lang, onSnooze }: { lang: Lang; onSnooze: (ms: number) => void }) {
   return (
@@ -39,21 +62,11 @@ export function BirthdayBanner({
     .map((b) => `${resourceDisplayName(b.resource)} (${b.daysUntil === 0 ? t(lang, "birthdayToday") : t(lang, "birthdayInDays", b.daysUntil)})`)
     .join(", ");
   return (
-    <div role="region" aria-label={t(lang, "birthdayBannerAria")}
-      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-pink/40 bg-AIPM-pink/10 px-4 py-3 dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15">
-      <span aria-hidden className="text-lg">🎂</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
-        <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">{summary}</p>
-      </div>
-      <div className="flex gap-2">
-        <SnoozeMenu lang={lang} onSnooze={onSnooze} />
-        <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
-          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
-          {t(lang, "alertBannerDismiss")}
-        </button>
-      </div>
-    </div>
+    <AlertBanner ariaLabel={t(lang, "birthdayBannerAria")} icon="🎂"
+      actions={<><SnoozeMenu lang={lang} onSnooze={onSnooze} /><DismissButton lang={lang} onClick={onDismiss} /></>}>
+      <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
+      <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">{summary}</p>
+    </AlertBanner>
   );
 }
 
@@ -65,20 +78,10 @@ export function JiraTokenBanner({
     : alert.state === "expired" ? t(lang, "jiraTokenExpiredBanner", formatExpiryDate(alert.date, lang))
     : t(lang, "jiraTokenExpiringBanner", alert.daysLeft, formatExpiryDate(alert.date, lang));
   return (
-    <div role="region" aria-label={t(lang, "jiraTokenBannerAria")}
-      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-pink/40 bg-AIPM-pink/10 px-4 py-3 dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15">
-      <span aria-hidden className="text-lg">⚠</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{msg}</p>
-      </div>
-      <div className="flex gap-2">
-        <SnoozeMenu lang={lang} onSnooze={onSnooze} />
-        <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
-          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
-          {t(lang, "alertBannerDismiss")}
-        </button>
-      </div>
-    </div>
+    <AlertBanner ariaLabel={t(lang, "jiraTokenBannerAria")} icon="⚠"
+      actions={<><SnoozeMenu lang={lang} onSnooze={onSnooze} /><DismissButton lang={lang} onClick={onDismiss} /></>}>
+      <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{msg}</p>
+    </AlertBanner>
   );
 }
 
@@ -87,22 +90,15 @@ export function StorageBanner({
 }: { kind: "unreachable" | "auth"; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
   const msg = kind === "auth" ? t(lang, "storageAuthBanner") : t(lang, "storageUnreachableBanner");
   return (
-    <div role="region" aria-label={t(lang, "storageBannerAria")}
-      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-pink/40 bg-AIPM-pink/10 px-4 py-3 dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15">
-      <span aria-hidden className="text-lg">⚠</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{msg}</p>
-      </div>
-      <div className="flex gap-2">
+    <AlertBanner ariaLabel={t(lang, "storageBannerAria")} icon="⚠"
+      actions={<>
         <button type="button" onClick={onOpenSettings}
           className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90">
           {t(lang, "storageBannerOpenSettings")}
         </button>
-        <button type="button" onClick={onDismiss} aria-label={t(lang, "alertBannerDismiss")}
-          className="rounded-md border border-AIPM-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
-          {t(lang, "alertBannerDismiss")}
-        </button>
-      </div>
-    </div>
+        <DismissButton lang={lang} onClick={onDismiss} />
+      </>}>
+      <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{msg}</p>
+    </AlertBanner>
   );
 }
