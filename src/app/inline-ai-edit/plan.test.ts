@@ -1,6 +1,7 @@
 // src/app/inline-ai-edit/plan.test.ts
 import { describe, it, expect } from "vitest";
-import { describeToolCalls, type ToolUseLike } from "./plan";
+import { describeToolCalls, describeEntityCalls, type ToolUseLike } from "./plan";
+import { INLINE_DESCRIPTORS } from "./entity-descriptor";
 import { type Workspace } from "../workspace";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,5 +68,91 @@ describe("describeToolCalls", () => {
     const rej = describeToolCalls([block("delete_task", { id: 43 })], { task, ws: ws2 });
     expect(rej.deletes).toEqual([]);
     expect(rej.rejected).toEqual([{ toolName: "delete_task", reason: "unsupported", detail: "43" }]);
+  });
+});
+
+function wsWith(part: Partial<Workspace>): Workspace {
+  return { tasks: [], raid: [], changes: [], milestones: [], stakeholders: [], ...part } as unknown as Workspace;
+}
+
+describe("describeEntityCalls — raid", () => {
+  const raidItem = { id: 7, category: "R", title: "Old", status: "Open" };
+  const ws2 = wsWith({ raid: [raidItem] as never });
+  const d = INLINE_DESCRIPTORS.raid;
+
+  it("previews a valid field diff on the target item", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 7, title: "New" } }],
+      { descriptor: d, item: raidItem, ws: ws2 },
+    );
+    expect(plan.updates).toEqual([{ field: "title", before: "Old", after: "New" }]);
+  });
+
+  it("rejects a status invalid for the item's category", () => {
+    // "Resolved" is Issue-only; item is category R (Risk) → coerced by sanitizer → reject.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 7, status: "Resolved" } }],
+      { descriptor: d, item: raidItem, ws: ws2 },
+    );
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+
+  it("accepts a status valid for a co-changed category", () => {
+    // Same call sets category=I AND status=Resolved → effective category I → valid.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 7, category: "I", status: "Resolved" } }],
+      { descriptor: d, item: raidItem, ws: ws2 },
+    );
+    expect(plan.updates.map((u) => u.field).sort()).toEqual(["category", "status"]);
+    expect(plan.rejected).toHaveLength(0);
+  });
+
+  it("rejects an out-of-range probability", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 7, probability: 9 } }],
+      { descriptor: d, item: raidItem, ws: ws2 },
+    );
+    expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+
+  it("rejects update targeting a different id", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 99, title: "X" } }],
+      { descriptor: d, item: raidItem, ws: ws2 },
+    );
+    expect(plan.rejected[0]).toMatchObject({ reason: "unknown-id" });
+  });
+
+  it("allows a cross-entity create + the own delete", () => {
+    const plan = describeEntityCalls(
+      [
+        { type: "tool_use", name: "create_task", input: { taskName: "follow up" } },
+        { type: "tool_use", name: "delete_raid_item", input: { id: 7 } },
+      ],
+      { descriptor: d, item: raidItem, ws: ws2 },
+    );
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.deletes).toHaveLength(1);
+  });
+});
+
+describe("describeEntityCalls — milestone required field", () => {
+  const m = { id: 3, name: "Kickoff", date: "2026-01-01" };
+  const ws2 = wsWith({ milestones: [m] as never });
+  it("rejects blanking a required name", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_milestone", input: { id: 3, name: "" } }],
+      { descriptor: INLINE_DESCRIPTORS.milestone, item: m, ws: ws2 },
+    );
+    expect(plan.updates).toHaveLength(0);
+    expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+  it("rejects an invalid date", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_milestone", input: { id: 3, date: "next friday" } }],
+      { descriptor: INLINE_DESCRIPTORS.milestone, item: m, ws: ws2 },
+    );
+    expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
   });
 });
