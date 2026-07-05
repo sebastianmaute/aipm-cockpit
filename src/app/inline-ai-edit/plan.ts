@@ -5,7 +5,8 @@
 // side effects.
 import { type Task } from "../types";
 import { type Workspace } from "../workspace";
-import { INLINE_DESCRIPTORS, validSetFor, type EntityDescriptor } from "./entity-descriptor";
+import { sanitizeIsoDate } from "../sanitize";
+import { INLINE_DESCRIPTORS, validSetFor, defaultEnumFor, type EntityDescriptor } from "./entity-descriptor";
 
 export type ToolUseLike = { type: string; id?: string; name?: string; input?: unknown };
 
@@ -28,8 +29,6 @@ const DELETE_TOOLS: Record<string, { entity: string; wsKey: keyof Workspace }> =
   delete_milestone: { entity: "milestone", wsKey: "milestones" },
   delete_stakeholder: { entity: "stakeholder", wsKey: "stakeholders" },
 };
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -65,10 +64,10 @@ export function describeEntityCalls(
         plan.rejected.push({ toolName: name, reason: ownIds.has(id) ? "unsupported" : "unknown-id", detail: str(input.id) });
         continue;
       }
-      // Effective patched item (for category-scoped enums like RAID status):
-      // overlay every present field so status validates against a co-changed
-      // category. Invalid values are still rejected per-field below.
-      const patched: Record<string, unknown> = { ...item, ...input };
+      // Accepted diffs so far — used both to validate a category-scoped enum
+      // (RAID status) against a CO-CHANGED category and to compute the effective
+      // item for the induced-reset pass below. Only VALID values land here.
+      const applied: Record<string, string> = {};
       for (const f of d.diffFields) {
         if (!(f in input)) continue;
         const before = str(item[f]);
@@ -76,14 +75,33 @@ export function describeEntityCalls(
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
         if (d.requiredNonEmpty.has(f) && after === "") { bad(`${f}=empty`); continue; }
-        if (d.dateFields.has(f) && after !== "" && !DATE_RE.test(after)) { bad(`${f}=${after}`); continue; }
+        // Match the sanitizer EXACTLY (sanitizeIsoDate also rejects out-of-range
+        // years / impossible calendar dates), so a previewed date can't diverge.
+        if (d.dateFields.has(f) && after !== "" && sanitizeIsoDate(after) !== after) { bad(`${f}=${after}`); continue; }
         const range = d.intRangeFields[f];
         if (range) {
           const n = Number(after);
           if (!Number.isInteger(n) || n < range[0] || n > range[1]) { bad(`${f}=${after}`); continue; }
         }
-        if (f in d.enumFields && !validSetFor(d.entity, f, patched).has(after)) { bad(`${f}=${after}`); continue; }
+        if (f in d.enumFields && !validSetFor(d.entity, f, { ...item, ...applied }).has(after)) { bad(`${f}=${after}`); continue; }
         plan.updates.push({ field: f, before, after });
+        applied[f] = after;
+      }
+      // Sanitizer-INDUCED enum resets: an enum field NOT explicitly (and validly)
+      // changed, whose current value is no longer valid for the item as patched,
+      // is silently reset by the sanitizer to the field's default (RAID status
+      // follows a co-changed category). Surface it so the preview matches the
+      // write instead of under-reporting a second field change.
+      const effective = { ...item, ...applied };
+      for (const f of Object.keys(d.enumFields)) {
+        if (f in applied) continue;
+        const cur = str(item[f]);
+        if (!cur) continue;
+        const valid = validSetFor(d.entity, f, effective);
+        if (valid.size === 0 || valid.has(cur)) continue;
+        const def = defaultEnumFor(d.entity, f, effective);
+        if (def === undefined || def === cur) continue;
+        plan.updates.push({ field: f, before: cur, after: def });
       }
       continue;
     }

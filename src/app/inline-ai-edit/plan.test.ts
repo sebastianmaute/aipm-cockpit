@@ -58,6 +58,12 @@ describe("describeToolCalls", () => {
     expect(plan.rejected).toEqual([]);
   });
 
+  it("rejects clearing the required dueDate (dispatcher throws on empty)", () => {
+    const plan = describeToolCalls([block("update_task", { id: 42, dueDate: "" })], { task, ws });
+    expect(plan.updates).toEqual([]);
+    expect(plan.rejected).toEqual([{ toolName: "update_task", reason: "bad-input", detail: "dueDate=empty" }]);
+  });
+
   it("deletes the target task but rejects delete_task on a different task", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const other = { id: 43, taskName: "Other" } as any;
@@ -113,6 +119,40 @@ describe("describeEntityCalls — raid", () => {
       [{ type: "tool_use", name: "update_raid_item", input: { id: 7, probability: 9 } }],
       { descriptor: d, item: raidItem, ws: ws2 },
     );
+    expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
+  });
+
+  it("surfaces the sanitizer-induced status reset when a category change invalidates the status", () => {
+    // category R + status "Mitigated" (Risk-only). Model changes category to I
+    // WITHOUT naming status → the sanitizer resets status to the Issue default
+    // ("Open"). The preview MUST show both the category diff AND the induced
+    // status reset — not just the one field the model named.
+    const item = { id: 8, category: "R", title: "T", status: "Mitigated" };
+    const ws3 = wsWith({ raid: [item] as never });
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 8, category: "I" } }],
+      { descriptor: d, item, ws: ws3 },
+    );
+    expect(plan.updates).toContainEqual({ field: "category", before: "R", after: "I" });
+    expect(plan.updates).toContainEqual({ field: "status", before: "Mitigated", after: "Open" });
+    expect(plan.rejected).toHaveLength(0);
+  });
+
+  it("does not induce a status reset when the current status stays valid across categories", () => {
+    // "Open" is valid for both R and I → category change alone, no induced reset.
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 7, category: "I" } }],
+      { descriptor: d, item: raidItem, ws: ws2 },
+    );
+    expect(plan.updates).toEqual([{ field: "category", before: "R", after: "I" }]);
+  });
+
+  it("rejects an out-of-range date year (guard matches sanitizeIsoDate)", () => {
+    const plan = describeEntityCalls(
+      [{ type: "tool_use", name: "update_raid_item", input: { id: 7, targetDate: "2150-01-01" } }],
+      { descriptor: d, item: raidItem, ws: ws2 },
+    );
+    expect(plan.updates).toHaveLength(0);
     expect(plan.rejected[0]).toMatchObject({ reason: "bad-input" });
   });
 

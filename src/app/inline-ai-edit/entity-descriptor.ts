@@ -45,6 +45,12 @@ export interface EntityDescriptor {
   intRangeFields: Record<string, [number, number]>;
   /** Enum fields → the valid-set resolver (constant for most; category-scoped for RAID status). */
   enumFields: Record<string, EnumResolver>;
+  /** For an enum field whose valid-set depends on ANOTHER field (RAID status
+   *  depends on category): the value the sanitizer resets it to when the current
+   *  value falls out of the patched valid-set. Lets the preview surface a
+   *  sanitizer-induced reset (e.g. category R→I silently moves status to the
+   *  Issue default). Undefined for fields with no such cross-field dependency. */
+  enumDefaultFor?: (field: string, patchedItem: Record<string, unknown>) => string | undefined;
   /** Fields sent to Apply as a comma-split string[] (task labels). */
   arrayFields: ReadonlySet<string>;
   /** Fields coerced to Number on Apply. */
@@ -66,18 +72,27 @@ function raidStatusSet(cat: RaidCategory): ReadonlySet<string> {
     default:  return new Set(RISK_STATUSES);
   }
 }
-const raidStatusResolver: EnumResolver = (item) => {
+function raidCategoryOf(item: Record<string, unknown>): RaidCategory {
   const raw = item.category;
-  const cat: RaidCategory = typeof raw === "string" && (RAID_CATEGORIES as string[]).includes(raw)
-    ? (raw as RaidCategory) : "R";
-  return raidStatusSet(cat);
-};
+  return typeof raw === "string" && (RAID_CATEGORIES as string[]).includes(raw) ? (raw as RaidCategory) : "R";
+}
+const raidStatusResolver: EnumResolver = (item) => raidStatusSet(raidCategoryOf(item));
+// Mirrors sanitize-records.ts statusSetForCategory(...).statuses[0] — the value
+// the sanitizer resets an out-of-category RAID status to.
+function raidStatusDefault(cat: RaidCategory): string {
+  switch (cat) {
+    case "A": return ASSUMPTION_STATUSES[0];
+    case "I": return ISSUE_STATUSES[0];
+    case "D": return DEPENDENCY_STATUSES[0];
+    default:  return RISK_STATUSES[0];
+  }
+}
 
 export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   task: {
     entity: "task", updateTool: "update_task", deleteTool: "delete_task", createTool: "create_task", wsKey: "tasks",
     diffFields: ["taskName", "assignee", "assigneeEmail", "dueDate", "status", "priority", "notes", "blockers", "group", "labels"],
-    requiredNonEmpty: new Set(["taskName"]),
+    requiredNonEmpty: new Set(["taskName", "dueDate"]),
     dateFields: new Set(["dueDate"]),
     intRangeFields: {},
     enumFields: { status: constSet(TASK_STATUSES), priority: constSet(PRIORITIES) },
@@ -92,6 +107,7 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
     dateFields: new Set(["raisedDate", "targetDate", "closedDate"]),
     intRangeFields: { probability: [1, 5], impact: [1, 5] },
     enumFields: { category: constSet(RAID_CATEGORIES), severity: constSet(RAID_SEVERITIES), status: raidStatusResolver },
+    enumDefaultFor: (field, item) => (field === "status" ? raidStatusDefault(raidCategoryOf(item)) : undefined),
     arrayFields: new Set(),
     numberFields: new Set(["probability", "impact"]),
     titleOf: (i) => String(i.title ?? ""),
@@ -136,4 +152,11 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
 export function validSetFor(entity: InlineEntity, field: string, patchedItem: Record<string, unknown>): ReadonlySet<string> {
   const resolver = INLINE_DESCRIPTORS[entity].enumFields[field];
   return resolver ? resolver(patchedItem) : new Set<string>();
+}
+
+/** The value the sanitizer resets a cross-field-dependent enum to (RAID status
+ *  when category changes out from under it). Undefined when the field has no
+ *  such dependency. */
+export function defaultEnumFor(entity: InlineEntity, field: string, patchedItem: Record<string, unknown>): string | undefined {
+  return INLINE_DESCRIPTORS[entity].enumDefaultFor?.(field, patchedItem);
 }
