@@ -6,8 +6,70 @@
  * handler is a prop; the callers keep their own visibility gates and divergent
  * pieces (raid's border-less footer with an InfoTooltip stays bespoke).
  */
+import type { ReactNode } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Modal } from "./modal";
+import { ModalHeader } from "./modal-header";
+import { ModalFieldControls } from "./modal-field-controls";
+import type { ModalId } from "./modal-fields";
+import type { Offset, DragHandleProps } from "./use-draggable";
+
+interface EditModalShellProps {
+  lang: Lang;
+  title: string;
+  modalId: ModalId;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+  offset: Offset;
+  dragHandleProps: DragHandleProps;
+  children: ReactNode;
+}
+
+/**
+ * The draggable modal shell shared by the change + stakeholder edit modals:
+ * the centered `Modal`, the fixed-width draggable panel, the `ModalHeader`, the
+ * field-visibility controls bar, and the two-column form grid. The caller's
+ * fields + `ModalEditFooter` slot in as `children` (inside the `<form>`).
+ * Presentational — offset/handlers are props. Emits the exact prior DOM tree.
+ */
+export function EditModalShell({
+  lang,
+  title,
+  modalId,
+  onClose,
+  onSubmit,
+  offset,
+  dragHandleProps,
+  children,
+}: EditModalShellProps) {
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      ariaLabel={title}
+      align="center"
+      backdropClassName="bg-AIPM-dark-blue/40"
+      zIndex={50}
+    >
+      <div
+        data-modal-panel
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+      >
+        <ModalHeader lang={lang} title={title} onClose={onClose} dragHandleProps={dragHandleProps} />
+
+        <div className="flex justify-end border-b border-line px-4 py-2">
+          <ModalFieldControls modalId={modalId} lang={lang} />
+        </div>
+
+        <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
+          {children}
+        </form>
+      </div>
+    </Modal>
+  );
+}
 
 interface ModalFieldErrorProps {
   error: string;
