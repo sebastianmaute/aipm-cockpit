@@ -272,32 +272,13 @@ function TaskManagerInner() {
     setTaskModalOpen,
   } = useTaskForm();
 
-  // Phase 2: in the modern main window the task editor is a full-page "edit"
-  // view, not the overlay modal. `taskModalOpen` stays the single "editor open"
-  // signal (set by every entry point, cleared by handleSubmit on success and by
-  // handleCancelEdit); this effect mirrors it into navigation, remembering the
-  // origin view so Save/Cancel return there. Classic mode and popouts keep the
-  // modal and are unaffected (the effect is gated on `useEditView`).
+  // Phase 2: modern (non-popout) shows the editor as a full-page "edit" view; `taskModalOpen` is the single open/close signal this effect mirrors into nav, remembering the origin view for Save/Cancel.
   const useEditView = settings.layout === "modern" && !isPopout;
   const editorReturnRef = useRef<AppView>("open-points");
-  // When a deep-link opened the full-page editor, remember the task id so we can
-  // flash its row/card on the list once the editor closes and the list re-mounts.
+  // Deep-link flash target: task id to flash once the editor closes and the list remounts.
   const flashOnEditReturnRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!useEditView) return;
-    if (taskModalOpen && activeTab !== "edit") {
-      editorReturnRef.current = activeTab;
-      setActiveTab("edit");
-    } else if (!taskModalOpen && activeTab === "edit") {
-      const back = editorReturnRef.current;
-      setActiveTab(back);
-      if (flashOnEditReturnRef.current !== null) {
-        const flashTaskId = flashOnEditReturnRef.current;
-        flashOnEditReturnRef.current = null;
-        if (back === "open-points") requestFlash("open-points", flashTaskId);
-      }
-    }
-  }, [useEditView, taskModalOpen, activeTab, setActiveTab, requestFlash]);
+  // Open-vs-nav-away flag for the sync effect below `useTaskSubmit` (it calls `handleCancelEdit`, defined there).
+  const editArmedRef = useRef(false);
 
   // Populated after useBulkOperations is called below; onDelete calls through
   // this ref so it doesn't depend on deselectId being defined first.
@@ -1068,6 +1049,28 @@ function TaskManagerInner() {
     setRaid,
     pendingLinkRaidIdRef,
   });
+
+  // taskModalOpen<->activeTab sync for the full-page editor. editArmedRef tells OPEN apart from NAV-AWAY (any setActiveTab while editing — sidebar/search/alerts/top-bar — used to look like an open and get silently reverted); nav-away skips setActiveTab since the target view's already set.
+  useEffect(() => {
+    if (!useEditView) return;
+    if (taskModalOpen && !editArmedRef.current) {
+      if (activeTab !== "edit") editorReturnRef.current = activeTab;
+      editArmedRef.current = true;
+      setActiveTab("edit");
+    } else if (taskModalOpen && editArmedRef.current && activeTab !== "edit") {
+      editArmedRef.current = false; flashOnEditReturnRef.current = null;
+      handleCancelEdit();
+    } else if (!taskModalOpen && activeTab === "edit") {
+      editArmedRef.current = false;
+      const back = editorReturnRef.current;
+      setActiveTab(back);
+      if (flashOnEditReturnRef.current !== null) {
+        const flashTaskId = flashOnEditReturnRef.current;
+        flashOnEditReturnRef.current = null;
+        if (back === "open-points") requestFlash("open-points", flashTaskId);
+      }
+    }
+  }, [useEditView, taskModalOpen, activeTab, setActiveTab, requestFlash, handleCancelEdit]);
 
   // Deep-link: when a suggested-action chip requests opening a task, open its
   // edit modal once and clear the pending signal so it does not re-fire.
@@ -2106,7 +2109,7 @@ function TaskManagerInner() {
       <ModernShell
         lang={lang}
         activeView={activeTab}
-        onNavigate={(v) => setActiveTab(v)}
+        onNavigate={setActiveTab}
         version={APP_VERSION_LABEL}
         mode={appMode}
         bannerCount={nowCount}

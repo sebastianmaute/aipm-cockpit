@@ -52,7 +52,11 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
     };
     apply();
     window.addEventListener("hashchange", apply);
-    return () => window.removeEventListener("hashchange", apply);
+    window.addEventListener("popstate", apply);
+    return () => {
+      window.removeEventListener("hashchange", apply);
+      window.removeEventListener("popstate", apply);
+    };
   }, [enabled, isPopout, features, setActiveTab, requestOpen]);
 
   // View change: write the hash, but only when the BASE view differs — so an

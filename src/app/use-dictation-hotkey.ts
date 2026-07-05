@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { matchesHotkey } from "./dictation-hotkey";
+import { matchesHotkey, isMouseCombo, mouseButtonToToken } from "./dictation-hotkey";
 import { getActiveDictationTarget } from "./dictation-target";
 
 /** Global hold-to-talk: while the configured combo is held, drive the focused
@@ -41,12 +41,39 @@ export function useDictationHotkey(combo: string | undefined, isPopout: boolean)
       heldTargetRef.current?.release();
       heldTargetRef.current = null;
     };
+    const onMouseDown = (e: MouseEvent) => {
+      if (heldRef.current) return;
+      const c = comboRef.current;
+      if (!c || !isMouseCombo(c) || !matchesHotkey(e, c)) return;
+      const target = getActiveDictationTarget();
+      if (!target) return;
+      e.preventDefault();
+      heldRef.current = true;
+      heldTargetRef.current = target;
+      target.press();
+    };
+    const onMouseUp = (e: MouseEvent) => {
+      if (!heldRef.current) return;
+      const c = comboRef.current;
+      const mouseTok = c ? c.split("+").pop() : undefined;
+      if (mouseTok && mouseButtonToToken(e.button) !== mouseTok) return;
+      e.preventDefault();
+      heldRef.current = false;
+      heldTargetRef.current?.release();
+      heldTargetRef.current = null;
+    };
     document.addEventListener("keydown", onDown);
     document.addEventListener("keyup", onUp);
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("auxclick", onMouseUp);
     window.addEventListener("blur", onBlur);
     return () => {
       document.removeEventListener("keydown", onDown);
       document.removeEventListener("keyup", onUp);
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("auxclick", onMouseUp);
       window.removeEventListener("blur", onBlur);
     };
   }, [isPopout]);
