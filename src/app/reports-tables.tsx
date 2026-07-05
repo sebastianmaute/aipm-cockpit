@@ -92,6 +92,47 @@ function NoMatchesRow({ lang, colSpan }: { lang: Lang; colSpan: number }) {
   );
 }
 
+// The right-aligned numeric SortTh columns shared by both report tables — each
+// table passes its own key list + per-key i18n label map. Fragment adds no DOM
+// node, so the emitted `<th>` sequence is identical to the prior inline map.
+function NumericSortThs<K extends string>({
+  keys,
+  labelKey,
+  lang,
+  colWidths,
+  sortKey,
+  sortDir,
+  onClick,
+  onStartResize,
+}: {
+  keys: readonly K[];
+  labelKey: Record<K, Parameters<typeof t>[1]>;
+  lang: Lang;
+  colWidths: Record<string, number>;
+  sortKey: string;
+  sortDir: SortDir;
+  onClick: (k: K) => void;
+  onStartResize: (col: string, e: React.MouseEvent) => void;
+}) {
+  return (
+    <>
+      {keys.map((k) => (
+        <SortTh
+          key={k}
+          col={k}
+          align="right"
+          label={t(lang, labelKey[k])}
+          width={colWidths[k]}
+          active={sortKey === k && sortDir !== "off"}
+          dir={sortDir}
+          onClick={() => onClick(k)}
+          onStartResize={onStartResize}
+        />
+      ))}
+    </>
+  );
+}
+
 export function GroupOrLabelTable({
   rows,
   lang,
@@ -144,28 +185,22 @@ export function GroupOrLabelTable({
                 onClick={() => click("name")}
                 onStartResize={onStartResize}
               />
-              {(["total", "open", "completed", "overdue", "inquiries"] as const).map((k) => {
-                const labelKey = {
+              <NumericSortThs
+                keys={["total", "open", "completed", "overdue", "inquiries"] as const}
+                labelKey={{
                   total: "reportsTotal",
                   open: "reportsOpen",
                   completed: "reportsCompleted",
                   overdue: "reportsOverdue",
                   inquiries: "reportsInquiriesCol",
-                } as const;
-                return (
-                  <SortTh
-                    key={k}
-                    col={k}
-                    align="right"
-                    label={t(lang, labelKey[k])}
-                    width={colWidths[k]}
-                    active={sort.key === k && sort.dir !== "off"}
-                    dir={sort.dir}
-                    onClick={() => click(k)}
-                    onStartResize={onStartResize}
-                  />
-                );
-              })}
+                }}
+                lang={lang}
+                colWidths={colWidths}
+                sortKey={sort.key}
+                sortDir={sort.dir}
+                onClick={click}
+                onStartResize={onStartResize}
+              />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -234,29 +269,23 @@ export function AssigneeTable({
                 onClick={() => click("assignee")}
                 onStartResize={onStartResize}
               />
-              {(["total", "open", "overdue", "onTime", "late", "inquiries"] as const).map((k) => {
-                const labelKey = {
+              <NumericSortThs
+                keys={["total", "open", "overdue", "onTime", "late", "inquiries"] as const}
+                labelKey={{
                   total: "reportsTotal",
                   open: "reportsOpen",
                   overdue: "reportsOverdue",
                   onTime: "reportsCompletedOnTime",
                   late: "reportsCompletedLate",
                   inquiries: "reportsInquiriesCol",
-                } as const;
-                return (
-                  <SortTh
-                    key={k}
-                    col={k}
-                    align="right"
-                    label={t(lang, labelKey[k])}
-                    width={colWidths[k]}
-                    active={sort.key === k && sort.dir !== "off"}
-                    dir={sort.dir}
-                    onClick={() => click(k)}
-                    onStartResize={onStartResize}
-                  />
-                );
-              })}
+                }}
+                lang={lang}
+                colWidths={colWidths}
+                sortKey={sort.key}
+                sortDir={sort.dir}
+                onClick={click}
+                onStartResize={onStartResize}
+              />
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
