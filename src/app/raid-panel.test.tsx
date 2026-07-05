@@ -311,7 +311,11 @@ test("raid toolbar: add-item precedes search; no open-report button", () => {
   expect(src).not.toMatch(/raidReportOpenReport\b/);
 });
 test("raid pane uses VIEW_PANE_RESIZABLE_CLASS", () => {
-  expect(readFileSync(join(__dirname, "raid-panel.tsx"), "utf8")).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
+  // The pane shell (incl. VIEW_PANE_RESIZABLE_CLASS) was extracted to the shared
+  // PanelTableScaffold; raid-panel renders through it. Assert both: raid-panel wires
+  // the scaffold, and the scaffold carries the standard resizable class.
+  expect(readFileSync(join(__dirname, "raid-panel.tsx"), "utf8")).toMatch(/PanelTableScaffold/);
+  expect(readFileSync(join(__dirname, "panel-table-scaffold.tsx"), "utf8")).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
 });
 
 describe("RaidPanel — document links", () => {
