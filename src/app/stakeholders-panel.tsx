@@ -7,6 +7,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import { StakeholderEditModal } from "./stakeholder-edit-modal";
+import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { ViewCallout } from "./view-callout";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
@@ -81,6 +82,10 @@ export interface StakeholdersPanelProps {
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  /** Open the inline "Ask Claude" edit popover for a stakeholder (SP2). */
+  onAiEdit?: (item: Stakeholder) => void;
+  /** Whether the ✨ inline-AI-edit affordance should render for this stakeholder. */
+  aiEditEnabled?: (item: Stakeholder) => boolean;
 }
 
 // --- Chip helpers -----------------------------------------------------------
@@ -130,6 +135,8 @@ function StakeholdersPanelBody({
   showHints,
   isPopout,
   onLearnMore,
+  onAiEdit,
+  aiEditEnabled,
 }: StakeholdersPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
@@ -479,7 +486,7 @@ function StakeholdersPanelBody({
                 <tr
                   key={item.id}
                   data-deeplink-row={item.id}
-                  className={["cursor-pointer align-top hover:bg-surface-muted", flashOutlineClass(flashId === item.id)]
+                  className={["group cursor-pointer align-top hover:bg-surface-muted", flashOutlineClass(flashId === item.id)]
                     .filter(Boolean)
                     .join(" ")}
                   onClick={() => openEdit(item)}
@@ -495,14 +502,19 @@ function StakeholdersPanelBody({
                   </td>
                   {!hiddenSet.has("name") && (
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); openEdit(item); }}
-                      title={item.name}
-                      className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
-                    >
-                      {item.name}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openEdit(item); }}
+                        title={item.name}
+                        className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
+                      >
+                        {item.name}
+                      </button>
+                      {onAiEdit && aiEditEnabled?.(item) && (
+                        <InlineAiEditButton lang={lang} label={item.name} onClick={() => onAiEdit(item)} />
+                      )}
+                    </div>
                   </td>
                   )}
                   {!hiddenSet.has("organization") && <td className="px-3 py-2 text-foreground">{item.organization ?? ""}</td>}
