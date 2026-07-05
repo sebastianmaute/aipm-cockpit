@@ -92,6 +92,34 @@ function HoursCell({
   );
 }
 
+// A period `<td>` wrapping a HoursCell — shared by the role rows and the
+// discipline (blended) rows, which differ only in ariaPrefix + the setter.
+function HoursTd({
+  ariaPrefix, budget, actual, onBudget, onActual, lang,
+}: {
+  ariaPrefix: string;
+  budget: number | undefined;
+  actual: number | undefined;
+  onBudget: (v: number) => void;
+  onActual: (v: number) => void;
+  lang: Lang;
+}) {
+  return (
+    <td className="px-1 py-1">
+      <HoursCell
+        ariaPrefix={ariaPrefix}
+        budget={budget}
+        actual={actual}
+        onBudget={onBudget}
+        onActual={onActual}
+        budgetHint={t(lang, "budgetBudgetHoursHint")}
+        actualHint={t(lang, "budgetActualHoursHint")}
+        lang={lang}
+      />
+    </td>
+  );
+}
+
 export interface BudgetPanelProps {
   lang: Lang;
   buckets: readonly BudgetBucket[];
@@ -427,18 +455,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
                         <td className="px-2 py-1">{roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}</td>
                         {periods.map((p) => (
-                          <td key={p.key} className="px-1 py-1">
-                            <HoursCell
-                              ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
-                              budget={a.budgetHours[p.key]}
-                              actual={a.actualHours[p.key]}
-                              onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
-                              onActual={(v) => setCell(bucket.id, a.roleId, p.key, "actualHours", v)}
-                              budgetHint={t(lang, "budgetBudgetHoursHint")}
-                              actualHint={t(lang, "budgetActualHoursHint")}
-                              lang={lang}
-                            />
-                          </td>
+                          <HoursTd
+                            key={p.key}
+                            ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
+                            budget={a.budgetHours[p.key]}
+                            actual={a.actualHours[p.key]}
+                            onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
+                            onActual={(v) => setCell(bucket.id, a.roleId, p.key, "actualHours", v)}
+                            lang={lang}
+                          />
                         ))}
                       </tr>
                       );
@@ -451,18 +476,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
                         <td className="px-2 py-1">{props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}</td>
                         {periods.map((p) => (
-                          <td key={p.key} className="px-1 py-1">
-                            <HoursCell
-                              ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
-                              budget={a.budgetHours[p.key]}
-                              actual={a.actualHours[p.key]}
-                              onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
-                              onActual={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "actualHours", v)}
-                              budgetHint={t(lang, "budgetBudgetHoursHint")}
-                              actualHint={t(lang, "budgetActualHoursHint")}
-                              lang={lang}
-                            />
-                          </td>
+                          <HoursTd
+                            key={p.key}
+                            ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
+                            budget={a.budgetHours[p.key]}
+                            actual={a.actualHours[p.key]}
+                            onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
+                            onActual={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "actualHours", v)}
+                            lang={lang}
+                          />
                         ))}
                       </tr>
                       );
