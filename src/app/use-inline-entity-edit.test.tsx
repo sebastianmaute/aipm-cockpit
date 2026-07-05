@@ -168,4 +168,18 @@ describe("useInlineEntityEdit — raid", () => {
     expect(deps.logActivity).toHaveBeenCalledWith("ai.inlineEdit", 7, "Old");
     expect(result.current.phase).toBe("idle");
   });
+
+  it("auto-closes a left-open edit when the pane goes inactive (active -> false)", () => {
+    const { result, rerender } = renderHook(
+      ({ active }: { active: boolean }) => useInlineEntityEdit(mkEntityDeps({ active })),
+      { initialProps: { active: true } },
+    );
+    act(() => result.current.openFor(raidItem));
+    expect(result.current.activeItem?.id).toBe(7);
+    // Pane switches away via a non-mouse route → active becomes false → the
+    // render-time reconcile closes the stale edit so it can't reappear on return.
+    rerender({ active: false });
+    expect(result.current.activeItem).toBeNull();
+    expect(result.current.phase).toBe("idle");
+  });
 });

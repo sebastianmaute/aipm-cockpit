@@ -34,6 +34,10 @@ export interface InlineEntityEditDeps {
   recordUsage?: (u: { input_tokens: number; output_tokens: number }) => void;
   /** Extra per-entity enable clause (task: !jiraKey). */
   gate?: (item: EntityItem) => boolean;
+  /** False when this entity's pane is not the active view — a left-open edit is
+   *  auto-closed (see the render-time reconcile). Undefined ⇒ always active
+   *  (the task path, whose pane only mounts when active). */
+  active?: boolean;
 }
 
 export interface InlineEntityEditApi {
@@ -60,6 +64,22 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // callInlineEdit that resolves after the active item changed can't land its
   // plan on the wrong item (stale-response cross-item overwrite).
   const reqIdRef = useRef(0);
+
+  // Close a stale edit when this entity's pane is no longer active. Non-mouse
+  // nav (global search / deep-link / back-forward / programmatic tab change)
+  // doesn't trigger the popover's outside-click dismiss, so without this a
+  // left-open edit reappears (and steals focus) on return to the pane.
+  // Render-time reconcile — setState only, no ref write, no effect; self-clears
+  // once activeItem is null so it can't loop. (An in-flight submit that resolves
+  // after this stays invisible: the popover is gated on activeItem, and the next
+  // openFor bumps reqId.)
+  if (deps.active === false && activeItem !== null) {
+    setActiveItem(null);
+    setPhase("idle");
+    setPlan(null);
+    setClarifyText("");
+    setErrorText("");
+  }
 
   const aiEditEnabled = (item: EntityItem): boolean =>
     isAiEnabled(deps.ai) && !deps.isPopout && !!deps.apiKey.trim() && (deps.gate?.(item) ?? true);

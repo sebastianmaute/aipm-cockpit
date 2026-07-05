@@ -24,6 +24,9 @@ export interface EntityInlineAiEditDeps {
   isPopout: boolean;
   lang: Lang;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** True when this entity's pane is the active view; a left-open edit is
+   *  auto-closed when it goes false (stale-popover-on-tab-return guard). */
+  active: boolean;
 }
 
 export interface EntityInlineAiEdit {
@@ -56,6 +59,7 @@ export function useEntityInlineAiEdit(entity: InlineEntity, deps: EntityInlineAi
     ws,
     guides: [],
     recordUsage: (u) => record({ input: u.input_tokens, output: u.output_tokens }),
+    active: deps.active,
   });
   // Hoisted locals (not `edit.member`) so the caller's useMemo dep arrays stay
   // exhaustive-deps clean.

@@ -202,10 +202,13 @@ export function WorkspaceSection({
   // popover element. Called unconditionally (hook rules); the popover only
   // renders when that pane is active and an edit is open.
   const inlineAiDeps = { dispatcher, settings, isPopout, lang, logActivity };
-  const raidInlineAi = useEntityInlineAiEdit("raid", inlineAiDeps);
-  const changeInlineAi = useEntityInlineAiEdit("change", inlineAiDeps);
-  const milestoneInlineAi = useEntityInlineAiEdit("milestone", inlineAiDeps);
-  const stakeholderInlineAi = useEntityInlineAiEdit("stakeholder", inlineAiDeps);
+  // `active` auto-closes a left-open inline edit when its pane stops being the
+  // active view (non-mouse nav doesn't trigger the popover's outside-click
+  // dismiss). Tab keys match the tabpanel conditions below.
+  const raidInlineAi = useEntityInlineAiEdit("raid", { ...inlineAiDeps, active: activeTab === "raid" });
+  const changeInlineAi = useEntityInlineAiEdit("change", { ...inlineAiDeps, active: activeTab === "changes" });
+  const milestoneInlineAi = useEntityInlineAiEdit("milestone", { ...inlineAiDeps, active: activeTab === "milestones" });
+  const stakeholderInlineAi = useEntityInlineAiEdit("stakeholder", { ...inlineAiDeps, active: activeTab === "stakeholders" });
   // One-way signal: incrementing this opens the milestone create modal on the
   // Milestones tab (Gantt "Add milestone" parity with Add task).
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
