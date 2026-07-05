@@ -39,6 +39,7 @@ import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, dateField, type BulkField } from "./bulk-edit-panel";
+import { InlineAiEditButton } from "./inline-ai-edit-button";
 import type { ActivityKind } from "./activity-log";
 import type { Milestone } from "./types";
 
@@ -84,6 +85,10 @@ type MilestonesPanelProps = {
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  /** Inline "Ask Claude" per-row edit: opens the NL edit popover for the item. */
+  onAiEdit?: (item: Milestone) => void;
+  /** Gate for the per-row ✨ affordance (AI enabled, not popout, etc.). */
+  aiEditEnabled?: (item: Milestone) => boolean;
 };
 
 export function MilestonesPanel(props: MilestonesPanelProps) {
@@ -108,6 +113,8 @@ function MilestonesPanelBody({
   showHints,
   isPopout,
   onLearnMore,
+  onAiEdit,
+  aiEditEnabled,
 }: MilestonesPanelProps) {
   const { milestones, setMilestones, tasks } = useWorkspace();
   // `-full` suffix: the view changed from a centered half-width pane to full
@@ -413,7 +420,7 @@ function MilestonesPanelBody({
                 <tr
                   key={m.id}
                   data-deeplink-row={m.id}
-                  className={["border-t border-line", flashOutlineClass(flashId === m.id)].filter(Boolean).join(" ")}
+                  className={["group border-t border-line", flashOutlineClass(flashId === m.id)].filter(Boolean).join(" ")}
                 >
                   <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
                     <input
@@ -426,17 +433,22 @@ function MilestonesPanelBody({
                   </td>
                   {!hiddenSet.has("name") && (
                     <td className="py-1" style={{ width: colWidths.name }}>
-                      <button
-                        type="button"
-                        title={m.name}
-                        className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green ${INTERACTIVE}`}
-                        onClick={() => {
-                          setIsNew(false);
-                          setEditing(m);
-                        }}
-                      >
-                        {m.name}
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          title={m.name}
+                          className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green ${INTERACTIVE}`}
+                          onClick={() => {
+                            setIsNew(false);
+                            setEditing(m);
+                          }}
+                        >
+                          {m.name}
+                        </button>
+                        {onAiEdit && aiEditEnabled?.(m) && (
+                          <InlineAiEditButton lang={lang} label={m.name} onClick={() => onAiEdit(m)} />
+                        )}
+                      </div>
                     </td>
                   )}
                   {!hiddenSet.has("date") && <td>{m.date}</td>}
