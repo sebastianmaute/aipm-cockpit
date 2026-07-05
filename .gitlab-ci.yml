@@ -140,8 +140,8 @@ file-size-ratchet:
 
 # Duplication gate — BLOCKING as of Phase 4 (ratchet, not absolute). jscpd exits
 # non-zero if any format's duplication % exceeds the `--threshold` set in the
-# `dup:check` script (post-TD-6 exit level: total 1.92% / tsx 1.99% [binding] /
-# typescript 1.84% + headroom = 2.4).
+# `dup:check` script (post-TD-6 exit level: total 1.84% / tsx 1.88% [binding] /
+# typescript 1.79% + headroom = 2.2).
 # Ratchet the threshold DOWN in package.json as duplication falls; never raise it
 # to make a PR pass. Emergency bypass: MR label "quality-gate-bypass" + follow-up.
 duplication-gate:

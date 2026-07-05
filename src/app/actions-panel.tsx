@@ -61,24 +61,13 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
   const { ref, reset } = useResizable("lop-app:actions-size");
   const groups = useMemo(() => groupNextActions(actions), [actions]);
   const [expanded, setExpanded] = useState<Record<"now" | "soon", boolean>>({ now: false, soon: false });
+  // Shared handler/config props threaded identically to ActionRow and ActionHeroCard.
+  const rowProps = {
+    lang, expertMode, onOpen, onSnooze, onCreateTask, assignOwner,
+    onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker,
+  };
   const renderRow = (g: ActionGroup) => (
-    <ActionRow
-      key={g.key}
-      lang={lang}
-      action={g.primary}
-      extraReasons={g.extra}
-      expertMode={expertMode}
-      onOpen={onOpen}
-      onSnooze={onSnooze}
-      onCreateTask={onCreateTask}
-      assignOwner={assignOwner}
-      onDraftMessage={onDraftMessage}
-      escalate={escalate}
-      rebaseline={rebaseline}
-      reschedule={reschedule}
-      onMarkDone={onMarkDone}
-      onClearBlocker={onClearBlocker}
-    />
+    <ActionRow key={g.key} action={g.primary} extraReasons={g.extra} {...rowProps} />
   );
 
   // Hero = the single top-ranked group, but only when it carries real urgency
@@ -182,23 +171,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
         <p className="text-sm text-muted-foreground">{t(lang, "actionsEmptyState")}</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto pr-2">
-          {hero && (
-            <ActionHeroCard
-              lang={lang}
-              group={hero}
-              expertMode={expertMode}
-              onOpen={onOpen}
-              onSnooze={onSnooze}
-              onCreateTask={onCreateTask}
-              assignOwner={assignOwner}
-              onDraftMessage={onDraftMessage}
-              escalate={escalate}
-              rebaseline={rebaseline}
-              reschedule={reschedule}
-              onMarkDone={onMarkDone}
-              onClearBlocker={onClearBlocker}
-            />
-          )}
+          {hero && <ActionHeroCard group={hero} {...rowProps} />}
           {TIERS.map(({ tier, labelKey }) => {
             const rows = groups.filter((g) => g.tier === tier && g.key !== heroKey);
             if (rows.length === 0) return null;

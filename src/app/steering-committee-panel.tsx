@@ -41,6 +41,21 @@ const BTN_SECONDARY =
 const INPUT_CLASS =
   "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green";
 
+function DeleteCell({ lang, onClick, label }: { lang: Lang; onClick: () => void; label: string }) {
+  return (
+    <td className="text-right">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`${t(lang, "delete")} – ${label}`}
+        className={BTN_SECONDARY}
+      >
+        {t(lang, "delete")}
+      </button>
+    </td>
+  );
+}
+
 const REMINDER_TIER_KEY: Record<ReminderTier, "committeeReminderOverdue" | "committeeReminderSoon" | "committeeReminderUpcoming"> = {
   now: "committeeReminderOverdue",
   soon: "committeeReminderSoon",
@@ -295,16 +310,7 @@ export function SteeringCommitteePanel({
                         className={`${INPUT_CLASS} w-full`}
                       />
                     </td>
-                    <td className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => deleteMeeting(m.id)}
-                        aria-label={`${t(lang, "delete")} – ${m.title || m.date}`}
-                        className={BTN_SECONDARY}
-                      >
-                        {t(lang, "delete")}
-                      </button>
-                    </td>
+                    <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={m.title || m.date} />
                   </tr>
                 ))}
               </tbody>
@@ -383,16 +389,7 @@ export function SteeringCommitteePanel({
                         className={`${INPUT_CLASS} w-24`}
                       />
                     </td>
-                    <td className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => deleteSchedule(s.id)}
-                        aria-label={`${t(lang, "delete")} – ${s.label || s.id}`}
-                        className={BTN_SECONDARY}
-                      >
-                        {t(lang, "delete")}
-                      </button>
-                    </td>
+                    <DeleteCell lang={lang} onClick={() => deleteSchedule(s.id)} label={s.label || String(s.id)} />
                   </tr>
                 ))}
               </tbody>
