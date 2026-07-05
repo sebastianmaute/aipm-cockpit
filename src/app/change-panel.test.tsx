@@ -184,6 +184,46 @@ describe("ChangePanel — Outlook calendar toggle (SP3)", () => {
   });
 });
 
+describe("ChangePanel — inline Ask-Claude (SP2)", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  const aiLabel = (title: string) => `${t("en-US", "inlineAiEdit")} – ${title}`;
+
+  it("renders a row-unique ✨ Ask-Claude button when onAiEdit + aiEditEnabled(true)", () => {
+    const onAiEdit = vi.fn();
+    const { getByRole } = render(
+      <ChangePanel {...base} onAiEdit={onAiEdit} aiEditEnabled={() => true} />,
+      { wrapper: Providers },
+    );
+    const btn = getByRole("button", { name: aiLabel("Alpha scope") });
+    expect(btn).toBeTruthy();
+    fireEvent.click(btn);
+    expect(onAiEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 1, title: "Alpha scope" }));
+  });
+
+  it("does NOT render the button when aiEditEnabled returns false", () => {
+    const { queryByRole } = render(
+      <ChangePanel {...base} onAiEdit={vi.fn()} aiEditEnabled={() => false} />,
+      { wrapper: Providers },
+    );
+    expect(queryByRole("button", { name: aiLabel("Alpha scope") })).toBeNull();
+  });
+
+  it("does NOT render the button without an onAiEdit handler", () => {
+    const { queryByRole } = render(
+      <ChangePanel {...base} aiEditEnabled={() => true} />,
+      { wrapper: Providers },
+    );
+    expect(queryByRole("button", { name: aiLabel("Alpha scope") })).toBeNull();
+  });
+});
+
 describe("Changes bulk edit", () => {
   const originalScrollIntoView = Element.prototype.scrollIntoView;
   beforeEach(() => {
