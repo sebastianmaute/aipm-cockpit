@@ -102,6 +102,10 @@ export const INLINE_DESCRIPTORS: Record<InlineEntity, EntityDescriptor> = {
   },
   raid: {
     entity: "raid", updateTool: "update_raid_item", deleteTool: "delete_raid_item", createTool: "create_raid_item", wsKey: "raid",
+    // ORDER MATTERS: "category" MUST precede "status" — describeEntityCalls
+    // validates the category-scoped status against the incrementally-accepted
+    // patch, so a co-changed category must already be applied when status is
+    // checked. Pinned by the "co-changed category" test in plan.test.ts.
     diffFields: ["category", "title", "status", "description", "mitigation", "owner", "ownerEmail", "severity", "probability", "impact", "raisedDate", "targetDate", "closedDate"],
     requiredNonEmpty: new Set(["title"]),
     dateFields: new Set(["raisedDate", "targetDate", "closedDate"]),

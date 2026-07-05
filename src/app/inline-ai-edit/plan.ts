@@ -75,8 +75,9 @@ export function describeEntityCalls(
         if (before === after) continue;
         const bad = (detail: string) => plan.rejected.push({ toolName: name, reason: "bad-input", detail });
         if (d.requiredNonEmpty.has(f) && after === "") { bad(`${f}=empty`); continue; }
-        // Match the sanitizer EXACTLY (sanitizeIsoDate also rejects out-of-range
-        // years / impossible calendar dates), so a previewed date can't diverge.
+        // Match the sanitizer EXACTLY — sanitizeIsoDate is format + year-range
+        // (1900-2100), returning the input verbatim when valid and "" otherwise,
+        // so a previewed date can never diverge from what apply persists.
         if (d.dateFields.has(f) && after !== "" && sanitizeIsoDate(after) !== after) { bad(`${f}=${after}`); continue; }
         const range = d.intRangeFields[f];
         if (range) {
