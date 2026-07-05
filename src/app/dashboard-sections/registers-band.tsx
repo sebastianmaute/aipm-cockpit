@@ -1,9 +1,21 @@
+import type { ReactNode } from "react";
 import { Section } from "../report-table";
 import { type Lang, t } from "../i18n";
 import type { RaidItem, Task } from "../types";
 
 const LINK_CLASS =
   "rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted";
+
+// Row body: a click-through button when a handler is supplied, else a plain span.
+function LinkItem({ onOpen, children }: { onOpen?: () => void; children: ReactNode }) {
+  return onOpen ? (
+    <button type="button" className={LINK_CLASS} onClick={onOpen}>
+      {children}
+    </button>
+  ) : (
+    <span>{children}</span>
+  );
+}
 
 function RaidItemContent({ r }: { r: RaidItem }) {
   return (
@@ -40,17 +52,9 @@ export function RaidRegisterCard({
         <ul className="space-y-1 text-sm">
           {topRaid.map((r) => (
             <li key={r.id}>
-              {onOpenRaid ? (
-                <button
-                  type="button"
-                  className={LINK_CLASS}
-                  onClick={() => onOpenRaid(r.id)}
-                >
-                  <RaidItemContent r={r} />
-                </button>
-              ) : (
-                <span><RaidItemContent r={r} /></span>
-              )}
+              <LinkItem onOpen={onOpenRaid ? () => onOpenRaid(r.id) : undefined}>
+                <RaidItemContent r={r} />
+              </LinkItem>
             </li>
           ))}
         </ul>
@@ -78,17 +82,9 @@ export function UpcomingCard({
       <ul className="mb-3 space-y-1 text-sm">
         {overdue.map((tk) => (
           <li key={tk.id}>
-            {onOpenTask ? (
-              <button
-                type="button"
-                className={LINK_CLASS}
-                onClick={() => onOpenTask(tk.id)}
-              >
-                <TaskItemContent tk={tk} />
-              </button>
-            ) : (
-              <span><TaskItemContent tk={tk} /></span>
-            )}
+            <LinkItem onOpen={onOpenTask ? () => onOpenTask(tk.id) : undefined}>
+              <TaskItemContent tk={tk} />
+            </LinkItem>
           </li>
         ))}
         {overdue.length === 0 ? (
@@ -101,17 +97,9 @@ export function UpcomingCard({
       <ul className="space-y-1 text-sm">
         {dueSoon.map((tk) => (
           <li key={tk.id}>
-            {onOpenTask ? (
-              <button
-                type="button"
-                className={LINK_CLASS}
-                onClick={() => onOpenTask(tk.id)}
-              >
-                <TaskItemContent tk={tk} />
-              </button>
-            ) : (
-              <span><TaskItemContent tk={tk} /></span>
-            )}
+            <LinkItem onOpen={onOpenTask ? () => onOpenTask(tk.id) : undefined}>
+              <TaskItemContent tk={tk} />
+            </LinkItem>
           </li>
         ))}
         {dueSoon.length === 0 ? (

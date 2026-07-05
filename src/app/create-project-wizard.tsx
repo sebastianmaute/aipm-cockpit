@@ -55,6 +55,37 @@ const PRIMARY_BUTTON_CLASS =
 const SECONDARY_BUTTON_CLASS =
   "rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted";
 
+// Pinned nav footer shared by steps 2 and 3 (Back · optional Cancel · primary CTA).
+function WizardNavFooter({
+  lang, onBack, onCancel, onPrimary, primaryKey,
+}: {
+  lang: Lang;
+  onBack: () => void;
+  onCancel?: () => void;
+  onPrimary: () => void;
+  primaryKey: "wizardNext" | "wizardCreate";
+}) {
+  return (
+    <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
+      <div className="flex gap-2">
+        <button type="button" onClick={onBack} className={SECONDARY_BUTTON_CLASS}>
+          {t(lang, "wizardBack")}
+        </button>
+      </div>
+      <div className="flex gap-2">
+        {onCancel && (
+          <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
+            {t(lang, "cancel")}
+          </button>
+        )}
+        <button type="button" onClick={onPrimary} className={PRIMARY_BUTTON_CLASS}>
+          {t(lang, primaryKey)}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export interface CreateProjectWizardProps {
   lang: Lang;
   stakeholderNames: string[];
@@ -410,43 +441,11 @@ export function CreateProjectWizard({
 
       {/* Pinned footer: navigation buttons for steps 2 and 3 (step 0 owns its own). */}
       {step === 2 && (
-        <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setStep(1)} className={SECONDARY_BUTTON_CLASS}>
-              {t(lang, "wizardBack")}
-            </button>
-          </div>
-          <div className="flex gap-2">
-            {onCancel && (
-              <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
-                {t(lang, "cancel")}
-              </button>
-            )}
-            <button type="button" onClick={() => setStep(3)} className={PRIMARY_BUTTON_CLASS}>
-              {t(lang, "wizardNext")}
-            </button>
-          </div>
-        </div>
+        <WizardNavFooter lang={lang} onBack={() => setStep(1)} onCancel={onCancel} onPrimary={() => setStep(3)} primaryKey="wizardNext" />
       )}
 
       {step === 3 && (
-        <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setStep(2)} className={SECONDARY_BUTTON_CLASS}>
-              {t(lang, "wizardBack")}
-            </button>
-          </div>
-          <div className="flex gap-2">
-            {onCancel && (
-              <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
-                {t(lang, "cancel")}
-              </button>
-            )}
-            <button type="button" onClick={handleCreate} className={PRIMARY_BUTTON_CLASS}>
-              {t(lang, "wizardCreate")}
-            </button>
-          </div>
-        </div>
+        <WizardNavFooter lang={lang} onBack={() => setStep(2)} onCancel={onCancel} onPrimary={handleCreate} primaryKey="wizardCreate" />
       )}
     </div>
   );
