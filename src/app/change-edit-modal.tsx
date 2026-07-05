@@ -10,8 +10,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { Modal } from "./modal";
-import { ModalHeader } from "./modal-header";
 import {
   CHANGE_STATUSES,
   CHANGE_TYPES,
@@ -25,7 +23,6 @@ import {
   type Task,
 } from "./types";
 import { useDraggable } from "./use-draggable";
-import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap, describeClamp } from "./sanitize-report";
@@ -35,6 +32,7 @@ import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import {
+  EditModalShell,
   ModalFieldError,
   StakeholderChipPicker,
   ModalEditFooter,
@@ -231,34 +229,15 @@ export function ChangeEditModal({
   const saveDisabled = !draft.title.trim();
 
   return (
-    <Modal
-      open
+    <EditModalShell
+      lang={lang}
+      title={title}
+      modalId="change"
       onClose={onCancel}
-      ariaLabel={title}
-      align="center"
-      backdropClassName="bg-AIPM-dark-blue/40"
-      zIndex={50}
+      onSubmit={handleSubmit}
+      offset={offset}
+      dragHandleProps={handleProps}
     >
-      <div
-        data-modal-panel
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
-      >
-        <ModalHeader
-          lang={lang}
-          title={title}
-          onClose={onCancel}
-          dragHandleProps={handleProps}
-        />
-
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId="change" lang={lang} />
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2"
-        >
           {/* Title */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
@@ -699,8 +678,6 @@ export function ChangeEditModal({
             saveDisabled={saveDisabled}
             saveLabelKey="raidSave"
           />
-        </form>
-      </div>
-    </Modal>
+    </EditModalShell>
   );
 }

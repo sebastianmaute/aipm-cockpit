@@ -7,7 +7,7 @@ export interface Offset {
   y: number;
 }
 
-interface DragHandleProps {
+export interface DragHandleProps {
   onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
   onPointerMove: (e: React.PointerEvent<HTMLElement>) => void;
   onPointerUp: (e: React.PointerEvent<HTMLElement>) => void;

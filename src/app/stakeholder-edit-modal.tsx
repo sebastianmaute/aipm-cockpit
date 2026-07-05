@@ -9,8 +9,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { Modal } from "./modal";
-import { ModalHeader } from "./modal-header";
 import {
   RACI_ROLES,
   STAKEHOLDER_CATEGORIES,
@@ -30,11 +28,10 @@ import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
-import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
@@ -161,34 +158,15 @@ export function StakeholderEditModal({
   const saveDisabled = !draft.name.trim();
 
   return (
-    <Modal
-      open
+    <EditModalShell
+      lang={lang}
+      title={title}
+      modalId="stakeholder"
       onClose={onCancel}
-      ariaLabel={title}
-      align="center"
-      backdropClassName="bg-AIPM-dark-blue/40"
-      zIndex={50}
+      onSubmit={handleSubmit}
+      offset={offset}
+      dragHandleProps={handleProps}
     >
-      <div
-        data-modal-panel
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
-      >
-        <ModalHeader
-          lang={lang}
-          title={title}
-          onClose={onCancel}
-          dragHandleProps={handleProps}
-        />
-
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId="stakeholder" lang={lang} />
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2"
-        >
           {/* Name */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1 font-medium text-foreground">
@@ -423,8 +401,6 @@ export function StakeholderEditModal({
             saveDisabled={saveDisabled}
             saveLabelKey="raidSave"
           />
-        </form>
-      </div>
-    </Modal>
+    </EditModalShell>
   );
 }
