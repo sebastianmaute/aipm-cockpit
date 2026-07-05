@@ -182,6 +182,25 @@ function isDependencyType(v: unknown): v is DependencyType {
 }
 
 /**
+ * Append a validated `(taskId, type)` dependency to `out`, deduping on the
+ * `${tid}:${type}` key via `seen`. Shared by the object-shaped and the
+ * string-encoded decoders. Returns `true` once the list reaches
+ * `DEPENDENCIES_MAX_COUNT` (the caller should then stop).
+ */
+function pushUniqueDependency(
+  out: TaskDependency[],
+  seen: Set<string>,
+  tid: number,
+  type: DependencyType,
+): boolean {
+  const key = `${tid}:${type}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  out.push({ taskId: tid, type });
+  return out.length >= DEPENDENCIES_MAX_COUNT;
+}
+
+/**
  * Sanitize a list of task dependencies for a given task.
  *
  * Drops entries that:
@@ -211,11 +230,7 @@ export function sanitizeDependencies(
     if (!isDependencyType(type)) continue;
     if (ownTaskId !== null && tid === ownTaskId) continue;
     if (!knownTaskIds.has(tid)) continue;
-    const key = `${tid}:${type}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ taskId: tid, type });
-    if (out.length >= DEPENDENCIES_MAX_COUNT) break;
+    if (pushUniqueDependency(out, seen, tid, type)) break;
   }
   return out;
 }
@@ -284,11 +299,7 @@ export function parseDependenciesString(s: unknown): TaskDependency[] {
     if (!isDependencyType(type)) continue;
     const tid = Number(idStr);
     if (!Number.isFinite(tid) || tid <= 0) continue;
-    const key = `${tid}:${type}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({ taskId: tid, type });
-    if (out.length >= DEPENDENCIES_MAX_COUNT) break;
+    if (pushUniqueDependency(out, seen, tid, type)) break;
   }
   return out;
 }
