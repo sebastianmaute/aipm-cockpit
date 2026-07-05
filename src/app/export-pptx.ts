@@ -253,9 +253,14 @@ function pptxAccentBar(colorRgb: string): string {
 </p:sp>`;
 }
 
-function buildPptxTitleSlide(): string {
-  const shapes =
-    pptxBackgroundRect(COLOR_DARK_BLUE) +
+/**
+ * The Title (id 2) + Subtitle (id 3) textbox pair shared by the cover slide
+ * and the section-divider slides — identical coords/sizes/colours, only the
+ * two text strings differ. Returns the concatenated shape XML, byte-identical
+ * to the prior inline pair.
+ */
+function pptxTitleSubtitleShapes(titleText: string, subtitleText: string): string {
+  return (
     pptxTextBox({
       id: 2,
       name: "Title",
@@ -265,7 +270,7 @@ function buildPptxTitleSlide(): string {
       cyEmu: 900000,
       paragraphs: [
         {
-          text: "List of Open Points",
+          text: titleText,
           bold: true,
           sizeHundredths: 4400,
           colorRgb: COLOR_WHITE,
@@ -281,13 +286,20 @@ function buildPptxTitleSlide(): string {
       cyEmu: 500000,
       paragraphs: [
         {
-          text: `Exported ${todayHuman()}`,
+          text: subtitleText,
           italic: true,
           sizeHundredths: 2400,
           colorRgb: COLOR_LIGHT_GREY,
         },
       ],
-    });
+    })
+  );
+}
+
+function buildPptxTitleSlide(): string {
+  const shapes =
+    pptxBackgroundRect(COLOR_DARK_BLUE) +
+    pptxTitleSubtitleShapes("List of Open Points", `Exported ${todayHuman()}`);
 
   return wrapPptxSlide(shapes);
 }
@@ -296,38 +308,7 @@ function buildPptxTitleSlide(): string {
 function buildPptxDividerSlide(title: string, rowCount: number): string {
   const shapes =
     pptxBackgroundRect(COLOR_DARK_BLUE) +
-    pptxTextBox({
-      id: 2,
-      name: "Title",
-      xEmu: 685800,
-      yEmu: 1700000,
-      cxEmu: 7772400,
-      cyEmu: 900000,
-      paragraphs: [
-        {
-          text: title,
-          bold: true,
-          sizeHundredths: 4400,
-          colorRgb: COLOR_WHITE,
-        },
-      ],
-    }) +
-    pptxTextBox({
-      id: 3,
-      name: "Subtitle",
-      xEmu: 685800,
-      yEmu: 2700000,
-      cxEmu: 7772400,
-      cyEmu: 500000,
-      paragraphs: [
-        {
-          text: `${rowCount} row${rowCount === 1 ? "" : "s"}`,
-          italic: true,
-          sizeHundredths: 2400,
-          colorRgb: COLOR_LIGHT_GREY,
-        },
-      ],
-    });
+    pptxTitleSubtitleShapes(title, `${rowCount} row${rowCount === 1 ? "" : "s"}`);
 
   return wrapPptxSlide(shapes);
 }
