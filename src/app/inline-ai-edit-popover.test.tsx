@@ -1,18 +1,19 @@
 import { it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { InlineAiEditPopover } from "./inline-ai-edit-popover";
-import { type Task } from "./types";
 
-const task = { id: 42, taskName: "Fix login bug" } as unknown as Task;
 const base = {
   lang: "en-US" as const,
-  task,
+  itemTitle: "Fix login bug",
+  entityLabel: "RAID item",
   phase: "idle" as const, plan: null, clarifyText: "", errorText: "",
   onSubmit: vi.fn(), onApply: vi.fn(), onCancel: vi.fn(),
 };
 
-it("renders a labelled input and submits the instruction", () => {
+it("renders the entity label + item title and submits the instruction", () => {
   render(<InlineAiEditPopover {...base} />);
+  expect(screen.getByText("RAID item")).toBeInTheDocument();
+  expect(screen.getByText(/Fix login bug/)).toBeInTheDocument();
   const input = screen.getByLabelText(/ask claude to edit this task/i);
   fireEvent.change(input, { target: { value: "mark done" } });
   fireEvent.submit(input.closest("form")!);

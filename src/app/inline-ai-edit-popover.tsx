@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { type Task } from "./types";
 import { type EditPlan } from "./inline-ai-edit/plan";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
@@ -9,7 +8,8 @@ import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export interface InlineAiEditPopoverProps {
   lang: Lang;
-  task: Task;
+  itemTitle: string;
+  entityLabel: string;
   phase: InlinePhase;
   plan: EditPlan | null;
   clarifyText: string;
@@ -20,7 +20,7 @@ export interface InlineAiEditPopoverProps {
 }
 
 export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
-  const { lang, task, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
+  const { lang, itemTitle, entityLabel, phase, plan, clarifyText, errorText, onSubmit, onApply, onCancel } = props;
   const [value, setValue] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,7 +43,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
           <h2 className="text-sm font-semibold text-foreground">{t(lang, "inlineAiEditTitle")}</h2>
           <button type="button" onClick={onCancel} aria-label={t(lang, "cancel")} className={`rounded-md px-2 text-muted-foreground hover:text-foreground ${INTERACTIVE}`}>✕</button>
         </div>
-        <p className="mb-3 truncate text-xs text-muted-foreground">{task.taskName}</p>
+        <p className="mb-3 truncate text-xs text-muted-foreground"><span className="font-medium">{entityLabel}</span> · {itemTitle}</p>
 
         {phase !== "preview" && (
           <form onSubmit={(e) => { e.preventDefault(); if (value.trim() && !busy) onSubmit(value.trim()); }}>

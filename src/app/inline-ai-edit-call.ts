@@ -1,8 +1,8 @@
 // src/app/inline-ai-edit-call.ts
 //
-// Non-hook single-shot call for the inline task editor. Reuses callClaude (which
-// already sends the tool defs + browser headers). NEVER logs/echoes the key or
-// body; the caller reads only { blocks, text, usage }. No agentic loop.
+// Non-hook single-shot call for the inline entity editor. Reuses callClaude
+// (which already sends the tool defs + browser headers). NEVER logs/echoes the
+// key or body; the caller reads only { blocks, text, usage }. No agentic loop.
 import {
   buildSystemPrompt,
   callClaude,
@@ -14,13 +14,15 @@ import {
 import { type ToolDispatcher } from "./chat-tools";
 import { type Lang } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
-import { type Task } from "./types";
+import { type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
 export interface InlineEditArgs {
   apiKey: string;
   model: string;
   lang: Lang;
-  task: Task;
+  entity: InlineEntity;
+  item: Record<string, unknown>;
+  itemLabel: string;
   instruction: string;
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>;
   guides: readonly OperatingGuide[];
@@ -34,29 +36,16 @@ export interface InlineEditResult {
   usage: ApiUsage;
 }
 
-function scopeBlock(task: Task): SystemBlock {
-  const fields = JSON.stringify({
-    id: task.id,
-    taskName: task.taskName,
-    assignee: task.assignee,
-    dueDate: task.dueDate,
-    startDate: task.startDate,
-    status: task.status,
-    priority: task.priority,
-    notes: task.notes,
-    blockers: task.blockers,
-    group: task.group,
-    labels: task.labels,
-    resourceId: task.resourceId,
-  });
+function scopeBlock(entity: InlineEntity, item: Record<string, unknown>, itemLabel: string): SystemBlock {
+  const fields = JSON.stringify(item);
   return {
     type: "text",
     text:
-      "INLINE EDIT MODE. You are editing exactly ONE task (below). Use tool calls to " +
-      "make the user's requested change: update_task for this task's fields, and you may " +
+      `INLINE EDIT MODE. You are editing exactly ONE ${entity} (below): ${itemLabel}. Use tool calls to ` +
+      `make the user's requested change: the ${entity}'s update tool for this item's fields, and you may ` +
       "create related items (create_task / create_raid_item / create_change / " +
-      "create_milestone / create_stakeholder) when asked. Do NOT update or delete any other task. Do NOT " +
-      "chat or explain unless you cannot proceed without more detail. Target task:\n" +
+      "create_milestone / create_stakeholder) when asked. Do NOT update or delete any OTHER item. Do NOT " +
+      `chat or explain unless you cannot proceed without more detail. Target ${entity}:\n` +
       fields,
   };
 }
@@ -64,7 +53,7 @@ function scopeBlock(task: Task): SystemBlock {
 export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditResult> {
   const system: SystemBlock[] = [
     ...buildSystemPrompt(args.lang, args.snapshot, args.guides, args.groundInGuides),
-    scopeBlock(args.task),
+    scopeBlock(args.entity, args.item, args.itemLabel),
   ];
   const res = await callClaude(
     args.apiKey,

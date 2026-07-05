@@ -7,7 +7,7 @@
 // file is excluded from the coverage gate.
 
 import { type ReactNode } from "react";
-import { type Lang } from "./i18n";
+import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled } from "./settings-types";
 import { type ToolDispatcher } from "./chat-tools";
 import { type ActivityKind } from "./activity-log";
@@ -58,7 +58,8 @@ export function useTasksInlineAiEdit(deps: TasksInlineAiEditDeps): TasksInlineAi
   const popover = inlineEdit.activeTask ? (
     <InlineAiEditPopover
       lang={deps.lang}
-      task={inlineEdit.activeTask}
+      itemTitle={inlineEdit.activeTask.taskName}
+      entityLabel={t(deps.lang, "inlineAiEditEntityTask")}
       phase={inlineEdit.phase}
       plan={inlineEdit.plan}
       clarifyText={inlineEdit.clarifyText}
