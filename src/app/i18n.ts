@@ -170,6 +170,7 @@ const enUS = {
   versionHighlightCalendarPullAbsence: "Outlook date reschedules pull back into absences",
   versionHighlightCalendarAutoPull: "Optional background auto-pull of Outlook reschedules",
   versionHighlightInlineAiEdit: "Edit tasks in natural language, in place — an inline 'Ask Claude' popover proposes changes you preview and apply",
+  versionHighlightInlineAiEditSp2: "Inline 'Ask Claude' edit now on RAID, changes, milestones, and stakeholders too — the same preview-and-apply popover from tasks, on every register row",
 
   tasks: "Tasks",
   tasksCount: "({0})",
