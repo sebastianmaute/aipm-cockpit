@@ -4,6 +4,7 @@ import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
 import { planEntityReconcile, type HasEventLink } from "./calendar-reconcile";
+import { logDiag } from "./diagnostics";
 import {
   CALENDAR_READWRITE_SCOPE, listEntityEvents, createEvent, updateEvent, deleteEvent,
   GraphCalendarError, type GraphEvent,
@@ -66,7 +67,7 @@ export function useEntityCalendarPush<T extends HasEventLink>(
       let failed = 0;
       for (const it of plan.create) {
         try { newIds.set(it.id, await createEvent(token, toGraphEvent(it, projectId))); }
-        catch (err) { failed++; console.warn("Outlook calendar push: create event failed", err); }
+        catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType, op: "create", id: it.id, message: err instanceof Error ? err.message : String(err) }); }
       }
       for (const u of plan.update) {
         try { await updateEvent(token, u.eventId, toGraphEvent(u.item, projectId)); }
@@ -75,13 +76,13 @@ export function useEntityCalendarPush<T extends HasEventLink>(
             staleIds.add(u.item.id); // event gone in Outlook → clear link, re-create next push
           } else {
             failed++;
-            console.warn("Outlook calendar push: update event failed", err);
+            logDiag("warn", "calendar.pushItemFailed", { entityType, op: "update", id: u.item.id, message: err instanceof Error ? err.message : String(err) });
           }
         }
       }
       for (const id of plan.delete) {
         try { await deleteEvent(token, id); }
-        catch (err) { failed++; console.warn("Outlook calendar push: delete event failed", err); }
+        catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType, op: "delete", message: err instanceof Error ? err.message : String(err) }); }
       }
       if (newIds.size > 0 || staleIds.size > 0) {
         setItems((prev) => prev.map((it) => {

@@ -4,6 +4,7 @@ import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
 import { planCalendarReconcile } from "./calendar-reconcile";
+import { logDiag } from "./diagnostics";
 import {
   CALENDAR_READWRITE_SCOPE, milestoneToGraphEvent, listProjectEvents, createEvent, updateEvent, deleteEvent,
   GraphCalendarError,
@@ -37,7 +38,7 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
       let failed = 0;
       for (const m of plan.create) {
         try { newIds.set(m.id, await createEvent(token, milestoneToGraphEvent(m, projectId))); }
-        catch (err) { failed++; console.warn("Outlook calendar push: create event failed", err); }
+        catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType: "milestone", op: "create", id: m.id, message: err instanceof Error ? err.message : String(err) }); }
       }
       for (const u of plan.update) {
         try { await updateEvent(token, u.eventId, milestoneToGraphEvent(u.milestone, projectId)); }
@@ -46,13 +47,13 @@ export function useOutlookCalendarPush({ milestones, projectId, setMilestones, i
             staleIds.add(u.milestone.id); // event gone in Outlook → clear link, re-create next push
           } else {
             failed++;
-            console.warn("Outlook calendar push: update event failed", err);
+            logDiag("warn", "calendar.pushItemFailed", { entityType: "milestone", op: "update", id: u.milestone.id, message: err instanceof Error ? err.message : String(err) });
           }
         }
       }
       for (const id of plan.delete) {
         try { await deleteEvent(token, id); }
-        catch (err) { failed++; console.warn("Outlook calendar push: delete event failed", err); }
+        catch (err) { failed++; logDiag("warn", "calendar.pushItemFailed", { entityType: "milestone", op: "delete", message: err instanceof Error ? err.message : String(err) }); }
       }
       if (newIds.size > 0 || staleIds.size > 0) {
         setMilestones((prev) => prev.map((m) => {

@@ -4,6 +4,7 @@ import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
 import { planCommitteeReconcile } from "./committee-calendar-reconcile";
+import { logDiag } from "./diagnostics";
 import {
   CALENDAR_READWRITE_SCOPE, committeeMeetingToGraphEvent, committeeInfoToGraphEvent,
   createEvent, updateEvent, deleteEvent, GraphCalendarError,
@@ -51,31 +52,33 @@ export function useCommitteeOutlookPush({
       const staleInfoKeys = new Set<string>();
       let failed = 0;
 
+      const warnItem = (op: string, err: unknown, id?: number | string) =>
+        logDiag("warn", "calendar.pushItemFailed", { entityType: "committee", op, id, message: err instanceof Error ? err.message : String(err) });
       for (const m of plan.meetingCreate) {
         try { newMeetingIds.set(m.id, await createEvent(token, committeeMeetingToGraphEvent(m, committeeName, projectId))); }
-        catch (err) { failed++; console.warn("Committee Outlook push: meeting create failed", err); }
+        catch (err) { failed++; warnItem("meeting-create", err, m.id); }
       }
       for (const u of plan.meetingUpdate) {
         try { await updateEvent(token, u.eventId, committeeMeetingToGraphEvent(u.meeting, committeeName, projectId)); }
         catch (err) {
           if (err instanceof GraphCalendarError && err.status === 404) staleMeetingIds.add(u.meeting.id);
-          else { failed++; console.warn("Committee Outlook push: meeting update failed", err); }
+          else { failed++; warnItem("meeting-update", err, u.meeting.id); }
         }
       }
       for (const item of plan.infoCreate) {
         try { newInfoIds.set(item.key, await createEvent(token, committeeInfoToGraphEvent(item, projectId))); }
-        catch (err) { failed++; console.warn("Committee Outlook push: info create failed", err); }
+        catch (err) { failed++; warnItem("info-create", err, item.key); }
       }
       for (const item of plan.infoUpdate) {
         try { await updateEvent(token, item.eventId, committeeInfoToGraphEvent(item, projectId)); }
         catch (err) {
           if (err instanceof GraphCalendarError && err.status === 404) staleInfoKeys.add(item.key);
-          else { failed++; console.warn("Committee Outlook push: info update failed", err); }
+          else { failed++; warnItem("info-update", err, item.key); }
         }
       }
       for (const id of plan.deleteEventIds) {
         try { await deleteEvent(token, id); }
-        catch (err) { failed++; console.warn("Committee Outlook push: delete failed", err); }
+        catch (err) { failed++; warnItem("delete", err); }
       }
 
       const deletedSet = new Set(plan.deleteEventIds);
