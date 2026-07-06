@@ -311,7 +311,9 @@ function ResourcesPanelInner({
     if (key) {
       for (const r of resources) {
         const pct = convertUtilization(r.utilization, r.utilizationMode, "percent", periods, workdayHours, holidaySet);
-        pctByResource.set(r.id, Math.round(pct[key] ?? 0));
+        // Store the RAW percent (not rounded) so the cell's over-allocation
+        // highlight compares identically to the alert (next-actions-workload).
+        pctByResource.set(r.id, pct[key] ?? 0);
       }
     }
     return { key, pctByResource };
