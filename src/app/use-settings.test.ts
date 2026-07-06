@@ -642,12 +642,17 @@ describe("writeSettings — localStorage quota guard", () => {
     });
 
     try {
-      // Act + Assert: a failed persist must degrade gracefully, never throw.
-      expect(() => writeSettings(defaultSettings)).not.toThrow();
+      // Act + Assert: a failed persist must degrade gracefully, never throw,
+      // and report false so the caller can surface it.
+      expect(writeSettings(defaultSettings)).toBe(false);
       expect(spy).toHaveBeenCalled();
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it("returns true on a successful write", () => {
+    expect(writeSettings(defaultSettings)).toBe(true);
   });
 });
 

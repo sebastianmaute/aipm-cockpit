@@ -14,13 +14,17 @@ import { isPlainObject } from "./sanitize";
 import { isSafeMode } from "./safe-mode";
 import { migratePlaintextSecrets, readDeviceSecret } from "./secrets-store";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
+import { logDiag } from "./diagnostics";
 
 export const SETTINGS_KEY = "lop-app:settings";
 
-/** Synchronously write settings to localStorage WITH the two at-rest secrets
+/** Synchronously write settings to localStorage WITH the at-rest secrets
  *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;
- *  see the useSettings mount-load for the decrypt+merge back into memory. */
-export function writeSettings(settings: Settings): void {
+ *  see the useSettings mount-load for the decrypt+merge back into memory.
+ *  Returns true on success, false when the write failed (quota / storage
+ *  disabled) so the caller can surface it — a swallowed failure silently
+ *  reverts settings on the next reload. */
+export function writeSettings(settings: Settings): boolean {
   const turso = settings.integrations?.turso;
   const persistable: Settings = {
     ...settings,
@@ -34,8 +38,13 @@ export function writeSettings(settings: Settings): void {
   };
   try {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(persistable));
-  } catch {
-    // quota exceeded / storage disabled — degrade gracefully, keep in-memory settings
+    return true;
+  } catch (err) {
+    // quota exceeded / storage disabled — keep in-memory settings, but log +
+    // signal so the caller can warn the user (settings silently revert on the
+    // next reload otherwise).
+    logDiag("error", "settings.writeFailed", { message: err instanceof Error ? err.message : String(err) });
+    return false;
   }
 }
 
@@ -429,9 +438,19 @@ export function useSettings(): {
   // Route through writeSettings so the two at-rest secrets (ai.apiKey,
   // integrations.turso.authToken) are blanked before they hit localStorage —
   // a raw JSON.stringify(settings) write would dump the decrypted plaintext.
+  const settingsWriteFailingRef = useRef(false);
   useEffect(() => {
     if (!hydrated || isSafeMode()) return;
-    writeSettings(settings);
+    const ok = writeSettings(settings);
+    // Notify once on the healthy→failing edge (useSettings has no toast
+    // context, so bridge to whoever does via a window event). writeSettings
+    // already logged the diagnostic.
+    if (!ok && !settingsWriteFailingRef.current) {
+      settingsWriteFailingRef.current = true;
+      window.dispatchEvent(new CustomEvent("lop-settings-write-failed"));
+    } else if (ok) {
+      settingsWriteFailingRef.current = false;
+    }
   }, [settings, hydrated]);
 
   // Sync document language attribute and ensure dict is loaded on mid-session switch.
