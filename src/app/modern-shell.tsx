@@ -91,6 +91,10 @@ export function ModernShell({
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   useFocusTrap(drawerRef, isNarrow && drawerOpen, closeDrawer);
+  // Discard a stale open drawer if the viewport widens past the breakpoint
+  // (render-time reconcile — set-state-in-effect is banned; guarded so it
+  // bails out after one re-render instead of looping).
+  if (!isNarrow && drawerOpen) setDrawerOpen(false);
   const handleToggleSidebar = () => {
     if (isNarrow) setDrawerOpen((o) => !o);
     else onToggleCollapsed();
@@ -103,6 +107,7 @@ export function ModernShell({
     collapsedValue: boolean,
     onToggle: () => void,
     onNav: (view: AppView) => void,
+    onShowVersion: () => void,
   ) => (
     <Sidebar
       lang={lang}
@@ -111,7 +116,7 @@ export function ModernShell({
       collapsed={collapsedValue}
       onToggleCollapsed={onToggle}
       version={version}
-      onShowVersion={() => setVersionOpen(true)}
+      onShowVersion={onShowVersion}
       mode={mode}
       footer={sidebarFooter}
       navGroups={navGroups}
@@ -155,11 +160,14 @@ export function ModernShell({
                 aria-label={t(lang, "navPrimaryLabel")}
                 className="fixed inset-y-0 left-0 z-50"
               >
-                {renderSidebar(false, closeDrawer, navigateAndCloseDrawer)}
+                {renderSidebar(false, closeDrawer, navigateAndCloseDrawer, () => {
+                  setDrawerOpen(false);
+                  setVersionOpen(true);
+                })}
               </div>
             </>
           )
-        : renderSidebar(collapsed, onToggleCollapsed, onNavigate)}
+        : renderSidebar(collapsed, onToggleCollapsed, onNavigate, () => setVersionOpen(true))}
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           lang={lang}

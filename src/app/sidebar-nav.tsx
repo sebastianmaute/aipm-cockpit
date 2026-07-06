@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { NAV_GROUPS, navLabelKey, type AppView, type NavGroup, type NavItem } from "./nav-config";
 import { NavIcon } from "./nav-icons";
@@ -58,7 +58,8 @@ function CollapsedNavFlyout({
   const wrapRef = useRef<HTMLLIElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(open, wrapRef, () => setOpen(false));
+  const close = useCallback(() => setOpen(false), []);
+  usePopoverDismiss(open, wrapRef, close);
 
   const active = isParentActive(item, activeView);
   const label = t(lang, navLabelKey(item.view));
