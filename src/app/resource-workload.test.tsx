@@ -13,7 +13,7 @@ const colResize = {
 const baseProps = {
   lang: "en-US" as const, resources: [r], absences: [], shifts: [], raid: [], raidEnabled: true, today: "2026-06-01",
   onEditResource: vi.fn(), onAddResource: vi.fn(), onEditAbsence: vi.fn(), onEditShift: vi.fn(),
-  nearTermPeriodKey: null, nearTermPctByResource: new Map<number, number>(),
+  nearTermPeriodKey: null, nearTermPctByResource: new Map<number, number>(), overAllocatedPct: 100,
   onSetUtilization: vi.fn(), onReassignTask: vi.fn(), onRescheduleTask: vi.fn(),
   colResize,
 };
@@ -123,5 +123,14 @@ describe("ResourceWorkload", () => {
     // Reschedule via the date input.
     fireEvent.change(screen.getByLabelText(/Due – Fix bug/i), { target: { value: "2026-12-31" } });
     expect(onRescheduleTask).toHaveBeenCalledWith(10, "2026-12-31");
+  });
+
+  it("disables triage controls for a Jira-synced overdue task (#24)", () => {
+    const overdue = { id: 10, taskName: "Fix bug", assignee: "Alex Example", dueDate: "2026-01-01", resourceId: 1, jiraKey: "PROJ-1" } as unknown as Task;
+    render(<ResourceWorkload {...baseProps} tasks={[overdue]} />);
+    fireEvent.click(screen.getByRole("button", { name: /Triage overdue tasks – Alex Example/i }));
+    // Jira owns synced tasks — local reassign/reschedule would be reverted, so both are disabled.
+    expect(screen.getByLabelText(/Owner – Fix bug/i)).toBeDisabled();
+    expect(screen.getByLabelText(/Due – Fix bug/i)).toBeDisabled();
   });
 });

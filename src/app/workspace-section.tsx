@@ -121,6 +121,7 @@ export function WorkspaceSection({
   manageRolesView,
   onAssignRole,
   onSetUtilization,
+  overAllocatedPct,
   onReassignTask,
   onRescheduleTask,
   onSetAllUtilizationMode,
@@ -471,6 +472,7 @@ export function WorkspaceSection({
               plan={plan}
               workdayHours={settings.resources.workdayHours}
               onSetUtilization={onSetUtilization}
+              overAllocatedPct={overAllocatedPct}
               onReassignTask={onReassignTask}
               onRescheduleTask={onRescheduleTask}
               onSetAllUtilizationMode={onSetAllUtilizationMode}

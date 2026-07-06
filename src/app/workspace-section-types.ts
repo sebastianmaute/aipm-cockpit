@@ -128,6 +128,8 @@ export interface WorkspaceSectionProps {
   manageRolesView?: React.ReactNode;
   onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
+  /** Over-allocation threshold percent (the alert's `workloadAllocatedPct`). */
+  overAllocatedPct: number;
   /** Workload overdue-task triage (#24): reassign to a resource / reschedule. */
   onReassignTask: (taskId: number, resource: Resource | null) => void;
   onRescheduleTask: (taskId: number, iso: string) => void;

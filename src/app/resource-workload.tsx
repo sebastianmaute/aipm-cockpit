@@ -43,8 +43,11 @@ interface Props {
   /** Canonical near-term period key (periods[0]) — the one the over-allocation
    *  alert flags; null when there's no plan. */
   nearTermPeriodKey: string | null;
-  /** resource.id → near-term utilization percent (for the >100% highlight). */
+  /** resource.id → near-term utilization percent (for the over-allocation highlight). */
   nearTermPctByResource: ReadonlyMap<number, number>;
+  /** Over-allocation threshold percent — MATCHES the alert's configurable
+   *  `workloadAllocatedPct` so the pink highlight fires exactly when the alert does. */
+  overAllocatedPct: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
   /** Reassign an overdue task to a resource (null = unassign). */
   onReassignTask: (taskId: number, resource: Resource | null) => void;
@@ -72,6 +75,7 @@ export function ResourceWorkload({
   onEditShift,
   nearTermPeriodKey,
   nearTermPctByResource,
+  overAllocatedPct,
   onSetUtilization,
   onReassignTask,
   onRescheduleTask,
@@ -205,7 +209,7 @@ export function ResourceWorkload({
                       onSetUtilization(row.resource.id, nearTermPeriodKey, Number(e.target.value) || 0)
                     }
                     className={`w-16 rounded border px-1 py-0.5 text-right tabular-nums dark:bg-surface ${FOCUS_RING} ${TRANSITION} ${
-                      (nearTermPctByResource.get(row.resource.id) ?? 0) > 100
+                      (nearTermPctByResource.get(row.resource.id) ?? 0) > overAllocatedPct
                         ? "border-AIPM-pink-strong font-medium text-AIPM-pink-strong"
                         : "border-line text-foreground"
                     }`}

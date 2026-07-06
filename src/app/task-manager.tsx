@@ -1630,6 +1630,9 @@ function TaskManagerInner() {
     ),
     onAssignRole: guardEdit(handleAssignResourceRole),
     onSetUtilization: guardEdit(handleSetUtilization),
+    // Same threshold the over-allocation ALERT uses so the workload cell's pink
+    // highlight fires exactly when the alert does (#24 review).
+    overAllocatedPct: settings.nextActions?.workloadAllocatedPct ?? 100,
     // Workload overdue-task triage (#24) — functional setter so bulk edits from
     // the popover compose; reassign copies the resource's identity onto the task.
     onReassignTask: guardEdit((taskId: number, resource: Resource | null) =>

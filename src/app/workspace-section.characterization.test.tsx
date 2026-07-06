@@ -84,6 +84,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     handleOpenShiftEditor: vi.fn() as (existingShift: Shift | null, assignee: { display: string; email: string }) => void,
     onAssignRole: vi.fn(),
     onSetUtilization: vi.fn(),
+    overAllocatedPct: 100,
     onReassignTask: vi.fn(),
     onRescheduleTask: vi.fn(),
     onSetAllUtilizationMode: vi.fn(),

@@ -92,6 +92,8 @@ interface Props {
   plan: ResourcePlan;
   workdayHours: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
+  /** Over-allocation threshold percent (the alert's `workloadAllocatedPct`). */
+  overAllocatedPct: number;
   /** Reassign a workload overdue task to a resource (null = unassign) (#24). */
   onReassignTask: (taskId: number, resource: Resource | null) => void;
   /** Reschedule a workload overdue task's due date (#24). */
@@ -151,6 +153,7 @@ function ResourcesPanelInner({
   plan,
   workdayHours,
   onSetUtilization,
+  overAllocatedPct,
   onReassignTask,
   onRescheduleTask,
   onSetAllUtilizationMode,
@@ -670,6 +673,7 @@ function ResourcesPanelInner({
           onEditShift={onEditShift}
           nearTermPeriodKey={nearTerm.key}
           nearTermPctByResource={nearTerm.pctByResource}
+          overAllocatedPct={overAllocatedPct}
           onSetUtilization={onSetUtilization}
           onReassignTask={onReassignTask}
           onRescheduleTask={onRescheduleTask}

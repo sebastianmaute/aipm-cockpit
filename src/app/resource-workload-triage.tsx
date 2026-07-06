@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { type Lang, t } from "./i18n";
 import { resourceDisplayName } from "./resource-foundation";
@@ -35,7 +35,8 @@ export function WorkloadOverdueTriage({
 }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
-  usePopoverDismiss(open, wrapRef, () => setOpen(false));
+  const close = useCallback(() => setOpen(false), []);
+  usePopoverDismiss(open, wrapRef, close);
   const count = overdueTasks.length;
 
   return (
@@ -64,49 +65,61 @@ export function WorkloadOverdueTriage({
             {t(lang, "workloadTriageHeading")}
           </p>
           <ul className="flex max-h-72 flex-col gap-2 overflow-auto">
-            {overdueTasks.map((task) => (
-              <li key={task.id} className="rounded-md border border-line p-2">
-                <p className="mb-1 truncate text-sm font-medium text-foreground" title={task.taskName}>
-                  {task.taskName}
-                </p>
-                <div className="flex flex-col gap-1.5">
-                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="w-16 shrink-0">{t(lang, "workloadTriageReassign")}</span>
-                    <select
-                      value={task.resourceId ?? ""}
-                      aria-label={`${t(lang, "workloadTriageReassign")} – ${task.taskName}`}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        onReassignTask(
-                          task.id,
-                          v === "" ? null : resources.find((r) => r.id === Number(v)) ?? null,
-                        );
-                      }}
-                      className={`min-w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
-                    >
-                      <option value="">{t(lang, "workloadTriageUnassigned")}</option>
-                      {resources.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {resourceDisplayName(r)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="w-16 shrink-0">{t(lang, "workloadTriageReschedule")}</span>
-                    <input
-                      type="date"
-                      defaultValue={task.dueDate ?? ""}
-                      aria-label={`${t(lang, "workloadTriageReschedule")} – ${task.taskName}`}
-                      onChange={(e) => {
-                        if (e.target.value) onRescheduleTask(task.id, e.target.value);
-                      }}
-                      className={`min-w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
-                    />
-                  </label>
-                </div>
-              </li>
-            ))}
+            {overdueTasks.map((task) => {
+              // Jira-synced tasks are owned by Jira — editing owner/due locally
+              // would be reverted on the next sync, so disable both controls.
+              const synced = !!task.jiraKey;
+              return (
+                <li key={task.id} className="rounded-md border border-line p-2">
+                  <p className="mb-1 truncate text-sm font-medium text-foreground" title={task.taskName}>
+                    {task.taskName}
+                    {synced && (
+                      <span className="ml-1 text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                        {t(lang, "workloadTriageJiraSynced")}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="w-16 shrink-0">{t(lang, "workloadTriageReassign")}</span>
+                      <select
+                        value={task.resourceId ?? ""}
+                        disabled={synced}
+                        aria-label={`${t(lang, "workloadTriageReassign")} – ${task.taskName} #${task.id}`}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          onReassignTask(
+                            task.id,
+                            v === "" ? null : resources.find((r) => r.id === Number(v)) ?? null,
+                          );
+                        }}
+                        className={`min-w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-xs text-foreground disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
+                      >
+                        <option value="">{t(lang, "workloadTriageUnassigned")}</option>
+                        {resources.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {resourceDisplayName(r)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="w-16 shrink-0">{t(lang, "workloadTriageReschedule")}</span>
+                      <input
+                        type="date"
+                        defaultValue={task.dueDate ?? ""}
+                        disabled={synced}
+                        aria-label={`${t(lang, "workloadTriageReschedule")} – ${task.taskName} #${task.id}`}
+                        onChange={(e) => {
+                          if (e.target.value) onRescheduleTask(task.id, e.target.value);
+                        }}
+                        className={`min-w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 text-xs text-foreground disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
+                      />
+                    </label>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

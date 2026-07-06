@@ -1414,6 +1414,7 @@ export const de: Record<TranslationKey, string> = {
   workloadTriageReassign: "Verantw.",
   workloadTriageReschedule: "Fällig",
   workloadTriageUnassigned: "Nicht zugewiesen",
+  workloadTriageJiraSynced: "(Jira)",
   resourcesDefaultShift: "Standard (Mo.–Fr. 8 Std.)",
   shiftNewItem: "Neue Schicht",
   shiftEditItem: "Schicht #{0} bearbeiten",

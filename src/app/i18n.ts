@@ -1422,6 +1422,7 @@ const enUS = {
   workloadTriageReassign: "Owner",
   workloadTriageReschedule: "Due",
   workloadTriageUnassigned: "Unassigned",
+  workloadTriageJiraSynced: "(Jira)",
   resourcesDefaultShift: "Default (Mon–Fri 8h)",
   shiftNewItem: "New shift",
   shiftEditItem: "Editing shift #{0}",
