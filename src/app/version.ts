@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.166.0";
-export const APP_BUILD_DATE = "2026-07-05"; // 0.166.0: Inline "Ask Claude" per-item edit extended from tasks to RAID, changes, milestones, and stakeholders — the same natural-language preview-and-apply popover on every register row, via one generic engine driven by a per-entity descriptor; adds a focus-trapped edit dialog and an auto-close when its pane goes inactive (Egan)
+export const APP_VERSION = "0.167.0";
+export const APP_BUILD_DATE = "2026-07-06"; // 0.167.0: Codebase-audit improvement campaign roll-up — global search now covers budgets & resources; the activity log records per-field change diffs; a broad keyboard/screen-reader a11y pass (branded confirm dialogs, calendar keyboard grid, collapsed-sidebar flyout, mobile off-canvas drawer, focus-follows-view); and the workload view is actionable (inline utilization edit + overdue-task reassign/reschedule) (Rajaniemi)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.166.x line is "Egan" (Greg Egan). */
-export const APP_MILESTONE = "Egan";
+ *  0.167.x line is "Rajaniemi" (Hannu Rajaniemi). */
+export const APP_MILESTONE = "Rajaniemi";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -185,4 +185,8 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightCalendarAutoPull",
   "versionHighlightInlineAiEdit",
   "versionHighlightInlineAiEditSp2",
+  "versionHighlightSearchCoverage",
+  "versionHighlightActivityDiff",
+  "versionHighlightKeyboardA11y",
+  "versionHighlightWorkloadActionable",
 ] as const;

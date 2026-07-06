@@ -142,6 +142,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 - Resource directory (people and their identity), workload/utilisation, capacity planning and allocations, and the roles/disciplines/grades reference data.
 - Capacity is computed from allocations against working time (holidays, absences, shifts); over-allocation surfaces in the workload view and feeds Action Center signals.
+- The workload view is actionable: the "Util (now)" column edits a resource's near-term utilisation inline (the same period the over-allocation signal flags), and the overdue-task count opens a triage popover to reassign (owner) or reschedule (due date) that resource's overdue tasks in place. Jira-synced tasks are read-only there.
 - AI: read-only — there is no resource/allocation write tool. It can explain over-allocation and capacity gaps; assignment and allocation edits are UI actions.
 
 ## Documents
@@ -185,5 +186,5 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 <!-- views: activity -->
 
 - A chronological feed of project activity (task, RAID, Jira sync, bulk, and general events), filterable by type; timestamps render in the active display timezone.
-- A read-only audit trail; entries are written by the app as records change.
+- A read-only audit trail; entries are written by the app as records change. Update events record a per-field diff (which fields changed, before → after) shown beneath the entry.
 - AI: read-only — it can summarize recent activity but does not write log entries.

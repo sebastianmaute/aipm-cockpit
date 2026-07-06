@@ -42,6 +42,11 @@ never reference them directly.
 - **Status mapping:** red→`AIPM-pink`, amber/warning/medium→`AIPM-purple`,
   info/vacation→`AIPM-blue`, holiday/differentiation→`AIPM-purple`,
   done/low→`AIPM-green`. Soft backgrounds use alpha tints (e.g. `bg-AIPM-pink/10`).
+- **Chrome greys via semantic tokens only.** `bg`/`border`/`divide-AIPM-light-grey`
+  and `text-AIPM-dark-grey` are BANNED (`palette-chrome-sweep` guard) — use
+  `bg-surface-muted`/`border-line` for zones/dividers, `bg-AIPM-medium-grey` for a
+  solid grey, `text-muted-foreground` for secondary text. The palette guards scan
+  comments too, so a bare `shadow`/grey word in a comment can trip them.
 
 ## Canonical recipes
 

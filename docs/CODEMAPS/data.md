@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-11 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts, project-options.ts, nace-sections.ts, portfolio-mode.ts, projects-registry.ts, project-file-handles.ts, turso-tenant-schema.ts, feature-modules.ts, document-link.ts | Token estimate: ~1500 | Updated for 0.29.0–0.60.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); RaidItem/ChangeItem gained `stakeholderIds` stakeholder-communication links (v0.55); Settings.features feature-module map (Simple/Modular/Advanced); ProjectMeta multi-project header persisted (Workspace schema v9 additive; Phase 1); Turso multi-tenancy (one shared DB, `project_id` on every table, tenant schema v10); snapshot tables scoped per project_id; sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import, sqlite now multi-tenant v10); DocumentLink[] on all six entities (workspace schema v10, turso single-tenant v10, turso multi-tenant v11); data version history (`version-history.ts` ProjectVersion/ProjectVersionMeta types + `Settings.versionHistoryRetention`; append-only `project_versions` table kept out of TABLE_NAMES, Turso-only) [0.66.0–0.69.0]; Task.status enum + completedDate invariant (`task-status.ts`) [0.107.0]; tasksViewMode [0.108.0]; Workspace.steeringCommittee (`SteeringCommittee`/`CommitteeMeeting`/`InfoSchedule`) [0.111.0]; settings.tourSeen [0.112.0]; ProjectMeta.operatingTimezone + settings.timezone/additionalTimezones [0.113.0–0.115.0]; AI config ai.scheduledJobs/actionSuggestions/suggestAllNextActionThresholds + global scheduled_jobs store [0.97.0–0.110.0] -->
+<!-- Generated: 2026-06-11 | Files scanned: types.ts, storage.ts, sanitize.ts, raid.ts, activity-log.ts, contacts.ts, resource-foundation.ts, resource-capacity.ts, reminder-snooze.ts, use-settings.ts, jira-token-status.ts, duration.ts + msal-config.ts, turso-config.ts, project-options.ts, nace-sections.ts, portfolio-mode.ts, projects-registry.ts, project-file-handles.ts, turso-tenant-schema.ts, feature-modules.ts, document-link.ts | Token estimate: ~1500 | Updated for 0.29.0–0.60.0: ProjectStatus + Milestone[] persisted (v6 additive, no schema bump); budget-health + budget-burndown pure modules; ChangeItem[] change-control register persisted (schema v7 additive); RaidItem/ChangeItem gained `stakeholderIds` stakeholder-communication links (v0.55); Settings.features feature-module map (Simple/Modular/Advanced); ProjectMeta multi-project header persisted (Workspace schema v9 additive; Phase 1); Turso multi-tenancy (one shared DB, `project_id` on every table, tenant schema v10); snapshot tables scoped per project_id; sample-workspace.json + sample-workspace.sqlite3 generated from the curated .md (Turso import, sqlite now multi-tenant v10); DocumentLink[] on all six entities (workspace schema v10, turso single-tenant v10, turso multi-tenant v11); data version history (`version-history.ts` ProjectVersion/ProjectVersionMeta types + `Settings.versionHistoryRetention`; append-only `project_versions` table kept out of TABLE_NAMES, Turso-only) [0.66.0–0.69.0]; Task.status enum + completedDate invariant (`task-status.ts`) [0.107.0]; tasksViewMode [0.108.0]; Workspace.steeringCommittee (`SteeringCommittee`/`CommitteeMeeting`/`InfoSchedule`) [0.111.0]; settings.tourSeen [0.112.0]; ProjectMeta.operatingTimezone + settings.timezone/additionalTimezones [0.113.0–0.115.0]; AI config ai.scheduledJobs/actionSuggestions/suggestAllNextActionThresholds + global scheduled_jobs store [0.97.0–0.110.0]; codebase-audit campaign [0.167.0]: activity-log `ActivityEntry.changes?: FieldChange[]` per-field diffs (`diffFields`; per-device localStorage only, NOT a Workspace field / not exported); `global-search.ts` `buildSearchIndex` now covers budgets + resources -->
 
 # Data
 
@@ -640,7 +640,12 @@ covering task / raid / bulk / jira / absence / shift CRUD. Persisted to
 `lop-app:activity-log` only — explicitly excluded from any export path
 ("non-persistent, not written to file, just local storage"). Capped at
 `ACTIVITY_MAX_ENTRIES = 500`; oldest entries dropped on overflow. Render-time
-templating goes through `ACTIVITY_KIND_TO_KEY` → i18n.
+templating goes through `ACTIVITY_KIND_TO_KEY` → i18n. **0.167.0:** an entry may
+carry an optional `changes?: readonly FieldChange[]` — a per-field before→after
+diff produced by `diffFields(before, after, fields)` (capped at `MAX_FIELD_CHANGES`,
+`sanitizeChanges` validated on load). Like the rest of the log this rides
+`lop-app:activity-log` only — **not** a `Workspace` field, never written to any
+export.
 
 ## Duration helper (`duration.ts`)
 
@@ -745,3 +750,12 @@ Exports:
 - `sanitizeJiraExtraProjects(raw, primaryKey): JiraExtraProject[]` — Validate untrusted extra-projects array; drops malformed/blank/dupe/primary keys; caps at 20 entries
 
 Settings `jira.extraProjects` is per-device only (excludes from exports/Turso); primary project stays in the `jira.projectKey` field. Each extra project has a per-project `readOnly` toggle (default ON), applied at sync time via `isReadOnlyIssue()` to block writes.
+
+## Global search index (`global-search.ts`) — 0.167.0+
+
+`buildSearchIndex(ws)` scans + lowercases the workspace entity arrays ONCE into a
+query-independent `SearchIndex` (memoized on the arrays); `searchIndex(index, query)`
+runs per keystroke. **0.167.0** widens the index to cover **budgets** and
+**resources** alongside tasks / RAID / milestones / changes / stakeholders (each
+capped per type via `SEARCH_MAX_PER_TYPE`). `searchWorkspace(ws, query)` stays as a
+thin build-then-query back-compat wrapper.

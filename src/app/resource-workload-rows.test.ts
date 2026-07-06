@@ -27,6 +27,17 @@ describe("buildResourceWorkload", () => {
     const { managed } = buildResourceWorkload([res(1, "Sample", "Dummy")], [task(10, "Alex Example", { resourceId: 1, dueDate: "2026-01-01" })], [], [], [], "2026-06-01");
     expect(managed[0].overdueCount).toBe(1);
   });
+  it("carries the overdue task objects for inline triage (#24)", () => {
+    const { managed } = buildResourceWorkload(
+      [res(1, "Sample", "Dummy")],
+      [
+        task(10, "Alex Example", { resourceId: 1, dueDate: "2026-01-01" }),
+        task(11, "Alex Example", { resourceId: 1, dueDate: "2099-01-01" }), // not overdue
+      ],
+      [], [], [], "2026-06-01",
+    );
+    expect(managed[0].overdueTasks.map((t) => t.id)).toEqual([10]);
+  });
   it("ignores completed tasks for open/overdue counts", () => {
     const { managed } = buildResourceWorkload([res(1, "Sample", "Dummy")], [task(10, "Alex Example", { resourceId: 1, dueDate: "2026-01-01", completedDate: "2026-02-01" })], [], [], [], "2026-06-01");
     expect(managed[0].openCount).toBe(0);

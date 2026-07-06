@@ -6,9 +6,10 @@ import { type Lang, t } from "./i18n";
 import { buildResourceWorkload } from "./resource-workload-rows";
 import type { Absence, RaidItem, Resource, Shift, Task } from "./types";
 import { INNER_TABLE_CLASS } from "./view-styles";
-import { INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { WorkloadOverdueTriage } from "./resource-workload-triage";
 
 export const WORKLOAD_COL_WIDTHS = {
   assignee: 160,
@@ -17,6 +18,7 @@ export const WORKLOAD_COL_WIDTHS = {
   overdue: 110,
   openRaid: 90,
   weeklyHours: 120,
+  util: 100,
   upcoming: 200,
 } as const;
 export type WorkloadCol = keyof typeof WORKLOAD_COL_WIDTHS;
@@ -38,6 +40,19 @@ interface Props {
     existing: Shift | null,
     assignee: { display: string; email: string },
   ) => void;
+  /** Canonical near-term period key (periods[0]) — the one the over-allocation
+   *  alert flags; null when there's no plan. */
+  nearTermPeriodKey: string | null;
+  /** resource.id → near-term utilization percent (for the over-allocation highlight). */
+  nearTermPctByResource: ReadonlyMap<number, number>;
+  /** Over-allocation threshold percent — MATCHES the alert's configurable
+   *  `workloadAllocatedPct` so the pink highlight fires exactly when the alert does. */
+  overAllocatedPct: number;
+  onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
+  /** Reassign an overdue task to a resource (null = unassign). */
+  onReassignTask: (taskId: number, resource: Resource | null) => void;
+  /** Reschedule an overdue task's due date. */
+  onRescheduleTask: (taskId: number, iso: string) => void;
   colResize: {
     colWidths: Record<WorkloadCol, number>;
     startColResize: (col: WorkloadCol, e: React.MouseEvent) => void;
@@ -58,6 +73,12 @@ export function ResourceWorkload({
   onAddResource,
   onEditAbsence,
   onEditShift,
+  nearTermPeriodKey,
+  nearTermPctByResource,
+  overAllocatedPct,
+  onSetUtilization,
+  onReassignTask,
+  onRescheduleTask,
   colResize,
 }: Props) {
   const { managed, unlinked } = useMemo(
@@ -104,6 +125,10 @@ export function ResourceWorkload({
               {t(lang, "resourcesWeeklyHours")}
               <ColumnResizeHandle col="weeklyHours" onMouseDown={startColResize} />
             </th>
+            <th className="relative px-3 py-2 font-medium text-right" style={{ width: colWidths.util, minWidth: colWidths.util }}>
+              {t(lang, "workloadNearTermUtil")}
+              <ColumnResizeHandle col="util" onMouseDown={startColResize} />
+            </th>
             <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.upcoming, minWidth: colWidths.upcoming }}>
               {t(lang, "resourcesUpcomingAbsences")}
               <ColumnResizeHandle col="upcoming" onMouseDown={startColResize} />
@@ -129,14 +154,19 @@ export function ResourceWorkload({
               <td className="px-3 py-2 text-right tabular-nums text-foreground">
                 {row.openCount}
               </td>
-              <td
-                className={`px-3 py-2 text-right tabular-nums ${
-                  row.overdueCount > 0
-                    ? "font-medium text-AIPM-pink-strong"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {row.overdueCount}
+              <td className="px-3 py-2 text-right tabular-nums" onClick={(e) => e.stopPropagation()}>
+                {row.overdueCount > 0 ? (
+                  <WorkloadOverdueTriage
+                    lang={lang}
+                    rowDisplay={row.display}
+                    overdueTasks={row.overdueTasks}
+                    resources={resources}
+                    onReassignTask={onReassignTask}
+                    onRescheduleTask={onRescheduleTask}
+                  />
+                ) : (
+                  <span className="text-muted-foreground">{row.overdueCount}</span>
+                )}
               </td>
               {raidEnabled && (
                 <td className="px-3 py-2 text-right tabular-nums text-foreground">
@@ -166,6 +196,27 @@ export function ResourceWorkload({
                 >
                   {row.weeklyHours}
                 </button>
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums" onClick={(e) => e.stopPropagation()}>
+                {nearTermPeriodKey ? (
+                  <input
+                    type="number"
+                    min={0}
+                    step={row.resource.utilizationMode === "percent" ? 5 : 1}
+                    value={row.resource.utilization[nearTermPeriodKey] ?? ""}
+                    aria-label={t(lang, "workloadNearTermUtilLabel", row.display)}
+                    onChange={(e) =>
+                      onSetUtilization(row.resource.id, nearTermPeriodKey, Number(e.target.value) || 0)
+                    }
+                    className={`w-16 rounded border px-1 py-0.5 text-right tabular-nums dark:bg-surface ${FOCUS_RING} ${TRANSITION} ${
+                      (nearTermPctByResource.get(row.resource.id) ?? 0) > overAllocatedPct
+                        ? "border-AIPM-pink-strong font-medium text-AIPM-pink-strong"
+                        : "border-line text-foreground"
+                    }`}
+                  />
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
               </td>
               <td className="px-3 py-2 text-muted-foreground">
                 {row.upcoming.length === 0 ? (
@@ -197,7 +248,7 @@ export function ResourceWorkload({
             <>
               <tr>
                 <td
-                  colSpan={raidEnabled ? 7 : 6}
+                  colSpan={raidEnabled ? 8 : 7}
                   className="bg-surface-muted px-3 py-1.5"
                 >
                   <span className="font-semibold text-foreground">
@@ -272,6 +323,7 @@ export function ResourceWorkload({
                       {row.weeklyHours}
                     </button>
                   </td>
+                  <td className="px-3 py-2 text-right text-muted-foreground">—</td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {row.upcoming.length === 0 ? (
                       "—"
