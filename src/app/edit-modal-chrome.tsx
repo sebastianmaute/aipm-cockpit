@@ -12,6 +12,7 @@ import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ModalFieldControls } from "./modal-field-controls";
+import { useConfirm } from "./confirm-dialog";
 import type { ModalId } from "./modal-fields";
 import type { Offset, DragHandleProps } from "./use-draggable";
 
@@ -144,7 +145,7 @@ export function StakeholderChipPicker({
 
 interface ModalEditFooterProps {
   lang: Lang;
-  /** Delete button: native `window.confirm` gate, then `onDelete`. */
+  /** Delete button: branded `useConfirm()` gate, then `onDelete`. */
   onDelete: () => void;
   deleteConfirmKey: TranslationKey;
   deleteLabelKey: TranslationKey;
@@ -173,13 +174,14 @@ export function ModalEditFooter({
   saveDisabled,
   saveLabelKey,
 }: ModalEditFooterProps) {
+  const confirm = useConfirm();
   return (
     <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
       <div>
         <button
           type="button"
-          onClick={() => {
-            if (window.confirm(t(lang, deleteConfirmKey))) onDelete();
+          onClick={async () => {
+            if (await confirm({ message: t(lang, deleteConfirmKey) })) onDelete();
           }}
           disabled={deleteDisabled}
           aria-label={deleteAriaLabelKey ? t(lang, deleteAriaLabelKey) : undefined}

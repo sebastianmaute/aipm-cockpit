@@ -186,7 +186,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       }),
     );
     if (skippedSynced > 0) {
-      window.alert(t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
+      showToastRef.current("info", t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
     }
     if (count > 0) {
       showToastRef.current(
@@ -259,6 +259,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       groups.set(email, list);
     }
 
+    // Kept as a synchronous native confirm ON PURPOSE: the window.open() loop
+    // below must run inside the original click's user-activation gesture, so an
+    // awaited (async) branded dialog would get the mailto popups blocked. This
+    // is a non-destructive send confirmation, not a destructive-tier action.
     if (!window.confirm(t(lang, "confirmBulkSend", groups.size, resolved.length))) {
       return;
     }

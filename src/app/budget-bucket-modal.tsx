@@ -27,6 +27,7 @@ import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { useConfirm } from "./confirm-dialog";
 
 interface BudgetBucketModalProps {
   lang: Lang;
@@ -62,6 +63,7 @@ export function BudgetBucketModal({
   const { offset, handleProps } = useDraggable(true);
   const { isVisible } = useModalVisibility("budget");
   const showToast = useToastContext();
+  const confirm = useConfirm();
   const adj = useAdjustmentTracker();
   const fixedPriceNoticeId = useId();
   const fxNoticeId = useId();
@@ -128,9 +130,9 @@ export function BudgetBucketModal({
     (a) => Object.keys(a.budgetHours).length > 0 || Object.keys(a.actualHours).length > 0,
   );
 
-  const togglePlanningMode = () => {
+  const togglePlanningMode = async () => {
     if (!isBlended) {
-      if (hasDetailedHours && !window.confirm(t(lang, "budgetSwitchToBlendedWarn"))) return;
+      if (hasDetailedHours && !(await confirm({ message: t(lang, "budgetSwitchToBlendedWarn") }))) return;
       setDraft((d) => ({
         ...d,
         planningMode: "blended" as PlanningMode,
@@ -138,7 +140,7 @@ export function BudgetBucketModal({
         disciplineAllocations: d.disciplineAllocations ?? [],
       }));
     } else {
-      if (hasBlendedHours && !window.confirm(t(lang, "budgetSwitchToDetailedWarn"))) return;
+      if (hasBlendedHours && !(await confirm({ message: t(lang, "budgetSwitchToDetailedWarn") }))) return;
       setDraft((d) => ({
         ...d,
         planningMode: "detailed" as PlanningMode,

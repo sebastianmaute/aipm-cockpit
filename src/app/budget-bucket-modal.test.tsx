@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -8,6 +8,14 @@ import { applyTier } from "./field-visibility";
 import type { FieldTier } from "./modal-fields";
 import { t } from "./i18n";
 import type { BudgetBucket, Role } from "./types";
+
+// The planning-mode data-loss warning now routes through the branded
+// `useConfirm()` hook (async) instead of window.confirm. This test has no
+// ConfirmProvider, so mock the hook with a per-test controllable answer.
+const confirmMock = vi.hoisted(() => ({ result: true }));
+vi.mock("./confirm-dialog", () => ({
+  useConfirm: () => () => Promise.resolve(confirmMock.result),
+}));
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
 // the workspace, so every render needs a WorkspaceProvider/FiltersProvider.
@@ -183,8 +191,8 @@ describe("BudgetBucketModal", () => {
     ]);
   });
 
-  test("turning off detailed planning with entered hours warns and clears them on confirm", () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+  test("turning off detailed planning with entered hours warns and clears them on confirm", async () => {
+    confirmMock.result = true;
     const { onSave } = setup({
       disciplines,
       bucket: {
@@ -193,17 +201,17 @@ describe("BudgetBucketModal", () => {
         allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} }],
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     const saved = onSave.mock.calls[0][0] as BudgetBucket;
     expect(saved.planningMode).toBe("blended");
     expect(saved.allocations[0].budgetHours).toEqual({});
-    confirmSpy.mockRestore();
   });
 
-  test("cancelling the warning keeps detailed mode and hours", () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+  test("cancelling the warning keeps detailed mode and hours", async () => {
+    confirmMock.result = false;
     const { onSave } = setup({
       disciplines,
       bucket: {
@@ -212,16 +220,17 @@ describe("BudgetBucketModal", () => {
         allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} }],
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     const saved = onSave.mock.calls[0][0] as BudgetBucket;
     expect(saved.planningMode).toBe("detailed");
     expect(saved.allocations[0].budgetHours).toEqual({ "2026-01": 40 });
-    confirmSpy.mockRestore();
   });
 
-  test("turning ON detailed planning with entered discipline hours warns and clears them on confirm", () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+  test("turning ON detailed planning with entered discipline hours warns and clears them on confirm", async () => {
+    confirmMock.result = true;
     const { onSave } = setup({
       disciplines,
       bucket: {
@@ -231,17 +240,17 @@ describe("BudgetBucketModal", () => {
         disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 20 }, actualHours: {} }],
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
-    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     const saved = onSave.mock.calls[0][0] as BudgetBucket;
     expect(saved.planningMode).toBe("detailed");
     expect(saved.disciplineAllocations![0].budgetHours).toEqual({});
-    confirmSpy.mockRestore();
   });
 
-  test("cancelling the switch-to-detailed warning keeps blended mode and discipline hours", () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+  test("cancelling the switch-to-detailed warning keeps blended mode and discipline hours", async () => {
+    confirmMock.result = false;
     const { onSave } = setup({
       disciplines,
       bucket: {
@@ -251,12 +260,13 @@ describe("BudgetBucketModal", () => {
         disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 20 }, actualHours: {} }],
       },
     });
-    fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /detailed budget planning/i }));
+    });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     const saved = onSave.mock.calls[0][0] as BudgetBucket;
     expect(saved.planningMode).toBe("blended");
     expect(saved.disciplineAllocations![0].budgetHours).toEqual({ "2026-01": 20 });
-    confirmSpy.mockRestore();
   });
 
   test("negative internal rate override blocks save", () => {

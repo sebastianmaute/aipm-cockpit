@@ -9,13 +9,7 @@ import {
   loadActivityLog,
   saveActivityLog,
 } from "./activity-log";
-import { type Lang, t } from "./i18n";
-
-export interface UseActivityLogArgs {
-  lang: Lang;
-}
-
-export function useActivityLog({ lang }: UseActivityLogArgs): {
+export function useActivityLog(): {
   activityLog: ActivityEntry[];
   setActivityLog: Dispatch<SetStateAction<ActivityEntry[]>>;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
@@ -43,16 +37,14 @@ export function useActivityLog({ lang }: UseActivityLogArgs): {
   );
 
   const handleClearActivityLog = useCallback(() => {
-    if (activityLog.length === 0) return;
-    if (
-      !window.confirm(
-        t(lang, "confirmClearActivityLog", activityLog.length),
-      )
-    )
-      return;
+    // The Clear button (activity-log-panel) is the sole caller; it already
+    // gates on entries.length > 0 and shows the branded confirm dialog. This
+    // just performs the wipe. (Keeping the confirm here would be dead: the
+    // hook runs above ConfirmProvider in the tree, so useConfirm would resolve
+    // to the no-op default.)
     setActivityLog([]);
     clearActivityLogStorage();
-  }, [activityLog.length, lang]);
+  }, []);
 
   return { activityLog, setActivityLog, logActivity, handleClearActivityLog };
 }

@@ -1,11 +1,14 @@
 // src/app/use-activity-log.test.ts
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import type { Lang } from "./i18n";
+import { describe, expect, it } from "vitest";
 import { useActivityLog } from "./use-activity-log";
 
-function renderLog(lang: Lang = "en-US" as Lang) {
-  return renderHook(() => useActivityLog({ lang }));
+// handleClearActivityLog no longer confirms here — the branded confirm lives in
+// the panel (which renders under ConfirmProvider; this hook runs above it). The
+// hook just performs the wipe. See activity-log-panel.test.tsx for the confirm
+// flow.
+function renderLog() {
+  return renderHook(() => useActivityLog());
 }
 
 describe("useActivityLog", () => {
@@ -38,40 +41,23 @@ describe("useActivityLog", () => {
   });
 
   describe("handleClearActivityLog", () => {
-    it("does nothing when log is empty (no window.confirm call)", () => {
-      const { result } = renderLog();
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      act(() => {
-        result.current.handleClearActivityLog();
-      });
-      expect(confirmSpy).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
-    });
-
-    it("clears log when window.confirm returns true", () => {
+    it("clears logged entries", () => {
       const { result } = renderLog();
       act(() => {
         result.current.logActivity("task.created", 1, "Task A");
       });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
       act(() => {
         result.current.handleClearActivityLog();
       });
       expect(result.current.activityLog).toHaveLength(0);
-      confirmSpy.mockRestore();
     });
 
-    it("does NOT clear when window.confirm returns false", () => {
+    it("is a no-op on an already-empty log", () => {
       const { result } = renderLog();
-      act(() => {
-        result.current.logActivity("task.created", 1, "Task A");
-      });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
       act(() => {
         result.current.handleClearActivityLog();
       });
-      expect(result.current.activityLog).toHaveLength(1);
-      confirmSpy.mockRestore();
+      expect(result.current.activityLog).toHaveLength(0);
     });
   });
 });

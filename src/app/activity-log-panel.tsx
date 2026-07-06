@@ -33,6 +33,7 @@ import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton 
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
+import { useConfirm } from "./confirm-dialog";
 
 const ACTIVITY_LOG_COL_WIDTHS = {
   timestamp: 160,
@@ -84,6 +85,7 @@ function buildMatcher(query: string, mode: SearchMode): Matcher | null {
 
 function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   const { displayTz } = useDisplayTimezone();
+  const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("literal");
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
@@ -170,7 +172,14 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           {entries.length > 0 && (
             <button
               type="button"
-              onClick={() => { if (window.confirm(t(lang, "activityClearConfirm"))) onClear(); }}
+              onClick={async () => {
+                if (
+                  await confirm({
+                    message: t(lang, "confirmClearActivityLog", entries.length),
+                  })
+                )
+                  onClear();
+              }}
               title={t(lang, "activityClearHint")}
               className={`rounded-md border border-AIPM-pink/50 bg-surface px-2.5 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
             >

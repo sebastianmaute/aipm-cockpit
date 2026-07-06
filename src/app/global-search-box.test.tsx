@@ -114,6 +114,18 @@ describe("GlobalSearchBox", () => {
     expect(input).toHaveAttribute("aria-label", t("en-US", "searchLabel"));
   });
 
+  it("renders a decorative aria-hidden shortcut hint when empty and hides it while typing", async () => {
+    const { input } = renderBox();
+    const kbd = document.querySelector("kbd");
+    expect(kbd).not.toBeNull();
+    // Decorative: must NOT pollute the combobox accessible name.
+    expect(kbd).toHaveAttribute("aria-hidden", "true");
+    expect(kbd?.textContent).toMatch(/K/);
+    // Once the user types a query, the hint disappears so it can't sit under text.
+    await userEvent.type(input, "login");
+    expect(document.querySelector("kbd")).toBeNull();
+  });
+
   it("⌘K (or Ctrl+K) focuses the search input", () => {
     const { input } = renderBox();
     expect(document.activeElement).not.toBe(input);

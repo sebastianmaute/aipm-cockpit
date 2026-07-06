@@ -32,6 +32,7 @@ import { defaultTimelogConfig } from "../timelog-types";
 import { calendarSyncFor } from "../calendar-sync-config";
 import { useToastContext } from "../toast-context";
 import { reportSilentFailure } from "../guard-feedback";
+import { useConfirm } from "../confirm-dialog";
 
 interface IntegrationsSectionProps {
   lang: Lang;
@@ -108,6 +109,12 @@ function CalendarSyncEntityRow({
 
 export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso, hidePortfolioSwitch, hideJira }: IntegrationsSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
+  const confirm = useConfirm();
+  // Busy flags for the two genuinely-async buttons (M365 sign-in, portfolio
+  // Save & switch) so a second click can't fire mid-await and SR users hear the
+  // pending state.
+  const [signInBusy, setSignInBusy] = useState(false);
+  const [switchBusy, setSwitchBusy] = useState(false);
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
@@ -175,8 +182,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
     })();
   }
 
-  function handleRemoveToken() {
-    if (!window.confirm(t(lang, "secretPassphraseRemoveConfirm"))) return;
+  async function handleRemoveToken() {
+    if (!(await confirm({ message: t(lang, "secretPassphraseRemoveConfirm") }))) return;
     removeSealed("tursoAuthToken");
     updateTurso({ authToken: "" });
     setTokenStored(false);
@@ -212,8 +219,11 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const canMoveToTurso = !!onMigrateToTurso && !onTurso && tursoConfigured;
   const portfolioModeDirty = pendingMode !== portfolioMode;
   function confirmPortfolioModeSwitch() {
-    if (!portfolioModeDirty) return;
+    if (!portfolioModeDirty || switchBusy) return;
     if (pendingMode === "turso" && !tursoConfigured) return; // guard
+    // Mark busy so a rapid second click can't re-enter before the reload tears
+    // the component down (also announces the pending switch to SR users).
+    setSwitchBusy(true);
     savePortfolioMode(pendingMode);
     // Keep the workspace storage backend aligned with the portfolio: switching TO
     // Turso must also persist storageConfig.kind "turso" (synchronously, so it
@@ -321,8 +331,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             ) : (
               <button
                 type="button"
-                onClick={() => { void auth.signIn().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
-                disabled={!envClientIdSet && !m365.clientId}
+                onClick={() => {
+                  setSignInBusy(true);
+                  void auth
+                    .signIn()
+                    .catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed"))
+                    .finally(() => setSignInBusy(false));
+                }}
+                disabled={signInBusy || (!envClientIdSet && !m365.clientId)}
+                aria-busy={signInBusy}
                 title={
                   !envClientIdSet && !m365.clientId
                     ? t(lang, "integrationsM365NeedsConfig")
@@ -517,7 +534,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               {tokenStored && (
                 <button
                   type="button"
-                  onClick={handleRemoveToken}
+                  onClick={() => void handleRemoveToken()}
                   title={t(lang, "secretPassphraseRemoveHint")}
                   className={`mt-2 rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
                 >
@@ -600,7 +617,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 <button
                   type="button"
                   onClick={confirmPortfolioModeSwitch}
-                  className={`mt-2 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
+                  disabled={switchBusy}
+                  aria-busy={switchBusy}
+                  className={`mt-2 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "portfolioModeSwitchConfirm")}
                 </button>

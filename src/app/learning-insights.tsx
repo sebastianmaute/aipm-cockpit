@@ -12,6 +12,7 @@ import {
 import { ACTION_SOURCE_LABEL } from "./action-source-label";
 import type { ActionSource } from "./next-actions/types";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { useConfirm } from "./confirm-dialog";
 
 interface LearningInsightsProps {
   lang: Lang;
@@ -52,6 +53,7 @@ export function LearningInsights({
   now,
 }: LearningInsightsProps) {
   const kinds = Object.keys(state);
+  const confirm = useConfirm();
   // Match the engine: display decayed stats/bias so old data stays consistent.
   // The react-hooks/purity lint bans Date.now() in the render body, so capture
   // the fallback "now" once via a lazy state initializer (runs outside render).
@@ -119,8 +121,8 @@ export function LearningInsights({
             <button
               type="button"
               className="rounded border border-line px-3 py-1.5 text-sm text-foreground hover:bg-surface-muted/40"
-              onClick={() => {
-                if (window.confirm(t(lang, "settingsLearningResetConfirm"))) onReset();
+              onClick={async () => {
+                if (await confirm({ message: t(lang, "settingsLearningResetConfirm") })) onReset();
               }}
             >
               {t(lang, "settingsLearningReset")}

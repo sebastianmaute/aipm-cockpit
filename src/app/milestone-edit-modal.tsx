@@ -17,6 +17,7 @@ import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
+import { useConfirm } from "./confirm-dialog";
 import type { Milestone, Task } from "./types";
 
 interface Props {
@@ -48,6 +49,7 @@ export function MilestoneEditModal({
   const [error, setError] = useState<string | null>(null);
   const { isVisible } = useModalVisibility("milestone");
   const { settings } = useSettings();
+  const confirm = useConfirm();
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
@@ -106,9 +108,9 @@ export function MilestoneEditModal({
     });
   }
 
-  function handleDeleteClick() {
+  async function handleDeleteClick() {
     if (!draft) return;
-    if (window.confirm(t(lang, "milestoneDeleteConfirm"))) {
+    if (await confirm({ message: t(lang, "milestoneDeleteConfirm") })) {
       onDelete(draft.id);
     }
   }

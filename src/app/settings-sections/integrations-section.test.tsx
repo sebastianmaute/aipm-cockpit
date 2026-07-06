@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import { IntegrationsSection } from "./integrations-section";
+import { ConfirmProvider } from "../confirm-dialog";
 import {
   defaultSettings,
   defaultIntegrations,
@@ -90,16 +91,22 @@ describe("IntegrationsSection Turso auth token sealing", () => {
   });
 
   it("removing the stored token forgets the secret and unsets the lock", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(<IntegrationsSection lang="en-US" settings={tursoSettings("tok-have")} onChange={() => {}} />);
+    // The branded confirm dialog (not window.confirm) now gates removal, so the
+    // component is wrapped in a ConfirmProvider and we click its Confirm button.
+    render(
+      <ConfirmProvider lang="en-US">
+        <IntegrationsSection lang="en-US" settings={tursoSettings("tok-have")} onChange={() => {}} />
+      </ConfirmProvider>,
+    );
     // Lock under a passphrase first.
     fireEvent.click(screen.getByLabelText(/require a passphrase/i));
     fireEvent.change(screen.getByLabelText(/^passphrase$/i), { target: { value: "pw" } });
     fireEvent.change(screen.getByLabelText(/confirm passphrase/i), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /save passphrase/i }));
     await waitFor(() => expect(isPassphraseLocked("tursoAuthToken")).toBe(true));
-    // Remove it entirely.
+    // Remove it entirely — opens the branded confirm dialog; confirm it.
     fireEvent.click(screen.getByRole("button", { name: /remove stored secret/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(isPassphraseLocked("tursoAuthToken")).toBe(false));
   });
 });

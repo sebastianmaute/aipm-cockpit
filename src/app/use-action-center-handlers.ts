@@ -169,7 +169,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
           resources,
           () => window.prompt(t(lang, "promptEmail", sh.name), ""),
           isValidEmail,
-          () => window.alert(t(lang, "errorInvalidEmail")),
+          () => showToast("error", t(lang, "errorInvalidEmail")),
         );
         if (!email) return;
         const subject = t(lang, "commsEmailSubject", project?.name ?? "");
@@ -184,7 +184,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
         void recordLearning(action, "acted");
       }
     },
-    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning],
+    [tasks, onSendInquiry, stakeholders, resources, project, lang, resolveCommBody, commSend, recordLearning, showToast],
   );
 
   const handleEscalate = useCallback(
@@ -196,7 +196,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
       const id = Number(action.cta.id);
       const item = raid.find((r) => r.id === id);
       if (!item) return; // deleted-source safe
-      if (!isValidEmail(recipient.email)) { window.alert(t(lang, "errorInvalidEmail")); return; }
+      if (!isValidEmail(recipient.email)) { showToast("error", t(lang, "errorInvalidEmail")); return; }
       const plan = planEscalation(item);
       if (plan.to) {
         const next = applyEscalation(raid, id, plan.to);
@@ -206,7 +206,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
       window.location.href = buildMailtoUrl(recipient.email, subject, body);
       void recordLearning(action, "acted");
     },
-    [raid, setRaid, lang, project, recordLearning],
+    [raid, setRaid, lang, project, recordLearning, showToast],
   );
 
   const escalateBundle = useMemo<EscalateBundle | undefined>(
@@ -224,14 +224,14 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
 
   const handleRebaselineMilestone = useCallback(
     (action: SuggestedAction, id: number, newDate: string) => {
-      if (!isValidIsoDate(newDate)) { window.alert(t(lang, "errorInvalidDate")); return; }
+      if (!isValidIsoDate(newDate)) { showToast("error", t(lang, "errorInvalidDate")); return; }
       const next = applyMilestoneRebaseline(milestones, id, newDate);
       if (next !== milestones) {
         setMilestones(next as Milestone[]);
         void recordLearning(action, "acted");
       }
     },
-    [milestones, setMilestones, lang, recordLearning],
+    [milestones, setMilestones, lang, recordLearning, showToast],
   );
 
   const snapshotsRebaselineNow = snapshots.rebaselineNow;

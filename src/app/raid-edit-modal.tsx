@@ -48,6 +48,7 @@ import { ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
+import { useConfirm } from "./confirm-dialog";
 
 export type RaidEditModalProps = {
   lang: Lang;
@@ -96,6 +97,7 @@ export function RaidEditModal({
   const { isVisible } = useModalVisibility("raid");
   const adj = useAdjustmentTracker();
   const { settings } = useSettings();
+  const confirm = useConfirm();
   const draftRef = useRef(draft);
   useEffect(() => { draftRef.current = draft; });
   const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
@@ -613,8 +615,8 @@ export function RaidEditModal({
             <span className="inline-flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => {
-                  if (window.confirm(t(lang, "raidConfirmDelete"))) onDelete();
+                onClick={async () => {
+                  if (await confirm({ message: t(lang, "raidConfirmDelete") })) onDelete();
                 }}
                 disabled={isNew}
                 className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}

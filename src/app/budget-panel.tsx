@@ -19,6 +19,7 @@ import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { ViewCallout } from "./view-callout";
+import { useConfirm } from "./confirm-dialog";
 
 const BUDGET_COL_WIDTHS = {
   role: 160,
@@ -175,6 +176,7 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 export function BudgetPanel(props: BudgetPanelProps) {
   const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore } = props;
   const locale = localeFor(lang);
+  const confirm = useConfirm();
 
   const report = useMemo(
     () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences),
@@ -209,8 +211,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
     props.onChangeBuckets(buckets.map((b) => (b.id === id ? { ...b, ...patch, localModifiedAt: stamp() } : b)));
   };
 
-  const removeBucket = (id: number) => {
-    if (!window.confirm(t(lang, "budgetRemoveBucketConfirm"))) return;
+  const removeBucket = async (id: number) => {
+    if (!(await confirm({ message: t(lang, "budgetRemoveBucketConfirm") }))) return;
     props.onChangeBuckets(
       buckets
         .filter((b) => b.id !== id)

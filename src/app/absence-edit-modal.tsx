@@ -20,6 +20,7 @@ import { ABSENCE_TYPES, type Absence, type AbsenceType } from "./types";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
+import { useConfirm } from "./confirm-dialog";
 
 interface Props {
   lang: Lang;
@@ -52,6 +53,7 @@ export function AbsenceEditModal({
   const [error, setError] = useState<string | null>(null);
 
   const { isVisible } = useModalVisibility("absence");
+  const confirm = useConfirm();
 
   if (prevAbsence !== absence) {
     setPrevAbsence(absence);
@@ -92,9 +94,9 @@ export function AbsenceEditModal({
     });
   }
 
-  function handleDeleteClick() {
+  async function handleDeleteClick() {
     if (!draft) return;
-    if (window.confirm(t(lang, "absenceConfirmDelete"))) {
+    if (await confirm({ message: t(lang, "absenceConfirmDelete") })) {
       onDelete(draft.id);
     }
   }

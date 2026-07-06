@@ -19,6 +19,12 @@ vi.mock("./ai-usage-panel", () => ({
   AiUsagePanel: () => <div data-testid="ai-usage-panel" />,
 }));
 
+// Remove-secret now routes through the branded useConfirm() (async) instead of
+// window.confirm; no ConfirmProvider here, so mock the hook to auto-confirm.
+vi.mock("../confirm-dialog", () => ({
+  useConfirm: () => () => Promise.resolve(true),
+}));
+
 beforeEach(() => {
   // A well-formed key + enabled AI makes useChatModels fire a browser-direct
   // fetch to api.anthropic.com. Stub it for EVERY test so none hits the network
@@ -265,7 +271,6 @@ describe("AiSection", () => {
   });
 
   it("removing the stored key forgets the secret and clears the api key", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     const settingsWithKey = {
       ...defaultSettings,
       ai: { ...defaultSettings.ai, apiKey: "sk-ant-api03-have0000000000000" },

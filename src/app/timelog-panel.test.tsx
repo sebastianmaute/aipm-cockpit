@@ -50,6 +50,13 @@ const { showToast, logDiag } = vi.hoisted(() => ({ showToast: vi.fn(), logDiag: 
 vi.mock("./toast-context", () => ({ useToastContext: () => showToast }));
 vi.mock("./diagnostics", () => ({ logDiag }));
 
+// Branded confirm dialog — mock the hook so tests control the resolved boolean
+// (default accept). `confirmMock.result` is reset to true in beforeEach.
+const { confirmMock } = vi.hoisted(() => ({ confirmMock: { result: true } }));
+vi.mock("./confirm-dialog", () => ({
+  useConfirm: () => () => Promise.resolve(confirmMock.result),
+}));
+
 // Default mock return (re-applied per test in beforeEach so error-state tests
 // that override it don't leak into the next test). Persistent mockReturnValue
 // (NOT ...Once) because React may render the component multiple times.
@@ -168,6 +175,7 @@ afterEach(() => {
 });
 
 beforeEach(async () => {
+  confirmMock.result = true;
   const { useTimelogSync } = await import("./use-timelog-sync");
   vi.mocked(useTimelogSync).mockReturnValue(
     defaultSyncReturn() as unknown as ReturnType<typeof useTimelogSync>,
@@ -450,7 +458,7 @@ describe("TimelogPanel", () => {
       vi.mocked(useTimelogSync).mockReturnValue(
         { ...defaultSyncReturn(), clearAll } as unknown as ReturnType<typeof useTimelogSync>,
       );
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      confirmMock.result = true;
       enableTimelog();
       render(
         <>
@@ -460,8 +468,7 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "clearAll") }));
-      expect(confirmSpy).toHaveBeenCalled();
-      expect(clearAll).toHaveBeenCalled();
+      await waitFor(() => expect(clearAll).toHaveBeenCalled());
     });
 
     it("Clear all does NOT clear when confirm is cancelled", async () => {
@@ -470,7 +477,7 @@ describe("TimelogPanel", () => {
       vi.mocked(useTimelogSync).mockReturnValue(
         { ...defaultSyncReturn(), clearAll } as unknown as ReturnType<typeof useTimelogSync>,
       );
-      vi.spyOn(window, "confirm").mockReturnValue(false);
+      confirmMock.result = false;
       enableTimelog();
       render(
         <>
@@ -480,6 +487,7 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "clearAll") }));
+      await act(async () => {});
       expect(clearAll).not.toHaveBeenCalled();
     });
   });

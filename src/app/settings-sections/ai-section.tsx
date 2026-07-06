@@ -17,6 +17,7 @@ import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
+import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
 import { useChatModels } from "../use-chat-models";
 import { isValidAnthropicApiKey } from "../chat-models";
@@ -238,6 +239,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
 
 export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage }: AiSectionProps) {
   const { notifyEnable } = useIntegrationDisclaimer();
+  const confirm = useConfirm();
   const showToast = useToastContext();
   const { options: modelOptions, loaded: modelsLoaded } = useChatModels(settings.ai.apiKey, settings.ai.enabled === true, settings.ai.model);
   const sessionCap = settings.ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
@@ -319,8 +321,8 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
 
   // Forget the stored secret completely (ciphertext + passphrase) and blank the
   // in-memory value, returning to the default device wrap.
-  function handleRemoveSecret() {
-    if (!window.confirm(t(lang, "secretPassphraseRemoveConfirm"))) return;
+  async function handleRemoveSecret() {
+    if (!(await confirm({ message: t(lang, "secretPassphraseRemoveConfirm") }))) return;
     removeSealed("anthropicApiKey");
     onChange({ ...settings, ai: { ...settings.ai, apiKey: "" } });
     setKeyStored(false);

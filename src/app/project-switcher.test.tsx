@@ -80,13 +80,15 @@ describe("ProjectSwitcher", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("marks the current project entry as disabled and does not call onSwitch", async () => {
+  it("marks the current project entry aria-disabled and does not call onSwitch", async () => {
     const user = userEvent.setup();
     const { onSwitch } = renderSwitcher();
 
     await user.click(screen.getByRole("button", { name: /Apollo/ }));
     const currentItem = screen.getByRole("menuitem", { name: /Apollo/ });
-    expect(currentItem).toBeDisabled();
+    // aria-disabled (not native `disabled`) keeps it perceivable in the a11y
+    // tree while the onClick guard prevents switching to it.
+    expect(currentItem).toHaveAttribute("aria-disabled", "true");
     expect(currentItem).toHaveAttribute("aria-current", "true");
 
     await user.click(currentItem);
@@ -121,6 +123,86 @@ describe("ProjectSwitcher", () => {
 
     expect(onNew).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  describe("menu keyboard navigation (APG roving)", () => {
+    it("focuses the first non-disabled menuitem on open", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+
+      // Apollo (current) is disabled, so focus lands on Gemini.
+      expect(screen.getByRole("menuitem", { name: /Gemini/ })).toHaveFocus();
+    });
+
+    it("moves focus with ArrowDown / ArrowUp and wraps", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+      const gemini = screen.getByRole("menuitem", { name: /Gemini/ });
+      const loadFile = screen.getByRole("menuitem", {
+        name: t("en-US", "projectSwitcherLoadFile"),
+      });
+      const newProject = screen.getByRole("menuitem", {
+        name: new RegExp(t("en-US", "projectsNew")),
+      });
+
+      expect(gemini).toHaveFocus();
+      await user.keyboard("{ArrowDown}");
+      expect(loadFile).toHaveFocus();
+      await user.keyboard("{ArrowUp}");
+      expect(gemini).toHaveFocus();
+      // Wrap backwards to the last item.
+      await user.keyboard("{ArrowUp}");
+      expect(newProject).toHaveFocus();
+      // Wrap forwards to the first item.
+      await user.keyboard("{ArrowDown}");
+      expect(gemini).toHaveFocus();
+    });
+
+    it("jumps to first/last with Home/End", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+      const gemini = screen.getByRole("menuitem", { name: /Gemini/ });
+      const newProject = screen.getByRole("menuitem", {
+        name: new RegExp(t("en-US", "projectsNew")),
+      });
+
+      await user.keyboard("{End}");
+      expect(newProject).toHaveFocus();
+      await user.keyboard("{Home}");
+      expect(gemini).toHaveFocus();
+    });
+
+    it("Escape closes the menu and returns focus to the trigger (WCAG 2.4.3)", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      const trigger = screen.getByRole("button", { name: /Apollo/ });
+      await user.click(trigger);
+      // Focus is inside the menu (Gemini).
+      expect(screen.getByRole("menuitem", { name: /Gemini/ })).toHaveFocus();
+
+      await user.keyboard("{Escape}");
+      // Menu closed and focus restored to the trigger button, not lost to body.
+      expect(screen.queryByRole("menuitem", { name: /Gemini/ })).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it("Tab exits (closes) the focus-managed menu", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+      expect(screen.getByRole("menuitem", { name: /Gemini/ })).toHaveFocus();
+
+      await user.keyboard("{Tab}");
+      expect(screen.queryByRole("menuitem", { name: /Gemini/ })).not.toBeInTheDocument();
+    });
   });
 
   describe("turso mode", () => {

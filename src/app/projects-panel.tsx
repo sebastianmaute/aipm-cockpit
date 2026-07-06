@@ -32,6 +32,7 @@ import { type Settings } from "./settings-types";
 import { getTursoConfig } from "./turso-config";
 import { ResetSizeButton } from "./task-manager-ui";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
+import { useConfirm } from "./confirm-dialog";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
@@ -132,6 +133,7 @@ export function ProjectsPanel({
   onHardDelete,
 }: ProjectsPanelProps) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
+  const confirm = useConfirm();
   const tursoConfigured = !!getTursoConfig(
     settings.integrations?.turso?.databaseUrl,
     settings.integrations?.turso?.authToken,
@@ -149,12 +151,12 @@ export function ProjectsPanel({
 
   const openCreate = () => setModal({ mode: "create" });
 
-  const handleDelete = (id: string) => {
-    if (window.confirm(t(lang, "projectsDeleteConfirm"))) onDelete(id);
+  const handleDelete = async (id: string) => {
+    if (await confirm({ message: t(lang, "projectsDeleteConfirm") })) onDelete(id);
   };
 
-  const handleArchive = (id: string) => {
-    if (window.confirm(t(lang, "projectsArchiveConfirm"))) onArchive?.(id);
+  const handleArchive = async (id: string) => {
+    if (await confirm({ message: t(lang, "projectsArchiveConfirm") })) onArchive?.(id);
   };
 
   const handleCreate = (

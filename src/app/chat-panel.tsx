@@ -27,6 +27,7 @@ import { useChatModels } from "./use-chat-models";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
 import { unlockSecret } from "./use-secrets";
+import { useConfirm } from "./confirm-dialog";
 import { isPassphraseLocked } from "./secrets-store";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -123,6 +124,7 @@ function ChatPanelInner({
   chatSeed?: { prompt: string; autoSend: boolean } | null;
   onChatSeedConsumed?: () => void;
 }) {
+  const confirm = useConfirm();
   const [history, setHistory] = useState<ApiMessage[]>([]);
   const [display, setDisplay] = useState<DisplayItem[]>([]);
   const [input, setInput] = useState("");
@@ -500,7 +502,11 @@ function ChatPanelInner({
             )}
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul
+            className="space-y-3"
+            role="log"
+            aria-relevant="additions"
+          >
             {display.map((item, idx) => (
               <li key={idx}>
                 {item.kind === "user" && (
@@ -642,7 +648,10 @@ function ChatPanelInner({
           )}
           <button
             type="button"
-            onClick={clearChat}
+            onClick={async () => {
+              if (await confirm({ message: t(lang, "chatClearConfirm") }))
+                clearChat();
+            }}
             disabled={busy || display.length === 0}
             className={`rounded-md border border-line bg-surface px-4 py-2 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >

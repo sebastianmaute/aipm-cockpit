@@ -21,6 +21,7 @@ import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { useConfirm } from "./confirm-dialog";
 
 interface Props {
   lang: Lang;
@@ -72,6 +73,7 @@ export function ResourceEditModal({
   const showToast = useToastContext();
   const adj = useAdjustmentTracker();
   const { isVisible } = useModalVisibility("resource");
+  const confirm = useConfirm();
 
   const { offset, handleProps } = useDraggable(draft !== null);
 
@@ -107,9 +109,9 @@ export function ResourceEditModal({
     onSave(clean);
   }
 
-  function handleDeleteClick() {
+  async function handleDeleteClick() {
     if (!draft) return;
-    if (window.confirm(t(lang, "resourceConfirmDelete"))) {
+    if (await confirm({ message: t(lang, "resourceConfirmDelete") })) {
       onDelete(draft.id);
     }
   }
