@@ -265,7 +265,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 <button
                   type="button"
                   disabled={Object.keys(selection).length === 0}
-                  onClick={() => { const cf = compareFrom; if (cf) void restore(cf.id, selection, cf.label).then(() => { setSelection({}); setDiff(null); setCompareFrom(null); setRestoreFrom(null); }); }}
+                  onClick={() => { const cf = compareFrom; if (cf) void restore(cf.id, selection, cf.label).then((ok) => { if (!ok) return; setSelection({}); setDiff(null); setCompareFrom(null); setRestoreFrom(null); }); }}
                   title={t(lang, "historyRestoreSelectedHint")}
                   className={`rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
                 >

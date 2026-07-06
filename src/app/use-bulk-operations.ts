@@ -159,7 +159,11 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const skippedSynced = managedEnabled
       ? tasks.reduce((n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n), 0)
       : 0;
-    const count = selectedIds.size;
+    // Synced rows are left fully untouched only when the edit was managed-fields-
+    // only (nothing local to apply); subtract those so the count reflects rows
+    // actually changed.
+    const untouchedSynced = managedEnabled && Object.keys(jiraSafeUpdates).length === 0 ? skippedSynced : 0;
+    const count = selectedIds.size - untouchedSynced;
     const stamp = new Date().toISOString();
     setTasks((prev) =>
       prev.map((row) => {
@@ -177,13 +181,15 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     if (skippedSynced > 0) {
       window.alert(t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
     }
-    showToastRef.current(
-      "info",
-      count === 1
-        ? t(lang, "bulkEditDoneOne")
-        : t(lang, "bulkEditDoneMany", count),
-    );
-    logActivityRef.current("bulk.edit", count);
+    if (count > 0) {
+      showToastRef.current(
+        "info",
+        count === 1
+          ? t(lang, "bulkEditDoneOne")
+          : t(lang, "bulkEditDoneMany", count),
+      );
+      logActivityRef.current("bulk.edit", count);
+    }
     setBulkEditOpen(false);
     setBulkEdit(emptyBulkEdit());
     setSelectedIds(new Set());

@@ -330,31 +330,23 @@ function TaskManagerInner() {
   // Bridges a successful save into the version-history idle-capture timer. The
   // hook is instantiated later, so this ref is wired up via an effect below.
   const versionNotifyRef = useRef<() => void>(() => {});
-  const storageFailingRef = useRef(false);
   const reportStorageOutcome = useCallback((err: unknown | null) => {
     if (err == null) {
       // Recovery: clear the error and the dismissal so a later failure re-shows
       // the banner (dismiss only hides the current failing run).
-      storageFailingRef.current = false;
       setStorageError(null);
       setStorageErrorDismissed(false);
       versionNotifyRef.current(); // arm version-history idle capture on a good save
       return;
     }
     // Classify EVERY failure (Turso kinds when recognized, else "generic") so a
-    // file/CSV/MD/IndexedDB save failure raises the sticky banner too — it was
-    // previously Turso-only, leaving local-backend persistence failures silent.
-    const kind = classifyStorageError(err);
-    setStorageError({ kind });
-    // Turso connectivity/auth kinds intentionally surface as the sticky banner
-    // ONLY (no transient toast). Generic (local file/CSV/MD/IDB) failures were
-    // previously fully silent, so add a one-shot toast on the healthy→failing
-    // edge (don't spam on every retry tick of a stuck backend).
-    if (kind === "generic" && !storageFailingRef.current) {
-      reportSilentFailure(showToast, lang, "storage.autosaveFailed", err, "storageSaveFailed");
-    }
-    storageFailingRef.current = true;
-  }, [showToast, lang]);
+    // file/CSV/MD/IndexedDB save/load failure raises the sticky banner too — it
+    // was previously Turso-only. The transient TOAST already comes from the
+    // backend load/save catches (use-storage-backend), which show a
+    // hint-specific message — we only add the persistent banner here (adding a
+    // toast too would double-fire and mislabel a load failure as a save).
+    setStorageError({ kind: classifyStorageError(err) });
+  }, []);
 
   // Settings persistence failure bridge: use-settings has no toast context, so
   // it dispatches this window event on the healthy→failing edge (quota / storage

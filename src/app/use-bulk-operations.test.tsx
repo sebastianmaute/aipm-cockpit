@@ -210,7 +210,8 @@ describe("useBulkOperations", () => {
 
     it("leaves a synced row untouched when only managed fields are enabled (no localModifiedAt bump)", () => {
       const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-      const { result } = renderBulk({});
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ logActivity });
       act(() => {
         result.current.workspace.setTasks([
           { id: 1, taskName: "Synced", jiraKey: "PROJ-1", assignee: "Alice", assigneeEmail: "",
@@ -228,6 +229,8 @@ describe("useBulkOperations", () => {
       const synced = result.current.workspace.tasks.find(t => t.id === 1)!;
       expect(synced.priority).toBe("Medium");
       expect(synced.localModifiedAt).toBe("STAMP"); // untouched
+      // Nothing actually changed → no "N updated" activity logged.
+      expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
       alertSpy.mockRestore();
     });
   });
