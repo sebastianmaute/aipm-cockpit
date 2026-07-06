@@ -96,8 +96,11 @@ export function useEntityCalendarPush<T extends HasEventLink>(
         showToast("info", t(lang, "calendarPushResult", plan.create.length, plan.update.length, plan.delete.length));
         if (failed > 0) showToast("error", t(lang, "calendarPushPartial", failed));
       }
-    } catch {
+    } catch (err) {
       if (interactive) showToast("error", t(lang, "calendarPushNoAccess"));
+      // Background auto-sync stays user-silent (no toast) but must remain
+      // inspectable in Diagnostics — the failure was previously swallowed.
+      else logDiag("warn", "calendar.autoSyncFailed", { entityType, message: err instanceof Error ? err.message : String(err) });
     } finally {
       inFlightReconcile.delete(lockKey);
       setBusy(false);
