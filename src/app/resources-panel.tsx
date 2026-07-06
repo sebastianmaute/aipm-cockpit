@@ -24,7 +24,7 @@ import { ResourceCalendar } from "./resource-calendar";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
 import { SegmentedControl } from "./segmented-control";
-import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays } from "./resource-capacity";
+import { generatePeriods, displayCapacityHours, absencesForResource, absenceWorkdays, convertUtilization } from "./resource-capacity";
 import { periodCost, formatCurrency } from "./resource-cost";
 import {
   type Absence,
@@ -92,6 +92,10 @@ interface Props {
   plan: ResourcePlan;
   workdayHours: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
+  /** Reassign a workload overdue task to a resource (null = unassign) (#24). */
+  onReassignTask: (taskId: number, resource: Resource | null) => void;
+  /** Reschedule a workload overdue task's due date (#24). */
+  onRescheduleTask: (taskId: number, iso: string) => void;
   onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
@@ -147,6 +151,8 @@ function ResourcesPanelInner({
   plan,
   workdayHours,
   onSetUtilization,
+  onReassignTask,
+  onRescheduleTask,
   onSetAllUtilizationMode,
   onSetAbsenceOverride,
   onSetPlanWindow,
@@ -291,6 +297,22 @@ function ResourcesPanelInner({
       return { resource: r, name: resourceDisplayName(r), totalHours, cost, capacityDays: totalHours / workdayHours, internalCost: cost.internal, externalCost: cost.external, margin: cost.margin };
     });
   }, [resources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
+  // Near-term (period[0]) utilization for the workload over-allocation editor —
+  // MIRRORS next-actions-workload.ts (same canonical-granularity slice[0] + the
+  // convert-to-percent), so the inline editor targets the SAME period the
+  // over-allocation alert flags.
+  const nearTerm = useMemo(() => {
+    const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+    const key = periods.length > 0 ? periods[0].key : null;
+    const pctByResource = new Map<number, number>();
+    if (key) {
+      for (const r of resources) {
+        const pct = convertUtilization(r.utilization, r.utilizationMode, "percent", periods, workdayHours, holidaySet);
+        pctByResource.set(r.id, Math.round(pct[key] ?? 0));
+      }
+    }
+    return { key, pctByResource };
+  }, [resources, plan.startDate, plan.endDate, plan.granularity, workdayHours, holidaySet]);
   const getPlanValue = useCallback((row: typeof planRows[number], k: PlanSortKey): string | number => {
     const values: Record<PlanSortKey, string | number> = {
       assignee: row.name,
@@ -646,6 +668,11 @@ function ResourcesPanelInner({
           onAddResource={onAddResource}
           onEditAbsence={onEditAbsence}
           onEditShift={onEditShift}
+          nearTermPeriodKey={nearTerm.key}
+          nearTermPctByResource={nearTerm.pctByResource}
+          onSetUtilization={onSetUtilization}
+          onReassignTask={onReassignTask}
+          onRescheduleTask={onRescheduleTask}
           colResize={workload}
         />
       )}

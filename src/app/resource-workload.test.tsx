@@ -13,6 +13,8 @@ const colResize = {
 const baseProps = {
   lang: "en-US" as const, resources: [r], absences: [], shifts: [], raid: [], raidEnabled: true, today: "2026-06-01",
   onEditResource: vi.fn(), onAddResource: vi.fn(), onEditAbsence: vi.fn(), onEditShift: vi.fn(),
+  nearTermPeriodKey: null, nearTermPctByResource: new Map<number, number>(),
+  onSetUtilization: vi.fn(), onReassignTask: vi.fn(), onRescheduleTask: vi.fn(),
   colResize,
 };
 
@@ -79,5 +81,47 @@ describe("ResourceWorkload", () => {
     expect(screen.getByText("Open RAID")).toBeInTheDocument();
     rerender(<ResourceWorkload {...baseProps} tasks={[]} raidEnabled={false} />);
     expect(screen.queryByText("Open RAID")).toBeNull();
+  });
+
+  it("edits near-term utilization inline, calling onSetUtilization (#24)", () => {
+    const onSetUtilization = vi.fn();
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        tasks={[]}
+        nearTermPeriodKey="2026-06"
+        nearTermPctByResource={new Map([[1, 120]])}
+        onSetUtilization={onSetUtilization}
+      />,
+    );
+    const input = screen.getByLabelText(/Near-term utilization for Alex Example/i) as HTMLInputElement;
+    // Over-allocated (>100%) → pink highlight.
+    expect(input.className).toContain("text-AIPM-pink-strong");
+    fireEvent.change(input, { target: { value: "50" } });
+    expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-06", 50);
+  });
+
+  it("triages an overdue task inline: reassign + reschedule (#24)", () => {
+    const onReassignTask = vi.fn();
+    const onRescheduleTask = vi.fn();
+    const r2: Resource = { id: 2, firstName: "Ben", lastName: "Ng", roleId: null, utilizationMode: "percent", utilization: {} };
+    const overdue = { id: 10, taskName: "Fix bug", assignee: "Alex Example", dueDate: "2026-01-01", resourceId: 1 } as unknown as Task;
+    render(
+      <ResourceWorkload
+        {...baseProps}
+        resources={[r, r2]}
+        tasks={[overdue]}
+        onReassignTask={onReassignTask}
+        onRescheduleTask={onRescheduleTask}
+      />,
+    );
+    // Overdue count is a triage trigger.
+    fireEvent.click(screen.getByRole("button", { name: /Triage overdue tasks – Alex Example/i }));
+    // Reassign via the resource select.
+    fireEvent.change(screen.getByLabelText(/Owner – Fix bug/i), { target: { value: "2" } });
+    expect(onReassignTask).toHaveBeenCalledWith(10, r2);
+    // Reschedule via the date input.
+    fireEvent.change(screen.getByLabelText(/Due – Fix bug/i), { target: { value: "2026-12-31" } });
+    expect(onRescheduleTask).toHaveBeenCalledWith(10, "2026-12-31");
   });
 });

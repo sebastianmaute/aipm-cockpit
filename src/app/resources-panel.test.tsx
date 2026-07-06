@@ -29,6 +29,8 @@ const baseProps = {
   plan: { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" },
   workdayHours: 8,
   onSetUtilization: () => {},
+  onReassignTask: () => {},
+  onRescheduleTask: () => {},
   onSetAllUtilizationMode: () => {},
   onSetAbsenceOverride: () => {},
   onSetPlanWindow: () => {},
