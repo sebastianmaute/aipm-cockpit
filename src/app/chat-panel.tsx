@@ -375,15 +375,18 @@ function ChatPanelInner({
     if (!files || files.length === 0) return;
     setError(null);
     const staged: StagedAttachment[] = [];
+    // Collect every file's failure — a multi-file pick previously overwrote the
+    // error state per file, so only the LAST failure was ever shown.
+    const errors: string[] = [];
     for (const file of Array.from(files)) {
       const sizeErr = checkAttachmentSize(file.size);
       if (sizeErr) {
-        setError(attachmentErrorText(sizeErr, file.name));
+        errors.push(attachmentErrorText(sizeErr, file.name));
         continue;
       }
       const kind = classifyAttachment(file.type, file.name);
       if (!kind) {
-        setError(t(lang, "chatAttachmentUnsupported", file.name));
+        errors.push(t(lang, "chatAttachmentUnsupported", file.name));
         continue;
       }
       try {
@@ -394,10 +397,11 @@ function ChatPanelInner({
           block: buildAttachmentBlock(kind, file.type, data),
         });
       } catch {
-        setError(t(lang, "chatAttachmentReadFailed", file.name));
+        errors.push(t(lang, "chatAttachmentReadFailed", file.name));
       }
     }
     if (staged.length > 0) setAttachments((prev) => [...prev, ...staged]);
+    if (errors.length > 0) setError(errors.join("\n"));
     // Reset the input so re-selecting the same file fires onChange again.
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
@@ -548,7 +552,7 @@ function ChatPanelInner({
       {error && (
         <p
           role="alert"
-          className="mt-2 rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15"
+          className="mt-2 whitespace-pre-line rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15"
         >
           {error}
         </p>
@@ -646,6 +650,7 @@ function ChatPanelInner({
           </button>
         </div>
       </div>
+      <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatAttachmentHint")}</p>
     </div>
   );
 }
