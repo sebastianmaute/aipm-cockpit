@@ -14,6 +14,15 @@ describe("useCalendarAutoSync", () => {
     expect(push).toHaveBeenCalledTimes(1);
   });
 
+  it("delays the push by staggerMs on top of the base debounce", () => {
+    const push = vi.fn().mockResolvedValue(undefined);
+    renderHook(() => useCalendarAutoSync({ active: true, contentKey: "a", push, staggerMs: 1500 }));
+    vi.advanceTimersByTime(4000);
+    expect(push).not.toHaveBeenCalled(); // base elapsed but stagger not yet
+    vi.advanceTimersByTime(1500);
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+
   it("never fires when inactive", () => {
     const push = vi.fn().mockResolvedValue(undefined);
     renderHook(() => useCalendarAutoSync({ active: false, contentKey: "a", push }));
