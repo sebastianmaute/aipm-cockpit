@@ -147,6 +147,35 @@ describe("TaskRow", () => {
     expect(getByTitle(/Predecessor task/)).toBeTruthy();
   });
 
+  test("dependency chip updates when only the lookup Map changes (task prop + row context held constant)", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 7, taskName: "Dependent", dependencies: [{ taskId: 5, type: "FS" }] });
+    // Same task element + same row context value across the rerender — only the
+    // split lookup Map changes. Locks the context-bypasses-memo behavior the
+    // split exists to preserve (audit #32): task B's chip must re-resolve A's
+    // new name even though B's own props/row-context didn't change.
+    const child = (
+      <TaskRow
+        task={task}
+        isSelected={false}
+        isEditing={false}
+        isExpanded={false}
+        isPushing={false}
+        raidRefs={undefined}
+      />
+    );
+    const { getByTitle, queryByTitle, rerender } = render(
+      rowWrapper({ context: ctx, tasksById: new Map([[5, makeTask({ id: 5, taskName: "Old name" })]]), children: child }),
+    );
+    expect(getByTitle(/Old name/)).toBeTruthy();
+
+    rerender(
+      rowWrapper({ context: ctx, tasksById: new Map([[5, makeTask({ id: 5, taskName: "New name" })]]), children: child }),
+    );
+    expect(getByTitle(/New name/)).toBeTruthy();
+    expect(queryByTitle(/Old name/)).toBeNull();
+  });
+
   test("does not re-render on unrelated parent state change (memo holds)", () => {
     const ctx = makeContext();
     const task = makeTask({ id: 42 });

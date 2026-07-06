@@ -32,7 +32,11 @@ export interface InlineEntityEditDeps {
   ws: Workspace;
   guides: readonly OperatingGuide[];
   recordUsage?: (u: { input_tokens: number; output_tokens: number }) => void;
-  /** Extra per-entity enable clause (task: !jiraKey). */
+  /** Extra per-entity enable clause (task: !jiraKey). MUST be a stable
+   *  reference (useCallback / module fn): it feeds the `aiEditEnabled`/`openFor`
+   *  useCallbacks, which a caller threads into the task row context value — an
+   *  inline arrow here silently rebuilds that value every render and re-renders
+   *  every row (the audit #6 regression this hook was fixed to avoid). */
   gate?: (item: EntityItem) => boolean;
   /** False when this entity's pane is not the active view — a left-open edit is
    *  auto-closed (see the render-time reconcile). Undefined ⇒ always active
