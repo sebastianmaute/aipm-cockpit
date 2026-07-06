@@ -8,6 +8,35 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.167.0] - 2026-07-06 "Rajaniemi"
+
+Roll-up of the codebase-audit improvement campaign — a series of data-integrity,
+performance, correctness, accessibility, and gap-closing batches that shipped
+internally without a version bump — plus the workload-actionable feature. No
+breaking changes.
+
+### Added
+- **Global search now covers budgets and resources** (previously only tasks, RAID, changes, milestones, and stakeholders): search a person by name/email/department or a budget by name/PO number and jump straight to it.
+- **Per-field change diffs in the activity log**: an update event now records which fields changed (e.g. `status: Open → Closed`), rendered as a small list under the entry — turning coarse "X updated" lines into an audit trail. Per-device only (not exported).
+- **The workload view is actionable**: a new "Util (now)" column edits a resource's near-term utilization inline (the same period the over-allocation alert flags), and the overdue-task count opens an inline triage popover to reassign (owner select) or reschedule (due date) a resource's overdue tasks without leaving the view. Jira-synced tasks are read-only there.
+- **Keyboard navigation for the resource calendar grid**: arrow keys move between day cells (± day / ± assignee), Home/End/Ctrl+Home/End and PageUp/Down jump within the window; the grid is now a single tab stop (APG grid pattern).
+- **Collapsed-sidebar sub-menu flyout**: when the sidebar is collapsed to the icon rail, a parent with children (e.g. Dashboard → Next actions/Trends) opens a popover so the nested views stay reachable.
+- **Mobile off-canvas sidebar drawer**: on narrow screens the menu button opens the sidebar as a focus-trapped overlay with a backdrop, instead of only shrinking to an icon rail.
+- **Branded confirmation dialogs** replace the browser's native `window.confirm` for destructive actions (clear-all, deletes, disconnects, chat-clear), with consistent styling and keyboard/ screen-reader behaviour.
+- **Import drops a warning** when rows are rejected during a CSV/Markdown load, instead of silently discarding them.
+- **Keyboard shortcuts documented** in the Help panel (⌘K/Ctrl-K to focus search, `/`, F4 push-to-talk).
+
+### Changed
+- **Accessibility hardening across the shell**: focus moves to the main content region on a view change (so keyboard/screen-reader users follow the swap); the project switcher menu has roving arrow-key navigation and returns focus to its trigger on Escape; the modern shell announces the active view to screen readers; long-running controls expose a busy state; toggle-button labels stay coherent with their state.
+- **Performance**: the global-search index and the Gantt search haystack are precomputed once and reused per keystroke; task-row context churn on edits is bounded (volatile lookups split into their own context so an edit re-renders only the affected cell); calendar auto-sync pushes are staggered to avoid a save-time request herd.
+- **Data-integrity / transparency**: a corrupt project file surfaces a load error instead of silently loading empty then overwriting; settings/secret write failures and swallowed calendar-push/status-check failures now surface a toast + diagnostic log entry.
+
+### Fixed
+- **Bulk edit / clear-all / voice clear-all** and several inline entity saves now use functional state updaters, so N edits in one tick compose instead of the last write clobbering the rest.
+- **RAID/change/stakeholder inline edits** correctly accumulate multiple push segments (voice dictation) instead of overwriting.
+- Removed a false "drag the handles to draw a dependency" claim from the Gantt help; corrected several stale help strings.
+- A dead `rate === 0` currency branch and other small correctness nits from the audit.
+
 ## [0.166.0] - 2026-07-05 "Egan"
 
 ### Added

@@ -56,10 +56,11 @@ npm run e2e               # Playwright headless against a fresh dev server
 
 Notes:
 
-- `npm run test:coverage` enforces an 80% v8 threshold and will exit non-zero
-  while coverage is still ramping. Either keep adding tests or temporarily
-  lower the threshold in `vitest.config.ts` during bootstrap — don't block
-  ships on it yet.
+- `npm run test:coverage` enforces the v8 coverage floors set in
+  `vitest.config.ts` (global lines 92 / funcs 91 / branch 80 / stmts 89, plus
+  per-engine globs) and will exit non-zero if any floor slips. These are the
+  same floors CI's blocking unit gate applies — treat a drop as a real
+  regression to fix, not a threshold to lower.
 - `npm run e2e` boots `npm run dev` on port 3000. If you already have a dev
   server running there, Playwright reuses it (outside CI). In CI it always
   spawns its own.
@@ -112,7 +113,7 @@ that no longer matches the per-request CSP header.
 3. Add a task; refresh; confirm it persists.
 4. Open the Version popover (info icon in header). `APP_VERSION` and
    `APP_BUILD_DATE` should match the build you just shipped (current release:
-   **v0.115.0 "Sturgeon"**).
+   **v0.167.0 "Rajaniemi"**).
 5. If Jira is in use: open Settings → Jira, enter test creds, hit Test —
    the route handler at `/api/jira/test` should respond.
 

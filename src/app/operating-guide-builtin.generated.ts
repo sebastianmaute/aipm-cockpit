@@ -161,7 +161,7 @@ export const BUILTIN_FEATURE_GUIDES: { id: string; name: string; content: string
   {
     "id": "builtin-feature-resources",
     "name": "Feature: Resources & capacity",
-    "content": "## Resources & capacity\n\n\n- Resource directory (people and their identity), workload/utilisation, capacity planning and allocations, and the roles/disciplines/grades reference data.\n- Capacity is computed from allocations against working time (holidays, absences, shifts); over-allocation surfaces in the workload view and feeds Action Center signals.\n- AI: read-only — there is no resource/allocation write tool. It can explain over-allocation and capacity gaps; assignment and allocation edits are UI actions.",
+    "content": "## Resources & capacity\n\n\n- Resource directory (people and their identity), workload/utilisation, capacity planning and allocations, and the roles/disciplines/grades reference data.\n- Capacity is computed from allocations against working time (holidays, absences, shifts); over-allocation surfaces in the workload view and feeds Action Center signals.\n- The workload view is actionable: the \"Util (now)\" column edits a resource's near-term utilisation inline (the same period the over-allocation signal flags), and the overdue-task count opens a triage popover to reassign (owner) or reschedule (due date) that resource's overdue tasks in place. Jira-synced tasks are read-only there.\n- AI: read-only — there is no resource/allocation write tool. It can explain over-allocation and capacity gaps; assignment and allocation edits are UI actions.",
     "scope": {
       "views": [
         "resources",
@@ -215,7 +215,7 @@ export const BUILTIN_FEATURE_GUIDES: { id: string; name: string; content: string
   {
     "id": "builtin-feature-activity",
     "name": "Feature: Activity log",
-    "content": "## Activity log\n\n\n- A chronological feed of project activity (task, RAID, Jira sync, bulk, and general events), filterable by type; timestamps render in the active display timezone.\n- A read-only audit trail; entries are written by the app as records change.\n- AI: read-only — it can summarize recent activity but does not write log entries.",
+    "content": "## Activity log\n\n\n- A chronological feed of project activity (task, RAID, Jira sync, bulk, and general events), filterable by type; timestamps render in the active display timezone.\n- A read-only audit trail; entries are written by the app as records change. Update events record a per-field diff (which fields changed, before → after) shown beneath the entry.\n- AI: read-only — it can summarize recent activity but does not write log entries.",
     "scope": {
       "views": [
         "activity"

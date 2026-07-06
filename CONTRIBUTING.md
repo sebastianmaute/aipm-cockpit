@@ -118,6 +118,15 @@ Tailwind v4 with `@tailwindcss/postcss`. Do **not** introduce
 `mini-css-extract-plugin` or `style-loader` — Next handles CSS internally and
 the `lop-app-css-hmr-investigation` memory documents a previous false trail.
 
+Colours, shadows, and gradients are restricted to the sanctioned AIPM brand
+tokens in `globals.css` — no off-palette colours, and no raw `shadow`/gradient
+utilities (use the `--shadow-*` / `--gradient-*` role tokens where one is
+genuinely needed). The `shell-palette-guard` / `palette-chrome-sweep` tests
+enforce this and scan the **whole source, including comments**, so a stray raw
+`shadow` (even `--shadow-card` written in a code comment) fails CI.
+`AIPM-light-grey` is **not** a chrome token — `bg-` / `border-` /
+`divide-AIPM-light-grey` is banned; use `AIPM-medium-grey` instead.
+
 ### State
 The orchestrator component (`task-manager.tsx`, ~3.5k LoC after slice-4 modal
 extraction) owns most state. Modal bodies live in `task-form-modal.tsx` and

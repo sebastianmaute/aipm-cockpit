@@ -173,6 +173,10 @@ const enUS = {
   versionHighlightCalendarAutoPull: "Optional background auto-pull of Outlook reschedules",
   versionHighlightInlineAiEdit: "Edit tasks in natural language, in place — an inline 'Ask Claude' popover proposes changes you preview and apply",
   versionHighlightInlineAiEditSp2: "Inline 'Ask Claude' edit now on RAID, changes, milestones, and stakeholders too — the same preview-and-apply popover from tasks, on every register row",
+  versionHighlightSearchCoverage: "Global search now covers budgets and resources, not just tasks/RAID/changes/milestones/stakeholders — jump to a person or a PO line straight from the search box",
+  versionHighlightActivityDiff: "The activity log now records which fields changed on an update ('status: Open → Closed'), turning coarse entries into a per-field audit trail",
+  versionHighlightKeyboardA11y: "A broad keyboard and screen-reader pass: branded confirm dialogs, a keyboard-navigable calendar grid, a flyout for collapsed-sidebar sub-menus, a mobile off-canvas drawer, and focus that follows the view on navigation",
+  versionHighlightWorkloadActionable: "The workload view is now actionable — edit a resource's near-term utilization inline and reassign or reschedule their overdue tasks without leaving the view",
 
   tasks: "Tasks",
   tasksCount: "({0})",
