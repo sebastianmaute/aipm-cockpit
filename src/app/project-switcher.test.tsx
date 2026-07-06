@@ -175,6 +175,21 @@ describe("ProjectSwitcher", () => {
       await user.keyboard("{Home}");
       expect(gemini).toHaveFocus();
     });
+
+    it("Escape closes the menu and returns focus to the trigger (WCAG 2.4.3)", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      const trigger = screen.getByRole("button", { name: /Apollo/ });
+      await user.click(trigger);
+      // Focus is inside the menu (Gemini).
+      expect(screen.getByRole("menuitem", { name: /Gemini/ })).toHaveFocus();
+
+      await user.keyboard("{Escape}");
+      // Menu closed and focus restored to the trigger button, not lost to body.
+      expect(screen.queryByRole("menuitem", { name: /Gemini/ })).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
   });
 
   describe("turso mode", () => {

@@ -165,7 +165,7 @@ function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
   const { activityLog, setActivityLog, logActivity, handleClearActivityLog } =
-    useActivityLog({ lang });
+    useActivityLog();
   const { toast, showToast } = useToast();
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();

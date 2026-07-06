@@ -1589,7 +1589,6 @@ export const de: Record<TranslationKey, string> = {
   activitySearchModeHint: "Legt fest, wie der Suchtext interpretiert wird: wörtlich, Platzhalter oder Regex.",
   activityGroupFilterHint: "Zeigt nur Protokolleinträge der gewählten Art.",
   activityClearHint: "Löscht alle Einträge des Aktivitätsprotokolls. Dies kann nicht rückgängig gemacht werden.",
-  activityClearConfirm: "Das gesamte Aktivitätsprotokoll löschen? Dies kann nicht rückgängig gemacht werden.",
   timelogClearAllConfirm: "Alle abgerufenen Timelog-Daten (Personen, Projekte und Buchungen) löschen? Dies kann nicht rückgängig gemacht werden.",
   tasksSearchHint: "Filtert die Tabelle auf Aufgaben, deren Name, Zuständige(r), Blocker oder Notizen zum Text passen.",
   tasksGroupFilterHint: "Zeigt nur Aufgaben der gewählten Gruppe.",

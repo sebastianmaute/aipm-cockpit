@@ -1,8 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ActivityLogPanel } from "./activity-log-panel";
+import { ConfirmProvider } from "./confirm-dialog";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
+import { t } from "./i18n";
 import type { ActivityEntry } from "./activity-log";
+
+// Synchronous rAF so the confirm dialog's Modal focus-management effect runs
+// immediately (the branded confirm is built on the shared Modal).
+beforeEach(() => {
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+    cb(0);
+    return 0;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+});
 
 // All panel renders go through the provider — the panel reads useDisplayTimezone().
 // A non-UTC zone (Asia/Kolkata, +5:30) makes the zone conversion observable.
@@ -72,5 +85,41 @@ describe("ActivityLogPanel", () => {
       expect(el.className).not.toContain("print:hidden");
       el = el.parentElement;
     }
+  });
+
+  // Regression guard: the Clear button routes through the branded ConfirmProvider
+  // (not the removed hook-level confirm), so onClear fires ONLY after the user
+  // confirms in the dialog. Rendered through a REAL provider — a mocked confirm
+  // would hide a provider-placement bug.
+  it("clears the log only after confirming in the branded dialog", async () => {
+    const user = userEvent.setup();
+    const onClear = vi.fn();
+    render(
+      <ConfirmProvider lang="en-US">
+        <DisplayTimezoneProvider effectiveTz="Asia/Kolkata">
+          <ActivityLogPanel lang="en-US" entries={entries} onClear={onClear} />
+        </DisplayTimezoneProvider>
+      </ConfirmProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: t("en-US", "activityClear") }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(onClear).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: t("en-US", "confirm") }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not clear when the confirm dialog is cancelled", async () => {
+    const user = userEvent.setup();
+    const onClear = vi.fn();
+    render(
+      <ConfirmProvider lang="en-US">
+        <DisplayTimezoneProvider effectiveTz="Asia/Kolkata">
+          <ActivityLogPanel lang="en-US" entries={entries} onClear={onClear} />
+        </DisplayTimezoneProvider>
+      </ConfirmProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: t("en-US", "activityClear") }));
+    await user.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(onClear).not.toHaveBeenCalled();
   });
 });

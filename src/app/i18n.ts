@@ -1595,7 +1595,6 @@ const enUS = {
   activitySearchModeHint: "Choose how the search text is interpreted: literal text, wildcards, or regex.",
   activityGroupFilterHint: "Show only log entries of the selected kind.",
   activityClearHint: "Delete all activity log entries. This cannot be undone.",
-  activityClearConfirm: "Clear the entire activity log? This cannot be undone.",
   timelogClearAllConfirm: "Clear all fetched Timelog data (people, projects and bookings)? This cannot be undone.",
   tasksSearchHint: "Filter the table to tasks whose name, assignee, blockers, or notes match your text.",
   tasksGroupFilterHint: "Show only tasks in the selected group.",

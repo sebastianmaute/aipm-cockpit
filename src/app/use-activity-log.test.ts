@@ -1,14 +1,14 @@
 // src/app/use-activity-log.test.ts
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import type { Lang } from "./i18n";
+import { describe, expect, it } from "vitest";
 import { useActivityLog } from "./use-activity-log";
-import { useConfirm } from "./confirm-dialog";
 
-vi.mock("./confirm-dialog", () => ({ useConfirm: vi.fn(() => () => Promise.resolve(true)) }));
-
-function renderLog(lang: Lang = "en-US" as Lang) {
-  return renderHook(() => useActivityLog({ lang }));
+// handleClearActivityLog no longer confirms here — the branded confirm lives in
+// the panel (which renders under ConfirmProvider; this hook runs above it). The
+// hook just performs the wipe. See activity-log-panel.test.tsx for the confirm
+// flow.
+function renderLog() {
+  return renderHook(() => useActivityLog());
 }
 
 describe("useActivityLog", () => {
@@ -41,38 +41,23 @@ describe("useActivityLog", () => {
   });
 
   describe("handleClearActivityLog", () => {
-    it("does nothing when log is empty (confirm not called)", async () => {
-      const confirmFn = vi.fn(() => Promise.resolve(true));
-      vi.mocked(useConfirm).mockReturnValue(confirmFn);
-      const { result } = renderLog();
-      await act(async () => {
-        await result.current.handleClearActivityLog();
-      });
-      expect(confirmFn).not.toHaveBeenCalled();
-    });
-
-    it("clears log when confirm resolves true", async () => {
-      vi.mocked(useConfirm).mockReturnValue(() => Promise.resolve(true));
+    it("clears logged entries", () => {
       const { result } = renderLog();
       act(() => {
         result.current.logActivity("task.created", 1, "Task A");
       });
-      await act(async () => {
-        await result.current.handleClearActivityLog();
+      act(() => {
+        result.current.handleClearActivityLog();
       });
       expect(result.current.activityLog).toHaveLength(0);
     });
 
-    it("does NOT clear when confirm resolves false", async () => {
-      vi.mocked(useConfirm).mockReturnValue(() => Promise.resolve(false));
+    it("is a no-op on an already-empty log", () => {
       const { result } = renderLog();
       act(() => {
-        result.current.logActivity("task.created", 1, "Task A");
+        result.current.handleClearActivityLog();
       });
-      await act(async () => {
-        await result.current.handleClearActivityLog();
-      });
-      expect(result.current.activityLog).toHaveLength(1);
+      expect(result.current.activityLog).toHaveLength(0);
     });
   });
 });

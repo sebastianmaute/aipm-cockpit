@@ -55,6 +55,7 @@ export function ProjectSwitcher({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   usePopoverDismiss(open, ref, () => setOpen(false));
 
@@ -81,6 +82,16 @@ export function ProjectSwitcher({
     );
     let next = -1;
     switch (e.key) {
+      case "Escape":
+        // Close and return focus to the trigger (WCAG 2.4.3 / APG menu-button:
+        // Escape closes the menu and restores focus to the button that opened
+        // it). usePopoverDismiss also closes on Escape, but only this path
+        // restores focus — otherwise the destroyed menuitem drops focus to
+        // <body> and the keyboard user loses their place.
+        e.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
       case "ArrowDown":
         next = activeIndex < 0 ? 0 : (activeIndex + 1) % items.length;
         break;
@@ -132,6 +143,7 @@ export function ProjectSwitcher({
     <div className="flex items-center gap-1">
     <div ref={ref} data-tour-id={dataTourId} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"

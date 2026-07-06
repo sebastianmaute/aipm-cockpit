@@ -78,7 +78,11 @@ export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
     return new Promise<boolean>((resolve) => {
       setPending((prev) => {
         // A new prompt supersedes an unanswered one (should be rare) —
-        // resolve the previous as declined before replacing it.
+        // resolve the previous as declined before replacing it. NOTE: this is
+        // a side-effect inside a state updater, which StrictMode double-invokes
+        // in dev — safe ONLY because Promise settlement is idempotent (a second
+        // resolve() is a no-op). Keep `resolve` a bare promise-resolver; don't
+        // turn it into something non-idempotent here.
         prev?.resolve(false);
         return { ...opts, resolve };
       });
