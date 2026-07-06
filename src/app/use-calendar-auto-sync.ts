@@ -26,7 +26,9 @@ export function useCalendarAutoSync({
   active: boolean; // enabled && auto && m365Configured && !isPopout
   contentKey: string; // hash of the pushable list (fires on meaningful change)
   push: () => Promise<void>;
-  staggerMs?: number; // per-entity offset to spread simultaneous pushes
+  staggerMs?: number; // per-entity offset to spread simultaneous pushes; it's an
+  // effect dep, so keep it a stable primitive (a literal/derived-constant number,
+  // not something recomputed each render) or the debounce re-schedules.
 }): void {
   const lastKey = useRef<string | null>(null);
   useEffect(() => {
