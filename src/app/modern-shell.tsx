@@ -60,19 +60,22 @@ export function ModernShell({
 }: ModernShellProps) {
   const [versionOpen, setVersionOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
-  const mountedRef = useRef(false);
+  // Track the last-focused view rather than a mounted boolean so the guard is
+  // idempotent under StrictMode's dev double-invoke of mount effects (a boolean
+  // flag flips on the first run and focuses on the second, defeating the
+  // no-focus-on-load intent). Seeding the ref to the initial view means the
+  // first commit is a no-op and focus only moves on a genuine view CHANGE.
+  const focusedViewRef = useRef<AppView>(activeView);
   // Move keyboard focus to the main content region on view change so keyboard
   // and screen-reader users follow the swapped content instead of staying
-  // parked on the sidebar nav item (WCAG 2.4.3 focus order). Skip the initial
-  // mount (never yank focus on load / fight the skip link) and use
-  // `preventScroll` so a deep-link row-flash scroll (use-deeplink-row-flash)
-  // isn't disturbed. Focus on a `tabIndex={-1}` container is a permitted DOM
-  // side-effect (not setState) — no set-state-in-effect violation.
+  // parked on the sidebar nav item (WCAG 2.4.3 focus order). Never yanks focus
+  // on load / fights the skip link (seeded ref); uses `preventScroll` so a
+  // deep-link row-flash scroll (use-deeplink-row-flash) isn't disturbed. Focus
+  // on a `tabIndex={-1}` container is a permitted DOM side-effect (not setState)
+  // — no set-state-in-effect violation.
   useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
+    if (focusedViewRef.current === activeView) return;
+    focusedViewRef.current = activeView;
     mainRef.current?.focus({ preventScroll: true });
   }, [activeView]);
   const isEditing = activeView === "edit";
