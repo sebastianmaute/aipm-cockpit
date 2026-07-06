@@ -70,6 +70,93 @@ it("renders past and future day columns for the given window", () => {
   expect(screen.getByTitle(/2026-06-15 \(/)).toBeTruthy();
 });
 
+it("supports 2-D roving keyboard navigation over day cells (#27)", () => {
+  const { container } = render(
+    <ResourceCalendar
+      {...baseProps}
+      rows={[
+        { key: "a", display: "Aria", email: "" },
+        { key: "b", display: "Ben", email: "" },
+      ]}
+      resources={[]}
+      startDate="2026-06-10"
+      endDate="2026-06-12"
+    />,
+  );
+  const grid = container.querySelector('[role="grid"]') as HTMLElement;
+  expect(grid).toBeTruthy();
+  const cell = (r: number, c: number) =>
+    container.querySelector(`[data-cell="${r}-${c}"]`) as HTMLElement;
+
+  // Roving tabindex: exactly the active cell (0,0) is a tab stop.
+  expect(cell(0, 0).getAttribute("tabindex")).toBe("0");
+  expect(cell(0, 1).getAttribute("tabindex")).toBe("-1");
+  expect(cell(1, 0).getAttribute("tabindex")).toBe("-1");
+
+  cell(0, 0).focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(cell(0, 1));
+  expect(cell(0, 1).getAttribute("tabindex")).toBe("0");
+  expect(cell(0, 0).getAttribute("tabindex")).toBe("-1");
+
+  fireEvent.keyDown(grid, { key: "ArrowDown" });
+  expect(document.activeElement?.getAttribute("data-cell")).toBe("1-1");
+
+  fireEvent.keyDown(grid, { key: "Home" });
+  expect(document.activeElement).toBe(cell(1, 0));
+
+  fireEvent.keyDown(grid, { key: "End" });
+  expect(document.activeElement?.getAttribute("data-cell")).toBe("1-2");
+
+  // Ctrl+Home jumps to the grid origin.
+  fireEvent.keyDown(grid, { key: "Home", ctrlKey: true });
+  expect(document.activeElement).toBe(cell(0, 0));
+});
+
+it("keeps exactly one day-cell tab stop after the window shrinks (#27 clamp)", () => {
+  const props = {
+    ...baseProps,
+    rows: [
+      { key: "a", display: "Aria", email: "" },
+      { key: "b", display: "Ben", email: "" },
+    ],
+    resources: [],
+  };
+  const { container, rerender } = render(
+    <ResourceCalendar {...props} startDate="2026-06-01" endDate="2026-06-30" />,
+  );
+  const grid = container.querySelector('[role="grid"]') as HTMLElement;
+  // Rove focus far into the wide grid.
+  (container.querySelector('[data-cell="0-0"]') as HTMLElement).focus();
+  for (let i = 0; i < 20; i++) fireEvent.keyDown(grid, { key: "ArrowRight" });
+  fireEvent.keyDown(grid, { key: "ArrowDown" });
+  // Shrink the window to 3 days; the stored marker (row 1, col ~20) is now off-range.
+  rerender(<ResourceCalendar {...props} startDate="2026-06-01" endDate="2026-06-03" />);
+  const cells = Array.from(container.querySelectorAll<HTMLElement>("[data-cell]"));
+  const tabStops = cells.filter((c) => c.getAttribute("tabindex") === "0");
+  // Exactly one cell remains a tab stop (clamped onto a real rendered cell).
+  expect(tabStops).toHaveLength(1);
+  expect(tabStops[0].getAttribute("data-cell")).toBe("1-2");
+});
+
+it("does not hijack arrow keys from the assignee row-header button (#27)", () => {
+  const { container } = render(
+    <ResourceCalendar
+      {...baseProps}
+      rows={[{ key: "a", display: "Aria", email: "" }]}
+      resources={[]}
+      startDate="2026-06-10"
+      endDate="2026-06-12"
+    />,
+  );
+  const grid = container.querySelector('[role="grid"]') as HTMLElement;
+  const assignee = screen.getByRole("button", { name: "Aria" });
+  assignee.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight" });
+  // Focus stays on the row-header button (not yanked into the day grid).
+  expect(document.activeElement).toBe(assignee);
+});
+
 it("scroll-centers today when the window includes it", () => {
   const { container } = render(
     <ResourceCalendar

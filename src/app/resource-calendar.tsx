@@ -10,7 +10,7 @@
 //
 // Phase 3 of the Resource Planner (see docs/RESOURCE-PLANNER-PLAN.md).
 
-import { memo, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
@@ -135,6 +135,50 @@ function ResourceCalendarInner({
   }, [startDate, endDate, today, holidaySet, lang]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLTableElement | null>(null);
+
+  // Roving-tabindex focus target for the 2-D day-cell grid (#27). Exactly one
+  // day cell is a tab stop; arrow keys move DOM focus + this marker. Clamped on
+  // read so a window/row change that shrinks the grid can't strand the marker
+  // off-range (which would leave NO cell tab-reachable).
+  const [focusCell, setFocusCell] = useState<{ row: number; col: number }>({ row: 0, col: 0 });
+  const rowCount = rows.length;
+  const colCount = days.length;
+  const focusRow = rowCount > 0 ? Math.min(focusCell.row, rowCount - 1) : 0;
+  const focusCol = colCount > 0 ? Math.min(focusCell.col, colCount - 1) : 0;
+
+  // APG grid keyboard model. Rows = assignees, columns = dates: Arrow moves one
+  // cell on either axis, Home/End = row ends, Ctrl+Home/End = grid corners,
+  // PageUp/Down = ±1 week within the window. Enter/Space stay native (the cell
+  // is a <button> whose onClick adds/edits the absence).
+  function onGridKeyDown(e: React.KeyboardEvent<HTMLTableElement>) {
+    if (rowCount === 0 || colCount === 0) return;
+    // Only day cells rove — ignore keys unless a day cell holds focus, so the
+    // assignee row-header button (outside the roving set) keeps its arrow keys.
+    if (!(document.activeElement as HTMLElement | null)?.matches?.("[data-cell]")) return;
+    let r = focusRow;
+    let c = focusCol;
+    switch (e.key) {
+      case "ArrowLeft": c = Math.max(0, c - 1); break;
+      case "ArrowRight": c = Math.min(colCount - 1, c + 1); break;
+      case "ArrowUp": r = Math.max(0, r - 1); break;
+      case "ArrowDown": r = Math.min(rowCount - 1, r + 1); break;
+      case "Home":
+        if (e.ctrlKey) { r = 0; c = 0; } else { c = 0; }
+        break;
+      case "End":
+        if (e.ctrlKey) { r = rowCount - 1; c = colCount - 1; } else { c = colCount - 1; }
+        break;
+      case "PageUp": c = Math.max(0, c - 7); break;
+      case "PageDown": c = Math.min(colCount - 1, c + 7); break;
+      default: return;
+    }
+    e.preventDefault();
+    setFocusCell({ row: r, col: c });
+    gridRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-cell="${r}-${c}"]`)
+      ?.focus();
+  }
 
   // Index of today's column within the window (−1 when today is out of range).
   const todayIndex = useMemo(() => days.findIndex((d) => d.isToday), [days]);
@@ -175,10 +219,17 @@ function ResourceCalendarInner({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
       <div ref={scrollRef} data-calendar-scroll className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
-        <table className="border-separate border-spacing-0 text-sm">
+        <table
+          ref={gridRef}
+          role="grid"
+          aria-label={t(lang, "resourcesViewCalendar")}
+          onKeyDown={onGridKeyDown}
+          className="border-separate border-spacing-0 text-sm"
+        >
           <thead className={TABLE_HEAD_CLASS}>
-            <tr>
+            <tr role="row">
               <th
+                role="columnheader"
                 className="sticky left-0 top-0 z-30 border-b border-r border-line bg-AIPM-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
                 style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
               >
@@ -187,6 +238,7 @@ function ResourceCalendarInner({
               {days.map((d) => (
                 <th
                   key={d.iso}
+                  role="columnheader"
                   title={
                     d.isToday
                       ? `${d.iso} (${t(lang, "resourcesToday")})`
@@ -215,11 +267,12 @@ function ResourceCalendarInner({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {rows.map((row, rowIndex) => {
               const rowAbs = absencesByKey.get(row.key) ?? [];
               return (
-                <tr key={row.key}>
+                <tr key={row.key} role="row">
                   <td
+                    role="rowheader"
                     className="sticky left-0 z-10 border-b border-r border-line bg-surface px-2 py-1"
                     style={{
                       minWidth: ASSIGNEE_COL_PX,
@@ -244,7 +297,7 @@ function ResourceCalendarInner({
                       );
                     })()}
                   </td>
-                  {days.map((d) => {
+                  {days.map((d, colIndex) => {
                     const hit = rowAbs.find(
                       (a) => d.iso >= a.startDate && d.iso <= a.endDate,
                     );
@@ -276,6 +329,7 @@ function ResourceCalendarInner({
                     return (
                       <td
                         key={d.iso}
+                        role="gridcell"
                         className="border-b border-r border-line p-0"
                         style={{
                           minWidth: CELL_PX,
@@ -285,7 +339,12 @@ function ResourceCalendarInner({
                       >
                         <button
                           type="button"
-                          onClick={handleClick}
+                          data-cell={`${rowIndex}-${colIndex}`}
+                          tabIndex={rowIndex === focusRow && colIndex === focusCol ? 0 : -1}
+                          onClick={() => {
+                            setFocusCell({ row: rowIndex, col: colIndex });
+                            handleClick();
+                          }}
                           title={tip}
                           aria-label={tip}
                           className={`flex h-full w-full items-center justify-center text-[11px] font-semibold tabular-nums focus:ring-inset ${INTERACTIVE} ${baseBg}`}

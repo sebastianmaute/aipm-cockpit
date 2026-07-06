@@ -1,8 +1,10 @@
 "use client";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { NAV_GROUPS, navLabelKey, type AppView, type NavGroup, type NavItem } from "./nav-config";
 import { NavIcon } from "./nav-icons";
 import { TOUR_ANCHORS } from "./app-tour";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 
 // Guided-tour spotlight anchors live on the matching nav buttons.
 const NAV_TOUR_ID: Partial<Record<AppView, string>> = {
@@ -26,6 +28,143 @@ interface SidebarNavProps {
 function isParentActive(item: NavItem, active: AppView): boolean {
   if (item.view === active) return true;
   return (item.children ?? []).some((c) => c.view === active);
+}
+
+const CHILD_BADGE_CLASS =
+  "ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white";
+
+/**
+ * Collapsed-rail affordance for a parent that has sub-menu children (#35).
+ * The icon rail can't show the accordion, so the children would be unreachable;
+ * this makes the parent icon a popover trigger listing the parent itself + its
+ * children as menuitems (roving arrows, Escape/outside-click dismiss — mirrors
+ * the project-switcher menu). Palette-safe: light surface popover, elevation
+ * via the sanctioned card-elevation token, brand focus ring.
+ */
+function CollapsedNavFlyout({
+  lang,
+  item,
+  activeView,
+  onNavigate,
+  badges,
+}: {
+  lang: Lang;
+  item: NavItem;
+  activeView: AppView;
+  onNavigate: (view: AppView) => void;
+  badges?: Partial<Record<AppView, number>>;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLLIElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  usePopoverDismiss(open, wrapRef, close);
+
+  const active = isParentActive(item, activeView);
+  const label = t(lang, navLabelKey(item.view));
+  const children = item.children ?? [];
+  const childBadgeTotal = children.reduce((n, c) => n + (badges?.[c.view] ?? 0), 0);
+  const rootBadge = (badges?.[item.view] ?? 0) + childBadgeTotal;
+  // Parent view first, then children — every view stays reachable from the rail.
+  const entries: AppView[] = [item.view, ...children.map((c) => c.view)];
+
+  // Move focus into the menu on open (first menuitem).
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+  }, [open]);
+
+  function onMenuKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
+    );
+    if (items.length === 0) return;
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    let next = -1;
+    switch (e.key) {
+      case "Escape":
+        e.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+        return;
+      case "Tab":
+        setOpen(false);
+        return;
+      case "ArrowDown": next = i < 0 ? 0 : (i + 1) % items.length; break;
+      case "ArrowUp": next = i < 0 ? items.length - 1 : (i - 1 + items.length) % items.length; break;
+      case "Home": next = 0; break;
+      case "End": next = items.length - 1; break;
+      default: return;
+    }
+    e.preventDefault();
+    items[next]?.focus();
+  }
+
+  return (
+    <li ref={wrapRef} className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        className={`${navItemClass(active, "root", true)} relative`}
+      >
+        <NavIcon view={item.view} />
+        {/* "has children" affordance on the icon rail. */}
+        <span
+          aria-hidden
+          className="absolute right-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-AIPM-medium-grey"
+        />
+      </button>
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={label}
+          onKeyDown={onMenuKeyDown}
+          className="absolute left-full top-0 z-40 ml-1 min-w-44 rounded-md border border-line bg-surface p-1 shadow-[var(--shadow-card)]"
+        >
+          {entries.map((view) => {
+            const viewActive = activeView === view;
+            const badge = badges?.[view] ?? 0;
+            return (
+              <button
+                key={view}
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                aria-current={viewActive ? "page" : undefined}
+                onClick={() => {
+                  onNavigate(view);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm focus:outline-none focus:ring-2 focus:ring-AIPM-green ${
+                  viewActive
+                    ? "bg-surface-muted font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+                    : "text-foreground hover:bg-surface-muted"
+                }`}
+              >
+                <NavIcon view={view} />
+                <span>{t(lang, navLabelKey(view))}</span>
+                {badge > 0 && <span aria-hidden className={CHILD_BADGE_CLASS}>{badge}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {rootBadge > 0 && (
+        // Collapsed urgency dot (the numeric pill only shows when expanded).
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-2 top-1.5 h-2 w-2 rounded-full bg-AIPM-pink"
+        />
+      )}
+    </li>
+  );
 }
 
 function navItemClass(active: boolean, indent: "root" | "child", collapsed: boolean): string {
@@ -54,6 +193,20 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
           )}
           <ul role="list">
             {group.items.map((item) => {
+              // Collapsed rail + has children → popover flyout so the children
+              // (hidden accordion) stay reachable (#35).
+              if (collapsed && !!item.children?.length) {
+                return (
+                  <CollapsedNavFlyout
+                    key={item.view}
+                    lang={lang}
+                    item={item}
+                    activeView={activeView}
+                    onNavigate={onNavigate}
+                    badges={badges}
+                  />
+                );
+              }
               const active = activeView === item.view;
               const label = t(lang, navLabelKey(item.view));
               const showChildren = !collapsed && !!item.children?.length && isParentActive(item, activeView);

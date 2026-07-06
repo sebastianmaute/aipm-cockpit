@@ -155,6 +155,85 @@ describe("ModernShell cross-view focus (#48)", () => {
   });
 });
 
+describe("ModernShell mobile drawer (#25)", () => {
+  function stubViewport(matches: boolean) {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+  }
+
+  it("opens an off-canvas dialog drawer from the hamburger on a narrow viewport", () => {
+    stubViewport(true); // matches SIDEBAR_NARROW_QUERY → mobile
+    setup({ activeView: "gantt" });
+    // Closed initially: no drawer dialog.
+    expect(screen.queryByRole("dialog", { name: "Primary" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    const drawer = screen.getByRole("dialog", { name: "Primary" });
+    expect(drawer).toBeInTheDocument();
+    expect(drawer).toHaveAttribute("aria-modal", "true");
+  });
+
+  it("closes the drawer when the backdrop is clicked", () => {
+    stubViewport(true);
+    const { container } = render(
+      <ModernShell
+        lang="en-US"
+        activeView="gantt"
+        onNavigate={vi.fn()}
+        version="v0.29.0"
+        mode="advanced"
+        bannerCount={0}
+        onShowAlerts={() => {}}
+        topBarMenus={<div />}
+        sidebarFooter={null}
+        tasksSection={<div />}
+        workspace={<div data-testid="workspace" />}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    expect(screen.getByRole("dialog", { name: "Primary" })).toBeInTheDocument();
+    const backdrop = container.querySelector('[aria-hidden="true"].fixed.inset-0') as HTMLElement;
+    expect(backdrop).toBeTruthy();
+    fireEvent.click(backdrop);
+    expect(screen.queryByRole("dialog", { name: "Primary" })).toBeNull();
+  });
+
+  it("closes the drawer when a nav item inside it is chosen", () => {
+    stubViewport(true);
+    const onNavigate = vi.fn();
+    setup({ activeView: "gantt", onNavigate });
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    // The drawer renders the EXPANDED sidebar → a labelled nav button (RAID).
+    fireEvent.click(screen.getByRole("button", { name: "RAID" }));
+    expect(onNavigate).toHaveBeenCalledWith("raid");
+    expect(screen.queryByRole("dialog", { name: "Primary" })).toBeNull();
+  });
+
+  it("labels the drawer's toggle as a close action, not 'Collapse sidebar' (#25)", () => {
+    stubViewport(true);
+    setup({ activeView: "gantt" });
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    // The drawer's toggle acts as the dialog's close — its accessible name says so.
+    expect(screen.getByRole("button", { name: "Close navigation menu" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Collapse sidebar" })).toBeNull();
+  });
+
+  it("keeps the in-flow sidebar (no dialog) on a wide viewport", () => {
+    stubViewport(false); // desktop
+    setup({ activeView: "gantt" });
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    // On desktop the hamburger toggles the collapse rail, not a drawer.
+    expect(screen.queryByRole("dialog", { name: "Primary" })).toBeNull();
+  });
+});
+
 describe("ModernShell settings slot", () => {
   it("renders settingsView in main when activeView === 'settings'", () => {
     setup({

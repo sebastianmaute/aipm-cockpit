@@ -67,6 +67,52 @@ describe("SidebarNav", () => {
     expect(screen.queryByRole("button", { name: /^RAID$/i })).toBeNull();
   });
 
+  describe("collapsed flyout (#35)", () => {
+    it("makes a collapsed parent-with-children a popover trigger", () => {
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+      const dashboard = screen.getByRole("button", { name: "Dashboard" });
+      expect(dashboard.getAttribute("aria-haspopup")).toBe("menu");
+      expect(dashboard.getAttribute("aria-expanded")).toBe("false");
+      // Children are NOT in the DOM until the flyout opens.
+      expect(screen.queryByRole("menuitem", { name: /Next actions/i })).toBeNull();
+    });
+
+    it("opens a menu listing the parent + children, all reachable from the rail", () => {
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+      fireEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+      const menu = screen.getByRole("menu", { name: "Dashboard" });
+      expect(menu).toBeTruthy();
+      // Parent view is the first menuitem; a child (Next actions) is reachable.
+      expect(screen.getByRole("menuitem", { name: "Dashboard" })).toBeTruthy();
+      expect(screen.getByRole("menuitem", { name: /Next actions/i })).toBeTruthy();
+    });
+
+    it("navigates to a child and closes when a flyout item is chosen", () => {
+      const onNavigate = vi.fn();
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={onNavigate} collapsed />);
+      fireEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: /Next actions/i }));
+      expect(onNavigate).toHaveBeenCalledWith("actions");
+      expect(screen.queryByRole("menu")).toBeNull();
+    });
+
+    it("Escape closes the flyout and returns focus to the trigger", () => {
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+      const trigger = screen.getByRole("button", { name: "Dashboard" });
+      fireEvent.click(trigger);
+      const menu = screen.getByRole("menu", { name: "Dashboard" });
+      fireEvent.keyDown(menu, { key: "Escape" });
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("collapsed parent without children stays a plain nav button (no popup)", () => {
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+      const gantt = screen.getByRole("button", { name: "Gantt" });
+      expect(gantt.getAttribute("aria-haspopup")).toBeNull();
+    });
+  });
+
   describe("badges", () => {
     it("shows a pill with the count when badges has a positive value for a view", () => {
       render(<SidebarNav lang="en-US" activeView="dashboard" onNavigate={() => {}} badges={{ actions: 3 }} />);

@@ -24,10 +24,13 @@ interface SidebarProps {
   navGroups?: NavGroup[];
   /** Optional per-view badge counts passed through to SidebarNav. */
   navBadges?: Partial<Record<AppView, number>>;
+  /** Overrides the toggle button's accessible name. Used by the mobile drawer,
+   *  where the toggle acts as the dialog's Close (not collapse). */
+  toggleAriaLabel?: string;
 }
 
 export function Sidebar({
-  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, mode, footer, navGroups, navBadges,
+  lang, activeView, onNavigate, collapsed, onToggleCollapsed, version, onShowVersion, mode, footer, navGroups, navBadges, toggleAriaLabel,
 }: SidebarProps) {
   const { settings } = useSettings();
   const brandLogo = settings.branding?.logo;
@@ -59,8 +62,8 @@ export function Sidebar({
           type="button"
           onClick={onToggleCollapsed}
           aria-expanded={!collapsed}
-          aria-label={collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse")}
-          title={collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse")}
+          aria-label={toggleAriaLabel ?? (collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse"))}
+          title={toggleAriaLabel ?? (collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse"))}
           className="rounded-md p-1.5 text-AIPM-light-grey hover:bg-AIPM-white/10 hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`}>
