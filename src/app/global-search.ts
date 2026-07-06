@@ -44,6 +44,28 @@ interface Ranked {
   tier: number;
 }
 
+/**
+ * A single row with its display fields plus their lowercased forms precomputed
+ * ONCE at index-build time, so a query pass never re-lowercases the workspace.
+ */
+interface IndexedRow {
+  result: SearchResult;
+  titleLower: string;
+  bodyLower: readonly string[];
+}
+
+/**
+ * Query-INDEPENDENT precomputed index. Building it scans + lowercases the whole
+ * workspace once; a subsequent per-keystroke query only walks these strings.
+ */
+export interface SearchIndex {
+  tasks: readonly IndexedRow[];
+  raid: readonly IndexedRow[];
+  changes: readonly IndexedRow[];
+  milestones: readonly IndexedRow[];
+  stakeholders: readonly IndexedRow[];
+}
+
 function coerce(value: string | undefined): string {
   return value ?? "";
 }
@@ -52,29 +74,82 @@ function joinLabels(labels: readonly string[] | undefined): string {
   return labels ? labels.join(" ") : "";
 }
 
-/** Build a ranked result if the row matches, else null. PURE. */
-function rank(
+function indexRow(
   type: SearchResultType,
   view: AppView,
   id: number,
   title: string,
   subtitle: string,
   bodyFields: readonly string[],
-  q: string,
-  isIdQuery: boolean,
-  idNum: number,
-): Ranked | null {
-  const result: SearchResult = { type, id, view, title, subtitle };
+): IndexedRow {
+  return {
+    result: { type, id, view, title, subtitle },
+    titleLower: title.toLowerCase(),
+    bodyLower: bodyFields.map((f) => f.toLowerCase()),
+  };
+}
 
-  if (isIdQuery && id === idNum) {
-    return { result, tier: TIER_ID };
+/**
+ * Precompute the lowercased searchable index for a workspace. PURE and
+ * query-independent — memoize this on the workspace slices and reuse it across
+ * every keystroke (see `searchIndex`).
+ */
+export function buildSearchIndex(ws: SearchableWorkspace): SearchIndex {
+  return {
+    tasks: ws.tasks.map((t) =>
+      indexRow("task", "open-points", t.id, t.taskName, coerce(t.assignee), [
+        coerce(t.assignee),
+        coerce(t.assigneeEmail),
+        coerce(t.notes),
+        coerce(t.blockers),
+        coerce(t.group),
+        joinLabels(t.labels),
+        coerce(t.jiraKey),
+      ]),
+    ),
+    raid: ws.raid.map((item) =>
+      indexRow("raid", "raid", item.id, item.title, coerce(item.owner), [
+        coerce(item.description),
+        coerce(item.mitigation),
+        coerce(item.owner),
+        coerce(item.ownerEmail),
+        coerce(item.category),
+      ]),
+    ),
+    changes: ws.changes.map((c) =>
+      indexRow("change", "changes", c.id, c.title, coerce(c.requestedBy), [
+        coerce(c.description),
+        coerce(c.requestedBy),
+        coerce(c.type),
+      ]),
+    ),
+    milestones: ws.milestones.map((m) =>
+      indexRow("milestone", "milestones", m.id, m.name, coerce(m.description), [
+        coerce(m.description),
+      ]),
+    ),
+    stakeholders: ws.stakeholders.map((s) =>
+      indexRow("stakeholder", "stakeholders", s.id, s.name, coerce(s.organization), [
+        coerce(s.organization),
+        coerce(s.title),
+        coerce(s.email),
+        coerce(s.category),
+      ]),
+    ),
+  };
+}
+
+/** Match a precomputed row against a lowercased query, or null. PURE. */
+function matchRow(row: IndexedRow, q: string, isIdQuery: boolean, idNum: number): Ranked | null {
+  if (isIdQuery && row.result.id === idNum) {
+    return { result: row.result, tier: TIER_ID };
   }
-  if (title.toLowerCase().includes(q)) {
-    return { result, tier: TIER_TITLE };
+  if (row.titleLower.includes(q)) {
+    return { result: row.result, tier: TIER_TITLE };
   }
-  for (const field of bodyFields) {
-    if (field.toLowerCase().includes(q)) {
-      return { result, tier: TIER_BODY };
+  for (const field of row.bodyLower) {
+    if (field.includes(q)) {
+      return { result: row.result, tier: TIER_BODY };
     }
   }
   return null;
@@ -89,83 +164,21 @@ function rankSortCap(ranked: readonly Ranked[], cap: number): Ranked[] {
   return sorted.slice(0, cap);
 }
 
-function rankTasks(tasks: readonly Task[], q: string, isIdQuery: boolean, idNum: number): Ranked[] {
+function rankBucket(rows: readonly IndexedRow[], q: string, isIdQuery: boolean, idNum: number): Ranked[] {
   const out: Ranked[] = [];
-  for (const t of tasks) {
-    const body = [
-      coerce(t.assignee),
-      coerce(t.assigneeEmail),
-      coerce(t.notes),
-      coerce(t.blockers),
-      coerce(t.group),
-      joinLabels(t.labels),
-      coerce(t.jiraKey),
-    ];
-    const r = rank("task", "open-points", t.id, t.taskName, coerce(t.assignee), body, q, isIdQuery, idNum);
-    if (r) out.push(r);
-  }
-  return out;
-}
-
-function rankRaid(raid: readonly RaidItem[], q: string, isIdQuery: boolean, idNum: number): Ranked[] {
-  const out: Ranked[] = [];
-  for (const item of raid) {
-    const body = [
-      coerce(item.description),
-      coerce(item.mitigation),
-      coerce(item.owner),
-      coerce(item.ownerEmail),
-      coerce(item.category),
-    ];
-    const r = rank("raid", "raid", item.id, item.title, coerce(item.owner), body, q, isIdQuery, idNum);
-    if (r) out.push(r);
-  }
-  return out;
-}
-
-function rankChanges(changes: readonly ChangeItem[], q: string, isIdQuery: boolean, idNum: number): Ranked[] {
-  const out: Ranked[] = [];
-  for (const c of changes) {
-    const body = [coerce(c.description), coerce(c.requestedBy), coerce(c.type)];
-    const r = rank("change", "changes", c.id, c.title, coerce(c.requestedBy), body, q, isIdQuery, idNum);
-    if (r) out.push(r);
-  }
-  return out;
-}
-
-function rankMilestones(milestones: readonly Milestone[], q: string, isIdQuery: boolean, idNum: number): Ranked[] {
-  const out: Ranked[] = [];
-  for (const m of milestones) {
-    const body = [coerce(m.description)];
-    const r = rank("milestone", "milestones", m.id, m.name, coerce(m.description), body, q, isIdQuery, idNum);
-    if (r) out.push(r);
-  }
-  return out;
-}
-
-function rankStakeholders(stakeholders: readonly Stakeholder[], q: string, isIdQuery: boolean, idNum: number): Ranked[] {
-  const out: Ranked[] = [];
-  for (const s of stakeholders) {
-    const body = [
-      coerce(s.organization),
-      coerce(s.title),
-      coerce(s.email),
-      coerce(s.category),
-    ];
-    const r = rank("stakeholder", "stakeholders", s.id, s.name, coerce(s.organization), body, q, isIdQuery, idNum);
+  for (const row of rows) {
+    const r = matchRow(row, q, isIdQuery, idNum);
     if (r) out.push(r);
   }
   return out;
 }
 
 /**
- * Pure cross-entity substring search. Returns a ranked, capped result list.
- * No clock/random/i18n — only the workspace slices + query.
+ * Run a query over a PRECOMPUTED index. Returns a ranked, capped result list.
+ * No clock/random/i18n — only the index + query. Cheap enough to run per
+ * keystroke because the workspace was already scanned + lowercased at build.
  */
-export function searchWorkspace(
-  ws: SearchableWorkspace,
-  query: string,
-): SearchResult[] {
+export function searchIndex(index: SearchIndex, query: string): SearchResult[] {
   const trimmed = query.trim();
   const isIdQuery = /^\d+$/.test(trimmed);
   // A pure-numeric id lookup is exempt from the min-length guard (a 1-digit id
@@ -177,11 +190,11 @@ export function searchWorkspace(
 
   // Per-type rank + cap first (protects diversity against a flooding type).
   const perType: Ranked[][] = [
-    rankSortCap(rankTasks(ws.tasks, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
-    rankSortCap(rankRaid(ws.raid, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
-    rankSortCap(rankChanges(ws.changes, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
-    rankSortCap(rankMilestones(ws.milestones, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
-    rankSortCap(rankStakeholders(ws.stakeholders, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
+    rankSortCap(rankBucket(index.tasks, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
+    rankSortCap(rankBucket(index.raid, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
+    rankSortCap(rankBucket(index.changes, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
+    rankSortCap(rankBucket(index.milestones, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
+    rankSortCap(rankBucket(index.stakeholders, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
   ];
 
   // Merge keeping the global tier ordering, but ROUND-ROBIN across types
@@ -189,6 +202,18 @@ export function searchWorkspace(
   // merged cap (diversity protection).
   const merged = mergeRoundRobin(perType);
   return merged.slice(0, SEARCH_MAX_RESULTS).map((r) => r.result);
+}
+
+/**
+ * Pure cross-entity substring search. Convenience wrapper that builds a
+ * throwaway index then queries it — use `buildSearchIndex` + `searchIndex`
+ * directly in React so the index is memoized across keystrokes.
+ */
+export function searchWorkspace(
+  ws: SearchableWorkspace,
+  query: string,
+): SearchResult[] {
+  return searchIndex(buildSearchIndex(ws), query);
 }
 
 /**

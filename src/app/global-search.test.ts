@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   SEARCH_MAX_PER_TYPE,
   SEARCH_MAX_RESULTS,
+  buildSearchIndex,
+  searchIndex,
   searchWorkspace,
   type SearchableWorkspace,
 } from "./global-search";
@@ -227,5 +229,30 @@ describe("searchWorkspace", () => {
     expect(types.has("change")).toBe(true);
     expect(types.has("milestone")).toBe(true);
     expect(types.has("stakeholder")).toBe(true);
+  });
+});
+
+describe("buildSearchIndex + searchIndex (query-independent index)", () => {
+  it("querying a prebuilt index equals the searchWorkspace one-shot", () => {
+    const w = ws({
+      tasks: [makeTask({ id: 1, taskName: "Alpha gizmo" }), makeTask({ id: 2, notes: "gizmo" })],
+      raid: [makeRaid({ id: 5, owner: "Zara" })],
+    });
+    const index = buildSearchIndex(w);
+    for (const q of ["gizmo", "zara", "1", "nomatch"]) {
+      expect(searchIndex(index, q)).toEqual(searchWorkspace(w, q));
+    }
+  });
+
+  it("the index is reusable across many queries without rebuilding", () => {
+    const index = buildSearchIndex(ws({ tasks: [makeTask({ id: 3, taskName: "Report draft" })] }));
+    expect(searchIndex(index, "report").map((r) => r.id)).toEqual([3]);
+    expect(searchIndex(index, "draft").map((r) => r.id)).toEqual([3]);
+    expect(searchIndex(index, "xyz")).toEqual([]);
+  });
+
+  it("lowercases fields once at build so matching is case-insensitive", () => {
+    const index = buildSearchIndex(ws({ tasks: [makeTask({ id: 9, taskName: "MixedCase" })] }));
+    expect(searchIndex(index, "mixedcase").map((r) => r.id)).toEqual([9]);
   });
 });

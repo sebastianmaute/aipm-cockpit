@@ -7,7 +7,8 @@ import {
   type SearchResultType,
   type SearchableWorkspace,
   SEARCH_MIN_QUERY,
-  searchWorkspace,
+  buildSearchIndex,
+  searchIndex,
 } from "./global-search";
 import { splitHighlight } from "./search-highlight";
 import { loadRecents, pushRecent, saveRecents } from "./search-recents";
@@ -53,10 +54,14 @@ export function GlobalSearchBox({
 }: GlobalSearchBoxProps) {
   const [query, setQuery] = useState("");
   const [recents, setRecents] = useState<SearchResult[]>(() => loadRecents());
-  const results = useMemo(
-    () => searchWorkspace({ tasks, raid, changes, milestones, stakeholders }, query),
-    [tasks, raid, changes, milestones, stakeholders, query],
+  // Build the lowercased search index ONLY when the workspace slices change;
+  // each keystroke then runs a cheap query pass over the precomputed strings
+  // instead of re-scanning + re-lowercasing the whole workspace.
+  const index = useMemo(
+    () => buildSearchIndex({ tasks, raid, changes, milestones, stakeholders }),
+    [tasks, raid, changes, milestones, stakeholders],
   );
+  const results = useMemo(() => searchIndex(index, query), [index, query]);
 
   // Only surface recents that still resolve to a live workspace item (a row may
   // have been deleted since it was last visited).
