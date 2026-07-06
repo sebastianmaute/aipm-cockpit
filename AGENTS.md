@@ -762,6 +762,23 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★ TURSO_ONLY child views are pruned in TWO places: `filterNavGroups` (sidebar) AND `subTabsFor(view,
   features, onTurso)` (classic sub-tab row, pass `trends.active`) — gate BOTH for a new turso-only child,
   or it leaks into the classic sub-tab row on file backends.
+  • **Focus/keyboard a11y (modern shell, all modern-only — classic has no sidebar):** `use-focus-trap.ts`
+  (`useFocusTrap(ref, active, onEscape)`) is the app's FIRST real focus trap — ★★ `onEscape` MUST be a
+  stable `useCallback` or the effect re-focuses the first element every render. **Mobile off-canvas drawer**
+  (`modern-shell.tsx`, `<1024px` via `useMediaQuery(SIDEBAR_NARROW_QUERY)`): the hamburger opens the EXPANDED
+  sidebar as a `role=dialog aria-modal` overlay + backdrop (`bg-AIPM-dark-blue/50`) + trap; Escape/backdrop/nav
+  close. ★ drawer content UNMOUNTS when closed (no phantom off-screen tab stops); ★ a stale `drawerOpen` is
+  reset via a render-time reconcile (`if (!isNarrow && drawerOpen) setDrawerOpen(false)` — NOT an effect);
+  ★ `Sidebar` gained `toggleAriaLabel?` so the drawer relabels its toggle as the dialog CLOSE
+  (`sidebarCloseMenu`, WCAG 2.5.3), and opening the version modal from the drawer closes the drawer first
+  (one trap at a time). **`CollapsedNavFlyout`** (`sidebar-nav.tsx`): a collapsed-rail parent-with-children
+  becomes an `aria-haspopup` trigger opening a `usePopoverDismiss` popover of parent+children (roving arrows/
+  Home/End, Escape→trigger) so nested views stay reachable from the icon rail; caret dot + collapsed urgency
+  dot (`bg-AIPM-medium-grey`/`bg-AIPM-pink`). **`resource-calendar.tsx`** is the app's FIRST `role=grid` 2-D
+  roving grid (Arrow ±day/±assignee, Home/End, Ctrl+Home/End, PageUp/Down ±7; ★ clamp-on-read `focusRow/
+  focusCol` so a window shrink keeps EXACTLY one tab stop; keydown guards on `document.activeElement` being a
+  `[data-cell]` so the assignee row-header keeps its own arrow keys; `default: return` before `preventDefault`
+  so Tab still escapes). Calendar sub-tab is NOT axe-scanned (Resources default sub-tab = directory).
   • Steering committee panel uses the STANDARD resizable content-pane shell
   (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("lop-app:steering-size")` + `ResetSizeButton`, header OUTSIDE
   the bordered scroller).
@@ -827,7 +844,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   red→amber→green gradient (inline `style`, the ONLY legal gradient path). It is the SOLE "more=better"
   visual; NEVER apply to effort/usage bars (more=worse — gradient inverts the signal). Shadows/gradients
   legal ONLY via tokens (e.g. `shadow-[var(--shadow-card)]` — use the `--shadow-*` token family); `shell-palette-guard` bans raw
-  `shadow*`/`drop-shadow`/`bg-gradient-` via strip-then-ban. The axe gate (`e2e/a11y.spec.ts`) scans
+  `shadow*`/`drop-shadow`/`bg-gradient-` via strip-then-ban.
+  ★★ `shell-palette-guard` + `palette-chrome-sweep` scan the WHOLE SOURCE incl. COMMENTS: the bare word
+  "shadow" or a literal `--shadow-card` in prose (a JSDoc/comment) trips RAW_SHADOW (only the
+  `shadow-[var(--…)]` className form is stripped first) — reference the token obliquely in comments.
+  `bg`/`border`/`divide-AIPM-light-grey` + `text-AIPM-dark-grey` are BANNED chrome greys (`text-AIPM-light-grey`
+  is fine) — use `bg-AIPM-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
   EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light (3 × A11Y_VIEWS = 39 passes), seeding
   `lop-style`/`lop-theme` via `addInitScript`. Appearance Style switch disables the theme control while
   Mockup is active.
