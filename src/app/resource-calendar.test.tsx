@@ -70,6 +70,49 @@ it("renders past and future day columns for the given window", () => {
   expect(screen.getByTitle(/2026-06-15 \(/)).toBeTruthy();
 });
 
+it("supports 2-D roving keyboard navigation over day cells (#27)", () => {
+  const { container } = render(
+    <ResourceCalendar
+      {...baseProps}
+      rows={[
+        { key: "a", display: "Aria", email: "" },
+        { key: "b", display: "Ben", email: "" },
+      ]}
+      resources={[]}
+      startDate="2026-06-10"
+      endDate="2026-06-12"
+    />,
+  );
+  const grid = container.querySelector('[role="grid"]') as HTMLElement;
+  expect(grid).toBeTruthy();
+  const cell = (r: number, c: number) =>
+    container.querySelector(`[data-cell="${r}-${c}"]`) as HTMLElement;
+
+  // Roving tabindex: exactly the active cell (0,0) is a tab stop.
+  expect(cell(0, 0).getAttribute("tabindex")).toBe("0");
+  expect(cell(0, 1).getAttribute("tabindex")).toBe("-1");
+  expect(cell(1, 0).getAttribute("tabindex")).toBe("-1");
+
+  cell(0, 0).focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(cell(0, 1));
+  expect(cell(0, 1).getAttribute("tabindex")).toBe("0");
+  expect(cell(0, 0).getAttribute("tabindex")).toBe("-1");
+
+  fireEvent.keyDown(grid, { key: "ArrowDown" });
+  expect(document.activeElement?.getAttribute("data-cell")).toBe("1-1");
+
+  fireEvent.keyDown(grid, { key: "Home" });
+  expect(document.activeElement).toBe(cell(1, 0));
+
+  fireEvent.keyDown(grid, { key: "End" });
+  expect(document.activeElement?.getAttribute("data-cell")).toBe("1-2");
+
+  // Ctrl+Home jumps to the grid origin.
+  fireEvent.keyDown(grid, { key: "Home", ctrlKey: true });
+  expect(document.activeElement).toBe(cell(0, 0));
+});
+
 it("scroll-centers today when the window includes it", () => {
   const { container } = render(
     <ResourceCalendar
