@@ -96,6 +96,16 @@ describe("SidebarNav", () => {
       expect(screen.queryByRole("menu")).toBeNull();
     });
 
+    it("Escape closes the flyout and returns focus to the trigger", () => {
+      render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
+      const trigger = screen.getByRole("button", { name: "Dashboard" });
+      fireEvent.click(trigger);
+      const menu = screen.getByRole("menu", { name: "Dashboard" });
+      fireEvent.keyDown(menu, { key: "Escape" });
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(document.activeElement).toBe(trigger);
+    });
+
     it("collapsed parent without children stays a plain nav button (no popup)", () => {
       render(<SidebarNav lang="en-US" activeView="open-points" onNavigate={() => {}} collapsed />);
       const gantt = screen.getByRole("button", { name: "Gantt" });

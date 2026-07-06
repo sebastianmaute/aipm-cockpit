@@ -108,6 +108,7 @@ export function ModernShell({
     onToggle: () => void,
     onNav: (view: AppView) => void,
     onShowVersion: () => void,
+    toggleAriaLabel?: string,
   ) => (
     <Sidebar
       lang={lang}
@@ -121,6 +122,7 @@ export function ModernShell({
       footer={sidebarFooter}
       navGroups={navGroups}
       navBadges={navBadges}
+      toggleAriaLabel={toggleAriaLabel}
     />
   );
 
@@ -160,10 +162,16 @@ export function ModernShell({
                 aria-label={t(lang, "navPrimaryLabel")}
                 className="fixed inset-y-0 left-0 z-50"
               >
-                {renderSidebar(false, closeDrawer, navigateAndCloseDrawer, () => {
-                  setDrawerOpen(false);
-                  setVersionOpen(true);
-                })}
+                {renderSidebar(
+                  false,
+                  closeDrawer,
+                  navigateAndCloseDrawer,
+                  () => {
+                    setDrawerOpen(false);
+                    setVersionOpen(true);
+                  },
+                  t(lang, "sidebarCloseMenu"),
+                )}
               </div>
             </>
           )

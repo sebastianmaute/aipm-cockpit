@@ -216,6 +216,15 @@ describe("ModernShell mobile drawer (#25)", () => {
     expect(screen.queryByRole("dialog", { name: "Primary" })).toBeNull();
   });
 
+  it("labels the drawer's toggle as a close action, not 'Collapse sidebar' (#25)", () => {
+    stubViewport(true);
+    setup({ activeView: "gantt" });
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation menu" }));
+    // The drawer's toggle acts as the dialog's close — its accessible name says so.
+    expect(screen.getByRole("button", { name: "Close navigation menu" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Collapse sidebar" })).toBeNull();
+  });
+
   it("keeps the in-flow sidebar (no dialog) on a wide viewport", () => {
     stubViewport(false); // desktop
     setup({ activeView: "gantt" });

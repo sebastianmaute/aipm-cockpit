@@ -1945,6 +1945,7 @@ const enUS = {
   brandingFaviconHint: "Shown in the browser tab. Square PNG recommended (32×32 or 64×64), up to 512 KB. PNG, JPG, WebP or GIF.",
   sidebarCollapse: "Collapse sidebar",
   sidebarExpand: "Expand sidebar",
+  sidebarCloseMenu: "Close navigation menu",
   sidebarMenuButton: "Open navigation menu",
   sidebarSignOut: "Sign out",
   skipToContent: "Skip to content",

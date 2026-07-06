@@ -1939,6 +1939,7 @@ export const de: Record<TranslationKey, string> = {
   brandingFaviconHint: "Wird im Browser-Tab angezeigt. Quadratisches PNG empfohlen (32×32 oder 64×64), bis 512 KB. PNG, JPG, WebP oder GIF.",
   sidebarCollapse: "Seitenleiste einklappen",
   sidebarExpand: "Seitenleiste ausklappen",
+  sidebarCloseMenu: "Navigationsmenü schließen",
   sidebarMenuButton: "Navigationsmenü öffnen",
   sidebarSignOut: "Abmelden",
   skipToContent: "Zum Inhalt springen",

@@ -153,6 +153,9 @@ function ResourceCalendarInner({
   // is a <button> whose onClick adds/edits the absence).
   function onGridKeyDown(e: React.KeyboardEvent<HTMLTableElement>) {
     if (rowCount === 0 || colCount === 0) return;
+    // Only day cells rove — ignore keys unless a day cell holds focus, so the
+    // assignee row-header button (outside the roving set) keeps its arrow keys.
+    if (!(document.activeElement as HTMLElement | null)?.matches?.("[data-cell]")) return;
     let r = focusRow;
     let c = focusCol;
     switch (e.key) {
