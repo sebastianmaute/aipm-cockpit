@@ -178,7 +178,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       setStorageReady(ready);
       const desc = backend.describe ? await backend.describe() : null;
       setStorageDescription(desc ?? null);
-    } catch {
+    } catch (err) {
+      // A thrown status check is distinct from a clean "not ready" (false) — log
+      // it so diagnostics can tell an exception apart from a normal negative.
+      logDiag("warn", "storage.statusCheckFailed", { message: err instanceof Error ? err.message : String(err) });
       setStorageReady(false);
       setStorageDescription(null);
     }

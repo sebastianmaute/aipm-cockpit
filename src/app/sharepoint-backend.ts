@@ -8,6 +8,7 @@ import { csvToWorkspace, workspaceToCsv } from "./csv-codecs";
 import {
   StorageNotReadyError,
   emptyWorkspace,
+  jsonToWorkspace,
   type StorageBackend,
   type Workspace,
 } from "./workspace";
@@ -105,7 +106,9 @@ export class SharePointBackend implements StorageBackend {
       const csv = await res.text();
       return csvToWorkspace(csv);
     }
-    return (await res.json()) as Workspace;
+    // Validate + migrate like every other JSON backend (was a raw cast that
+    // risked a downstream TypeError on a malformed-but-valid-JSON file).
+    return jsonToWorkspace(await res.text(), { strict: true });
   }
 
   async save(workspace: Workspace): Promise<void> {

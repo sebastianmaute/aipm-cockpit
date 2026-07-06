@@ -381,15 +381,49 @@ export function sanitizeProjectStatus(raw: unknown): ProjectStatus {
   return out;
 }
 
+/** Thrown by `jsonToWorkspace(text, { strict: true })` when the input is
+ *  present-but-corrupt (parse failure) or structurally not a workspace
+ *  (non-object / missing tasks|raid). The strict load paths let this
+ *  propagate so a corrupt file surfaces as a load error instead of silently
+ *  becoming an empty workspace that the next autosave then overwrites. */
+export class WorkspaceParseError extends Error {
+  constructor(public readonly reason: "parse" | "shape") {
+    super(`workspace parse failed: ${reason}`);
+    this.name = "WorkspaceParseError";
+  }
+}
+
 /** Parse a JSON envelope back to a workspace. Tolerates legacy files (pre-v6)
- *  by defaulting budgets -> [] and fxRates -> null. Returns an empty workspace
- *  on malformed input. */
-export function jsonToWorkspace(text: string): Workspace {
+ *  by defaulting budgets -> [] and fxRates -> null.
+ *
+ *  Forgiving default (opts.strict falsy): returns an empty workspace on any
+ *  malformed input — for internal callers (version-history diff, demo import)
+ *  where an empty fallback is acceptable.
+ *
+ *  Strict (opts.strict === true): THROWS `WorkspaceParseError` on a parse
+ *  failure or a non-workspace shape. Used by the disk/SharePoint load paths so
+ *  a corrupt file becomes a controlled load error, never a silent empty that
+ *  the next autosave overwrites. (Empty/blank text is guarded upstream by the
+ *  backends before reaching here, so strict only ever sees non-blank content.) */
+export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Workspace {
+  const strict = opts?.strict === true;
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(text);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return emptyWorkspace();
+    parsed = JSON.parse(text);
+  } catch {
+    if (strict) throw new WorkspaceParseError("parse");
+    return emptyWorkspace();
+  }
+  try {
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      if (strict) throw new WorkspaceParseError("shape");
+      return emptyWorkspace();
+    }
     const p = parsed as Record<string, unknown>;
-    if (!Array.isArray(p.tasks) || !Array.isArray(p.raid)) return emptyWorkspace();
+    if (!Array.isArray(p.tasks) || !Array.isArray(p.raid)) {
+      if (strict) throw new WorkspaceParseError("shape");
+      return emptyWorkspace();
+    }
     const raw: Workspace = {
       tasks: (p.tasks as Task[]).map(migrateTaskStatus),
       raid: p.raid as RaidItem[],
@@ -435,7 +469,9 @@ export function jsonToWorkspace(text: string): Workspace {
       if (links) raw.timelogLinks = links;
     }
     return migrateWorkspaceV9(raw);
-  } catch {
+  } catch (err) {
+    if (err instanceof WorkspaceParseError) throw err;
+    if (strict) throw new WorkspaceParseError("shape");
     return emptyWorkspace();
   }
 }

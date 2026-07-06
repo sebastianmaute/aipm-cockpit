@@ -394,6 +394,14 @@ export const de: Record<TranslationKey, string> = {
     "Turso-Datenbank nicht erreichbar — Änderungen werden nicht gespeichert. Prüfen Sie die Datenbank-URL in den Einstellungen; die Datenbank wurde evtl. umbenannt oder gelöscht.",
   storageAuthBanner:
     "Turso-Authentifizierungstoken abgelehnt — Änderungen werden nicht gespeichert. Aktualisieren Sie das Token in den Einstellungen.",
+  storageSaveFailedBanner:
+    "Änderungen konnten nicht im aktuellen Speicher gespeichert werden. Beheben Sie das Problem (z. B. Dateizugriff neu erteilen oder Speicherplatz freigeben), dann wird das Speichern erneut versucht.",
+  storageSwitchFlushFailed:
+    "Aktuelle Änderungen wurden vor dem Projektwechsel möglicherweise nicht gespeichert.",
+  settingsWriteFailed:
+    "Ihre Einstellungen konnten nicht gespeichert werden und werden beim Neuladen möglicherweise zurückgesetzt (Speicher voll oder nicht verfügbar).",
+  secretUnreadable:
+    "Eine gespeicherte Anmeldeinformation konnte auf diesem Gerät nicht gelesen werden und ist nicht nutzbar — bitte in den Einstellungen erneut eingeben.",
   storageBannerAria: "Problem mit der Speicherverbindung",
   storageBannerOpenSettings: "Speichereinstellungen öffnen",
   storagePermissionGestureNeeded:
@@ -1236,8 +1244,10 @@ export const de: Record<TranslationKey, string> = {
   jiraAssigneeForbidden:
     "Der Bearbeiter für {0} wird in Jira verwaltet. Bitte in Jira ändern und neu synchronisieren.",
   jiraManagedHint: "Wird von Jira verwaltet – Änderung nur in Jira",
-  jiraBulkAssigneeBlocked:
-    "Bearbeiter kann nicht in Sammelbearbeitung geändert werden, da {0} ausgewählte Aufgabe(n) mit Jira verknüpft sind. Auswahl anpassen oder in Jira ändern.",
+  jiraBulkManagedFieldsNote:
+    "Bearbeiter, Priorität und Fälligkeitsdatum verwaltet Jira — sie werden bei den {0} synchronisierten Aufgabe(n) übersprungen und auf die übrigen angewendet.",
+  jiraBulkManagedFieldsSkipped:
+    "{0} mit Jira synchronisierte Aufgabe(n) wurden bei Bearbeiter, Priorität und Fälligkeitsdatum übersprungen — diese Felder verwaltet Jira. Andere Felder wurden angewendet.",
 
   completed: "Erledigt",
   jiraSyncConflictsReview:

@@ -26,6 +26,7 @@ import {
   hardDeleteProject as portfolioHardDelete,
 } from "./turso-portfolio";
 import { writeSettings } from "./use-settings";
+import { logDiag } from "./diagnostics";
 
 /** Live closure values the Turso project flows read each render. */
 export interface TursoProjectOpsDeps {
@@ -45,6 +46,19 @@ export interface TursoProjectOpsDeps {
 }
 
 export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
+  // Flush the outgoing project before switching/creating/migrating away. A
+  // failed flush (network blip, auth expiry, lock timeout) was previously
+  // discarded silently, losing unsaved edits with no trace. Surface it (warn
+  // toast + diagnostics) and proceed — the switch is non-blocking.
+  async function flushOutgoing(ws: Workspace): Promise<void> {
+    try {
+      await deps.backend.save(ws);
+    } catch (err) {
+      logDiag("warn", "storage.switchFlushFailed", { message: err instanceof Error ? err.message : String(err) });
+      deps.showToast("error", t(deps.langRef.current, "storageSwitchFlushFailed"));
+    }
+  }
+
   async function switchToTursoProject(id: string): Promise<void> {
     if (deps.isPopout) return;
     const cfg = deps.tursoConfigNow();
@@ -54,8 +68,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     }
     if (deps.tursoProjectId === id) return;
     try {
-      // Best-effort flush of the outgoing project to the active backend.
-      try { await deps.backend.save(deps.currentWorkspace()); } catch { /* best-effort flush */ }
+      // Flush the outgoing project to the active backend before switching.
+      await flushOutgoing(deps.currentWorkspace());
       const target = new TursoBackend(cfg, id);
       const loaded = await target.load();
       deps.applyWorkspace(loaded);
@@ -78,7 +92,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     }
     // Flush the outgoing project first (setting suppressNextSaveRef below cancels
     // the pending debounced save). Mirrors the file createProject flush.
-    try { await deps.backend.save(deps.currentWorkspace()); } catch { /* best-effort flush */ }
+    await flushOutgoing(deps.currentWorkspace());
     const id = crypto.randomUUID();
     const ws = buildNewProjectWorkspace(meta, opts);
     try {
@@ -118,7 +132,7 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       return;
     }
     // Flush the current file project before copying it.
-    try { await deps.backend.save(ws); } catch { /* best-effort flush */ }
+    await flushOutgoing(ws);
     const id = crypto.randomUUID();
     try {
       await portfolioCreate(cfg, meta, id);

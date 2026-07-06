@@ -389,6 +389,14 @@ const enUS = {
     "Can't reach your Turso database — changes aren't being saved. Check the database URL in Settings; the database may have been renamed or removed.",
   storageAuthBanner:
     "Your Turso auth token was rejected — changes aren't being saved. Update the token in Settings.",
+  storageSaveFailedBanner:
+    "Your changes couldn't be saved to the current storage. Fix the issue (e.g. re-grant file access or free up space) and saving will be retried.",
+  storageSwitchFlushFailed:
+    "Recent changes may not have been saved before switching projects.",
+  settingsWriteFailed:
+    "Your settings couldn't be saved and may reset when you reload (storage full or unavailable).",
+  secretUnreadable:
+    "A saved credential couldn't be read on this device and can't be used — please re-enter it in Settings.",
   storageBannerAria: "Storage connection problem",
   storageBannerOpenSettings: "Open storage settings",
   storagePermissionGestureNeeded:
@@ -1244,8 +1252,10 @@ const enUS = {
   jiraAssigneeForbidden:
     "Assignee for {0} is managed in Jira. Change it in Jira and re-sync to update locally.",
   jiraManagedHint: "Managed by Jira — change in Jira",
-  jiraBulkAssigneeBlocked:
-    "Assignee can't be bulk-edited because {0} selected task(s) are linked to Jira. Unselect them or change assignees in Jira.",
+  jiraBulkManagedFieldsNote:
+    "Assignee, priority and due date are managed by Jira — they'll be skipped on the {0} synced task(s) and applied to the rest.",
+  jiraBulkManagedFieldsSkipped:
+    "{0} Jira-synced task(s) were skipped for assignee, priority and due date — those fields are managed by Jira. Other fields were applied.",
 
   completed: "Completed",
   jiraSyncConflictsReview:

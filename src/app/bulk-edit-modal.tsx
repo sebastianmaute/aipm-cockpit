@@ -136,19 +136,13 @@ export function BulkEditModal({
         <BulkEditFieldRow
           id="bulk-assignee"
           label={t(lang, "assignee")}
-          enabled={bulkEdit.enabled.assignee && selectedJiraCount === 0}
-          onToggle={() => {
-            if (selectedJiraCount > 0) {
-              window.alert(
-                t(lang, "jiraBulkAssigneeBlocked", selectedJiraCount),
-              );
-              return;
-            }
+          enabled={bulkEdit.enabled.assignee}
+          onToggle={() =>
             setBulkEdit((b) => ({
               ...b,
               enabled: { ...b.enabled, assignee: !b.enabled.assignee },
-            }));
-          }}
+            }))
+          }
         >
           <input
             type="text"
@@ -158,14 +152,12 @@ export function BulkEditModal({
               setBulkEdit((b) => ({ ...b, assignee: e.target.value }))
             }
             placeholder={t(lang, "placeholderAssignee")}
-            disabled={
-              !bulkEdit.enabled.assignee || selectedJiraCount > 0
-            }
+            disabled={!bulkEdit.enabled.assignee}
             className={`${inputClass} disabled:opacity-50`}
           />
           {selectedJiraCount > 0 && (
             <p className="mt-1 text-xs italic text-muted-foreground">
-              🔒 {t(lang, "jiraBulkAssigneeBlocked", selectedJiraCount)}
+              {t(lang, "jiraBulkManagedFieldsNote")}
             </p>
           )}
         </BulkEditFieldRow>

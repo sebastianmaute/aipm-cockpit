@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { emptyWorkspace, jsonToWorkspace, workspaceToJson } from "./workspace";
+import { emptyWorkspace, jsonToWorkspace, workspaceToJson, WorkspaceParseError } from "./workspace";
+
+describe("jsonToWorkspace strict mode", () => {
+  it("throws WorkspaceParseError on truncated JSON in strict mode", () => {
+    expect(() => jsonToWorkspace('{"tasks":[', { strict: true })).toThrow(WorkspaceParseError);
+  });
+  it("throws on wrong shape (missing tasks/raid) in strict mode", () => {
+    expect(() => jsonToWorkspace('{"foo":1}', { strict: true })).toThrow(WorkspaceParseError);
+    expect(() => jsonToWorkspace("[]", { strict: true })).toThrow(WorkspaceParseError);
+  });
+  it("forgiving default still returns empty on garbage (back-compat)", () => {
+    expect(jsonToWorkspace('{"tasks":[').tasks).toEqual([]);
+    expect(jsonToWorkspace('{"foo":1}').tasks).toEqual([]);
+  });
+  it("valid workspace round-trips identically in strict mode", () => {
+    const json = workspaceToJson(emptyWorkspace());
+    expect(jsonToWorkspace(json, { strict: true }).tasks).toEqual([]);
+    expect(jsonToWorkspace(json, { strict: true }).raid).toEqual([]);
+  });
+});
 
 describe("workspace fieldVisibility envelope", () => {
   it("omits fieldVisibility from JSON when undefined (byte-stability)", () => {

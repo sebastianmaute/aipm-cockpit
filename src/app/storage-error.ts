@@ -9,7 +9,7 @@
 import { StorageNotReadyError } from "./storage";
 import { TursoLockTimeoutError } from "./turso-backend";
 
-export type StorageErrorKind = "unreachable" | "auth";
+export type StorageErrorKind = "unreachable" | "auth" | "generic";
 
 /** True when a save failed because the cross-tab Web Locks wait timed out
  *  (another tab is writing). Deliberately NOT a StorageErrorKind — it's
@@ -30,4 +30,12 @@ export function tursoErrorKind(err: unknown): StorageErrorKind | null {
   // Plain Error from a non-OK Turso HTTP response (e.g. a 5xx).
   if (err instanceof Error && /^Turso returned/i.test(err.message)) return "unreachable";
   return null;
+}
+
+/** Classify ANY save/load failure into a banner kind: a Turso connectivity/auth
+ *  kind when recognized, else "generic" so a file/CSV/MD/IndexedDB persistence
+ *  failure still raises the sticky "changes not saved" banner instead of being
+ *  swallowed (the banner was previously Turso-only). */
+export function classifyStorageError(err: unknown): StorageErrorKind {
+  return tursoErrorKind(err) ?? "generic";
 }
