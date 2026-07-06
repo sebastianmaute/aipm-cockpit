@@ -107,6 +107,16 @@ export function ModernShell({
         >
           {topBarMenus}
         </TopBar>
+        {/*
+          Announce the active view to screen readers on navigation. Only
+          `aria-current` moves on the nav item otherwise, which SR users don't
+          hear when the main content swaps. A polite live region keyed to the
+          view title updates on every view change (no focus steal, so it's safe
+          while typing). Uses the same `title` label the TopBar already shows.
+        */}
+        <div className="sr-only" role="status" aria-live="polite">
+          {title}
+        </div>
         <main id="main-content" className="min-h-0 flex-1 overflow-auto bg-surface-muted px-6 pt-6 dark:bg-black">
           {banners}
           {content}

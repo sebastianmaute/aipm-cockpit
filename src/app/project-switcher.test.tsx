@@ -123,6 +123,60 @@ describe("ProjectSwitcher", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  describe("menu keyboard navigation (APG roving)", () => {
+    it("focuses the first non-disabled menuitem on open", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+
+      // Apollo (current) is disabled, so focus lands on Gemini.
+      expect(screen.getByRole("menuitem", { name: /Gemini/ })).toHaveFocus();
+    });
+
+    it("moves focus with ArrowDown / ArrowUp and wraps", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+      const gemini = screen.getByRole("menuitem", { name: /Gemini/ });
+      const loadFile = screen.getByRole("menuitem", {
+        name: t("en-US", "projectSwitcherLoadFile"),
+      });
+      const newProject = screen.getByRole("menuitem", {
+        name: new RegExp(t("en-US", "projectsNew")),
+      });
+
+      expect(gemini).toHaveFocus();
+      await user.keyboard("{ArrowDown}");
+      expect(loadFile).toHaveFocus();
+      await user.keyboard("{ArrowUp}");
+      expect(gemini).toHaveFocus();
+      // Wrap backwards to the last item.
+      await user.keyboard("{ArrowUp}");
+      expect(newProject).toHaveFocus();
+      // Wrap forwards to the first item.
+      await user.keyboard("{ArrowDown}");
+      expect(gemini).toHaveFocus();
+    });
+
+    it("jumps to first/last with Home/End", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+      const gemini = screen.getByRole("menuitem", { name: /Gemini/ });
+      const newProject = screen.getByRole("menuitem", {
+        name: new RegExp(t("en-US", "projectsNew")),
+      });
+
+      await user.keyboard("{End}");
+      expect(newProject).toHaveFocus();
+      await user.keyboard("{Home}");
+      expect(gemini).toHaveFocus();
+    });
+  });
+
   describe("turso mode", () => {
     it("omits the 'Load from file' item from the dropdown", async () => {
       const user = userEvent.setup();

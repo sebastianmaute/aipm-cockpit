@@ -57,6 +57,7 @@ export function CalendarSyncControls({
           type="button"
           onClick={onPushCalendar}
           disabled={calendarPushBusy}
+          aria-busy={calendarPushBusy}
           aria-label={t(lang, "calendarPush")}
           title={t(lang, "calendarPush")}
           className={`rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
@@ -69,6 +70,7 @@ export function CalendarSyncControls({
           type="button"
           onClick={onPullCalendar}
           disabled={calendarPullBusy}
+          aria-busy={calendarPullBusy}
           aria-label={t(lang, "calendarPull")}
           title={t(lang, "calendarPull")}
           className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}

@@ -428,6 +428,22 @@ describe("chat panel layout", () => {
     expect(src).not.toMatch(/className=\{VIEW_PANE_FILL_CLASS\}/);
   });
 
+  it("marks the message list as an aria-live log so streamed replies announce", () => {
+    // #28: the messages <ul> is a live region (role=log, polite, additions-only)
+    // so screen readers hear assistant replies + the thinking placeholder.
+    expect(src).toMatch(/role="log"/);
+    expect(src).toMatch(/aria-live="polite"/);
+    expect(src).toMatch(/aria-relevant="additions"/);
+  });
+
+  it("gates Clear behind the branded confirm dialog", () => {
+    // #37: clearChat must not wipe history without confirmation.
+    expect(src).toMatch(/useConfirm/);
+    expect(src).toMatch(/confirm\(\{ message: t\(lang, "chatClearConfirm"\) \}\)/);
+    // The Clear button no longer calls clearChat directly.
+    expect(src).not.toMatch(/onClick=\{clearChat\}/);
+  });
+
   it("renders the reset-size button before the textarea in the input row", () => {
     render(
       <ChatPanel

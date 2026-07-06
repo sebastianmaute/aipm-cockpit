@@ -52,6 +52,16 @@ describe("ModernShell", () => {
     expect(screen.getByRole("heading", { name: "Gantt" })).toBeTruthy();
   });
 
+  it("announces the active view via a polite live region (#26)", () => {
+    // A visually-hidden role=status region carries the view label so screen
+    // readers hear the view change (only aria-current moves otherwise).
+    setup({ activeView: "gantt" });
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Gantt");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status.className).toContain("sr-only");
+  });
+
   it("shows the edit view and edit title, but never surfaces edit actions in the top bar", () => {
     // Editor actions render inside the editor (editView footer) only. ModernShell
     // must NOT surface a duplicate copy in the top bar — there is no editActions

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 import { useCombobox } from "./combobox-shared";
 import {
   type SearchResult,
@@ -16,6 +16,19 @@ import { type Lang, type TranslationKey, t } from "./i18n";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
+
+// --- Hydration-safe platform detection for the decorative shortcut hint ---
+// Module-level so the getSnapshot identities are stable (an unstable getSnapshot
+// makes useSyncExternalStore loop). Server snapshot is `false` (no navigator),
+// so SSR + hydration render "Ctrl K" and the client swaps to ⌘K on Mac after.
+const subscribeNoop = () => () => {};
+function getIsMacClient(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /mac/i.test(navigator.platform || navigator.userAgent || "");
+}
+function getIsMacServer(): boolean {
+  return false;
+}
 
 /** Map a result type to its i18n type-label key. */
 function typeLabelKey(type: SearchResultType): TranslationKey {
@@ -85,6 +98,12 @@ export function GlobalSearchBox({
 
   const trimmed = query.trim();
   const showingRecents = trimmed.length === 0;
+  // Platform-aware focus-shortcut glyph for the decorative hint badge (Mac ⌘K,
+  // else Ctrl K). `useSyncExternalStore` yields the server snapshot (false) during
+  // SSR + hydration then swaps to the client value AFTER hydration, so there is no
+  // hydration mismatch and no banned set-state-in-effect.
+  const isMac = useSyncExternalStore(subscribeNoop, getIsMacClient, getIsMacServer);
+  const shortcutHint = isMac ? "⌘K" : "Ctrl K";
   // The unified list backing the listbox: recents when the box is empty, else
   // the live search results.
   const items = showingRecents ? recentsToShow : results;
@@ -203,8 +222,19 @@ export function GlobalSearchBox({
           setOpen(true);
         }}
         onKeyDown={onKeyDown}
-        className={`w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+        className={`w-full rounded-md border border-line bg-surface py-1.5 pl-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION} ${showingRecents ? "pr-14" : "pr-3"}`}
       />
+      {/* Decorative focus-shortcut hint. aria-hidden so it never joins the
+          combobox's accessible name; hidden once the user starts typing so it
+          can't sit under real text. */}
+      {showingRecents && (
+        <kbd
+          aria-hidden="true"
+          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-line px-1 py-0.5 text-[10px] font-medium text-muted-foreground"
+        >
+          {shortcutHint}
+        </kbd>
+      )}
       {isOpen && items.length > 0 && (
         <div className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-md border border-line bg-surface pr-2 text-sm">
           {recentsHeaderVisible && (

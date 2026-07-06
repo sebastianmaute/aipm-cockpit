@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { type Lang, t } from "./i18n";
 import { type ProjectRegistryEntry } from "./projects-registry";
@@ -54,8 +54,54 @@ export function ProjectSwitcher({
 }: ProjectSwitcherProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   usePopoverDismiss(open, ref, () => setOpen(false));
+
+  // APG menu keyboard support: on open, move focus into the menu (first
+  // non-disabled menuitem — the active project's row is disabled).
+  useEffect(() => {
+    if (!open) return;
+    menuRef.current
+      ?.querySelector<HTMLButtonElement>('[role="menuitem"]:not([disabled])')
+      ?.focus();
+  }, [open]);
+
+  // Arrow/Home/End roving between menuitems (wrapping). Escape/outside-click
+  // dismissal stays with usePopoverDismiss.
+  function onMenuKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>(
+        '[role="menuitem"]:not([disabled])',
+      ),
+    );
+    if (items.length === 0) return;
+    const activeIndex = items.indexOf(
+      document.activeElement as HTMLButtonElement,
+    );
+    let next = -1;
+    switch (e.key) {
+      case "ArrowDown":
+        next = activeIndex < 0 ? 0 : (activeIndex + 1) % items.length;
+        break;
+      case "ArrowUp":
+        next =
+          activeIndex < 0
+            ? items.length - 1
+            : (activeIndex - 1 + items.length) % items.length;
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = items.length - 1;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    items[next]?.focus();
+  }
 
   const label =
     currentProjectName ?? t(lang, "projectCurrentLabel");
@@ -118,8 +164,10 @@ export function ProjectSwitcher({
 
       {open && (
         <div
+          ref={menuRef}
           role="menu"
           aria-label={t(lang, "projectCurrentLabel")}
+          onKeyDown={onMenuKeyDown}
           className="absolute left-0 top-full z-40 mt-2 max-h-[80vh] w-72 overflow-y-auto rounded-lg border border-line bg-surface p-1"
         >
           <h3 className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
