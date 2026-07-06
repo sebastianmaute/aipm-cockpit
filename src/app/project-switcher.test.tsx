@@ -80,13 +80,15 @@ describe("ProjectSwitcher", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("marks the current project entry as disabled and does not call onSwitch", async () => {
+  it("marks the current project entry aria-disabled and does not call onSwitch", async () => {
     const user = userEvent.setup();
     const { onSwitch } = renderSwitcher();
 
     await user.click(screen.getByRole("button", { name: /Apollo/ }));
     const currentItem = screen.getByRole("menuitem", { name: /Apollo/ });
-    expect(currentItem).toBeDisabled();
+    // aria-disabled (not native `disabled`) keeps it perceivable in the a11y
+    // tree while the onClick guard prevents switching to it.
+    expect(currentItem).toHaveAttribute("aria-disabled", "true");
     expect(currentItem).toHaveAttribute("aria-current", "true");
 
     await user.click(currentItem);
@@ -189,6 +191,17 @@ describe("ProjectSwitcher", () => {
       // Menu closed and focus restored to the trigger button, not lost to body.
       expect(screen.queryByRole("menuitem", { name: /Gemini/ })).not.toBeInTheDocument();
       expect(trigger).toHaveFocus();
+    });
+
+    it("Tab exits (closes) the focus-managed menu", async () => {
+      const user = userEvent.setup();
+      renderSwitcher();
+
+      await user.click(screen.getByRole("button", { name: /Apollo/ }));
+      expect(screen.getByRole("menuitem", { name: /Gemini/ })).toHaveFocus();
+
+      await user.keyboard("{Tab}");
+      expect(screen.queryByRole("menuitem", { name: /Gemini/ })).not.toBeInTheDocument();
     });
   });
 

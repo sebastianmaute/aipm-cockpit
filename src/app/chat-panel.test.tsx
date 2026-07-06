@@ -428,11 +428,11 @@ describe("chat panel layout", () => {
     expect(src).not.toMatch(/className=\{VIEW_PANE_FILL_CLASS\}/);
   });
 
-  it("marks the message list as an aria-live log so streamed replies announce", () => {
-    // #28: the messages <ul> is a live region (role=log, polite, additions-only)
-    // so screen readers hear assistant replies + the thinking placeholder.
+  it("marks the message list as a log so streamed replies announce", () => {
+    // #28: the messages <ul> is a live region (role=log implies aria-live
+    // polite; additions-only) so screen readers hear assistant replies + the
+    // thinking placeholder without re-announcing on removal/clear.
     expect(src).toMatch(/role="log"/);
-    expect(src).toMatch(/aria-live="polite"/);
     expect(src).toMatch(/aria-relevant="additions"/);
   });
 

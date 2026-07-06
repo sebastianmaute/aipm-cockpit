@@ -505,7 +505,6 @@ function ChatPanelInner({
           <ul
             className="space-y-3"
             role="log"
-            aria-live="polite"
             aria-relevant="additions"
           >
             {display.map((item, idx) => (

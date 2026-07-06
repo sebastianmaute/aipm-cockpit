@@ -64,7 +64,7 @@ export function ProjectSwitcher({
   useEffect(() => {
     if (!open) return;
     menuRef.current
-      ?.querySelector<HTMLButtonElement>('[role="menuitem"]:not([disabled])')
+      ?.querySelector<HTMLButtonElement>('[role="menuitem"]:not([aria-disabled="true"])')
       ?.focus();
   }, [open]);
 
@@ -73,7 +73,7 @@ export function ProjectSwitcher({
   function onMenuKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const items = Array.from(
       e.currentTarget.querySelectorAll<HTMLButtonElement>(
-        '[role="menuitem"]:not([disabled])',
+        '[role="menuitem"]:not([aria-disabled="true"])',
       ),
     );
     if (items.length === 0) return;
@@ -82,6 +82,12 @@ export function ProjectSwitcher({
     );
     let next = -1;
     switch (e.key) {
+      case "Tab":
+        // Tab exits the focus-managed menu (APG). Menuitems are tabIndex=-1 so
+        // Tab never steps through them one-by-one; closing here lets the browser
+        // move focus to the next control after the switcher. No preventDefault.
+        setOpen(false);
+        return;
       case "Escape":
         // Close and return focus to the trigger (WCAG 2.4.3 / APG menu-button:
         // Escape closes the menu and restores focus to the button that opened
@@ -192,14 +198,18 @@ export function ProjectSwitcher({
                 key={p.id}
                 type="button"
                 role="menuitem"
-                disabled={isCurrent}
+                tabIndex={-1}
+                // aria-disabled (not native `disabled`) so the current project
+                // stays perceivable in the a11y tree as a disabled menuitem
+                // (marked aria-current); the roving nav + onClick skip it.
+                aria-disabled={isCurrent || undefined}
                 aria-current={isCurrent ? "true" : undefined}
                 onClick={() => {
                   if (isCurrent) return;
                   onSwitch(p.id);
                   setOpen(false);
                 }}
-                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-default disabled:bg-surface-muted disabled:opacity-100"
+                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green aria-disabled:cursor-default aria-disabled:bg-surface-muted aria-disabled:hover:bg-surface-muted"
               >
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate font-medium">{p.name}</span>
@@ -233,6 +243,7 @@ export function ProjectSwitcher({
             <button
               type="button"
               role="menuitem"
+              tabIndex={-1}
               onClick={() => {
                 onLoadFromFile();
                 setOpen(false);
@@ -245,6 +256,7 @@ export function ProjectSwitcher({
           <button
             type="button"
             role="menuitem"
+            tabIndex={-1}
             onClick={() => {
               onNew();
               setOpen(false);
