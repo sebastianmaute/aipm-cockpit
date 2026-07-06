@@ -284,7 +284,6 @@ export function TasksSection({
       jiraEnabled,
       jiraProjectKey,
       hiddenCols,
-      tasksById,
       onToggleSelect,
       onToggleNoteExpanded,
       onJumpToRaid,
@@ -306,7 +305,6 @@ export function TasksSection({
       jiraEnabled,
       jiraProjectKey,
       hiddenCols,
-      tasksById,
       onToggleSelect,
       onToggleNoteExpanded,
       onJumpToRaid,
@@ -720,7 +718,7 @@ export function TasksSection({
             <span className="font-medium">+ {t(lang, "addTaskButton")}…</span>
           </button>
         ) : (
-        <RowContextProvider value={rowContextValue}>
+        <RowContextProvider value={rowContextValue} tasksById={tasksById}>
           <table
             className="divide-y divide-line text-left text-sm"
             style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}

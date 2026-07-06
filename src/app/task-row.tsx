@@ -27,7 +27,6 @@ export interface RowContextValue {
   jiraProjectKey: string;
 
   hiddenCols: Set<string>;
-  tasksById: Map<number, Task>;
 
   // Stable callbacks (useCallback'd in TaskManagerInner).
   onToggleSelect: (id: number) => void;
@@ -47,20 +46,43 @@ export interface RowContextValue {
 
 const RowContext = createContext<RowContextValue | undefined>(undefined);
 
+// `tasksById` lives in its OWN context, split out of RowContextValue: it gets a
+// brand-new Map on ANY task edit (audit #6/#32), so bundling it into the main
+// value would re-render every row on every edit. Only the dependency-chip cell
+// reads the lookup, so only it re-renders when the map changes; the main value
+// stays reference-stable and unchanged rows are skipped by their React.memo.
+const RowLookupContext = createContext<Map<number, Task> | undefined>(undefined);
+
+/** Stable shared empty lookup for callers that render no dependency chips. */
+const EMPTY_TASK_LOOKUP: Map<number, Task> = new Map();
+
 export function RowContextProvider({
   value,
+  tasksById = EMPTY_TASK_LOOKUP,
   children,
 }: {
   value: RowContextValue;
+  tasksById?: Map<number, Task>;
   children: ReactNode;
 }) {
-  return <RowContext.Provider value={value}>{children}</RowContext.Provider>;
+  return (
+    <RowContext.Provider value={value}>
+      <RowLookupContext.Provider value={tasksById}>{children}</RowLookupContext.Provider>
+    </RowContext.Provider>
+  );
 }
 
 export function useTaskRowContext(): RowContextValue {
   const ctx = useContext(RowContext);
   if (!ctx)
     throw new Error("useTaskRowContext must be used within RowContext.Provider");
+  return ctx;
+}
+
+export function useTaskLookup(): Map<number, Task> {
+  const ctx = useContext(RowLookupContext);
+  if (!ctx)
+    throw new Error("useTaskLookup must be used within RowContext.Provider");
   return ctx;
 }
 
@@ -462,7 +484,8 @@ interface DependencyChipsProps {
 }
 
 function DependencyChipsImpl({ deps }: DependencyChipsProps) {
-  const { lang, tasksById } = useTaskRowContext();
+  const { lang } = useTaskRowContext();
+  const tasksById = useTaskLookup();
   if (deps.length === 0) return <span>—</span>;
   return (
     <ul className="flex flex-wrap gap-1">

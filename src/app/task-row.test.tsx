@@ -55,7 +55,6 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     jiraEnabled: false,
     jiraProjectKey: "",
     hiddenCols: new Set(),
-    tasksById: new Map(),
     onToggleSelect: vi.fn(),
     onToggleNoteExpanded: vi.fn(),
     onJumpToRaid: vi.fn(),
@@ -74,15 +73,19 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
 function rowWrapper({
   context,
   children,
+  tasksById,
 }: {
   context: RowContextValue;
   children: ReactNode;
+  tasksById?: Map<number, Task>;
 }) {
   // <tbody> wrapper required because TaskRow returns a <tr>.
   return (
     <table>
       <tbody>
-        <RowContextProvider value={context}>{children}</RowContextProvider>
+        <RowContextProvider value={context} tasksById={tasksById}>
+          {children}
+        </RowContextProvider>
       </tbody>
     </table>
   );
@@ -118,6 +121,30 @@ describe("TaskRow", () => {
     expect(getByText("2026-09-01")).toBeTruthy();
     // "High" is the English label for priority High.
     expect(getByText("High")).toBeTruthy();
+  });
+
+  test("dependency chip resolves predecessor name from the split lookup context", () => {
+    const ctx = makeContext();
+    const predecessor = makeTask({ id: 5, taskName: "Predecessor task" });
+    const task = makeTask({ id: 7, taskName: "Dependent", dependencies: [{ taskId: 5, type: "FS" }] });
+    const { getByTitle } = render(
+      rowWrapper({
+        context: ctx,
+        tasksById: new Map([[5, predecessor]]),
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    // The chip title carries the predecessor's name, read via useTaskLookup.
+    expect(getByTitle(/Predecessor task/)).toBeTruthy();
   });
 
   test("does not re-render on unrelated parent state change (memo holds)", () => {
