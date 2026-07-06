@@ -1352,6 +1352,8 @@ export const de: Record<TranslationKey, string> = {
   activityHeaderWhen: "Wann",
   activityHeaderKind: "Typ",
   activityHeaderMessage: "Meldung",
+  activityChangeFrom: "von",
+  activityChangeTo: "auf",
   activityFilterAll: "Alle",
   activityFilterTasks: "Aufgaben",
   activityFilterRaid: "RAID",

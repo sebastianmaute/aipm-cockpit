@@ -318,8 +318,10 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                           <li key={i} className="text-xs text-muted-foreground">
                             <span className="font-medium">{humanizeFieldName(c.field)}</span>
                             {": "}
+                            <span className="sr-only">{t(lang, "activityChangeFrom")} </span>
                             <span className="line-through">{c.from || "—"}</span>{" "}
                             <span aria-hidden="true">→</span>{" "}
+                            <span className="sr-only">{t(lang, "activityChangeTo")} </span>
                             <span className="text-foreground">{c.to || "—"}</span>
                           </li>
                         ))}

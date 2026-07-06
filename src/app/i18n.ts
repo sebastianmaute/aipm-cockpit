@@ -1360,6 +1360,8 @@ const enUS = {
   activityHeaderWhen: "When",
   activityHeaderKind: "Kind",
   activityHeaderMessage: "Message",
+  activityChangeFrom: "from",
+  activityChangeTo: "to",
   activityFilterAll: "All",
   activityFilterTasks: "Tasks",
   activityFilterRaid: "RAID",
