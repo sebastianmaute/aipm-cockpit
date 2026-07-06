@@ -3,6 +3,9 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Lang } from "./i18n";
 import { useActivityLog } from "./use-activity-log";
+import { useConfirm } from "./confirm-dialog";
+
+vi.mock("./confirm-dialog", () => ({ useConfirm: vi.fn(() => () => Promise.resolve(true)) }));
 
 function renderLog(lang: Lang = "en-US" as Lang) {
   return renderHook(() => useActivityLog({ lang }));
@@ -38,40 +41,38 @@ describe("useActivityLog", () => {
   });
 
   describe("handleClearActivityLog", () => {
-    it("does nothing when log is empty (no window.confirm call)", () => {
+    it("does nothing when log is empty (confirm not called)", async () => {
+      const confirmFn = vi.fn(() => Promise.resolve(true));
+      vi.mocked(useConfirm).mockReturnValue(confirmFn);
       const { result } = renderLog();
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      act(() => {
-        result.current.handleClearActivityLog();
+      await act(async () => {
+        await result.current.handleClearActivityLog();
       });
-      expect(confirmSpy).not.toHaveBeenCalled();
-      confirmSpy.mockRestore();
+      expect(confirmFn).not.toHaveBeenCalled();
     });
 
-    it("clears log when window.confirm returns true", () => {
+    it("clears log when confirm resolves true", async () => {
+      vi.mocked(useConfirm).mockReturnValue(() => Promise.resolve(true));
       const { result } = renderLog();
       act(() => {
         result.current.logActivity("task.created", 1, "Task A");
       });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      act(() => {
-        result.current.handleClearActivityLog();
+      await act(async () => {
+        await result.current.handleClearActivityLog();
       });
       expect(result.current.activityLog).toHaveLength(0);
-      confirmSpy.mockRestore();
     });
 
-    it("does NOT clear when window.confirm returns false", () => {
+    it("does NOT clear when confirm resolves false", async () => {
+      vi.mocked(useConfirm).mockReturnValue(() => Promise.resolve(false));
       const { result } = renderLog();
       act(() => {
         result.current.logActivity("task.created", 1, "Task A");
       });
-      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-      act(() => {
-        result.current.handleClearActivityLog();
+      await act(async () => {
+        await result.current.handleClearActivityLog();
       });
       expect(result.current.activityLog).toHaveLength(1);
-      confirmSpy.mockRestore();
     });
   });
 });

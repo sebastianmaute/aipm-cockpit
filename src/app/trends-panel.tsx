@@ -19,6 +19,7 @@ import { useDisplayTimezone } from "./display-timezone-context";
 import { formatDisplayTimestamp } from "./tz-display";
 import { EmptyState } from "./empty-state";
 import { INTERACTIVE } from "./interaction-styles";
+import { useConfirm } from "./confirm-dialog";
 
 const VARIANCE_COL_WIDTHS = {
   kpi: 200,
@@ -77,6 +78,7 @@ function trendPoints(snaps: readonly SnapshotRecord[], gaps: ReadonlySet<string>
 export function TrendsPanel(props: TrendsPanelProps) {
   const { lang, active, snapshots, baseline, variance, gaps, busy, captureNow, setBaseline, deleteSnapshot, deleteSnapshots, showHints, isPopout, onLearnMore } = props;
   const { displayTz } = useDisplayTimezone();
+  const confirm = useConfirm();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const { ref, reset } = useResizable("lop-app:trends-size");
   const varianceResize = useColumnResize<VarianceCol>("trends-variance", VARIANCE_COL_WIDTHS);
@@ -196,8 +198,8 @@ export function TrendsPanel(props: TrendsPanelProps) {
               <button
                 type="button"
                 disabled={selected.size === 0 || busy}
-                onClick={() => {
-                  if (!window.confirm(t(lang, "snapshotDeleteSelectedConfirm", selected.size))) return;
+                onClick={async () => {
+                  if (!(await confirm({ message: t(lang, "snapshotDeleteSelectedConfirm", selected.size) }))) return;
                   void deleteSnapshots([...selected]);
                   setSelected(new Set());
                 }}
@@ -260,8 +262,8 @@ export function TrendsPanel(props: TrendsPanelProps) {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => {
-                            if (!window.confirm(t(lang, "snapshotDeleteConfirm"))) return;
+                          onClick={async () => {
+                            if (!(await confirm({ message: t(lang, "snapshotDeleteConfirm") }))) return;
                             void deleteSnapshot(s.id);
                             setSelected((prev) => { const next = new Set(prev); next.delete(s.id); return next; });
                           }}

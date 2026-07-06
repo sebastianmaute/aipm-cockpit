@@ -9,6 +9,7 @@ import { ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
+import { useConfirm } from "./confirm-dialog";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -235,6 +236,7 @@ function RefList({
   onAdd: () => void;
 }) {
   const draggedIdRef = useRef<number | null>(null);
+  const confirm = useConfirm();
 
   return (
     <div>
@@ -274,8 +276,8 @@ function RefList({
             <button
               type="button"
               aria-label={t(lang, "delete")}
-              onClick={() => {
-                if (window.confirm(t(lang, "rolesConfirmDeleteRef"))) onDelete(it.id);
+              onClick={async () => {
+                if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}
               className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink"
             >×</button>

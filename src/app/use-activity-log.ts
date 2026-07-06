@@ -10,6 +10,7 @@ import {
   saveActivityLog,
 } from "./activity-log";
 import { type Lang, t } from "./i18n";
+import { useConfirm } from "./confirm-dialog";
 
 export interface UseActivityLogArgs {
   lang: Lang;
@@ -23,6 +24,7 @@ export function useActivityLog({ lang }: UseActivityLogArgs): {
 } {
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
   const activityLogHydratedRef = useRef(false);
+  const confirm = useConfirm();
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only hydration; lazy initializer would run during SSR
@@ -42,17 +44,17 @@ export function useActivityLog({ lang }: UseActivityLogArgs): {
     [],
   );
 
-  const handleClearActivityLog = useCallback(() => {
+  const handleClearActivityLog = useCallback(async () => {
     if (activityLog.length === 0) return;
     if (
-      !window.confirm(
-        t(lang, "confirmClearActivityLog", activityLog.length),
-      )
+      !(await confirm({
+        message: t(lang, "confirmClearActivityLog", activityLog.length),
+      }))
     )
       return;
     setActivityLog([]);
     clearActivityLogStorage();
-  }, [activityLog.length, lang]);
+  }, [activityLog.length, lang, confirm]);
 
   return { activityLog, setActivityLog, logActivity, handleClearActivityLog };
 }

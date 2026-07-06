@@ -14,6 +14,7 @@ import {
   resolveNextActionsConfig,
 } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
+import { useConfirm } from "../confirm-dialog";
 import { useWeightSuggestions } from "../use-weight-suggestions";
 import { applyWeightSuggestion, type SuggestionScope, type WeightSuggestion } from "../next-actions-tuning";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
@@ -77,6 +78,7 @@ export function NextActionsSection({
   onOpenInsights,
   buildWeightSuggestionContext,
 }: NextActionsSectionProps) {
+  const confirm = useConfirm();
   const cfg = settings.nextActions ?? defaultNextActionsConfig;
   const learningEnabled =
     learningConfig != null && onChangeLearningConfig != null && onResetLearning != null && onOpenInsights != null;
@@ -285,8 +287,8 @@ export function NextActionsSection({
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm(t(lang, "settingsLearningResetConfirm"))) onResetLearning();
+              onClick={async () => {
+                if (await confirm({ message: t(lang, "settingsLearningResetConfirm") })) onResetLearning();
               }}
               className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >

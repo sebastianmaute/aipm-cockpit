@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ProjectsPanel } from "./projects-panel";
+
+// Branded confirm dialog — mock the hook so tests control the resolved boolean
+// (default accept). `confirmMock.result` is reset to true in afterEach.
+const { confirmMock } = vi.hoisted(() => ({ confirmMock: { result: true } }));
+vi.mock("./confirm-dialog", () => ({
+  useConfirm: () => () => Promise.resolve(confirmMock.result),
+}));
 import { type Contact } from "./contacts";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { defaultSettings } from "./settings-types";
@@ -98,6 +105,7 @@ function fillRequired() {
 }
 
 afterEach(() => {
+  confirmMock.result = true;
   vi.restoreAllMocks();
 });
 
@@ -119,18 +127,19 @@ describe("ProjectsPanel", () => {
     expect(onSwitch).toHaveBeenCalledWith("p2");
   });
 
-  it("deletes only when the confirm dialog is accepted (on a non-current row)", () => {
+  it("deletes only when the confirm dialog is accepted (on a non-current row)", async () => {
     const { onDelete } = setup();
 
     // Delete now lives on the NON-current row (Gemini/p2) — the active project
     // (Apollo/p1) no longer exposes a destructive action.
-    vi.spyOn(window, "confirm").mockReturnValueOnce(false);
+    confirmMock.result = false;
     fireEvent.click(screen.getByRole("button", { name: /delete project/i }));
+    await Promise.resolve();
     expect(onDelete).not.toHaveBeenCalled();
 
-    vi.spyOn(window, "confirm").mockReturnValueOnce(true);
+    confirmMock.result = true;
     fireEvent.click(screen.getByRole("button", { name: /delete project/i }));
-    expect(onDelete).toHaveBeenCalledWith("p2");
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith("p2"));
   });
 
   it("does not show a destructive action on the current/active row", () => {
@@ -231,11 +240,11 @@ describe("ProjectsPanel turso mode", () => {
     { id: "p9", name: "Old", code: "OLD", storageConfig: { kind: "turso" } as never },
   ];
 
-  it("default delete archives; Show archived reveals restore + permanent delete", () => {
+  it("default delete archives; Show archived reveals restore + permanent delete", async () => {
     const onArchive = vi.fn();
     const onHardDelete = vi.fn();
     const onRestore = vi.fn();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
+    confirmMock.result = true;
 
     setup({
       mode: "turso",
@@ -248,7 +257,7 @@ describe("ProjectsPanel turso mode", () => {
     // Archive lives on the NON-current row (Gemini/p2) in turso mode; the active
     // project (Apollo/p1) no longer exposes it. Label is row-qualified.
     fireEvent.click(screen.getByRole("button", { name: /^archive –/i }));
-    expect(onArchive).toHaveBeenCalledWith("p2");
+    await waitFor(() => expect(onArchive).toHaveBeenCalledWith("p2"));
 
     // Reveal archived.
     fireEvent.click(screen.getByRole("button", { name: /show archived/i }));

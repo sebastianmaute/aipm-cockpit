@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { TrendsPanel } from "./trends-panel";
+
+// Branded confirm dialog — mock the hook so tests control the resolved boolean.
+const { confirmMock } = vi.hoisted(() => ({ confirmMock: { result: true } }));
+vi.mock("./confirm-dialog", () => ({
+  useConfirm: () => () => Promise.resolve(confirmMock.result),
+}));
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import type { SnapshotRecord, VarianceRow } from "./snapshot";
 
@@ -78,28 +84,28 @@ describe("TrendsPanel", () => {
     expect(deleteBtns).toHaveLength(2);
   });
 
-  it("per-row delete calls deleteSnapshot after confirm=true", () => {
-    vi.stubGlobal("confirm", () => true);
+  it("per-row delete calls deleteSnapshot after confirm=true", async () => {
+    confirmMock.result = true;
     const deleteSnapshot = vi.fn(noop);
     renderPanel(<TrendsPanel {...base} deleteSnapshot={deleteSnapshot} />);
     const [firstDelete] = screen.getAllByRole("button", { name: /^Delete$/i });
     fireEvent.click(firstDelete);
-    expect(deleteSnapshot).toHaveBeenCalledTimes(1);
-    vi.unstubAllGlobals();
+    await waitFor(() => expect(deleteSnapshot).toHaveBeenCalledTimes(1));
   });
 
-  it("per-row delete does NOT call deleteSnapshot when confirm=false", () => {
-    vi.stubGlobal("confirm", () => false);
+  it("per-row delete does NOT call deleteSnapshot when confirm=false", async () => {
+    confirmMock.result = false;
     const deleteSnapshot = vi.fn(noop);
     renderPanel(<TrendsPanel {...base} deleteSnapshot={deleteSnapshot} />);
     const [firstDelete] = screen.getAllByRole("button", { name: /^Delete$/i });
     fireEvent.click(firstDelete);
+    await act(async () => {});
     expect(deleteSnapshot).not.toHaveBeenCalled();
-    vi.unstubAllGlobals();
+    confirmMock.result = true;
   });
 
-  it("selecting two rows and clicking 'Delete selected' calls deleteSnapshots with both ids", () => {
-    vi.stubGlobal("confirm", () => true);
+  it("selecting two rows and clicking 'Delete selected' calls deleteSnapshots with both ids", async () => {
+    confirmMock.result = true;
     const deleteSnapshots = vi.fn(noop as (ids: readonly string[]) => Promise<void>);
     renderPanel(<TrendsPanel {...base} deleteSnapshots={deleteSnapshots} />);
     // Check both row checkboxes
@@ -109,10 +115,9 @@ describe("TrendsPanel", () => {
     // Click the "Delete selected" button
     const bulkBtn = screen.getByRole("button", { name: /delete selected/i });
     fireEvent.click(bulkBtn);
-    expect(deleteSnapshots).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(deleteSnapshots).toHaveBeenCalledTimes(1));
     const [ids] = deleteSnapshots.mock.calls[0] as [readonly string[]];
     expect(ids).toHaveLength(2);
-    vi.unstubAllGlobals();
   });
 
   it("renders a snapshot's capturedAt in the display timezone", () => {

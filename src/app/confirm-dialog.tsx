@@ -70,20 +70,18 @@ interface ConfirmProviderProps {
 
 export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
   const [pending, setPending] = useState<Pending | null>(null);
-  // Mirror the live pending into a ref so `confirm` can resolve a superseded
-  // prompt without depending on `pending` (keeps `confirm`'s identity stable —
-  // call sites put it in effect/callback deps).
-  const pendingRef = useRef<Pending | null>(null);
-  pendingRef.current = pending;
   // Focus the Cancel button on open so an accidental Enter can't fire a
   // destructive confirm.
   const cancelRef = useRef<HTMLButtonElement | null>(null);
 
   const confirm = useCallback<ConfirmFn>((opts) => {
     return new Promise<boolean>((resolve) => {
-      // A new prompt while one is open cancels the previous (should be rare).
-      pendingRef.current?.resolve(false);
-      setPending({ ...opts, resolve });
+      setPending((prev) => {
+        // A new prompt supersedes an unanswered one (should be rare) —
+        // resolve the previous as declined before replacing it.
+        prev?.resolve(false);
+        return { ...opts, resolve };
+      });
     });
   }, []);
 

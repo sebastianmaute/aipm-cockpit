@@ -19,6 +19,7 @@ import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { defaultTimelogConfig, type TimelogLinks } from "./timelog-types";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { useConfirm } from "./confirm-dialog";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { Tile } from "./report-table";
 import { useResizable } from "./use-resizable";
@@ -49,6 +50,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const ws = useWorkspace();
   const { settings, setSettings } = useSettings();
   const showToast = useToastContext();
+  const confirm = useConfirm();
   const cfg = settings.timelog ?? defaultTimelogConfig;
 
   // Stable references hoisted out of useMemo deps to avoid obj.member lint errors
@@ -119,9 +121,9 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     sel.clear();
   }
 
-  function clearAllFetched() {
+  async function clearAllFetched() {
     if (isPopout) return;
-    if (!window.confirm(t(lang, "timelogClearAllConfirm"))) return;
+    if (!(await confirm({ message: t(lang, "timelogClearAllConfirm") }))) return;
     sync.clearAll();
     sel.clear();
   }

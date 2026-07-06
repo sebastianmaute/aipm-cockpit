@@ -24,6 +24,7 @@ import {
 import type { Contact } from "./contacts";
 import { FieldNotice } from "./field-feedback";
 import { describeClamp } from "./sanitize-report";
+import { useConfirm } from "./confirm-dialog";
 
 interface Props {
   lang: Lang;
@@ -82,6 +83,7 @@ export function ShiftEditModal({
   const [error, setError] = useState<string | null>(null);
   const [hourNotice, setHourNotice] = useState<Record<number, string>>({});
   const dayNoticeBase = useId();
+  const confirm = useConfirm();
 
   if (prevShift !== shift) {
     setPrevShift(shift);
@@ -136,9 +138,9 @@ export function ShiftEditModal({
     });
   }
 
-  function handleDeleteClick() {
+  async function handleDeleteClick() {
     if (!draft) return;
-    if (window.confirm(t(lang, "shiftConfirmDelete"))) {
+    if (await confirm({ message: t(lang, "shiftConfirmDelete") })) {
       onDelete(draft.id);
     }
   }

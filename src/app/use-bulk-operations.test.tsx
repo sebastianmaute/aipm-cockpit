@@ -172,8 +172,7 @@ describe("useBulkOperations", () => {
     });
 
     it("skips Jira-managed fields on synced rows but applies local-only fields; warns", () => {
-      const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-      const { result } = renderBulk({});
+      const { result, args } = renderBulk({});
       const base = {
         assignee: "Alice", assigneeEmail: "", dueDate: "2026-06-01",
         lastUpdateDate: "2026-05-20", status: "To Do" as const, priority: "Medium" as const,
@@ -204,8 +203,7 @@ describe("useBulkOperations", () => {
       // Non-synced: everything applied.
       expect(local.priority).toBe("High");
       expect(local.group).toBe("Alpha");
-      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("1"));
-      alertSpy.mockRestore();
+      expect(args.showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
     });
 
     it("leaves a synced row untouched when only managed fields are enabled (no localModifiedAt bump)", () => {
@@ -371,7 +369,7 @@ describe("useBulkOperations", () => {
   });
 
   describe("handleBulkSendInquiry", () => {
-    it("opens mailto link and logs bulk.inquiries for selected task with email", () => {
+    it("opens mailto link and logs bulk.inquiries for selected task with email", async () => {
       const logActivity = vi.fn();
       const { result } = renderBulk({ logActivity });
       const task: Task = {
@@ -391,6 +389,8 @@ describe("useBulkOperations", () => {
       act(() => { result.current.workspace.setTasks([task]); });
       act(() => { result.current.bulk.onToggleSelect(1); });
       const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+      // Bulk-send keeps a synchronous native confirm (the window.open loop must
+      // stay in the click's user-activation gesture); confirm true = proceed.
       const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
       act(() => { result.current.bulk.handleBulkSendInquiry(); });
       expect(openSpy).toHaveBeenCalledWith(
