@@ -115,7 +115,7 @@ export class LocalFileBackend implements StorageBackend {
     }
     const text = await readHandle(handle);
     if (!text.trim()) return emptyWorkspace();
-    if (this.format === "json") return jsonToWorkspace(text);
+    if (this.format === "json") return jsonToWorkspace(text, { strict: true });
     if (this.format === "csv") return csvToWorkspace(text);
     return markdownToWorkspace(text);
   }
