@@ -38,6 +38,17 @@ describe("useActivityLog", () => {
       });
       expect(result.current.activityLog).toHaveLength(2);
     });
+
+    it("logActivityChanges appends an entry carrying the per-field diff (#22)", () => {
+      const { result } = renderLog();
+      const changes = [{ field: "status", from: "Open", to: "Closed" }];
+      act(() => {
+        result.current.logActivityChanges("raid.updated", changes, 5, "R", "Risk");
+      });
+      expect(result.current.activityLog).toHaveLength(1);
+      expect(result.current.activityLog[0].changes).toEqual(changes);
+      expect(result.current.activityLog[0].args).toEqual([5, "R", "Risk"]);
+    });
   });
 
   describe("handleClearActivityLog", () => {

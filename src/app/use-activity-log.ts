@@ -3,8 +3,10 @@
 import { type Dispatch, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import {
   appendActivity,
+  appendActivityEntry,
   type ActivityEntry,
   type ActivityKind,
+  type FieldChange,
   clearActivityLog as clearActivityLogStorage,
   loadActivityLog,
   saveActivityLog,
@@ -13,6 +15,11 @@ export function useActivityLog(): {
   activityLog: ActivityEntry[];
   setActivityLog: Dispatch<SetStateAction<ActivityEntry[]>>;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  logActivityChanges: (
+    kind: ActivityKind,
+    changes: readonly FieldChange[],
+    ...args: (string | number)[]
+  ) => void;
   handleClearActivityLog: () => void;
 } {
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
@@ -36,6 +43,16 @@ export function useActivityLog(): {
     [],
   );
 
+  // UPDATE-event variant carrying a per-field diff (#22). Separate from
+  // logActivity because the shared `(kind, ...args)` signature can't take a
+  // trailing options arg after a rest param.
+  const logActivityChanges = useCallback(
+    (kind: ActivityKind, changes: readonly FieldChange[], ...args: (string | number)[]) => {
+      setActivityLog((prev) => appendActivityEntry(prev, kind, args, changes));
+    },
+    [],
+  );
+
   const handleClearActivityLog = useCallback(() => {
     // The Clear button (activity-log-panel) is the sole caller; it already
     // gates on entries.length > 0 and shows the branded confirm dialog. This
@@ -46,5 +63,5 @@ export function useActivityLog(): {
     clearActivityLogStorage();
   }, []);
 
-  return { activityLog, setActivityLog, logActivity, handleClearActivityLog };
+  return { activityLog, setActivityLog, logActivity, logActivityChanges, handleClearActivityLog };
 }

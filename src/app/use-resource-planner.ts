@@ -5,7 +5,7 @@ import { nextRaidId } from "./raid";
 import { nextId } from "./resource-foundation";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
-import type { ActivityKind } from "./activity-log";
+import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
@@ -56,6 +56,11 @@ export interface UseResourcePlannerArgs {
   /** Today (YYYY-MM-DD) in the resolved effective timezone, from the caller. */
   today: string;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  logActivityChanges?: (
+    kind: ActivityKind,
+    changes: readonly FieldChange[],
+    ...args: (string | number)[]
+  ) => void;
   showToast: (kind: "info" | "error", text: string) => void;
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
@@ -87,12 +92,34 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
 
   const langRef = useRef(args.lang);
   const logActivityRef = useRef(args.logActivity);
+  const logActivityChangesRef = useRef(args.logActivityChanges);
   const showToastRef = useRef(args.showToast);
   const tasksRef = useRef(tasks);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
+  useEffect(() => { logActivityChangesRef.current = args.logActivityChanges; }, [args.logActivityChanges]);
   useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+
+  // Log an UPDATE with a per-field diff (#22) when a diff logger + previous
+  // snapshot are available; else fall back to the plain (changes-less) log so
+  // callers wiring only logActivity still record the event. Reads refs so it's
+  // stable (useCallback []) and safe inside the memoised handlers.
+  const logUpdate = useCallback(
+    (
+      kind: ActivityKind,
+      previous: object | undefined,
+      next: object,
+      ...args: (string | number)[]
+    ): void => {
+      if (previous && logActivityChangesRef.current) {
+        logActivityChangesRef.current(kind, diffFields(previous, next), ...args);
+      } else {
+        logActivityRef.current(kind, ...args);
+      }
+    },
+    [],
+  );
 
   const [editingAbsence, setEditingAbsence] = useState<{
     absence: Absence;
@@ -171,13 +198,13 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           item.status,
         );
       } else {
-        logActivityRef.current("raid.updated", item.id, item.category, item.title);
+        logUpdate("raid.updated", previous, withStamp, item.id, item.category, item.title);
       }
       if (autoIssueId !== null) {
         logActivityRef.current("raid.autoIssue", item.id, autoIssueId);
       }
     },
-    [raid, setRaid, today],
+    [raid, setRaid, today, logUpdate],
   );
 
   const handleDeleteRaidItem = useCallback(
@@ -234,8 +261,10 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         setAbsences((prev) =>
           prev.map((a) => (a.id === next.id ? withStamp : a)),
         );
-        logActivityRef.current(
+        logUpdate(
           "absence.updated",
+          existing,
+          withStamp,
           next.id,
           next.assignee,
           next.startDate,
@@ -253,7 +282,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       }
       setEditingAbsence(null);
     },
-    [absences, setAbsences],
+    [absences, setAbsences, logUpdate],
   );
 
   const handleDeleteAbsence = useCallback(
@@ -299,14 +328,14 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         setShifts((prev) =>
           prev.map((s) => (s.id === next.id ? withStamp : s)),
         );
-        logActivityRef.current("shift.updated", next.id, next.assignee);
+        logUpdate("shift.updated", existing, withStamp, next.id, next.assignee);
       } else {
         setShifts((prev) => [...prev, withStamp]);
         logActivityRef.current("shift.created", next.id, next.assignee);
       }
       setEditingShift(null);
     },
-    [shifts, setShifts],
+    [shifts, setShifts, logUpdate],
   );
 
   const handleDeleteShift = useCallback(
@@ -353,19 +382,20 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     (next: Resource) => {
       const stamp = new Date().toISOString();
       const withStamp: Resource = { ...next, localModifiedAt: stamp };
-      const isNew = resources.findIndex((r) => r.id === next.id) < 0;
+      const previous = resources.find((r) => r.id === next.id);
+      const isNew = previous === undefined;
       setResources(isNew
         ? [...resources, withStamp]
         : resources.map((r) => (r.id === next.id ? withStamp : r)));
       setEditingResource(null);
       const name = `${next.firstName} ${next.lastName}`.trim();
-      logActivityRef.current(
-        isNew ? "resource.created" : "resource.updated",
-        next.id,
-        name,
-      );
+      if (isNew) {
+        logActivityRef.current("resource.created", next.id, name);
+      } else {
+        logUpdate("resource.updated", previous, withStamp, next.id, name);
+      }
     },
-    [resources, setResources],
+    [resources, setResources, logUpdate],
   );
 
   const handleDeleteResource = useCallback(
@@ -414,12 +444,14 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleSaveRole = useCallback(
     (role: Role) => {
       const stamp = new Date().toISOString();
+      const withStamp: Role = { ...role, localModifiedAt: stamp };
+      const previous = roles.find((r) => r.id === role.id);
       setRoles((prev) =>
-        prev.map((r) => (r.id === role.id ? { ...role, localModifiedAt: stamp } : r)),
+        prev.map((r) => (r.id === role.id ? withStamp : r)),
       );
-      logActivityRef.current("role.updated", role.id, `${role.disciplineId}/${role.gradeId}`);
+      logUpdate("role.updated", previous, withStamp, role.id, `${role.disciplineId}/${role.gradeId}`);
     },
-    [setRoles],
+    [roles, setRoles, logUpdate],
   );
 
   const handleDeleteRole = useCallback(

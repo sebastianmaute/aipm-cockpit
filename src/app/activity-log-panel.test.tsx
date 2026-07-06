@@ -39,6 +39,31 @@ const entries: ActivityEntry[] = [
 ];
 
 describe("ActivityLogPanel", () => {
+  it("renders the per-field change diff under an update entry (#22)", () => {
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({
+            id: 9,
+            kind: "raid.updated",
+            args: [5, "R", "Risk"],
+            changes: [
+              { field: "status", from: "Open", to: "Closed" },
+              { field: "targetDate", from: "", to: "2026-08-01" },
+            ],
+          }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    // Field key humanized, from → to rendered; empty "from" shows an em dash.
+    expect(screen.getByText("status")).toBeInTheDocument();
+    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getByText("target date")).toBeInTheDocument();
+    expect(screen.getByText("2026-08-01")).toBeInTheDocument();
+  });
+
   it("renders timestamps in the display timezone (not the raw ISO)", () => {
     // 2026-05-28T10:00:00Z in Asia/Kolkata (+5:30) is 15:30 → "03:30 PM".
     renderPanel(<ActivityLogPanel lang="en-US" entries={[entry({ id: 1 })]} onClear={() => {}} />);

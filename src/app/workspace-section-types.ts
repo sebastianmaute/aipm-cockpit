@@ -13,6 +13,7 @@ import type {
 import type {
   ActivityEntry,
   ActivityKind,
+  FieldChange,
 } from "./activity-log";
 import type {
   Absence,
@@ -112,6 +113,11 @@ export interface WorkspaceSectionProps {
   handleJumpToTaskFromRaid: (taskId: number) => void;
   activityLog: ActivityEntry[];
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  logActivityChanges: (
+    kind: ActivityKind,
+    changes: readonly FieldChange[],
+    ...args: (string | number)[]
+  ) => void;
   handleClearActivityLog: () => void;
   handleOpenAddAbsence: (seed?: Partial<Absence>) => void;
   handleEditAbsence: (absence: Absence) => void;

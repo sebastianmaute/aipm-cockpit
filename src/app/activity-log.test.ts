@@ -3,7 +3,10 @@ import {
   ACTIVITY_KIND_TO_KEY,
   activityGroupOf,
   appendActivity,
+  appendActivityEntry,
   clearActivityLog,
+  diffFields,
+  humanizeFieldName,
   loadActivityLog,
   saveActivityLog,
   type ActivityEntry,
@@ -181,5 +184,120 @@ describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both local
     const key = ACTIVITY_KIND_TO_KEY[kind];
     const label = de[key];
     expect(label).toBeTruthy();
+  });
+});
+
+describe("diffFields (#22 per-field audit diff)", () => {
+  test("reports only changed primitive fields as {field,from,to}", () => {
+    const prev = { title: "A", status: "Open", owner: "Ada" };
+    const next = { title: "A", status: "Closed", owner: "Grace" };
+    expect(diffFields(prev, next)).toEqual([
+      { field: "owner", from: "Ada", to: "Grace" },
+      { field: "status", from: "Open", to: "Closed" },
+    ]);
+  });
+
+  test("sorts changes by field name for stable output", () => {
+    const prev = { zeta: "1", alpha: "1" };
+    const next = { zeta: "2", alpha: "2" };
+    expect(diffFields(prev, next).map((c) => c.field)).toEqual(["alpha", "zeta"]);
+  });
+
+  test("stringifies numbers and booleans and renders nullish as empty", () => {
+    const prev = { count: 1, flag: false, note: undefined as string | undefined };
+    const next = { count: 2, flag: true, note: "hi" };
+    expect(diffFields(prev, next)).toEqual([
+      { field: "count", from: "1", to: "2" },
+      { field: "flag", from: "false", to: "true" },
+      { field: "note", from: "", to: "hi" },
+    ]);
+  });
+
+  test("skips id / localModifiedAt / outlookEventId and array/object fields", () => {
+    const prev = {
+      id: 1,
+      localModifiedAt: "x",
+      outlookEventId: "a",
+      labels: ["p"],
+      raci: { a: "R" },
+      name: "one",
+    };
+    const next = {
+      id: 2,
+      localModifiedAt: "y",
+      outlookEventId: "b",
+      labels: ["p", "q"],
+      raci: { a: "A" },
+      name: "two",
+    };
+    expect(diffFields(prev, next)).toEqual([{ field: "name", from: "one", to: "two" }]);
+  });
+
+  test("caps a changed value's length and the number of changes", () => {
+    const long = "x".repeat(500);
+    expect(diffFields({ a: "" }, { a: long })[0].to.length).toBeLessThanOrEqual(140);
+    const prev: Record<string, string> = {};
+    const next: Record<string, string> = {};
+    for (let i = 0; i < 30; i++) {
+      prev[`f${i}`] = "0";
+      next[`f${i}`] = "1";
+    }
+    expect(diffFields(prev, next).length).toBeLessThanOrEqual(12);
+  });
+
+  test("returns [] when nothing changed", () => {
+    expect(diffFields({ a: "1", b: "2" }, { a: "1", b: "2" })).toEqual([]);
+  });
+});
+
+describe("humanizeFieldName", () => {
+  test.each([
+    ["dueDate", "due date"],
+    ["assigneeEmail", "assignee email"],
+    ["poNumber", "po number"],
+    ["status", "status"],
+    ["start_date", "start date"],
+  ])("%s → %s", (input, expected) => {
+    expect(humanizeFieldName(input)).toBe(expected);
+  });
+});
+
+describe("appendActivityEntry + changes round-trip (#22)", () => {
+  test("attaches a non-empty changes list to the entry", () => {
+    const changes = [{ field: "status", from: "Open", to: "Closed" }];
+    const [e] = appendActivityEntry([], "raid.updated", [5, "R", "Risk"], changes);
+    expect(e.changes).toEqual(changes);
+    expect(e.args).toEqual([5, "R", "Risk"]);
+  });
+
+  test("omits the changes key entirely when the diff is empty", () => {
+    const [e] = appendActivityEntry([], "task.updated", [1, "T"], []);
+    expect("changes" in e).toBe(false);
+  });
+
+  test("appendActivity (no changes) still produces a changes-less entry", () => {
+    const [e] = appendActivity([], "task.created", 1, "T");
+    expect("changes" in e).toBe(false);
+  });
+
+  test("a changes-bearing entry survives a save/load round-trip", () => {
+    const changes = [{ field: "owner", from: "Ada", to: "Grace" }];
+    const log = appendActivityEntry([], "raid.updated", [5], changes);
+    saveActivityLog(log);
+    const loaded = loadActivityLog();
+    expect(loaded[0].changes).toEqual(changes);
+  });
+
+  test("drops a malformed changes payload on load (validation)", () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        { id: 1, timestamp: "2026-01-01T00:00:00.000Z", kind: "task.updated", args: [], changes: "nope" },
+      ]),
+    );
+    const loaded = loadActivityLog();
+    // Entry is still valid (changes is optional) but the bad payload is dropped.
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].changes).toBeUndefined();
   });
 });

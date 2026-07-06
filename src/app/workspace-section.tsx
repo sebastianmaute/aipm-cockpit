@@ -113,6 +113,7 @@ export function WorkspaceSection({
   handleJumpToTaskFromRaid,
   activityLog,
   logActivity,
+  logActivityChanges,
   handleClearActivityLog,
   handleOpenAddAbsence,
   handleEditAbsence,
@@ -663,6 +664,7 @@ export function WorkspaceSection({
               today={today}
               holidaySet={holidaySet}
               logActivity={logActivity}
+              logActivityChanges={logActivityChanges}
               openCreateNonce={milestoneCreateNonce}
               onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}

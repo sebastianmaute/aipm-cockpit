@@ -22,6 +22,7 @@ import {
   type ActivityEntry,
   type ActivityGroup,
   activityGroupOf,
+  humanizeFieldName,
 } from "./activity-log";
 import { type Lang, t } from "./i18n";
 import { useDisplayTimezone } from "./display-timezone-context";
@@ -311,6 +312,21 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   </td>
                   <td className="px-3 py-2 text-foreground">
                     {message}
+                    {entry.changes && entry.changes.length > 0 && (
+                      <ul className="mt-1 space-y-0.5">
+                        {entry.changes.map((c) => (
+                          <li key={c.field} className="text-xs text-muted-foreground">
+                            <span className="font-medium">{humanizeFieldName(c.field)}</span>
+                            {": "}
+                            <span className="sr-only">{t(lang, "activityChangeFrom")} </span>
+                            <span className="line-through">{c.from || "—"}</span>{" "}
+                            <span aria-hidden="true">→</span>{" "}
+                            <span className="sr-only">{t(lang, "activityChangeTo")} </span>
+                            <span className="text-foreground">{c.to || "—"}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </td>
                 </tr>
               ))}

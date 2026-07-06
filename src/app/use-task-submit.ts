@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import type React from "react";
 import { emptyForm, type TaskFormDraft } from "./task-form-context";
 import { upsertContact, type ContactsMap } from "./contacts";
-import { type ActivityKind } from "./activity-log";
+import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useAdjustmentTracker } from "./field-feedback";
 import { t, type Lang } from "./i18n";
 import { nextId } from "./resource-foundation";
@@ -44,6 +44,11 @@ export interface UseTaskSubmitArgs {
   setTasks: React.Dispatch<React.SetStateAction<readonly Task[]>>;
   setContacts: React.Dispatch<React.SetStateAction<ContactsMap>>;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  logActivityChanges?: (
+    kind: ActivityKind,
+    changes: readonly FieldChange[],
+    ...args: (string | number)[]
+  ) => void;
   showToast: (kind: "info" | "error", text: string) => void;
   onPushToJiraRef: React.MutableRefObject<(taskId: number) => Promise<boolean>>;
   raid: readonly RaidItem[];
@@ -73,6 +78,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     setTasks,
     setContacts,
     logActivity,
+    logActivityChanges,
     showToast,
     onPushToJiraRef,
     setRaid,
@@ -156,6 +162,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       if (editingId !== null) {
         const stamp = new Date().toISOString();
         const updatedId = editingId;
+        const prevTask = tasksRef.current.find((r) => r.id === editingId);
         setTasks((prev) =>
           prev.map((row) =>
             row.id === editingId
@@ -168,7 +175,18 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           ),
         );
         setEditingId(null);
-        logActivity("task.updated", updatedId, taskName);
+        if (prevTask && logActivityChanges) {
+          // Single-item edit, so tasksRef's row equals the mapped row — recompute
+          // the same next value to diff prev→next for the audit detail.
+          const nextTask = applyStatusChange(
+            { ...prevTask, ...payload, localModifiedAt: stamp },
+            form.status,
+            today,
+          );
+          logActivityChanges("task.updated", diffFields(prevTask, nextTask), updatedId, taskName);
+        } else {
+          logActivity("task.updated", updatedId, taskName);
+        }
       } else {
         const newTask: Task = applyStatusChange(
           { id: nextId(tasks), ...payload, status: form.status, inquiriesSent: 0 },
@@ -227,6 +245,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       setTaskModalOpen,
       setContacts,
       logActivity,
+      logActivityChanges,
       showToast,
       adj,
       onPushToJiraRef,

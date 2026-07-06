@@ -106,6 +106,55 @@ describe("ModernShell", () => {
   });
 });
 
+describe("ModernShell cross-view focus (#48)", () => {
+  function baseProps(
+    over: Partial<React.ComponentProps<typeof ModernShell>> = {},
+  ): React.ComponentProps<typeof ModernShell> {
+    return {
+      lang: "en-US",
+      activeView: "open-points",
+      onNavigate: vi.fn(),
+      version: "v0.29.0",
+      mode: "advanced",
+      bannerCount: 0,
+      onShowAlerts: () => {},
+      topBarMenus: <div data-testid="menus" />,
+      sidebarFooter: null,
+      tasksSection: <div data-testid="tasks" />,
+      workspace: <div data-testid="workspace" />,
+      ...over,
+    };
+  }
+
+  it("marks the main region programmatically focusable and does not steal focus on first mount", () => {
+    setup({ activeView: "open-points" });
+    const main = document.getElementById("main-content");
+    // tabIndex=-1 makes it script-focusable but not tab-reachable.
+    expect(main).toHaveAttribute("tabindex", "-1");
+    // Initial mount must NOT yank focus into main (would fight the skip link).
+    expect(document.activeElement).not.toBe(main);
+  });
+
+  it("moves keyboard focus to the main region when the active view changes (WCAG 2.4.3)", () => {
+    const { rerender } = render(<ModernShell {...baseProps({ activeView: "open-points" })} />);
+    const main = document.getElementById("main-content");
+    expect(document.activeElement).not.toBe(main);
+    rerender(<ModernShell {...baseProps({ activeView: "raid" })} />);
+    // On navigation, focus follows the swapped content so keyboard/SR users
+    // don't stay parked on the sidebar nav item.
+    expect(document.activeElement).toBe(main);
+  });
+
+  it("does not re-focus main when the same view re-renders", () => {
+    const { rerender } = render(<ModernShell {...baseProps({ activeView: "raid" })} />);
+    const main = document.getElementById("main-content");
+    // Move focus elsewhere, then re-render the SAME view (e.g. a data update).
+    (document.body as HTMLElement).focus();
+    rerender(<ModernShell {...baseProps({ activeView: "raid", bannerCount: 3 })} />);
+    expect(document.activeElement).not.toBe(main);
+  });
+});
+
 describe("ModernShell settings slot", () => {
   it("renders settingsView in main when activeView === 'settings'", () => {
     setup({

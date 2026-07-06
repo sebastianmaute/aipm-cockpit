@@ -8,9 +8,11 @@ import {
   type SearchableWorkspace,
 } from "./global-search";
 import type {
+  BudgetBucket,
   ChangeItem,
   Milestone,
   RaidItem,
+  Resource,
   Stakeholder,
   Task,
 } from "./types";
@@ -84,6 +86,32 @@ function makeStakeholder(over: Partial<Stakeholder> = {}): Stakeholder {
   };
 }
 
+function makeBudget(over: Partial<BudgetBucket> = {}): BudgetBucket {
+  return {
+    id: 1,
+    name: "Budget",
+    type: "tm",
+    currency: "EUR",
+    startDate: "2026-01-01",
+    endDate: "2026-12-31",
+    status: "open",
+    allocations: [],
+    ...over,
+  };
+}
+
+function makeResource(over: Partial<Resource> = {}): Resource {
+  return {
+    id: 1,
+    firstName: "First",
+    lastName: "Last",
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
+    ...over,
+  };
+}
+
 function ws(over: Partial<SearchableWorkspace> = {}): SearchableWorkspace {
   return {
     tasks: [],
@@ -91,6 +119,8 @@ function ws(over: Partial<SearchableWorkspace> = {}): SearchableWorkspace {
     changes: [],
     milestones: [],
     stakeholders: [],
+    budgets: [],
+    resources: [],
     ...over,
   };
 }
@@ -144,6 +174,23 @@ describe("searchWorkspace", () => {
     expect(results[0].type).toBe("task");
   });
 
+  it("matches budget via poNumber body field (#16)", () => {
+    const b = makeBudget({ id: 12, name: "Unrelated", poNumber: "PO-4711" });
+    const results = searchWorkspace(ws({ budgets: [b] }), "4711");
+    expect(results.map((x) => x.id)).toContain(12);
+    expect(results[0].type).toBe("budget");
+  });
+
+  it("matches resource via composed name and email (#16)", () => {
+    const r = makeResource({ id: 13, firstName: "Ada", lastName: "Lovelace", email: "ada@x.io" });
+    const byName = searchWorkspace(ws({ resources: [r] }), "lovelace");
+    expect(byName.map((x) => x.id)).toContain(13);
+    expect(byName[0].type).toBe("resource");
+    expect(byName[0].title).toBe("Ada Lovelace");
+    const byEmail = searchWorkspace(ws({ resources: [r] }), "ada@x.io");
+    expect(byEmail.map((x) => x.id)).toContain(13);
+  });
+
   it("puts an id-exact match first ahead of a text match", () => {
     const idHit = makeTask({ id: 7, taskName: "Nothing here" });
     const textHit = makeTask({ id: 100, taskName: "version 7 release" });
@@ -179,6 +226,8 @@ describe("searchWorkspace", () => {
         changes: [makeChange({ id: 1, title: "match" })],
         milestones: [makeMilestone({ id: 1, name: "match" })],
         stakeholders: [makeStakeholder({ id: 1, name: "match" })],
+        budgets: [makeBudget({ id: 1, name: "match" })],
+        resources: [makeResource({ id: 1, firstName: "match", lastName: "row" })],
       }),
       "match",
     );
@@ -189,6 +238,8 @@ describe("searchWorkspace", () => {
     expect(byType.get("change")).toBe("changes");
     expect(byType.get("milestone")).toBe("milestones");
     expect(byType.get("stakeholder")).toBe("stakeholders");
+    expect(byType.get("budget")).toBe("budget");
+    expect(byType.get("resource")).toBe("resources");
   });
 
   it("caps each type to SEARCH_MAX_PER_TYPE", () => {
@@ -216,9 +267,15 @@ describe("searchWorkspace", () => {
     const stakeholders = Array.from({ length: 8 }, (_, i) =>
       makeStakeholder({ id: i + 1, name: `widget ${i}` }),
     );
+    const budgets = Array.from({ length: 8 }, (_, i) =>
+      makeBudget({ id: i + 1, name: `widget ${i}` }),
+    );
+    const resources = Array.from({ length: 8 }, (_, i) =>
+      makeResource({ id: i + 1, firstName: "widget", lastName: `${i}` }),
+    );
 
     const results = searchWorkspace(
-      ws({ tasks, raid, changes, milestones, stakeholders }),
+      ws({ tasks, raid, changes, milestones, stakeholders, budgets, resources }),
       "widget",
     );
 
@@ -229,6 +286,8 @@ describe("searchWorkspace", () => {
     expect(types.has("change")).toBe(true);
     expect(types.has("milestone")).toBe(true);
     expect(types.has("stakeholder")).toBe(true);
+    expect(types.has("budget")).toBe(true);
+    expect(types.has("resource")).toBe(true);
   });
 });
 
