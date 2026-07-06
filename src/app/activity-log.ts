@@ -96,7 +96,9 @@ function fieldValueToString(v: unknown): string {
  * Diff two entity snapshots into a sorted list of changed PRIMITIVE fields.
  * Skips identity/bookkeeping keys and any field whose value is an array/object
  * on either side (labels, raci, allocations — too noisy for an audit line).
- * PURE; caps count + per-value length. `today`/clock-free.
+ * PURE; caps count + per-value length. `today`/clock-free. When more than
+ * MAX_FIELD_CHANGES fields changed, keeps the FIRST cap-many by field name
+ * (alphabetical) — bounded audit line, not a ranked "most important" set.
  */
 export function diffFields<T extends object>(
   prev: T,

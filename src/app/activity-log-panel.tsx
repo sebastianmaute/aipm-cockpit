@@ -314,8 +314,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     {message}
                     {entry.changes && entry.changes.length > 0 && (
                       <ul className="mt-1 space-y-0.5">
-                        {entry.changes.map((c, i) => (
-                          <li key={i} className="text-xs text-muted-foreground">
+                        {entry.changes.map((c) => (
+                          <li key={c.field} className="text-xs text-muted-foreground">
                             <span className="font-medium">{humanizeFieldName(c.field)}</span>
                             {": "}
                             <span className="sr-only">{t(lang, "activityChangeFrom")} </span>
