@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
@@ -7,6 +7,9 @@ import { VersionInfoModal } from "./version-info";
 import { navLabelKey, type AppView, type NavGroup } from "./nav-config";
 import { type AppMode } from "./feature-modules";
 import { type ProjectSwitcherProps } from "./project-switcher";
+import { useMediaQuery } from "./use-media-query";
+import { SIDEBAR_NARROW_QUERY } from "./use-sidebar-collapsed";
+import { useFocusTrap } from "./use-focus-trap";
 
 interface ModernShellProps {
   lang: Lang;
@@ -78,6 +81,44 @@ export function ModernShell({
     focusedViewRef.current = activeView;
     mainRef.current?.focus({ preventScroll: true });
   }, [activeView]);
+
+  // Mobile off-canvas drawer (#25): below the sidebar breakpoint the in-flow
+  // icon rail is replaced by an off-canvas drawer — the hamburger opens the
+  // EXPANDED sidebar as an overlay with a backdrop + focus trap; Escape /
+  // backdrop / navigation close it. Desktop keeps the in-flow collapse rail.
+  const isNarrow = useMediaQuery(SIDEBAR_NARROW_QUERY);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  useFocusTrap(drawerRef, isNarrow && drawerOpen, closeDrawer);
+  const handleToggleSidebar = () => {
+    if (isNarrow) setDrawerOpen((o) => !o);
+    else onToggleCollapsed();
+  };
+  const navigateAndCloseDrawer = (view: AppView) => {
+    onNavigate(view);
+    setDrawerOpen(false);
+  };
+  const renderSidebar = (
+    collapsedValue: boolean,
+    onToggle: () => void,
+    onNav: (view: AppView) => void,
+  ) => (
+    <Sidebar
+      lang={lang}
+      activeView={activeView}
+      onNavigate={onNav}
+      collapsed={collapsedValue}
+      onToggleCollapsed={onToggle}
+      version={version}
+      onShowVersion={() => setVersionOpen(true)}
+      mode={mode}
+      footer={sidebarFooter}
+      navGroups={navGroups}
+      navBadges={navBadges}
+    />
+  );
+
   const isEditing = activeView === "edit";
   const isSettings = activeView === "settings";
   const isLearningInsights = activeView === "learning-insights";
@@ -99,19 +140,26 @@ export function ModernShell({
       >
         {t(lang, "skipToContent")}
       </a>
-      <Sidebar
-        lang={lang}
-        activeView={activeView}
-        onNavigate={onNavigate}
-        collapsed={collapsed}
-        onToggleCollapsed={onToggleCollapsed}
-        version={version}
-        onShowVersion={() => setVersionOpen(true)}
-        mode={mode}
-        footer={sidebarFooter}
-        navGroups={navGroups}
-        navBadges={navBadges}
-      />
+      {isNarrow
+        ? drawerOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40 bg-AIPM-dark-blue/50"
+                aria-hidden="true"
+                onClick={closeDrawer}
+              />
+              <div
+                ref={drawerRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label={t(lang, "navPrimaryLabel")}
+                className="fixed inset-y-0 left-0 z-50"
+              >
+                {renderSidebar(false, closeDrawer, navigateAndCloseDrawer)}
+              </div>
+            </>
+          )
+        : renderSidebar(collapsed, onToggleCollapsed, onNavigate)}
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           lang={lang}
@@ -119,7 +167,7 @@ export function ModernShell({
           bannerCount={bannerCount}
           onShowAlerts={onShowAlerts}
           onOpenAiAssistant={onOpenAiAssistant}
-          onToggleSidebar={onToggleCollapsed}
+          onToggleSidebar={handleToggleSidebar}
           projectSwitcher={projectSwitcher}
           projectSwitcherTrailing={projectSwitcherTrailing}
           search={search}

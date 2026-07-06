@@ -38,8 +38,8 @@ const CHILD_BADGE_CLASS =
  * The icon rail can't show the accordion, so the children would be unreachable;
  * this makes the parent icon a popover trigger listing the parent itself + its
  * children as menuitems (roving arrows, Escape/outside-click dismiss — mirrors
- * the project-switcher menu). Palette-safe: light surface popover, shadow via
- * the `--shadow-card` token, brand focus ring.
+ * the project-switcher menu). Palette-safe: light surface popover, elevation
+ * via the sanctioned card-elevation token, brand focus ring.
  */
 function CollapsedNavFlyout({
   lang,
@@ -116,7 +116,7 @@ function CollapsedNavFlyout({
         {/* "has children" affordance on the icon rail. */}
         <span
           aria-hidden
-          className="absolute right-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-AIPM-light-grey"
+          className="absolute right-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-AIPM-medium-grey"
         />
       </button>
       {open && (
