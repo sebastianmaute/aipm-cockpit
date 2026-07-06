@@ -170,6 +170,31 @@ export function GanttPanel({
     );
   }, [tasks]);
 
+  // Precompute each task's lowercased search haystack keyed on the tasks array
+  // ONLY. A search keystroke changes `prefs`, not `tasks`, so the filter loop
+  // below reuses these strings instead of re-allocating + re-joining +
+  // re-lowercasing every task's fields on every keystroke.
+  const haystacks = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const task of tasks) {
+      map.set(
+        task.id,
+        [
+          task.taskName,
+          task.assignee,
+          task.assigneeEmail ?? "",
+          task.blockers ?? "",
+          task.notes ?? "",
+          task.group ?? "",
+          (task.labels ?? []).join(" "),
+        ]
+          .join(" ")
+          .toLowerCase(),
+      );
+    }
+    return map;
+  }, [tasks]);
+
   // --- filter + sort pipeline -----------------------------------------
   const visible = useMemo(() => {
     const q = prefs.search.trim().toLowerCase();
@@ -193,19 +218,10 @@ export function GanttPanel({
       if (prefs.assignee !== "All" && task.assignee !== prefs.assignee)
         continue;
 
-      // Full-text search across the same surfaces the tasks-list search uses.
+      // Full-text search across the same surfaces the tasks-list search uses,
+      // reading the precomputed haystack (rebuilt only when tasks change).
       if (q) {
-        const hay = [
-          task.taskName,
-          task.assignee,
-          task.assigneeEmail ?? "",
-          task.blockers ?? "",
-          task.notes ?? "",
-          task.group ?? "",
-          (task.labels ?? []).join(" "),
-        ]
-          .join(" ")
-          .toLowerCase();
+        const hay = haystacks.get(task.id) ?? "";
         if (!hay.includes(q)) continue;
       }
 
@@ -254,7 +270,7 @@ export function GanttPanel({
     }
 
     return placeable;
-  }, [tasks, allBars, prefs, today]);
+  }, [tasks, allBars, prefs, today, haystacks]);
 
   // Compatibility alias so the existing chart code keeps reading from
   // `layout.placeable` / `layout.bars`.

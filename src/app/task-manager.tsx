@@ -80,7 +80,7 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type Settings } from "./settings-types";
+import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -149,6 +149,11 @@ function effectiveToday(tz: string): string {
 // Idle window before an auto version is captured after a save. Coalesces a
 // burst of saves into a single version.
 const VERSION_IDLE_MS = 180_000; // 3 minutes
+
+// Stable empty fallback so an unset `settings.jira.extraProjects` doesn't create
+// a fresh `[]` each render — that churns the task row context value and
+// re-renders every row (audit #6).
+const NO_JIRA_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 
 // Cap on the per-kind lines in the SP-C weight-suggestion learning summary,
 // keeping the AI context token-bounded.
@@ -1706,7 +1711,7 @@ function TaskManagerInner() {
       dispatcher={dispatcher}
       logActivity={logActivity}
       jiraSiteUrl={settings.jira.siteUrl}
-      jiraExtraProjects={settings.jira.extraProjects ?? []}
+      jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}
       onJumpToRaid={onJumpToRaid}

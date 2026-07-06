@@ -32,7 +32,11 @@ export interface InlineEntityEditDeps {
   ws: Workspace;
   guides: readonly OperatingGuide[];
   recordUsage?: (u: { input_tokens: number; output_tokens: number }) => void;
-  /** Extra per-entity enable clause (task: !jiraKey). */
+  /** Extra per-entity enable clause (task: !jiraKey). MUST be a stable
+   *  reference (useCallback / module fn): it feeds the `aiEditEnabled`/`openFor`
+   *  useCallbacks, which a caller threads into the task row context value — an
+   *  inline arrow here silently rebuilds that value every render and re-renders
+   *  every row (the audit #6 regression this hook was fixed to avoid). */
   gate?: (item: EntityItem) => boolean;
   /** False when this entity's pane is not the active view — a left-open edit is
    *  auto-closed (see the render-time reconcile). Undefined ⇒ always active
@@ -81,14 +85,25 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     setErrorText("");
   }
 
-  const aiEditEnabled = (item: EntityItem): boolean =>
-    isAiEnabled(deps.ai) && !deps.isPopout && !!deps.apiKey.trim() && (deps.gate?.(item) ?? true);
+  // Stable identities so consumers threading these through a context value (the
+  // task row context) don't rebuild that value — and re-render every row — on
+  // every render (audit #6). Hoist the member reads to locals: exhaustive-deps
+  // rejects `deps.member` entries in the dep array.
+  const { ai, isPopout: aiIsPopout, apiKey, gate } = deps;
+  const aiEditEnabled = useCallback(
+    (item: EntityItem): boolean =>
+      isAiEnabled(ai) && !aiIsPopout && !!apiKey.trim() && (gate?.(item) ?? true),
+    [ai, aiIsPopout, apiKey, gate],
+  );
 
-  const openFor = (item: EntityItem) => {
-    if (!aiEditEnabled(item)) return;
-    reqIdRef.current++; // supersede any in-flight submit for a previous item
-    setActiveItem(item); setPhase("idle"); setPlan(null); setClarifyText(""); setErrorText("");
-  };
+  const openFor = useCallback(
+    (item: EntityItem) => {
+      if (!aiEditEnabled(item)) return;
+      reqIdRef.current++; // supersede any in-flight submit for a previous item
+      setActiveItem(item); setPhase("idle"); setPlan(null); setClarifyText(""); setErrorText("");
+    },
+    [aiEditEnabled],
+  );
 
   // Stable identity so usePopoverDismiss (which depends on onClose) doesn't
   // re-subscribe its listeners on every keystroke.

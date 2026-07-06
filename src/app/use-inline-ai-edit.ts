@@ -4,6 +4,7 @@
 // public API (activeTask + the task-only !jiraKey gate) so the tasks pane and
 // its tests are unchanged.
 "use client";
+import { useCallback } from "react";
 import { type Task } from "./types";
 import { useInlineEntityEdit, type InlineEntityEditDeps, type InlinePhase } from "./use-inline-entity-edit";
 import { type EditPlan } from "./inline-ai-edit/plan";
@@ -28,10 +29,17 @@ export interface InlineAiEditApi {
 }
 
 export function useInlineAiEdit(deps: InlineAiEditDeps): InlineAiEditApi {
+  // Stable identity so the generic hook's aiEditEnabled/openFor (which depend on
+  // the gate) don't get a fresh reference every render — that churns the task
+  // row context value and re-renders every row (audit #6).
+  const gate = useCallback<NonNullable<InlineEntityEditDeps["gate"]>>(
+    (item) => !(item as Task).jiraKey,
+    [],
+  );
   const api = useInlineEntityEdit({
     ...deps,
     entity: "task",
-    gate: (item) => !(item as Task).jiraKey,
+    gate,
   });
   return {
     activeTask: api.activeItem as Task | null,

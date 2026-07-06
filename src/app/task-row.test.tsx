@@ -55,7 +55,6 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     jiraEnabled: false,
     jiraProjectKey: "",
     hiddenCols: new Set(),
-    tasksById: new Map(),
     onToggleSelect: vi.fn(),
     onToggleNoteExpanded: vi.fn(),
     onJumpToRaid: vi.fn(),
@@ -74,15 +73,19 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
 function rowWrapper({
   context,
   children,
+  tasksById,
 }: {
   context: RowContextValue;
   children: ReactNode;
+  tasksById?: Map<number, Task>;
 }) {
   // <tbody> wrapper required because TaskRow returns a <tr>.
   return (
     <table>
       <tbody>
-        <RowContextProvider value={context}>{children}</RowContextProvider>
+        <RowContextProvider value={context} tasksById={tasksById}>
+          {children}
+        </RowContextProvider>
       </tbody>
     </table>
   );
@@ -118,6 +121,59 @@ describe("TaskRow", () => {
     expect(getByText("2026-09-01")).toBeTruthy();
     // "High" is the English label for priority High.
     expect(getByText("High")).toBeTruthy();
+  });
+
+  test("dependency chip resolves predecessor name from the split lookup context", () => {
+    const ctx = makeContext();
+    const predecessor = makeTask({ id: 5, taskName: "Predecessor task" });
+    const task = makeTask({ id: 7, taskName: "Dependent", dependencies: [{ taskId: 5, type: "FS" }] });
+    const { getByTitle } = render(
+      rowWrapper({
+        context: ctx,
+        tasksById: new Map([[5, predecessor]]),
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    // The chip title carries the predecessor's name, read via useTaskLookup.
+    expect(getByTitle(/Predecessor task/)).toBeTruthy();
+  });
+
+  test("dependency chip updates when only the lookup Map changes (task prop + row context held constant)", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 7, taskName: "Dependent", dependencies: [{ taskId: 5, type: "FS" }] });
+    // Same task element + same row context value across the rerender — only the
+    // split lookup Map changes. Locks the context-bypasses-memo behavior the
+    // split exists to preserve (audit #32): task B's chip must re-resolve A's
+    // new name even though B's own props/row-context didn't change.
+    const child = (
+      <TaskRow
+        task={task}
+        isSelected={false}
+        isEditing={false}
+        isExpanded={false}
+        isPushing={false}
+        raidRefs={undefined}
+      />
+    );
+    const { getByTitle, queryByTitle, rerender } = render(
+      rowWrapper({ context: ctx, tasksById: new Map([[5, makeTask({ id: 5, taskName: "Old name" })]]), children: child }),
+    );
+    expect(getByTitle(/Old name/)).toBeTruthy();
+
+    rerender(
+      rowWrapper({ context: ctx, tasksById: new Map([[5, makeTask({ id: 5, taskName: "New name" })]]), children: child }),
+    );
+    expect(getByTitle(/New name/)).toBeTruthy();
+    expect(queryByTitle(/Old name/)).toBeNull();
   });
 
   test("does not re-render on unrelated parent state change (memo holds)", () => {

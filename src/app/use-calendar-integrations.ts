@@ -26,6 +26,13 @@ import { calendarSyncFor } from "./calendar-sync-config";
 import { useCommitteeOutlookPush } from "./use-committee-outlook-push";
 import { taskToGraphEvent, raidToGraphEvent, changeToGraphEvent, absenceToGraphEvent } from "./outlook-calendar-write";
 
+/**
+ * Per-entity stagger step for the four auto-sync push instances. They all
+ * become active together on load with the same base debounce, so without an
+ * offset they'd fire their Graph pushes in one simultaneous burst.
+ */
+const AUTO_SYNC_STAGGER_STEP_MS = 750;
+
 /** Live render-scope values the calendar write-back block reads each render. */
 export interface CalendarIntegrationDeps {
   isPopout: boolean;
@@ -163,7 +170,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     enabled: taskAutoSyncActive,
     interactive: false,
   });
-  useCalendarAutoSync({ active: taskAutoSyncActive, contentKey: taskAutoSyncKey, push: autoPushTasks });
+  useCalendarAutoSync({ active: taskAutoSyncActive, contentKey: taskAutoSyncKey, push: autoPushTasks, staggerMs: 0 });
 
   // --- RAID review-date calendar write-back (SP2) — mirrors the task block ---
   const raidSync = calendarSyncFor(settings, "raid");
@@ -192,7 +199,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     toGraphEvent: raidToGraphEvent, setItems: setRaidForCalendar,
     isPopout, lang, enabled: raidAutoSyncActive, interactive: false,
   });
-  useCalendarAutoSync({ active: raidAutoSyncActive, contentKey: raidAutoSyncKey, push: autoPushRaid });
+  useCalendarAutoSync({ active: raidAutoSyncActive, contentKey: raidAutoSyncKey, push: autoPushRaid, staggerMs: AUTO_SYNC_STAGGER_STEP_MS });
   const onToggleCalendarRaid = useCallback(
     (enabled: boolean) => setSettings((s) => ({
       ...s,
@@ -241,7 +248,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     toGraphEvent: changeToGraphEvent, setItems: setChangeForCalendar,
     isPopout, lang, enabled: changeAutoSyncActive, interactive: false,
   });
-  useCalendarAutoSync({ active: changeAutoSyncActive, contentKey: changeAutoSyncKey, push: autoPushChange });
+  useCalendarAutoSync({ active: changeAutoSyncActive, contentKey: changeAutoSyncKey, push: autoPushChange, staggerMs: AUTO_SYNC_STAGGER_STEP_MS * 2 });
   const onToggleCalendarChange = useCallback(
     (enabled: boolean) => setSettings((s) => ({
       ...s,
@@ -294,7 +301,7 @@ export function useCalendarIntegrations(deps: CalendarIntegrationDeps) {
     toGraphEvent: absenceToGraphEvent, setItems: setAbsenceForCalendar,
     isPopout, lang, enabled: absenceAutoSyncActive, interactive: false,
   });
-  useCalendarAutoSync({ active: absenceAutoSyncActive, contentKey: absenceAutoSyncKey, push: autoPushAbsence });
+  useCalendarAutoSync({ active: absenceAutoSyncActive, contentKey: absenceAutoSyncKey, push: autoPushAbsence, staggerMs: AUTO_SYNC_STAGGER_STEP_MS * 3 });
   const onToggleCalendarAbsence = useCallback(
     (enabled: boolean) => setSettings((s) => ({
       ...s,
