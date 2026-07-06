@@ -135,6 +135,7 @@ import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends } from "./next-actions/trends";
 import { todayInZone, resolveTimezone } from "./timezone";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
+import { ConfirmProvider } from "./confirm-dialog";
 
 // Today (YYYY-MM-DD) in the resolved effective zone. A module fn so the
 // `new Date()` read stays out of the render body (react-hooks purity rule).
@@ -2206,7 +2207,9 @@ function TaskManagerInner() {
         <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
           <ToastProvider value={showToast}>
             <VoiceCommandProvider value={voiceHandlers}>
-              <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
+              <ConfirmProvider lang={lang}>
+                <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
+              </ConfirmProvider>
             </VoiceCommandProvider>
           </ToastProvider>
         </AiUsageProvider>
@@ -2255,6 +2258,7 @@ function TaskManagerInner() {
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
         <ToastProvider value={showToast}>
           <VoiceCommandProvider value={voiceHandlers}>
+            <ConfirmProvider lang={lang}>
             <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>
             {showTursoUnlock ? (
               <SecretUnlockGate
@@ -2297,6 +2301,7 @@ function TaskManagerInner() {
               modernTree
             )}
             </DisplayTimezoneProvider>
+            </ConfirmProvider>
           </VoiceCommandProvider>
         </ToastProvider>
       </AiUsageProvider>
