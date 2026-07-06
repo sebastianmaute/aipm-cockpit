@@ -24,7 +24,7 @@ interface HistoryPanelProps {
   busy: boolean;
   onCaptureNow: (label: string) => void;
   loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
-  restore: (versionId: string, selection: RestoreSelection, versionLabel: string) => Promise<void>;
+  restore: (versionId: string, selection: RestoreSelection, versionLabel: string) => Promise<boolean>;
 }
 
 export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, restore }: HistoryPanelProps) {
@@ -127,7 +127,10 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const restoreRecord = (key: string) => {
     const rf = restoreFrom;
     if (!rf) return;
-    void restore(rf.id, { [key]: "all" }, rf.label).then(() => {
+    void restore(rf.id, { [key]: "all" }, rf.label).then((ok) => {
+      // Only clear the compare/selection context on a real success — a failed
+      // restore (surfaced via onError) leaves it intact so the user can retry.
+      if (!ok) return;
       setSelection({});
       setDiff(null);
       setCompareFrom(null);

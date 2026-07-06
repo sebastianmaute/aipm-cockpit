@@ -34,7 +34,7 @@ export interface UseVersionHistoryResult {
   notifySaved: () => void;
   captureNow: (label: string) => Promise<void>;
   loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
-  restore: (versionId: string, selection: RestoreSelection, versionLabel: string) => Promise<void>;
+  restore: (versionId: string, selection: RestoreSelection, versionLabel: string) => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -160,16 +160,16 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     [writeVersion],
   );
 
-  const restore = useCallback(async (versionId: string, selection: RestoreSelection, versionLabel: string) => {
-    if (!active) return;
+  const restore = useCallback(async (versionId: string, selection: RestoreSelection, versionLabel: string): Promise<boolean> => {
+    if (!active) return false;
     const count = Object.keys(selection).length;
-    if (count === 0) return;
+    if (count === 0) return false;
     try {
       const verStr = await loadVersionPayload(config, versionId, projectId);
       if (!verStr) {
         logDiag("warn", "history.restoreVersionMissing", { versionId });
         onError?.(new Error("version payload could not be loaded"));
-        return;
+        return false;
       }
       const version = jsonToWorkspace(verStr);
       const now = jsonToWorkspace(getPayload());
@@ -178,7 +178,8 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
       await capturePayload(workspaceToJson(restored), "auto", null);
       applyWorkspace?.(restored);
       logActivity?.("history.restore", count, versionLabel);
-    } catch (err) { onError?.(err); }
+      return true;
+    } catch (err) { onError?.(err); return false; }
   }, [active, config, projectId, getPayload, capturePayload, applyWorkspace, logActivity, onError]);
 
   const loadDiff = useCallback(async (fromId: string, to: string | "now"): Promise<VersionChange[]> => {

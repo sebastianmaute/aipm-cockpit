@@ -171,7 +171,9 @@ describe("useVersionHistory", () => {
     const applyWorkspace = vi.fn();
     const logActivity = vi.fn();
     const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace, logActivity })));
-    await act(async () => { await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    expect(ok).toBe(true); // success is reported so the UI can clear its compare state
     expect(applyWorkspace).toHaveBeenCalledTimes(1);
     const applied = applyWorkspace.mock.calls[0][0];
     expect(applied.tasks[0].title).toBe("Old");
@@ -185,7 +187,9 @@ describe("useVersionHistory", () => {
     const applyWorkspace = vi.fn();
     const onError = vi.fn();
     const { result } = renderHook(() => useVersionHistory(args({ onError, applyWorkspace })));
-    await act(async () => { await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    expect(ok).toBe(false); // failure is reported so the UI keeps its compare state
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
     expect(applyWorkspace).not.toHaveBeenCalled(); // never reached — no false "restored" UI
