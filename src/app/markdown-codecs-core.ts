@@ -33,6 +33,7 @@ import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
 import {
+  type ImportDiag,
   PROJECT_CSV_COLUMNS,
   STATUS_FIELDS,
   absenceFieldToString,
@@ -443,8 +444,8 @@ const MILESTONE_ALIASES: Record<string, string> = {
   documentlinks: "documentLinks", outlookeventid: "outlookEventId",
 };
 
-export function markdownToMilestones(md: string): Milestone[] {
-  return decodeMdTable(md, MILESTONE_ALIASES, buildMilestoneFromObj);
+export function markdownToMilestones(md: string, diag?: ImportDiag): Milestone[] {
+  return decodeMdTable(md, MILESTONE_ALIASES, buildMilestoneFromObj, diag);
 }
 
 const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = [
@@ -496,8 +497,8 @@ const CHANGE_ALIASES: Record<string, string> = {
   documentlinks: "documentLinks", outlookeventid: "outlookEventId",
 };
 
-export function markdownToChanges(md: string): ChangeItem[] {
-  return decodeMdTable(md, CHANGE_ALIASES, buildChangeFromObj);
+export function markdownToChanges(md: string, diag?: ImportDiag): ChangeItem[] {
+  return decodeMdTable(md, CHANGE_ALIASES, buildChangeFromObj, diag);
 }
 
 const STAKEHOLDERS_MD_COLUMNS: readonly { key: keyof Stakeholder; label: string }[] = [
@@ -537,8 +538,8 @@ const STAKEHOLDER_ALIASES: Record<string, string> = {
   documentlinks: "documentLinks",
 };
 
-export function markdownToStakeholders(md: string): Stakeholder[] {
-  return decodeMdTable(md, STAKEHOLDER_ALIASES, buildStakeholderFromObj);
+export function markdownToStakeholders(md: string, diag?: ImportDiag): Stakeholder[] {
+  return decodeMdTable(md, STAKEHOLDER_ALIASES, buildStakeholderFromObj, diag);
 }
 
 function fxRatesToMarkdown(fx: FxRates): string {
@@ -672,15 +673,18 @@ export function decodeMdTable<T>(
   md: string,
   aliases: Record<string, string>,
   build: (obj: Record<string, string>) => T | null,
+  diag?: ImportDiag,
 ): T[] {
-  return markdownTableToObjects(md)
-    .map((row) => {
-      const mapped: Record<string, string> = {};
-      for (const [label, val] of Object.entries(row)) {
-        const canonical = aliases[label.toLowerCase().replace(/\s+/g, "")];
-        if (canonical) mapped[canonical] = val;
-      }
-      return build(mapped);
-    })
-    .filter((x): x is T => x !== null);
+  const out: T[] = [];
+  for (const row of markdownTableToObjects(md)) {
+    const mapped: Record<string, string> = {};
+    for (const [label, val] of Object.entries(row)) {
+      const canonical = aliases[label.toLowerCase().replace(/\s+/g, "")];
+      if (canonical) mapped[canonical] = val;
+    }
+    const item = build(mapped);
+    if (item !== null) out.push(item);
+    else if (diag) diag.droppedRows++;
+  }
+  return out;
 }

@@ -37,6 +37,8 @@ export type SpStorageConfig =
 
 export class SharePointBackend implements StorageBackend {
   readonly kind: "sp-json" | "sp-csv";
+  /** Malformed rows dropped by the most recent CSV load() (0 for JSON). */
+  lastImportDroppedRows = 0;
   private location: SpFileLocation;
   private acquireToken: (
     scopes: readonly string[],
@@ -102,9 +104,13 @@ export class SharePointBackend implements StorageBackend {
     if (!res.ok) {
       throw new Error(`SharePoint returned ${res.status}. Try again later.`);
     }
+    this.lastImportDroppedRows = 0;
     if (this.kind === "sp-csv") {
       const csv = await res.text();
-      return csvToWorkspace(csv);
+      const diag = { droppedRows: 0 };
+      const ws = csvToWorkspace(csv, diag);
+      this.lastImportDroppedRows = diag.droppedRows;
+      return ws;
     }
     // Validate + migrate like every other JSON backend (was a raw cast that
     // risked a downstream TypeError on a malformed-but-valid-JSON file).

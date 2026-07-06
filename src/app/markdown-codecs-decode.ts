@@ -41,7 +41,7 @@ import {
   type Task,
 } from "./types";
 import { type Workspace, migrateWorkspaceV9 } from "./workspace";
-import { buildRaidItemFromObj, decodeRatesMap, parseHealthOverride } from "./csv-codecs";
+import { type ImportDiag, buildRaidItemFromObj, decodeRatesMap, parseHealthOverride } from "./csv-codecs";
 import {
   decodeMdTable,
   markdownToChanges,
@@ -145,8 +145,8 @@ const ABSENCE_ALIASES: Record<string, string> = {
   outlookeventid: "outlookEventId",
 };
 
-function markdownToAbsences(md: string): Absence[] {
-  return decodeMdTable(md, ABSENCE_ALIASES, sanitizeAbsence);
+function markdownToAbsences(md: string, diag?: ImportDiag): Absence[] {
+  return decodeMdTable(md, ABSENCE_ALIASES, sanitizeAbsence, diag);
 }
 
 const SHIFT_ALIASES: Record<string, string> = {
@@ -159,8 +159,8 @@ const SHIFT_ALIASES: Record<string, string> = {
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
 };
 
-function markdownToShifts(md: string): Shift[] {
-  return decodeMdTable(md, SHIFT_ALIASES, sanitizeShift);
+function markdownToShifts(md: string, diag?: ImportDiag): Shift[] {
+  return decodeMdTable(md, SHIFT_ALIASES, sanitizeShift, diag);
 }
 
 
@@ -177,8 +177,8 @@ const RESOURCE_ALIASES: Record<string, string> = {
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
 };
 
-function markdownToResources(md: string): Resource[] {
-  return decodeMdTable(md, RESOURCE_ALIASES, sanitizeResource);
+function markdownToResources(md: string, diag?: ImportDiag): Resource[] {
+  return decodeMdTable(md, RESOURCE_ALIASES, sanitizeResource, diag);
 }
 
 /** Map MD column labels to sanitizer field keys for roles. */
@@ -188,8 +188,8 @@ const ROLE_ALIASES: Record<string, string> = {
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
 };
 
-function markdownToRoles(md: string): Role[] {
-  return decodeMdTable(md, ROLE_ALIASES, sanitizeRole);
+function markdownToRoles(md: string, diag?: ImportDiag): Role[] {
+  return decodeMdTable(md, ROLE_ALIASES, sanitizeRole, diag);
 }
 
 const BUDGET_ALIASES: Record<string, string> = {
@@ -206,8 +206,8 @@ const BUDGET_ALIASES: Record<string, string> = {
   rateoverrideinternal: "rateOverrideInternal", rateoverrideexternal: "rateOverrideExternal",
 };
 
-function markdownToBudgets(md: string): BudgetBucket[] {
-  return decodeMdTable(md, BUDGET_ALIASES, sanitizeBudgetBucket);
+function markdownToBudgets(md: string, diag?: ImportDiag): BudgetBucket[] {
+  return decodeMdTable(md, BUDGET_ALIASES, sanitizeBudgetBucket, diag);
 }
 
 function parseFxRatesMarkdown(md: string): FxRates | null {
@@ -230,8 +230,9 @@ const REF_ALIASES: Record<string, string> = {
 function markdownToRefs<T extends Discipline | Grade>(
   md: string,
   sanitize: (input: unknown) => T | null,
+  diag?: ImportDiag,
 ): T[] {
-  return decodeMdTable(md, REF_ALIASES, sanitize);
+  return decodeMdTable(md, REF_ALIASES, sanitize, diag);
 }
 
 function parsePlanMarkdown(md: string): ResourcePlan | null {
@@ -262,29 +263,30 @@ const RAID_ALIASES: Record<string, string> = {
   documentlinks: "documentLinks", outlookeventid: "outlookEventId",
 };
 
-function markdownToRaid(md: string): RaidItem[] {
-  return decodeMdTable(md, RAID_ALIASES, buildRaidItemFromObj);
+function markdownToRaid(md: string, diag?: ImportDiag): RaidItem[] {
+  return decodeMdTable(md, RAID_ALIASES, buildRaidItemFromObj, diag);
 }
 
-/** Parses all sections out of a (possibly multi-section) markdown string. */
-export function markdownToWorkspace(md: string): Workspace {
+/** Parses all sections out of a (possibly multi-section) markdown string. Pass
+ *  an optional {@link ImportDiag} to count rows rejected as malformed. */
+export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   const s = splitMarkdownSections(md);
   const ws: Workspace = {
-    tasks: markdownToTasks(s.tasksMd || md),
-    raid: s.raidMd.trim() ? markdownToRaid(s.raidMd) : [],
-    absences: s.absencesMd.trim() ? markdownToAbsences(s.absencesMd) : [],
-    shifts: s.shiftsMd.trim() ? markdownToShifts(s.shiftsMd) : [],
-    resources: s.resourcesMd.trim() ? markdownToResources(s.resourcesMd) : [],
-    roles: s.rolesMd.trim() ? markdownToRoles(s.rolesMd) : [],
-    disciplines: s.disciplinesMd.trim() ? markdownToRefs(s.disciplinesMd, sanitizeDiscipline) : [],
-    grades: s.gradesMd.trim() ? markdownToRefs(s.gradesMd, sanitizeGrade) : [],
+    tasks: markdownToTasks(s.tasksMd || md, diag),
+    raid: s.raidMd.trim() ? markdownToRaid(s.raidMd, diag) : [],
+    absences: s.absencesMd.trim() ? markdownToAbsences(s.absencesMd, diag) : [],
+    shifts: s.shiftsMd.trim() ? markdownToShifts(s.shiftsMd, diag) : [],
+    resources: s.resourcesMd.trim() ? markdownToResources(s.resourcesMd, diag) : [],
+    roles: s.rolesMd.trim() ? markdownToRoles(s.rolesMd, diag) : [],
+    disciplines: s.disciplinesMd.trim() ? markdownToRefs(s.disciplinesMd, sanitizeDiscipline, diag) : [],
+    grades: s.gradesMd.trim() ? markdownToRefs(s.gradesMd, sanitizeGrade, diag) : [],
     plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
-    budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd) : [],
+    budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd, diag) : [],
     fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
     status: s.statusMd.trim() ? markdownToStatus(s.statusMd) : {},
-    milestones: s.milestonesMd.trim() ? markdownToMilestones(s.milestonesMd) : [],
-    changes: s.changesMd.trim() ? markdownToChanges(s.changesMd) : [],
-    stakeholders: s.stakeholdersMd.trim() ? markdownToStakeholders(s.stakeholdersMd) : [],
+    milestones: s.milestonesMd.trim() ? markdownToMilestones(s.milestonesMd, diag) : [],
+    changes: s.changesMd.trim() ? markdownToChanges(s.changesMd, diag) : [],
+    stakeholders: s.stakeholdersMd.trim() ? markdownToStakeholders(s.stakeholdersMd, diag) : [],
   };
   const project = s.projectMd.trim() ? markdownToProject(s.projectMd) : null;
   if (project) ws.project = project;
@@ -299,7 +301,7 @@ export function markdownToWorkspace(md: string): Workspace {
   return migrateWorkspaceV9(ws);
 }
 
-function markdownToTasks(md: string): Task[] {
+function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
   const lines = md.split(/\r?\n/);
   let i = 0;
   while (i < lines.length) {
@@ -368,7 +370,10 @@ function markdownToTasks(md: string): Task[] {
       if (field) obj[field] = mdUnescape(cell);
     });
     const id = Number(obj.id);
-    if (!Number.isFinite(id) || id <= 0) continue;
+    if (!Number.isFinite(id) || id <= 0) {
+      if (diag) diag.droppedRows++;
+      continue;
+    }
     const inq = Number(obj.inquiriesSent);
     tasks.push(migrateTaskStatus({
       id,
