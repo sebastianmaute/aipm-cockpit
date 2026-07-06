@@ -2,7 +2,10 @@ import "fake-indexeddb/auto";
 import { describe, it, expect, afterEach, vi } from "vitest";
 import * as secrets from "./secrets";
 import { sealDevice, sealPassphrase } from "./secrets";
-import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets } from "./secrets-store";
+import { saveSealed, loadSealed, removeSealed, readDeviceSecret, isPassphraseLocked, migratePlaintextSecrets, probeDeviceSecretReadable } from "./secrets-store";
+import { logDiag } from "./diagnostics";
+
+vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
 afterEach(() => {
   localStorage.clear();
@@ -68,5 +71,28 @@ describe("secrets-store", () => {
   it("ignores a corrupt/garbage secrets record in localStorage", async () => {
     localStorage.setItem("lop-app:secrets", JSON.stringify({ anthropicApiKey: { junk: true } }));
     expect(loadSealed("anthropicApiKey")).toBeNull();
+  });
+
+  it("readDeviceSecret logs (never the value) and returns null when a sealed secret can't be decrypted", async () => {
+    saveSealed(await sealDevice("anthropicApiKey", "sk-1"));
+    vi.spyOn(secrets, "openDevice").mockRejectedValue(new Error("bad key"));
+    expect(await readDeviceSecret("anthropicApiKey")).toBeNull();
+    expect(logDiag).toHaveBeenCalledWith("warn", "secrets.decryptFailed", expect.objectContaining({ id: "anthropicApiKey" }));
+    // The plaintext value must never appear in the diagnostic fields.
+    const fields = vi.mocked(logDiag).mock.calls.at(-1)?.[2] ?? {};
+    expect(JSON.stringify(fields)).not.toContain("sk-1");
+  });
+
+  it("probeDeviceSecretReadable distinguishes empty / ok / unreadable", async () => {
+    expect(await probeDeviceSecretReadable("anthropicApiKey")).toBe("empty");
+    saveSealed(await sealDevice("anthropicApiKey", "sk-1"));
+    expect(await probeDeviceSecretReadable("anthropicApiKey")).toBe("ok");
+    vi.spyOn(secrets, "openDevice").mockRejectedValue(new Error("bad key"));
+    expect(await probeDeviceSecretReadable("anthropicApiKey")).toBe("unreadable");
+  });
+
+  it("probeDeviceSecretReadable reports a passphrase-wrapped secret as empty (device read n/a)", async () => {
+    saveSealed(await sealPassphrase("tursoAuthToken", "tok-1", "pw"));
+    expect(await probeDeviceSecretReadable("tursoAuthToken")).toBe("empty");
   });
 });

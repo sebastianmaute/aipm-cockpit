@@ -5,6 +5,7 @@
 // IndexedDB (see secrets.ts). Kept OUT of lop-app:settings and out of Turso.
 
 import { type SealedSecret, type SecretId, openDevice, sealDevice, isSealedSecret } from "./secrets";
+import { logDiag } from "./diagnostics";
 
 export const SECRETS_KEY = "lop-app:secrets";
 type Store = Partial<Record<SecretId, SealedSecret>>;
@@ -61,8 +62,29 @@ export async function readDeviceSecret(id: SecretId): Promise<string | null> {
   if (!sealed || sealed.wrap !== "device") return null;
   try {
     return await openDevice(sealed);
-  } catch {
+  } catch (err) {
+    // A sealed device secret exists but can't be decrypted (corrupt ciphertext
+    // or device-key mismatch after a profile change / IndexedDB reset). Log it
+    // (never the value) so it's distinguishable from "never configured" — the
+    // caller can then tell the user to re-enter it. See probeDeviceSecretReadable.
+    logDiag("warn", "secrets.decryptFailed", { id, message: err instanceof Error ? err.message : String(err) });
     return null;
+  }
+}
+
+/** Distinguish an unreadable sealed device secret from one that was never set:
+ *  "empty" = nothing sealed (or passphrase-wrapped), "ok" = decrypts,
+ *  "unreadable" = a device-sealed record exists but can't be decrypted. Lets the
+ *  load path warn the user that a saved credential was lost (vs. silently
+ *  showing the field as unconfigured). */
+export async function probeDeviceSecretReadable(id: SecretId): Promise<"ok" | "empty" | "unreadable"> {
+  const sealed = loadSealed(id);
+  if (!sealed || sealed.wrap !== "device") return "empty";
+  try {
+    await openDevice(sealed);
+    return "ok";
+  } catch {
+    return "unreadable";
   }
 }
 

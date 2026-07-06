@@ -395,6 +395,8 @@ const enUS = {
     "Recent changes may not have been saved before switching projects.",
   settingsWriteFailed:
     "Your settings couldn't be saved and may reset when you reload (storage full or unavailable).",
+  secretUnreadable:
+    "A saved credential couldn't be read on this device and was cleared — please re-enter it in Settings.",
   storageBannerAria: "Storage connection problem",
   storageBannerOpenSettings: "Open storage settings",
   storagePermissionGestureNeeded:

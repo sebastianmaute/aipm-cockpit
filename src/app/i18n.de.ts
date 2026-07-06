@@ -400,6 +400,8 @@ export const de: Record<TranslationKey, string> = {
     "Aktuelle Änderungen wurden vor dem Projektwechsel möglicherweise nicht gespeichert.",
   settingsWriteFailed:
     "Ihre Einstellungen konnten nicht gespeichert werden und werden beim Neuladen möglicherweise zurückgesetzt (Speicher voll oder nicht verfügbar).",
+  secretUnreadable:
+    "Eine gespeicherte Anmeldeinformation konnte auf diesem Gerät nicht gelesen werden und wurde entfernt — bitte in den Einstellungen erneut eingeben.",
   storageBannerAria: "Problem mit der Speicherverbindung",
   storageBannerOpenSettings: "Speichereinstellungen öffnen",
   storagePermissionGestureNeeded:

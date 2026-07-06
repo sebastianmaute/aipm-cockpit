@@ -12,7 +12,7 @@ import { sanitizeTemplates } from "./templates";
 import { sanitizeVersionRetention } from "./version-history";
 import { isPlainObject } from "./sanitize";
 import { isSafeMode } from "./safe-mode";
-import { migratePlaintextSecrets, readDeviceSecret } from "./secrets-store";
+import { migratePlaintextSecrets, readDeviceSecret, probeDeviceSecretReadable } from "./secrets-store";
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
 
@@ -405,6 +405,20 @@ export function useSettings(): {
               // consumers never observe a half-loaded settings object (the
               // merged blob with blank secrets) as the hydrated state.
               if (!cancelled) setHydrated(true);
+            }
+            // Best-effort: detect device secrets that are SEALED but unreadable
+            // (corrupt ciphertext / device-key mismatch) vs. never configured, so
+            // the user is told to re-enter them rather than silently seeing the
+            // field as unconfigured. useSettings has no toast context → bridge via
+            // a window event (task-manager listens).
+            if (!cancelled) {
+              try {
+                const ids = ["anthropicApiKey", "tursoAuthToken", "jiraApiToken", "timelogApiToken", "sttApiKey"] as const;
+                const states = await Promise.all(ids.map((id) => probeDeviceSecretReadable(id)));
+                if (states.some((s) => s === "unreadable")) {
+                  window.dispatchEvent(new CustomEvent("lop-secret-unreadable"));
+                }
+              } catch { /* probe is best-effort; never block hydration */ }
             }
           })();
         } else {

@@ -365,6 +365,15 @@ function TaskManagerInner() {
     return () => window.removeEventListener("lop-settings-write-failed", onSettingsWriteFailed);
   }, [showToast, lang]);
 
+  // A device-sealed credential exists but couldn't be decrypted on load (corrupt
+  // ciphertext / device-key mismatch). use-settings dispatches this; tell the
+  // user once so they re-enter it rather than silently seeing it as unconfigured.
+  useEffect(() => {
+    const onSecretUnreadable = () => showToast("error", t(lang, "secretUnreadable"));
+    window.addEventListener("lop-secret-unreadable", onSecretUnreadable);
+    return () => window.removeEventListener("lop-secret-unreadable", onSecretUnreadable);
+  }, [showToast, lang]);
+
   // Observable copy of the portfolio registry. The storage hook persists the
   // registry inside its switch/create/load flows; it cannot setState here, so we
   // pass `onRegistryChange` (option b) and the hook calls it after every
