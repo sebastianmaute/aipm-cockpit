@@ -29,6 +29,8 @@ import {
 
 export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
+  /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
+  lastImportDroppedRows = 0;
   private readonly idbKey: string;
   private readonly format: FilePickType;
 
@@ -114,10 +116,14 @@ export class LocalFileBackend implements StorageBackend {
       throw new StorageNotReadyError("local-file-permission-needed");
     }
     const text = await readHandle(handle);
+    this.lastImportDroppedRows = 0;
     if (!text.trim()) return emptyWorkspace();
     if (this.format === "json") return jsonToWorkspace(text, { strict: true });
-    if (this.format === "csv") return csvToWorkspace(text);
-    return markdownToWorkspace(text);
+    const diag = { droppedRows: 0 };
+    const ws =
+      this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
+    this.lastImportDroppedRows = diag.droppedRows;
+    return ws;
   }
 
   async save(ws: Workspace): Promise<void> {

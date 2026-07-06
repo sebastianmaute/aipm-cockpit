@@ -242,6 +242,55 @@ describe("TasksSection", () => {
     expect(props.handleClearAll).toHaveBeenCalledTimes(1);
   });
 
+  it("opens the clear-all dialog from a pending voice request nonce, then consumes it", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const onClearAllRequestConsumed = vi.fn();
+    render(
+      <TasksSection
+        {...makeProps()}
+        clearAllRequestNonce={1}
+        onClearAllRequestConsumed={onClearAllRequestConsumed}
+      />,
+    );
+    // The dialog opens from the request nonce alone — no eraser click.
+    expect(screen.getByText(t("en-US", "tasksClearDialogTitle"))).toBeInTheDocument();
+    // The request is consumed so a later remount can't re-fire it.
+    expect(onClearAllRequestConsumed).toHaveBeenCalled();
+  });
+
+  it("does not open the dialog when there is no pending clear-all request", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const onClearAllRequestConsumed = vi.fn();
+    render(
+      <TasksSection
+        {...makeProps()}
+        clearAllRequestNonce={null}
+        onClearAllRequestConsumed={onClearAllRequestConsumed}
+      />,
+    );
+    expect(screen.queryByText(t("en-US", "tasksClearDialogTitle"))).toBeNull();
+    expect(onClearAllRequestConsumed).not.toHaveBeenCalled();
+  });
+
+  it("does not re-open the dialog for an already-handled request nonce", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const { rerender } = render(
+      <TasksSection {...makeProps()} clearAllRequestNonce={7} onClearAllRequestConsumed={vi.fn()} />,
+    );
+    // Opened by the request; dismiss it.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(screen.queryByText(t("en-US", "tasksClearDialogTitle"))).toBeNull();
+    // A re-render with the SAME (already-handled) nonce must not re-open it —
+    // the parent only re-fires by bumping to a new monotonic value.
+    rerender(
+      <TasksSection {...makeProps()} clearAllRequestNonce={7} onClearAllRequestConsumed={vi.fn()} />,
+    );
+    expect(screen.queryByText(t("en-US", "tasksClearDialogTitle"))).toBeNull();
+  });
+
   it("tags each task row with its id via data-deeplink-row (deep-link flash wiring)", () => {
     const rows = [
       { id: 11, taskName: "T11" },

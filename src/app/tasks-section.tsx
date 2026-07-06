@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
@@ -113,6 +113,11 @@ export interface TasksSectionProps {
   handleCancelEdit: () => void;
   setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleClearAll: () => void;
+  /** Non-null nonce = a pending voice `clearAll` request → open the same
+   *  type-to-confirm clear-all dialog the toolbar button opens. Consumed via
+   *  onClearAllRequestConsumed so a remount can't re-fire a stale request. */
+  clearAllRequestNonce?: number | null;
+  onClearAllRequestConsumed?: () => void;
   // bulk operations
   selectedIds: Set<number>;
   allVisibleSelected: boolean;
@@ -179,6 +184,8 @@ export function TasksSection({
   handleCancelEdit,
   setTaskModalOpen,
   handleClearAll,
+  clearAllRequestNonce,
+  onClearAllRequestConsumed,
   selectedIds,
   allVisibleSelected,
   selectedJiraCount,
@@ -331,6 +338,24 @@ export function TasksSection({
   const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  // Voice `clearAll` (from any view — task-manager navigates here first) sets a
+  // non-null clearAllRequestNonce → open the type-to-confirm dialog (same
+  // friction as the toolbar button). Render-time reconcile (react-hooks bans
+  // set-state-in-effect for the dialog state); handled seed is a SENTINEL (null)
+  // so a FRESH mount with a pending request DOES fire it — the parent then
+  // clears the nonce (below) so a later remount can't re-fire a stale request.
+  const [handledClearNonce, setHandledClearNonce] = useState<number | null>(null);
+  if (clearAllRequestNonce != null && clearAllRequestNonce !== handledClearNonce) {
+    setHandledClearNonce(clearAllRequestNonce);
+    if (tasks.length > 0) setClearConfirmOpen(true);
+  }
+  // Consume the request once handled (parent resets the nonce to null). Not the
+  // component's own state, so this effect is exempt from the set-state ban.
+  useEffect(() => {
+    if (handledClearNonce != null && handledClearNonce === clearAllRequestNonce) {
+      onClearAllRequestConsumed?.();
+    }
+  }, [handledClearNonce, clearAllRequestNonce, onClearAllRequestConsumed]);
 
   return (
     <section

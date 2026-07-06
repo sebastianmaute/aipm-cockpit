@@ -83,6 +83,17 @@ import {
 
 
 /**
+ * Optional import diagnostics accumulator. Threaded (opt-in) through the CSV /
+ * Markdown row-table decoders so a malformed row a `build*FromObj`/`sanitizeX`
+ * rejects can be counted and surfaced to the user, instead of silently dropped.
+ * Only rows a decoder actively REJECTS (returns null) are counted — blank rows,
+ * dangling-dependency pruning, and config-blob decoders are not.
+ */
+export interface ImportDiag {
+  droppedRows: number;
+}
+
+/**
  * Splits a marker-segmented CSV into its sections. A "marker" is a line whose
  * first cell starts with one of the known "# ..." section constants.
  */
@@ -222,16 +233,35 @@ function csvRowsToObjects(csv: string): Record<string, string>[] {
   return out;
 }
 
-function csvToResources(csv: string): Resource[] {
-  return csvRowsToObjects(csv).map((o) => sanitizeResource(o)).filter((r): r is Resource => r !== null);
+/**
+ * Map header-keyed rows through `build`, keeping non-null results and (when a
+ * `diag` is supplied) counting the rows `build` rejects. Shared by the
+ * `csvRowsToObjects`-based reference/resource decoders.
+ */
+function collectRows<T>(
+  rows: Record<string, string>[],
+  build: (obj: Record<string, string>) => T | null,
+  diag?: ImportDiag,
+): T[] {
+  const out: T[] = [];
+  for (const o of rows) {
+    const item = build(o);
+    if (item) out.push(item);
+    else if (diag) diag.droppedRows++;
+  }
+  return out;
 }
 
-function csvToRoles(csv: string): Role[] {
-  return csvRowsToObjects(csv).map((o) => sanitizeRole(o)).filter((r): r is Role => r !== null);
+function csvToResources(csv: string, diag?: ImportDiag): Resource[] {
+  return collectRows(csvRowsToObjects(csv), sanitizeResource, diag);
 }
 
-function csvToBudgets(csv: string): BudgetBucket[] {
-  return csvRowsToObjects(csv).map((o) => sanitizeBudgetBucket(o)).filter((b): b is BudgetBucket => b !== null);
+function csvToRoles(csv: string, diag?: ImportDiag): Role[] {
+  return collectRows(csvRowsToObjects(csv), sanitizeRole, diag);
+}
+
+function csvToBudgets(csv: string, diag?: ImportDiag): BudgetBucket[] {
+  return collectRows(csvRowsToObjects(csv), sanitizeBudgetBucket, diag);
 }
 
 export function decodeRatesMap(s: string): Record<string, number> {
@@ -252,12 +282,12 @@ function parseFxRatesLine(line: string): FxRates | null {
   return sanitizeFxRates({ base: cells[0], date: cells[1], fetchedAt: cells[2], rates: decodeRatesMap(cells[3]) });
 }
 
-function csvToDisciplines(csv: string): Discipline[] {
-  return csvRowsToObjects(csv).map((o) => sanitizeDiscipline(o)).filter((d): d is Discipline => d !== null);
+function csvToDisciplines(csv: string, diag?: ImportDiag): Discipline[] {
+  return collectRows(csvRowsToObjects(csv), sanitizeDiscipline, diag);
 }
 
-function csvToGrades(csv: string): Grade[] {
-  return csvRowsToObjects(csv).map((o) => sanitizeGrade(o)).filter((g): g is Grade => g !== null);
+function csvToGrades(csv: string, diag?: ImportDiag): Grade[] {
+  return collectRows(csvRowsToObjects(csv), sanitizeGrade, diag);
 }
 
 function parsePlanLine(line: string): ResourcePlan | null {
@@ -277,6 +307,7 @@ function parsePlanLine(line: string): ResourcePlan | null {
 function decodeCsvSection<T>(
   csv: string,
   build: (obj: Record<string, string>) => T | null,
+  diag?: ImportDiag,
 ): T[] {
   const rows = parseCsv(csv);
   if (rows.length === 0) return [];
@@ -300,53 +331,55 @@ function decodeCsvSection<T>(
     });
     const item = build(obj);
     if (item) items.push(item);
+    else if (diag) diag.droppedRows++;
   }
   return items;
 }
 
-function csvToAbsences(csv: string): Absence[] {
-  return decodeCsvSection(csv, sanitizeAbsence);
+function csvToAbsences(csv: string, diag?: ImportDiag): Absence[] {
+  return decodeCsvSection(csv, sanitizeAbsence, diag);
 }
 
-function csvToShifts(csv: string): Shift[] {
-  return decodeCsvSection(csv, sanitizeShift);
+function csvToShifts(csv: string, diag?: ImportDiag): Shift[] {
+  return decodeCsvSection(csv, sanitizeShift, diag);
 }
 
-function csvToMilestones(csv: string): Milestone[] {
-  return decodeCsvSection(csv, buildMilestoneFromObj);
+function csvToMilestones(csv: string, diag?: ImportDiag): Milestone[] {
+  return decodeCsvSection(csv, buildMilestoneFromObj, diag);
 }
 
-function csvToChanges(csv: string): ChangeItem[] {
-  return decodeCsvSection(csv, buildChangeFromObj);
+function csvToChanges(csv: string, diag?: ImportDiag): ChangeItem[] {
+  return decodeCsvSection(csv, buildChangeFromObj, diag);
 }
 
-export function csvToStakeholders(csv: string): Stakeholder[] {
-  return decodeCsvSection(csv, buildStakeholderFromObj);
+export function csvToStakeholders(csv: string, diag?: ImportDiag): Stakeholder[] {
+  return decodeCsvSection(csv, buildStakeholderFromObj, diag);
 }
 
-function csvToRaid(csv: string): RaidItem[] {
-  return decodeCsvSection(csv, buildRaidItemFromObj);
+function csvToRaid(csv: string, diag?: ImportDiag): RaidItem[] {
+  return decodeCsvSection(csv, buildRaidItemFromObj, diag);
 }
 
-/** Parses all sections out of a (possibly section-marked) CSV string. */
-export function csvToWorkspace(csv: string): Workspace {
+/** Parses all sections out of a (possibly section-marked) CSV string. Pass an
+ *  optional {@link ImportDiag} to count rows rejected as malformed. */
+export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   const s = splitCsvSections(csv);
   const ws: Workspace = {
-    tasks: csvToTasks(s.tasksText),
-    raid: s.raidText.trim() ? csvToRaid(s.raidText) : [],
-    absences: s.absencesText.trim() ? csvToAbsences(s.absencesText) : [],
-    shifts: s.shiftsText.trim() ? csvToShifts(s.shiftsText) : [],
-    resources: s.resourcesText.trim() ? csvToResources(s.resourcesText) : [],
-    roles: s.rolesText.trim() ? csvToRoles(s.rolesText) : [],
-    disciplines: s.disciplinesText.trim() ? csvToDisciplines(s.disciplinesText) : [],
-    grades: s.gradesText.trim() ? csvToGrades(s.gradesText) : [],
+    tasks: csvToTasks(s.tasksText, diag),
+    raid: s.raidText.trim() ? csvToRaid(s.raidText, diag) : [],
+    absences: s.absencesText.trim() ? csvToAbsences(s.absencesText, diag) : [],
+    shifts: s.shiftsText.trim() ? csvToShifts(s.shiftsText, diag) : [],
+    resources: s.resourcesText.trim() ? csvToResources(s.resourcesText, diag) : [],
+    roles: s.rolesText.trim() ? csvToRoles(s.rolesText, diag) : [],
+    disciplines: s.disciplinesText.trim() ? csvToDisciplines(s.disciplinesText, diag) : [],
+    grades: s.gradesText.trim() ? csvToGrades(s.gradesText, diag) : [],
     plan: (s.planText.trim() && parsePlanLine(s.planText)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
-    budgets: s.budgetsText.trim() ? csvToBudgets(s.budgetsText) : [],
+    budgets: s.budgetsText.trim() ? csvToBudgets(s.budgetsText, diag) : [],
     fxRates: s.fxRatesText.trim() ? parseFxRatesLine(s.fxRatesText.split(/\r?\n/).find((l) => l.trim() && !l.startsWith("#")) ?? "") : null,
     status: s.statusText.trim() ? csvToStatus(s.statusText) : {},
-    milestones: s.milestonesText.trim() ? csvToMilestones(s.milestonesText) : [],
-    changes: s.changesText.trim() ? csvToChanges(s.changesText) : [],
-    stakeholders: s.stakeholdersText.trim() ? csvToStakeholders(s.stakeholdersText) : [],
+    milestones: s.milestonesText.trim() ? csvToMilestones(s.milestonesText, diag) : [],
+    changes: s.changesText.trim() ? csvToChanges(s.changesText, diag) : [],
+    stakeholders: s.stakeholdersText.trim() ? csvToStakeholders(s.stakeholdersText, diag) : [],
   };
   const project = s.projectText.trim() ? csvToProject(s.projectText) : null;
   if (project) ws.project = project;
@@ -408,7 +441,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
   });
 }
 
-function csvToTasks(csv: string): Task[] {
+function csvToTasks(csv: string, diag?: ImportDiag): Task[] {
   // Tolerate an optional leading "# TASKS" marker — files written by
   // `workspaceToCsv` always carry one, even when raid is empty.
   const stripped = csv.replace(/^\s*#\s*TASKS\s*\r?\n/, "");
@@ -425,6 +458,7 @@ function csvToTasks(csv: string): Task[] {
     });
     const task = buildTaskFromObj(obj);
     if (task) tasks.push(task);
+    else if (diag) diag.droppedRows++;
   }
   // Final pass: now that we know every id that survived parsing, drop any
   // dependency entries that point at missing or self ids. Older CSV files

@@ -368,6 +368,7 @@ const enUS = {
   projectSwitchedToast: "Switched to project {0}.",
   projectCreatedToast: "Created project {0}.",
   projectLoadedToast: "Loaded project {0}.",
+  importDroppedRowsWarning: "{0} invalid row(s) in the file were skipped during import.",
   projectSwitchNotFound: "That project is no longer in your portfolio.",
   projectSwitchHandleMissing:
     "Couldn't find the file for that project — re-open it from a file.",
@@ -566,6 +567,7 @@ const enUS = {
   chatAttachmentTooLarge: "{0} is too large (max 20 MB)",
   chatAttachmentUnsupported: "{0} is not a supported file type",
   chatAttachmentReadFailed: "Could not read {0}",
+  chatAttachmentHint: "Attach PDF, image (PNG/JPG/GIF/WebP), or text (TXT/MD/CSV) files — up to 20 MB each.",
   chatToolCall: "Used {0}",
   chatToolError: "Tool error",
   dictationHold: "Hold to dictate",
@@ -1074,7 +1076,7 @@ const enUS = {
     "Each task carries a status — To Do, In Progress, On Hold, In Review, Cancelled, or Done — that is the single source of truth for whether the task is finished. Set it from the status dropdown on the row or in the editor; marking a task Done stamps its completion date automatically (and clearing Done removes it). The Open Points view has a Table / Board toggle: the Board is a Kanban with one column per status. Drag a card between columns to change its status, or use the per-card status dropdown for keyboard access. Cards show the assignee, due date, priority, health, Jira key, and any RAID / Change links. Tasks synced from Jira are read-only here — their status follows the Jira status category, so change them in Jira and the next sync reflects it. The view choice is saved per device.",
   helpSecGanttTitle: "Gantt chart",
   helpSecGanttBody:
-    "Visual project timeline driven by start / due dates and the predecessor graph. Drag a bar to move it, drag its right edge to extend the due date, and drag the handles to draw a dependency between tasks (FS, SS, FF, SF). Cycles are blocked and flagged. Click a bar to open the task editor. Today line, weekend shading, holiday columns, and per-assignee absences are shaded onto the timeline automatically.",
+    "Visual project timeline driven by start / due dates and the predecessor graph. Drag a bar to move it, or drag its right edge to extend the due date. Dependencies (FS, SS, FF, SF) are set in each task's predecessors field in the task editor and drawn as arrows between the bars; cycles are blocked and flagged. Click a bar to open the task editor. Today line, weekend shading, holiday columns, and per-assignee absences are shaded onto the timeline automatically.",
   helpSecRaidTitle: "RAID register",
   helpSecRaidBody:
     "Track Risks, Assumptions, Issues, and Dependencies in a separate register. Each entry has a category, owner, status, severity, optional links to one or more tasks, and an optional list of \"caused by\" parent RAID items (cross-category allowed; cycles are blocked at edit time). For risks, the probability × impact matrix derives the severity automatically. Task rows with related RAID entries show an indicator — click it to jump straight to the filtered register.",

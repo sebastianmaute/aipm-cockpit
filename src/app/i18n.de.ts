@@ -372,6 +372,7 @@ export const de: Record<TranslationKey, string> = {
   projectSwitchedToast: "Zu Projekt {0} gewechselt.",
   projectCreatedToast: "Projekt {0} erstellt.",
   projectLoadedToast: "Projekt {0} geladen.",
+  importDroppedRowsWarning: "{0} ungültige Zeile(n) in der Datei wurden beim Import übersprungen.",
   projectSwitchNotFound: "Dieses Projekt ist nicht mehr in deinem Portfolio.",
   projectSwitchHandleMissing:
     "Die Datei für dieses Projekt wurde nicht gefunden. Bitte erneut aus einer Datei öffnen.",
@@ -571,6 +572,7 @@ export const de: Record<TranslationKey, string> = {
   chatAttachmentTooLarge: "{0} ist zu groß (max. 20 MB)",
   chatAttachmentUnsupported: "{0} ist kein unterstützter Dateityp",
   chatAttachmentReadFailed: "{0} konnte nicht gelesen werden",
+  chatAttachmentHint: "PDF-, Bild- (PNG/JPG/GIF/WebP) oder Text-Dateien (TXT/MD/CSV) anhängen — je bis zu 20 MB.",
   chatToolCall: "Werkzeug verwendet: {0}",
   chatToolError: "Werkzeugfehler",
   dictationHold: "Zum Diktieren gedrückt halten",
@@ -1065,7 +1067,7 @@ export const de: Record<TranslationKey, string> = {
     "Jede Aufgabe trägt einen Status – Zu erledigen, In Arbeit, Wartet, In Prüfung, Abgebrochen oder Erledigt – der die alleinige Wahrheit darüber ist, ob die Aufgabe abgeschlossen ist. Setzen Sie ihn über das Status-Auswahlfeld in der Zeile oder im Editor; das Markieren als Erledigt setzt automatisch das Abschlussdatum (und das Zurücknehmen entfernt es wieder). Die Ansicht Offene Punkte hat einen Umschalter Tabelle / Board: das Board ist ein Kanban mit einer Spalte je Status. Ziehen Sie eine Karte zwischen den Spalten, um den Status zu ändern, oder nutzen Sie das Status-Auswahlfeld je Karte für die Tastaturbedienung. Karten zeigen Zuständige, Fälligkeit, Priorität, Ampel, Jira-Schlüssel sowie verknüpfte RAID-/Änderungseinträge. Aus Jira synchronisierte Aufgaben sind hier schreibgeschützt – ihr Status folgt der Jira-Statuskategorie; ändern Sie ihn in Jira, übernimmt ihn die nächste Synchronisierung. Die Ansichtswahl wird pro Gerät gespeichert.",
   helpSecGanttTitle: "Gantt-Diagramm",
   helpSecGanttBody:
-    "Visuelle Projekt-Zeitleiste, gespeist aus Start- / Fälligkeitsdatum und dem Vorgänger-Graphen. Balken ziehen zum Verschieben, rechte Kante ziehen zum Verlängern, die Griffe ziehen, um eine Abhängigkeit zwischen Aufgaben zu zeichnen (FS, SS, FF, SF). Zyklen werden blockiert und markiert. Klick auf einen Balken öffnet den Aufgabendialog. Heute-Linie, Wochenend-Schraffur, Feiertagsspalten und Abwesenheiten je Zugewiesenen werden automatisch in die Zeitleiste eingezeichnet.",
+    "Visuelle Projekt-Zeitleiste, gespeist aus Start- / Fälligkeitsdatum und dem Vorgänger-Graphen. Balken ziehen zum Verschieben oder rechte Kante ziehen zum Verlängern. Abhängigkeiten (FS, SS, FF, SF) werden im Vorgänger-Feld der jeweiligen Aufgabe im Aufgabendialog festgelegt und als Pfeile zwischen den Balken gezeichnet; Zyklen werden blockiert und markiert. Klick auf einen Balken öffnet den Aufgabendialog. Heute-Linie, Wochenend-Schraffur, Feiertagsspalten und Abwesenheiten je Zugewiesenen werden automatisch in die Zeitleiste eingezeichnet.",
   helpSecRaidTitle: "RAID-Register",
   helpSecRaidBody:
     "Risks, Assumptions, Issues und Dependencies in einem separaten Register erfassen. Jeder Eintrag hat Kategorie, Verantwortliche, Status, Schweregrad, optionale Verknüpfungen zu einer oder mehreren Aufgaben und optional eine Liste auslösender RAID-Einträge (\"verursacht durch\" – kategorieübergreifend; Zyklen werden beim Speichern blockiert). Für Risks wird der Schweregrad aus der Wahrscheinlichkeits × Auswirkungs-Matrix abgeleitet. Aufgabenzeilen mit verknüpften RAID-Einträgen zeigen ein Symbol – Klick filtert direkt im Register.",

@@ -1193,6 +1193,14 @@ function TaskManagerInner() {
     onPushToJiraRef.current = onPushToJira;
   });
 
+  // Voice `clearAll` requests the type-to-confirm dialog. It also navigates to
+  // the Tasks view so the dialog can open from ANY view (TasksSection mounts
+  // only for the active view). Monotonic non-null nonce = a pending request;
+  // TasksSection consumes it (→ null) so a remount can't re-fire a stale one.
+  const clearAllReqSeqRef = useRef(0);
+  const [clearAllRequestNonce, setClearAllRequestNonce] = useState<number | null>(null);
+  const onClearAllRequestConsumed = useCallback(() => setClearAllRequestNonce(null), []);
+
   const {
     selectedIds,
     setSelectedIds,
@@ -1215,6 +1223,10 @@ function TaskManagerInner() {
     onCancelEdit: handleCancelEdit,
     logActivity,
     showToast, allowDestructiveSave,
+    requestClearAllConfirm: () => {
+      setActiveTab("open-points");
+      setClearAllRequestNonce((clearAllReqSeqRef.current += 1));
+    },
   });
   // Sync deselectIdRef so onDelete (defined above) can call it without
   // depending on useBulkOperations being declared first. Written in an effect
@@ -1742,6 +1754,8 @@ function TaskManagerInner() {
       handleCancelEdit={handleCancelEdit}
       setTaskModalOpen={setTaskModalOpen}
       handleClearAll={handleClearAll}
+      clearAllRequestNonce={clearAllRequestNonce}
+      onClearAllRequestConsumed={onClearAllRequestConsumed}
       selectedIds={selectedIds}
       allVisibleSelected={allVisibleSelected}
       selectedJiraCount={selectedJiraCount}

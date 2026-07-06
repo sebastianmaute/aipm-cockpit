@@ -102,6 +102,41 @@ describe("Consent screen accept", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Attachment guidance (audit #47)
+// ---------------------------------------------------------------------------
+describe("Attachment guidance", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function renderComposer() {
+    return render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+  }
+
+  it("shows the accepted-types + size hint up front", () => {
+    renderComposer();
+    expect(screen.getByText(/Attach PDF, image.*up to 20 MB/i)).toBeInTheDocument();
+  });
+
+  it("surfaces EVERY failed file when several are picked at once", async () => {
+    const { container } = renderComposer();
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const bad1 = new File(["x"], "notes.exe", { type: "application/x-msdownload" });
+    const bad2 = new File(["y"], "data.bin", { type: "application/octet-stream" });
+    fireEvent.change(fileInput, { target: { files: [bad1, bad2] } });
+    const alert = await screen.findByRole("alert");
+    // Previously only the LAST file's error survived; both must now appear.
+    expect(alert.textContent).toContain("notes.exe");
+    expect(alert.textContent).toContain("data.bin");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Stop-button tests
 // ---------------------------------------------------------------------------
 describe("Stop button", () => {

@@ -20,6 +20,8 @@ export function eurToCurrency(amountEur: number, bucket: Pick<BudgetBucket, "cur
 
 /** Bucket-currency amount -> EUR. */
 export function currencyToEur(amount: number, bucket: Pick<BudgetBucket, "currency" | "fxRateOverride">, fxRates: FxRates | null): number {
-  const rate = resolveRate(bucket, fxRates);
-  return rate === 0 ? amount : amount / rate;
+  // resolveRate always returns a positive rate (manual override and cached ECB
+  // rate are both guarded `> 0`, otherwise it falls back to 1), so the division
+  // is never by zero — no zero-rate special case is reachable.
+  return amount / resolveRate(bucket, fxRates);
 }

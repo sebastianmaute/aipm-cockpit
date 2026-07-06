@@ -329,6 +329,12 @@ export interface StorageBackend {
   describe?(): Promise<string | null>;
   /** Whether this backend is configured to read/write right now. */
   isReady(): Promise<boolean>;
+  /**
+   * Optional: how many malformed rows the LAST {@link load} silently dropped
+   * while decoding a CSV/Markdown import (0 for well-formed or non-tabular
+   * backends). Lets the import UI warn the user instead of showing only success.
+   */
+  lastImportDroppedRows?: number;
 }
 
 /** Serialize a workspace to the JSON envelope (schemaVersion + entity arrays). */

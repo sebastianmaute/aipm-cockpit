@@ -26,4 +26,10 @@ describe("conversion", () => {
   test("currencyToEur divides by the rate", () => {
     expect(currencyToEur(108, bucket(), fx)).toBeCloseTo(100, 5);
   });
+  test("currencyToEur never divides by zero — a 0/negative override falls back to a safe rate", () => {
+    // resolveRate ignores a non-positive override, so the rate is always > 0.
+    expect(currencyToEur(100, bucket({ fxRateOverride: 0 }), fx)).toBeCloseTo(100 / 1.08, 5);
+    expect(currencyToEur(100, bucket({ fxRateOverride: -5 }), fx)).toBeCloseTo(100 / 1.08, 5);
+    expect(Number.isFinite(currencyToEur(100, bucket({ currency: "EUR", fxRateOverride: 0 }), null))).toBe(true);
+  });
 });
