@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
@@ -59,6 +59,22 @@ export function ModernShell({
   projectSwitcherTrailing,
 }: ModernShellProps) {
   const [versionOpen, setVersionOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+  const mountedRef = useRef(false);
+  // Move keyboard focus to the main content region on view change so keyboard
+  // and screen-reader users follow the swapped content instead of staying
+  // parked on the sidebar nav item (WCAG 2.4.3 focus order). Skip the initial
+  // mount (never yank focus on load / fight the skip link) and use
+  // `preventScroll` so a deep-link row-flash scroll (use-deeplink-row-flash)
+  // isn't disturbed. Focus on a `tabIndex={-1}` container is a permitted DOM
+  // side-effect (not setState) — no set-state-in-effect violation.
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    mainRef.current?.focus({ preventScroll: true });
+  }, [activeView]);
   const isEditing = activeView === "edit";
   const isSettings = activeView === "settings";
   const isLearningInsights = activeView === "learning-insights";
@@ -117,7 +133,7 @@ export function ModernShell({
         <div className="sr-only" role="status" aria-live="polite">
           {title}
         </div>
-        <main id="main-content" className="min-h-0 flex-1 overflow-auto bg-surface-muted px-6 pt-6 dark:bg-black">
+        <main id="main-content" ref={mainRef} tabIndex={-1} className="min-h-0 flex-1 overflow-auto bg-surface-muted px-6 pt-6 outline-none focus:outline-none dark:bg-black">
           {banners}
           {content}
         </main>
