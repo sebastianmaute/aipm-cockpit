@@ -161,6 +161,31 @@ describe("useResourcePlanner", () => {
       );
     });
 
+    it("routes absence.updated through logActivityChanges with a per-field diff (#22)", () => {
+      const logActivity = vi.fn();
+      const logActivityChanges = vi.fn();
+      const { result } = renderPlanner({ logActivity, logActivityChanges });
+      const absence: Absence = {
+        id: 1,
+        assignee: "Alice",
+        startDate: "2026-06-01",
+        endDate: "2026-06-07",
+        type: "vacation",
+      };
+      act(() => { result.current.planner.handleSaveAbsence(absence); });
+      logActivity.mockClear();
+      logActivityChanges.mockClear();
+      act(() => { result.current.planner.handleSaveAbsence({ ...absence, type: "sick" }); });
+      expect(logActivity).not.toHaveBeenCalled();
+      expect(logActivityChanges).toHaveBeenCalledOnce();
+      const [kind, changes] = logActivityChanges.mock.calls[0] as [
+        string,
+        { field: string; from: string; to: string }[],
+      ];
+      expect(kind).toBe("absence.updated");
+      expect(changes).toContainEqual({ field: "type", from: "vacation", to: "sick" });
+    });
+
     it("handleDeleteAbsence removes absence and logs absence.deleted", () => {
       const logActivity = vi.fn();
       const { result } = renderPlanner({ logActivity });

@@ -83,6 +83,35 @@ describe("useChangeLog — logActivity", () => {
     expect(logActivity).toHaveBeenCalledWith("change.deleted", 5, "To delete");
   });
 
+  it("logs change.updated WITH a per-field diff when logActivityChanges is wired (#22)", () => {
+    const logActivity = vi.fn<(kind: ActivityKind, ...args: (string | number)[]) => void>();
+    const logActivityChanges =
+      vi.fn<(kind: ActivityKind, changes: readonly { field: string; from: string; to: string }[], ...args: (string | number)[]) => void>();
+    const { result } = renderHook(
+      () => useChangeLog({ today: "2026-06-09", logActivity, logActivityChanges }),
+      { wrapper: Wrapper },
+    );
+
+    act(() => result.current.handleSaveChange(ci({ id: 3, title: "Existing", status: "Proposed" })));
+    logActivity.mockClear();
+    logActivityChanges.mockClear();
+
+    act(() => result.current.handleSaveChange(ci({ id: 3, title: "Renamed", status: "Approved" })));
+
+    // Update routes through the diff logger, NOT the plain one.
+    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityChanges).toHaveBeenCalledOnce();
+    const [kind, changes, id, title] = logActivityChanges.mock.calls[0];
+    expect(kind).toBe("change.updated");
+    expect(id).toBe(3);
+    expect(title).toBe("Renamed");
+    const fields = changes.map((c) => c.field).sort();
+    expect(fields).toContain("title");
+    expect(fields).toContain("status");
+    const titleChange = changes.find((c) => c.field === "title");
+    expect(titleChange).toEqual({ field: "title", from: "Existing", to: "Renamed" });
+  });
+
   it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
     const { result } = renderHook(() => useChangeLog({ today: "2026-06-09" }), { wrapper: Wrapper });
     act(() => result.current.handleSaveChange(ci({ id: 1, title: "A" })));

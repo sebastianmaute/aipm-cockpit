@@ -69,6 +69,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     handleJumpToTaskFromRaid: vi.fn(),
     activityLog: [] as ActivityEntry[],
     logActivity: vi.fn(),
+    logActivityChanges: vi.fn(),
     handleClearActivityLog: vi.fn(),
     handleOpenAddAbsence: vi.fn(),
     handleEditAbsence: vi.fn() as (absence: Absence) => void,

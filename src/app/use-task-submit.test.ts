@@ -105,6 +105,36 @@ describe("useTaskSubmit", () => {
     expect(setTasks).toHaveBeenCalled();
   });
 
+  it("logs task.updated with a per-field diff when editing (#22)", () => {
+    const logActivity = vi.fn();
+    const logActivityChanges = vi.fn();
+    const prev = makeTask({ id: 1, taskName: "Test task", assignee: "Alice" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(
+        makeArgs({
+          editingId: 1,
+          tasks: [prev],
+          tasksRef: { current: [prev] },
+          logActivity,
+          logActivityChanges,
+        }),
+      ),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityChanges).toHaveBeenCalledOnce();
+    const [kind, changes, id] = logActivityChanges.mock.calls[0] as [
+      string,
+      { field: string; from: string; to: string }[],
+      number,
+    ];
+    expect(kind).toBe("task.updated");
+    expect(id).toBe(1);
+    // Form changed assignee Alice → Bob and taskName Test task → Valid Task.
+    expect(changes).toContainEqual({ field: "assignee", from: "Alice", to: "Bob" });
+    expect(changes.some((c) => c.field === "taskName")).toBe(true);
+  });
+
   it("handleCancelEdit resets editingId", () => {
     const setEditingId = vi.fn();
     const { result } = renderHook(() =>

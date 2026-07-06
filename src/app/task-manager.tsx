@@ -164,7 +164,7 @@ const NO_JIRA_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
-  const { activityLog, setActivityLog, logActivity, handleClearActivityLog } =
+  const { activityLog, setActivityLog, logActivity, logActivityChanges, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast } = useToast();
 
@@ -587,16 +587,16 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, today, logActivity, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
+  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
-  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today, logActivity });
+  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today, logActivity, logActivityChanges });
 
   // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
   // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
-    useStakeholders({ today, logActivity });
+    useStakeholders({ today, logActivity, logActivityChanges });
 
   // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
   // assembles a Workspace from the live workspace-context collections the same
@@ -1069,6 +1069,7 @@ function TaskManagerInner() {
     setTasks,
     setContacts,
     logActivity,
+    logActivityChanges,
     showToast,
     onPushToJiraRef,
     raid,
@@ -1602,6 +1603,7 @@ function TaskManagerInner() {
     handleJumpToTaskFromRaid,
     activityLog,
     logActivity,
+    logActivityChanges,
     handleClearActivityLog: guardEdit(handleClearActivityLog),
     handleOpenAddAbsence: guardEdit(handleOpenAddAbsence),
     handleEditAbsence: guardEdit(handleEditAbsence),

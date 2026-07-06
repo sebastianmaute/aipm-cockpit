@@ -40,7 +40,7 @@ import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, dateField, type BulkField } from "./bulk-edit-panel";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
-import type { ActivityKind } from "./activity-log";
+import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import type { Milestone } from "./types";
 
 const MILESTONE_COL_WIDTHS = { name: 220, date: 130, status: 140, achieved: 130 } as const;
@@ -73,6 +73,11 @@ type MilestonesPanelProps = {
   today: string;
   holidaySet: ReadonlySet<string>;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  logActivityChanges?: (
+    kind: ActivityKind,
+    changes: readonly FieldChange[],
+    ...args: (string | number)[]
+  ) => void;
   openCreateNonce?: number;
   /** Called after an `openCreateNonce` create-request has been honoured so the
    *  parent can reset the nonce. Without it a stale nonce re-opens the create
@@ -104,6 +109,7 @@ function MilestonesPanelBody({
   today,
   holidaySet,
   logActivity,
+  logActivityChanges,
   openCreateNonce,
   onCreateConsumed,
   onPushToOutlook,
@@ -242,7 +248,12 @@ function MilestonesPanelBody({
     if (creating) {
       logActivity?.("milestone.created", next.id, next.name);
     } else {
-      logActivity?.("milestone.updated", next.id);
+      const previous = milestones.find((m) => m.id === next.id);
+      if (previous && logActivityChanges) {
+        logActivityChanges("milestone.updated", diffFields(previous, next), next.id);
+      } else {
+        logActivity?.("milestone.updated", next.id);
+      }
     }
     setEditing(null);
   }

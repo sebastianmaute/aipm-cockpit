@@ -90,6 +90,34 @@ describe("useStakeholders — logActivity", () => {
     expect(logActivity).toHaveBeenCalledWith("stakeholder.deleted", 7, "S7");
   });
 
+  it("routes stakeholder.updated through logActivityChanges with a diff (#22)", () => {
+    const logActivity = vi.fn<(kind: ActivityKind, ...args: (string | number)[]) => void>();
+    const logActivityChanges =
+      vi.fn<(kind: ActivityKind, changes: readonly { field: string; from: string; to: string }[], ...args: (string | number)[]) => void>();
+    const { result } = renderHook(
+      () => useStakeholders({ today: "2026-06-09", logActivity, logActivityChanges }),
+      { wrapper: Wrapper },
+    );
+
+    act(() => result.current.handleSaveStakeholder(mk(5)));
+    logActivity.mockClear();
+    logActivityChanges.mockClear();
+
+    act(() => result.current.handleSaveStakeholder({ ...mk(5), name: "Updated", influence: "High" }));
+
+    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityChanges).toHaveBeenCalledOnce();
+    const [kind, changes, id, name] = logActivityChanges.mock.calls[0];
+    expect(kind).toBe("stakeholder.updated");
+    expect(id).toBe(5);
+    expect(name).toBe("Updated");
+    expect(changes.find((c) => c.field === "influence")).toEqual({
+      field: "influence",
+      from: "Medium",
+      to: "High",
+    });
+  });
+
   it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
     const { result } = renderHook(() => useStakeholders({ today: "2026-06-09" }), { wrapper: Wrapper });
     act(() => result.current.handleSaveStakeholder(mk(1)));
