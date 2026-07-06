@@ -16,6 +16,13 @@ import {
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
 import { todayInZone, resolveTimezone } from "./timezone";
 
+// Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
+// them on a `jiraKey` row would be silently reverted by the next read-only pull
+// (or unexpectedly pushed), so they are skipped on synced rows. Local-only
+// fields (group/blockers/notes/labels/…) still apply. (Status is not a
+// bulk-editable field.)
+const JIRA_MANAGED_BULK_FIELDS = ["assignee", "priority", "dueDate"] as const;
+
 export interface BulkRowHandlers {
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
@@ -135,16 +142,6 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       showToastRef.current("error", t(lang, "bulkEditNoFields"));
       return;
     }
-    if (fields.assignee) {
-      const blockedCount = tasks.reduce(
-        (n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n),
-        0,
-      );
-      if (blockedCount > 0) {
-        window.alert(t(lang, "jiraBulkAssigneeBlocked", blockedCount));
-        return;
-      }
-    }
     const built = buildBulkEditUpdates(bulkEdit, today);
     if (!built.ok) {
       showToastRef.current(
@@ -154,15 +151,32 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       return;
     }
     const updates = built.updates;
+    // Jira-managed fields are skipped on synced rows (silently reverted / pushed
+    // otherwise); local-only fields still apply. Non-synced rows get everything.
+    const managedEnabled = JIRA_MANAGED_BULK_FIELDS.some((f) => f in updates);
+    const jiraSafeUpdates: Partial<Task> = { ...updates };
+    for (const f of JIRA_MANAGED_BULK_FIELDS) delete jiraSafeUpdates[f];
+    const skippedSynced = managedEnabled
+      ? tasks.reduce((n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n), 0)
+      : 0;
     const count = selectedIds.size;
     const stamp = new Date().toISOString();
     setTasks((prev) =>
-      prev.map((row) =>
-        selectedIds.has(row.id)
-          ? { ...row, ...updates, localModifiedAt: stamp }
-          : row,
-      ),
+      prev.map((row) => {
+        if (!selectedIds.has(row.id)) return row;
+        if (row.jiraKey) {
+          if (!managedEnabled) return { ...row, ...updates, localModifiedAt: stamp };
+          // Only managed fields were enabled → nothing local to change; leave the
+          // row untouched (no spurious localModifiedAt that a pull would revert).
+          if (Object.keys(jiraSafeUpdates).length === 0) return row;
+          return { ...row, ...jiraSafeUpdates, localModifiedAt: stamp };
+        }
+        return { ...row, ...updates, localModifiedAt: stamp };
+      }),
     );
+    if (skippedSynced > 0) {
+      window.alert(t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
+    }
     showToastRef.current(
       "info",
       count === 1

@@ -1252,6 +1252,8 @@ const enUS = {
   jiraManagedHint: "Managed by Jira — change in Jira",
   jiraBulkAssigneeBlocked:
     "Assignee can't be bulk-edited because {0} selected task(s) are linked to Jira. Unselect them or change assignees in Jira.",
+  jiraBulkManagedFieldsSkipped:
+    "{0} Jira-synced task(s) were skipped for assignee, priority and due date — those fields are managed by Jira. Other fields were applied.",
 
   completed: "Completed",
   jiraSyncConflictsReview:

@@ -170,6 +170,66 @@ describe("useBulkOperations", () => {
       expect(logActivity).toHaveBeenCalledWith("bulk.edit", 1);
       expect(result.current.bulk.selectedIds.size).toBe(0);
     });
+
+    it("skips Jira-managed fields on synced rows but applies local-only fields; warns", () => {
+      const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+      const { result } = renderBulk({});
+      const base = {
+        assignee: "Alice", assigneeEmail: "", dueDate: "2026-06-01",
+        lastUpdateDate: "2026-05-20", status: "To Do" as const, priority: "Medium" as const,
+        blockers: "", notes: "", group: "", inquiriesSent: 0,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      };
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Synced", jiraKey: "PROJ-1", ...base },
+          { id: 2, taskName: "Local", ...base },
+        ]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); result.current.bulk.onToggleSelect(2); });
+      act(() => {
+        result.current.taskForm.setBulkEdit(prev => ({
+          ...prev,
+          enabled: { ...prev.enabled, priority: true, group: true },
+          priority: "High", group: "Alpha",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      const synced = result.current.workspace.tasks.find(t => t.id === 1)!;
+      const local = result.current.workspace.tasks.find(t => t.id === 2)!;
+      // Synced: managed field (priority) skipped, local-only field (group) applied.
+      expect(synced.priority).toBe("Medium");
+      expect(synced.group).toBe("Alpha");
+      // Non-synced: everything applied.
+      expect(local.priority).toBe("High");
+      expect(local.group).toBe("Alpha");
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("1"));
+      alertSpy.mockRestore();
+    });
+
+    it("leaves a synced row untouched when only managed fields are enabled (no localModifiedAt bump)", () => {
+      const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+      const { result } = renderBulk({});
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Synced", jiraKey: "PROJ-1", assignee: "Alice", assigneeEmail: "",
+            dueDate: "2026-06-01", lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium",
+            blockers: "", notes: "", group: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+        ]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => {
+        result.current.taskForm.setBulkEdit(prev => ({
+          ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      const synced = result.current.workspace.tasks.find(t => t.id === 1)!;
+      expect(synced.priority).toBe("Medium");
+      expect(synced.localModifiedAt).toBe("STAMP"); // untouched
+      alertSpy.mockRestore();
+    });
   });
 
   describe("handleClearAll", () => {

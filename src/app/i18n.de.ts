@@ -1244,6 +1244,8 @@ export const de: Record<TranslationKey, string> = {
   jiraManagedHint: "Wird von Jira verwaltet – Änderung nur in Jira",
   jiraBulkAssigneeBlocked:
     "Bearbeiter kann nicht in Sammelbearbeitung geändert werden, da {0} ausgewählte Aufgabe(n) mit Jira verknüpft sind. Auswahl anpassen oder in Jira ändern.",
+  jiraBulkManagedFieldsSkipped:
+    "{0} mit Jira synchronisierte Aufgabe(n) wurden bei Bearbeiter, Priorität und Fälligkeitsdatum übersprungen — diese Felder verwaltet Jira. Andere Felder wurden angewendet.",
 
   completed: "Erledigt",
   jiraSyncConflictsReview:
