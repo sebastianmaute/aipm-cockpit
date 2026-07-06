@@ -293,8 +293,13 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
   `<h2>` heading/count) with the search input `flex-1` so it expands and pushes trailing controls right
   (mirrors the changes-panel toolbar). Tasks `PrintButton` is `iconOnly`. ★ Tasks "Clear all" opens a
   `TypeToConfirmDialog` (type `"yes, clear all tasks"`) — the shared `handleClearAll` (`use-bulk-operations.ts`)
-  no longer self-confirms via `window.confirm`; the button path is dialog-gated, the VOICE `clearAll` command
-  keeps its own `window.confirm` at the call site. All saved-views controls (`panel-views-control`/
+  no longer self-confirms via `window.confirm`; the button path is dialog-gated. ★★ the VOICE `clearAll`
+  command ALSO routes to the `TypeToConfirmDialog` now (no more one-click `window.confirm`): hook
+  `requestClearAllConfirm?` → task-manager `setActiveTab("open-points")` + bumps a MONOTONIC non-null
+  `clearAllRequestNonce` → tasks-section render-reconcile (handled seed = SENTINEL null so a FRESH mount
+  HONORS a pending request) + `onClearAllRequestConsumed` resets the nonce→null. LANDMINE: seeding the
+  handled-ref to the LIVE nonce is the remount-SWALLOW trap — a voice-clear fired from a non-Tasks view
+  (TasksSection unmounted) is silently DROPPED; sentinel-seed + parent-clear for any "works-from-any-view" req. All saved-views controls (`panel-views-control`/
   `saved-views-control`/`reports-views-control`) use the standard `FOCUS_RING` (ring-2) — a bare
   `focus:ring-AIPM-green` sets colour only (no width) and is invisible.
 - **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
@@ -310,6 +315,10 @@ npm run size:check          # file-size ratchet — fails on a NEW >800-line fil
   (which would stamp `today` instead of Jira's resolution date). Board/table selects + drag are disabled
   for synced; `onStatusChange` no-ops on `jiraKey`. Board is NOT in axe `A11Y_VIEWS` (gate scans the table
   view) — board a11y is eye-verified (row-unique select labels + per-column `aria-label`).
+  ★★ ROW-CONTEXT IS SPLIT to bound edit re-renders: the volatile `tasksById` (new Map on ANY edit) lives in
+  a SEPARATE `RowLookupContext`/`useTaskLookup`, consumed ONLY by `DependencyChipsImpl` — a context consumer
+  re-renders on value change REGARDLESS of an ancestor `memo` bailout, so an edit re-renders one dep-chip
+  cell, not all 4×N row cells (context-bypasses-memo). Don't fold `tasksById` back into `RowContextValue`.
 - **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation + layout); heavy
   parts extracted. Pure i18n-free ENGINE `gantt-engine.ts` (date math, prefs load/save, critical-path,
   derive-bar). React pieces: hooks `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
@@ -545,7 +554,11 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `lop-app:search-recents`, `MAX_RECENTS=8`, validated load, pure `pushRecent` dedupe+cap) — recents shown
   when the box is focused with an EMPTY query, FILTERED to items still present in the live workspace; OUT of
   exports/Turso, cleared by `clearAppConfig`. Unified `items` list (recents on empty, results otherwise)
-  drives the combobox; "Recent" header is a non-option `<div>` outside the `<ul>`.
+  drives the combobox; "Recent" header is a non-option `<div>` outside the `<ul>`. ★ PERF: `buildSearchIndex(ws)`
+  scans+lowercases the 5 arrays ONCE (query-independent, memoized on the arrays); `searchIndex(index, query)`
+  runs per keystroke. `searchWorkspace` kept as a thin back-compat wrapper. Gantt uses the same shape — a
+  `Map<taskId,haystack>` memo keyed on `[tasks]` ONLY (do NOT bundle the search text into the prefs memo, or
+  every keystroke busts the whole `visible` memo).
 - **RAID edit modal map:** `RaidEditModal` (`raid-edit-modal.tsx`) owns draft, query state, derived option
   lists, add/remove handlers; presentational `raid-risk-matrix.tsx` (`RiskMatrix` 5×5 picker, Risk items
   only) and `raid-edit-fields.tsx` (`RaidLinkedTasksField`, `RaidCausedByField` — the two chip-picker
@@ -1171,7 +1184,9 @@ Partial<Record<CalendarEntityType,{enabled,auto}>>` (`calendar-sync-config.ts` `
 writeSettings SPREAD, no allowlist edit); toggled in BOTH Settings→Integrations AND the tasks pane — ★ BOTH sites
 force `auto:false` when un-enabling (else re-enabling silently reactivates auto). Manual "Push to Outlook" button
 (pushable = `!isTaskFinished && !!dueDate`) + debounced `use-calendar-auto-sync.ts` runner (mounted in task-manager,
-4s, fail-once-per-change; ★ content-key EXCLUDES `outlookEventId` — it's an OUTPUT the push writes back, including it
+4s, fail-once-per-change; ★ auto-PUSH is STAGGERED via `staggerMs` (base `AUTO_SYNC_DEBOUNCE_MS`) — the 4 entity
+sites pass 0/1×/2×/3× `AUTO_SYNC_STAGGER_STEP_MS=750` to avoid a save-time herd (background auto-PULL is already
+serial — one awaited loop — no herd there); ★ content-key EXCLUDES `outlookEventId` — it's an OUTPUT the push writes back, including it
 re-fires one redundant round). ALL activation sites gated on M365-configured + `!isPopout`. **RAID (SP2, v0.157+):**
 pushes active (`isRaidActiveForReview` — the shared predicate EXPORTED from `raid-review.ts`, used by BOTH the review
 engine and the pane filter) items WITH a `targetDate`, event on that date; `raidToGraphEvent` mirrors `taskToGraphEvent`
