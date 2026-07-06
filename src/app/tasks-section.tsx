@@ -113,6 +113,9 @@ export interface TasksSectionProps {
   handleCancelEdit: () => void;
   setTaskModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleClearAll: () => void;
+  /** Monotonic nonce bumped by the voice `clearAll` command → opens the same
+   *  type-to-confirm clear-all dialog the toolbar button opens. */
+  clearAllConfirmNonce?: number;
   // bulk operations
   selectedIds: Set<number>;
   allVisibleSelected: boolean;
@@ -179,6 +182,7 @@ export function TasksSection({
   handleCancelEdit,
   setTaskModalOpen,
   handleClearAll,
+  clearAllConfirmNonce,
   selectedIds,
   allVisibleSelected,
   selectedJiraCount,
@@ -331,6 +335,15 @@ export function TasksSection({
   const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  // Voice `clearAll` bumps clearAllConfirmNonce → open the type-to-confirm
+  // dialog (same friction as the toolbar button). Render-time reconcile seeded
+  // to the CURRENT nonce so a fresh mount doesn't auto-open (react-hooks bans
+  // set-state-in-effect); only a bump while mounted fires it.
+  const [seenClearNonce, setSeenClearNonce] = useState(clearAllConfirmNonce);
+  if (clearAllConfirmNonce !== seenClearNonce) {
+    setSeenClearNonce(clearAllConfirmNonce);
+    if (tasks.length > 0) setClearConfirmOpen(true);
+  }
 
   return (
     <section

@@ -278,19 +278,23 @@ describe("useBulkOperations", () => {
       expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     });
 
-    it("voice 'clearAll' command clears only when window.confirm returns true", () => {
-      const { result } = renderBulk();
+    it("voice 'clearAll' requests the type-to-confirm dialog instead of wiping directly", () => {
+      const requestClearAllConfirm = vi.fn();
+      const { result } = renderBulk({ requestClearAllConfirm });
+      const confirmSpy = vi.spyOn(window, "confirm");
+
+      // Empty → nothing to clear, no dialog requested.
+      act(() => { result.current.bulk.handleCommand({ kind: "clearAll" }, "clear all"); });
+      expect(requestClearAllConfirm).not.toHaveBeenCalled();
+
+      // With tasks → requests the dialog; does NOT wipe here and never touches
+      // the low-friction window.confirm (the dialog's onConfirm does the wipe).
       act(() => { result.current.workspace.setTasks([seedOne()]); });
-
-      const noSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
       act(() => { result.current.bulk.handleCommand({ kind: "clearAll" }, "clear all"); });
+      expect(requestClearAllConfirm).toHaveBeenCalledTimes(1);
       expect(result.current.workspace.tasks).toHaveLength(1);
-      noSpy.mockRestore();
-
-      const yesSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-      act(() => { result.current.bulk.handleCommand({ kind: "clearAll" }, "clear all"); });
-      expect(result.current.workspace.tasks).toHaveLength(0);
-      yesSpy.mockRestore();
+      expect(confirmSpy).not.toHaveBeenCalled();
+      confirmSpy.mockRestore();
     });
   });
 

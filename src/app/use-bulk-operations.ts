@@ -40,6 +40,11 @@ export interface UseBulkOperationsArgs {
   /** Arm the storage layer's one-shot destructive-save bypass before a clear-all
    *  — else the persistence data-loss guard refuses the mass deletion. */
   allowDestructiveSave?: () => void;
+  /** Open the tasks view's type-to-confirm clear-all dialog. The voice `clearAll`
+   *  command routes through this so it faces the SAME friction as the toolbar
+   *  button (type "yes, clear all tasks") instead of a one-click window.confirm.
+   *  Undefined ⇒ voice clear-all is a safe no-op (popout / view not mounted). */
+  requestClearAllConfirm?: () => void;
 }
 
 export function useBulkOperations(args: UseBulkOperationsArgs) {
@@ -60,6 +65,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const onCancelEditRef = useRef(args.onCancelEdit);
   const setSettingsRef = useRef(args.setSettings);
   const allowDestructiveSaveRef = useRef(args.allowDestructiveSave);
+  const requestClearAllConfirmRef = useRef(args.requestClearAllConfirm);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
@@ -67,6 +73,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   useEffect(() => { onCancelEditRef.current = args.onCancelEdit; }, [args.onCancelEdit]);
   useEffect(() => { setSettingsRef.current = args.setSettings; }, [args.setSettings]);
   useEffect(() => { allowDestructiveSaveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
+  useEffect(() => { requestClearAllConfirmRef.current = args.requestClearAllConfirm; }, [args.requestClearAllConfirm]);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -307,9 +314,11 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
           return;
         }
         case "clearAll":
-          if (tasks.length > 0 && window.confirm(t(lang, "confirmClearAll", tasks.length))) {
-            handleClearAll();
-          }
+          // Route through the tasks view's type-to-confirm dialog (type
+          // "yes, clear all tasks") — the SAME friction as the toolbar button —
+          // rather than a one-click window.confirm before an irreversible wipe.
+          // No dialog wired (popout / view not mounted) ⇒ safe no-op.
+          if (tasks.length > 0) requestClearAllConfirmRef.current?.();
           return;
         case "openForm":
           onCancelEditRef.current();
@@ -334,7 +343,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
           return;
       }
     },
-    [tasks, handleClearAll, setTaskModalOpen, setForm, setSearchImmediate],
+    [tasks, setTaskModalOpen, setForm, setSearchImmediate],
   );
 
   return {

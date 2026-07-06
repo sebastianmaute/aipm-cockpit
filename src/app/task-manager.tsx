@@ -1193,6 +1193,10 @@ function TaskManagerInner() {
     onPushToJiraRef.current = onPushToJira;
   });
 
+  // Bumped by the voice `clearAll` command; TasksSection watches it to open the
+  // same type-to-confirm clear-all dialog the toolbar button uses.
+  const [clearAllConfirmNonce, setClearAllConfirmNonce] = useState(0);
+
   const {
     selectedIds,
     setSelectedIds,
@@ -1215,6 +1219,7 @@ function TaskManagerInner() {
     onCancelEdit: handleCancelEdit,
     logActivity,
     showToast, allowDestructiveSave,
+    requestClearAllConfirm: () => setClearAllConfirmNonce((n) => n + 1),
   });
   // Sync deselectIdRef so onDelete (defined above) can call it without
   // depending on useBulkOperations being declared first. Written in an effect
@@ -1742,6 +1747,7 @@ function TaskManagerInner() {
       handleCancelEdit={handleCancelEdit}
       setTaskModalOpen={setTaskModalOpen}
       handleClearAll={handleClearAll}
+      clearAllConfirmNonce={clearAllConfirmNonce}
       selectedIds={selectedIds}
       allVisibleSelected={allVisibleSelected}
       selectedJiraCount={selectedJiraCount}
