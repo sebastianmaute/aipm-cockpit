@@ -242,6 +242,23 @@ describe("TasksSection", () => {
     expect(props.handleClearAll).toHaveBeenCalledTimes(1);
   });
 
+  it("opens the clear-all dialog from a pending voice request nonce, then consumes it", () => {
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    const onClearAllRequestConsumed = vi.fn();
+    render(
+      <TasksSection
+        {...makeProps()}
+        clearAllRequestNonce={1}
+        onClearAllRequestConsumed={onClearAllRequestConsumed}
+      />,
+    );
+    // The dialog opens from the request nonce alone — no eraser click.
+    expect(screen.getByText(t("en-US", "tasksClearDialogTitle"))).toBeInTheDocument();
+    // The request is consumed so a later remount can't re-fire it.
+    expect(onClearAllRequestConsumed).toHaveBeenCalled();
+  });
+
   it("tags each task row with its id via data-deeplink-row (deep-link flash wiring)", () => {
     const rows = [
       { id: 11, taskName: "T11" },
