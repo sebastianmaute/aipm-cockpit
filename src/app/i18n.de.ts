@@ -567,6 +567,7 @@ export const de: Record<TranslationKey, string> = {
   secretPassphraseRemoveHint: "Den verschlüsselten Wert und seine Passphrase verwerfen. Sie müssen den Wert erneut eingeben.",
   secretPassphraseRemoveConfirm: "Das gespeicherte Geheimnis entfernen? Sie müssen es erneut eingeben.",
   chatClear: "Chat leeren",
+  chatClearConfirm: "Dieses Gespräch leeren? Die Nachrichten werden entfernt.",
   chatStop: "Stopp",
   chatStopped: "Abgebrochen",
   chatAttach: "Dokument anhängen",
@@ -1132,7 +1133,7 @@ export const de: Record<TranslationKey, string> = {
     "Beim Erstellen eines Projekts empfiehlt der Assistent eine Vorlage anhand von Teamgröße, regulatorischen Anforderungen, Bereitstellung, Zeitrahmen und Umfang des Projekts. Die vorgeschlagene Vorlage wird vorausgewählt, und es wird angezeigt, warum sie passt – Sie können jede andere Vorlage wählen oder stattdessen mit einer leeren Vorlage beginnen.",
   helpSecKeysTitle: "Tastatur & Shortcuts",
   helpSecKeysBody:
-    "Esc – aktuell geöffneten Dialog, Pop-up oder Aufgaben-Formular schließen.\nEnter im Chat – Nachricht senden. Shift+Enter – Zeilenumbruch.\n+-Symbol im Header – Dialog \"Neue Aufgabe\" öffnen.\nPfeil in der Workspace-Tableiste – Bereich ein-/ausklappen.\nKlick auf einen Tab bei eingeklapptem Bereich – klappt automatisch aus.",
+    "Strg+K / ⌘K – globale Suche von überall fokussieren.\nSchrägstrich (/) – globale Suche fokussieren, wenn kein Feld aktiv ist.\nF4 (konfigurierbar unter Einstellungen → Diktat) – gedrückt halten, um in das fokussierte Feld zu diktieren.\nEsc – aktuell geöffneten Dialog, Pop-up oder Aufgaben-Formular schließen.\nEnter im Chat – Nachricht senden. Shift+Enter – Zeilenumbruch.\n+-Symbol im Header – Dialog \"Neue Aufgabe\" öffnen.\nPfeil in der Workspace-Tableiste – Bereich ein-/ausklappen.\nKlick auf einen Tab bei eingeklapptem Bereich – klappt automatisch aus.",
   helpPolicyLink: "Acme Richtlinie zur KI-Nutzung",
 
   version: "Version",

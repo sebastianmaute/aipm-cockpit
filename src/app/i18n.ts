@@ -562,6 +562,7 @@ const enUS = {
   secretPassphraseRemoveHint: "Forget the encrypted value and its passphrase. You will need to re-enter the value.",
   secretPassphraseRemoveConfirm: "Remove the stored secret? You will need to re-enter it.",
   chatClear: "Clear chat",
+  chatClearConfirm: "Clear this conversation? The messages will be removed.",
   chatStop: "Stop",
   chatStopped: "Stopped",
   chatAttach: "Attach a document",
@@ -1141,7 +1142,7 @@ const enUS = {
     "When you create a project, the wizard recommends a template based on the project's team size, regulatory needs, deployment, timeline, and scale. It preselects the suggested template and shows why it fits — you can pick any other template or start from Blank instead.",
   helpSecKeysTitle: "Keyboard & shortcuts",
   helpSecKeysBody:
-    "Esc — close any open modal, popover, or task form.\nEnter in chat — send message. Shift+Enter — newline.\n+ button in header — open the New task modal.\nChevron in the workspace tab strip — collapse / expand the pane.\nClick a tab while collapsed — auto-expands.",
+    "Ctrl+K / ⌘K — focus the global search from anywhere.\n/ — focus the global search when you are not typing in a field.\nF4 (configurable in Settings → Dictation) — hold to dictate into the focused field.\nEsc — close any open modal, popover, or task form.\nEnter in chat — send message. Shift+Enter — newline.\n+ button in header — open the New task modal.\nChevron in the workspace tab strip — collapse / expand the pane.\nClick a tab while collapsed — auto-expands.",
   helpPolicyLink: "Acme AI usage policy",
 
   version: "Version",
