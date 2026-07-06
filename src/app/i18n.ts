@@ -389,6 +389,12 @@ const enUS = {
     "Can't reach your Turso database — changes aren't being saved. Check the database URL in Settings; the database may have been renamed or removed.",
   storageAuthBanner:
     "Your Turso auth token was rejected — changes aren't being saved. Update the token in Settings.",
+  storageSaveFailedBanner:
+    "Your changes couldn't be saved to the current storage. Fix the issue (e.g. re-grant file access or free up space) and saving will be retried.",
+  storageSwitchFlushFailed:
+    "Recent changes may not have been saved before switching projects.",
+  settingsWriteFailed:
+    "Your settings couldn't be saved and may reset when you reload (storage full or unavailable).",
   storageBannerAria: "Storage connection problem",
   storageBannerOpenSettings: "Open storage settings",
   storagePermissionGestureNeeded:

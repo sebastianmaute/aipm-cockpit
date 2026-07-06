@@ -7,6 +7,7 @@ import type { UpcomingBirthday } from "./birthdays";
 import { resourceDisplayName } from "./resource-foundation";
 import { formatExpiryDate } from "./date-format";
 import type { JiraTokenAlert } from "./jira-token-status";
+import type { StorageErrorKind } from "./storage-error";
 
 function DismissButton({ lang, onClick }: { lang: Lang; onClick: () => void }) {
   return (
@@ -87,8 +88,13 @@ export function JiraTokenBanner({
 
 export function StorageBanner({
   kind, lang, onOpenSettings, onDismiss,
-}: { kind: "unreachable" | "auth"; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
-  const msg = kind === "auth" ? t(lang, "storageAuthBanner") : t(lang, "storageUnreachableBanner");
+}: { kind: StorageErrorKind; lang: Lang; onOpenSettings: () => void; onDismiss: () => void }) {
+  const msg =
+    kind === "auth"
+      ? t(lang, "storageAuthBanner")
+      : kind === "generic"
+        ? t(lang, "storageSaveFailedBanner")
+        : t(lang, "storageUnreachableBanner");
   return (
     <AlertBanner ariaLabel={t(lang, "storageBannerAria")} icon="⚠"
       actions={<>

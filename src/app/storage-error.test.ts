@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { StorageNotReadyError } from "./storage";
-import { isTursoLockTimeout, tursoErrorKind } from "./storage-error";
+import { classifyStorageError, isTursoLockTimeout, tursoErrorKind } from "./storage-error";
 
 describe("tursoErrorKind", () => {
   it("maps the unreachable hint", () => {
@@ -30,6 +30,21 @@ describe("tursoErrorKind", () => {
   it("does not classify a cross-tab lock timeout (transient — toast, not the connectivity banner)", async () => {
     const { TursoLockTimeoutError } = await import("./turso-backend");
     expect(tursoErrorKind(new TursoLockTimeoutError())).toBeNull();
+  });
+});
+
+describe("classifyStorageError", () => {
+  it("keeps recognized Turso kinds", () => {
+    expect(classifyStorageError(new StorageNotReadyError("storage-unreachable"))).toBe("unreachable");
+    expect(
+      classifyStorageError(new StorageNotReadyError("Turso auth token rejected. Check the token in Settings.")),
+    ).toBe("auth");
+  });
+
+  it("classifies any other failure as generic (so local-backend failures still banner)", () => {
+    expect(classifyStorageError(new Error("disk full"))).toBe("generic");
+    expect(classifyStorageError(new StorageNotReadyError("local-file-permission-needed"))).toBe("generic");
+    expect(classifyStorageError(null)).toBe("generic");
   });
 });
 

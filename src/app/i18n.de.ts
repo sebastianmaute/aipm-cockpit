@@ -394,6 +394,12 @@ export const de: Record<TranslationKey, string> = {
     "Turso-Datenbank nicht erreichbar — Änderungen werden nicht gespeichert. Prüfen Sie die Datenbank-URL in den Einstellungen; die Datenbank wurde evtl. umbenannt oder gelöscht.",
   storageAuthBanner:
     "Turso-Authentifizierungstoken abgelehnt — Änderungen werden nicht gespeichert. Aktualisieren Sie das Token in den Einstellungen.",
+  storageSaveFailedBanner:
+    "Änderungen konnten nicht im aktuellen Speicher gespeichert werden. Beheben Sie das Problem (z. B. Dateizugriff neu erteilen oder Speicherplatz freigeben), dann wird das Speichern erneut versucht.",
+  storageSwitchFlushFailed:
+    "Aktuelle Änderungen wurden vor dem Projektwechsel möglicherweise nicht gespeichert.",
+  settingsWriteFailed:
+    "Ihre Einstellungen konnten nicht gespeichert werden und werden beim Neuladen möglicherweise zurückgesetzt (Speicher voll oder nicht verfügbar).",
   storageBannerAria: "Problem mit der Speicherverbindung",
   storageBannerOpenSettings: "Speichereinstellungen öffnen",
   storagePermissionGestureNeeded:

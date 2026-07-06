@@ -51,7 +51,7 @@ import { useResizable } from "./use-resizable";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { GlobalSearchConnected } from "./global-search-box";
 import { BirthdayBanner, JiraTokenBanner, StorageBanner } from "./notifications";
-import { tursoErrorKind, type StorageErrorKind } from "./storage-error";
+import { classifyStorageError, type StorageErrorKind } from "./storage-error";
 import { useStakeholderComms } from "./use-stakeholder-comms";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
 import { getJiraTokenAlert } from "./jira-token-status";
@@ -330,18 +330,40 @@ function TaskManagerInner() {
   // Bridges a successful save into the version-history idle-capture timer. The
   // hook is instantiated later, so this ref is wired up via an effect below.
   const versionNotifyRef = useRef<() => void>(() => {});
+  const storageFailingRef = useRef(false);
   const reportStorageOutcome = useCallback((err: unknown | null) => {
     if (err == null) {
       // Recovery: clear the error and the dismissal so a later failure re-shows
       // the banner (dismiss only hides the current failing run).
+      storageFailingRef.current = false;
       setStorageError(null);
       setStorageErrorDismissed(false);
       versionNotifyRef.current(); // arm version-history idle capture on a good save
       return;
     }
-    const kind = tursoErrorKind(err);
-    if (kind) setStorageError({ kind });
-  }, []);
+    // Classify EVERY failure (Turso kinds when recognized, else "generic") so a
+    // file/CSV/MD/IndexedDB save failure raises the sticky banner too — it was
+    // previously Turso-only, leaving local-backend persistence failures silent.
+    const kind = classifyStorageError(err);
+    setStorageError({ kind });
+    // Turso connectivity/auth kinds intentionally surface as the sticky banner
+    // ONLY (no transient toast). Generic (local file/CSV/MD/IDB) failures were
+    // previously fully silent, so add a one-shot toast on the healthy→failing
+    // edge (don't spam on every retry tick of a stuck backend).
+    if (kind === "generic" && !storageFailingRef.current) {
+      reportSilentFailure(showToast, lang, "storage.autosaveFailed", err, "storageSaveFailed");
+    }
+    storageFailingRef.current = true;
+  }, [showToast, lang]);
+
+  // Settings persistence failure bridge: use-settings has no toast context, so
+  // it dispatches this window event on the healthy→failing edge (quota / storage
+  // disabled). Surface it once so the user knows their settings won't stick.
+  useEffect(() => {
+    const onSettingsWriteFailed = () => showToast("error", t(lang, "settingsWriteFailed"));
+    window.addEventListener("lop-settings-write-failed", onSettingsWriteFailed);
+    return () => window.removeEventListener("lop-settings-write-failed", onSettingsWriteFailed);
+  }, [showToast, lang]);
 
   // Observable copy of the portfolio registry. The storage hook persists the
   // registry inside its switch/create/load flows; it cannot setState here, so we
@@ -439,10 +461,9 @@ function TaskManagerInner() {
       };
     },
     onError: (err) => {
+      // reportStorageOutcome now owns both the banner (all kinds) and the
+      // one-shot generic toast, so no explicit fallback toast is needed here.
       reportStorageOutcome(err);
-      // Connectivity/auth failures surface as the sticky banner; only toast
-      // other (e.g. manual-capture) errors so the banner isn't duplicated.
-      if (!tursoErrorKind(err)) showToast("error", t(lang, "storageSaveFailed", String(err)));
     },
     showToast, lang,
   });
@@ -828,14 +849,12 @@ function TaskManagerInner() {
   // render. See use-version-history.ts for the matching inactive-path guard.
   const handleVersionError = useCallback(
     (err: unknown) => {
-      // Mirror the snapshot hook: connectivity/auth failures surface as the
-      // sticky banner (via reportStorageOutcome → tursoErrorKind); any other
-      // capture failure toasts rather than being silently swallowed. Version
-      // capture is best-effort and never blocks the main save.
+      // reportStorageOutcome owns the sticky banner (all kinds) + the one-shot
+      // generic toast; version capture is best-effort and never blocks the main
+      // save.
       reportStorageOutcome(err);
-      if (!tursoErrorKind(err)) showToast("error", t(lang, "storageSaveFailed", String(err)));
     },
-    [reportStorageOutcome, showToast, lang],
+    [reportStorageOutcome],
   );
 
   // Version history. Turso-only, main-window-only; the hook is inert otherwise.
@@ -1957,7 +1976,7 @@ function TaskManagerInner() {
           onDismiss={() => setJiraTokenDismissed(true)}
         />
       )}
-      {!isPopout && storageError && settings.storageConfig.kind === "turso" && !storageErrorDismissed && (
+      {!isPopout && storageError && !storageErrorDismissed && (
         <StorageBanner
           kind={storageError.kind}
           lang={lang}
