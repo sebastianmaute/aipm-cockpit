@@ -43,6 +43,10 @@ function typeLabelKey(type: SearchResultType): TranslationKey {
       return "searchResultMilestone";
     case "stakeholder":
       return "searchResultStakeholder";
+    case "budget":
+      return "searchResultBudget";
+    case "resource":
+      return "searchResultResource";
   }
 }
 
@@ -53,6 +57,8 @@ interface GlobalSearchBoxProps {
   changes: SearchableWorkspace["changes"];
   milestones: SearchableWorkspace["milestones"];
   stakeholders: SearchableWorkspace["stakeholders"];
+  budgets: SearchableWorkspace["budgets"];
+  resources: SearchableWorkspace["resources"];
   onSelect: (r: SearchResult) => void;
 }
 
@@ -63,6 +69,8 @@ export function GlobalSearchBox({
   changes,
   milestones,
   stakeholders,
+  budgets,
+  resources,
   onSelect,
 }: GlobalSearchBoxProps) {
   const [query, setQuery] = useState("");
@@ -71,8 +79,17 @@ export function GlobalSearchBox({
   // each keystroke then runs a cheap query pass over the precomputed strings
   // instead of re-scanning + re-lowercasing the whole workspace.
   const index = useMemo(
-    () => buildSearchIndex({ tasks, raid, changes, milestones, stakeholders }),
-    [tasks, raid, changes, milestones, stakeholders],
+    () =>
+      buildSearchIndex({
+        tasks,
+        raid,
+        changes,
+        milestones,
+        stakeholders,
+        budgets,
+        resources,
+      }),
+    [tasks, raid, changes, milestones, stakeholders, budgets, resources],
   );
   const results = useMemo(() => searchIndex(index, query), [index, query]);
 
@@ -91,10 +108,14 @@ export function GlobalSearchBox({
           return milestones.some((x) => x.id === r.id);
         case "stakeholder":
           return stakeholders.some((x) => x.id === r.id);
+        case "budget":
+          return budgets.some((x) => x.id === r.id);
+        case "resource":
+          return resources.some((x) => x.id === r.id);
       }
     }
     return recents.filter(existsInWorkspace);
-  }, [recents, tasks, raid, changes, milestones, stakeholders]);
+  }, [recents, tasks, raid, changes, milestones, stakeholders, budgets, resources]);
 
   const trimmed = query.trim();
   const showingRecents = trimmed.length === 0;
@@ -295,6 +316,8 @@ export function GlobalSearchConnected({ lang }: { lang: Lang }) {
       changes={ws.changes}
       milestones={ws.milestones}
       stakeholders={ws.stakeholders}
+      budgets={ws.budgets}
+      resources={ws.resources}
       onSelect={(r) => requestOpen(r.view, r.id)}
     />
   );

@@ -1,8 +1,10 @@
 import type { AppView } from "./nav-config";
 import type {
+  BudgetBucket,
   ChangeItem,
   Milestone,
   RaidItem,
+  Resource,
   Stakeholder,
   Task,
 } from "./types";
@@ -12,7 +14,9 @@ export type SearchResultType =
   | "raid"
   | "change"
   | "milestone"
-  | "stakeholder";
+  | "stakeholder"
+  | "budget"
+  | "resource";
 
 export interface SearchResult {
   type: SearchResultType;
@@ -32,6 +36,8 @@ export interface SearchableWorkspace {
   changes: readonly ChangeItem[];
   milestones: readonly Milestone[];
   stakeholders: readonly Stakeholder[];
+  budgets: readonly BudgetBucket[];
+  resources: readonly Resource[];
 }
 
 /** Rank tiers (lower = better). 0 = id-exact, 1 = title contains, 2 = body only. */
@@ -64,6 +70,8 @@ export interface SearchIndex {
   changes: readonly IndexedRow[];
   milestones: readonly IndexedRow[];
   stakeholders: readonly IndexedRow[];
+  budgets: readonly IndexedRow[];
+  resources: readonly IndexedRow[];
 }
 
 function coerce(value: string | undefined): string {
@@ -136,7 +144,39 @@ export function buildSearchIndex(ws: SearchableWorkspace): SearchIndex {
         coerce(s.category),
       ]),
     ),
+    budgets: ws.budgets.map((b) =>
+      indexRow("budget", "budget", b.id, b.name, coerce(b.poNumber), [
+        coerce(b.poNumber),
+        coerce(b.type),
+        coerce(b.currency),
+        coerce(b.status),
+      ]),
+    ),
+    resources: ws.resources.map((r) =>
+      indexRow(
+        "resource",
+        "resources",
+        r.id,
+        resourceName(r),
+        coerce(r.title) || coerce(r.department),
+        [
+          coerce(r.firstName),
+          coerce(r.lastName),
+          coerce(r.title),
+          coerce(r.email),
+          coerce(r.department),
+          coerce(r.company),
+          coerce(r.location),
+          coerce(r.notes),
+        ],
+      ),
+    ),
   };
+}
+
+/** Compose a resource's display name (no single `name` field on Resource). */
+function resourceName(r: Resource): string {
+  return `${r.firstName} ${r.lastName}`.trim();
 }
 
 /** Match a precomputed row against a lowercased query, or null. PURE. */
@@ -195,6 +235,8 @@ export function searchIndex(index: SearchIndex, query: string): SearchResult[] {
     rankSortCap(rankBucket(index.changes, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
     rankSortCap(rankBucket(index.milestones, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
     rankSortCap(rankBucket(index.stakeholders, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
+    rankSortCap(rankBucket(index.budgets, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
+    rankSortCap(rankBucket(index.resources, q, isIdQuery, idNum), SEARCH_MAX_PER_TYPE),
   ];
 
   // Merge keeping the global tier ordering, but ROUND-ROBIN across types

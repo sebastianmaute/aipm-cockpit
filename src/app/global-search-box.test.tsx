@@ -5,7 +5,15 @@ import { fireEvent } from "@testing-library/react";
 import { GlobalSearchBox } from "./global-search-box";
 import { saveRecents } from "./search-recents";
 import { t } from "./i18n";
-import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder } from "./types";
+import type {
+  Task,
+  RaidItem,
+  ChangeItem,
+  Milestone,
+  Stakeholder,
+  BudgetBucket,
+  Resource,
+} from "./types";
 
 // Minimal fixtures — the engine only reads a subset of fields; cast keeps the
 // test focused (the engine itself is unit-tested separately).
@@ -17,6 +25,10 @@ const raid = [{ id: 5, title: "Vendor risk", owner: "Carol" }] as unknown as Rai
 const changes = [] as unknown as ChangeItem[];
 const milestones = [] as unknown as Milestone[];
 const stakeholders = [] as unknown as Stakeholder[];
+const budgets = [{ id: 8, name: "Phase 1 PO", poNumber: "PO-99" }] as unknown as BudgetBucket[];
+const resources = [
+  { id: 9, firstName: "Grace", lastName: "Hopper", email: "grace@x.io" },
+] as unknown as Resource[];
 
 beforeEach(() => {
   localStorage.clear();
@@ -33,6 +45,8 @@ function renderBox(onSelect = vi.fn()) {
       changes={changes}
       milestones={milestones}
       stakeholders={stakeholders}
+      budgets={budgets}
+      resources={resources}
       onSelect={onSelect}
     />,
   );
@@ -51,6 +65,25 @@ describe("GlobalSearchBox", () => {
     const opt = screen.getByRole("option", { name: /Task – Build login page/i });
     expect(opt).toBeInTheDocument();
     for (const o of options) expect(o.querySelector("button")).toBeNull();
+  });
+
+  it("surfaces budget and resource results and deep-links them (#16)", async () => {
+    const { onSelect, input } = renderBox();
+    // Resource by composed name.
+    await userEvent.type(input, "hopper");
+    expect(
+      screen.getByRole("option", { name: /Resource – Grace Hopper/i }),
+    ).toBeInTheDocument();
+    await userEvent.clear(input);
+    // Budget by name → routes to the budget view.
+    await userEvent.type(input, "Phase 1 PO");
+    const opt = screen.getByRole("option", { name: /Budget – Phase 1 PO/i });
+    expect(opt).toBeInTheDocument();
+    fireEvent.click(opt);
+    const arg = onSelect.mock.calls.at(-1)?.[0];
+    expect(arg.type).toBe("budget");
+    expect(arg.view).toBe("budget");
+    expect(arg.id).toBe(8);
   });
 
   it("ArrowDown then Enter selects the highlighted result", async () => {

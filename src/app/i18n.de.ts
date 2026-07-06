@@ -2904,6 +2904,8 @@ export const de: Record<TranslationKey, string> = {
   searchResultChange: "Änderung",
   searchResultMilestone: "Meilenstein",
   searchResultStakeholder: "Stakeholder",
+  searchResultBudget: "Budget",
+  searchResultResource: "Ressource",
   searchRecent: "Zuletzt",
   projectLinkSalesforce: "Link zu Salesforce",
   projectLinkSharepoint: "Link zu SharePoint",
