@@ -292,7 +292,7 @@ export function ResourceEditModal({
                   <input
                     type="email"
                     value={addr}
-                    aria-label={t(lang, "resourceEmailsLabel")}
+                    aria-label={`${t(lang, "resourceEmailsLabel")} ${i + 1}`}
                     onChange={(e) => {
                       const next = [...(draft.emails ?? [])];
                       next[i] = e.target.value;
@@ -302,7 +302,7 @@ export function ResourceEditModal({
                   />
                   <button
                     type="button"
-                    aria-label={t(lang, "resourceEmailRemove")}
+                    aria-label={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
                     onClick={() => update("emails", (draft.emails ?? []).filter((_, j) => j !== i))}
                     className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink"
                   >×</button>

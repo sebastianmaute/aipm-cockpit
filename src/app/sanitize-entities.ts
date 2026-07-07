@@ -316,8 +316,9 @@ export function sanitizeResource(input: unknown): Resource | null {
 const RESOURCE_EMAILS_MAX = 10;
 
 /** Sanitize a resource's additional emails from a JSON array or a delimited
- *  CSV/MD string. Drops blanks, invalids, case-insensitive dupes, and any that
- *  equal the primary email; caps the list. */
+ *  CSV/MD string. Trims + length-caps each (via sanitizeEmail — NO format
+ *  validation, matching the primary `email` field), drops blanks,
+ *  case-insensitive dupes, and any equal to the primary email; caps the list. */
 function sanitizeEmailList(input: unknown, primary: string | undefined): string[] {
   let raw: unknown[];
   if (Array.isArray(input)) raw = input;

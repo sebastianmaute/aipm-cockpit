@@ -7,6 +7,7 @@ import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
+import { sanitizeResource } from "./sanitize";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
@@ -430,7 +431,14 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const stamp = new Date().toISOString();
       const affected = resources.filter((r) => idSet.has(r.id));
       setResources((prev) =>
-        prev.map((r) => (idSet.has(r.id) ? { ...r, ...patch, localModifiedAt: stamp } : r)),
+        prev.map((r) => {
+          if (!idSet.has(r.id)) return r;
+          const merged: Resource = { ...r, ...patch, localModifiedAt: stamp };
+          // Route through the single validator so bulk-edited text fields get the
+          // same caps the load path applies (never unbounded in JSON/IDB); the
+          // merge keeps names intact so it can't return null, but fall back defensively.
+          return sanitizeResource(merged) ?? merged;
+        }),
       );
       for (const r of affected) {
         logActivityRef.current("resource.updated", r.id, `${r.firstName} ${r.lastName}`.trim());

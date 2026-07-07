@@ -1656,9 +1656,13 @@ function TaskManagerInner() {
     onRescheduleTask: guardEdit((taskId: number, iso: string) =>
       setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk))),
     ),
-    // Clear an unlinked workload row: blank the assignee/owner strings on every
-    // task/absence/shift/RAID that produced it (matched by case-folded name or
-    // email), so the derived row vanishes. Records are kept, just unassigned.
+    // Clear an unlinked workload row (an owner string matching NO resource, so a
+    // name/email string match can't hit a managed resource's record; a task
+    // linked by resourceId keeps that link — we only touch the free-text field).
+    // Tasks + RAID support an empty assignee/owner, so they are UNASSIGNED and
+    // kept. Absences + shifts REQUIRE an assignee (sanitizeAbsence/sanitizeShift
+    // drop an empty one on reload — an "unassigned absence" isn't representable),
+    // so the stray records are REMOVED outright.
     onClearUnlinked: guardEdit((row: { display: string; email: string; firstName: string; lastName: string }) => {
       const name = row.display.trim().toLowerCase();
       const email = row.email.trim().toLowerCase();
@@ -1666,9 +1670,9 @@ function TaskManagerInner() {
       const matchEmail = (e: string | undefined | null) => !!email && !!e && e.trim().toLowerCase() === email;
       setTasks((prev) => prev.map((tk) =>
         matchName(tk.assignee) || matchEmail(tk.assigneeEmail) ? { ...tk, assignee: "", assigneeEmail: "" } : tk));
-      setAbsences((prev) => prev.map((a) => matchName(a.assignee) ? { ...a, assignee: "" } : a));
-      setShifts((prev) => prev.map((s) => matchName(s.assignee) ? { ...s, assignee: "" } : s));
       setRaid((prev) => prev.map((r) => matchName(r.owner) ? { ...r, owner: "" } : r));
+      setAbsences((prev) => prev.filter((a) => !matchName(a.assignee)));
+      setShifts((prev) => prev.filter((s) => !matchName(s.assignee)));
     }),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
     onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),
