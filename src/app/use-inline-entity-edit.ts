@@ -68,6 +68,9 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // callInlineEdit that resolves after the active item changed can't land its
   // plan on the wrong item (stale-response cross-item overwrite).
   const reqIdRef = useRef(0);
+  // AbortController for the in-flight callInlineEdit, so cancel()/openFor() stop
+  // the actual (billed) network call — not just discard its result via reqId.
+  const abortRef = useRef<AbortController | null>(null);
 
   // Close a stale edit when this entity's pane is no longer active. Non-mouse
   // nav (global search / deep-link / back-forward / programmatic tab change)
@@ -99,6 +102,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   const openFor = useCallback(
     (item: EntityItem) => {
       if (!aiEditEnabled(item)) return;
+      abortRef.current?.abort(); // stop the previous item's billed call
       reqIdRef.current++; // supersede any in-flight submit for a previous item
       setActiveItem(item); setPhase("idle"); setPlan(null); setClarifyText(""); setErrorText("");
     },
@@ -108,6 +112,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // Stable identity so usePopoverDismiss (which depends on onClose) doesn't
   // re-subscribe its listeners on every keystroke.
   const cancel = useCallback(() => {
+    abortRef.current?.abort(); // stop the billed call, not just discard its result
     reqIdRef.current++; // supersede any in-flight submit
     setActiveItem(null); setPhase("idle"); setPlan(null); setClarifyText(""); setErrorText("");
   }, []);
@@ -116,6 +121,8 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     if (!activeItem || !instruction.trim() || phase === "thinking" || phase === "applying") return;
     const reqId = ++reqIdRef.current;
     const target = activeItem;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setPhase("thinking"); setErrorText(""); setClarifyText("");
     try {
       const { blocks, text, usage } = await callInlineEdit({
@@ -123,6 +130,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
         guides: deps.guides, groundInGuides: deps.ai.groundInGuides,
+        signal: controller.signal,
       });
       if (reqId !== reqIdRef.current) return; // superseded — discard
       deps.recordUsage?.(usage);

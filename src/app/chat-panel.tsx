@@ -161,6 +161,20 @@ function ChatPanelInner({
     scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
   }, [display, busy]);
 
+  // Keyboard interrupt: Escape stops an in-flight response (the textarea is
+  // disabled while busy, so this document listener is the keyboard path). Mirrors
+  // stopChat's two ref writes; refs are stable so [busy] is the only dep.
+  useEffect(() => {
+    if (!busy) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      cancelledRef.current = true;
+      abortRef.current?.abort();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy]);
+
   const guidesPending = ai.groundInGuides && !guidesReady;
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
@@ -545,10 +559,19 @@ function ChatPanelInner({
               </li>
             ))}
             {busy && (
-              <li className="flex justify-start">
+              <li className="flex items-center justify-start gap-2">
                 <div className="rounded-lg bg-surface px-3 py-2 text-sm italic text-muted-foreground">
                   {t(lang, "chatThinking")}
                 </div>
+                <button
+                  type="button"
+                  onClick={stopChat}
+                  aria-label={t(lang, "chatStop")}
+                  title={t(lang, "chatStop")}
+                  className={`rounded-md border border-AIPM-pink px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
+                >
+                  {t(lang, "chatStop")}
+                </button>
               </li>
             )}
           </ul>

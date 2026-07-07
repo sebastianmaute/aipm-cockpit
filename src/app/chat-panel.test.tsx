@@ -176,12 +176,13 @@ describe("Stop button", () => {
 
     // While busy: Stop button must be present, Send must be gone.
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+      // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
     expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
 
     // Click Stop first (sets cancelledRef.current = true), then reject fetch.
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Stop" })[0]);
     rejectWithAbort();
 
     // After abort resolves: Send is back, no error alert shown.
@@ -208,11 +209,12 @@ describe("Stop button", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+      // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
 
     // Click Stop first, then simulate the in-flight fetch rejecting.
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Stop" })[0]);
     rejectWithAbort();
 
     // "Stopped" note appears in the conversation area.
@@ -220,6 +222,40 @@ describe("Stop button", () => {
       expect(screen.getByText("Stopped")).toBeInTheDocument(),
     );
     // No error alert.
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("renders a second Stop inside the Thinking bubble while busy (discoverability)", async () => {
+    setupNeverResolvingFetch();
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    // Send-slot swap Stop + the Thinking-bubble Stop = 2.
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(2),
+    );
+  });
+
+  it("Escape interrupts the in-flight response (keyboard path)", async () => {
+    const rejectWithAbort = setupNeverResolvingFetch();
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
+    );
+    // Press Escape (bubbles to the document listener), then the aborted fetch rejects.
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    rejectWithAbort();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument(),
+    );
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
@@ -289,7 +325,8 @@ describe("suggested prompt chips", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+      // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
     expect(screen.queryByRole("list", { name: "Suggested prompts" })).toBeNull();
 
@@ -558,7 +595,8 @@ describe("prompt caching", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+      // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
 
     // Capture the fetch call body before aborting.
