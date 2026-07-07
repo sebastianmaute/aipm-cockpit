@@ -120,6 +120,8 @@ export function WorkspaceSection({
   handleOpenShiftEditor,
   manageRolesView,
   onAssignRoleById,
+  onBulkEditResources,
+  onBulkDeleteResources,
   onSetUtilization,
   overAllocatedPct,
   onReassignTask,
@@ -441,6 +443,8 @@ export function WorkspaceSection({
               grades={grades}
               onAssignRoleById={onAssignRoleById}
               onEditResource={onEditResource}
+              onBulkEditResources={onBulkEditResources}
+              onBulkDeleteResources={onBulkDeleteResources}
               onAddResource={onAddResource}
               onAddAbsence={handleOpenAddAbsence}
               onImportOutlook={onImportOutlook}

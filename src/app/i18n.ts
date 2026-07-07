@@ -2521,6 +2521,12 @@ const enUS = {
   resourceEmailCopyLabel: "Copy {0}",
   resourceEmailCopied: "Copied {0}",
   resourceEmailCopyFailed: "Couldn't copy the email address.",
+  resourceInternal: "Internal",
+  resourceActiveLabel: "Active status",
+  resourceStatusActive: "Active",
+  resourceStatusArchived: "Archived",
+  resourceBulkDelete: "Delete selected",
+  resourceBulkDeleteConfirm: "Delete {0} selected resource(s)? Assignments elsewhere keep the name but lose the directory link.",
   // New/Edit Absence tooltips
   absenceAssigneeHint: "Person who is absent.",
   absenceTypeHint: "Kind of absence (vacation, sick, training, other).",

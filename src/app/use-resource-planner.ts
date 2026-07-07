@@ -421,6 +421,37 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [resources, setResources],
   );
 
+  // Bulk edit: merge the same patch into every selected resource in ONE
+  // functional set (the N-saves-per-tick landmine — a non-functional setter
+  // would drop all but the last).
+  const handleBulkEditResources = useCallback(
+    (ids: readonly number[], patch: Partial<Resource>) => {
+      const idSet = new Set(ids);
+      const stamp = new Date().toISOString();
+      const affected = resources.filter((r) => idSet.has(r.id));
+      setResources((prev) =>
+        prev.map((r) => (idSet.has(r.id) ? { ...r, ...patch, localModifiedAt: stamp } : r)),
+      );
+      for (const r of affected) {
+        logActivityRef.current("resource.updated", r.id, `${r.firstName} ${r.lastName}`.trim());
+      }
+    },
+    [resources, setResources],
+  );
+
+  const handleBulkDeleteResources = useCallback(
+    (ids: readonly number[]) => {
+      const idSet = new Set(ids);
+      const removed = resources.filter((r) => idSet.has(r.id));
+      setResources((prev) => prev.filter((r) => !idSet.has(r.id)));
+      setEditingResource(null);
+      for (const r of removed) {
+        logActivityRef.current("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());
+      }
+    },
+    [resources, setResources],
+  );
+
   const handleImportResources = useCallback(
     (selected: readonly OutlookContact[]): void => {
       if (selected.length === 0) return;
@@ -734,6 +765,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleCloseResourceModal,
     handleSaveResource,
     handleDeleteResource,
+    handleBulkEditResources,
+    handleBulkDeleteResources,
     handleImportResources,
     handleSaveRaidItem,
     handleDeleteRaidItem,

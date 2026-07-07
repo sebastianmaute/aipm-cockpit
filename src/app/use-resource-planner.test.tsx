@@ -560,6 +560,26 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.resources[0].roleId).toBeNull();
     });
 
+    it("handleBulkEditResources applies the same patch to ALL selected in one tick", () => {
+      const { result } = renderPlanner();
+      const mk = (id: number): Resource => ({ id, firstName: `R${id}`, lastName: "", roleId: null, utilizationMode: "percent", utilization: {} });
+      act(() => { result.current.workspace.setResources([mk(1), mk(2), mk(3)]); });
+      act(() => { result.current.planner.handleBulkEditResources([1, 2, 3], { department: "Ops", isExternal: true }); });
+      // Every selected row got the patch — the functional-setter guard (not
+      // last-write-wins) is what makes all three land.
+      for (const r of result.current.workspace.resources) {
+        expect(r).toMatchObject({ department: "Ops", isExternal: true });
+      }
+    });
+
+    it("handleBulkDeleteResources removes all selected in one tick", () => {
+      const { result } = renderPlanner();
+      const mk = (id: number): Resource => ({ id, firstName: `R${id}`, lastName: "", roleId: null, utilizationMode: "percent", utilization: {} });
+      act(() => { result.current.workspace.setResources([mk(1), mk(2), mk(3)]); });
+      act(() => { result.current.planner.handleBulkDeleteResources([1, 3]); });
+      expect(result.current.workspace.resources.map((r) => r.id)).toEqual([2]);
+    });
+
     it("handleClearResourceRole sets the resource's roleId to null", () => {
       const { result } = renderPlanner();
       const resource: Resource = {

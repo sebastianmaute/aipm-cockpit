@@ -137,6 +137,10 @@ export interface WorkspaceSectionProps {
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
+  /** Bulk-apply a patch to the selected resources (omitted in read-only popouts). */
+  onBulkEditResources?: (ids: readonly number[], patch: Partial<Resource>) => void;
+  /** Bulk-delete the selected resources (omitted in read-only popouts). */
+  onBulkDeleteResources?: (ids: readonly number[]) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
   onImportOutlook?: () => void;
   onImportOutlookCalendar?: () => void;

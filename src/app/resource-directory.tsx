@@ -13,6 +13,10 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useToastContext } from "./toast-context";
+import { useRowSelection } from "./use-row-selection";
+import { BulkEditBar } from "./bulk-edit-bar";
+import { BulkEditPanel, selectField, textField, type BulkField } from "./bulk-edit-panel";
+import { useConfirm } from "./confirm-dialog";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
@@ -39,6 +43,10 @@ interface Props {
   onAddResource: () => void;
   onAddAbsence: () => void;
   onImportOutlook?: () => void;
+  /** Bulk-apply a patch to selected resources (omitted → no bulk UI). */
+  onBulkEditResources?: (ids: readonly number[], patch: Partial<Resource>) => void;
+  /** Bulk-delete selected resources (omitted → no bulk delete). */
+  onBulkDeleteResources?: (ids: readonly number[]) => void;
 }
 
 // Inline single role picker for a directory row. Lists the existing rate-card
@@ -95,8 +103,14 @@ function ResourceDirectoryInner({
   onAddResource,
   onAddAbsence,
   onImportOutlook,
+  onBulkEditResources,
+  onBulkDeleteResources,
 }: Props) {
   const showToast = useToastContext();
+  const confirm = useConfirm();
+  const sel = useRowSelection();
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const bulkEnabled = !!onBulkEditResources;
   const copyEmail = async (addr: string) => {
     try {
       await navigator.clipboard.writeText(addr);
@@ -163,6 +177,53 @@ function ResourceDirectoryInner({
   const sortIndicator = (key: SortKey) =>
     sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
+  const visibleIds = rows.map((r) => r.id);
+  const roleOptions = [
+    { value: "", label: "—" },
+    ...[...roles]
+      .sort((a, b) => roleLabel(a, disciplines, grades).localeCompare(roleLabel(b, disciplines, grades)))
+      .map((r) => ({ value: String(r.id), label: roleLabel(r, disciplines, grades) })),
+  ];
+  const bulkFields: BulkField[] = [
+    selectField("roleId", t(lang, "role"), roleOptions),
+    selectField("isExternal", t(lang, "resourceExternal"), [
+      { value: "no", label: t(lang, "resourceInternal") },
+      { value: "yes", label: t(lang, "resourceExternalBadge") },
+    ]),
+    selectField("active", t(lang, "resourceActiveLabel"), [
+      { value: "active", label: t(lang, "resourceStatusActive") },
+      { value: "archived", label: t(lang, "resourceStatusArchived") },
+    ]),
+    textField("department", t(lang, "resourceColDepartment")),
+    textField("title", t(lang, "resourceColTitle")),
+    textField("location", t(lang, "resourceLocation")),
+    textField("company", t(lang, "resourceCompany")),
+  ];
+
+  const applyBulk = (changes: Record<string, string>) => {
+    if (!onBulkEditResources) return;
+    const patch: Partial<Resource> = {};
+    if (changes.roleId !== undefined) patch.roleId = changes.roleId === "" ? null : Number(changes.roleId);
+    if (changes.isExternal !== undefined) patch.isExternal = changes.isExternal === "yes";
+    if (changes.active !== undefined) patch.active = changes.active !== "archived";
+    if (changes.department !== undefined) patch.department = changes.department || undefined;
+    if (changes.title !== undefined) patch.title = changes.title || undefined;
+    if (changes.location !== undefined) patch.location = changes.location || undefined;
+    if (changes.company !== undefined) patch.company = changes.company || undefined;
+    onBulkEditResources(Array.from(sel.selectedIds), patch);
+    setBulkOpen(false);
+    sel.clear();
+  };
+
+  const handleBulkDelete = async () => {
+    if (!onBulkDeleteResources || sel.count === 0) return;
+    if (await confirm({ message: t(lang, "resourceBulkDeleteConfirm", String(sel.count)) })) {
+      onBulkDeleteResources(Array.from(sel.selectedIds));
+      sel.clear();
+      setBulkOpen(false);
+    }
+  };
+
   return (
     <div ref={dirRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <div className="mb-2 flex shrink-0 items-center gap-2 print:hidden">
@@ -202,6 +263,29 @@ function ResourceDirectoryInner({
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
         <ResetSizeButton onClick={resetDirSize} lang={lang} />
       </div>
+      {bulkEnabled && sel.count > 0 && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 print:hidden">
+          <BulkEditBar
+            lang={lang}
+            count={sel.count}
+            open={bulkOpen}
+            onToggleOpen={() => setBulkOpen((o) => !o)}
+            onClear={() => { sel.clear(); setBulkOpen(false); }}
+          />
+          {onBulkDeleteResources && (
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              className={`mb-2 rounded-md border border-AIPM-pink/40 bg-surface px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
+            >
+              {t(lang, "resourceBulkDelete")}
+            </button>
+          )}
+        </div>
+      )}
+      {bulkEnabled && sel.count > 0 && bulkOpen && (
+        <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
+      )}
       {resources.length === 0 ? (
         <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
           {t(lang, "resourcesEmpty")}
@@ -211,6 +295,17 @@ function ResourceDirectoryInner({
           <table className="w-full text-left text-sm">
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
+                {bulkEnabled && (
+                  <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
+                    <input
+                      type="checkbox"
+                      aria-label={t(lang, "selectAllVisibleRows")}
+                      checked={sel.allSelected(visibleIds)}
+                      onChange={() => sel.toggleAllVisible(visibleIds)}
+                      className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                    />
+                  </th>
+                )}
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.name, minWidth: colWidths.name }}>
                   <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
                     {t(lang, "assignee")}{sortIndicator("name")}
@@ -258,6 +353,17 @@ function ResourceDirectoryInner({
             <tbody className="divide-y divide-line">
               {rows.map((r) => (
                 <tr key={r.id} className="cursor-pointer align-middle hover:bg-surface-muted" onClick={() => onEditResource(r)}>
+                  {bulkEnabled && (
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={t(lang, "selectItem", resourceDisplayName(r))}
+                        checked={sel.isSelected(r.id)}
+                        onChange={() => sel.toggle(r.id)}
+                        className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                      />
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     <button
                       type="button"

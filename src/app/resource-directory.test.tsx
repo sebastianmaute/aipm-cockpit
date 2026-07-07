@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
+import { ConfirmProvider } from "./confirm-dialog";
 import type { Resource } from "./types";
 import { t } from "./i18n";
 
@@ -127,6 +128,51 @@ describe("ResourceDirectory", () => {
     expect(writeText).toHaveBeenCalledWith("ada@x.com");
     fireEvent.click(alt);
     expect(writeText).toHaveBeenCalledWith("ada.alt@y.com");
+  });
+
+  it("shows no checkbox column without bulk handlers", () => {
+    render(<ResourceDirectory {...common} resources={twoResources} />);
+    expect(screen.queryByRole("checkbox", { name: /select all/i })).toBeNull();
+  });
+
+  it("selecting rows shows the bulk bar; bulk-edit applies a patch to the selection", () => {
+    const onBulkEdit = vi.fn();
+    render(
+      <ResourceDirectory
+        {...common}
+        resources={twoResources}
+        roles={[{ id: 5, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }]}
+        disciplines={[{ id: 1, name: "Eng" }]}
+        grades={[{ id: 1, name: "Senior" }]}
+        onBulkEditResources={onBulkEdit}
+        onBulkDeleteResources={vi.fn()}
+      />,
+    );
+    // Select all visible → bulk bar appears.
+    fireEvent.click(screen.getByRole("checkbox", { name: /select all/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^bulk edit$/i }));
+    // Enable the External field (its enable checkbox), set it to External, apply.
+    fireEvent.click(screen.getByRole("checkbox", { name: /external resource/i }));
+    fireEvent.change(screen.getByRole("combobox", { name: /external resource/i }), { target: { value: "yes" } });
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+    expect(onBulkEdit).toHaveBeenCalledTimes(1);
+    const [ids, patch] = onBulkEdit.mock.calls[0];
+    expect(ids.sort()).toEqual([1, 2]);
+    expect(patch).toMatchObject({ isExternal: true });
+  });
+
+  it("bulk delete confirms then calls onBulkDeleteResources", async () => {
+    const onBulkDelete = vi.fn();
+    render(
+      <ConfirmProvider lang="en-US">
+        <ResourceDirectory {...common} resources={twoResources} onBulkEditResources={vi.fn()} onBulkDeleteResources={onBulkDelete} />
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /select all/i }));
+    fireEvent.click(screen.getByRole("button", { name: /delete selected/i }));
+    // Branded confirm dialog → click Confirm.
+    fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
+    await waitFor(() => expect(onBulkDelete).toHaveBeenCalledWith(expect.arrayContaining([1, 2])));
   });
 
   it("gives the directory search box a descriptive tooltip", () => {

@@ -584,6 +584,8 @@ function TaskManagerInner() {
     handleEditResource,
     handleSaveResource,
     handleDeleteResource,
+    handleBulkEditResources,
+    handleBulkDeleteResources,
     handleImportResources,
     handleImportAbsences,
     handleCloseResourceModal,
@@ -1658,6 +1660,8 @@ function TaskManagerInner() {
     onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),
     onSetPlanWindow: guardEdit(handleSetPlanWindow),
     onEditResource: guardEdit(handleEditResource),
+    onBulkEditResources: guardEdit(handleBulkEditResources),
+    onBulkDeleteResources: guardEdit(handleBulkDeleteResources),
     onAddResource: guardEdit(handleOpenAddResource),
     onImportOutlook:
       outlookContactsEnabled && msAuth.account && !importLoading
