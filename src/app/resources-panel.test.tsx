@@ -315,6 +315,15 @@ test("custom calendar view has a Today button that resets to the current month",
   expect(from.value).toBe("2026-06-01");
 });
 
+test("calendar view lists directory resources that have no tasks/absences/shifts", () => {
+  // A resource added to the directory must appear as a calendar row even with
+  // zero activity, so the user can click a cell to book their first absence
+  // (chicken-and-egg: previously rows were seeded only from tasks/absences/shifts).
+  render(<ResourcesPanel {...baseProps} view="calendar" today="2026-05-23" />);
+  expect(screen.getByRole("button", { name: "Alex Example" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Mateo Rossi" })).toBeInTheDocument();
+});
+
 test("resources-panel: no view SegmentedControl, no roles/report/add-absence buttons; resizable", () => {
   const src = readFileSync(join(__dirname, "resources-panel.tsx"), "utf8");
   expect(src).not.toMatch(/onManageRoles/);
