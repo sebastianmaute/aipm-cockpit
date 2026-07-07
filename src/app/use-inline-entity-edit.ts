@@ -6,7 +6,7 @@
 // descriptor drives which fields diff, how they validate, and how they coerce
 // on apply. Task-bound behavior lives in the thin `use-inline-ai-edit` wrapper.
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type Workspace } from "./workspace";
 import { type ToolDispatcher, runTool } from "./chat-tools";
@@ -68,6 +68,9 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // callInlineEdit that resolves after the active item changed can't land its
   // plan on the wrong item (stale-response cross-item overwrite).
   const reqIdRef = useRef(0);
+  // AbortController for the in-flight callInlineEdit, so cancel()/openFor() stop
+  // the actual (billed) network call — not just discard its result via reqId.
+  const abortRef = useRef<AbortController | null>(null);
 
   // Close a stale edit when this entity's pane is no longer active. Non-mouse
   // nav (global search / deep-link / back-forward / programmatic tab change)
@@ -85,6 +88,18 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     setErrorText("");
   }
 
+  // The reconcile above only resets UI state — it doesn't stop a billed call
+  // that's still in flight when the pane deactivates mid-"thinking". Abort it
+  // (and supersede via reqId so its resolution is discarded) in an effect, so
+  // no setState happens here (the set-state-in-effect ban). Hoisted scalar dep.
+  const paneActive = deps.active;
+  useEffect(() => {
+    if (paneActive === false) {
+      abortRef.current?.abort();
+      reqIdRef.current++;
+    }
+  }, [paneActive]);
+
   // Stable identities so consumers threading these through a context value (the
   // task row context) don't rebuild that value — and re-render every row — on
   // every render (audit #6). Hoist the member reads to locals: exhaustive-deps
@@ -99,6 +114,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   const openFor = useCallback(
     (item: EntityItem) => {
       if (!aiEditEnabled(item)) return;
+      abortRef.current?.abort(); // stop the previous item's billed call
       reqIdRef.current++; // supersede any in-flight submit for a previous item
       setActiveItem(item); setPhase("idle"); setPlan(null); setClarifyText(""); setErrorText("");
     },
@@ -108,6 +124,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
   // Stable identity so usePopoverDismiss (which depends on onClose) doesn't
   // re-subscribe its listeners on every keystroke.
   const cancel = useCallback(() => {
+    abortRef.current?.abort(); // stop the billed call, not just discard its result
     reqIdRef.current++; // supersede any in-flight submit
     setActiveItem(null); setPhase("idle"); setPlan(null); setClarifyText(""); setErrorText("");
   }, []);
@@ -116,6 +133,8 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     if (!activeItem || !instruction.trim() || phase === "thinking" || phase === "applying") return;
     const reqId = ++reqIdRef.current;
     const target = activeItem;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setPhase("thinking"); setErrorText(""); setClarifyText("");
     try {
       const { blocks, text, usage } = await callInlineEdit({
@@ -123,6 +142,7 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
         guides: deps.guides, groundInGuides: deps.ai.groundInGuides,
+        signal: controller.signal,
       });
       if (reqId !== reqIdRef.current) return; // superseded — discard
       deps.recordUsage?.(usage);

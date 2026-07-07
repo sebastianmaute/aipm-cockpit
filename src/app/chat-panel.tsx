@@ -41,6 +41,7 @@ import {
 import {
   buildSystemPrompt,
   callClaude,
+  closeDanglingToolUses,
   readAttachmentData,
   stringifyResult,
   type TextBlock,
@@ -161,6 +162,27 @@ function ChatPanelInner({
     scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
   }, [display, busy]);
 
+  // Keyboard interrupt: Escape stops an in-flight response (the textarea is
+  // disabled while busy, so this document listener is the keyboard path). Mirrors
+  // stopChat's two ref writes; refs are stable so [busy] is the only dep.
+  useEffect(() => {
+    if (!busy) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      // Don't steal Escape from an open modal/dialog (Settings, a task editor,
+      // a confirm) — its own handler should own the key — or from a focused
+      // control elsewhere (e.g. the top-bar search). Only interrupt when the
+      // focus is inside the chat panel (or nowhere in particular).
+      if (document.querySelector('[aria-modal="true"]')) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body && !chatRef.current?.contains(active)) return;
+      cancelledRef.current = true;
+      abortRef.current?.abort();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, chatRef]);
+
   const guidesPending = ai.groundInGuides && !guidesReady;
   // Master switch: when AI is disabled in Settings, the assistant is fully off
   // regardless of any stored key — force the no-key path so send is blocked.
@@ -198,7 +220,13 @@ function ChatPanelInner({
             ...atts.map((a) => a.block),
           ]
         : text;
-    const newHistory: ApiMessage[] = [...history, { role: "user", content }];
+    // Heal any dangling tool_use left by a prior truncated/stopped turn before
+    // appending this turn — else the API 400s on the unmatched tool_use and the
+    // chat wedges (every subsequent send re-posts the corrupt history).
+    const newHistory: ApiMessage[] = [
+      ...closeDanglingToolUses(history),
+      { role: "user", content },
+    ];
     setHistory(newHistory);
     const displayText =
       atts.length > 0
@@ -290,7 +318,9 @@ function ChatPanelInner({
         recordUsage({ input: totalInput, output: totalOutput });
       }
 
-      setHistory(messages);
+      // Persist a valid history: a max_tokens truncation or a mid-turn Stop can
+      // leave the last assistant message with tool_use blocks and no results.
+      setHistory(closeDanglingToolUses(messages));
     } catch (err) {
       // AbortError is raised by fetch when the controller fires — treat as
       // a user-initiated stop, not a real error. Check .name directly because
@@ -545,10 +575,19 @@ function ChatPanelInner({
               </li>
             ))}
             {busy && (
-              <li className="flex justify-start">
+              <li className="flex items-center justify-start gap-2">
                 <div className="rounded-lg bg-surface px-3 py-2 text-sm italic text-muted-foreground">
                   {t(lang, "chatThinking")}
                 </div>
+                <button
+                  type="button"
+                  onClick={stopChat}
+                  aria-label={t(lang, "chatStopGenerating")}
+                  title={t(lang, "chatStopGenerating")}
+                  className={`rounded-md border border-AIPM-pink px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
+                >
+                  {t(lang, "chatStop")}
+                </button>
               </li>
             )}
           </ul>

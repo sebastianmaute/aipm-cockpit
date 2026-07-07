@@ -176,12 +176,13 @@ describe("Stop button", () => {
 
     // While busy: Stop button must be present, Send must be gone.
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+      // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
     expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
 
     // Click Stop first (sets cancelledRef.current = true), then reject fetch.
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Stop" })[0]);
     rejectWithAbort();
 
     // After abort resolves: Send is back, no error alert shown.
@@ -208,11 +209,12 @@ describe("Stop button", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+      // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
 
     // Click Stop first, then simulate the in-flight fetch rejecting.
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Stop" })[0]);
     rejectWithAbort();
 
     // "Stopped" note appears in the conversation area.
@@ -221,6 +223,70 @@ describe("Stop button", () => {
     );
     // No error alert.
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("renders a second Stop inside the Thinking bubble while busy (discoverability)", async () => {
+    setupNeverResolvingFetch();
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    // Two distinct controls: the send-slot swap ("Stop") + the Thinking-bubble
+    // one ("Stop generating") — distinct accessible names, no duplicate.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Stop generating" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(1);
+  });
+
+  it("Escape interrupts the in-flight response (keyboard path)", async () => {
+    const rejectWithAbort = setupNeverResolvingFetch();
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(textarea, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
+    );
+    // Press Escape (bubbles to the document listener), then the aborted fetch rejects.
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    rejectWithAbort();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("Escape does NOT interrupt the chat while a modal is open (modal owns Escape)", async () => {
+    const rejectWithAbort = setupNeverResolvingFetch();
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
+    );
+    // An open modal is on screen; its own Escape handler should win.
+    const modal = document.createElement("div");
+    modal.setAttribute("aria-modal", "true");
+    document.body.appendChild(modal);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    // Chat call was NOT aborted: still busy (Stop present, Send absent).
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0);
+    // cleanup — let the in-flight fetch resolve.
+    document.body.removeChild(modal);
+    rejectWithAbort();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument(),
+    );
   });
 });
 
@@ -289,7 +355,8 @@ describe("suggested prompt chips", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+      // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
     expect(screen.queryByRole("list", { name: "Suggested prompts" })).toBeNull();
 
@@ -558,7 +625,8 @@ describe("prompt caching", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
+      // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
 
     // Capture the fetch call body before aborting.
@@ -743,5 +811,68 @@ describe("document attachments", () => {
     expect(doc?.source?.data).toContain("budget overrun");
     // Chip is cleared once the message is sent.
     await waitFor(() => expect(screen.queryByText("notes.txt")).toBeNull());
+  });
+});
+
+describe("dangling tool_use recovery (max_tokens truncation)", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("heals a truncated tool_use so the NEXT send carries a matching tool_result", async () => {
+    const bodies: string[] = [];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      call += 1;
+      // First turn: Claude emits a tool_use but the turn is cut at max_tokens,
+      // so the tool loop never runs it. Later turns: a normal end_turn reply.
+      const body =
+        call === 1
+          ? {
+              content: [{ type: "tool_use", id: "t1", name: "create_task", input: { taskName: "X" } }],
+              stop_reason: "max_tokens",
+              usage: { input_tokens: 1, output_tokens: 1 },
+            }
+          : {
+              content: [{ type: "text", text: "ok" }],
+              stop_reason: "end_turn",
+              usage: { input_tokens: 1, output_tokens: 1 },
+            };
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+
+    // Send 1 — truncated tool_use lands in history.
+    fireEvent.change(ta, { target: { value: "create all entries" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
+
+    // Send 2 — must NOT re-post a dangling tool_use.
+    fireEvent.change(ta, { target: { value: "why no output?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+
+    const sent = JSON.parse(bodies[1]) as {
+      messages: { role: string; content: unknown }[];
+    };
+    const tuIdx = sent.messages.findIndex(
+      (m) => Array.isArray(m.content) && (m.content as { type: string }[]).some((b) => b.type === "tool_use"),
+    );
+    expect(tuIdx).toBeGreaterThanOrEqual(0);
+    const after = sent.messages[tuIdx + 1];
+    expect(after.role).toBe("user");
+    expect(
+      (after.content as { type: string; tool_use_id?: string }[]).some(
+        (b) => b.type === "tool_result" && b.tool_use_id === "t1",
+      ),
+    ).toBe(true);
   });
 });

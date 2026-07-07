@@ -568,6 +568,7 @@ const enUS = {
   chatClear: "Clear chat",
   chatClearConfirm: "Clear this conversation? The messages will be removed.",
   chatStop: "Stop",
+  chatStopGenerating: "Stop generating",
   chatStopped: "Stopped",
   chatAttach: "Attach a document",
   chatAttachmentRemove: "Remove {0}",
