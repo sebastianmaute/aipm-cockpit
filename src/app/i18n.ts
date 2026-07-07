@@ -177,6 +177,7 @@ const enUS = {
   versionHighlightActivityDiff: "The activity log now records which fields changed on an update ('status: Open → Closed'), turning coarse entries into a per-field audit trail",
   versionHighlightKeyboardA11y: "A broad keyboard and screen-reader pass: branded confirm dialogs, a keyboard-navigable calendar grid, a flyout for collapsed-sidebar sub-menus, a mobile off-canvas drawer, and focus that follows the view on navigation",
   versionHighlightWorkloadActionable: "The workload view is now actionable — edit a resource's near-term utilization inline and reassign or reschedule their overdue tasks without leaving the view",
+  versionHighlightResourceEnhance: "Resources overhaul — a single role picker replaces the discipline+grade dropdowns, rate-card rows drag to reorder, external resources are capacity-tracked but excluded from all costs, resources carry extra copy-on-click emails, the directory gains bulk edit + delete, the AI can manage directory entries, and stray unlinked workload rows can be cleared",
 
   tasks: "Tasks",
   tasksCount: "({0})",

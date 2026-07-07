@@ -180,6 +180,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightActivityDiff: "Das Aktivitätsprotokoll erfasst nun, welche Felder bei einer Änderung geändert wurden („Status: Offen → Geschlossen“) — aus groben Einträgen wird ein feldgenaues Prüfprotokoll",
   versionHighlightKeyboardA11y: "Eine umfassende Tastatur- und Screenreader-Überarbeitung: Marken-Bestätigungsdialoge, ein per Tastatur bedienbares Kalenderraster, ein Flyout für Untermenüs der eingeklappten Seitenleiste, eine mobile Off-Canvas-Schublade und ein der Ansicht folgender Fokus bei der Navigation",
   versionHighlightWorkloadActionable: "Die Auslastungsansicht ist jetzt handlungsfähig — bearbeiten Sie die kurzfristige Auslastung einer Ressource direkt und weisen Sie ihre überfälligen Aufgaben neu zu oder verschieben Sie sie, ohne die Ansicht zu verlassen",
+  versionHighlightResourceEnhance: "Ressourcen-Überarbeitung — eine einzelne Rollenauswahl ersetzt die Disziplin-/Grade-Dropdowns, Rate-Card-Zeilen lassen sich per Drag-and-drop neu ordnen, externe Ressourcen werden bei der Kapazität berücksichtigt, aber aus allen Kosten ausgeschlossen, Ressourcen tragen zusätzliche per Klick kopierbare E-Mail-Adressen, das Verzeichnis erhält Sammelbearbeitung und -löschung, die KI kann Verzeichniseinträge verwalten, und verwaiste Auslastungszeilen lassen sich bereinigen",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",

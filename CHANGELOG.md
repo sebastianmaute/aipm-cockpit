@@ -8,6 +8,25 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.168.0] - 2026-07-07 "Gibson"
+
+Resources & rate-card enhancement — a batch of directory, rate-card, and
+AI-assistant improvements. New persisted fields (`Resource.isExternal`,
+`Resource.emails`, `Role.order`) ride the existing six write paths; no breaking
+changes (older files load unchanged; existing Turso DBs self-heal).
+
+### Added
+- **Single role picker**: the resource directory now assigns a role with one dropdown listing the rate-card roles (labelled "Discipline Grade"), replacing the separate discipline + grade selects. New discipline×grade combinations are still authored in the rate-card editor.
+- **Drag-to-reorder rate-card rows**: rows in the rate card carry a manual order (persisted) and can be dragged to reorder; dragging is disabled while a column sort is active.
+- **External resources**: mark a resource external — it stays planned and capacity/absence-tracked but contributes zero to every cost and budget figure (budget report, resource report, and the planning-grid cost columns).
+- **Additional email addresses**: a resource can hold extra emails beyond the primary; the directory shows them semicolon-separated and each is a button that copies the address to the clipboard.
+- **Bulk edit + delete in the directory**: select rows to bulk-set role, external flag, active/archived status, and contact fields, or bulk-delete (confirm-gated).
+- **AI can manage the resource directory**: new `get_resource`, `update_resource`, and `delete_resource` tools (resources previously had create + list only).
+- **Clear stray workload rows**: an "unlinked" workload row (an assignee/owner string matching no resource) can be cleared — tasks and RAID items are unassigned (kept), and the name's absences/shifts are removed (they can't exist without a person).
+
+### Changed
+- The directory's discipline and grade columns are collapsed into one sortable Role column.
+
 ## [0.167.0] - 2026-07-06 "Rajaniemi"
 
 Roll-up of the codebase-audit improvement campaign — a series of data-integrity,
