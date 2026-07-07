@@ -274,6 +274,12 @@ function ResourcesPanelInner({
       row.shift = s;
       row.weeklyHours = sumHours(s.hoursPerWeekday);
     }
+    // Directory resources seed a row too, so a person added to the directory is
+    // visible in the calendar even with zero tasks/absences/shifts yet (else the
+    // grid is chicken-and-egg: no row to click to book their first absence).
+    for (const r of resources) {
+      upsert(resourceDisplayName(r), r.email);
+    }
     for (const row of byKey.values()) {
       row.upcoming.sort((x, y) => x.startDate.localeCompare(y.startDate));
     }
@@ -281,7 +287,7 @@ function ResourcesPanelInner({
     return Array.from(byKey.values()).sort((a, b) =>
       a.display.localeCompare(b.display),
     );
-  }, [tasks, absences, shifts, today]);
+  }, [tasks, absences, shifts, resources, today]);
 
   // Planning grid: name filter + sortable cost/capacity headers. Hooks MUST run
   // unconditionally here (never inside the `view === "planning"` IIFE) to keep
