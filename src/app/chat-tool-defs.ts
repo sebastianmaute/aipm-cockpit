@@ -136,12 +136,25 @@ const resourceFields = {
     type: "string" as const,
     description: "Full name — used only when firstName/lastName aren't given (it is split).",
   },
-  email: { type: "string" as const, description: "Email address" },
+  email: { type: "string" as const, description: "Primary email address" },
+  emails: {
+    type: "array" as const,
+    items: { type: "string" as const },
+    description: "Additional email addresses beyond the primary email",
+  },
   title: { type: "string" as const, description: "Job title / role" },
   department: { type: "string" as const, description: "Department" },
   company: { type: "string" as const, description: "Company / employer" },
   location: { type: "string" as const, description: "Office / location" },
   businessPhone: { type: "string" as const, description: "Business phone number" },
+  isExternal: {
+    type: "boolean" as const,
+    description: "External resource: planned/capacity-tracked but excluded from all cost/budget figures",
+  },
+  roleId: {
+    type: "number" as const,
+    description: "Rate-card role id (assigns the resource's discipline + grade + rates)",
+  },
   notes: { type: "string" as const, description: "Free-text notes" },
 };
 
@@ -324,6 +337,33 @@ export const TOOL_DEFS = [
     input_schema: {
       type: "object",
       properties: resourceFields,
+    },
+  },
+  {
+    name: "get_resource",
+    description: "Fetch a single resource by ID (all directory fields). Read-only.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+    },
+  },
+  {
+    name: "update_resource",
+    description: "Update fields on an existing resource. Only the fields you pass change.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" }, ...resourceFields },
+      required: ["id"],
+    },
+  },
+  {
+    name: "delete_resource",
+    description: "Delete a resource from the directory by ID. Confirm with the user first unless they were explicit.",
+    input_schema: {
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
     },
   },
   {
