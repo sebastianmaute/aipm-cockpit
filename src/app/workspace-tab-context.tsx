@@ -40,6 +40,9 @@ interface WorkspaceTabContextValue {
 
 const WorkspaceTabContext = createContext<WorkspaceTabContextValue | null>(null);
 
+/** Cap on distinct projects' conversations held in the in-memory chat store. */
+const CHAT_STORE_MAX_PROJECTS = 20;
+
 export function WorkspaceTabProvider({ children }: { children: React.ReactNode }) {
   const [popoutTab] = useState<PopoutTab | null>(() => readPopoutTabFromUrl());
   const isPopout = popoutTab !== null;
@@ -83,7 +86,15 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     [],
   );
   const saveChatConversation = useCallback((projectId: string, conv: ChatConversation): void => {
-    chatConvRef.current.set(projectId, conv);
+    const m = chatConvRef.current;
+    // Bound growth across a long session of many projects (transcripts can carry
+    // base64 attachments). Evict the oldest-inserted when a NEW project overflows
+    // the cap — mirrors landing-state's per-project cap.
+    if (!m.has(projectId) && m.size >= CHAT_STORE_MAX_PROJECTS) {
+      const oldest = m.keys().next().value;
+      if (oldest !== undefined) m.delete(oldest);
+    }
+    m.set(projectId, conv);
   }, []);
   return (
     <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingFlash, requestFlash, clearPendingFlash, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation }}>

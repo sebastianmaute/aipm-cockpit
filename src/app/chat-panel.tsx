@@ -187,6 +187,9 @@ function ChatPanelInner({
   const attachSeqRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
+  // Latest committed projectId, read by the in-flight send to detect a mid-send
+  // project switch (so its trailing writes can't land on the new project).
+  const projectIdRef = useRef(projectId);
   const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size-v2");
   const { record: recordUsage } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
@@ -211,6 +214,20 @@ function ChatPanelInner({
   useEffect(() => {
     saveChatConversation?.(projectId, { history, display });
   }, [history, display, projectId, saveChatConversation]);
+
+  // Track the latest projectId and, on a switch WHILE a send is in flight, abort
+  // that send (bound to the old project) and mark it cancelled. Its trailing
+  // state writes are additionally project-guarded in submitPrompt, so a reply
+  // for the old project can never land on — or persist into — the new one. Runs
+  // only on an actual change (seed === live on mount → no spurious abort).
+  useEffect(() => {
+    const prev = projectIdRef.current;
+    projectIdRef.current = projectId;
+    if (prev !== projectId) {
+      cancelledRef.current = true;
+      abortRef.current?.abort();
+    }
+  }, [projectId]);
 
   // Keyboard interrupt: Escape stops an in-flight response (the textarea is
   // disabled while busy, so this document listener is the keyboard path). Mirrors
@@ -260,6 +277,11 @@ function ChatPanelInner({
     cancelledRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
+    // Bind this send to the project it started on. If the user switches project
+    // mid-send, `stale()` becomes true and every subsequent state write is
+    // skipped — the reply can't corrupt the new project's conversation.
+    const sendProjectId = projectId;
+    const stale = () => cancelledRef.current || projectIdRef.current !== sendProjectId;
 
     // With attachments the user turn is a multimodal content array (text first,
     // then each document/image block); otherwise a plain string.
@@ -302,7 +324,7 @@ function ChatPanelInner({
       // reasons to continue — a tool call to run, or a length-cap truncation to
       // resume — both share the turn budget (a runaway guard).
       for (let turn = 0; turn < MAX_CHAT_TURNS; turn++) {
-        if (cancelledRef.current) break;
+        if (stale()) break;
         const response = await callClaude(
           effectiveApiKey,
           ai.model,
@@ -310,6 +332,9 @@ function ChatPanelInner({
           messages,
           controller.signal,
         );
+        // A cancel or a project switch may have landed while awaiting — bail
+        // before writing this turn onto (possibly) another project's state.
+        if (stale()) break;
         totalInput += response.usage.input_tokens;
         totalOutput += response.usage.output_tokens;
 
@@ -336,7 +361,7 @@ function ChatPanelInner({
           });
         }
 
-        if (cancelledRef.current) break;
+        if (stale()) break;
 
         // Complete tool call: run each tool, feed the results back, loop so the
         // model can use them.
@@ -404,21 +429,27 @@ function ChatPanelInner({
         break;
       }
 
-      if (cancelledRef.current) {
-        // Stopped by the user — append a neutral note, no error state.
-        setDisplay((prev) => [
-          ...prev,
-          { kind: "assistant", text: t(lang, "chatStopped") },
-        ]);
-      } else {
-        // Hit the round-trip cap while still continuing (never reached end_turn):
-        // surface that the answer is partial rather than stopping silently.
-        if (!completed) {
+      // If the user switched project mid-send, this run belongs to another
+      // project now showing a different conversation — don't write its notes or
+      // history onto the current one (billing is still recorded).
+      const switchedAway = projectIdRef.current !== sendProjectId;
+      if (!switchedAway) {
+        if (cancelledRef.current) {
+          // Stopped by the user — append a neutral note, no error state.
+          setDisplay((prev) => [
+            ...prev,
+            { kind: "assistant", text: t(lang, "chatStopped") },
+          ]);
+        } else if (!completed) {
+          // Hit the round-trip cap while still continuing (never reached
+          // end_turn): surface that the answer is partial, not a silent stop.
           setDisplay((prev) => [
             ...prev,
             { kind: "assistant", text: t(lang, "chatTruncatedNote") },
           ]);
         }
+      }
+      if (!cancelledRef.current) {
         // Record summed token usage for the entire send (all turns combined).
         // Skipped on cancel — no complete turn to bill.
         recordUsage({ input: totalInput, output: totalOutput });
@@ -426,20 +457,27 @@ function ChatPanelInner({
 
       // Persist a valid history: a max_tokens truncation or a mid-turn Stop can
       // leave the last assistant message with tool_use blocks and no results.
-      setHistory(closeDanglingToolUses(messages));
+      // Skip when switched away, so the old project's tail can't clobber the new.
+      if (!switchedAway) {
+        setHistory(closeDanglingToolUses(messages));
+      }
     } catch (err) {
       // AbortError is raised by fetch when the controller fires — treat as
       // a user-initiated stop, not a real error. Check .name directly because
       // DOMException may not be instanceof Error across jsdom/Node boundaries.
       const errName = err instanceof Error ? err.name : (err as { name?: string }).name;
-      if (errName === "AbortError") {
-        setDisplay((prev) => [
-          ...prev,
-          { kind: "assistant", text: t(lang, "chatStopped") },
-        ]);
-      } else {
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(t(lang, "chatError", msg));
+      // Suppress when the user switched project mid-send (the abort/error belongs
+      // to the old project's conversation, not the one now on screen).
+      if (projectIdRef.current === sendProjectId) {
+        if (errName === "AbortError") {
+          setDisplay((prev) => [
+            ...prev,
+            { kind: "assistant", text: t(lang, "chatStopped") },
+          ]);
+        } else {
+          const msg = err instanceof Error ? err.message : String(err);
+          setError(t(lang, "chatError", msg));
+        }
       }
     } finally {
       abortRef.current = null;
