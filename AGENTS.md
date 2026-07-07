@@ -1068,7 +1068,10 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   + `ALL_RAID_STATUSES`) live in pure `chat-tool-defs.ts`; `chat-tools.ts` re-exports `TOOL_DEFS` (so
   `chat-api` imports it unchanged) and holds `runTool` routing + the `ToolDispatcher` type + arg-coercion/
   summary helpers; tools are IMPLEMENTED in `use-chat-dispatcher.ts`. Tasks/RAID/Changes/Milestones/
-  Stakeholders all have create/update/delete. NEW entity write tool: add tool def (in `chat-tool-defs.ts`) +
+  Stakeholders all have create/update/delete; Resources have create + list ONLY (`create_resource`/
+  `list_resources` — a task assigned to a name is NOT a directory entry; the AI must create the resource to
+  populate the directory. update/delete deliberately deferred — resources are FK-referenced reference data).
+  NEW entity write tool: add tool def (in `chat-tool-defs.ts`) +
   runTool case + `ToolDispatcher` method, then implement in the dispatcher `useMemo` — guard
   `if (args.isReadOnly) throw readOnlyError()` FIRST (popouts must not mutate), build the raw object and run
   it through the entity's `sanitizeX` (the SINGLE validator — `sanitizeRaidItem` enforces enums/dates/caps +

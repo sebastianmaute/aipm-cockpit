@@ -695,3 +695,33 @@ describe("useChatDispatcher – read-only guard for entity write methods", () =>
     expect(() => result.current.listChanges()).not.toThrow();
   });
 });
+
+describe("useChatDispatcher – resource directory", () => {
+  it("createResource adds a person and listResources returns them", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({
+      firstName: "Ada", lastName: "Lovelace", email: "ada@x.com", title: "Engineer",
+    });
+    expect(created).toMatchObject({ firstName: "Ada", lastName: "Lovelace", email: "ada@x.com", title: "Engineer" });
+    expect(created.id).toBeGreaterThan(0);
+    expect(result.current.listResources().some((r) => r.id === created.id && r.firstName === "Ada")).toBe(true);
+  });
+
+  it("createResource splits a full name when first/last aren't given", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ name: "Grace Hopper" });
+    expect(created.firstName).toBe("Grace");
+    expect(created.lastName).toBe("Hopper");
+  });
+
+  it("createResource throws when no name is provided (sanitizer rejects)", () => {
+    const { result } = renderDispatcher();
+    expect(() => result.current.createResource({ email: "x@y.com" })).toThrow();
+  });
+
+  it("createResource is refused in read-only (popout)", () => {
+    const { result } = renderDispatcher(seedTasks(), true);
+    expect(() => result.current.createResource({ firstName: "X" })).toThrow();
+    expect(result.current.listResources()).toHaveLength(0);
+  });
+});
