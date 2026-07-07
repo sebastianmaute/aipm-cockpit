@@ -1,7 +1,16 @@
 "use client";
-import React, { createContext, useCallback, useContext, useState } from "react";
+import React, { createContext, useCallback, useContext, useRef, useState } from "react";
 import { type PopoutTab, readPopoutTabFromUrl } from "./broadcast-sync";
 import { type AppView, buildHash, slugToView } from "./nav-config";
+import type { ApiMessage, DisplayItem } from "./chat-api";
+
+/** A chat conversation held in memory so it survives view-navigation remounts
+ *  (the modern shell mounts one view at a time). `history` is the Anthropic wire
+ *  transcript; `display` is its rendered projection — always kept together. */
+export interface ChatConversation {
+  history: ApiMessage[];
+  display: DisplayItem[];
+}
 
 interface WorkspaceTabContextValue {
   activeTab: AppView;
@@ -22,6 +31,11 @@ interface WorkspaceTabContextValue {
   pendingHelpConcept: string | null;
   requestHelpConcept: (conceptId: string) => void;
   clearHelpConcept: () => void;
+  // In-memory per-project chat store: read at (re)mount + on project switch,
+  // written on change. A ref (not state) so the whole shell doesn't re-render on
+  // every chat message; ChatPanel owns the reactive copy.
+  getChatConversation: (projectId: string) => ChatConversation | undefined;
+  saveChatConversation: (projectId: string, conv: ChatConversation) => void;
 }
 
 const WorkspaceTabContext = createContext<WorkspaceTabContextValue | null>(null);
@@ -63,8 +77,16 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     // No hash write: the Help view scrolls to the concept section internally.
   }, []);
   const clearHelpConcept = useCallback(() => setPendingHelpConcept(null), []);
+  const chatConvRef = useRef<Map<string, ChatConversation>>(new Map());
+  const getChatConversation = useCallback(
+    (projectId: string): ChatConversation | undefined => chatConvRef.current.get(projectId),
+    [],
+  );
+  const saveChatConversation = useCallback((projectId: string, conv: ChatConversation): void => {
+    chatConvRef.current.set(projectId, conv);
+  }, []);
   return (
-    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingFlash, requestFlash, clearPendingFlash, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept }}>
+    <WorkspaceTabContext.Provider value={{ activeTab, setActiveTab, isPopout, pendingOpen, requestOpen, clearPendingOpen, pendingFlash, requestFlash, clearPendingFlash, pendingChatSeed, requestChat, clearChatSeed, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation }}>
       {children}
     </WorkspaceTabContext.Provider>
   );

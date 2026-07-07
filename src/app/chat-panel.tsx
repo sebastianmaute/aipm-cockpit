@@ -20,6 +20,7 @@ const PROMPT_CHIPS: PromptChip[] = [
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig, Settings } from "./settings-types";
+import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
@@ -75,6 +76,9 @@ function ChatPanelImpl({
   guidesReady = true,
   chatSeed = null,
   onChatSeedConsumed,
+  projectId = "default",
+  getChatConversation,
+  saveChatConversation,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -86,7 +90,7 @@ function ChatPanelImpl({
   guidesReady?: boolean;
   chatSeed?: { prompt: string; autoSend: boolean } | null;
   onChatSeedConsumed?: () => void;
-}) {
+} & ChatConversationStoreProps) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
   }
@@ -101,8 +105,20 @@ function ChatPanelImpl({
       guidesReady={guidesReady}
       chatSeed={chatSeed}
       onChatSeedConsumed={onChatSeedConsumed}
+      projectId={projectId}
+      getChatConversation={getChatConversation}
+      saveChatConversation={saveChatConversation}
     />
   );
+}
+
+/** Optional in-memory per-project conversation store (from WorkspaceTabProvider)
+ *  so the chat survives view-navigation remounts. Absent in tests/popout →
+ *  ChatPanel behaves as a fresh, non-persisted conversation. */
+interface ChatConversationStoreProps {
+  projectId?: string;
+  getChatConversation?: (projectId: string) => ChatConversation | undefined;
+  saveChatConversation?: (projectId: string, conv: ChatConversation) => void;
 }
 
 // Memoized export: with the dispatcher's stable identity (slice 5) and an
@@ -121,6 +137,9 @@ function ChatPanelInner({
   guidesReady = true,
   chatSeed = null,
   onChatSeedConsumed,
+  projectId = "default",
+  getChatConversation,
+  saveChatConversation,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -131,10 +150,27 @@ function ChatPanelInner({
   guidesReady?: boolean;
   chatSeed?: { prompt: string; autoSend: boolean } | null;
   onChatSeedConsumed?: () => void;
-}) {
+} & ChatConversationStoreProps) {
   const confirm = useConfirm();
-  const [history, setHistory] = useState<ApiMessage[]>([]);
-  const [display, setDisplay] = useState<DisplayItem[]>([]);
+  // Restore this project's in-memory conversation on (re)mount — the modern
+  // shell remounts the chat view on every visit, so local state alone is lost.
+  const [history, setHistory] = useState<ApiMessage[]>(
+    () => getChatConversation?.(projectId)?.history ?? [],
+  );
+  const [display, setDisplay] = useState<DisplayItem[]>(
+    () => getChatConversation?.(projectId)?.display ?? [],
+  );
+  // Project switch WHILE the panel stays mounted: swap to that project's
+  // conversation. Render-time reconcile (guarded by seenProjectId), NOT an
+  // effect — the set-state-in-effect ban. Seeding from the live projectId is
+  // correct here (steady-state prop, not a request/nonce — no remount-swallow).
+  const [seenProjectId, setSeenProjectId] = useState(projectId);
+  if (projectId !== seenProjectId) {
+    setSeenProjectId(projectId);
+    const next = getChatConversation?.(projectId);
+    setHistory(next?.history ?? []);
+    setDisplay(next?.display ?? []);
+  }
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
   const [busy, setBusy] = useState(false);
@@ -168,6 +204,13 @@ function ChatPanelInner({
     if (!scrollerRef.current) return;
     scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
   }, [display, busy]);
+
+  // Persist the conversation to the above-the-view store on every change, so it
+  // survives the next remount. Writes a ref (a side effect, not setState) — clear
+  // of the set-state-in-effect ban and cannot loop.
+  useEffect(() => {
+    saveChatConversation?.(projectId, { history, display });
+  }, [history, display, projectId, saveChatConversation]);
 
   // Keyboard interrupt: Escape stops an in-flight response (the textarea is
   // disabled while busy, so this document listener is the keyboard path). Mirrors
