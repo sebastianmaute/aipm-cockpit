@@ -113,6 +113,22 @@ describe("ResourceDirectory", () => {
     expect(onEdit).not.toHaveBeenCalled();
   });
 
+  it("renders primary + additional emails as copy buttons and copies on click", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const withEmails: Resource[] = [
+      { id: 1, firstName: "Ada", lastName: "Byte", email: "ada@x.com", emails: ["ada.alt@y.com"], roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    render(<ResourceDirectory {...common} resources={withEmails} />);
+    const primary = screen.getByRole("button", { name: "Copy ada@x.com" });
+    const alt = screen.getByRole("button", { name: "Copy ada.alt@y.com" });
+    expect(alt).toBeInTheDocument();
+    fireEvent.click(primary);
+    expect(writeText).toHaveBeenCalledWith("ada@x.com");
+    fireEvent.click(alt);
+    expect(writeText).toHaveBeenCalledWith("ada.alt@y.com");
+  });
+
   it("gives the directory search box a descriptive tooltip", () => {
     render(<ResourceDirectory {...common} resources={rs} />);
     expect(screen.getByPlaceholderText(/filter by name, title/i)).toHaveAttribute(

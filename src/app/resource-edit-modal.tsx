@@ -20,7 +20,7 @@ import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { useConfirm } from "./confirm-dialog";
 
 interface Props {
@@ -93,10 +93,14 @@ export function ResourceEditModal({
       return;
     }
     const email = adj.track(describeTextCap((draft.email ?? "").trim(), EMAIL_MAX)) || undefined;
+    const emails = (draft.emails ?? [])
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0);
     const clean: Resource = {
       ...draft,
       firstName,
       lastName,
+      emails: emails.length > 0 ? emails : undefined,
       title: draft.title?.trim() || undefined,
       company: draft.company?.trim() || undefined,
       department: draft.department?.trim() || undefined,
@@ -275,6 +279,43 @@ export function ResourceEditModal({
               />
               <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
             </label>
+          )}
+
+          {/* Additional emails — full width */}
+          {isVisible("email") && (
+            <div className="flex flex-col gap-1.5 text-sm sm:col-span-2">
+              <span className="flex items-center gap-1 font-medium text-foreground">
+                {t(lang, "resourceEmailsLabel")}<InfoTooltip text={t(lang, "resourceEmailsHint")} />
+              </span>
+              {(draft.emails ?? []).map((addr, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={addr}
+                    aria-label={t(lang, "resourceEmailsLabel")}
+                    onChange={(e) => {
+                      const next = [...(draft.emails ?? [])];
+                      next[i] = e.target.value;
+                      update("emails", next);
+                    }}
+                    className={`flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+                  />
+                  <button
+                    type="button"
+                    aria-label={t(lang, "resourceEmailRemove")}
+                    onClick={() => update("emails", (draft.emails ?? []).filter((_, j) => j !== i))}
+                    className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink"
+                  >×</button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => update("emails", [...(draft.emails ?? []), ""])}
+                className={`self-start rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+              >
+                + {t(lang, "resourceEmailAdd")}
+              </button>
+            </div>
           )}
 
           {/* External resource flag — full width */}

@@ -2514,6 +2514,13 @@ const enUS = {
   resourceExternal: "External resource",
   resourceExternalHint: "External resources are planned and capacity-tracked (assignments, absences, workload) but are excluded from all cost and budget figures.",
   resourceExternalBadge: "External",
+  resourceEmailsLabel: "Additional emails",
+  resourceEmailsHint: "Extra email addresses beyond the primary one. Shown in the directory; click one to copy it.",
+  resourceEmailAdd: "Add email",
+  resourceEmailRemove: "Remove email",
+  resourceEmailCopyLabel: "Copy {0}",
+  resourceEmailCopied: "Copied {0}",
+  resourceEmailCopyFailed: "Couldn't copy the email address.",
   // New/Edit Absence tooltips
   absenceAssigneeHint: "Person who is absent.",
   absenceTypeHint: "Kind of absence (vacation, sick, training, other).",

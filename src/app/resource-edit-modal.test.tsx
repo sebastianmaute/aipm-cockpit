@@ -110,6 +110,24 @@ describe("ResourceEditModal", () => {
     expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
   });
 
+  it("adds an additional email and saves it (blanks dropped)", () => {
+    const onSave = vi.fn();
+    setupFull({ onSave });
+    fireEvent.click(screen.getByRole("button", { name: /add email/i }));
+    const emailInputs = screen.getAllByRole("textbox", { name: /additional emails/i });
+    fireEvent.change(emailInputs[0], { target: { value: " alt@x.com " } });
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ emails: ["alt@x.com"] });
+  });
+
+  it("saves the External flag when checked", () => {
+    const onSave = vi.fn();
+    setup({ onSave });
+    fireEvent.click(screen.getByRole("checkbox", { name: /external resource/i }));
+    fireEvent.submit(screen.getByRole("button", { name: /save resource/i }).closest("form")!);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ isExternal: true });
+  });
+
   it("saves a full date when year is known", () => {
     const onSave = vi.fn();
     setupFull({ onSave });

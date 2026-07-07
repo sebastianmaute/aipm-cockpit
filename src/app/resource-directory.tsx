@@ -12,6 +12,7 @@ import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { useToastContext } from "./toast-context";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
@@ -95,6 +96,15 @@ function ResourceDirectoryInner({
   onAddAbsence,
   onImportOutlook,
 }: Props) {
+  const showToast = useToastContext();
+  const copyEmail = async (addr: string) => {
+    try {
+      await navigator.clipboard.writeText(addr);
+      showToast("info", t(lang, "resourceEmailCopied", addr));
+    } catch {
+      showToast("error", t(lang, "resourceEmailCopyFailed"));
+    }
+  };
   const { ref: dirRef, reset: resetDirSize } = useResizable("lop-app:directory-size");
   const { colWidths, startColResize: _startColResize, resetColWidths } = useColumnResize<DirectoryCol>(
     "directory",
@@ -272,7 +282,26 @@ function ResourceDirectoryInner({
                   <td className="px-3 py-2 text-muted-foreground" title={r.title ?? ""}>{r.title ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground" title={r.department ?? ""}>{r.department ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground" title={r.businessPhone ?? ""}>{r.businessPhone ?? "—"}</td>
-                  <td className="px-3 py-2 text-muted-foreground" title={r.email ?? ""}>{r.email ?? "—"}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {(() => {
+                      const emailList = [r.email, ...(r.emails ?? [])].filter((e): e is string => !!e);
+                      if (emailList.length === 0) return "—";
+                      return emailList.map((addr, i) => (
+                        <span key={addr}>
+                          {i > 0 && <span aria-hidden="true">; </span>}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); void copyEmail(addr); }}
+                            aria-label={t(lang, "resourceEmailCopyLabel", addr)}
+                            title={t(lang, "resourceEmailCopyLabel", addr)}
+                            className={`rounded text-foreground hover:text-AIPM-dark-blue hover:underline ${FOCUS_RING} ${TRANSITION}`}
+                          >
+                            {addr}
+                          </button>
+                        </span>
+                      ));
+                    })()}
+                  </td>
                   <td className="px-3 py-2 text-muted-foreground" title={r.birthday ?? ""}>{r.birthday ?? "—"}</td>
                 </tr>
               ))}
