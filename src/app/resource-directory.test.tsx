@@ -16,7 +16,7 @@ const common = {
   roles: [],
   disciplines: [],
   grades: [],
-  onAssignRole: vi.fn(),
+  onAssignRoleById: vi.fn(),
   onEditResource: vi.fn(),
   onAddResource: vi.fn(),
   onAddAbsence: vi.fn(),
@@ -27,13 +27,13 @@ describe("ResourceDirectory", () => {
 
   it("fires onEditResource when the name is clicked", () => {
     const onEdit = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
     expect(onEdit).toHaveBeenCalledWith(rs[0]);
   });
   it("fires onAddResource from the add button", () => {
     const onAdd = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={onAdd} onAddAbsence={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={onAdd} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /add resource/i }));
     // Must be called with NO argument — forwarding the click event as `seed`
     // pollutes the resource draft with a PointerEvent and crashes BroadcastChannel.
@@ -41,7 +41,7 @@ describe("ResourceDirectory", () => {
   });
   it("fires onAddAbsence from the Add Absence button", () => {
     const onAdd = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={onAdd} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={onAdd} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "resourcesAddAbsence") }));
     // Must be called with NO argument — forwarding the click event as `seed`
     // pollutes the absence draft with a PointerEvent and crashes BroadcastChannel.
@@ -74,7 +74,7 @@ describe("ResourceDirectory", () => {
 
   it("clicking a directory row opens the editor (RAID-style row click)", () => {
     const onEdit = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
     const row = screen.getByRole("button", { name: "Alex Example" }).closest("tr")!;
     expect(row.className).toContain("cursor-pointer");
     expect(row.className).toContain("hover:bg-surface-muted");
@@ -85,28 +85,31 @@ describe("ResourceDirectory", () => {
 
   it("clicking the name button fires onEditResource exactly once (stopPropagation prevents double-fire)", () => {
     const onEdit = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
-  it("clicking the discipline/grade select does NOT open the editor (stopPropagation)", () => {
+  it("assigns a role via the single picker and does NOT open the editor (stopPropagation)", () => {
     const onEdit = vi.fn();
+    const onAssign = vi.fn();
     render(
       <ResourceDirectory
         lang="en-US"
         resources={rs}
-        roles={[]}
+        roles={[{ id: 5, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }]}
         disciplines={[{ id: 1, name: "Engineering" }]}
         grades={[{ id: 1, name: "Senior" }]}
-        onAssignRole={vi.fn()}
+        onAssignRoleById={onAssign}
         onEditResource={onEdit}
         onAddResource={vi.fn()}
         onAddAbsence={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("combobox", { name: "Discipline for Alex Example" }));
-    fireEvent.click(screen.getByRole("combobox", { name: "Grade for Alex Example" }));
+    const select = screen.getByRole("combobox", { name: "Role for Alex Example" });
+    fireEvent.click(select);
+    fireEvent.change(select, { target: { value: "5" } });
+    expect(onAssign).toHaveBeenCalledWith(1, 5);
     expect(onEdit).not.toHaveBeenCalled();
   });
 
@@ -122,12 +125,12 @@ describe("ResourceDirectory", () => {
     const onImport = vi.fn();
     const { rerender } = render(
       <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
-        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />,
+        onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />,
     );
     expect(screen.queryByRole("button", { name: t("en-US", "outlookImportButton") })).toBeNull();
     rerender(
       <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
-        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} onImportOutlook={onImport} />,
+        onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} onImportOutlook={onImport} />,
     );
     const btn = screen.getByRole("button", { name: t("en-US", "outlookImportButton") });
     fireEvent.click(btn);

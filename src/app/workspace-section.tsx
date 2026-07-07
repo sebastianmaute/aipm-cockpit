@@ -119,7 +119,7 @@ export function WorkspaceSection({
   handleEditAbsence,
   handleOpenShiftEditor,
   manageRolesView,
-  onAssignRole,
+  onAssignRoleById,
   onSetUtilization,
   overAllocatedPct,
   onReassignTask,
@@ -439,7 +439,7 @@ export function WorkspaceSection({
               roles={roles}
               disciplines={disciplines}
               grades={grades}
-              onAssignRole={onAssignRole}
+              onAssignRoleById={onAssignRoleById}
               onEditResource={onEditResource}
               onAddResource={onAddResource}
               onAddAbsence={handleOpenAddAbsence}

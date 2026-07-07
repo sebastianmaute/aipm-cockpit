@@ -543,6 +543,23 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.resources[0].roleId).not.toBeNull();
     });
 
+    it("handleAssignRoleById sets an existing role id directly and clears with null", () => {
+      const { result } = renderPlanner();
+      const resource: Resource = {
+        id: 1,
+        firstName: "Sample",
+        lastName: "",
+        roleId: null,
+        utilizationMode: "percent",
+        utilization: {},
+      };
+      act(() => { result.current.workspace.setResources([resource]); });
+      act(() => { result.current.planner.handleAssignRoleById(1, 7); });
+      expect(result.current.workspace.resources[0].roleId).toBe(7);
+      act(() => { result.current.planner.handleAssignRoleById(1, null); });
+      expect(result.current.workspace.resources[0].roleId).toBeNull();
+    });
+
     it("handleClearResourceRole sets the resource's roleId to null", () => {
       const { result } = renderPlanner();
       const resource: Resource = {

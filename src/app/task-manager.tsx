@@ -566,7 +566,7 @@ function TaskManagerInner() {
     handleSaveRole,
     handleDeleteRole,
     resolveOrCreateRole,
-    handleAssignResourceRole,
+    handleAssignRoleById,
     handleAddDiscipline,
     handleRenameDiscipline,
     onDeleteDiscipline,
@@ -1628,7 +1628,7 @@ function TaskManagerInner() {
         onReorderGrades={onReorderGrades}
       />
     ),
-    onAssignRole: guardEdit(handleAssignResourceRole),
+    onAssignRoleById: guardEdit(handleAssignRoleById),
     onSetUtilization: guardEdit(handleSetUtilization),
     // Same threshold the over-allocation ALERT uses so the workload cell's pink
     // highlight fires exactly when the alert does (#24 review).

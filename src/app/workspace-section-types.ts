@@ -126,7 +126,7 @@ export interface WorkspaceSectionProps {
     assignee: { display: string; email: string },
   ) => void;
   manageRolesView?: React.ReactNode;
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
+  onAssignRoleById: (resourceId: number, roleId: number | null) => void;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
   /** Over-allocation threshold percent (the alert's `workloadAllocatedPct`). */
   overAllocatedPct: number;

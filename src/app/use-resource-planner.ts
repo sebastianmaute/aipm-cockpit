@@ -506,6 +506,21 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [setResources],
   );
 
+  // Directory single-role picker: assign an existing rate-card role directly by
+  // id (or clear with null). Unlike handleAssignResourceRole this never mints a
+  // role — new discipline/grade combos are authored in the rate-card editor.
+  const handleAssignRoleById = useCallback(
+    (resourceId: number, roleId: number | null) => {
+      const stamp = new Date().toISOString();
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId ? { ...r, roleId, localModifiedAt: stamp } : r,
+        ),
+      );
+    },
+    [setResources],
+  );
+
   const handleAddDiscipline = useCallback(
     (name: string): number | null => {
       const clean = name.trim();
@@ -724,6 +739,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleSaveRole,
     handleDeleteRole,
     handleAssignResourceRole,
+    handleAssignRoleById,
     handleClearResourceRole,
     handleAddDiscipline,
     handleRenameDiscipline,

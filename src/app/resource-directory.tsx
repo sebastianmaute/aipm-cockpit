@@ -7,7 +7,7 @@
 import { memo, useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
-import { resourceDisplayName } from "./resource-foundation";
+import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
@@ -18,8 +18,7 @@ import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
 const DIRECTORY_COL_WIDTHS = {
   name: 180,
-  discipline: 120,
-  grade: 100,
+  role: 200,
   title: 160,
   department: 140,
   phone: 120,
@@ -34,89 +33,55 @@ interface Props {
   roles: readonly Role[];
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
+  onAssignRoleById: (resourceId: number, roleId: number | null) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: () => void;
   onAddAbsence: () => void;
   onImportOutlook?: () => void;
 }
 
-// Inline discipline + grade selects for a single directory row.
-// Mirrors the useState+useEffect re-sync pattern from the old ResourceRoleRow.
-function DirectoryRoleSelects({
+// Inline single role picker for a directory row. Lists the existing rate-card
+// roles (labelled discipline + grade); new combos are authored in the rate-card
+// editor. Assigns resource.roleId directly (or null to clear).
+function DirectoryRoleSelect({
   resource,
   roles,
   disciplines,
   grades,
-  onAssignRole,
+  onAssignRoleById,
 }: {
   resource: Resource;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
+  onAssignRoleById: (resourceId: number, roleId: number | null) => void;
 }) {
-  const current = roles.find((x) => x.id === resource.roleId);
-  const curDisc = current?.disciplineId ?? "";
-  const curGrad = current?.gradeId ?? "";
-  const [prevDisc, setPrevDisc] = useState<number | "">(curDisc);
-  const [prevGrad, setPrevGrad] = useState<number | "">(curGrad);
-  const [disc, setDisc] = useState<number | "">(curDisc);
-  const [grad, setGrad] = useState<number | "">(curGrad);
-
-  // Re-sync when the resource's role changes externally.
-  if (prevDisc !== curDisc || prevGrad !== curGrad) {
-    setPrevDisc(curDisc);
-    setPrevGrad(curGrad);
-    setDisc(curDisc);
-    setGrad(curGrad);
-  }
-
+  const sortedRoles = [...roles].sort((a, b) =>
+    roleLabel(a, disciplines, grades).localeCompare(roleLabel(b, disciplines, grades)),
+  );
   return (
-    <>
-      <td className="px-3 py-2">
-        <select
-          aria-label={`Discipline for ${resourceDisplayName(resource)}`}
-          value={disc === "" ? "" : String(disc)}
-          // Stop the click bubbling to the row's onClick (opens the edit modal).
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            const v = e.target.value === "" ? "" : Number(e.target.value);
-            setDisc(v);
-            if (v !== "" && grad !== "") onAssignRole(resource.id, v, Number(grad));
-          }}
-          className={`rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
-        >
-          <option value="">—</option>
-          {disciplines.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
-      </td>
-      <td className="px-3 py-2">
-        <select
-          aria-label={`Grade for ${resourceDisplayName(resource)}`}
-          value={grad === "" ? "" : String(grad)}
-          // Stop the click bubbling to the row's onClick (opens the edit modal).
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            const v = e.target.value === "" ? "" : Number(e.target.value);
-            setGrad(v);
-            if (disc !== "" && v !== "") onAssignRole(resource.id, Number(disc), v);
-          }}
-          className={`rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
-        >
-          <option value="">—</option>
-          {grades.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
-          ))}
-        </select>
-      </td>
-    </>
+    <td className="px-3 py-2">
+      <select
+        aria-label={`Role for ${resourceDisplayName(resource)}`}
+        value={resource.roleId == null ? "" : String(resource.roleId)}
+        // Stop the click bubbling to the row's onClick (opens the edit modal).
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => {
+          const v = e.target.value === "" ? null : Number(e.target.value);
+          onAssignRoleById(resource.id, v);
+        }}
+        className={`w-full rounded border border-line bg-surface-muted px-1.5 py-0.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
+      >
+        <option value="">—</option>
+        {sortedRoles.map((r) => (
+          <option key={r.id} value={r.id}>{roleLabel(r, disciplines, grades)}</option>
+        ))}
+      </select>
+    </td>
   );
 }
 
-type SortKey = "" | "name" | "discipline" | "grade" | "title" | "department" | "phone" | "email" | "birthday";
+type SortKey = "" | "name" | "role" | "title" | "department" | "phone" | "email" | "birthday";
 
 function ResourceDirectoryInner({
   lang,
@@ -124,7 +89,7 @@ function ResourceDirectoryInner({
   roles,
   disciplines,
   grades,
-  onAssignRole,
+  onAssignRoleById,
   onEditResource,
   onAddResource,
   onAddAbsence,
@@ -150,20 +115,15 @@ function ResourceDirectoryInner({
   };
 
   const rows = useMemo(() => {
-    const discName = (r: Resource): string => {
+    const roleName = (r: Resource): string => {
       const role = roles.find((x) => x.id === r.roleId);
-      return role ? (disciplines.find((d) => d.id === role.disciplineId)?.name ?? "") : "";
-    };
-    const gradeName = (r: Resource): string => {
-      const role = roles.find((x) => x.id === r.roleId);
-      return role ? (grades.find((g) => g.id === role.gradeId)?.name ?? "") : "";
+      return role ? roleLabel(role, disciplines, grades) : "";
     };
     const q = filter.trim().toLowerCase();
     const keyOf = (r: Resource): string => {
       switch (sortKey) {
         case "name": return resourceDisplayName(r).toLowerCase();
-        case "discipline": return discName(r).toLowerCase();
-        case "grade": return gradeName(r).toLowerCase();
+        case "role": return roleName(r).toLowerCase();
         case "title": return (r.title ?? "").toLowerCase();
         case "department": return (r.department ?? "").toLowerCase();
         case "phone": return (r.businessPhone ?? "").toLowerCase();
@@ -174,7 +134,7 @@ function ResourceDirectoryInner({
     };
     const filtered = q
       ? resources.filter((r) =>
-          [resourceDisplayName(r), r.title, r.department, r.businessPhone, r.email, r.company, discName(r), gradeName(r)]
+          [resourceDisplayName(r), r.title, r.department, r.businessPhone, r.email, r.company, roleName(r)]
             .some((v) => (v ?? "").toLowerCase().includes(q)))
       : resources.slice();
     if (sortKey !== "") {
@@ -247,17 +207,11 @@ function ResourceDirectoryInner({
                   </button>
                   <ColumnResizeHandle col="name" onMouseDown={startColResize} />
                 </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.discipline, minWidth: colWidths.discipline }}>
-                  <button type="button" onClick={() => toggleSort("discipline")} aria-label={t(lang, "sortBy", t(lang, "rolesDiscipline"))} title={t(lang, "sortBy", t(lang, "rolesDiscipline"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
-                    {t(lang, "rolesDiscipline")}{sortIndicator("discipline")}
+                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.role, minWidth: colWidths.role }}>
+                  <button type="button" onClick={() => toggleSort("role")} aria-label={t(lang, "sortBy", t(lang, "role"))} title={t(lang, "sortBy", t(lang, "role"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
+                    {t(lang, "role")}{sortIndicator("role")}
                   </button>
-                  <ColumnResizeHandle col="discipline" onMouseDown={startColResize} />
-                </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.grade, minWidth: colWidths.grade }}>
-                  <button type="button" onClick={() => toggleSort("grade")} aria-label={t(lang, "sortBy", t(lang, "rolesGrade"))} title={t(lang, "sortBy", t(lang, "rolesGrade"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
-                    {t(lang, "rolesGrade")}{sortIndicator("grade")}
-                  </button>
-                  <ColumnResizeHandle col="grade" onMouseDown={startColResize} />
+                  <ColumnResizeHandle col="role" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.title, minWidth: colWidths.title }}>
                   <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
@@ -303,12 +257,12 @@ function ResourceDirectoryInner({
                       {resourceDisplayName(r)}
                     </button>
                   </td>
-                  <DirectoryRoleSelects
+                  <DirectoryRoleSelect
                     resource={r}
                     roles={roles}
                     disciplines={disciplines}
                     grades={grades}
-                    onAssignRole={onAssignRole}
+                    onAssignRoleById={onAssignRoleById}
                   />
                   <td className="px-3 py-2 text-muted-foreground" title={r.title ?? ""}>{r.title ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground" title={r.department ?? ""}>{r.department ?? "—"}</td>
