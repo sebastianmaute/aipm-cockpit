@@ -144,7 +144,9 @@ export const INTERRUPTED_TOOL_RESULT =
  */
 export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
   const out: ApiMessage[] = [];
+  const consumed = new Set<number>(); // indices folded into a merged carrier
   for (let i = 0; i < messages.length; i++) {
+    if (consumed.has(i)) continue;
     const msg = messages[i];
     out.push(msg);
     if (msg.role !== "assistant") continue;
@@ -153,25 +155,29 @@ export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
       .map((b) => b.id);
     if (toolUseIds.length === 0) continue;
     const next = messages[i + 1];
-    const satisfied =
+    const nextResults =
       next?.role === "user" && Array.isArray(next.content)
-        ? new Set(
-            next.content
-              .filter((b): b is ToolResultBlock => b.type === "tool_result")
-              .map((b) => b.tool_use_id),
-          )
-        : new Set<string>();
+        ? next.content.filter((b): b is ToolResultBlock => b.type === "tool_result")
+        : null;
+    const satisfied = new Set((nextResults ?? []).map((b) => b.tool_use_id));
     const missing = toolUseIds.filter((id) => !satisfied.has(id));
     if (missing.length === 0) continue;
-    out.push({
-      role: "user",
-      content: missing.map((id) => ({
-        type: "tool_result" as const,
-        tool_use_id: id,
-        content: INTERRUPTED_TOOL_RESULT,
-        is_error: true,
-      })),
-    });
+    const synthetic: ToolResultBlock[] = missing.map((id) => ({
+      type: "tool_result" as const,
+      tool_use_id: id,
+      content: INTERRUPTED_TOOL_RESULT,
+      is_error: true,
+    }));
+    if (nextResults && nextResults.length > 0) {
+      // Partial carrier: fold the missing results INTO it (keep one user message
+      // immediately after the assistant) rather than inserting a second user
+      // turn that would split the results and stay invalid.
+      out.push({ role: "user", content: [...synthetic, ...(next.content as ContentBlock[])] });
+      consumed.add(i + 1);
+    } else {
+      // No carrier at all: insert one covering every dangling id.
+      out.push({ role: "user", content: synthetic });
+    }
   }
   return out;
 }

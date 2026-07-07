@@ -57,6 +57,21 @@ describe("closeDanglingToolUses", () => {
     expect(closeDanglingToolUses(input)).toEqual(input);
   });
 
+  it("merges missing results into a partial carrier instead of splitting across two user turns", () => {
+    // Defensive: the current tool loop is all-or-nothing, but as an exported
+    // helper it must still heal a partial carrier into ONE user message that
+    // covers every id (not assistant → user(B) → user(A), which stays invalid).
+    const input: ApiMessage[] = [
+      { role: "user", content: "go" },
+      toolUseMsg(["a", "b"]),
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "a", content: "done" }] },
+    ];
+    const out = closeDanglingToolUses(input);
+    expect(out).toHaveLength(3); // no extra message inserted
+    const ids = resultsOf(out[2]).map((r) => r.tool_use_id).sort();
+    expect(ids).toEqual(["a", "b"]);
+  });
+
   it("is an identity for histories with no tool_use blocks", () => {
     const input: ApiMessage[] = [
       { role: "user", content: "hi" },

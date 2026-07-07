@@ -258,6 +258,33 @@ describe("Stop button", () => {
     );
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("Escape does NOT interrupt the chat while a modal is open (modal owns Escape)", async () => {
+    const rejectWithAbort = setupNeverResolvingFetch();
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
+    );
+    // An open modal is on screen; its own Escape handler should win.
+    const modal = document.createElement("div");
+    modal.setAttribute("aria-modal", "true");
+    document.body.appendChild(modal);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    // Chat call was NOT aborted: still busy (Stop present, Send absent).
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0);
+    // cleanup — let the in-flight fetch resolve.
+    document.body.removeChild(modal);
+    rejectWithAbort();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument(),
+    );
+  });
 });
 
 describe("suggested prompt chips", () => {

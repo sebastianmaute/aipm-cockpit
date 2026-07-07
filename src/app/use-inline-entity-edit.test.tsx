@@ -55,6 +55,25 @@ it("passes an AbortSignal into callInlineEdit and cancel() aborts the in-flight 
   expect(result.current.phase).toBe("idle");
 });
 
+it("aborts the in-flight call when the pane goes inactive (deps.active=false)", async () => {
+  let captured: AbortSignal | undefined;
+  vi.spyOn(call, "callInlineEdit").mockImplementation(
+    ((args: { signal?: AbortSignal }) => {
+      captured = args.signal;
+      return new Promise(() => {});
+    }) as unknown as typeof call.callInlineEdit,
+  );
+  const { result, rerender } = renderHook(
+    (props: { active?: boolean }) => useInlineAiEdit(mkDeps({ active: props.active })),
+    { initialProps: { active: true } as { active?: boolean } },
+  );
+  act(() => result.current.openFor(task));
+  act(() => { void result.current.submit("mark done"); });
+  expect(captured?.aborted).toBe(false);
+  rerender({ active: false });
+  expect(captured?.aborted).toBe(true);
+});
+
 it("openFor on a new item aborts the previous item's in-flight call", async () => {
   let captured: AbortSignal | undefined;
   vi.spyOn(call, "callInlineEdit").mockImplementation(

@@ -169,12 +169,19 @@ function ChatPanelInner({
     if (!busy) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // Don't steal Escape from an open modal/dialog (Settings, a task editor,
+      // a confirm) — its own handler should own the key — or from a focused
+      // control elsewhere (e.g. the top-bar search). Only interrupt when the
+      // focus is inside the chat panel (or nowhere in particular).
+      if (document.querySelector('[aria-modal="true"]')) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body && !chatRef.current?.contains(active)) return;
       cancelledRef.current = true;
       abortRef.current?.abort();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [busy]);
+  }, [busy, chatRef]);
 
   const guidesPending = ai.groundInGuides && !guidesReady;
   // Master switch: when AI is disabled in Settings, the assistant is fully off

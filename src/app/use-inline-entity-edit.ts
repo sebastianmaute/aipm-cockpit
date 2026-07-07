@@ -6,7 +6,7 @@
 // descriptor drives which fields diff, how they validate, and how they coerce
 // on apply. Task-bound behavior lives in the thin `use-inline-ai-edit` wrapper.
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { type Workspace } from "./workspace";
 import { type ToolDispatcher, runTool } from "./chat-tools";
@@ -87,6 +87,18 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
     setClarifyText("");
     setErrorText("");
   }
+
+  // The reconcile above only resets UI state — it doesn't stop a billed call
+  // that's still in flight when the pane deactivates mid-"thinking". Abort it
+  // (and supersede via reqId so its resolution is discarded) in an effect, so
+  // no setState happens here (the set-state-in-effect ban). Hoisted scalar dep.
+  const paneActive = deps.active;
+  useEffect(() => {
+    if (paneActive === false) {
+      abortRef.current?.abort();
+      reqIdRef.current++;
+    }
+  }, [paneActive]);
 
   // Stable identities so consumers threading these through a context value (the
   // task row context) don't rebuild that value — and re-render every row — on
