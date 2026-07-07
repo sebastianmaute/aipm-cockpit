@@ -41,6 +41,7 @@ import {
 import {
   buildSystemPrompt,
   callClaude,
+  closeDanglingToolUses,
   readAttachmentData,
   stringifyResult,
   type TextBlock,
@@ -212,7 +213,13 @@ function ChatPanelInner({
             ...atts.map((a) => a.block),
           ]
         : text;
-    const newHistory: ApiMessage[] = [...history, { role: "user", content }];
+    // Heal any dangling tool_use left by a prior truncated/stopped turn before
+    // appending this turn — else the API 400s on the unmatched tool_use and the
+    // chat wedges (every subsequent send re-posts the corrupt history).
+    const newHistory: ApiMessage[] = [
+      ...closeDanglingToolUses(history),
+      { role: "user", content },
+    ];
     setHistory(newHistory);
     const displayText =
       atts.length > 0
@@ -304,7 +311,9 @@ function ChatPanelInner({
         recordUsage({ input: totalInput, output: totalOutput });
       }
 
-      setHistory(messages);
+      // Persist a valid history: a max_tokens truncation or a mid-turn Stop can
+      // leave the last assistant message with tool_use blocks and no results.
+      setHistory(closeDanglingToolUses(messages));
     } catch (err) {
       // AbortError is raised by fetch when the controller fires — treat as
       // a user-initiated stop, not a real error. Check .name directly because

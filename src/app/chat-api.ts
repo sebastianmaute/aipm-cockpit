@@ -120,6 +120,62 @@ export function systemBlocksText(blocks: SystemBlock[]): string {
   return blocks.map((b) => b.text).join("\n\n");
 }
 
+/** Content for a synthetic tool_result standing in for a call that never ran
+ *  (turn truncated at max_tokens, or the user stopped mid-turn). */
+export const INTERRUPTED_TOOL_RESULT =
+  "Tool call was interrupted before it produced a result. Ignore it.";
+
+/**
+ * Repair a conversation so every assistant `tool_use` block is immediately
+ * followed by a user message carrying a `tool_result` for each id — the
+ * invariant the Anthropic API enforces (400 invalid_request_error otherwise).
+ *
+ * A dangling `tool_use` arises when the tool loop pushes the assistant message
+ * but exits before running the tools + appending results: the turn stopped at
+ * `max_tokens` with tool_use in its content, or the user hit Stop/Escape. Left
+ * in history, the NEXT send appends a user turn right after the dangling
+ * tool_use and the whole request is rejected — wedging the chat.
+ *
+ * The tool loop builds a turn's results all-or-nothing (one user message with
+ * every result, or none), so a dangling turn never has a partial carrier —
+ * detection is simply "is the next message a user tool_result carrier for these
+ * ids?". If not, inject one with `is_error` results for all the ids. A
+ * well-formed history is returned unchanged (identity).
+ */
+export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
+  const out: ApiMessage[] = [];
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    out.push(msg);
+    if (msg.role !== "assistant") continue;
+    const toolUseIds = msg.content
+      .filter((b): b is ToolUseBlock => b.type === "tool_use")
+      .map((b) => b.id);
+    if (toolUseIds.length === 0) continue;
+    const next = messages[i + 1];
+    const satisfied =
+      next?.role === "user" && Array.isArray(next.content)
+        ? new Set(
+            next.content
+              .filter((b): b is ToolResultBlock => b.type === "tool_result")
+              .map((b) => b.tool_use_id),
+          )
+        : new Set<string>();
+    const missing = toolUseIds.filter((id) => !satisfied.has(id));
+    if (missing.length === 0) continue;
+    out.push({
+      role: "user",
+      content: missing.map((id) => ({
+        type: "tool_result" as const,
+        tool_use_id: id,
+        content: INTERRUPTED_TOOL_RESULT,
+        is_error: true,
+      })),
+    });
+  }
+  return out;
+}
+
 export async function callClaude(
   apiKey: string,
   model: string,

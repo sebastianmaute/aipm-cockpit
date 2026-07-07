@@ -783,3 +783,66 @@ describe("document attachments", () => {
     await waitFor(() => expect(screen.queryByText("notes.txt")).toBeNull());
   });
 });
+
+describe("dangling tool_use recovery (max_tokens truncation)", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("heals a truncated tool_use so the NEXT send carries a matching tool_result", async () => {
+    const bodies: string[] = [];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      call += 1;
+      // First turn: Claude emits a tool_use but the turn is cut at max_tokens,
+      // so the tool loop never runs it. Later turns: a normal end_turn reply.
+      const body =
+        call === 1
+          ? {
+              content: [{ type: "tool_use", id: "t1", name: "create_task", input: { taskName: "X" } }],
+              stop_reason: "max_tokens",
+              usage: { input_tokens: 1, output_tokens: 1 },
+            }
+          : {
+              content: [{ type: "text", text: "ok" }],
+              stop_reason: "end_turn",
+              usage: { input_tokens: 1, output_tokens: 1 },
+            };
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+
+    // Send 1 — truncated tool_use lands in history.
+    fireEvent.change(ta, { target: { value: "create all entries" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
+
+    // Send 2 — must NOT re-post a dangling tool_use.
+    fireEvent.change(ta, { target: { value: "why no output?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+
+    const sent = JSON.parse(bodies[1]) as {
+      messages: { role: string; content: unknown }[];
+    };
+    const tuIdx = sent.messages.findIndex(
+      (m) => Array.isArray(m.content) && (m.content as { type: string }[]).some((b) => b.type === "tool_use"),
+    );
+    expect(tuIdx).toBeGreaterThanOrEqual(0);
+    const after = sent.messages[tuIdx + 1];
+    expect(after.role).toBe("user");
+    expect(
+      (after.content as { type: string; tool_use_id?: string }[]).some(
+        (b) => b.type === "tool_result" && b.tool_use_id === "t1",
+      ),
+    ).toBe(true);
+  });
+});
