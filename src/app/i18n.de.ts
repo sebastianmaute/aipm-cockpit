@@ -573,6 +573,7 @@ export const de: Record<TranslationKey, string> = {
   chatClear: "Chat leeren",
   chatClearConfirm: "Dieses Gespräch leeren? Die Nachrichten werden entfernt.",
   chatStop: "Stopp",
+  chatStopGenerating: "Generierung stoppen",
   chatStopped: "Abgebrochen",
   chatAttach: "Dokument anhängen",
   chatAttachmentRemove: "{0} entfernen",

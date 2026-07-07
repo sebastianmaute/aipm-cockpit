@@ -233,10 +233,13 @@ describe("Stop button", () => {
     const textarea = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(textarea, { target: { value: "list tasks" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    // Send-slot swap Stop + the Thinking-bubble Stop = 2.
+    // Two distinct controls: the send-slot swap ("Stop") + the Thinking-bubble
+    // one ("Stop generating") — distinct accessible names, no duplicate.
     await waitFor(() =>
-      expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(2),
+      expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument(),
     );
+    expect(screen.getByRole("button", { name: "Stop generating" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Stop" })).toHaveLength(1);
   });
 
   it("Escape interrupts the in-flight response (keyboard path)", async () => {

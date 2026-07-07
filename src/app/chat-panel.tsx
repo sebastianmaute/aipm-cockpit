@@ -582,8 +582,8 @@ function ChatPanelInner({
                 <button
                   type="button"
                   onClick={stopChat}
-                  aria-label={t(lang, "chatStop")}
-                  title={t(lang, "chatStop")}
+                  aria-label={t(lang, "chatStopGenerating")}
+                  title={t(lang, "chatStopGenerating")}
                   className={`rounded-md border border-AIPM-pink px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
                 >
                   {t(lang, "chatStop")}
