@@ -566,11 +566,12 @@ function TaskManagerInner() {
     handleSaveRole,
     handleDeleteRole,
     resolveOrCreateRole,
-    handleAssignResourceRole,
+    handleAssignRoleById,
     handleAddDiscipline,
     handleRenameDiscipline,
     onDeleteDiscipline,
     onReorderDisciplines,
+    onReorderRoles,
     handleAddGrade,
     handleRenameGrade,
     onDeleteGrade,
@@ -583,6 +584,8 @@ function TaskManagerInner() {
     handleEditResource,
     handleSaveResource,
     handleDeleteResource,
+    handleBulkEditResources,
+    handleBulkDeleteResources,
     handleImportResources,
     handleImportAbsences,
     handleCloseResourceModal,
@@ -1618,6 +1621,7 @@ function TaskManagerInner() {
         onSaveRole={handleSaveRole}
         onDeleteRole={handleDeleteRole}
         onResolveOrCreateRole={resolveOrCreateRole}
+        onReorderRoles={onReorderRoles}
         onAddDiscipline={handleAddDiscipline}
         onRenameDiscipline={handleRenameDiscipline}
         onDeleteDiscipline={onDeleteDiscipline}
@@ -1628,7 +1632,7 @@ function TaskManagerInner() {
         onReorderGrades={onReorderGrades}
       />
     ),
-    onAssignRole: guardEdit(handleAssignResourceRole),
+    onAssignRoleById: guardEdit(handleAssignRoleById),
     onSetUtilization: guardEdit(handleSetUtilization),
     // Same threshold the over-allocation ALERT uses so the workload cell's pink
     // highlight fires exactly when the alert does (#24 review).
@@ -1652,10 +1656,30 @@ function TaskManagerInner() {
     onRescheduleTask: guardEdit((taskId: number, iso: string) =>
       setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk))),
     ),
+    // Clear an unlinked workload row (an owner string matching NO resource, so a
+    // name/email string match can't hit a managed resource's record; a task
+    // linked by resourceId keeps that link — we only touch the free-text field).
+    // Tasks + RAID support an empty assignee/owner, so they are UNASSIGNED and
+    // kept. Absences + shifts REQUIRE an assignee (sanitizeAbsence/sanitizeShift
+    // drop an empty one on reload — an "unassigned absence" isn't representable),
+    // so the stray records are REMOVED outright.
+    onClearUnlinked: guardEdit((row: { display: string; email: string; firstName: string; lastName: string }) => {
+      const name = row.display.trim().toLowerCase();
+      const email = row.email.trim().toLowerCase();
+      const matchName = (s: string | undefined | null) => !!name && !!s && s.trim().toLowerCase() === name;
+      const matchEmail = (e: string | undefined | null) => !!email && !!e && e.trim().toLowerCase() === email;
+      setTasks((prev) => prev.map((tk) =>
+        matchName(tk.assignee) || matchEmail(tk.assigneeEmail) ? { ...tk, assignee: "", assigneeEmail: "" } : tk));
+      setRaid((prev) => prev.map((r) => matchName(r.owner) ? { ...r, owner: "" } : r));
+      setAbsences((prev) => prev.filter((a) => !matchName(a.assignee)));
+      setShifts((prev) => prev.filter((s) => !matchName(s.assignee)));
+    }),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
     onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),
     onSetPlanWindow: guardEdit(handleSetPlanWindow),
     onEditResource: guardEdit(handleEditResource),
+    onBulkEditResources: guardEdit(handleBulkEditResources),
+    onBulkDeleteResources: guardEdit(handleBulkDeleteResources),
     onAddResource: guardEdit(handleOpenAddResource),
     onImportOutlook:
       outlookContactsEnabled && msAuth.account && !importLoading

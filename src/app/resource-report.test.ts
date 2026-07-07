@@ -36,6 +36,24 @@ describe("computeResourceReport", () => {
     expect(rep.perResource[0]).toMatchObject({ name: "Bob", hasRole: false });
   });
 
+  test("external resource: counted in capacity but ZERO cost everywhere", () => {
+    const resources: Resource[] = [
+      { id: 3, firstName: "Ext", lastName: "", roleId: 5, isExternal: true, utilizationMode: "percent", utilization: { "2026-02": 100 } },
+    ];
+    const rep = computeResourceReport(resources, roles, disciplines, grades, plan, [], new Set(), 8);
+    // Capacity + headcount unchanged...
+    expect(rep.totalCapacityHours).toBeCloseTo(160, 6);
+    expect(rep.perResource[0]).toMatchObject({ name: "Ext", hasRole: true, capacityHours: 160 });
+    expect(rep.perDiscipline[0]).toMatchObject({ label: "Developer", headcount: 1 });
+    // ...but every cost figure is zero.
+    expect(rep.totalInternal).toBe(0);
+    expect(rep.totalExternal).toBe(0);
+    expect(rep.perResource[0].internal).toBe(0);
+    expect(rep.perResource[0].external).toBe(0);
+    expect(rep.perDiscipline[0].internal).toBe(0);
+    expect(rep.perPeriod[0].internal).toBe(0);
+  });
+
   test("no resources: zeroed totals, one zeroed per-period row, empty breakdowns", () => {
     const rep = computeResourceReport([], roles, disciplines, grades, plan, [], new Set(), 8);
     expect(rep.totalCapacityHours).toBe(0);

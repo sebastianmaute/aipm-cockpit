@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.167.0";
-export const APP_BUILD_DATE = "2026-07-06"; // 0.167.0: Codebase-audit improvement campaign roll-up — global search now covers budgets & resources; the activity log records per-field change diffs; a broad keyboard/screen-reader a11y pass (branded confirm dialogs, calendar keyboard grid, collapsed-sidebar flyout, mobile off-canvas drawer, focus-follows-view); and the workload view is actionable (inline utilization edit + overdue-task reassign/reschedule) (Rajaniemi)
+export const APP_VERSION = "0.168.0";
+export const APP_BUILD_DATE = "2026-07-07"; // 0.168.0: Resources & rate-card enhancement — a single role picker replaces the discipline+grade dropdowns, rate-card rows drag to reorder, external resources are capacity-tracked but excluded from all cost figures, resources carry additional (copy-on-click) email addresses, the directory gains bulk edit + delete, the AI assistant can get/update/delete directory entries, and stray unlinked workload rows can be cleared (Gibson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.167.x line is "Rajaniemi" (Hannu Rajaniemi). */
-export const APP_MILESTONE = "Rajaniemi";
+ *  0.168.x line is "Gibson" (William Gibson). */
+export const APP_MILESTONE = "Gibson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -189,4 +189,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightActivityDiff",
   "versionHighlightKeyboardA11y",
   "versionHighlightWorkloadActionable",
+  "versionHighlightResourceEnhance",
 ] as const;

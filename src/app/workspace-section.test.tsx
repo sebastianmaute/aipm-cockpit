@@ -74,7 +74,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     handleOpenAddAbsence: vi.fn(),
     handleEditAbsence: vi.fn() as (absence: Absence) => void,
     handleOpenShiftEditor: vi.fn() as (existingShift: Shift | null, assignee: { display: string; email: string }) => void,
-    onAssignRole: vi.fn(),
+    onAssignRoleById: vi.fn(),
     onSetUtilization: vi.fn(),
     overAllocatedPct: 100,
     onReassignTask: vi.fn(),

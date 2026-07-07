@@ -26,6 +26,16 @@ describe("allocationPlannedHours", () => {
     // Jan 2026 has 22 Mon–Fri workdays × 8h = 176h at 100%, +88h at 50%.
     expect(hours).toBeCloseTo(176 + 88, 5);
   });
+
+  test("excludes external resources from planned hours", () => {
+    const external: Resource = { ...res(9, 3, { "2026-01": 100 }), isExternal: true };
+    const resources = [res(5, 3, { "2026-01": 100 }), external];
+    const alloc = { roleId: 3, resourceIds: [5, 9], budgetHours: {}, actualHours: {} };
+    const period = { key: "2026-01", start: "2026-01-01", end: "2026-01-31" };
+    const hours = allocationPlannedHours(alloc, period, [period], resources, 8, noHolidays, "month");
+    // Only the internal resource (5) contributes — external (9) is skipped.
+    expect(hours).toBeCloseTo(176, 5);
+  });
 });
 
 describe("computeBudgetReport — spillover", () => {

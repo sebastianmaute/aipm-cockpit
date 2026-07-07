@@ -94,6 +94,8 @@ interface Props {
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
   /** Over-allocation threshold percent (the alert's `workloadAllocatedPct`). */
   overAllocatedPct: number;
+  /** Clear an unlinked workload row (blank matching assignee/owner strings). */
+  onClearUnlinked?: (row: { display: string; email: string; firstName: string; lastName: string }) => void;
   /** Reassign a workload overdue task to a resource (null = unassign) (#24). */
   onReassignTask: (taskId: number, resource: Resource | null) => void;
   /** Reschedule a workload overdue task's due date (#24). */
@@ -154,6 +156,7 @@ function ResourcesPanelInner({
   workdayHours,
   onSetUtilization,
   overAllocatedPct,
+  onClearUnlinked,
   onReassignTask,
   onRescheduleTask,
   onSetAllUtilizationMode,
@@ -302,7 +305,7 @@ function ResourcesPanelInner({
       const totalHours = periods.reduce((sum, p) =>
         sum + displayCapacityHours(p, canonicalPeriods, r, resAbs, workdayHours, holidaySet, plan.granularity, viewGranularity), 0);
       const role = roles.find((x) => x.id === r.roleId);
-      const cost = periodCost(totalHours, role);
+      const cost = periodCost(totalHours, r.isExternal ? undefined : role);
       return { resource: r, name: resourceDisplayName(r), totalHours, cost, capacityDays: totalHours / workdayHours, internalCost: cost.internal, externalCost: cost.external, margin: cost.margin };
     });
   }, [resources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
@@ -677,6 +680,7 @@ function ResourcesPanelInner({
           today={today}
           onEditResource={onEditResource}
           onAddResource={onAddResource}
+          onClearUnlinked={onClearUnlinked}
           onEditAbsence={onEditAbsence}
           onEditShift={onEditShift}
           nearTermPeriodKey={nearTerm.key}

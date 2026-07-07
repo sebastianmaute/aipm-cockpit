@@ -119,10 +119,13 @@ export function WorkspaceSection({
   handleEditAbsence,
   handleOpenShiftEditor,
   manageRolesView,
-  onAssignRole,
+  onAssignRoleById,
+  onBulkEditResources,
+  onBulkDeleteResources,
   onSetUtilization,
   overAllocatedPct,
   onReassignTask,
+  onClearUnlinked,
   onRescheduleTask,
   onSetAllUtilizationMode,
   onSetAbsenceOverride,
@@ -439,8 +442,10 @@ export function WorkspaceSection({
               roles={roles}
               disciplines={disciplines}
               grades={grades}
-              onAssignRole={onAssignRole}
+              onAssignRoleById={onAssignRoleById}
               onEditResource={onEditResource}
+              onBulkEditResources={onBulkEditResources}
+              onBulkDeleteResources={onBulkDeleteResources}
               onAddResource={onAddResource}
               onAddAbsence={handleOpenAddAbsence}
               onImportOutlook={onImportOutlook}
@@ -478,6 +483,7 @@ export function WorkspaceSection({
               overAllocatedPct={overAllocatedPct}
               onReassignTask={onReassignTask}
               onRescheduleTask={onRescheduleTask}
+              onClearUnlinked={onClearUnlinked}
               onSetAllUtilizationMode={onSetAllUtilizationMode}
               onSetAbsenceOverride={onSetAbsenceOverride}
               onSetPlanWindow={onSetPlanWindow}

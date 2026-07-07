@@ -724,4 +724,36 @@ describe("useChatDispatcher – resource directory", () => {
     expect(() => result.current.createResource({ firstName: "X" })).toThrow();
     expect(result.current.listResources()).toHaveLength(0);
   });
+
+  it("getResource fetches a created resource and returns null for a missing id", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    expect(result.current.getResource(created.id)).toMatchObject({ firstName: "Ada", lastName: "Lovelace" });
+    expect(result.current.getResource(999999)).toBeNull();
+  });
+
+  it("updateResource patches fields (incl. isExternal + emails) and returns null for a missing id", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" });
+    const updated = result.current.updateResource(created.id, {
+      title: "Lead", isExternal: true, emails: ["ada.alt@x.com"],
+    });
+    expect(updated).toMatchObject({ title: "Lead", isExternal: true, emails: ["ada.alt@x.com"] });
+    expect(result.current.getResource(created.id)).toMatchObject({ title: "Lead", isExternal: true });
+    expect(result.current.updateResource(999999, { title: "X" })).toBeNull();
+  });
+
+  it("deleteResource removes a resource and returns false for a missing id", () => {
+    const { result } = renderDispatcher();
+    const created = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    expect(result.current.deleteResource(created.id)).toBe(true);
+    expect(result.current.listResources().some((r) => r.id === created.id)).toBe(false);
+    expect(result.current.deleteResource(999999)).toBe(false);
+  });
+
+  it("updateResource + deleteResource are refused in read-only (popout)", () => {
+    const { result } = renderDispatcher(seedTasks(), true);
+    expect(() => result.current.updateResource(1, { title: "X" })).toThrow();
+    expect(() => result.current.deleteResource(1)).toThrow();
+  });
 });

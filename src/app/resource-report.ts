@@ -93,6 +93,9 @@ export function computeResourceReport(
   for (const r of resources) {
     const resAbs = absencesForResource(absences, r);
     const role = roles.find((x) => x.id === r.roleId);
+    // External resources are capacity/headcount-tracked but contribute ZERO to
+    // any cost figure — pass an undefined role to periodCost (→ all-zero cost).
+    const costRole = r.isExternal ? undefined : role;
     let resHours = 0;
     let utilSum = 0;
 
@@ -110,7 +113,7 @@ export function computeResourceReport(
       resHours += capH;
       utilSum += r.utilization[p.key] ?? 0;
 
-      const cost = periodCost(capH, role);
+      const cost = periodCost(capH, costRole);
       const idx = perPeriodIdx.get(p.key)!;
       perPeriod[idx].capacityHours += capH;
       perPeriod[idx].internal += cost.internal;
@@ -118,7 +121,7 @@ export function computeResourceReport(
       perPeriod[idx].margin += cost.margin;
     }
 
-    const resCost = periodCost(resHours, role);
+    const resCost = periodCost(resHours, costRole);
     totalCapacityHours += resHours;
     totalInternal += resCost.internal;
     totalExternal += resCost.external;

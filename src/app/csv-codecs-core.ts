@@ -143,8 +143,9 @@ export const RESOURCES_CSV_COLUMNS = [
   "id", "firstName", "lastName", "title", "businessPhone", "location",
   "department", "email", "company", "birthday", "notes",
   "roleId", "utilizationMode", "utilization", "absenceOverride", "active", "localModifiedAt",
+  "emails", "isExternal",
 ] as const;
-export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt"] as const;
+export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt", "order"] as const;
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
 export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [
@@ -546,6 +547,8 @@ export function resourceFieldToString(r: Resource, c: string): string {
     case "absenceOverride": return encodePeriodMap(r.absenceOverride);
     case "active": return r.active === false ? "false" : "";
     case "localModifiedAt": return r.localModifiedAt ?? "";
+    case "emails": return (r.emails ?? []).join("; ");
+    case "isExternal": return r.isExternal === true ? "true" : "";
     default: return "";
   }
 }

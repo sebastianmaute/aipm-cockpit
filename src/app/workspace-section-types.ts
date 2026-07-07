@@ -126,17 +126,23 @@ export interface WorkspaceSectionProps {
     assignee: { display: string; email: string },
   ) => void;
   manageRolesView?: React.ReactNode;
-  onAssignRole: (resourceId: number, disciplineId: number, gradeId: number) => void;
+  onAssignRoleById: (resourceId: number, roleId: number | null) => void;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
   /** Over-allocation threshold percent (the alert's `workloadAllocatedPct`). */
   overAllocatedPct: number;
   /** Workload overdue-task triage (#24): reassign to a resource / reschedule. */
   onReassignTask: (taskId: number, resource: Resource | null) => void;
   onRescheduleTask: (taskId: number, iso: string) => void;
+  /** Clear an unlinked workload row (blank matching assignee/owner strings). Omitted in read-only popouts. */
+  onClearUnlinked?: (row: { display: string; email: string; firstName: string; lastName: string }) => void;
   onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
+  /** Bulk-apply a patch to the selected resources (omitted in read-only popouts). */
+  onBulkEditResources?: (ids: readonly number[], patch: Partial<Resource>) => void;
+  /** Bulk-delete the selected resources (omitted in read-only popouts). */
+  onBulkDeleteResources?: (ids: readonly number[]) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
   onImportOutlook?: () => void;
   onImportOutlookCalendar?: () => void;

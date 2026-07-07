@@ -28,6 +28,8 @@ export interface RolesEditorProps {
   onSaveRole: (role: Role) => void;
   onDeleteRole: (id: number) => void;
   onResolveOrCreateRole: (disciplineId: number, gradeId: number) => number;
+  /** Reorder rate-card rows (manual drag order). Ids in the new order. */
+  onReorderRoles: (ids: number[]) => void;
   onAddDiscipline: (name: string) => number | null;
   onRenameDiscipline: (id: number, name: string) => void;
   onDeleteDiscipline: (id: number) => void;
@@ -48,11 +50,12 @@ function clampRate(raw: string): number {
 
 export function RolesEditor({
   lang, currency, roles, disciplines, grades,
-  onSaveRole, onDeleteRole, onResolveOrCreateRole,
+  onSaveRole, onDeleteRole, onResolveOrCreateRole, onReorderRoles,
   onAddDiscipline, onRenameDiscipline, onDeleteDiscipline, onReorderDisciplines,
   onAddGrade, onRenameGrade, onDeleteGrade, onReorderGrades,
   onResetSize,
 }: RolesEditorProps) {
+  const draggedRoleIdRef = useRef<number | null>(null);
   const curSymbol = currencySymbol(currency, localeFor(lang));
   const [newDiscipline, setNewDiscipline] = useState("");
   const [newGrade, setNewGrade] = useState("");
@@ -67,9 +70,12 @@ export function RolesEditor({
   const sortedRoles = useMemo(() => {
     const arr = [...roles];
     if (!sort) {
-      return arr.sort((a, b) =>
-        roleLabel(a, disciplines, grades).localeCompare(roleLabel(b, disciplines, grades)),
-      );
+      // Default (no column sort): manual drag order. `order` when present,
+      // else the array index — stable, and the drag handle rewrites `order`.
+      return arr
+        .map((r, i) => ({ r, i }))
+        .sort((a, b) => (a.r.order ?? a.i) - (b.r.order ?? b.i) || a.i - b.i)
+        .map((x) => x.r);
     }
     const val = (r: Role): string | number => {
       switch (sort.key) {
@@ -149,9 +155,33 @@ export function RolesEditor({
                 // The rate inputs sit in bare <td>s with no per-row header, so
                 // each needs an explicit name carrying its row + column context.
                 const rowCtx = `${disciplineName} / ${gradeName}`;
+                // Drag reorder only in the default (unsorted) view — dragging a
+                // column-sorted view would fight the sort.
+                const reorderable = !sort;
                 return (
-                <tr key={r.id}>
-                  <td className="px-3 py-2">{disciplineName}</td>
+                <tr
+                  key={r.id}
+                  draggable={reorderable}
+                  onDragStart={reorderable ? (e) => { draggedRoleIdRef.current = r.id; e.dataTransfer.effectAllowed = "move"; } : undefined}
+                  onDragOver={reorderable ? (e) => { e.preventDefault(); } : undefined}
+                  onDrop={reorderable ? (e) => {
+                    e.preventDefault();
+                    const fromId = draggedRoleIdRef.current;
+                    if (fromId === null || fromId === r.id) return;
+                    const ids = sortedRoles.map((x) => x.id).filter((id) => id !== fromId);
+                    const dropIdx = ids.indexOf(r.id);
+                    ids.splice(dropIdx, 0, fromId);
+                    onReorderRoles(ids);
+                    draggedRoleIdRef.current = null;
+                  } : undefined}
+                  onDragEnd={reorderable ? () => { draggedRoleIdRef.current = null; } : undefined}
+                >
+                  <td className="px-3 py-2">
+                    {reorderable && (
+                      <span title={t(lang, "reorderHint")} aria-hidden className="mr-1 cursor-move select-none text-muted-foreground">≡</span>
+                    )}
+                    {disciplineName}
+                  </td>
                   <td className="px-3 py-2">{gradeName}</td>
                   <td className="px-3 py-2 text-right">
                     <span className="inline-flex items-center justify-end gap-1">

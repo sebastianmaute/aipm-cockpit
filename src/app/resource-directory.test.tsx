@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
+import { ConfirmProvider } from "./confirm-dialog";
 import type { Resource } from "./types";
 import { t } from "./i18n";
 
@@ -16,7 +17,7 @@ const common = {
   roles: [],
   disciplines: [],
   grades: [],
-  onAssignRole: vi.fn(),
+  onAssignRoleById: vi.fn(),
   onEditResource: vi.fn(),
   onAddResource: vi.fn(),
   onAddAbsence: vi.fn(),
@@ -27,13 +28,13 @@ describe("ResourceDirectory", () => {
 
   it("fires onEditResource when the name is clicked", () => {
     const onEdit = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
     expect(onEdit).toHaveBeenCalledWith(rs[0]);
   });
   it("fires onAddResource from the add button", () => {
     const onAdd = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={onAdd} onAddAbsence={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={onAdd} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /add resource/i }));
     // Must be called with NO argument — forwarding the click event as `seed`
     // pollutes the resource draft with a PointerEvent and crashes BroadcastChannel.
@@ -41,7 +42,7 @@ describe("ResourceDirectory", () => {
   });
   it("fires onAddAbsence from the Add Absence button", () => {
     const onAdd = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={onAdd} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={onAdd} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "resourcesAddAbsence") }));
     // Must be called with NO argument — forwarding the click event as `seed`
     // pollutes the absence draft with a PointerEvent and crashes BroadcastChannel.
@@ -74,7 +75,7 @@ describe("ResourceDirectory", () => {
 
   it("clicking a directory row opens the editor (RAID-style row click)", () => {
     const onEdit = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
     const row = screen.getByRole("button", { name: "Alex Example" }).closest("tr")!;
     expect(row.className).toContain("cursor-pointer");
     expect(row.className).toContain("hover:bg-surface-muted");
@@ -85,29 +86,93 @@ describe("ResourceDirectory", () => {
 
   it("clicking the name button fires onEditResource exactly once (stopPropagation prevents double-fire)", () => {
     const onEdit = vi.fn();
-    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRole={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
+    render(<ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]} onAssignRoleById={vi.fn()} onEditResource={onEdit} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Alex Example" }));
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
 
-  it("clicking the discipline/grade select does NOT open the editor (stopPropagation)", () => {
+  it("assigns a role via the single picker and does NOT open the editor (stopPropagation)", () => {
     const onEdit = vi.fn();
+    const onAssign = vi.fn();
     render(
       <ResourceDirectory
         lang="en-US"
         resources={rs}
-        roles={[]}
+        roles={[{ id: 5, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }]}
         disciplines={[{ id: 1, name: "Engineering" }]}
         grades={[{ id: 1, name: "Senior" }]}
-        onAssignRole={vi.fn()}
+        onAssignRoleById={onAssign}
         onEditResource={onEdit}
         onAddResource={vi.fn()}
         onAddAbsence={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("combobox", { name: "Discipline for Alex Example" }));
-    fireEvent.click(screen.getByRole("combobox", { name: "Grade for Alex Example" }));
+    const select = screen.getByRole("combobox", { name: "Role for Alex Example" });
+    fireEvent.click(select);
+    fireEvent.change(select, { target: { value: "5" } });
+    expect(onAssign).toHaveBeenCalledWith(1, 5);
     expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("renders primary + additional emails as copy buttons and copies on click", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const withEmails: Resource[] = [
+      { id: 1, firstName: "Ada", lastName: "Byte", email: "ada@x.com", emails: ["ada.alt@y.com"], roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    render(<ResourceDirectory {...common} resources={withEmails} />);
+    const primary = screen.getByRole("button", { name: "Copy ada@x.com" });
+    const alt = screen.getByRole("button", { name: "Copy ada.alt@y.com" });
+    expect(alt).toBeInTheDocument();
+    fireEvent.click(primary);
+    expect(writeText).toHaveBeenCalledWith("ada@x.com");
+    fireEvent.click(alt);
+    expect(writeText).toHaveBeenCalledWith("ada.alt@y.com");
+  });
+
+  it("shows no checkbox column without bulk handlers", () => {
+    render(<ResourceDirectory {...common} resources={twoResources} />);
+    expect(screen.queryByRole("checkbox", { name: /select all/i })).toBeNull();
+  });
+
+  it("selecting rows shows the bulk bar; bulk-edit applies a patch to the selection", () => {
+    const onBulkEdit = vi.fn();
+    render(
+      <ResourceDirectory
+        {...common}
+        resources={twoResources}
+        roles={[{ id: 5, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }]}
+        disciplines={[{ id: 1, name: "Eng" }]}
+        grades={[{ id: 1, name: "Senior" }]}
+        onBulkEditResources={onBulkEdit}
+        onBulkDeleteResources={vi.fn()}
+      />,
+    );
+    // Select all visible → bulk bar appears.
+    fireEvent.click(screen.getByRole("checkbox", { name: /select all/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^bulk edit$/i }));
+    // Enable the External field (its enable checkbox), set it to External, apply.
+    fireEvent.click(screen.getByRole("checkbox", { name: /external resource/i }));
+    fireEvent.change(screen.getByRole("combobox", { name: /external resource/i }), { target: { value: "yes" } });
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+    expect(onBulkEdit).toHaveBeenCalledTimes(1);
+    const [ids, patch] = onBulkEdit.mock.calls[0];
+    expect(ids.sort()).toEqual([1, 2]);
+    expect(patch).toMatchObject({ isExternal: true });
+  });
+
+  it("bulk delete confirms then calls onBulkDeleteResources", async () => {
+    const onBulkDelete = vi.fn();
+    render(
+      <ConfirmProvider lang="en-US">
+        <ResourceDirectory {...common} resources={twoResources} onBulkEditResources={vi.fn()} onBulkDeleteResources={onBulkDelete} />
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /select all/i }));
+    fireEvent.click(screen.getByRole("button", { name: /delete selected/i }));
+    // Branded confirm dialog → click Confirm.
+    fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
+    await waitFor(() => expect(onBulkDelete).toHaveBeenCalledWith(expect.arrayContaining([1, 2])));
   });
 
   it("gives the directory search box a descriptive tooltip", () => {
@@ -122,12 +187,12 @@ describe("ResourceDirectory", () => {
     const onImport = vi.fn();
     const { rerender } = render(
       <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
-        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />,
+        onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} />,
     );
     expect(screen.queryByRole("button", { name: t("en-US", "outlookImportButton") })).toBeNull();
     rerender(
       <ResourceDirectory lang="en-US" resources={rs} roles={[]} disciplines={[]} grades={[]}
-        onAssignRole={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} onImportOutlook={onImport} />,
+        onAssignRoleById={vi.fn()} onEditResource={vi.fn()} onAddResource={vi.fn()} onAddAbsence={vi.fn()} onImportOutlook={onImport} />,
     );
     const btn = screen.getByRole("button", { name: t("en-US", "outlookImportButton") });
     fireEvent.click(btn);

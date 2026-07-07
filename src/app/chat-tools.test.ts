@@ -129,6 +129,13 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     createResource: vi.fn((input) => ({
       id: 8, firstName: "R", lastName: "", ...(input as object),
     })),
+    getResource: vi.fn((id: number) =>
+      id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" } : null,
+    ),
+    updateResource: vi.fn((id: number, patch) =>
+      id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", ...(patch as object) } : null,
+    ),
+    deleteResource: vi.fn((id: number) => id === 7),
     getSnapshot: vi.fn(() => ({
       today: "2026-06-02",
       language: "en-US" as const,
@@ -557,6 +564,9 @@ describe("TOOL_DEFS — write tools are registered with required fields", () => 
     create_stakeholder: ["name"],
     update_stakeholder: ["id"],
     delete_stakeholder: ["id"],
+    get_resource: ["id"],
+    update_resource: ["id"],
+    delete_resource: ["id"],
   };
 
   it("registers every write tool plus list_stakeholders", () => {
@@ -651,5 +661,20 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
     await expect(runTool(d, "update_change", { id: 99 })).rejects.toThrow("change #99 not found");
     await expect(runTool(d, "update_milestone", { id: 99 })).rejects.toThrow("milestone #99 not found");
     await expect(runTool(d, "update_stakeholder", { id: 99 })).rejects.toThrow("stakeholder #99 not found");
+  });
+
+  it("get_resource fetches by id; update strips id; delete echoes id", async () => {
+    const d = makeDispatcher();
+    expect(await runTool(d, "get_resource", { id: 7 })).toMatchObject({ id: 7, firstName: "Ada" });
+    await runTool(d, "update_resource", { id: 7, title: "Lead" });
+    expect(d.updateResource).toHaveBeenCalledWith(7, { title: "Lead" });
+    expect(await runTool(d, "delete_resource", { id: 7 })).toEqual({ deleted: 7 });
+  });
+
+  it("throws when fetching/updating/deleting a missing resource", async () => {
+    const d = makeDispatcher();
+    await expect(runTool(d, "get_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
+    await expect(runTool(d, "update_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
+    await expect(runTool(d, "delete_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
   });
 });

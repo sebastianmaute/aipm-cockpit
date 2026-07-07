@@ -131,6 +131,8 @@ const RESOURCES_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "absenceOverride", label: "AbsenceOverride" },
   { col: "active", label: "Active" },
   { col: "localModifiedAt", label: "LocalModified" },
+  { col: "emails", label: "Emails" },
+  { col: "isExternal", label: "External" },
 ];
 
 const ROLES_MD_COLUMNS: readonly { col: string; label: string }[] = [
@@ -140,6 +142,7 @@ const ROLES_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "internalRate", label: "InternalRate" },
   { col: "externalRate", label: "ExternalRate" },
   { col: "localModifiedAt", label: "LocalModified" },
+  { col: "order", label: "Order" },
 ];
 
 const BUDGETS_MD_COLUMNS: readonly { col: string; label: string }[] = [

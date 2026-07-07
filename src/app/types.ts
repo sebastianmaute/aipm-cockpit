@@ -462,6 +462,8 @@ export type Role = {
   internalRate: number;
   /** Customer-billable per hour. */
   externalRate: number;
+  /** Manual rate-card row order (ascending); absent ⇒ fall back to array index. */
+  order?: number;
   localModifiedAt?: string;
 };
 
@@ -476,9 +478,13 @@ export type Resource = {
   location?: string;
   department?: string;
   email?: string;
+  /** Additional email addresses beyond the primary `email`. */
+  emails?: string[];
   company?: string;
   birthday?: string;   // "MM-DD" (zero-padded month-day, no year)
   notes?: string;      // free text (may contain commas, pipes, newlines)
+  /** External resource: planned/capacity-tracked but excluded from all cost figures. */
+  isExternal?: boolean;
   /** FK -> Role.id; null when unassigned. */
   roleId: number | null;
   utilizationMode: UtilizationMode;

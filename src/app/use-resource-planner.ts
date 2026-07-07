@@ -7,6 +7,7 @@ import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
+import { sanitizeResource } from "./sanitize";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
@@ -421,6 +422,44 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [resources, setResources],
   );
 
+  // Bulk edit: merge the same patch into every selected resource in ONE
+  // functional set (the N-saves-per-tick landmine — a non-functional setter
+  // would drop all but the last).
+  const handleBulkEditResources = useCallback(
+    (ids: readonly number[], patch: Partial<Resource>) => {
+      const idSet = new Set(ids);
+      const stamp = new Date().toISOString();
+      const affected = resources.filter((r) => idSet.has(r.id));
+      setResources((prev) =>
+        prev.map((r) => {
+          if (!idSet.has(r.id)) return r;
+          const merged: Resource = { ...r, ...patch, localModifiedAt: stamp };
+          // Route through the single validator so bulk-edited text fields get the
+          // same caps the load path applies (never unbounded in JSON/IDB); the
+          // merge keeps names intact so it can't return null, but fall back defensively.
+          return sanitizeResource(merged) ?? merged;
+        }),
+      );
+      for (const r of affected) {
+        logActivityRef.current("resource.updated", r.id, `${r.firstName} ${r.lastName}`.trim());
+      }
+    },
+    [resources, setResources],
+  );
+
+  const handleBulkDeleteResources = useCallback(
+    (ids: readonly number[]) => {
+      const idSet = new Set(ids);
+      const removed = resources.filter((r) => idSet.has(r.id));
+      setResources((prev) => prev.filter((r) => !idSet.has(r.id)));
+      setEditingResource(null);
+      for (const r of removed) {
+        logActivityRef.current("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());
+      }
+    },
+    [resources, setResources],
+  );
+
   const handleImportResources = useCallback(
     (selected: readonly OutlookContact[]): void => {
       if (selected.length === 0) return;
@@ -500,6 +539,21 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setResources((prev) =>
         prev.map((r) =>
           r.id === resourceId ? { ...r, roleId: null, localModifiedAt: stamp } : r,
+        ),
+      );
+    },
+    [setResources],
+  );
+
+  // Directory single-role picker: assign an existing rate-card role directly by
+  // id (or clear with null). Unlike handleAssignResourceRole this never mints a
+  // role — new discipline/grade combos are authored in the rate-card editor.
+  const handleAssignRoleById = useCallback(
+    (resourceId: number, roleId: number | null) => {
+      const stamp = new Date().toISOString();
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId ? { ...r, roleId, localModifiedAt: stamp } : r,
         ),
       );
     },
@@ -587,6 +641,19 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         .filter((g): g is (typeof prev)[number] => !!g),
     );
   }, [setGrades]);
+
+  // Rate-card row reorder: roles carry an explicit `order` field (not array
+  // order) so the manual sequence survives Turso, which doesn't guarantee row
+  // order without an ORDER BY. Rewrite each moved role's order to its new index.
+  const onReorderRoles = useCallback((orderedIds: number[]) => {
+    const stamp = new Date().toISOString();
+    setRoles((prev) => {
+      const orderMap = new Map(orderedIds.map((id, i) => [id, i]));
+      return prev.map((r) =>
+        orderMap.has(r.id) ? { ...r, order: orderMap.get(r.id)!, localModifiedAt: stamp } : r,
+      );
+    });
+  }, [setRoles]);
 
   const handleCreateMitigationTaskFromRaid = useCallback(
     (raidItemId: number): number | null => {
@@ -706,6 +773,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleCloseResourceModal,
     handleSaveResource,
     handleDeleteResource,
+    handleBulkEditResources,
+    handleBulkDeleteResources,
     handleImportResources,
     handleSaveRaidItem,
     handleDeleteRaidItem,
@@ -724,6 +793,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleSaveRole,
     handleDeleteRole,
     handleAssignResourceRole,
+    handleAssignRoleById,
     handleClearResourceRole,
     handleAddDiscipline,
     handleRenameDiscipline,
@@ -733,6 +803,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     onDeleteGrade,
     onReorderDisciplines,
     onReorderGrades,
+    onReorderRoles,
     handleSetUtilization,
     handleSetAllUtilizationMode,
     handleSetAbsenceOverride,

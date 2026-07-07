@@ -10,6 +10,7 @@ import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { WorkloadOverdueTriage } from "./resource-workload-triage";
+import { useConfirm } from "./confirm-dialog";
 
 export const WORKLOAD_COL_WIDTHS = {
   assignee: 160,
@@ -35,6 +36,10 @@ interface Props {
   today: string;
   onEditResource: (r: Resource) => void;
   onAddResource: (seed: Partial<Resource>) => void;
+  /** Clear an unlinked row: blank the assignee/owner on every task/absence/shift/
+   *  RAID that matches this name/email so the derived row disappears. Omitted in
+   *  read-only popouts. */
+  onClearUnlinked?: (row: { display: string; email: string; firstName: string; lastName: string }) => void;
   onEditAbsence: (a: Absence) => void;
   onEditShift: (
     existing: Shift | null,
@@ -71,6 +76,7 @@ export function ResourceWorkload({
   today,
   onEditResource,
   onAddResource,
+  onClearUnlinked,
   onEditAbsence,
   onEditShift,
   nearTermPeriodKey,
@@ -85,6 +91,7 @@ export function ResourceWorkload({
     () => buildResourceWorkload(resources, tasks, absences, shifts, raid, today),
     [resources, tasks, absences, shifts, raid, today],
   );
+  const confirm = useConfirm();
 
   const { colWidths } = colResize;
   const startColResize = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
@@ -279,6 +286,19 @@ export function ResourceWorkload({
                     >
                       {t(lang, "resourcesAddAsResource")}
                     </button>
+                    {onClearUnlinked && (
+                      <button
+                        type="button"
+                        aria-label={t(lang, "resourcesClearUnlinked", row.display)}
+                        title={t(lang, "resourcesClearUnlinkedHint")}
+                        onClick={async () => {
+                          if (await confirm({ message: t(lang, "resourcesClearUnlinkedConfirm", row.display), tone: "danger" })) {
+                            onClearUnlinked({ display: row.display, email: row.email, firstName: row.firstName, lastName: row.lastName });
+                          }
+                        }}
+                        className={`ml-1 rounded p-1 text-xs text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink ${INTERACTIVE}`}
+                      >×</button>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {row.email || "—"}

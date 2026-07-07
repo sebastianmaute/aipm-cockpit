@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS } from "./resource-workload";
+import { ConfirmProvider } from "./confirm-dialog";
 import { t } from "./i18n";
 import type { Resource, Task } from "./types";
 
@@ -69,6 +70,27 @@ describe("ResourceWorkload", () => {
     expect(screen.getByText("Bob Lee")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /add as resource/i }));
     expect(onAddResource).toHaveBeenCalledWith(expect.objectContaining({ firstName: "Bob", lastName: "Lee", email: "bob@x.com" }));
+  });
+
+  it("no clear-unlinked (×) button without onClearUnlinked", () => {
+    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", notes: "", inquiriesSent: 0 }];
+    render(<ResourceWorkload {...baseProps} tasks={tasks} />);
+    expect(screen.queryByRole("button", { name: /clear bob lee/i })).toBeNull();
+  });
+
+  it("clears an unlinked row via confirm → onClearUnlinked with the row identity", async () => {
+    const onClearUnlinked = vi.fn();
+    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", notes: "", inquiriesSent: 0 }];
+    render(
+      <ConfirmProvider lang="en-US">
+        <ResourceWorkload {...baseProps} tasks={tasks} onClearUnlinked={onClearUnlinked} />
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /clear bob lee/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
+    await waitFor(() =>
+      expect(onClearUnlinked).toHaveBeenCalledWith(expect.objectContaining({ display: "Bob Lee", email: "bob@x.com", firstName: "Bob", lastName: "Lee" })),
+    );
   });
 
   it("no longer renders its own reset-column-widths button (moved to the panel header)", () => {

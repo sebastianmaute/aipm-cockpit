@@ -141,11 +141,14 @@ export type ResourceInput = {
   /** A single full name; split into first/last when the parts aren't given. */
   name?: string;
   email?: string;
+  emails?: string[];
   title?: string;
   department?: string;
   company?: string;
   location?: string;
   businessPhone?: string;
+  isExternal?: boolean;
+  roleId?: number;
   notes?: string;
 };
 
@@ -154,8 +157,11 @@ export type ResourceSummary = {
   firstName: string;
   lastName: string;
   email?: string;
+  emails?: string[];
   title?: string;
   department?: string;
+  isExternal?: boolean;
+  roleId?: number | null;
 };
 
 export type ToolDispatcher = {
@@ -186,6 +192,9 @@ export type ToolDispatcher = {
   updateStakeholder(id: number, patch: Partial<StakeholderInput>): StakeholderSummary | null;
   deleteStakeholder(id: number): boolean;
   createResource(input: ResourceInput): ResourceSummary;
+  getResource(id: number): ResourceSummary | null;
+  updateResource(id: number, patch: Partial<ResourceInput>): ResourceSummary | null;
+  deleteResource(id: number): boolean;
   getSnapshot(): {
     today: string;
     language: Lang;
@@ -301,8 +310,11 @@ export function toResourceSummary(item: Resource): ResourceSummary {
     firstName: item.firstName,
     lastName: item.lastName,
     email: item.email,
+    emails: item.emails,
     title: item.title,
     department: item.department,
+    isExternal: item.isExternal,
+    roleId: item.roleId,
   };
 }
 
@@ -478,6 +490,26 @@ export async function runTool(
 
     case "create_resource":
       return d.createResource(input as ResourceInput);
+
+    case "get_resource": {
+      const id = requireId(input);
+      const found = d.getResource(id);
+      if (!found) throw new Error(`resource #${id} not found`);
+      return found;
+    }
+
+    case "update_resource": {
+      const id = requireId(input);
+      const updated = d.updateResource(id, patchWithoutId(input) as Partial<ResourceInput>);
+      if (!updated) throw new Error(`resource #${id} not found`);
+      return updated;
+    }
+
+    case "delete_resource": {
+      const id = requireId(input);
+      if (!d.deleteResource(id)) throw new Error(`resource #${id} not found`);
+      return { deleted: id };
+    }
 
     case "create_stakeholder":
       return d.createStakeholder(input as StakeholderInput);

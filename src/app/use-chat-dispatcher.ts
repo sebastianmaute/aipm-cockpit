@@ -564,6 +564,34 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         setResources(next);
         return toResourceSummary(item);
       },
+      getResource: (id: number) => {
+        const found = resourcesRef.current.find((r) => r.id === id);
+        return found ? toResourceSummary(found) : null;
+      },
+      updateResource: (id: number, patch: Partial<ResourceInput>) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const existing = resourcesRef.current.find((r) => r.id === id);
+        if (!existing) return null;
+        const merged = sanitizeResource({
+          ...existing,
+          ...patch,
+          id,
+          localModifiedAt: new Date().toISOString(),
+        });
+        if (!merged) throw new Error("invalid resource update");
+        const next = resourcesRef.current.map((r) => (r.id === id ? merged : r));
+        resourcesRef.current = next;
+        setResources(next);
+        return toResourceSummary(merged);
+      },
+      deleteResource: (id: number) => {
+        if (args.isReadOnly) throw readOnlyError();
+        if (!resourcesRef.current.some((r) => r.id === id)) return false;
+        const next = resourcesRef.current.filter((r) => r.id !== id);
+        resourcesRef.current = next;
+        setResources(next);
+        return true;
+      },
 
       getSnapshot: () => {
         const tasks = tasksRef.current;
