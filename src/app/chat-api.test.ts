@@ -1,9 +1,26 @@
 import { describe, it, expect } from "vitest";
 import {
   closeDanglingToolUses,
+  maxOutputTokensFor,
   type ApiMessage,
   type ToolResultBlock,
 } from "./chat-api";
+
+describe("maxOutputTokensFor", () => {
+  it("floors the legacy Claude 3.0 trio at 4096 (their hard cap)", () => {
+    expect(maxOutputTokensFor("claude-3-haiku-20240307")).toBe(4096);
+    expect(maxOutputTokensFor("claude-3-opus-20240229")).toBe(4096);
+    expect(maxOutputTokensFor("claude-3-sonnet-20240229")).toBe(4096);
+  });
+  it("uses 8192 for 3.5+/4.x and unknown/future models", () => {
+    expect(maxOutputTokensFor("claude-3-5-sonnet-20241022")).toBe(8192);
+    expect(maxOutputTokensFor("claude-3-7-sonnet-20250219")).toBe(8192);
+    expect(maxOutputTokensFor("claude-sonnet-4")).toBe(8192);
+    expect(maxOutputTokensFor("claude-opus-4-8")).toBe(8192);
+    expect(maxOutputTokensFor("claude-haiku-4-5-20251001")).toBe(8192);
+    expect(maxOutputTokensFor("claude-something-new")).toBe(8192);
+  });
+});
 
 // A conversation is invalid to the Anthropic API when an assistant message with
 // `tool_use` blocks is not immediately followed by a user message carrying a
