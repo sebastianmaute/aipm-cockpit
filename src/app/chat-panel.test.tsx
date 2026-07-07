@@ -879,7 +879,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
       call += 1;
       const body =
         call === 1
-          ? { content: [{ type: "text", text: "First half" }], stop_reason: "max_tokens", usage: { input_tokens: 1, output_tokens: 1 } }
+          ? { content: [{ type: "text", text: "First half " }], stop_reason: "max_tokens", usage: { input_tokens: 1, output_tokens: 1 } }
           : { content: [{ type: "text", text: "second half." }], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } };
       return Promise.resolve({
         ok: true,
@@ -895,11 +895,44 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     fireEvent.change(ta, { target: { value: "write a lot" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    await waitFor(() => expect(screen.getByText("second half.")).toBeInTheDocument());
-    expect(screen.getByText("First half")).toBeInTheDocument();
+    // Continuation is STITCHED into one bubble (no split mid code-fence/table).
+    await waitFor(() => expect(screen.getByText("First half second half.")).toBeInTheDocument());
     expect(bodies).toHaveLength(2);
     // The continuation carried the invisible nudge — sent to the API, not shown.
     expect(bodies[1]).toContain("cut off at the length limit");
     expect(screen.queryByText(/cut off at the length limit/)).toBeNull();
+  });
+
+  it("surfaces a partial-answer note when the round-trip cap is exhausted", async () => {
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      void init;
+      call += 1;
+      // Never reaches end_turn — every turn truncates.
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: `chunk ${call} ` }],
+            stop_reason: "max_tokens",
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "endless" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // Bounded by the 12-turn cap, then a partial-answer note (not a silent stop).
+    await waitFor(
+      () => expect(screen.getByText(/cut short at the length limit/i)).toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+    expect(call).toBe(12);
   });
 });

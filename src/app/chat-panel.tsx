@@ -248,6 +248,12 @@ function ChatPanelInner({
       // Accumulate token usage across all turns for this send.
       let totalInput = 0;
       let totalOutput = 0;
+      // When the previous turn was a max_tokens continuation, the next turn's
+      // text is appended to the SAME bubble (a split mid code-fence/table would
+      // otherwise render as two broken blocks). `completed` distinguishes a clean
+      // end_turn from exhausting the round-trip cap (so we can flag a partial).
+      let continueBubble = false;
+      let completed = false;
 
       // Round-trip loop: keep going until the model finishes (end_turn). Two
       // reasons to continue — a tool call to run, or a length-cap truncation to
@@ -270,11 +276,21 @@ function ChatPanelInner({
         };
         messages.push(assistantMsg);
 
-        for (const block of response.content) {
-          if (block.type === "text" && block.text.trim()) {
-            const text = block.text;
-            setDisplay((prev) => [...prev, { kind: "assistant", text }]);
-          }
+        const turnText = response.content
+          .filter((b): b is TextBlock => b.type === "text" && b.text.trim() !== "")
+          .map((b) => b.text)
+          .join("");
+        if (turnText) {
+          const stitch = continueBubble;
+          setDisplay((prev) => {
+            if (stitch) {
+              const last = prev[prev.length - 1];
+              if (last && last.kind === "assistant") {
+                return [...prev.slice(0, -1), { ...last, text: last.text + turnText }];
+              }
+            }
+            return [...prev, { kind: "assistant", text: turnText }];
+          });
         }
 
         if (cancelledRef.current) break;
@@ -313,6 +329,7 @@ function ChatPanelInner({
           }
 
           messages.push({ role: "user", content: results });
+          continueBubble = false; // tool output breaks the text flow — new bubble
           continue;
         }
 
@@ -335,10 +352,12 @@ function ChatPanelInner({
           }
           parts.push({ type: "text", text: CONTINUE_NUDGE });
           messages.push({ role: "user", content: parts });
+          continueBubble = true; // stitch the resumed text onto the same bubble
           continue;
         }
 
         // end_turn / stop_sequence — the model is done.
+        completed = true;
         break;
       }
 
@@ -349,6 +368,14 @@ function ChatPanelInner({
           { kind: "assistant", text: t(lang, "chatStopped") },
         ]);
       } else {
+        // Hit the round-trip cap while still continuing (never reached end_turn):
+        // surface that the answer is partial rather than stopping silently.
+        if (!completed) {
+          setDisplay((prev) => [
+            ...prev,
+            { kind: "assistant", text: t(lang, "chatTruncatedNote") },
+          ]);
+        }
         // Record summed token usage for the entire send (all turns combined).
         // Skipped on cancel — no complete turn to bill.
         recordUsage({ input: totalInput, output: totalOutput });
