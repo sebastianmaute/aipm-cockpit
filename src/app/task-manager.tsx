@@ -1656,6 +1656,20 @@ function TaskManagerInner() {
     onRescheduleTask: guardEdit((taskId: number, iso: string) =>
       setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk))),
     ),
+    // Clear an unlinked workload row: blank the assignee/owner strings on every
+    // task/absence/shift/RAID that produced it (matched by case-folded name or
+    // email), so the derived row vanishes. Records are kept, just unassigned.
+    onClearUnlinked: guardEdit((row: { display: string; email: string; firstName: string; lastName: string }) => {
+      const name = row.display.trim().toLowerCase();
+      const email = row.email.trim().toLowerCase();
+      const matchName = (s: string | undefined | null) => !!name && !!s && s.trim().toLowerCase() === name;
+      const matchEmail = (e: string | undefined | null) => !!email && !!e && e.trim().toLowerCase() === email;
+      setTasks((prev) => prev.map((tk) =>
+        matchName(tk.assignee) || matchEmail(tk.assigneeEmail) ? { ...tk, assignee: "", assigneeEmail: "" } : tk));
+      setAbsences((prev) => prev.map((a) => matchName(a.assignee) ? { ...a, assignee: "" } : a));
+      setShifts((prev) => prev.map((s) => matchName(s.assignee) ? { ...s, assignee: "" } : s));
+      setRaid((prev) => prev.map((r) => matchName(r.owner) ? { ...r, owner: "" } : r));
+    }),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
     onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),
     onSetPlanWindow: guardEdit(handleSetPlanWindow),

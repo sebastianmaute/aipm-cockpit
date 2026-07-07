@@ -133,6 +133,8 @@ export interface WorkspaceSectionProps {
   /** Workload overdue-task triage (#24): reassign to a resource / reschedule. */
   onReassignTask: (taskId: number, resource: Resource | null) => void;
   onRescheduleTask: (taskId: number, iso: string) => void;
+  /** Clear an unlinked workload row (blank matching assignee/owner strings). Omitted in read-only popouts. */
+  onClearUnlinked?: (row: { display: string; email: string; firstName: string; lastName: string }) => void;
   onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;

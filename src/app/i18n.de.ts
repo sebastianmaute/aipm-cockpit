@@ -1544,6 +1544,9 @@ export const de: Record<TranslationKey, string> = {
 
   resourcesUnlinked: "Nicht zugeordnet",
   resourcesUnlinkedHint: "Nicht im Verzeichnis",
+  resourcesClearUnlinked: "{0} entfernen",
+  resourcesClearUnlinkedHint: "Diesen verwaisten Eintrag entfernen, indem die zugeordnete Person auf den zugrunde liegenden Datensätzen geleert wird.",
+  resourcesClearUnlinkedConfirm: "\"{0}\" aus allen Aufgaben, Abwesenheiten, Schichten und RAID-Einträgen entfernen, die diesen Namen referenzieren? Die Datensätze bleiben erhalten, aber ohne Zuordnung.",
   resourcesAddAsResource: "Als Ressource hinzufügen",
   resourcePickerAddAsResource: "+ „{0}“ als Ressource hinzufügen",
   resourcePickerLinked: "Mit einer Ressource verknüpft",

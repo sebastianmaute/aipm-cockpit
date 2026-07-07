@@ -1550,6 +1550,9 @@ const enUS = {
 
   resourcesUnlinked: "Unlinked",
   resourcesUnlinkedHint: "Not in the address book",
+  resourcesClearUnlinked: "Clear {0}",
+  resourcesClearUnlinkedHint: "Remove this stray entry by clearing the assignee/owner on the records that produced it.",
+  resourcesClearUnlinkedConfirm: "Clear \"{0}\" from every task, absence, shift, and RAID that references this name? The records are kept but left unassigned.",
   resourcesAddAsResource: "Add as resource",
   resourcePickerAddAsResource: "+ Add “{0}” as resource",
   resourcePickerLinked: "Linked to a resource",

@@ -125,6 +125,7 @@ export function WorkspaceSection({
   onSetUtilization,
   overAllocatedPct,
   onReassignTask,
+  onClearUnlinked,
   onRescheduleTask,
   onSetAllUtilizationMode,
   onSetAbsenceOverride,
@@ -482,6 +483,7 @@ export function WorkspaceSection({
               overAllocatedPct={overAllocatedPct}
               onReassignTask={onReassignTask}
               onRescheduleTask={onRescheduleTask}
+              onClearUnlinked={onClearUnlinked}
               onSetAllUtilizationMode={onSetAllUtilizationMode}
               onSetAbsenceOverride={onSetAbsenceOverride}
               onSetPlanWindow={onSetPlanWindow}
