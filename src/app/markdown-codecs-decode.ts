@@ -174,6 +174,7 @@ const RESOURCE_ALIASES: Record<string, string> = {
   birthday: "birthday", notes: "notes", roleid: "roleId",
   mode: "utilizationMode", utilizationmode: "utilizationMode", utilization: "utilization",
   absenceoverride: "absenceOverride", active: "active",
+  emails: "emails", external: "isExternal", isexternal: "isExternal",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
 };
 
@@ -185,6 +186,7 @@ function markdownToResources(md: string, diag?: ImportDiag): Resource[] {
 const ROLE_ALIASES: Record<string, string> = {
   id: "id", disciplineid: "disciplineId", gradeid: "gradeId",
   internalrate: "internalRate", externalrate: "externalRate",
+  order: "order",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
 };
 

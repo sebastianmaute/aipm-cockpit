@@ -292,6 +292,8 @@ export function sanitizeResource(input: unknown): Resource | null {
   };
   const email = typeof input.email === "string" ? sanitizeEmail(input.email) || undefined : undefined;
   if (email) resource.email = email;
+  const emails = sanitizeEmailList(input.emails, email);
+  if (emails.length > 0) resource.emails = emails;
   const title = optText(input.title); if (title) resource.title = title;
   const phone = optText(input.businessPhone); if (phone) resource.businessPhone = phone;
   const location = optText(input.location); if (location) resource.location = location;
@@ -304,8 +306,37 @@ export function sanitizeResource(input: unknown): Resource | null {
   // CSV/MD serialize `active` as the string "false"; JSON keeps the boolean.
   // Accept both so the soft-archive flag round-trips through every backend.
   if (input.active === false || input.active === "false") resource.active = false;
+  // External: serialized as the string "true" in CSV/MD; boolean in JSON.
+  if (input.isExternal === true || input.isExternal === "true") resource.isExternal = true;
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) resource.localModifiedAt = input.localModifiedAt;
   return resource;
+}
+
+/** Max additional email addresses stored per resource. */
+const RESOURCE_EMAILS_MAX = 10;
+
+/** Sanitize a resource's additional emails from a JSON array or a delimited
+ *  CSV/MD string. Drops blanks, invalids, case-insensitive dupes, and any that
+ *  equal the primary email; caps the list. */
+function sanitizeEmailList(input: unknown, primary: string | undefined): string[] {
+  let raw: unknown[];
+  if (Array.isArray(input)) raw = input;
+  else if (typeof input === "string") raw = input.split(/[;,]/);
+  else return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  if (primary) seen.add(primary.toLowerCase());
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const clean = sanitizeEmail(item);
+    if (!clean) continue;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+    if (out.length >= RESOURCE_EMAILS_MAX) break;
+  }
+  return out;
 }
 
 function sanitizeRate(n: unknown): number {
@@ -327,6 +358,10 @@ export function sanitizeRole(input: unknown): Role | null {
     internalRate: sanitizeRate(input.internalRate),
     externalRate: sanitizeRate(input.externalRate),
   };
+  if (input.order !== undefined && input.order !== null && input.order !== "") {
+    const orderNum = toNumber(input.order);
+    if (Number.isFinite(orderNum) && orderNum >= 0) role.order = orderNum;
+  }
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) role.localModifiedAt = input.localModifiedAt;
   return role;
 }

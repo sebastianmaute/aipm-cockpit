@@ -76,24 +76,24 @@
 
 # Roles
 
-| ID | DisciplineId | GradeId | InternalRate | ExternalRate | LocalModified |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 1 | 4 | 95 | 145 |  |
-| 2 | 1 | 5 | 110 | 165 |  |
-| 3 | 2 | 3 | 80 | 120 |  |
-| 4 | 4 | 4 | 100 | 150 |  |
-| 5 | 1 | 3 | 75 | 110 |  |
-| 6 | 3 | 5 | 115 | 170 |  |
+| ID | DisciplineId | GradeId | InternalRate | ExternalRate | LocalModified | Order |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1 | 4 | 95 | 145 |  |  |
+| 2 | 1 | 5 | 110 | 165 |  |  |
+| 3 | 2 | 3 | 80 | 120 |  |  |
+| 4 | 4 | 4 | 100 | 150 |  |  |
+| 5 | 1 | 3 | 75 | 110 |  |  |
+| 6 | 3 | 5 | 115 | 170 |  |  |
 
 # Resources
 
-| ID | First | Last | Title | Phone | Location | Department | Email | Company | Birthday | Notes | RoleId | Mode | Utilization | AbsenceOverride | Active | LocalModified |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Sample | Dummy | Lead Architect | +49 30 5550101 | Berlin | IAM | Sample.Dummy@example.com | Acme | 06-14 | Primary SSO architect; OIDC lead. | 1 | percent | 2026-04=80\|2026-05=100\|2026-06=60\|2026-07=50 | 2026-06=88 |  |  |
-| 2 | Fictional | Jordan | Senior Developer | +49 89 5550102 | Munich | Engineering | Fictional.Jordan@example.com | Acme | 11-02 | Backend and migration tooling. | 2 | percent | 2026-04=100\|2026-05=100\|2026-06=80\|2026-07=30 |  |  |  |
-| 3 | Aria | Patel | Business Analyst | +44 20 5550103 | London | Consulting | aria.patel@example.com | Acme | 03-27 | Stakeholder workshops; part-time (hours mode). | 3 | hours | 2026-04=40\|2026-05=60\|2026-06=56\|2026-07=32 |  |  |  |
-| 4 | Invented | Riley | Project Manager | +49 30 5550104 | Berlin | PMO | Invented.Riley@example.com | Acme | 09-08 | Compliance and RAID owner. | 4 | percent | 2026-04=50\|2026-05=60\|2026-06=50\|2026-07=30 |  |  |  |
-| 5 | David | Avery | Consultant | +48 22 5550105 | Warsaw | Consulting | david.Avery@example.com | Acme | 12-30 | Rolled off after April (0% utilization). | 5 | percent | 2026-04=100\|2026-05=0\|2026-06=0\|2026-07=0 |  |  |  |
+| ID | First | Last | Title | Phone | Location | Department | Email | Company | Birthday | Notes | RoleId | Mode | Utilization | AbsenceOverride | Active | LocalModified | Emails | External |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Sample | Dummy | Lead Architect | +49 30 5550101 | Berlin | IAM | Sample.Dummy@example.com | Acme | 06-14 | Primary SSO architect; OIDC lead. | 1 | percent | 2026-04=80\|2026-05=100\|2026-06=60\|2026-07=50 | 2026-06=88 |  |  |  |  |
+| 2 | Fictional | Jordan | Senior Developer | +49 89 5550102 | Munich | Engineering | Fictional.Jordan@example.com | Acme | 11-02 | Backend and migration tooling. | 2 | percent | 2026-04=100\|2026-05=100\|2026-06=80\|2026-07=30 |  |  |  |  |  |
+| 3 | Aria | Patel | Business Analyst | +44 20 5550103 | London | Consulting | aria.patel@example.com | Acme | 03-27 | Stakeholder workshops; part-time (hours mode). | 3 | hours | 2026-04=40\|2026-05=60\|2026-06=56\|2026-07=32 |  |  |  |  |  |
+| 4 | Invented | Riley | Project Manager | +49 30 5550104 | Berlin | PMO | Invented.Riley@example.com | Acme | 09-08 | Compliance and RAID owner. | 4 | percent | 2026-04=50\|2026-05=60\|2026-06=50\|2026-07=30 |  |  |  |  |  |
+| 5 | David | Avery | Consultant | +48 22 5550105 | Warsaw | Consulting | david.Avery@example.com | Acme | 12-30 | Rolled off after April (0% utilization). | 5 | percent | 2026-04=100\|2026-05=0\|2026-06=0\|2026-07=0 |  |  |  |  |  |
 
 # Budgets
 
