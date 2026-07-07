@@ -42,6 +42,8 @@ import {
   buildSystemPrompt,
   callClaude,
   closeDanglingToolUses,
+  CONTINUE_NUDGE,
+  INTERRUPTED_TOOL_RESULT,
   readAttachmentData,
   stringifyResult,
   type TextBlock,
@@ -56,6 +58,11 @@ type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
 
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
+
+// Max callClaude round-trips per user send (runaway guard). Shared by tool-use
+// round-trips AND max_tokens continuations, so 12 (up from 8) gives headroom
+// now that a truncated answer resumes within the same send.
+const MAX_CHAT_TURNS = 12;
 
 function ChatPanelImpl({
   lang,
@@ -241,10 +248,17 @@ function ChatPanelInner({
       // Accumulate token usage across all turns for this send.
       let totalInput = 0;
       let totalOutput = 0;
+      // When the previous turn was a max_tokens continuation, the next turn's
+      // text is appended to the SAME bubble (a split mid code-fence/table would
+      // otherwise render as two broken blocks). `completed` distinguishes a clean
+      // end_turn from exhausting the round-trip cap (so we can flag a partial).
+      let continueBubble = false;
+      let completed = false;
 
-      // Tool-use loop: keep round-tripping until Claude stops calling tools.
-      // Capped to avoid runaway loops.
-      for (let turn = 0; turn < 8; turn++) {
+      // Round-trip loop: keep going until the model finishes (end_turn). Two
+      // reasons to continue — a tool call to run, or a length-cap truncation to
+      // resume — both share the turn budget (a runaway guard).
+      for (let turn = 0; turn < MAX_CHAT_TURNS; turn++) {
         if (cancelledRef.current) break;
         const response = await callClaude(
           effectiveApiKey,
@@ -262,48 +276,89 @@ function ChatPanelInner({
         };
         messages.push(assistantMsg);
 
-        for (const block of response.content) {
-          if (block.type === "text" && block.text.trim()) {
-            const text = block.text;
-            setDisplay((prev) => [...prev, { kind: "assistant", text }]);
-          }
-        }
-
-        if (response.stop_reason !== "tool_use") break;
-
-        if (cancelledRef.current) break;
-
-        const results: ToolResultBlock[] = [];
-        for (const block of response.content) {
-          if (block.type !== "tool_use") continue;
-          let resultStr: string;
-          let isError = false;
-          try {
-            const r = await runTool(dispatcher, block.name, block.input);
-            resultStr = stringifyResult(r);
-          } catch (err) {
-            isError = true;
-            resultStr = err instanceof Error ? err.message : String(err);
-          }
-          setDisplay((prev) => [
-            ...prev,
-            {
-              kind: "tool",
-              name: block.name,
-              input: block.input,
-              result: resultStr,
-              error: isError,
-            },
-          ]);
-          results.push({
-            type: "tool_result",
-            tool_use_id: block.id,
-            content: resultStr,
-            is_error: isError ? true : undefined,
+        const turnText = response.content
+          .filter((b): b is TextBlock => b.type === "text" && b.text.trim() !== "")
+          .map((b) => b.text)
+          .join("");
+        if (turnText) {
+          const stitch = continueBubble;
+          setDisplay((prev) => {
+            if (stitch) {
+              const last = prev[prev.length - 1];
+              if (last && last.kind === "assistant") {
+                return [...prev.slice(0, -1), { ...last, text: last.text + turnText }];
+              }
+            }
+            return [...prev, { kind: "assistant", text: turnText }];
           });
         }
 
-        messages.push({ role: "user", content: results });
+        if (cancelledRef.current) break;
+
+        // Complete tool call: run each tool, feed the results back, loop so the
+        // model can use them.
+        if (response.stop_reason === "tool_use") {
+          const results: ToolResultBlock[] = [];
+          for (const block of response.content) {
+            if (block.type !== "tool_use") continue;
+            let resultStr: string;
+            let isError = false;
+            try {
+              const r = await runTool(dispatcher, block.name, block.input);
+              resultStr = stringifyResult(r);
+            } catch (err) {
+              isError = true;
+              resultStr = err instanceof Error ? err.message : String(err);
+            }
+            setDisplay((prev) => [
+              ...prev,
+              {
+                kind: "tool",
+                name: block.name,
+                input: block.input,
+                result: resultStr,
+                error: isError,
+              },
+            ]);
+            results.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: resultStr,
+              is_error: isError ? true : undefined,
+            });
+          }
+
+          messages.push({ role: "user", content: results });
+          continueBubble = false; // tool output breaks the text flow — new bubble
+          continue;
+        }
+
+        // Truncated at the length cap: resume transparently instead of dumping a
+        // cut-off message and waiting for the user to prod. Any tool_use blocks
+        // in a truncated turn may be partial — DON'T execute them; answer them
+        // with interrupted results (so the protocol stays valid and the model
+        // re-issues them cleanly), then nudge it to continue where it left off.
+        if (response.stop_reason === "max_tokens") {
+          const parts: ContentBlock[] = [];
+          for (const block of response.content) {
+            if (block.type === "tool_use") {
+              parts.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content: INTERRUPTED_TOOL_RESULT,
+                is_error: true,
+              });
+            }
+          }
+          parts.push({ type: "text", text: CONTINUE_NUDGE });
+          messages.push({ role: "user", content: parts });
+          continueBubble = true; // stitch the resumed text onto the same bubble
+          continue;
+        }
+
+        // end_turn / stop_sequence — the model is done.
+        completed = true;
+        break;
       }
 
       if (cancelledRef.current) {
@@ -313,6 +368,14 @@ function ChatPanelInner({
           { kind: "assistant", text: t(lang, "chatStopped") },
         ]);
       } else {
+        // Hit the round-trip cap while still continuing (never reached end_turn):
+        // surface that the answer is partial rather than stopping silently.
+        if (!completed) {
+          setDisplay((prev) => [
+            ...prev,
+            { kind: "assistant", text: t(lang, "chatTruncatedNote") },
+          ]);
+        }
         // Record summed token usage for the entire send (all turns combined).
         // Skipped on cancel — no complete turn to bill.
         recordUsage({ input: totalInput, output: totalOutput });

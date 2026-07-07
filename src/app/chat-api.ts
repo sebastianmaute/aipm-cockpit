@@ -43,6 +43,19 @@ export type ApiUsage = { input_tokens: number; output_tokens: number };
 
 export const ANTHROPIC_VERSION = "2023-06-01";
 
+/** Per-request output-token ceiling for a model. The Anthropic API requires a
+ *  `max_tokens`; the legacy Claude 3.0 trio (haiku/opus/sonnet) hard-caps at
+ *  4096 (a higher value 400s), while everything from 3.5 onward supports >=8192.
+ *  Unknown/future ids default to the 8192 floor every current model accepts. */
+export function maxOutputTokensFor(model: string): number {
+  return /^claude-3-(haiku|opus|sonnet)\b/.test(model) ? 4096 : 8192;
+}
+
+/** Injected (invisible) user turn that resumes a response the model cut off at
+ *  max_tokens, so the loop can stitch the full answer without the user prodding. */
+export const CONTINUE_NUDGE =
+  "Your previous message was cut off at the length limit. Continue exactly where you left off — do not repeat anything you already wrote.";
+
 /** Read a File into the data shape `buildAttachmentBlock` expects: base64 (no
  *  data: prefix) for pdf/image, decoded UTF-8 text for text. */
 export function readAttachmentData(
@@ -203,7 +216,7 @@ export async function callClaude(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 4096,
+      max_tokens: maxOutputTokensFor(model),
       system: system,
       messages,
       tools: TOOL_DEFS,

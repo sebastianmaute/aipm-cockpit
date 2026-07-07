@@ -570,6 +570,7 @@ const enUS = {
   chatStop: "Stop",
   chatStopGenerating: "Stop generating",
   chatStopped: "Stopped",
+  chatTruncatedNote: "The response was cut short at the length limit. Ask me to continue.",
   chatAttach: "Attach a document",
   chatAttachmentRemove: "Remove {0}",
   chatAttachmentTooLarge: "{0} is too large (max 20 MB)",

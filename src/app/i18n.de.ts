@@ -575,6 +575,7 @@ export const de: Record<TranslationKey, string> = {
   chatStop: "Stopp",
   chatStopGenerating: "Generierung stoppen",
   chatStopped: "Abgebrochen",
+  chatTruncatedNote: "Die Antwort wurde an der Längengrenze abgeschnitten. Bitten Sie mich, fortzufahren.",
   chatAttach: "Dokument anhängen",
   chatAttachmentRemove: "{0} entfernen",
   chatAttachmentTooLarge: "{0} ist zu groß (max. 20 MB)",

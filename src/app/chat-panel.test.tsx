@@ -818,14 +818,14 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
   beforeEach(() => vi.restoreAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it("heals a truncated tool_use so the NEXT send carries a matching tool_result", async () => {
+  it("auto-continues a max_tokens-truncated tool_use WITHOUT executing the partial tool", async () => {
     const bodies: string[] = [];
     let call = 0;
+    const dispatcher = makeDispatcher();
     vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
       bodies.push(String(init?.body ?? ""));
       call += 1;
-      // First turn: Claude emits a tool_use but the turn is cut at max_tokens,
-      // so the tool loop never runs it. Later turns: a normal end_turn reply.
+      // Turn 1: a tool_use cut off at max_tokens (possibly partial). Turn 2: done.
       const body =
         call === 1
           ? {
@@ -834,7 +834,7 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
               usage: { input_tokens: 1, output_tokens: 1 },
             }
           : {
-              content: [{ type: "text", text: "ok" }],
+              content: [{ type: "text", text: "done" }],
               stop_reason: "end_turn",
               usage: { input_tokens: 1, output_tokens: 1 },
             };
@@ -846,27 +846,22 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     });
 
     render(
-      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={dispatcher} onAcceptConsent={vi.fn()} />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
-
-    // Send 1 — truncated tool_use lands in history.
     fireEvent.change(ta, { target: { value: "create all entries" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
 
-    // Send 2 — must NOT re-post a dangling tool_use.
-    fireEvent.change(ta, { target: { value: "why no output?" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    await waitFor(() => expect(bodies).toHaveLength(2));
-
-    const sent = JSON.parse(bodies[1]) as {
-      messages: { role: string; content: unknown }[];
-    };
+    // Resolved within the ONE send (2 calls), final text shown — no user prod.
+    await waitFor(() => expect(screen.getByText("done")).toBeInTheDocument());
+    expect(bodies).toHaveLength(2);
+    // The partial tool was NOT executed...
+    expect(dispatcher.createTask).not.toHaveBeenCalled();
+    // ...but the continuation request answers it with a tool_result (valid protocol).
+    const sent = JSON.parse(bodies[1]) as { messages: { role: string; content: unknown }[] };
     const tuIdx = sent.messages.findIndex(
       (m) => Array.isArray(m.content) && (m.content as { type: string }[]).some((b) => b.type === "tool_use"),
     );
-    expect(tuIdx).toBeGreaterThanOrEqual(0);
     const after = sent.messages[tuIdx + 1];
     expect(after.role).toBe("user");
     expect(
@@ -874,5 +869,70 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
         (b) => b.type === "tool_result" && b.tool_use_id === "t1",
       ),
     ).toBe(true);
+  });
+
+  it("auto-continues a truncated TEXT answer without a prod (both halves shown, nudge hidden)", async () => {
+    const bodies: string[] = [];
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      bodies.push(String(init?.body ?? ""));
+      call += 1;
+      const body =
+        call === 1
+          ? { content: [{ type: "text", text: "First half " }], stop_reason: "max_tokens", usage: { input_tokens: 1, output_tokens: 1 } }
+          : { content: [{ type: "text", text: "second half." }], stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 } };
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () => Promise.resolve(body),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "write a lot" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // Continuation is STITCHED into one bubble (no split mid code-fence/table).
+    await waitFor(() => expect(screen.getByText("First half second half.")).toBeInTheDocument());
+    expect(bodies).toHaveLength(2);
+    // The continuation carried the invisible nudge — sent to the API, not shown.
+    expect(bodies[1]).toContain("cut off at the length limit");
+    expect(screen.queryByText(/cut off at the length limit/)).toBeNull();
+  });
+
+  it("surfaces a partial-answer note when the round-trip cap is exhausted", async () => {
+    let call = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init?: RequestInit) => {
+      void init;
+      call += 1;
+      // Never reaches end_turn — every turn truncates.
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: `chunk ${call} ` }],
+            stop_reason: "max_tokens",
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+      } as unknown as Response);
+    });
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "endless" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // Bounded by the 12-turn cap, then a partial-answer note (not a silent stop).
+    await waitFor(
+      () => expect(screen.getByText(/cut short at the length limit/i)).toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+    expect(call).toBe(12);
   });
 });
