@@ -2511,6 +2511,9 @@ const enUS = {
   resourceLocationHint: "Work location; drives the holiday calendar.",
   resourceBirthdayHint: "Birthday for reminders; year optional.",
   resourceNotesHint: "Free-text notes about this person.",
+  resourceExternal: "External resource",
+  resourceExternalHint: "External resources are planned and capacity-tracked (assignments, absences, workload) but are excluded from all cost and budget figures.",
+  resourceExternalBadge: "External",
   // New/Edit Absence tooltips
   absenceAssigneeHint: "Person who is absent.",
   absenceTypeHint: "Kind of absence (vacation, sick, training, other).",

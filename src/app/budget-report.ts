@@ -30,6 +30,9 @@ export function allocationPlannedHours(
   for (const rid of alloc.resourceIds) {
     const r = byId.get(rid);
     if (!r) continue;
+    // External resources are planned/capacity-tracked elsewhere but excluded
+    // from all budget figures — including the budget report's planned hours.
+    if (r.isExternal) continue;
     const resAbs = absencesForResource(absences, r);
     sum += displayCapacityHours(period, canonicalPeriods, r, resAbs, workdayHours, holidaySet, granularity, granularity);
   }

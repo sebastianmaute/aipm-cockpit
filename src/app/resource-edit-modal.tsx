@@ -277,6 +277,19 @@ export function ResourceEditModal({
             </label>
           )}
 
+          {/* External resource flag — full width */}
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              className={`${FOCUS_RING} ${TRANSITION}`}
+              checked={draft.isExternal === true}
+              onChange={(e) => update("isExternal", e.target.checked || undefined)}
+            />
+            <span className="flex items-center gap-1 font-medium text-foreground">
+              {t(lang, "resourceExternal")}<InfoTooltip text={t(lang, "resourceExternalHint")} />
+            </span>
+          </label>
+
           {/* Birthday — native date picker with optional year */}
           {isVisible("birthday") && (
             <div className="flex flex-col gap-1 text-sm sm:col-span-2">

@@ -302,7 +302,7 @@ function ResourcesPanelInner({
       const totalHours = periods.reduce((sum, p) =>
         sum + displayCapacityHours(p, canonicalPeriods, r, resAbs, workdayHours, holidaySet, plan.granularity, viewGranularity), 0);
       const role = roles.find((x) => x.id === r.roleId);
-      const cost = periodCost(totalHours, role);
+      const cost = periodCost(totalHours, r.isExternal ? undefined : role);
       return { resource: r, name: resourceDisplayName(r), totalHours, cost, capacityDays: totalHours / workdayHours, internalCost: cost.internal, externalCost: cost.external, margin: cost.margin };
     });
   }, [resources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);

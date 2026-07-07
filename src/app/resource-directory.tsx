@@ -256,6 +256,11 @@ function ResourceDirectoryInner({
                     >
                       {resourceDisplayName(r)}
                     </button>
+                    {r.isExternal && (
+                      <span className="ml-1.5 rounded border border-line bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {t(lang, "resourceExternalBadge")}
+                      </span>
+                    )}
                   </td>
                   <DirectoryRoleSelect
                     resource={r}
