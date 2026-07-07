@@ -20,6 +20,7 @@ const PROMPT_CHIPS: PromptChip[] = [
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig, Settings } from "./settings-types";
+import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
@@ -75,6 +76,9 @@ function ChatPanelImpl({
   guidesReady = true,
   chatSeed = null,
   onChatSeedConsumed,
+  projectId = "default",
+  getChatConversation,
+  saveChatConversation,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -86,7 +90,7 @@ function ChatPanelImpl({
   guidesReady?: boolean;
   chatSeed?: { prompt: string; autoSend: boolean } | null;
   onChatSeedConsumed?: () => void;
-}) {
+} & ChatConversationStoreProps) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
   }
@@ -101,8 +105,20 @@ function ChatPanelImpl({
       guidesReady={guidesReady}
       chatSeed={chatSeed}
       onChatSeedConsumed={onChatSeedConsumed}
+      projectId={projectId}
+      getChatConversation={getChatConversation}
+      saveChatConversation={saveChatConversation}
     />
   );
+}
+
+/** Optional in-memory per-project conversation store (from WorkspaceTabProvider)
+ *  so the chat survives view-navigation remounts. Absent in tests/popout →
+ *  ChatPanel behaves as a fresh, non-persisted conversation. */
+interface ChatConversationStoreProps {
+  projectId?: string;
+  getChatConversation?: (projectId: string) => ChatConversation | undefined;
+  saveChatConversation?: (projectId: string, conv: ChatConversation) => void;
 }
 
 // Memoized export: with the dispatcher's stable identity (slice 5) and an
@@ -121,6 +137,9 @@ function ChatPanelInner({
   guidesReady = true,
   chatSeed = null,
   onChatSeedConsumed,
+  projectId = "default",
+  getChatConversation,
+  saveChatConversation,
 }: {
   lang: Lang;
   ai: AiConfig;
@@ -131,10 +150,27 @@ function ChatPanelInner({
   guidesReady?: boolean;
   chatSeed?: { prompt: string; autoSend: boolean } | null;
   onChatSeedConsumed?: () => void;
-}) {
+} & ChatConversationStoreProps) {
   const confirm = useConfirm();
-  const [history, setHistory] = useState<ApiMessage[]>([]);
-  const [display, setDisplay] = useState<DisplayItem[]>([]);
+  // Restore this project's in-memory conversation on (re)mount — the modern
+  // shell remounts the chat view on every visit, so local state alone is lost.
+  const [history, setHistory] = useState<ApiMessage[]>(
+    () => getChatConversation?.(projectId)?.history ?? [],
+  );
+  const [display, setDisplay] = useState<DisplayItem[]>(
+    () => getChatConversation?.(projectId)?.display ?? [],
+  );
+  // Project switch WHILE the panel stays mounted: swap to that project's
+  // conversation. Render-time reconcile (guarded by seenProjectId), NOT an
+  // effect — the set-state-in-effect ban. Seeding from the live projectId is
+  // correct here (steady-state prop, not a request/nonce — no remount-swallow).
+  const [seenProjectId, setSeenProjectId] = useState(projectId);
+  if (projectId !== seenProjectId) {
+    setSeenProjectId(projectId);
+    const next = getChatConversation?.(projectId);
+    setHistory(next?.history ?? []);
+    setDisplay(next?.display ?? []);
+  }
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<StagedAttachment[]>([]);
   const [busy, setBusy] = useState(false);
@@ -151,6 +187,9 @@ function ChatPanelInner({
   const attachSeqRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const cancelledRef = useRef(false);
+  // Latest committed projectId, read by the in-flight send to detect a mid-send
+  // project switch (so its trailing writes can't land on the new project).
+  const projectIdRef = useRef(projectId);
   const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size-v2");
   const { record: recordUsage } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
@@ -168,6 +207,27 @@ function ChatPanelInner({
     if (!scrollerRef.current) return;
     scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
   }, [display, busy]);
+
+  // Persist the conversation to the above-the-view store on every change, so it
+  // survives the next remount. Writes a ref (a side effect, not setState) — clear
+  // of the set-state-in-effect ban and cannot loop.
+  useEffect(() => {
+    saveChatConversation?.(projectId, { history, display });
+  }, [history, display, projectId, saveChatConversation]);
+
+  // Track the latest projectId and, on a switch WHILE a send is in flight, abort
+  // that send (bound to the old project) and mark it cancelled. Its trailing
+  // state writes are additionally project-guarded in submitPrompt, so a reply
+  // for the old project can never land on — or persist into — the new one. Runs
+  // only on an actual change (seed === live on mount → no spurious abort).
+  useEffect(() => {
+    const prev = projectIdRef.current;
+    projectIdRef.current = projectId;
+    if (prev !== projectId) {
+      cancelledRef.current = true;
+      abortRef.current?.abort();
+    }
+  }, [projectId]);
 
   // Keyboard interrupt: Escape stops an in-flight response (the textarea is
   // disabled while busy, so this document listener is the keyboard path). Mirrors
@@ -217,6 +277,11 @@ function ChatPanelInner({
     cancelledRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
+    // Bind this send to the project it started on. If the user switches project
+    // mid-send, `stale()` becomes true and every subsequent state write is
+    // skipped — the reply can't corrupt the new project's conversation.
+    const sendProjectId = projectId;
+    const stale = () => cancelledRef.current || projectIdRef.current !== sendProjectId;
 
     // With attachments the user turn is a multimodal content array (text first,
     // then each document/image block); otherwise a plain string.
@@ -259,7 +324,7 @@ function ChatPanelInner({
       // reasons to continue — a tool call to run, or a length-cap truncation to
       // resume — both share the turn budget (a runaway guard).
       for (let turn = 0; turn < MAX_CHAT_TURNS; turn++) {
-        if (cancelledRef.current) break;
+        if (stale()) break;
         const response = await callClaude(
           effectiveApiKey,
           ai.model,
@@ -267,6 +332,9 @@ function ChatPanelInner({
           messages,
           controller.signal,
         );
+        // A cancel or a project switch may have landed while awaiting — bail
+        // before writing this turn onto (possibly) another project's state.
+        if (stale()) break;
         totalInput += response.usage.input_tokens;
         totalOutput += response.usage.output_tokens;
 
@@ -293,7 +361,7 @@ function ChatPanelInner({
           });
         }
 
-        if (cancelledRef.current) break;
+        if (stale()) break;
 
         // Complete tool call: run each tool, feed the results back, loop so the
         // model can use them.
@@ -361,21 +429,27 @@ function ChatPanelInner({
         break;
       }
 
-      if (cancelledRef.current) {
-        // Stopped by the user — append a neutral note, no error state.
-        setDisplay((prev) => [
-          ...prev,
-          { kind: "assistant", text: t(lang, "chatStopped") },
-        ]);
-      } else {
-        // Hit the round-trip cap while still continuing (never reached end_turn):
-        // surface that the answer is partial rather than stopping silently.
-        if (!completed) {
+      // If the user switched project mid-send, this run belongs to another
+      // project now showing a different conversation — don't write its notes or
+      // history onto the current one (billing is still recorded).
+      const switchedAway = projectIdRef.current !== sendProjectId;
+      if (!switchedAway) {
+        if (cancelledRef.current) {
+          // Stopped by the user — append a neutral note, no error state.
+          setDisplay((prev) => [
+            ...prev,
+            { kind: "assistant", text: t(lang, "chatStopped") },
+          ]);
+        } else if (!completed) {
+          // Hit the round-trip cap while still continuing (never reached
+          // end_turn): surface that the answer is partial, not a silent stop.
           setDisplay((prev) => [
             ...prev,
             { kind: "assistant", text: t(lang, "chatTruncatedNote") },
           ]);
         }
+      }
+      if (!cancelledRef.current) {
         // Record summed token usage for the entire send (all turns combined).
         // Skipped on cancel — no complete turn to bill.
         recordUsage({ input: totalInput, output: totalOutput });
@@ -383,20 +457,27 @@ function ChatPanelInner({
 
       // Persist a valid history: a max_tokens truncation or a mid-turn Stop can
       // leave the last assistant message with tool_use blocks and no results.
-      setHistory(closeDanglingToolUses(messages));
+      // Skip when switched away, so the old project's tail can't clobber the new.
+      if (!switchedAway) {
+        setHistory(closeDanglingToolUses(messages));
+      }
     } catch (err) {
       // AbortError is raised by fetch when the controller fires — treat as
       // a user-initiated stop, not a real error. Check .name directly because
       // DOMException may not be instanceof Error across jsdom/Node boundaries.
       const errName = err instanceof Error ? err.name : (err as { name?: string }).name;
-      if (errName === "AbortError") {
-        setDisplay((prev) => [
-          ...prev,
-          { kind: "assistant", text: t(lang, "chatStopped") },
-        ]);
-      } else {
-        const msg = err instanceof Error ? err.message : String(err);
-        setError(t(lang, "chatError", msg));
+      // Suppress when the user switched project mid-send (the abort/error belongs
+      // to the old project's conversation, not the one now on screen).
+      if (projectIdRef.current === sendProjectId) {
+        if (errName === "AbortError") {
+          setDisplay((prev) => [
+            ...prev,
+            { kind: "assistant", text: t(lang, "chatStopped") },
+          ]);
+        } else {
+          const msg = err instanceof Error ? err.message : String(err);
+          setError(t(lang, "chatError", msg));
+        }
       }
     } finally {
       abortRef.current = null;

@@ -936,3 +936,113 @@ describe("dangling tool_use recovery (max_tokens truncation)", () => {
     expect(call).toBe(12);
   });
 });
+
+describe("conversation persistence across navigation (in-memory per-project store)", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  type Conv = { history: unknown[]; display: unknown[] };
+  function makeChatStore() {
+    const m = new Map<string, Conv>();
+    return {
+      m,
+      get: (id: string) => m.get(id) as never,
+      save: (id: string, conv: Conv) => { m.set(id, conv); },
+    };
+  }
+
+  it("restores the conversation after unmount/remount (survives view navigation)", async () => {
+    const store = makeChatStore();
+    vi.spyOn(globalThis, "fetch").mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(""),
+        json: () =>
+          Promise.resolve({
+            content: [{ type: "text", text: "assistant reply" }],
+            stop_reason: "end_turn",
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+      } as unknown as Response),
+    );
+    const props = {
+      lang: "en-US" as const,
+      ai: AI_WITH_KEY,
+      dispatcher: makeDispatcher(),
+      onAcceptConsent: vi.fn(),
+      projectId: "p1",
+      getChatConversation: store.get,
+      saveChatConversation: store.save,
+    };
+    const { unmount } = render(<ChatPanel {...props} />);
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "hello there" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(screen.getByText("assistant reply")).toBeInTheDocument());
+    expect(store.m.get("p1")).toBeTruthy();
+
+    // Simulate navigate-away (unmount) then return (fresh mount): the store
+    // rehydrates both the user turn and the assistant reply.
+    unmount();
+    render(<ChatPanel {...props} />);
+    expect(screen.getByText("assistant reply")).toBeInTheDocument();
+    expect(screen.getByText("hello there")).toBeInTheDocument();
+  });
+
+  it("a project switch mid-send does not corrupt the new project's conversation", async () => {
+    const store = makeChatStore();
+    store.m.set("p2", { history: [{ role: "user", content: "q2" }], display: [{ kind: "user", text: "p2 msg" }] });
+    let resolveFetch!: (r: Response) => void;
+    const pending = new Promise<Response>((res) => { resolveFetch = res; });
+    vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
+    const base = {
+      lang: "en-US" as const,
+      ai: AI_WITH_KEY,
+      dispatcher: makeDispatcher(),
+      onAcceptConsent: vi.fn(),
+      getChatConversation: store.get,
+      saveChatConversation: store.save,
+    };
+    const { rerender } = render(<ChatPanel {...base} projectId="p1" />);
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "p1 question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // Switch to p2 while p1's send is still in flight.
+    rerender(<ChatPanel {...base} projectId="p2" />);
+    expect(screen.getByText("p2 msg")).toBeInTheDocument();
+
+    // Now p1's reply lands — it must NOT leak onto p2 or clobber p2's store.
+    resolveFetch({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "P1 REPLY LEAK" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+    await waitFor(() => expect(screen.queryByText("P1 REPLY LEAK")).toBeNull());
+    expect(store.m.get("p2")?.display).toEqual([{ kind: "user", text: "p2 msg" }]);
+  });
+
+  it("swaps to the target project's conversation on a project switch", () => {
+    const store = makeChatStore();
+    store.m.set("p1", { history: [{ role: "user", content: "q1" }], display: [{ kind: "user", text: "from p1" }] });
+    store.m.set("p2", { history: [{ role: "user", content: "q2" }], display: [{ kind: "user", text: "from p2" }] });
+    const base = {
+      lang: "en-US" as const,
+      ai: AI_WITH_KEY,
+      dispatcher: makeDispatcher(),
+      onAcceptConsent: vi.fn(),
+      getChatConversation: store.get,
+      saveChatConversation: store.save,
+    };
+    const { rerender } = render(<ChatPanel {...base} projectId="p1" />);
+    expect(screen.getByText("from p1")).toBeInTheDocument();
+    rerender(<ChatPanel {...base} projectId="p2" />);
+    expect(screen.getByText("from p2")).toBeInTheDocument();
+    expect(screen.queryByText("from p1")).toBeNull();
+  });
+});

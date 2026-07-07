@@ -199,7 +199,7 @@ export function WorkspaceSection({
     [setSettings],
   );
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee } = useWorkspace();
-  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept } = useWorkspaceTab();
+  const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
   // Inline "Ask Claude" per-row edit glue (SP2). One instance per entity pane;
   // each yields the row handlers threaded into the panel + its active-edit
@@ -297,6 +297,9 @@ export function WorkspaceSection({
             guidesReady={guidesReady}
             chatSeed={pendingChatSeed}
             onChatSeedConsumed={clearChatSeed}
+            projectId={currentProjectId ?? "default"}
+            getChatConversation={getChatConversation}
+            saveChatConversation={saveChatConversation}
           />
         </div>
 
