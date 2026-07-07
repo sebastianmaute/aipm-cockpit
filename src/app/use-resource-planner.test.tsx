@@ -688,6 +688,22 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.planner.onReorderDisciplines([3, 1, 2]); });
       expect(result.current.workspace.disciplines.map((d) => d.id)).toEqual([3, 1, 2]);
     });
+
+    it("onReorderRoles rewrites each moved role's order to its new index", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setRoles([
+          { id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 },
+          { id: 2, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 0 },
+          { id: 3, disciplineId: 2, gradeId: 1, internalRate: 0, externalRate: 0 },
+        ]);
+      });
+      act(() => { result.current.planner.onReorderRoles([3, 1, 2]); });
+      const byId = new Map(result.current.workspace.roles.map((r) => [r.id, r.order]));
+      expect(byId.get(3)).toBe(0);
+      expect(byId.get(1)).toBe(1);
+      expect(byId.get(2)).toBe(2);
+    });
   });
 
   describe("grade CRUD", () => {

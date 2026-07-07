@@ -21,6 +21,7 @@ function renderPanel() {
       onRenameDiscipline={noop}
       onDeleteDiscipline={noop}
       onReorderDisciplines={noop}
+      onReorderRoles={noop}
       onAddGrade={() => 0}
       onRenameGrade={noop}
       onDeleteGrade={noop}

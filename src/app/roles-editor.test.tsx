@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
 import { RolesEditor } from "./roles-editor";
 import { t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
@@ -25,6 +25,7 @@ function renderEditor(currency = "EUR") {
       onRenameDiscipline={noop}
       onDeleteDiscipline={noop}
       onReorderDisciplines={noop}
+      onReorderRoles={noop}
       onAddGrade={() => 0}
       onRenameGrade={noop}
       onDeleteGrade={noop}
@@ -34,6 +35,37 @@ function renderEditor(currency = "EUR") {
 }
 
 describe("RolesEditor rate-card table", () => {
+  it("renders rate-card rows in the manual `order` sequence when unsorted, and fires onReorderRoles on drop", () => {
+    const orderedRoles: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 10, externalRate: 20, order: 2 },
+      { id: 2, disciplineId: 1, gradeId: 2, internalRate: 10, externalRate: 20, order: 0 },
+      { id: 3, disciplineId: 2, gradeId: 1, internalRate: 10, externalRate: 20, order: 1 },
+    ];
+    const onReorderRoles = vi.fn();
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR"
+        roles={orderedRoles}
+        disciplines={[{ id: 1, name: "Eng" }, { id: 2, name: "Ops" }]}
+        grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
+        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0}
+        onReorderRoles={onReorderRoles}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    // order 0,1,2 → role ids 2,3,1 → first data cell text sequence.
+    const bodyRows = screen.getAllByRole("row").slice(1, 4); // 3 rate-card rows
+    expect(bodyRows[0].textContent).toContain("Eng"); // role 2: Eng/Junior
+    expect(bodyRows[1].textContent).toContain("Ops"); // role 3: Ops/Senior
+    // Drag role id 1 (last) onto the first row → onReorderRoles gets a new id order.
+    const dt = { effectAllowed: "", getData: () => "", setData: () => {} };
+    fireEvent.dragStart(bodyRows[2], { dataTransfer: dt });
+    fireEvent.drop(bodyRows[0], { dataTransfer: dt });
+    expect(onReorderRoles).toHaveBeenCalledTimes(1);
+    expect(onReorderRoles.mock.calls[0][0][0]).toBe(1); // dropped id lands first
+  });
+
   it("shows the project currency symbol next to the rate fields, not a hard-coded €", () => {
     const eur = renderEditor("EUR");
     expect(eur.container.textContent).toContain("€");

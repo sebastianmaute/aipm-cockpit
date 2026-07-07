@@ -571,6 +571,7 @@ function TaskManagerInner() {
     handleRenameDiscipline,
     onDeleteDiscipline,
     onReorderDisciplines,
+    onReorderRoles,
     handleAddGrade,
     handleRenameGrade,
     onDeleteGrade,
@@ -1618,6 +1619,7 @@ function TaskManagerInner() {
         onSaveRole={handleSaveRole}
         onDeleteRole={handleDeleteRole}
         onResolveOrCreateRole={resolveOrCreateRole}
+        onReorderRoles={onReorderRoles}
         onAddDiscipline={handleAddDiscipline}
         onRenameDiscipline={handleRenameDiscipline}
         onDeleteDiscipline={onDeleteDiscipline}

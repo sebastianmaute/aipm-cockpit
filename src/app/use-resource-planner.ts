@@ -603,6 +603,19 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     );
   }, [setGrades]);
 
+  // Rate-card row reorder: roles carry an explicit `order` field (not array
+  // order) so the manual sequence survives Turso, which doesn't guarantee row
+  // order without an ORDER BY. Rewrite each moved role's order to its new index.
+  const onReorderRoles = useCallback((orderedIds: number[]) => {
+    const stamp = new Date().toISOString();
+    setRoles((prev) => {
+      const orderMap = new Map(orderedIds.map((id, i) => [id, i]));
+      return prev.map((r) =>
+        orderMap.has(r.id) ? { ...r, order: orderMap.get(r.id)!, localModifiedAt: stamp } : r,
+      );
+    });
+  }, [setRoles]);
+
   const handleCreateMitigationTaskFromRaid = useCallback(
     (raidItemId: number): number | null => {
       const item = raid.find((r) => r.id === raidItemId);
@@ -749,6 +762,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     onDeleteGrade,
     onReorderDisciplines,
     onReorderGrades,
+    onReorderRoles,
     handleSetUtilization,
     handleSetAllUtilizationMode,
     handleSetAbsenceOverride,
