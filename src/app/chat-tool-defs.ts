@@ -129,6 +129,22 @@ const stakeholderFields = {
   notes: { type: "string" as const, description: "Free-form notes" },
 };
 
+const resourceFields = {
+  firstName: { type: "string" as const, description: "Given name" },
+  lastName: { type: "string" as const, description: "Family name" },
+  name: {
+    type: "string" as const,
+    description: "Full name — used only when firstName/lastName aren't given (it is split).",
+  },
+  email: { type: "string" as const, description: "Email address" },
+  title: { type: "string" as const, description: "Job title / role" },
+  department: { type: "string" as const, description: "Department" },
+  company: { type: "string" as const, description: "Company / employer" },
+  location: { type: "string" as const, description: "Office / location" },
+  businessPhone: { type: "string" as const, description: "Business phone number" },
+  notes: { type: "string" as const, description: "Free-text notes" },
+};
+
 const taskFields = {
   taskName: { type: "string" as const, description: "Short summary of the task" },
   assignee: {
@@ -294,6 +310,21 @@ export const TOOL_DEFS = [
     description:
       "List all stakeholders with id, name, category, influence, interest, organization, and email. Read-only.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_resources",
+    description:
+      "List the people in the resource directory (id, firstName, lastName, email, title, department). Read-only. Call this before creating a resource to avoid duplicates.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "create_resource",
+    description:
+      "Add a person to the resource directory. Provide firstName and lastName, OR a single full `name` (it is split). At least one of these is required — a call with no name is rejected. Use this when a document describes a team/resource plan — assigning a task to a name alone does NOT create a directory entry. Discipline/grade are assigned in the app, not here.",
+    input_schema: {
+      type: "object",
+      properties: resourceFields,
+    },
   },
   {
     name: "create_raid_item",

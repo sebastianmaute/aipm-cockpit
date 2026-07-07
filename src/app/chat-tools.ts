@@ -7,6 +7,7 @@ import {
   type ChangeItem,
   type Milestone,
   type Stakeholder,
+  type Resource,
 } from "./types";
 import type { Lang } from "./i18n";
 
@@ -132,6 +133,31 @@ export type StakeholderInput = {
   notes?: string;
 };
 
+/** A directory resource (person). `sanitizeResource` fills roleId/utilization
+ *  defaults; discipline/grade are assigned in the app, not by the model. */
+export type ResourceInput = {
+  firstName?: string;
+  lastName?: string;
+  /** A single full name; split into first/last when the parts aren't given. */
+  name?: string;
+  email?: string;
+  title?: string;
+  department?: string;
+  company?: string;
+  location?: string;
+  businessPhone?: string;
+  notes?: string;
+};
+
+export type ResourceSummary = {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  title?: string;
+  department?: string;
+};
+
 export type ToolDispatcher = {
   listTasks(): readonly Task[];
   getTask(id: number): Task | null;
@@ -146,6 +172,7 @@ export type ToolDispatcher = {
   listChanges(): ChangeSummary[];
   listMilestones(): MilestoneSummary[];
   listStakeholders(): StakeholderSummary[];
+  listResources(): ResourceSummary[];
   createRaid(input: RaidInput): RaidSummary;
   updateRaid(id: number, patch: Partial<RaidInput>): RaidSummary | null;
   deleteRaid(id: number): boolean;
@@ -158,6 +185,7 @@ export type ToolDispatcher = {
   createStakeholder(input: StakeholderInput): StakeholderSummary;
   updateStakeholder(id: number, patch: Partial<StakeholderInput>): StakeholderSummary | null;
   deleteStakeholder(id: number): boolean;
+  createResource(input: ResourceInput): ResourceSummary;
   getSnapshot(): {
     today: string;
     language: Lang;
@@ -264,6 +292,17 @@ export function toStakeholderSummary(item: Stakeholder): StakeholderSummary {
     interest: item.interest,
     organization: item.organization,
     email: item.email,
+  };
+}
+
+export function toResourceSummary(item: Resource): ResourceSummary {
+  return {
+    id: item.id,
+    firstName: item.firstName,
+    lastName: item.lastName,
+    email: item.email,
+    title: item.title,
+    department: item.department,
   };
 }
 
@@ -386,6 +425,9 @@ export async function runTool(
     case "list_stakeholders":
       return d.listStakeholders();
 
+    case "list_resources":
+      return d.listResources();
+
     case "create_raid_item":
       return d.createRaid(input as RaidInput);
 
@@ -433,6 +475,9 @@ export async function runTool(
       if (!d.deleteMilestone(id)) throw new Error(`milestone #${id} not found`);
       return { deleted: id };
     }
+
+    case "create_resource":
+      return d.createResource(input as ResourceInput);
 
     case "create_stakeholder":
       return d.createStakeholder(input as StakeholderInput);

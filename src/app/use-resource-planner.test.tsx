@@ -319,6 +319,30 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.resources[0].firstName).toBe("Nora");
     });
 
+    it("does NOT clobber a resource that took the open-time id since the modal opened (id-mint race)", () => {
+      const { result } = renderPlanner();
+      // Open Add reserves id 1 (nextId of the empty list).
+      act(() => { result.current.planner.handleOpenAddResource(); });
+      const draft = result.current.planner.editingResource!.resource;
+      expect(draft.id).toBe(1);
+      // A concurrent writer (AI create_resource / another tab / bulk) commits id 1
+      // while the modal is still open.
+      act(() => {
+        result.current.workspace.setResources([
+          { id: 1, firstName: "AI", lastName: "Bot", roleId: null, utilizationMode: "percent", utilization: {} },
+        ]);
+      });
+      // The user saves their draft (still carrying the stale id 1).
+      act(() => { result.current.planner.handleSaveResource({ ...draft, firstName: "User", lastName: "Human" }); });
+      const rs = result.current.workspace.resources;
+      // Both survive: the AI row is intact, the user's is appended with a fresh id.
+      expect(rs).toHaveLength(2);
+      expect(rs.find((r) => r.firstName === "AI")).toBeTruthy();
+      const user = rs.find((r) => r.firstName === "User");
+      expect(user).toBeTruthy();
+      expect(user!.id).not.toBe(1);
+    });
+
     it("handleSaveResource updates an existing resource in place", () => {
       const { result } = renderPlanner();
       const resource: Resource = {

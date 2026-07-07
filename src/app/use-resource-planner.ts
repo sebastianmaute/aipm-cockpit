@@ -381,21 +381,31 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleSaveResource = useCallback(
     (next: Resource) => {
       const stamp = new Date().toISOString();
-      const withStamp: Resource = { ...next, localModifiedAt: stamp };
-      const previous = resources.find((r) => r.id === next.id);
-      const isNew = previous === undefined;
-      setResources(isNew
-        ? [...resources, withStamp]
-        : resources.map((r) => (r.id === next.id ? withStamp : r)));
-      setEditingResource(null);
       const name = `${next.firstName} ${next.lastName}`.trim();
+      // Decide create-vs-update by the KNOWN modal intent, not by id-existence:
+      // the id is minted at modal-OPEN, so a concurrent writer (AI create_resource,
+      // another tab, a bulk op) may have committed that id since. Deciding by
+      // find(id) would misclassify this create as an update and clobber that row.
+      // Non-modal callers (edit-from-anywhere) leave editingResource null → fall
+      // back to id-existence, preserving their behavior.
+      const isNew = editingResource?.isNew ?? (resources.find((r) => r.id === next.id) === undefined);
       if (isNew) {
-        logActivityRef.current("resource.created", next.id, name);
+        // Re-mint at SAVE time if the open-time id was taken since, so the append
+        // can't collide with a row committed while the modal was open.
+        const id = resources.some((r) => r.id === next.id) ? nextId(resources) : next.id;
+        const created: Resource = { ...next, id, localModifiedAt: stamp };
+        setResources((prev) => [...prev, created]);
+        setEditingResource(null);
+        logActivityRef.current("resource.created", id, name);
       } else {
-        logUpdate("resource.updated", previous, withStamp, next.id, name);
+        const previous = resources.find((r) => r.id === next.id);
+        const withStamp: Resource = { ...next, localModifiedAt: stamp };
+        setResources((prev) => prev.map((r) => (r.id === next.id ? withStamp : r)));
+        setEditingResource(null);
+        if (previous) logUpdate("resource.updated", previous, withStamp, next.id, name);
       }
     },
-    [resources, setResources, logUpdate],
+    [resources, setResources, logUpdate, editingResource],
   );
 
   const handleDeleteResource = useCallback(

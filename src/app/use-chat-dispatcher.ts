@@ -11,10 +11,12 @@ import {
 import {
   type Filters,
   type ToolDispatcher,
+  type ResourceInput,
   toRaidSummary,
   toChangeSummary,
   toMilestoneSummary,
   toStakeholderSummary,
+  toResourceSummary,
 } from "./chat-tools";
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
@@ -37,6 +39,7 @@ import {
   sanitizeChangeItem,
   sanitizeMilestone,
   sanitizeStakeholder,
+  sanitizeResource,
 } from "./sanitize";
 import { type Settings } from "./settings-types";
 import { emptyForm, useTaskForm } from "./task-form-context";
@@ -80,6 +83,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     setMilestones,
     stakeholders,
     setStakeholders,
+    resources,
+    setResources,
   } = useWorkspace();
   const { editingId, setEditingId, setForm } = useTaskForm();
   const {
@@ -103,6 +108,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const changesRef = useRef(changes);
   const milestonesRef = useRef(milestones);
   const stakeholdersRef = useRef(stakeholders);
+  const resourcesRef = useRef(resources);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -130,6 +136,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     stakeholdersRef.current = stakeholders;
   }, [stakeholders]);
+  useEffect(() => {
+    resourcesRef.current = resources;
+  }, [resources]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
@@ -540,6 +549,20 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         stakeholdersRef.current = next;
         setStakeholders(next);
         return true;
+      },
+
+      listResources: () => resourcesRef.current.map(toResourceSummary),
+      createResource: (input: ResourceInput) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const id = nextEntityId(resourcesRef.current);
+        // sanitizeResource fills roleId/utilization defaults; returns null with
+        // no first/last name (or splittable full name).
+        const item = sanitizeResource({ ...input, id });
+        if (!item) throw new Error("invalid resource: first or last name is required");
+        const next = [...resourcesRef.current, item];
+        resourcesRef.current = next;
+        setResources(next);
+        return toResourceSummary(item);
       },
 
       getSnapshot: () => {

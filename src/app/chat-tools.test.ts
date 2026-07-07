@@ -123,6 +123,12 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       id === 40 ? { id: 40, name: "S", category: "Other", influence: "Medium", interest: "Medium" } : null,
     ),
     deleteStakeholder: vi.fn((id: number) => id === 40),
+    listResources: vi.fn(() => [
+      { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" },
+    ]),
+    createResource: vi.fn((input) => ({
+      id: 8, firstName: "R", lastName: "", ...(input as object),
+    })),
     getSnapshot: vi.fn(() => ({
       today: "2026-06-02",
       language: "en-US" as const,
