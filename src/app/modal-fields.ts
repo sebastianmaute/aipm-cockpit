@@ -117,6 +117,9 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
     // Internal + external per-hour rate overrides.
     { id: "rateOverrides", labelKey: "budgetRateOverrideInternal", tier: "full" },
     // Detailed-planning toggle + the role/discipline allocation blocks it gates.
-    { id: "planningDetail", labelKey: "budgetDetailedPlanning", tier: "full" },
+    // Advanced (not Full): allocations are core budget functionality — timelog
+    // "Apply to budget" needs a role/discipline line to hold actuals — so the
+    // add-role/add-discipline controls must be visible at the default tier.
+    { id: "planningDetail", labelKey: "budgetDetailedPlanning", tier: "advanced" },
   ],
 };

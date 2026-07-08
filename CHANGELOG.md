@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.169.4] - 2026-07-08 "Sterling"
+
+Bugfix for the Budget bucket editor. No storage format change, no new fields.
+
+### Fixed
+- **You can now add roles and disciplines to budget buckets at the default view**: the detailed-planning allocation controls (the add-role and add-discipline pickers) were tagged as a "Full"-tier field, but the app's default field-visibility tier is "Advanced", so the controls were hidden unless you manually switched the Budget editor to Full via the ⚙ field controls. They now show at the default Advanced tier. This also makes the 0.169.3 "add a role line first" guidance actionable.
+- **Empty rate card is no longer a dead end**: when a project has no roles or disciplines defined yet (e.g. a freshly AI- or TimeLog-created project), the allocation picker showed a misleading "All roles are already allocated" message. It now reads "No roles/disciplines defined" and shows a hint pointing to Resources → Manage roles, where reference data is defined.
+- Note: if a project's Budget field visibility was manually customized before this release, the stored setting may still hide the controls — open the ⚙ field controls in the Budget editor and enable "Detailed budget planning" (or reset to default).
+
 ## [0.169.3] - 2026-07-08 "Sterling"
 
 Bugfix for the Time bookings (TimeLog) "Apply to budget" action. No storage format change, no new fields.

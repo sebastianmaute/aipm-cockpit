@@ -320,4 +320,49 @@ describe("BudgetBucketModal", () => {
     expect(screen.getByText(nameLabel)).toBeInTheDocument();
     expect(screen.getByText(startLabel)).toBeInTheDocument();
   });
+
+  // Root-cause regression (0.169.4): detailed-planning allocations were tier "full",
+  // so at the default Advanced tier the add-role/add-discipline controls were hidden
+  // and the user "could not add roles or disciplines to budget buckets".
+  test("shows the detailed-planning allocation controls at the default Advanced tier", () => {
+    render(
+      <BudgetBucketModal
+        lang="en-US"
+        bucket={baseBucket}
+        allBuckets={[baseBucket]}
+        roles={roles}
+        disciplines={[]}
+        grades={[]}
+        resources={[]}
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+      { wrapper },
+    );
+    // No field-visibility Seed → the Advanced default. The detailed-planning toggle
+    // and the add-role dropdown must both be present.
+    expect(
+      screen.getByRole("button", { name: t("en-US", "budgetDetailedPlanning") }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /add role/i })).toBeInTheDocument();
+  });
+
+  test("empty rate card: add-role dropdown says 'no roles defined' and shows a hint to Manage roles", () => {
+    setup({ roles: [], disciplines: [] });
+    expect(screen.getByText(t("en-US", "budgetNoRolesDefined"))).toBeInTheDocument();
+    expect(screen.getByText(/add roles under/i)).toBeInTheDocument();
+    // The misleading "already allocated" copy must NOT show when zero roles exist.
+    expect(screen.queryByText(t("en-US", "budgetNoRolesLeft"))).not.toBeInTheDocument();
+  });
+
+  test("empty rate card (blended): discipline dropdown says 'no disciplines defined' with a hint", () => {
+    setup({
+      roles: [],
+      disciplines: [],
+      bucket: { ...baseBucket, planningMode: "blended", disciplineAllocations: [] },
+    });
+    expect(screen.getByText(t("en-US", "budgetNoDisciplinesDefined"))).toBeInTheDocument();
+    expect(screen.getByText(/add disciplines under/i)).toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "budgetNoDisciplinesLeft"))).not.toBeInTheDocument();
+  });
 });

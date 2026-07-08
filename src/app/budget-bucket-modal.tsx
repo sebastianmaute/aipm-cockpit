@@ -591,7 +591,7 @@ export function BudgetBucketModal({
               >
                 <option value="">
                   {addableRoles.length === 0
-                    ? t(lang, "budgetNoRolesLeft")
+                    ? t(lang, roles.length === 0 ? "budgetNoRolesDefined" : "budgetNoRolesLeft")
                     : "—"}
                 </option>
                 {addableRoles.map((r) => (
@@ -609,6 +609,13 @@ export function BudgetBucketModal({
                 + {t(lang, "budgetAddRole")}
               </button>
             </div>
+            {/* Empty rate card: roles are defined under Resources → Manage roles,
+                not here, so guide the user there instead of a dead dropdown. */}
+            {roles.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t(lang, "budgetNoRolesDefinedHint", t(lang, "resourcesManageRoles"))}
+              </p>
+            )}
           </div>
           )}
 
@@ -658,7 +665,7 @@ export function BudgetBucketModal({
                   disabled={addableDisciplines.length === 0}
                   aria-label={t(lang, "budgetAddDiscipline")}
                 >
-                  <option value="">{addableDisciplines.length === 0 ? t(lang, "budgetNoDisciplinesLeft") : "—"}</option>
+                  <option value="">{addableDisciplines.length === 0 ? t(lang, disciplines.length === 0 ? "budgetNoDisciplinesDefined" : "budgetNoDisciplinesLeft") : "—"}</option>
                   {addableDisciplines.map((x) => (
                     <option key={x.id} value={x.id}>{x.name}</option>
                   ))}
@@ -672,6 +679,11 @@ export function BudgetBucketModal({
                   + {t(lang, "budgetAddDiscipline")}
                 </button>
               </div>
+              {disciplines.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {t(lang, "budgetNoDisciplinesDefinedHint", t(lang, "resourcesManageRoles"))}
+                </p>
+              )}
             </div>
           )}
 

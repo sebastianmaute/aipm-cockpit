@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.169.3";
-export const APP_BUILD_DATE = "2026-07-08"; // 0.169.3: Timelog "Apply to budget" no longer silently no-ops for a linked bucket that has booked hours but no role/discipline line — planApply and applyActualsToBuckets now agree (both skip allocation-less buckets), blended buckets write to disciplineAllocations, and a notice explains when hours can't be applied because a bucket lacks a role line (Sterling)
+export const APP_VERSION = "0.169.4";
+export const APP_BUILD_DATE = "2026-07-08"; // 0.169.4: Budget bucket editor's role/discipline allocation controls were tier "full" while the app default is "advanced", so the add-role/add-discipline UI was hidden by default — users "could not add roles or disciplines to budget buckets" (the 0.169.3 "add a role line first" guidance was unreachable). Lowered planningDetail to the advanced tier + added an empty-rate-card hint pointing to Resources → Manage roles (Sterling)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.169.x line is "Sterling" (Bruce Sterling). */
 export const APP_MILESTONE = "Sterling";
