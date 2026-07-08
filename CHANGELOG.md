@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.169.2] - 2026-07-08 "Sterling"
+
+Bugfix for AI project creation. No storage format change, no new fields.
+
+### Fixed
+- **AI-created projects now populate the Resources directory**: describing/importing a project with the AI assistant created the tasks (with the named people as free-text assignees) but left the Resources directory empty, and the Time-bookings People picker had no resources to link a TimeLog user to. `parseProposal` was silently dropping the model's `seed.resources` while narrowing the proposal, so nothing downstream ever received the seeded people. The narrowing now passes `resources` through, so the directory is seeded and task/RAID/stakeholder owners link to those entries by name (or email).
+
 ## [0.169.1] - 2026-07-08 "Sterling"
 
 Bugfix for the Time bookings (TimeLog) integration. No storage format change, no
