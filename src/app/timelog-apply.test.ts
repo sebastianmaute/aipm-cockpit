@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { planApply, applyActualsToBuckets } from "./timelog-apply";
+import { planApply, applyActualsToBuckets, bucketsMissingAllocations } from "./timelog-apply";
 import type { BudgetBucket } from "./types";
 import type { ActualsByBucket } from "./timelog-actuals";
 
@@ -24,6 +24,19 @@ describe("planApply", () => {
   it("skips an overlay bucketId that has no matching bucket", () => {
     expect(planApply([bucket(1)], overlay)).toEqual([]);
   });
+  it("skips a bucket that has overlay hours but no allocation to hold them", () => {
+    const empty = { ...bucket(7), allocations: [] } as BudgetBucket;
+    expect(planApply([empty], overlay)).toEqual([]);
+  });
+  it("uses the blended disciplineAllocation as the current-actuals source", () => {
+    const b = { ...bucket(7), planningMode: "blended", allocations: [],
+      disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: { "2026-06": 4 } }] } as BudgetBucket;
+    expect(planApply([b], overlay)).toContainEqual({ bucketId: 7, period: "2026-06", current: 4, next: 6 });
+  });
+  it("skips a blended bucket with no disciplineAllocations", () => {
+    const b = { ...bucket(7), planningMode: "blended", allocations: [], disciplineAllocations: [] } as BudgetBucket;
+    expect(planApply([b], overlay)).toEqual([]);
+  });
 });
 
 describe("applyActualsToBuckets", () => {
@@ -46,5 +59,43 @@ describe("applyActualsToBuckets", () => {
     const other = bucket(8, { "2026-06": 3 });
     const after = applyActualsToBuckets([other], overlay);
     expect(after[0]).toBe(other); // same reference — untouched
+  });
+  it("writes overlay hours into the first disciplineAllocation for a blended bucket", () => {
+    const b = { ...bucket(7), planningMode: "blended", allocations: [],
+      disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: { "2026-06": 2 } }] } as BudgetBucket;
+    const after = applyActualsToBuckets([b], overlay);
+    expect(after[0].disciplineAllocations![0].actualHours["2026-06"]).toBe(6);
+    expect(after[0].allocations).toEqual([]); // detailed list left untouched
+  });
+  it("leaves a blended bucket with no disciplineAllocations untouched", () => {
+    const b = { ...bucket(7), planningMode: "blended", allocations: [], disciplineAllocations: [] } as BudgetBucket;
+    expect(applyActualsToBuckets([b], overlay)[0]).toBe(b);
+  });
+});
+
+describe("bucketsMissingAllocations", () => {
+  it("flags an overlay bucket with no target allocation (detailed)", () => {
+    const empty = { ...bucket(7), allocations: [] } as BudgetBucket;
+    expect(bucketsMissingAllocations([empty], overlay)).toEqual([7]);
+  });
+  it("flags a blended bucket with no disciplineAllocations", () => {
+    const b = { ...bucket(7), planningMode: "blended", allocations: [], disciplineAllocations: [] } as BudgetBucket;
+    expect(bucketsMissingAllocations([b], overlay)).toEqual([7]);
+  });
+  it("does not flag a bucket that has an allocation", () => {
+    expect(bucketsMissingAllocations([bucket(7)], overlay)).toEqual([]);
+  });
+  it("keys the branch on planningMode: a detailed bucket ignores stray disciplineAllocations", () => {
+    // Empty `allocations` but a populated `disciplineAllocations`; planningMode is
+    // absent (⇒ detailed), so the discipline line must NOT count as a target.
+    const b = { ...bucket(7), allocations: [],
+      disciplineAllocations: [{ disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }] } as BudgetBucket;
+    expect(bucketsMissingAllocations([b], overlay)).toEqual([7]);
+    expect(planApply([b], overlay)).toEqual([]);
+    expect(applyActualsToBuckets([b], overlay)[0]).toBe(b);
+  });
+  it("ignores buckets absent from the overlay", () => {
+    const empty = { ...bucket(8), allocations: [] } as BudgetBucket;
+    expect(bucketsMissingAllocations([empty], overlay)).toEqual([]);
   });
 });

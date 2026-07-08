@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.169.2";
-export const APP_BUILD_DATE = "2026-07-08"; // 0.169.2: AI project creation now seeds the Resources directory — parseProposal was dropping the model's seed.resources, so an AI-created project produced tasks with plain-string assignees but an empty directory (and Time-bookings could not link people because the person picker listed no resources); the narrowing now passes resources through so the directory populates and owners link by name (Sterling)
+export const APP_VERSION = "0.169.3";
+export const APP_BUILD_DATE = "2026-07-08"; // 0.169.3: Timelog "Apply to budget" no longer silently no-ops for a linked bucket that has booked hours but no role/discipline line — planApply and applyActualsToBuckets now agree (both skip allocation-less buckets), blended buckets write to disciplineAllocations, and a notice explains when hours can't be applied because a bucket lacks a role line (Sterling)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.169.x line is "Sterling" (Bruce Sterling). */
 export const APP_MILESTONE = "Sterling";
