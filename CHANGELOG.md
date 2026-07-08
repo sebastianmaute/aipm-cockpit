@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.169.1] - 2026-07-08 "Sterling"
+
+Bugfix for the Time bookings (TimeLog) integration. No storage format change, no
+new fields.
+
+### Fixed
+- **Synced hours now populate the budget**: a person or project that was *auto*-matched in the People/Projects tables (shown with an "Auto" badge) attributed no hours — every booking fell into "Unattributed" and Booked stayed 0h, because aggregation resolved only the explicitly-pinned (manual) links while the tables displayed the effective auto+manual matches. Aggregation now resolves the same effective links the matching UI shows, so auto-matched bookings reach the budget. (Project refs are also derived before aggregation, so project-by-name auto-matching works on the first fetch.)
+
 ## [0.169.0] - 2026-07-08 "Sterling"
 
 Resources & Time bookings follow-up — a batch of UX fixes and an AI-import gap

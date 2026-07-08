@@ -22,7 +22,10 @@ import { useTimelogSync } from "./use-timelog-sync";
 import type { TimelogLinks } from "./timelog-types";
 
 const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
-const links: TimelogLinks = { userLinks: [{ timelogUserId: 5, resourceId: 2, manual: false }], projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: false }] };
+// Persisted links are always MANUAL pins in production (auto-matches are never
+// written back). autoMatch* keeps manual links regardless of directory/refs, so
+// these attribute without needing resources/budgets seeded.
+const links: TimelogLinks = { userLinks: [{ timelogUserId: 5, resourceId: 2, manual: true }], projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: true }] };
 const item = (userId: number, hours: number) => ({ timeRegistrationId: 1, userId, projectId: 9, projectName: "", projectNo: "", taskId: 0, date: "2026-06-10", hours, billableHours: hours, isBillable: true });
 beforeEach(() => {
   vi.clearAllMocks();
@@ -33,7 +36,7 @@ beforeEach(() => {
 });
 
 function args(over: Partial<Parameters<typeof useTimelogSync>[0]> = {}) {
-  return { creds, links, scopeMode: "auto" as const, granularity: "month" as const, projectId: "p1", isPopout: false, onTokenInvalid: vi.fn(), onTokenValid: vi.fn(), ...over };
+  return { creds, links, resources: [], budgets: [], scopeMode: "auto" as const, granularity: "month" as const, projectId: "p1", isPopout: false, onTokenInvalid: vi.fn(), onTokenValid: vi.fn(), ...over };
 }
 
 it("self mode aggregates the token user's items and caches them", async () => {
@@ -44,6 +47,35 @@ it("self mode aggregates the token user's items and caches them", async () => {
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
   // Distinct project refs collected from the fetched items (item() uses projectId 9)
   expect(result.current.projectRefs).toEqual([{ id: 9, name: "", no: "" }]);
+});
+
+it("attributes hours via AUTO-matched links (no manual pins persisted)", async () => {
+  // The reported bug: person + project shown as "Auto" in the table, but with
+  // NO persisted links every booking fell into `unattributed` (booked 0h). The
+  // aggregation must resolve the SAME effective links the UI derives.
+  const emptyLinks: TimelogLinks = { userLinks: [], projectLinks: [] };
+  const resources = [
+    { id: 2, firstName: "Carl", lastName: "Ng", email: "c@x.com", roleId: null },
+  ] as unknown as Parameters<typeof useTimelogSync>[0]["resources"];
+  const budgets = [{ id: 7, name: "Acme" }] as unknown as Parameters<typeof useTimelogSync>[0]["budgets"];
+  // self scope skips the auto→privilege probe, so getPrivileges isn't mocked here.
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 5, firstName: "Carl", lastName: "Ng", initials: "CN", email: "c@x.com", isActive: true },
+  ]);
+  // Booking on project 9 whose NAME "Acme" auto-matches budget bucket 7 by name.
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { ...item(5, 6), projectName: "Acme" },
+  ]);
+  const { result } = renderHook(() =>
+    useTimelogSync(args({ scopeMode: "self", links: emptyLinks, resources, budgets })),
+  );
+  await act(async () => { await result.current.loadDirectory(); });
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  // Attributed to resource 2 (user 5 auto-matched by email) + bucket 7 (project
+  // "Acme" auto-matched by name) — NOT dumped into unattributed.
+  expect(result.current.aggregates?.byResource[2].hours).toBe(6);
+  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(6);
+  expect(result.current.aggregates?.unattributed.hours).toBe(0);
 });
 
 it("exposes only displayable directory users (drops inactive/nameless rows)", async () => {

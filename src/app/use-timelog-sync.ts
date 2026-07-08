@@ -18,13 +18,20 @@ import {
 } from "./timelog-api";
 import { aggregateActuals, type ActualsAggregate } from "./timelog-actuals";
 import { saveActualsCache, loadActualsCache, clearActualsCache } from "./timelog-actuals-store";
-import { displayableUsers, type TimelogProjectRef } from "./timelog-match";
+import { autoMatchUsers, autoMatchProjects, displayableUsers, type TimelogProjectRef } from "./timelog-match";
 import type { TimelogLinks, TimelogScopeMode, TimelogTimeItem, TimelogUser } from "./timelog-types";
-import type { PlanGranularity } from "./types";
+import type { PlanGranularity, Resource, BudgetBucket } from "./types";
 
 type Args = {
   creds: TimelogCreds;
   links: TimelogLinks;
+  // Resources + budget buckets so aggregation attributes hours via the SAME
+  // effective (auto + manual) links the matching UI shows as "Auto"/"Manual" —
+  // NOT the raw persisted links (which hold only explicit manual pins). Without
+  // this an auto-matched person/project shows as linked in the table yet every
+  // booking still falls into `unattributed` and never reaches the budget.
+  resources: readonly Resource[];
+  budgets: readonly BudgetBucket[];
   scopeMode: TimelogScopeMode;
   granularity: PlanGranularity;
   projectId: string;
@@ -40,6 +47,8 @@ export function useTimelogSync(args: Args) {
   const granularity = args.granularity;
   const creds = args.creds;
   const links = args.links;
+  const resources = args.resources;
+  const budgets = args.budgets;
   const onTokenInvalid = args.onTokenInvalid;
   const onTokenValid = args.onTokenValid;
 
@@ -175,11 +184,12 @@ export function useTimelogSync(args: Args) {
         }
       }
 
-      const agg = aggregateActuals(items, links, granularity);
       // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
       // Skip ProjectID 0 (absence / non-project time): it has an empty name, can't
       // map to a budget bucket, and already aggregates into `unattributed` — so it
       // would only render a blank, useless row in the Projects matching table.
+      // MUST run BEFORE aggregation: auto-matching a project to a bucket needs the
+      // refs (project names) derived from these very items.
       const refMap = new Map<number, TimelogProjectRef>();
       for (const it of items) {
         if (it.projectId <= 0) continue;
@@ -188,6 +198,16 @@ export function useTimelogSync(args: Args) {
         }
       }
       const refs = [...refMap.values()];
+
+      // Aggregate on the EFFECTIVE links (auto + manual, manual wins) — the same
+      // resolution the matching UI shows — so an auto-matched person/project
+      // actually attributes hours to a resource/bucket. Manual pins ride through
+      // even when their project isn't in this fetch's refs (autoMatch* keeps them).
+      const effectiveLinks: TimelogLinks = {
+        userLinks: autoMatchUsers(users, resources, links),
+        projectLinks: autoMatchProjects(refs, budgets, links),
+      };
+      const agg = aggregateActuals(items, effectiveLinks, granularity);
       const at = new Date().toISOString();
       setAggregates(agg);
       setProjectRefs(refs);
