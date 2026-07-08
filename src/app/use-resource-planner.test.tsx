@@ -387,6 +387,23 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.absences.map((a) => a.id)).toEqual([2]);
       expect(result.current.workspace.shifts.map((s) => s.id)).toEqual([2]);
     });
+
+    it("cascade does NOT sweep a surviving twin's entries on a name collision (name-only match)", () => {
+      const { result } = renderPlanner();
+      const del: Resource = { id: 5, firstName: "John", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} };
+      const twin: Resource = { id: 9, firstName: "John", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} };
+      act(() => { result.current.workspace.setResources([del, twin]); });
+      act(() => {
+        result.current.workspace.setAbsences([
+          // Precise link to the deleted resource → removed.
+          { id: 1, resourceId: 5, assignee: "John Smith", startDate: "2026-07-01", endDate: "2026-07-02", type: "vacation" },
+          // No resourceId, name shared with the surviving twin → KEPT (ambiguous).
+          { id: 2, assignee: "John Smith", startDate: "2026-07-03", endDate: "2026-07-04", type: "vacation" },
+        ]);
+      });
+      act(() => { result.current.planner.handleDeleteResource(5); });
+      expect(result.current.workspace.absences.map((a) => a.id)).toEqual([2]);
+    });
   });
 
   describe("shift modal", () => {

@@ -248,6 +248,12 @@ function buildSeedTask(raw: unknown, id: number, today: string): Task | null {
   };
 }
 
+/** Bound free-form model strings that the resource sanitizer stores uncapped
+ *  (title/department go through the length-less optText path). */
+function clipSeedText(v: unknown): string | undefined {
+  return typeof v === "string" ? v.slice(0, 200) : undefined;
+}
+
 function buildSeedResource(raw: unknown, id: number): Resource | null {
   if (!isObj(raw)) return null;
   return sanitizeResource({
@@ -255,8 +261,8 @@ function buildSeedResource(raw: unknown, id: number): Resource | null {
     firstName: raw.firstName,
     lastName: raw.lastName,
     email: raw.email,
-    title: raw.title,
-    department: raw.department,
+    title: clipSeedText(raw.title),
+    department: clipSeedText(raw.department),
     isExternal: raw.isExternal,
     // A fresh project has no rate card yet, so a role can't be assigned here.
     roleId: null,

@@ -408,7 +408,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
           <button
             type="button"
-            onClick={() => setSettings((s) => ({ ...s, timelogPeopleCollapsed: !peopleCollapsed }))}
+            onClick={() => setSettings((s) => ({ ...s, timelogPeopleCollapsed: !s.timelogPeopleCollapsed }))}
             aria-expanded={!peopleCollapsed}
             aria-controls="timelog-people-region"
             title={t(lang, peopleCollapsed ? "timelogPeopleExpand" : "timelogPeopleCollapse")}
@@ -420,8 +420,10 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
             {t(lang, "timelogMatchPeople")}
           </button>
         </h3>
-        {!peopleCollapsed && (
-        <div id="timelog-people-region">
+        {/* Kept mounted + `hidden`-toggled (not unmounted) so the aria-controls
+            target always exists AND the table still prints when collapsed
+            (print:block overrides [hidden]). Mirrors action-reasons.tsx. */}
+        <div id="timelog-people-region" hidden={peopleCollapsed} className="print:block">
         {/* Attribution hint — shown only while some fetched hours are unattributed
             (the user/project links explain why those hours aren't booked yet). */}
         {unattributed.hours > 0 && (
@@ -591,7 +593,6 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           </>
         )}
         </div>
-        )}
       </section>
 
       {/* Projects matching table */}

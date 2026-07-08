@@ -74,13 +74,15 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
     ...r,
     id: resourceMap.get(r.id)!,
   }));
+  // First-wins on a duplicate name/email so linking is deterministic (declaration
+  // order) rather than silently binding owners to the last same-named seed.
   const resByName = new Map<string, number>();
   const resByEmail = new Map<string, number>();
   for (const r of remappedResources) {
     const nm = resourceDisplayName(r).trim().toLowerCase();
-    if (nm) resByName.set(nm, r.id);
+    if (nm && !resByName.has(nm)) resByName.set(nm, r.id);
     const em = (r.email ?? "").trim().toLowerCase();
-    if (em) resByEmail.set(em, r.id);
+    if (em && !resByEmail.has(em)) resByEmail.set(em, r.id);
   }
   const linkResource = (name?: string, email?: string): number | undefined => {
     const e = (email ?? "").trim().toLowerCase();
