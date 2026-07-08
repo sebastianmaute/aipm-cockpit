@@ -58,6 +58,21 @@ describe("ResourcesPanel", () => {
     expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-02", 80);
   });
 
+  test("planning view: editable utilization input has an opaque bg so it stays visible on row hover", () => {
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
+      workdayHours={8} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // Row hover is bg-surface-muted; the editable input must fill bg-surface (not
+    // transparent) or it dissolves into the hover color (border-line == surface-muted).
+    const util = screen.getByLabelText("Utilization for Sample in 2026-02");
+    expect(util.className).toContain("bg-surface");
+    expect(util.className).not.toContain("bg-surface-muted");
+    const override = screen.getByLabelText("Absence override for Sample in 2026-02");
+    expect(override.className).toContain("bg-surface");
+  });
+
   test("planning view: changing the From date calls onSetPlanWindow", () => {
     const onSetPlanWindow = vi.fn();
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
