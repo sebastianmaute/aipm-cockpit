@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.169.0] - 2026-07-08 "Sterling"
+
+Resources & Time bookings follow-up — a batch of UX fixes and an AI-import gap
+closed. No new persisted fields (the two new preferences are per-device
+settings; the AI proposal's resource list is transient), so older files load
+unchanged and no storage format changed.
+
+### Added
+- **Collapsible People in Time bookings**: the People matching list is now a disclosure (heading toggle) so a large org directory can be folded away, and the whole view scrolls — Projects and the Apply-to-budget bar are always reachable even when the people list is long. Collapse state persists per-device.
+- **Include/exclude externals in the resource Calendar**: a per-device toggle in the calendar toolbar hides or shows rows backed by an external resource (rows for never-linked typed contractors always show).
+- **AI project creation seeds the resource directory**: describing or importing a project that names team members now populates the Resources directory and links those people to the tasks/risks/stakeholders they own (by name or email), instead of leaving them as plain-string assignees with an empty directory.
+
+### Changed
+- **Deleting a resource clears its calendar entries**: removing a resource (single or bulk) now also removes that person's absences and shifts, so no stale "ghost" row lingers in the calendar. A same-named surviving resource's entries are never swept up. Both delete confirmations note the cascade.
+
+### Fixed
+- **Planning-grid inputs stay visible on hover**: the per-period utilization and absence-override inputs no longer dissolve into the row hover colour (they now carry an opaque fill in both light and dark modes).
+
 ## [0.168.0] - 2026-07-07 "Gibson"
 
 Resources & rate-card enhancement — a batch of directory, rate-card, and

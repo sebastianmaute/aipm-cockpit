@@ -178,6 +178,7 @@ const enUS = {
   versionHighlightKeyboardA11y: "A broad keyboard and screen-reader pass: branded confirm dialogs, a keyboard-navigable calendar grid, a flyout for collapsed-sidebar sub-menus, a mobile off-canvas drawer, and focus that follows the view on navigation",
   versionHighlightWorkloadActionable: "The workload view is now actionable — edit a resource's near-term utilization inline and reassign or reschedule their overdue tasks without leaving the view",
   versionHighlightResourceEnhance: "Resources overhaul — a single role picker replaces the discipline+grade dropdowns, rate-card rows drag to reorder, external resources are capacity-tracked but excluded from all costs, resources carry extra copy-on-click emails, the directory gains bulk edit + delete, the AI can manage directory entries, and stray unlinked workload rows can be cleared",
+  versionHighlightResourceFollowup: "Resources & Time bookings follow-up — the Time bookings people list collapses so projects stay in view, external resources can be shown or hidden in the calendar, deleting a resource clears its calendar entries, planning inputs stay visible on row hover, and AI project creation now populates the resource directory",
 
   tasks: "Tasks",
   tasksCount: "({0})",

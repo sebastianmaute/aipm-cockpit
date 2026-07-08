@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.168.0";
-export const APP_BUILD_DATE = "2026-07-07"; // 0.168.0: Resources & rate-card enhancement — a single role picker replaces the discipline+grade dropdowns, rate-card rows drag to reorder, external resources are capacity-tracked but excluded from all cost figures, resources carry additional (copy-on-click) email addresses, the directory gains bulk edit + delete, the AI assistant can get/update/delete directory entries, and stray unlinked workload rows can be cleared (Gibson)
+export const APP_VERSION = "0.169.0";
+export const APP_BUILD_DATE = "2026-07-08"; // 0.169.0: Resources & Time bookings follow-up — the Time bookings people list collapses (so projects stay reachable), external resources can be included/excluded in the calendar, deleting a resource clears its calendar entries, planning-grid inputs stay visible on row hover, and AI project creation now populates the resource directory (Sterling)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.168.x line is "Gibson" (William Gibson). */
-export const APP_MILESTONE = "Gibson";
+ *  0.169.x line is "Sterling" (Bruce Sterling). */
+export const APP_MILESTONE = "Sterling";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -190,4 +190,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightKeyboardA11y",
   "versionHighlightWorkloadActionable",
   "versionHighlightResourceEnhance",
+  "versionHighlightResourceFollowup",
 ] as const;
