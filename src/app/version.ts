@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.169.1";
-export const APP_BUILD_DATE = "2026-07-08"; // 0.169.1: Time bookings — synced hours now populate the budget via auto-matched links (previously an auto-matched person/project showed as linked but every booking fell into "Unattributed"); the aggregation resolves the same effective links the matching UI displays (Sterling)
+export const APP_VERSION = "0.169.2";
+export const APP_BUILD_DATE = "2026-07-08"; // 0.169.2: AI project creation now seeds the Resources directory — parseProposal was dropping the model's seed.resources, so an AI-created project produced tasks with plain-string assignees but an empty directory (and Time-bookings could not link people because the person picker listed no resources); the narrowing now passes resources through so the directory populates and owners link by name (Sterling)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.169.x line is "Sterling" (Bruce Sterling). */
 export const APP_MILESTONE = "Sterling";

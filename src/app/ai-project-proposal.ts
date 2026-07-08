@@ -189,6 +189,7 @@ export function parseProposal(input: unknown): ProjectProposal | null {
         milestones: Array.isArray(seedRaw.milestones) ? seedRaw.milestones : undefined,
         stakeholders: Array.isArray(seedRaw.stakeholders) ? seedRaw.stakeholders : undefined,
         tasks: Array.isArray(seedRaw.tasks) ? seedRaw.tasks : undefined,
+        resources: Array.isArray(seedRaw.resources) ? seedRaw.resources : undefined,
       }
     : undefined;
 

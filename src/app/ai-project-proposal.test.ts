@@ -27,6 +27,20 @@ describe("parseProposal", () => {
     expect(p!.features).toEqual([ALL_MODULE_IDS[0], ALL_MODULE_IDS[1]]);
     expect(p!.seed?.milestones?.length).toBe(1);
   });
+
+  it("passes the model's seed resources through (so the directory gets seeded)", () => {
+    const p = parseProposal({
+      meta: { name: "CRM Migration" },
+      features: [],
+      seed: {
+        resources: [{ firstName: "Ada", lastName: "Lovelace", email: "ada@x.io" }],
+        tasks: [{ taskName: "Kickoff", assignee: "Ada Lovelace" }],
+      },
+    });
+    expect(p).not.toBeNull();
+    expect(p!.seed?.resources).toHaveLength(1);
+    expect(p!.seed?.resources?.[0]).toMatchObject({ firstName: "Ada", lastName: "Lovelace" });
+  });
 });
 
 describe("PROPOSAL_TOOL", () => {
