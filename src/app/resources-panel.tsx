@@ -39,6 +39,7 @@ import {
   type WeekHours,
 } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
+import { useSettings } from "./use-settings";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -197,6 +198,10 @@ function ResourcesPanelInner({
   // rather than in an effect, to avoid cascading renders.
   const [viewGranularity, setViewGranularity] = useState<PlanGranularity>(plan.granularity);
   const [prevPlanGranularity, setPrevPlanGranularity] = useState<PlanGranularity>(plan.granularity);
+
+  // Per-device: include external resources in the calendar (default include).
+  const { settings, setSettings } = useSettings();
+  const includeExternals = settings.calendarIncludeExternals !== false;
 
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");
   const [calendarAnchor, setCalendarAnchor] = useState<string>(today);
@@ -779,10 +784,21 @@ function ResourcesPanelInner({
                 </button>
               </div>
             )}
+            <label className="flex items-center gap-1.5 text-foreground">
+              <input
+                type="checkbox"
+                checked={includeExternals}
+                aria-label={t(lang, "calendarIncludeExternals")}
+                onChange={(e) => setSettings((s) => ({ ...s, calendarIncludeExternals: e.target.checked }))}
+                className={`align-middle ${FOCUS_RING}`}
+              />
+              <span>{t(lang, "calendarIncludeExternals")}</span>
+            </label>
             <div className="ml-auto">{headerActions}</div>
           </div>
           <ResourceCalendar
             lang={lang}
+            includeExternals={includeExternals}
             rows={rows}
             absences={absences}
             today={today}

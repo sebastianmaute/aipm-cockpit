@@ -33,6 +33,25 @@ describe("ResourceCalendar assignee click", () => {
     expect(onEditResource).toHaveBeenCalledWith(Sample);
   });
 
+  test("includeExternals=false hides external-backed rows but keeps unlinked + internal rows", () => {
+    const ext: Resource = { id: 2, firstName: "Tom", lastName: "Ext", roleId: null, utilizationMode: "percent", utilization: {}, isExternal: true };
+    const rows = [
+      { key: "Alex Example", display: "Alex Example", email: "" },
+      { key: "tom ext", display: "Tom Ext", email: "" },
+      { key: "typed contractor", display: "Typed Contractor", email: "" },
+    ];
+    const { rerender } = render(
+      <ResourceCalendar {...baseProps} rows={rows} resources={[Sample, ext]} includeExternals />,
+    );
+    expect(screen.getByRole("button", { name: "Tom Ext" })).toBeTruthy();
+    // Excluding externals drops Tom (backed by an external resource) but keeps
+    // the internal Sample and the never-linked typed contractor.
+    rerender(<ResourceCalendar {...baseProps} rows={rows} resources={[Sample, ext]} includeExternals={false} />);
+    expect(screen.queryByRole("button", { name: "Tom Ext" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Alex Example" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Typed Contractor" })).toBeTruthy();
+  });
+
   test("unmatched name opens Add Resource prefilled from the display name", () => {
     const onAddResource = vi.fn();
     render(

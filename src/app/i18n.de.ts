@@ -1410,6 +1410,7 @@ export const de: Record<TranslationKey, string> = {
   calendarPrev: "Zurück",
   calendarNext: "Weiter",
   calendarToday: "Heute",
+  calendarIncludeExternals: "Externe einbeziehen",
   calendarFrom: "Von",
   calendarTo: "Bis",
   resourcesToday: "Heute",

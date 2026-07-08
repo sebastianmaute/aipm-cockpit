@@ -41,6 +41,8 @@ interface Props {
   /** Inclusive ISO window the grid renders, resolved by the parent. */
   startDate: string;
   endDate: string;
+  /** When false, rows backed by an external resource are hidden. Default true. */
+  includeExternals?: boolean;
 }
 
 const CELL_PX = 40;
@@ -108,6 +110,7 @@ function ResourceCalendarInner({
   onAddResource,
   startDate,
   endDate,
+  includeExternals = true,
 }: Props) {
   const days = useMemo<CalendarDay[]>(() => {
     const out: CalendarDay[] = [];
@@ -134,6 +137,18 @@ function ResourceCalendarInner({
     return out;
   }, [startDate, endDate, today, holidaySet, lang]);
 
+  // Optionally hide external-resource rows (calendar-scoped preference). Rows
+  // with no backing resource are never external, so they always show. Keyed the
+  // same way as resourceByKey / CalendarAssignee.key (case-folded display name).
+  const visibleRows = useMemo<readonly CalendarAssignee[]>(() => {
+    if (includeExternals) return rows;
+    const externalKeys = new Set<string>();
+    for (const r of resources) {
+      if (r.isExternal) externalKeys.add(resourceDisplayName(r).trim().toLowerCase());
+    }
+    return rows.filter((row) => !externalKeys.has(row.key));
+  }, [rows, resources, includeExternals]);
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLTableElement | null>(null);
 
@@ -142,7 +157,7 @@ function ResourceCalendarInner({
   // read so a window/row change that shrinks the grid can't strand the marker
   // off-range (which would leave NO cell tab-reachable).
   const [focusCell, setFocusCell] = useState<{ row: number; col: number }>({ row: 0, col: 0 });
-  const rowCount = rows.length;
+  const rowCount = visibleRows.length;
   const colCount = days.length;
   const focusRow = rowCount > 0 ? Math.min(focusCell.row, rowCount - 1) : 0;
   const focusCol = colCount > 0 ? Math.min(focusCell.col, colCount - 1) : 0;
@@ -267,7 +282,7 @@ function ResourceCalendarInner({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => {
+            {visibleRows.map((row, rowIndex) => {
               const rowAbs = absencesByKey.get(row.key) ?? [];
               return (
                 <tr key={row.key} role="row">
