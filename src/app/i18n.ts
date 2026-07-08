@@ -1550,6 +1550,7 @@ const enUS = {
   resourceNotes: "Notes",
   resourceSave: "Save resource",
   resourceConfirmDelete: "Delete this resource?",
+  resourceDeleteCascadeNote: "The person's calendar entries (absences and shifts) will also be removed.",
   resourceErrorName: "Enter a first or last name.",
 
   resourcesUnlinked: "Unlinked",

@@ -1,8 +1,8 @@
 {
   "src/app/chat-panel.tsx": 960,
-  "src/app/resources-panel.tsx": 805,
+  "src/app/resources-panel.tsx": 821,
   "src/app/task-manager.tsx": 2373,
   "src/app/tasks-section.tsx": 853,
-  "src/app/use-resource-planner.ts": 814,
+  "src/app/use-resource-planner.ts": 852,
   "src/app/workspace-section.tsx": 878
 }

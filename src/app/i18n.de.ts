@@ -1544,6 +1544,7 @@ export const de: Record<TranslationKey, string> = {
   resourceNotes: "Notizen",
   resourceSave: "Ressource speichern",
   resourceConfirmDelete: "Diese Ressource löschen?",
+  resourceDeleteCascadeNote: "Die Kalendereinträge der Person (Abwesenheiten und Schichten) werden ebenfalls entfernt.",
   resourceErrorName: "Bitte Vor- oder Nachnamen angeben.",
 
   resourcesUnlinked: "Nicht zugeordnet",

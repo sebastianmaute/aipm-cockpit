@@ -367,6 +367,26 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.resources).toHaveLength(0);
       expect(result.current.planner.editingResource).toBeNull();
     });
+
+    it("handleDeleteResource cascades: removes the person's absences + shifts (by name), keeps others", () => {
+      const { result } = renderPlanner();
+      const del: Resource = { id: 9, firstName: "Del", lastName: "Ete", email: "del@x.io", roleId: null, utilizationMode: "percent", utilization: {} };
+      const keep: Resource = { id: 10, firstName: "Kept", lastName: "One", roleId: null, utilizationMode: "percent", utilization: {} };
+      act(() => { result.current.workspace.setResources([del, keep]); });
+      act(() => {
+        result.current.workspace.setAbsences([
+          { id: 1, assignee: "Del Ete", startDate: "2026-07-01", endDate: "2026-07-02", type: "vacation" },
+          { id: 2, assignee: "Kept One", startDate: "2026-07-03", endDate: "2026-07-04", type: "vacation" },
+        ]);
+        result.current.workspace.setShifts([
+          { id: 1, assignee: "Del Ete", hoursPerWeekday: [0, 8, 8, 8, 8, 8, 0] },
+          { id: 2, assignee: "Kept One", hoursPerWeekday: [0, 8, 8, 8, 8, 8, 0] },
+        ]);
+      });
+      act(() => { result.current.planner.handleDeleteResource(9); });
+      expect(result.current.workspace.absences.map((a) => a.id)).toEqual([2]);
+      expect(result.current.workspace.shifts.map((s) => s.id)).toEqual([2]);
+    });
   });
 
   describe("shift modal", () => {
@@ -578,6 +598,27 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.workspace.setResources([mk(1), mk(2), mk(3)]); });
       act(() => { result.current.planner.handleBulkDeleteResources([1, 3]); });
       expect(result.current.workspace.resources.map((r) => r.id)).toEqual([2]);
+    });
+
+    it("handleBulkDeleteResources cascades: drops absences/shifts for every deleted resource (by resourceId + name)", () => {
+      const { result } = renderPlanner();
+      const mk = (id: number, first: string): Resource => ({ id, firstName: first, lastName: "", roleId: null, utilizationMode: "percent", utilization: {} });
+      act(() => { result.current.workspace.setResources([mk(1, "R1"), mk(2, "R2"), mk(3, "R3")]); });
+      act(() => {
+        result.current.workspace.setAbsences([
+          { id: 1, resourceId: 1, assignee: "R1", startDate: "2026-07-01", endDate: "2026-07-02", type: "vacation" },
+          { id: 2, assignee: "R3", startDate: "2026-07-01", endDate: "2026-07-02", type: "vacation" },
+          { id: 3, assignee: "R2", startDate: "2026-07-01", endDate: "2026-07-02", type: "vacation" },
+        ]);
+        result.current.workspace.setShifts([
+          { id: 1, assignee: "R1", hoursPerWeekday: [0, 8, 8, 8, 8, 8, 0] },
+          { id: 2, assignee: "R2", hoursPerWeekday: [0, 8, 8, 8, 8, 8, 0] },
+        ]);
+      });
+      act(() => { result.current.planner.handleBulkDeleteResources([1, 3]); });
+      // R1 (by resourceId) + R3 (by name) gone; R2 kept.
+      expect(result.current.workspace.absences.map((a) => a.id)).toEqual([3]);
+      expect(result.current.workspace.shifts.map((s) => s.id)).toEqual([2]);
     });
 
     it("handleClearResourceRole sets the resource's roleId to null", () => {
