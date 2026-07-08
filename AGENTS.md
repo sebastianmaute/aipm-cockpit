@@ -1109,7 +1109,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `sanitizeProjectMeta`/`draftFromMeta` need many fields + present arrays Claude can't infer (a sparse meta
   throws). Seed records run through each `sanitizeX` (temp id BEFORE sanitize) → `appendSeed`/`remapSeed`; no
   new Workspace field. Model-supplied URLs gated by `isSafeHttpUrl`. Empty-state offers "Configure AI
-  assistant" (`BackendConfigModal` `children` + `AiSection hideUsage`).
+  assistant" (`BackendConfigModal` `children` + `AiSection hideUsage`). ★ The proposal seed NOW includes a
+  `resources` list (`ProposalSeed`/`PROPOSAL_TOOL`/`TemplateSeed` all carry it) so the AI populates the
+  directory; `remapSeed` id-maps the seeded resources and LINKS task `resourceId` / RAID `ownerResourceId` /
+  stakeholder `resourceId` by case-folded name (or email) — an unmatched owner stays a plain-string assignee
+  (FK undefined/null). When NO resources are seeded the person FKs are cleared exactly as before. Resource
+  already round-trips all six paths, so no new write path / golden regen.
 - **Create project from source:** the create wizard's Step 0 (extracted to `step0-import-panel.tsx`) adds
   Upload-file / SharePoint / Confluence-URL import alongside Describe; all funnel into
   `useProjectProposal().generate(...)` — widened to `string | ContentBlock[]` (multimodal: PDF/image read

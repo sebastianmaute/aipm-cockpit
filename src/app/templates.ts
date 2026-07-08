@@ -33,6 +33,7 @@ import {
   type RaidCategory,
   type RaidItem,
   type RaidStatus,
+  type Resource,
   type Stakeholder,
   type Task,
   type TaskDependency,
@@ -51,6 +52,7 @@ export interface TemplateSeed {
   changes?: readonly ChangeItem[];
   stakeholders?: readonly Stakeholder[];
   budgets?: readonly BudgetBucket[];
+  resources?: readonly Resource[];
 }
 
 /**

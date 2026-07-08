@@ -39,6 +39,7 @@ import {
   type WeekHours,
 } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
+import { useSettings } from "./use-settings";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -197,6 +198,10 @@ function ResourcesPanelInner({
   // rather than in an effect, to avoid cascading renders.
   const [viewGranularity, setViewGranularity] = useState<PlanGranularity>(plan.granularity);
   const [prevPlanGranularity, setPrevPlanGranularity] = useState<PlanGranularity>(plan.granularity);
+
+  // Per-device: include external resources in the calendar (default include).
+  const { settings, setSettings } = useSettings();
+  const includeExternals = settings.calendarIncludeExternals !== false;
 
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");
   const [calendarAnchor, setCalendarAnchor] = useState<string>(today);
@@ -562,7 +567,7 @@ function ResourcesPanelInner({
                             readOnly={derived}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
-                            className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums dark:bg-surface ${FOCUS_RING} ${TRANSITION}${derived ? " bg-surface-muted opacity-60" : ""}`} />
+                            className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
                           <input type="number" min={0} step={1}
                             aria-label={`Absence override for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesAbsenceOverrideHint")}
@@ -571,7 +576,7 @@ function ResourcesPanelInner({
                             readOnly={derived}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
-                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:bg-surface dark:text-AIPM-purple ${FOCUS_RING} ${TRANSITION}${derived ? " bg-surface-muted opacity-60" : ""}`} />
+                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:text-AIPM-purple ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
                         </td>
                         );
                       })}
@@ -779,10 +784,21 @@ function ResourcesPanelInner({
                 </button>
               </div>
             )}
+            <label className="flex items-center gap-1.5 text-foreground">
+              <input
+                type="checkbox"
+                checked={includeExternals}
+                aria-label={t(lang, "calendarIncludeExternals")}
+                onChange={(e) => setSettings((s) => ({ ...s, calendarIncludeExternals: e.target.checked }))}
+                className={`align-middle ${FOCUS_RING}`}
+              />
+              <span>{t(lang, "calendarIncludeExternals")}</span>
+            </label>
             <div className="ml-auto">{headerActions}</div>
           </div>
           <ResourceCalendar
             lang={lang}
+            includeExternals={includeExternals}
             rows={rows}
             absences={absences}
             today={today}

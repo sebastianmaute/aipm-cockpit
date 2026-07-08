@@ -170,7 +170,8 @@ describe("ResourceDirectory", () => {
     );
     fireEvent.click(screen.getByRole("checkbox", { name: /select all/i }));
     fireEvent.click(screen.getByRole("button", { name: /delete selected/i }));
-    // Branded confirm dialog → click Confirm.
+    // Branded confirm dialog → warns the cascade also removes calendar entries.
+    expect(await screen.findByText(/calendar entries \(absences and shifts\) will also be removed/i)).toBeTruthy();
     fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
     await waitFor(() => expect(onBulkDelete).toHaveBeenCalledWith(expect.arrayContaining([1, 2])));
   });

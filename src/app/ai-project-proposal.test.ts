@@ -86,6 +86,18 @@ describe("proposalToSeed", () => {
     expect(seed?.tasks?.[0]?.lastUpdateDate).toBe(TODAY);
   });
 
+  it("builds sanitized seed resources (directory entries), keeping the external flag", () => {
+    const seed = proposalToSeed(
+      { meta: { name: "x" }, features: [], seed: { resources: [
+        { firstName: "Ada", lastName: "Lovelace", email: "ada@x.io", isExternal: true, title: "Engineer" },
+        { email: "noname@x.io" }, // no first/last name → dropped by the sanitizer
+      ] } },
+      TODAY,
+    );
+    expect(seed?.resources).toHaveLength(1);
+    expect(seed?.resources?.[0]).toMatchObject({ firstName: "Ada", lastName: "Lovelace", isExternal: true });
+  });
+
   it("returns undefined when there is no usable seed content", () => {
     expect(proposalToSeed({ meta: { name: "x" }, features: [] }, TODAY)).toBeUndefined();
     expect(seedHasContent(undefined)).toBe(false);

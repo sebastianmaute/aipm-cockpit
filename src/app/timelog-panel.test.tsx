@@ -349,6 +349,32 @@ describe("TimelogPanel", () => {
       expect(removeUsers).toHaveBeenCalledWith([42]);
     });
 
+    it("collapse toggle hides the people region; expand restores it", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // Region stays MOUNTED (aria-controls target must exist + it must still
+      // print when collapsed) and is toggled via the `hidden` attribute.
+      const region = document.getElementById("timelog-people-region");
+      expect(region).not.toBeNull();
+      expect(region).not.toHaveAttribute("hidden");
+      const toggle = screen.getByRole("button", { name: t("en-US", "timelogMatchPeople") });
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      // Collapse: region hidden (still in DOM), its controls drop out of the a11y tree.
+      fireEvent.click(toggle);
+      expect(document.getElementById("timelog-people-region")).toHaveAttribute("hidden");
+      expect(screen.queryByRole("button", { name: `${t("en-US", "remove")} – alice@example.com` })).toBeNull();
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      // Expand restores visibility.
+      fireEvent.click(toggle);
+      expect(document.getElementById("timelog-people-region")).not.toHaveAttribute("hidden");
+    });
+
     it("bulk: select-all then Remove calls removeUsers with every visible id", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const removeUsers = vi.fn();

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { nextRaidId } from "./raid";
-import { nextId } from "./resource-foundation";
+import { nextId, resourceDisplayName } from "./resource-foundation";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
@@ -65,6 +65,28 @@ export interface UseResourcePlannerArgs {
   showToast: (kind: "info" | "error", text: string) => void;
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
+}
+
+/** True when an absence/shift belongs to one of the removed resources — by
+ *  stable resourceId first, else case-folded assignee name or email (the same
+ *  join the calendar/workload rows use). Lets a resource delete cascade to its
+ *  calendar entries so no ghost row (fed by the orphan absence) survives.
+ *  The name/email fallback is SKIPPED when a SURVIVING resource shares that key
+ *  (e.g. two people named "John Smith") so a delete never sweeps a twin's
+ *  entries — only the precise resourceId match deletes in that ambiguous case. */
+function recordMatchesRemoved(
+  rec: { assignee?: string; assigneeEmail?: string; resourceId?: number | null },
+  ids: ReadonlySet<number>,
+  names: ReadonlySet<string>,
+  emails: ReadonlySet<string>,
+  survivingNames: ReadonlySet<string>,
+  survivingEmails: ReadonlySet<string>,
+): boolean {
+  if (rec.resourceId != null && ids.has(rec.resourceId)) return true;
+  const n = (rec.assignee ?? "").trim().toLowerCase();
+  if (n && names.has(n) && !survivingNames.has(n)) return true;
+  const e = (rec.assigneeEmail ?? "").trim().toLowerCase();
+  return !!e && emails.has(e) && !survivingEmails.has(e);
 }
 
 export function useResourcePlanner(args: UseResourcePlannerArgs) {
@@ -409,17 +431,50 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [resources, setResources, logUpdate, editingResource],
   );
 
+  // Cascade a resource removal to its calendar entries: drop every absence and
+  // shift that belongs to a removed resource (else the orphan absence, joined by
+  // name, keeps re-creating a ghost calendar row). Functional setters.
+  const purgeCalendarFor = useCallback(
+    (removed: readonly Resource[], surviving: readonly Resource[]) => {
+      if (removed.length === 0) return;
+      const ids = new Set(removed.map((r) => r.id));
+      const names = new Set(
+        removed.map((r) => resourceDisplayName(r).trim().toLowerCase()).filter(Boolean),
+      );
+      const emails = new Set(
+        removed.map((r) => (r.email ?? "").trim().toLowerCase()).filter(Boolean),
+      );
+      // Keys still owned by a resource that ISN'T being deleted — never sweep a
+      // surviving twin's entries on a name/email collision.
+      const survivingNames = new Set(
+        surviving.map((r) => resourceDisplayName(r).trim().toLowerCase()).filter(Boolean),
+      );
+      const survivingEmails = new Set(
+        surviving.map((r) => (r.email ?? "").trim().toLowerCase()).filter(Boolean),
+      );
+      setAbsences((prev) =>
+        prev.filter((a) => !recordMatchesRemoved(a, ids, names, emails, survivingNames, survivingEmails)),
+      );
+      setShifts((prev) =>
+        prev.filter((s) => !recordMatchesRemoved(s, ids, names, emails, survivingNames, survivingEmails)),
+      );
+    },
+    [setAbsences, setShifts],
+  );
+
   const handleDeleteResource = useCallback(
     (id: number) => {
       const removed = resources.find((r) => r.id === id);
-      setResources(resources.filter((r) => r.id !== id));
+      const surviving = resources.filter((r) => r.id !== id);
+      setResources(surviving);
       setEditingResource(null);
       if (removed) {
+        purgeCalendarFor([removed], surviving);
         const name = `${removed.firstName} ${removed.lastName}`.trim();
         logActivityRef.current("resource.deleted", id, name);
       }
     },
-    [resources, setResources],
+    [resources, setResources, purgeCalendarFor],
   );
 
   // Bulk edit: merge the same patch into every selected resource in ONE
@@ -451,13 +506,15 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     (ids: readonly number[]) => {
       const idSet = new Set(ids);
       const removed = resources.filter((r) => idSet.has(r.id));
+      const surviving = resources.filter((r) => !idSet.has(r.id));
       setResources((prev) => prev.filter((r) => !idSet.has(r.id)));
       setEditingResource(null);
+      purgeCalendarFor(removed, surviving);
       for (const r of removed) {
         logActivityRef.current("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());
       }
     },
-    [resources, setResources],
+    [resources, setResources, purgeCalendarFor],
   );
 
   const handleImportResources = useCallback(

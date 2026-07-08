@@ -181,6 +181,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightKeyboardA11y: "Eine umfassende Tastatur- und Screenreader-Überarbeitung: Marken-Bestätigungsdialoge, ein per Tastatur bedienbares Kalenderraster, ein Flyout für Untermenüs der eingeklappten Seitenleiste, eine mobile Off-Canvas-Schublade und ein der Ansicht folgender Fokus bei der Navigation",
   versionHighlightWorkloadActionable: "Die Auslastungsansicht ist jetzt handlungsfähig — bearbeiten Sie die kurzfristige Auslastung einer Ressource direkt und weisen Sie ihre überfälligen Aufgaben neu zu oder verschieben Sie sie, ohne die Ansicht zu verlassen",
   versionHighlightResourceEnhance: "Ressourcen-Überarbeitung — eine einzelne Rollenauswahl ersetzt die Disziplin-/Grade-Dropdowns, Rate-Card-Zeilen lassen sich per Drag-and-drop neu ordnen, externe Ressourcen werden bei der Kapazität berücksichtigt, aber aus allen Kosten ausgeschlossen, Ressourcen tragen zusätzliche per Klick kopierbare E-Mail-Adressen, das Verzeichnis erhält Sammelbearbeitung und -löschung, die KI kann Verzeichniseinträge verwalten, und verwaiste Auslastungszeilen lassen sich bereinigen",
+  versionHighlightResourceFollowup: "Ressourcen & Zeitbuchungen — die Personenliste der Zeitbuchungen lässt sich einklappen, damit Projekte sichtbar bleiben, externe Ressourcen können im Kalender ein- oder ausgeblendet werden, das Löschen einer Ressource entfernt ihre Kalendereinträge, Planungseingaben bleiben beim Überfahren der Zeile sichtbar, und die KI-Projekterstellung füllt jetzt das Ressourcenverzeichnis.",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -1313,6 +1314,8 @@ export const de: Record<TranslationKey, string> = {
   timelogTestFail: "Verbindung fehlgeschlagen (HTTP {0})",
   timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",
   timelogMatchPeople: "Personen",
+  timelogPeopleCollapse: "Personen einklappen",
+  timelogPeopleExpand: "Personen ausklappen",
   timelogMatchProjects: "Projekte",
   timelogMatchAuto: "Auto",
   timelogMatchManual: "Manuell",
@@ -1408,6 +1411,7 @@ export const de: Record<TranslationKey, string> = {
   calendarPrev: "Zurück",
   calendarNext: "Weiter",
   calendarToday: "Heute",
+  calendarIncludeExternals: "Externe einbeziehen",
   calendarFrom: "Von",
   calendarTo: "Bis",
   resourcesToday: "Heute",
@@ -1541,6 +1545,7 @@ export const de: Record<TranslationKey, string> = {
   resourceNotes: "Notizen",
   resourceSave: "Ressource speichern",
   resourceConfirmDelete: "Diese Ressource löschen?",
+  resourceDeleteCascadeNote: "Die Kalendereinträge der Person (Abwesenheiten und Schichten) werden ebenfalls entfernt.",
   resourceErrorName: "Bitte Vor- oder Nachnamen angeben.",
 
   resourcesUnlinked: "Nicht zugeordnet",

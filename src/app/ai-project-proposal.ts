@@ -5,7 +5,7 @@
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
-import type { Task } from "./types";
+import type { Resource, Task } from "./types";
 import { isSafeHttpUrl } from "./document-link";
 import {
   sanitizeRaidItem,
@@ -18,6 +18,7 @@ import {
   sanitizePriority,
   sanitizeNotes,
   sanitizeGroup,
+  sanitizeResource,
 } from "./sanitize";
 
 export const SEED_CAP_PER_ENTITY = 8;
@@ -46,6 +47,7 @@ export interface ProposalSeed {
   milestones?: unknown[];
   stakeholders?: unknown[];
   tasks?: unknown[];
+  resources?: unknown[];
 }
 
 export interface ProjectProposal {
@@ -129,6 +131,23 @@ export const PROPOSAL_TOOL = {
               type: "object",
               properties: { taskName: { type: "string" }, dueDate: { type: "string" }, notes: { type: "string" } },
               required: ["taskName"],
+            },
+          },
+          resources: {
+            type: "array",
+            description:
+              "Named team members mentioned in the source. Use each person's exact name as the assignee/owner on any task/risk they own so they link to this directory entry.",
+            items: {
+              type: "object",
+              properties: {
+                firstName: { type: "string" },
+                lastName: { type: "string" },
+                email: { type: "string" },
+                title: { type: "string" },
+                department: { type: "string" },
+                isExternal: { type: "boolean", description: "True for external/contractor resources." },
+              },
+              required: ["firstName", "lastName"],
             },
           },
         },
@@ -229,8 +248,32 @@ function buildSeedTask(raw: unknown, id: number, today: string): Task | null {
   };
 }
 
+/** Bound free-form model strings that the resource sanitizer stores uncapped
+ *  (title/department go through the length-less optText path). */
+function clipSeedText(v: unknown): string | undefined {
+  return typeof v === "string" ? v.slice(0, 200) : undefined;
+}
+
+function buildSeedResource(raw: unknown, id: number): Resource | null {
+  if (!isObj(raw)) return null;
+  return sanitizeResource({
+    id,
+    firstName: raw.firstName,
+    lastName: raw.lastName,
+    email: raw.email,
+    title: clipSeedText(raw.title),
+    department: clipSeedText(raw.department),
+    isExternal: raw.isExternal,
+    // A fresh project has no rate card yet, so a role can't be assigned here.
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
+  });
+}
+
 /** Turn the proposal's seed into a validated TemplateSeed (or undefined when no
- *  usable content). Person FKs are left unset; remapSeed clears them anyway. */
+ *  usable content). Seeded resources let remapSeed link task/RAID owners +
+ *  stakeholders to the directory by name; unmatched owners stay plain strings. */
 export function proposalToSeed(p: ProjectProposal, today: string): TemplateSeed | undefined {
   const s = p.seed;
   if (!s) return undefined;
@@ -238,6 +281,12 @@ export function proposalToSeed(p: ProjectProposal, today: string): TemplateSeed 
   const changes = buildList(s.changes, sanitizeChangeItem);
   const milestones = buildList(s.milestones, sanitizeMilestone);
   const stakeholders = buildList(s.stakeholders, sanitizeStakeholder);
+  const resources: Resource[] = Array.isArray(s.resources)
+    ? s.resources
+        .slice(0, SEED_CAP_PER_ENTITY)
+        .map((r, i) => buildSeedResource(r, i + 1))
+        .filter((r): r is Resource => r !== null)
+    : [];
   const tasks: Task[] = Array.isArray(s.tasks)
     ? s.tasks
         .slice(0, SEED_CAP_PER_ENTITY)
@@ -250,6 +299,7 @@ export function proposalToSeed(p: ProjectProposal, today: string): TemplateSeed 
   if (changes.length) seed.changes = changes;
   if (milestones.length) seed.milestones = milestones;
   if (stakeholders.length) seed.stakeholders = stakeholders;
+  if (resources.length) seed.resources = resources;
   if (tasks.length) seed.tasks = tasks;
   return seedHasContent(seed) ? seed : undefined;
 }
@@ -273,5 +323,9 @@ export function buildProposalSystemPrompt(): string {
     "Optionally propose a small amount of realistic starter content (a few risks/issues,",
     "milestones, key stakeholders, opening tasks) — at most a handful of each. Omit a list",
     "if you have nothing concrete. Use ISO dates (YYYY-MM-DD). Do not invent owners or emails.",
+    "When the source names specific team members, add them to the resources list (first/last",
+    "name, external flag if they are a contractor) and use their exact name as the assignee or",
+    "owner on any task or risk they own, so they populate the directory rather than existing",
+    "only as free-text names.",
   ].join(" ");
 }

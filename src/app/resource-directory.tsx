@@ -217,7 +217,7 @@ function ResourceDirectoryInner({
 
   const handleBulkDelete = async () => {
     if (!onBulkDeleteResources || sel.count === 0) return;
-    if (await confirm({ message: t(lang, "resourceBulkDeleteConfirm", String(sel.count)) })) {
+    if (await confirm({ message: `${t(lang, "resourceBulkDeleteConfirm", String(sel.count))} ${t(lang, "resourceDeleteCascadeNote")}` })) {
       onBulkDeleteResources(Array.from(sel.selectedIds));
       sel.clear();
       setBulkOpen(false);

@@ -115,7 +115,7 @@ export function ResourceEditModal({
 
   async function handleDeleteClick() {
     if (!draft) return;
-    if (await confirm({ message: t(lang, "resourceConfirmDelete") })) {
+    if (await confirm({ message: `${t(lang, "resourceConfirmDelete")} ${t(lang, "resourceDeleteCascadeNote")}` })) {
       onDelete(draft.id);
     }
   }
