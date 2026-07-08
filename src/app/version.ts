@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.169.0";
-export const APP_BUILD_DATE = "2026-07-08"; // 0.169.0: Resources & Time bookings follow-up — the Time bookings people list collapses (so projects stay reachable), external resources can be included/excluded in the calendar, deleting a resource clears its calendar entries, planning-grid inputs stay visible on row hover, and AI project creation now populates the resource directory (Sterling)
+export const APP_VERSION = "0.169.1";
+export const APP_BUILD_DATE = "2026-07-08"; // 0.169.1: Time bookings — synced hours now populate the budget via auto-matched links (previously an auto-matched person/project showed as linked but every booking fell into "Unattributed"); the aggregation resolves the same effective links the matching UI displays (Sterling)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.169.x line is "Sterling" (Bruce Sterling). */
 export const APP_MILESTONE = "Sterling";

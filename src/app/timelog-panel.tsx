@@ -72,6 +72,8 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const sync = useTimelogSync({
     creds,
     links,
+    resources,
+    budgets,
     scopeMode: cfg.scopeMode,
     granularity: planGranularity,
     projectId,
