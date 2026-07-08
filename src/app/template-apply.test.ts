@@ -7,6 +7,7 @@ import type {
   ChangeItem,
   Milestone,
   RaidItem,
+  Resource,
   Stakeholder,
   Task,
   TaskDependency,
@@ -106,6 +107,29 @@ describe("applyTemplate", () => {
     const ws = applyTemplate(emptyWorkspace(), tpl(seed), { includeSeed: true });
     expect(ws.tasks).toHaveLength(1);
     expect(ws.tasks[0].resourceId).toBeUndefined();
+  });
+  it("links seed task/RAID/stakeholder owners to seeded resources by name", () => {
+    const resource: Resource = { id: 1, firstName: "Ada", lastName: "Lovelace", roleId: null, utilizationMode: "percent", utilization: {} };
+    const task: Task = { ...mkTask(1, "Build"), assignee: "Ada Lovelace" };
+    const raid: RaidItem = {
+      id: 1, category: "R", title: "R1", status: "Open", linkedTaskIds: [], causedByRaidIds: [],
+      stakeholderIds: [], owner: "ada lovelace", raisedDate: "", targetDate: "", closedDate: "", probability: 3, impact: 3,
+    };
+    const stakeholder: Stakeholder = { id: 1, name: "Ada Lovelace", category: "Internal", influence: "High", interest: "Medium", raci: {} };
+    const seed: TemplateSeed = { resources: [resource], tasks: [task], raid: [raid], stakeholders: [stakeholder] };
+    const ws = applyTemplate(emptyWorkspace(), tpl(seed), { includeSeed: true });
+    const rid = ws.resources![0].id;
+    expect(ws.resources).toHaveLength(1);
+    expect(ws.tasks[0].resourceId).toBe(rid);
+    expect(ws.raid[0].ownerResourceId).toBe(rid); // case-insensitive name match
+    expect(ws.stakeholders![0].resourceId).toBe(rid);
+  });
+  it("leaves an assignee with no matching seeded resource unlinked (plain string, no FK)", () => {
+    const resource: Resource = { id: 1, firstName: "Ada", lastName: "Lovelace", roleId: null, utilizationMode: "percent", utilization: {} };
+    const task: Task = { ...mkTask(1, "Build"), assignee: "Someone Else" };
+    const ws = applyTemplate(emptyWorkspace(), tpl({ resources: [resource], tasks: [task] }), { includeSeed: true });
+    expect(ws.tasks[0].resourceId).toBeUndefined();
+    expect(ws.tasks[0].assignee).toBe("Someone Else");
   });
   it("remaps stakeholder raci keys to new milestone ids and clears resourceId", () => {
     const milestone: Milestone = { id: 1, name: "M1", date: "2026-01-01", linkedTaskIds: [] };

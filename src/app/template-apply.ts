@@ -1,7 +1,7 @@
 import type { Workspace } from "./workspace";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type { TaskDependency } from "./types";
-import { nextId } from "./resource-foundation";
+import { nextId, resourceDisplayName } from "./resource-foundation";
 
 export interface ApplyTemplateOptions {
   includeSeed: boolean;
@@ -52,9 +52,10 @@ function remapDeps(
 
 /**
  * Re-id a template seed relative to a target workspace and rewrite every
- * internal reference. References that point outside the seed are dropped;
- * person FKs (task/RAID owners, stakeholder links) are cleared since resources
- * are not seeded.
+ * internal reference. References that point outside the seed are dropped.
+ * When the seed carries resources, task/RAID owners and stakeholder links are
+ * re-linked to them by case-folded name (or email); otherwise those person FKs
+ * are cleared (no directory to point at).
  * Pure — returns a new seed, never mutates the input.
  */
 export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
@@ -64,13 +65,37 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
   const changeMap = idMap(ws.changes ?? [], seed.changes ?? []);
   const stakeholderMap = idMap(ws.stakeholders ?? [], seed.stakeholders ?? []);
   const budgetMap = idMap(ws.budgets ?? [], seed.budgets ?? []);
+  const resourceMap = idMap(ws.resources ?? [], seed.resources ?? []);
+
+  // Re-id seeded resources, then index them by case-folded name/email so the
+  // model's plain-string task assignees / RAID owners / stakeholders resolve to
+  // a real directory entry instead of staying unlinked.
+  const remappedResources = (seed.resources ?? []).map((r) => ({
+    ...r,
+    id: resourceMap.get(r.id)!,
+  }));
+  const resByName = new Map<string, number>();
+  const resByEmail = new Map<string, number>();
+  for (const r of remappedResources) {
+    const nm = resourceDisplayName(r).trim().toLowerCase();
+    if (nm) resByName.set(nm, r.id);
+    const em = (r.email ?? "").trim().toLowerCase();
+    if (em) resByEmail.set(em, r.id);
+  }
+  const linkResource = (name?: string, email?: string): number | undefined => {
+    const e = (email ?? "").trim().toLowerCase();
+    if (e && resByEmail.has(e)) return resByEmail.get(e);
+    const n = (name ?? "").trim().toLowerCase();
+    return n ? resByName.get(n) : undefined;
+  };
 
   const out: TemplateSeed = {};
+  if (seed.resources) out.resources = remappedResources;
   if (seed.tasks) {
     out.tasks = seed.tasks.map((t) => ({
       ...t,
       id: taskMap.get(t.id)!,
-      resourceId: undefined,
+      resourceId: linkResource(t.assignee, t.assigneeEmail),
       ...(t.dependencies
         ? { dependencies: remapDeps(t.dependencies, taskMap) }
         : {}),
@@ -90,7 +115,7 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
       linkedTaskIds: remapIds(r.linkedTaskIds, taskMap),
       causedByRaidIds: remapIds(r.causedByRaidIds, raidMap),
       stakeholderIds: remapIds(r.stakeholderIds, stakeholderMap),
-      ownerResourceId: null,
+      ownerResourceId: linkResource(r.owner, r.ownerEmail) ?? null,
     }));
   }
   if (seed.changes) {
@@ -109,7 +134,7 @@ export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
         const n = milestoneMap.get(Number(mid));
         if (n !== undefined) raci[String(n)] = role;
       }
-      return { ...s, id: stakeholderMap.get(s.id)!, resourceId: null, raci };
+      return { ...s, id: stakeholderMap.get(s.id)!, resourceId: linkResource(s.name, s.email) ?? null, raci };
     });
   }
   if (seed.budgets) {
@@ -141,6 +166,7 @@ export function appendSeed(ws: Workspace, seed: TemplateSeed): Workspace {
       ? [...(ws.stakeholders ?? []), ...seed.stakeholders]
       : ws.stakeholders,
     budgets: seed.budgets ? [...(ws.budgets ?? []), ...seed.budgets] : ws.budgets,
+    resources: seed.resources ? [...(ws.resources ?? []), ...seed.resources] : ws.resources,
   };
 }
 
