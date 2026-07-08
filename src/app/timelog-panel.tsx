@@ -103,6 +103,10 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   // still render even when no current bookings reference them).
   const fetchedUsers = sync.users;
 
+  // Per-device collapse of the People section: the directory can be the whole
+  // org, so folding it lets the Projects section rise into view.
+  const peopleCollapsed = settings.timelogPeopleCollapsed === true;
+
   // Multi-select for bulk-removing fetched people from the matching table.
   const sel = useRowSelection();
 
@@ -372,6 +376,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         </p>
       )}
 
+      {/* Scrollable body: the fixed-height pane is overflow-hidden, so KPIs +
+          People + Projects + Apply share one inner scroller — otherwise a tall
+          People list clips Projects/Apply below the fold with no way to reach
+          them. Collapsing People (below) frees vertical space. */}
+      <div className="min-h-0 flex-1 overflow-auto pr-2">
       {/* KPI tiles */}
       <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Tile
@@ -397,8 +406,22 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
       {/* People matching table */}
       <section className="mb-6">
         <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-          {t(lang, "timelogMatchPeople")}
+          <button
+            type="button"
+            onClick={() => setSettings((s) => ({ ...s, timelogPeopleCollapsed: !peopleCollapsed }))}
+            aria-expanded={!peopleCollapsed}
+            aria-controls="timelog-people-region"
+            title={t(lang, peopleCollapsed ? "timelogPeopleExpand" : "timelogPeopleCollapse")}
+            className={`flex items-center gap-1.5 rounded-md ${FOCUS_RING} ${TRANSITION}`}
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2} className={`h-4 w-4 transition-transform ${peopleCollapsed ? "-rotate-90" : ""}`}>
+              <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {t(lang, "timelogMatchPeople")}
+          </button>
         </h3>
+        {!peopleCollapsed && (
+        <div id="timelog-people-region">
         {/* Attribution hint — shown only while some fetched hours are unattributed
             (the user/project links explain why those hours aren't booked yet). */}
         {unattributed.hours > 0 && (
@@ -441,9 +464,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                 </button>
               </div>
             )}
-            {/* Bounded scroller: people lists can exceed the viewport (the whole
-                org directory) — cap height and scroll, pr-2 for the scrollbar gap. */}
-            <div className="max-h-[60vh] overflow-auto pr-2 print:max-h-none print:overflow-visible">
+            {/* The outer body scroller handles vertical overflow; this wrapper
+                only needs horizontal scroll for the wide table. Collapsing the
+                whole People section (heading toggle) is how a big org directory
+                is kept from burying Projects. */}
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className={TABLE_HEAD_CLASS}>
                   <tr>
@@ -564,6 +589,8 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
               </table>
             </div>
           </>
+        )}
+        </div>
         )}
       </section>
 
@@ -734,6 +761,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           </button>
         </div>
       )}
+      </div>
 
       {/* Blocking loading modal — a fetch can be slow (paging loop, org per-employee,
           429 backoff). Not dismissible: onClose is a no-op and no close control. */}

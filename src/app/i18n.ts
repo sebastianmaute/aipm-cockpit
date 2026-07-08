@@ -1321,6 +1321,8 @@ const enUS = {
   timelogTestFail: "Connection failed (HTTP {0})",
   timelogTokenInvalid: "Token was rejected. Re-enter it.",
   timelogMatchPeople: "People",
+  timelogPeopleCollapse: "Collapse people",
+  timelogPeopleExpand: "Expand people",
   timelogMatchProjects: "Projects",
   timelogMatchAuto: "Auto",
   timelogMatchManual: "Manual",

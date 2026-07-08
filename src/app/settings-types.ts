@@ -479,6 +479,10 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device Timelog "Time bookings" People-section collapse. Default OFF (expanded). */
+  timelogPeopleCollapsed?: boolean;
+  /** Per-device: include external resources in the resource Calendar. Default ON (included). */
+  calendarIncludeExternals?: boolean;
   /** Per-device dictation engine preference. Default "web-speech". `sttBaseUrl`/
    *  `sttModel` configure the STT endpoint; `sttApiKey` is the device-sealed STT
    *  endpoint API key — in-memory plaintext only, blanked by `writeSettings`.

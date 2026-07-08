@@ -1313,6 +1313,8 @@ export const de: Record<TranslationKey, string> = {
   timelogTestFail: "Verbindung fehlgeschlagen (HTTP {0})",
   timelogTokenInvalid: "Token wurde abgelehnt. Bitte erneut eingeben.",
   timelogMatchPeople: "Personen",
+  timelogPeopleCollapse: "Personen einklappen",
+  timelogPeopleExpand: "Personen ausklappen",
   timelogMatchProjects: "Projekte",
   timelogMatchAuto: "Auto",
   timelogMatchManual: "Manuell",

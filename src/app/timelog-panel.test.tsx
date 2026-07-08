@@ -349,6 +349,30 @@ describe("TimelogPanel", () => {
       expect(removeUsers).toHaveBeenCalledWith([42]);
     });
 
+    it("collapse toggle hides the people region; expand restores it", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // Region present + disclosure toggle (named by its "People" heading text,
+      // state via aria-expanded) expanded by default.
+      expect(document.getElementById("timelog-people-region")).not.toBeNull();
+      const toggle = screen.getByRole("button", { name: t("en-US", "timelogMatchPeople") });
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      // Collapse: region unmounts, the person row disappears.
+      fireEvent.click(toggle);
+      expect(document.getElementById("timelog-people-region")).toBeNull();
+      expect(screen.queryByRole("button", { name: `${t("en-US", "remove")} – alice@example.com` })).toBeNull();
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      // Expand restores the region.
+      fireEvent.click(toggle);
+      expect(document.getElementById("timelog-people-region")).not.toBeNull();
+    });
+
     it("bulk: select-all then Remove calls removeUsers with every visible id", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const removeUsers = vi.fn();
