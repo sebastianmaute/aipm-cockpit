@@ -1336,6 +1336,8 @@ export const de: Record<TranslationKey, string> = {
     "Die Stunden einer Ressource werden nur als gebucht angezeigt, wenn ihr Timelog-Benutzer mit dieser Ressource verknüpft ist und das Projekt der Buchung mit einem Budget-Bucket verknüpft ist.",
   timelogApply: "Auf Budget anwenden",
   timelogApplyConfirm: "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?",
+  timelogApplyNoAllocation:
+    "Gebuchte Stunden können für {0} verknüpfte(n) Bucket(s) nicht übernommen werden: keine Rollen- oder Disziplinzeile vorhanden. Fügen Sie zuerst in der Budget-Ansicht eine Rolle hinzu.",
   timelogKpiBooked: "Gebuchte Stunden",
   timelogKpiBillable: "Abrechenbar %",
   timelogKpiWinLoss: "Gewinn/Verlust (Stunden)",

@@ -8,6 +8,13 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.169.3] - 2026-07-08 "Sterling"
+
+Bugfix for the Time bookings (TimeLog) "Apply to budget" action. No storage format change, no new fields.
+
+### Fixed
+- **"Apply to budget" no longer silently does nothing for a bucket with no role line**: linking a TimeLog project to a budget bucket that had booked hours but no role/discipline allocation left the Apply button enabled and the confirm dialog showing a count, yet clicking Apply wrote nothing — actual hours are stored on a bucket's role line, and a bucket with zero allocations had nowhere to put them. `planApply` now skips buckets that `applyActualsToBuckets` cannot write, so the affordance no longer lies, and a notice explains that such buckets need a role added in the Budget view first. Blended-mode buckets now correctly apply into their `disciplineAllocations` (previously only detailed buckets' `allocations` were written, so blended buckets were a second silent no-op).
+
 ## [0.169.2] - 2026-07-08 "Sterling"
 
 Bugfix for AI project creation. No storage format change, no new fields.

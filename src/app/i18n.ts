@@ -1344,6 +1344,8 @@ const enUS = {
     "A resource's hours show as booked only when its Timelog user is linked to that resource and the booking's project is linked to a bucket.",
   timelogApply: "Apply to budget",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
+  timelogApplyNoAllocation:
+    "Booked hours can't be applied to {0} linked bucket(s): no role or discipline line to hold them. Add a role in the Budget view first.",
   timelogKpiBooked: "Booked hours",
   timelogKpiBillable: "Billable %",
   timelogKpiWinLoss: "Win/loss (hours)",

@@ -14,7 +14,7 @@ import { useTimelogSync } from "./use-timelog-sync";
 import { autoMatchUsers, autoMatchProjects, type TimelogProjectRef } from "./timelog-match";
 import { useRowSelection } from "./use-row-selection";
 import { Modal } from "./modal";
-import { planApply, applyActualsToBuckets } from "./timelog-apply";
+import { planApply, applyActualsToBuckets, bucketsMissingAllocations } from "./timelog-apply";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { defaultTimelogConfig, type TimelogLinks } from "./timelog-types";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -223,6 +223,14 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const applyDiff = useMemo(
     () => (pendingApply ? planApply(budgets, pendingApply) : overlay ? planApply(budgets, overlay) : []),
     [pendingApply, overlay, budgets],
+  );
+
+  // Buckets that have booked hours but no role/discipline line to hold them —
+  // apply skips these, so surface WHY (else the Apply button just sits disabled
+  // with no explanation for a linked-but-empty bucket).
+  const skippedApplyBuckets = useMemo(
+    () => (overlay ? bucketsMissingAllocations(budgets, overlay) : []),
+    [overlay, budgets],
   );
 
   function openConfirm() {
@@ -734,6 +742,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
       </section>
 
       {/* Apply to budget */}
+      {skippedApplyBuckets.length > 0 && (
+        <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground print:hidden">
+          {t(lang, "timelogApplyNoAllocation", String(skippedApplyBuckets.length))}
+        </p>
+      )}
       {!confirming ? (
         <button
           type="button"
