@@ -30,6 +30,12 @@ describe("visibleFields", () => {
     expect(vis.has("ghost")).toBe(false);
     expect(vis.has("targetDate")).toBe(false);
   });
+  it("shows budget detailed-planning (role/discipline allocations) at the default Advanced tier", () => {
+    // 0.169.4: planningDetail moved full→advanced so the allocation UI is not
+    // hidden by default (the add-role/add-discipline controls live behind it).
+    expect(tierFields("budget", "advanced")).toContain("planningDetail");
+    expect(visibleFields("budget", undefined).has("planningDetail")).toBe(true);
+  });
 });
 
 describe("applyTier / tierOf", () => {
