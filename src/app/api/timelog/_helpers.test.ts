@@ -72,6 +72,19 @@ describe("timelog proxy SSRF guard", () => {
     const out = await parseTimelogRequest(req({ ...creds, path: "/v1/x\r\nX: y" }));
     expect("error" in out && (out.error as Response).status).toBe(400);
   });
+  it("on an upstream timeout returns 502 and logs the attributable path (query-stripped) but never the token", async () => {
+    const err = new DOMException("The operation was aborted due to timeout", "TimeoutError");
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(err);
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await callTimelog(creds, "/v2/projects/12345/time-registrations?startDate=2026-06-01", { method: "GET" });
+    expect(r.status).toBe(502);
+    const logged = spy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toContain("TimeoutError");
+    expect(logged).toContain("/v2/projects/12345/time-registrations"); // attributable
+    expect(logged).not.toContain("startDate"); // query stripped
+    expect(logged).not.toContain(creds.token);  // token never logged
+  });
+
   it("parseTimelogRequest surfaces the rate limiter's 429 once the per-IP window is exhausted", async () => {
     // Unique IP + the "timelog" scope isolate this from the shared bucket store.
     const ip = "203.0.113.201";

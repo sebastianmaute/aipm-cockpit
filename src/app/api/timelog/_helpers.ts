@@ -109,6 +109,7 @@ export async function callTimelog(
   }
 
   const url = `https://${host}/${encodeURIComponent(creds.tenant)}/api${path}`;
+  const startedAt = Date.now();
   try {
     return await fetch(url, {
       ...init,
@@ -123,9 +124,25 @@ export async function callTimelog(
     });
   } catch (err) {
     // Network-level failure before any response (DNS, connection refused, TLS,
-    // timeout). Log the detail server-side (status-only — never the token) and
-    // hand the client a structured 502.
-    console.error("Timelog upstream fetch failed:", err);
+    // timeout). Log enough to ATTRIBUTE it — the failure class, the elapsed time
+    // (a value near TIMELOG_UPSTREAM_TIMEOUT_MS => a genuine upstream timeout,
+    // not a fast DNS/TLS reject) and the request PATH with its query stripped
+    // (the query can carry ids like employeeUserId; the token lives only in the
+    // Authorization header, never the path, so the bare path is secret-free).
+    // Never log `creds`, the token, the url (has the tenant), or a response body.
+    // Read `.name` structurally, not via `instanceof Error`: AbortSignal.timeout
+    // throws a DOMException (name "TimeoutError") which is NOT reliably an Error
+    // instance across runtimes — gating on instanceof would log "unknown" for
+    // the very timeout we most need to attribute.
+    const failureClass =
+      err && typeof err === "object" && typeof (err as { name?: unknown }).name === "string"
+        ? (err as { name: string }).name
+        : "unknown";
+    const elapsedMs = Date.now() - startedAt;
+    const pathOnly = path.split("?")[0];
+    console.error(
+      `Timelog upstream fetch failed: ${failureClass} after ${elapsedMs}ms (path ${pathOnly})`,
+    );
     return Response.json(
       { error: "upstream-unreachable" },
       { status: 502 },
