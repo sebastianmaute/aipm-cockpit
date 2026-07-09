@@ -216,6 +216,19 @@ it("fetchBookingsForCustomer resolves the customer's projects then fetches each 
   expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
 });
 
+it("fetchBookingsForCustomer clamps items to the requested date window (v2 may ignore the params)", async () => {
+  (api.listProjectsForCustomer as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 9, name: "Acme", no: "" }]);
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { ...item(5, 4), date: "2026-06-10" }, // inside window
+    { ...item(5, 9), date: "2026-05-01" }, // before window → must be dropped
+    { ...item(5, 7), date: "2026-07-15" }, // after window → must be dropped
+  ]);
+  const { result } = renderHook(() => useTimelogSync(args()));
+  await act(async () => { await result.current.fetchBookingsForCustomer(667, "2026-06-01", "2026-06-30"); });
+  // Only the in-window 4h booking survives → bucket 7 gets 4, not 20.
+  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+});
+
 it("fetchBookingsForCustomer is fail-soft: one project error does not abort the rest", async () => {
   (api.listProjectsForCustomer as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 9, name: "A", no: "" }, { id: 12, name: "B", no: "" }]);
   (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>)

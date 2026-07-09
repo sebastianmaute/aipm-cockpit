@@ -253,7 +253,13 @@ export function useTimelogSync(args: Args) {
           failedProjects++;
         }
       }
-      finish(items);
+      // Defensive date-window clamp: the v2 per-project endpoint is passed
+      // startDate/endDate but isn't guaranteed to honour them — a no-op when it
+      // does, a correct narrowing when it doesn't (dates are ISO YYYY-MM-DD, so
+      // a lexicographic compare is a true date compare). Prevents a full-history
+      // ingest silently aggregating out-of-window periods into the cache.
+      const inWindow = items.filter((it) => it.date >= startDate && it.date <= endDate);
+      finish(inWindow);
       return { failedProjects, customerId };
     });
   }
