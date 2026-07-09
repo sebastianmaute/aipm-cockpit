@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { unwrapTaf, listUsers, listTimeItemsSelf, listEmployeeTimeItems,
   getPrivileges, getMe, listManagedProjects, listProjectsForCustomer, listCustomers,
-  getFinancialDataSelf, type TimelogCreds } from "./timelog-api";
+  listProjectTimeRegistrations, getFinancialDataSelf, type TimelogCreds } from "./timelog-api";
 
 const creds: TimelogCreds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
@@ -149,6 +149,27 @@ describe("listEmployeeTimeItems", () => {
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body.path).toBe("/v1/approval/timesheets/get-status-by-period-with-rejected-time-tracking-items");
     expect(body.query.employeeUserId).toBe("42");
+  });
+});
+
+describe("listProjectTimeRegistrations", () => {
+  it("POSTs the v2 per-project path and maps items", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      Entities: [{ Properties: { TimeRegistrationID: 1, UserID: 5, ProjectID: 9, ProjectName: "P", ProjectNo: "P1",
+        TaskID: 3, Date: "2026-06-10T00:00:00", Hours: 4, BillableHours: 4, IsBillable: true } }],
+    }), { status: 200 }));
+    const items = await listProjectTimeRegistrations(creds, 9, "2026-06-01", "2026-06-30");
+    expect(items[0]).toMatchObject({ timeRegistrationId: 1, userId: 5, projectId: 9, hours: 4 });
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.path).toBe("/v2/projects/9/time-registrations");
+    expect(body.query).toMatchObject({ startDate: "2026-06-01", endDate: "2026-06-30" });
+  });
+  it("returns [] without a request for a non-positive or non-integer projectId", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    expect(await listProjectTimeRegistrations(creds, 0, "a", "b")).toEqual([]);
+    expect(await listProjectTimeRegistrations(creds, -1, "a", "b")).toEqual([]);
+    expect(await listProjectTimeRegistrations(creds, 1.5, "a", "b")).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
