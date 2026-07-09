@@ -16,6 +16,7 @@ vi.mock("./timelog-api", () => ({
   listUsers: vi.fn(), getPrivileges: vi.fn(), getMe: vi.fn(), listManagedProjects: vi.fn(),
   listProjectsForCustomer: vi.fn(), listCustomers: vi.fn(),
   listTimeItemsSelf: vi.fn(), listEmployeeTimeItems: vi.fn(),
+  listProjectTimeRegistrations: vi.fn(),
 }));
 import * as api from "./timelog-api";
 import { useTimelogSync } from "./use-timelog-sync";
@@ -193,6 +194,38 @@ it("org fetchBookings only requests timesheets for the given user ids", async ()
   const calledIds = (api.listEmployeeTimeItems as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1]);
   expect(calledIds).toEqual([11, 22]);
   expect(api.listUsers).not.toHaveBeenCalled(); // directory not re-fetched for bookings
+});
+
+it("fetchBookingsForCustomer resolves the customer's projects then fetches each per-project", async () => {
+  (api.listProjectsForCustomer as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 9, name: "Acme", no: "" }, { id: 12, name: "Acme 2", no: "" }]);
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>)
+    .mockResolvedValueOnce([item(5, 4)])
+    .mockResolvedValueOnce([{ ...item(5, 3), projectId: 12 }]);
+  const { result } = renderHook(() => useTimelogSync(args()));
+  let out: { failedProjects: number; customerId: number } | undefined;
+  await act(async () => { out = await result.current.fetchBookingsForCustomer(667, "2026-06-01", "2026-06-30"); });
+  // includeClosed=true (historical bookings live on closed projects)
+  expect(api.listProjectsForCustomer).toHaveBeenCalledWith(creds, 667, expect.anything(), true);
+  const calledIds = (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[1]);
+  expect(calledIds).toEqual([9, 12]);
+  // Booking on project 9 attributes to bucket 7 via the persisted manual link.
+  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(out).toEqual({ failedProjects: 0, customerId: 667 });
+  // No per-user / org path touched.
+  expect(api.listEmployeeTimeItems).not.toHaveBeenCalled();
+  expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
+});
+
+it("fetchBookingsForCustomer is fail-soft: one project error does not abort the rest", async () => {
+  (api.listProjectsForCustomer as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 9, name: "A", no: "" }, { id: 12, name: "B", no: "" }]);
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>)
+    .mockResolvedValueOnce([item(5, 4)])
+    .mockRejectedValueOnce(new MockTimelogError(500));
+  const { result } = renderHook(() => useTimelogSync(args()));
+  let out: { failedProjects: number; customerId: number } | undefined;
+  await act(async () => { out = await result.current.fetchBookingsForCustomer(667, "2026-06-01", "2026-06-30"); });
+  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  expect(out?.failedProjects).toBe(1);
 });
 
 it("loadManagedProjects sets projectRefs to the token owner's managed projects", async () => {

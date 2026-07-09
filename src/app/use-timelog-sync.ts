@@ -13,6 +13,7 @@ import {
   type TimelogCustomer,
   listTimeItemsSelf,
   listEmployeeTimeItems,
+  listProjectTimeRegistrations,
   TimelogError,
   type TimelogCreds,
 } from "./timelog-api";
@@ -144,6 +145,43 @@ export function useTimelogSync(args: Args) {
     });
   }
 
+  // Shared aggregation tail for BOTH fetch paths (per-user and per-customer):
+  // derive distinct project refs, resolve effective (auto + manual) links, run
+  // aggregateActuals, and persist the per-project cache. Plain function reading
+  // live render-scope (users/resources/budgets/links/granularity) — same
+  // non-memoized pattern as the other handlers.
+  function finish(items: readonly TimelogTimeItem[]): void {
+    // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
+    // Skip ProjectID 0 (absence / non-project time): it has an empty name, can't
+    // map to a budget bucket, and already aggregates into `unattributed` — so it
+    // would only render a blank, useless row in the Projects matching table.
+    // MUST run BEFORE aggregation: auto-matching a project to a bucket needs the
+    // refs (project names) derived from these very items.
+    const refMap = new Map<number, TimelogProjectRef>();
+    for (const it of items) {
+      if (it.projectId <= 0) continue;
+      if (!refMap.has(it.projectId)) {
+        refMap.set(it.projectId, { id: it.projectId, name: it.projectName, no: it.projectNo });
+      }
+    }
+    const refs = [...refMap.values()];
+
+    // Aggregate on the EFFECTIVE links (auto + manual, manual wins) — the same
+    // resolution the matching UI shows — so an auto-matched person/project
+    // actually attributes hours to a resource/bucket. Manual pins ride through
+    // even when their project isn't in this fetch's refs (autoMatch* keeps them).
+    const effectiveLinks: TimelogLinks = {
+      userLinks: autoMatchUsers(users, resources, links),
+      projectLinks: autoMatchProjects(refs, budgets, links),
+    };
+    const agg = aggregateActuals(items, effectiveLinks, granularity);
+    const at = new Date().toISOString();
+    setAggregates(agg);
+    setProjectRefs(refs);
+    setFetchedAt(at);
+    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users, projectRefs: refs });
+  }
+
   // STEP 2 — fetch bookings + aggregate. Org scope iterates ONLY `userIds` when
   // provided (the ticked people) — this is what keeps the request count under
   // the rate limit; empty/omitted falls back to all loaded directory users.
@@ -184,36 +222,39 @@ export function useTimelogSync(args: Args) {
         }
       }
 
-      // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
-      // Skip ProjectID 0 (absence / non-project time): it has an empty name, can't
-      // map to a budget bucket, and already aggregates into `unattributed` — so it
-      // would only render a blank, useless row in the Projects matching table.
-      // MUST run BEFORE aggregation: auto-matching a project to a bucket needs the
-      // refs (project names) derived from these very items.
-      const refMap = new Map<number, TimelogProjectRef>();
-      for (const it of items) {
-        if (it.projectId <= 0) continue;
-        if (!refMap.has(it.projectId)) {
-          refMap.set(it.projectId, { id: it.projectId, name: it.projectName, no: it.projectNo });
+      finish(items);
+      return { failedEmployees };
+    });
+  }
+
+  // STEP 2 (customer-scoped) — the burndown-dashboard pattern: resolve the
+  // customer's projects (server-side customerID filter), then fetch bookings
+  // PER PROJECT via the v2 endpoint. Loads ONLY that customer's registrations
+  // instead of every ticked user's whole org history — the data reduction.
+  // Includes closed projects (historical bookings live on them). Serial +
+  // fail-soft per project, mirroring the org per-employee loop. Returns the
+  // resolved customerId so the panel can persist the scope.
+  async function fetchBookingsForCustomer(
+    customerId: number,
+    startDate: string,
+    endDate: string,
+  ): Promise<{ failedProjects: number; customerId: number } | undefined> {
+    return runGuarded(async (signal) => {
+      const projects = await listProjectsForCustomer(creds, customerId, signal, true);
+      let items: TimelogTimeItem[] = [];
+      let failedProjects = 0;
+      for (const p of projects) {
+        if (signal.aborted) break;
+        try {
+          const projItems = await listProjectTimeRegistrations(creds, p.id, startDate, endDate, signal);
+          items = items.concat(projItems);
+        } catch (e) {
+          if (signal.aborted) throw e; // propagate the cancel out of the fail-soft loop
+          failedProjects++;
         }
       }
-      const refs = [...refMap.values()];
-
-      // Aggregate on the EFFECTIVE links (auto + manual, manual wins) — the same
-      // resolution the matching UI shows — so an auto-matched person/project
-      // actually attributes hours to a resource/bucket. Manual pins ride through
-      // even when their project isn't in this fetch's refs (autoMatch* keeps them).
-      const effectiveLinks: TimelogLinks = {
-        userLinks: autoMatchUsers(users, resources, links),
-        projectLinks: autoMatchProjects(refs, budgets, links),
-      };
-      const agg = aggregateActuals(items, effectiveLinks, granularity);
-      const at = new Date().toISOString();
-      setAggregates(agg);
-      setProjectRefs(refs);
-      setFetchedAt(at);
-      saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users, projectRefs: refs });
-      return { failedEmployees };
+      finish(items);
+      return { failedProjects, customerId };
     });
   }
 
@@ -245,5 +286,5 @@ export function useTimelogSync(args: Args) {
     clearActualsCache(projectId);
   }
 
-  return { aggregates, fetchedAt, users, projectRefs, customers, busy, error, loadDirectory, loadManagedProjects, loadCustomers, fetchBookings, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, users, projectRefs, customers, busy, error, loadDirectory, loadManagedProjects, loadCustomers, fetchBookings, fetchBookingsForCustomer, cancel, removeUsers, clearAll };
 }
