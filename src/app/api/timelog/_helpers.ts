@@ -79,7 +79,11 @@ export async function parseTimelogRequest(
   ) {
     return { error: Response.json({ error: "invalid-path" }, { status: 400 }) };
   }
-  if (!/^\/v1\//.test(path)) {
+  // Allow the v1 REST API and the v2 per-project time-registrations endpoint
+  // (customer-scoped booking fetch). Host allowlist + private-IP block +
+  // traversal/CRLF/# guards above are unchanged — only the API-version namespace
+  // widens, on the same *.timelog.com host.
+  if (!/^\/v(1|2)\//.test(path)) {
     return { error: Response.json({ error: "invalid-path" }, { status: 400 }) };
   }
 

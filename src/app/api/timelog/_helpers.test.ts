@@ -48,6 +48,14 @@ describe("timelog proxy SSRF guard", () => {
     const out = await parseTimelogRequest(req({ ...creds, path: "/v1/time-tracking-item/get-by-date", query: { startDate: "2026-06-01" } }));
     expect("error" in out).toBe(false);
   });
+  it("parseTimelogRequest accepts a /v2/ path (per-project time-registrations)", async () => {
+    const out = await parseTimelogRequest(req({ ...creds, path: "/v2/projects/123/time-registrations" }));
+    expect("error" in out).toBe(false);
+  });
+  it("parseTimelogRequest rejects a /v3/ path (only v1 + v2 allowed)", async () => {
+    const out = await parseTimelogRequest(req({ ...creds, path: "/v3/user" }));
+    expect("error" in out && (out.error as Response).status).toBe(400);
+  });
   it("rejects a host with a port (app2.timelog.com:8080)", async () => {
     const r = await callTimelog({ ...creds, host: "app2.timelog.com:8080" }, "/v1/user", { method: "GET" });
     expect(r.status).toBe(400);
