@@ -594,6 +594,43 @@ describe("TimelogPanel", () => {
       expect(fetchBookingsForCustomer).not.toHaveBeenCalled();
     });
 
+    it("persists customerId via a functional updater — a link edit made during the fetch is not clobbered", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      // Deferred fetch so we can edit a link while it's in-flight.
+      let resolveFetch!: (v: { failedProjects: number; customerId: number }) => void;
+      const fetchBookingsForCustomer = vi.fn().mockReturnValue(
+        new Promise((res) => { resolveFetch = res; }),
+      );
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], fetchBookingsForCustomer } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <LinksProbe testId="links-probe" />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      await act(async () => { fireEvent.click(btn); }); // fetch now pending
+
+      // Edit a project link WHILE the fetch is in-flight (ForgeOps id 9 → bucket 10).
+      const editLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      act(() => { fireEvent.change(screen.getByRole("combobox", { name: editLabel }), { target: { value: "10" } }); });
+
+      // Resolve the fetch → the functional updater must merge customerId onto the
+      // CURRENT links (with the new project link), not the pre-fetch snapshot.
+      await act(async () => { resolveFetch({ failedProjects: 0, customerId: 667 }); });
+
+      const parsed = JSON.parse(screen.getByTestId("links-probe").textContent ?? "null") as TimelogLinks | null;
+      expect(parsed?.customerId).toBe(667);
+      expect(parsed?.projectLinks.find((l) => l.timelogProjectId === 9)?.bucketId).toBe(10);
+    });
+
     it("surfaces failedProjects with a partial-fetch toast", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       const fetchBookingsForCustomer = vi.fn().mockResolvedValue({ failedProjects: 3, customerId: 667 });

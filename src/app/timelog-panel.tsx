@@ -295,8 +295,10 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const [autoResolved, setAutoResolved] = useState(false);
   const projectCustomerName = ws.project?.customer;
   const syncCustomers = sync.customers;
-  // (1) Persisted per-project scope wins — seed the picker when links arrive.
-  if (!linksSeeded && links.customerId !== undefined) {
+  // (1) Persisted per-project scope wins — seed the picker when links arrive,
+  // but only while the picker is untouched (guard against clobbering a manual
+  // pick made before a late-hydrating workspace delivered `timelogLinks`).
+  if (!linksSeeded && links.customerId !== undefined && projectCustomerId === "") {
     setLinksSeeded(true);
     setAutoResolved(true); // persisted scope overrides name auto-resolve
     setProjectCustomerId(links.customerId);
@@ -338,7 +340,13 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
       const cid = Number(projectCustomerId);
       const result = await sync.fetchBookingsForCustomer(cid, start, end);
       if (result) {
-        setLinks({ ...links, customerId: cid });
+        // Functional updater — the per-project fetch is a long serial await, and
+        // the link <select>s stay editable meanwhile; spreading the pre-await
+        // `links` snapshot would revert an edit made during the fetch.
+        ws.setTimelogLinks((prev) => {
+          const base = prev ?? { userLinks: [], projectLinks: [] };
+          return sanitizeTimelogLinks({ ...base, customerId: cid }) ?? base;
+        });
         if (result.failedProjects > 0) {
           logDiag("warn", "timelog.partialProjectFetch", { failedProjects: result.failedProjects });
           showToast("error", t(lang, "guardTimelogPartialProjectFetch", result.failedProjects));
