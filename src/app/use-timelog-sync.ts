@@ -238,9 +238,16 @@ export function useTimelogSync(args: Args) {
     customerId: number,
     startDate: string,
     endDate: string,
-  ): Promise<{ failedProjects: number; customerId: number } | undefined> {
+  ): Promise<{ failedProjects: number; customerId: number; projectCount: number } | undefined> {
     return runGuarded(async (signal) => {
       const projects = await listProjectsForCustomer(creds, customerId, signal, true);
+      // Zero visible projects (empty customer OR no access): do NOT run finish()
+      // — clobbering prior good aggregates with an empty result would be silent
+      // data loss and can't be told apart from a real "no bookings". The panel
+      // notifies via projectCount === 0.
+      if (projects.length === 0) {
+        return { failedProjects: 0, customerId, projectCount: 0 };
+      }
       let items: TimelogTimeItem[] = [];
       let failedProjects = 0;
       for (const p of projects) {
@@ -260,7 +267,7 @@ export function useTimelogSync(args: Args) {
       // ingest silently aggregating out-of-window periods into the cache.
       const inWindow = items.filter((it) => it.date >= startDate && it.date <= endDate);
       finish(inWindow);
-      return { failedProjects, customerId };
+      return { failedProjects, customerId, projectCount: projects.length };
     });
   }
 

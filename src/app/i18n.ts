@@ -1341,6 +1341,7 @@ const enUS = {
   timelogCustomerAll: "All customers",
   timelogCustomerFilter: "Filter customers (* wildcard)",
   timelogFetchScopedNote: "Fetching bookings for {0} only (this customer's projects).",
+  timelogNoCustomerProjects: "No projects found for this customer — nothing to fetch (previous data kept).",
   timelogPmNote: "You must be Project Manager in TimeLog for this feature to work as intended.",
   timelogPeopleFilter: "Filter loaded people",
   timelogLastSynced: "Last fetched {0}",

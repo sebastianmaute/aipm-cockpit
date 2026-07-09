@@ -210,10 +210,27 @@ it("fetchBookingsForCustomer resolves the customer's projects then fetches each 
   expect(calledIds).toEqual([9, 12]);
   // Booking on project 9 attributes to bucket 7 via the persisted manual link.
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
-  expect(out).toEqual({ failedProjects: 0, customerId: 667 });
+  expect(out).toEqual({ failedProjects: 0, customerId: 667, projectCount: 2 });
   // No per-user / org path touched.
   expect(api.listEmployeeTimeItems).not.toHaveBeenCalled();
   expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
+});
+
+it("fetchBookingsForCustomer with zero visible projects does NOT clobber prior aggregates", async () => {
+  // First a good self-scope fetch populates aggregates.
+  (api.getPrivileges as ReturnType<typeof vi.fn>).mockResolvedValue({ registrationAllTasks: false });
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+  await act(async () => { await result.current.fetchBookings("2026-06-01", "2026-06-30"); });
+  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
+  // Now a customer with NO visible projects (empty / no access) → prior data kept.
+  (api.listProjectsForCustomer as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+  let out: { failedProjects: number; customerId: number; projectCount: number } | undefined;
+  await act(async () => { out = await result.current.fetchBookingsForCustomer(667, "2026-06-01", "2026-06-30"); });
+  expect(out).toEqual({ failedProjects: 0, customerId: 667, projectCount: 0 });
+  expect(api.listProjectTimeRegistrations).not.toHaveBeenCalled();
+  // Aggregates unchanged (NOT cleared to empty).
+  expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
 });
 
 it("fetchBookingsForCustomer clamps items to the requested date window (v2 may ignore the params)", async () => {

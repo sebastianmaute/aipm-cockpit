@@ -288,26 +288,36 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
 
   // Seed + auto-resolve the customer scope via one-shot render-time reconciles
   // (state-guarded — the codebase's nonce/last-seen pattern, NOT a ref accessed
-  // in render, NOT set-state-in-effect). Two INDEPENDENT flags: persisted links
-  // may arrive AFTER the customer directory (async workspace load / tests), so a
-  // no-op auto-resolve must not consume the persisted-seed one-shot.
+  // in render, NOT set-state-in-effect). `userPicked` distinguishes an explicit
+  // pick from an auto value so persisted scope can override a name auto-resolve
+  // (even if links hydrate late) yet never override a manual pick.
+  const [userPicked, setUserPicked] = useState(false);
   const [linksSeeded, setLinksSeeded] = useState(false);
   const [autoResolved, setAutoResolved] = useState(false);
+  // Last-seen projectId: reset the one-shots when the project changes IN PLACE
+  // (no remount) so the picker re-seeds for the new project.
+  const [seenProjectId, setSeenProjectId] = useState(projectId);
   const projectCustomerName = ws.project?.customer;
   const syncCustomers = sync.customers;
-  // (1) Persisted per-project scope wins — seed the picker when links arrive,
-  // but only while the picker is untouched (guard against clobbering a manual
-  // pick made before a late-hydrating workspace delivered `timelogLinks`).
-  if (!linksSeeded && links.customerId !== undefined && projectCustomerId === "") {
+  if (seenProjectId !== projectId) {
+    setSeenProjectId(projectId);
+    setUserPicked(false);
+    setLinksSeeded(false);
+    setAutoResolved(false);
+    setProjectCustomerId("");
+    setCustomerFilter("");
+  }
+  // (1) Persisted per-project scope wins over name auto-resolve (even if links
+  // hydrate after the customer directory), but never over an explicit pick.
+  if (!linksSeeded && !userPicked && links.customerId !== undefined) {
     setLinksSeeded(true);
-    setAutoResolved(true); // persisted scope overrides name auto-resolve
     setProjectCustomerId(links.customerId);
   }
   // (2) Else auto-resolve the project's free-text customer name once the
-  // directory loads (on picker focus), only while the picker is untouched and
-  // no scope is persisted.
+  // directory loads, only while untouched and no scope is persisted.
   if (
     !autoResolved &&
+    !userPicked &&
     !linksSeeded &&
     projectCustomerId === "" &&
     links.customerId === undefined &&
@@ -347,7 +357,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           const base = prev ?? { userLinks: [], projectLinks: [] };
           return sanitizeTimelogLinks({ ...base, customerId: cid }) ?? base;
         });
-        if (result.failedProjects > 0) {
+        if (result.projectCount === 0) {
+          // Zero visible projects — prior aggregates were kept (not clobbered);
+          // tell the user so an empty customer / no-access isn't a silent no-op.
+          showToast("info", t(lang, "timelogNoCustomerProjects"));
+        } else if (result.failedProjects > 0) {
           logDiag("warn", "timelog.partialProjectFetch", { failedProjects: result.failedProjects });
           showToast("error", t(lang, "guardTimelogPartialProjectFetch", result.failedProjects));
         }
@@ -401,7 +415,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
             filter={customerFilter}
             disabled={isPopout}
             onFilterChange={setCustomerFilter}
-            onSelectChange={setProjectCustomerId}
+            onSelectChange={(v) => { setUserPicked(true); setProjectCustomerId(v); }}
             onFocusLoad={() =>
               void sync
                 .loadCustomers()

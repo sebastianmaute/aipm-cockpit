@@ -1333,6 +1333,7 @@ export const de: Record<TranslationKey, string> = {
   timelogCustomerAll: "Alle Kunden",
   timelogCustomerFilter: "Kunden filtern (* Platzhalter)",
   timelogFetchScopedNote: "Buchungen werden nur für {0} abgerufen (Projekte dieses Kunden).",
+  timelogNoCustomerProjects: "Keine Projekte für diesen Kunden gefunden — nichts abzurufen (bisherige Daten bleiben erhalten).",
   timelogPmNote: "Sie müssen in TimeLog Projektmanager sein, damit diese Funktion wie vorgesehen funktioniert.",
   timelogPeopleFilter: "Geladene Personen filtern",
   timelogLastSynced: "Zuletzt abgerufen {0}",
