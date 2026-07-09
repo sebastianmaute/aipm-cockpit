@@ -40,7 +40,13 @@ export function sanitizeTimelogLinks(raw: unknown): TimelogLinks | undefined {
       .filter((x): x is TimelogProjectLink => x !== null),
     (p) => p.timelogProjectId,
   );
-  return { userLinks, projectLinks };
+  // Project→customer scope: keep only a positive integer CustomerID; drop the
+  // key otherwise so an unscoped blob stays byte-stable.
+  const customerId =
+    isNum(r.customerId) && Number.isInteger(r.customerId) && r.customerId > 0
+      ? r.customerId
+      : undefined;
+  return { userLinks, projectLinks, ...(customerId !== undefined ? { customerId } : {}) };
 }
 
 const SCOPES: readonly TimelogScopeMode[] = ["auto", "self", "org"];

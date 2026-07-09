@@ -39,8 +39,14 @@ export type TimelogFinancialDay = {
 export type TimelogUserLink = { timelogUserId: number; resourceId: number; manual: boolean };
 /** Durable mapping: Timelog project → app budget bucket (null = explicitly unmapped). */
 export type TimelogProjectLink = { timelogProjectId: number; bucketId: number | null; manual: boolean };
-/** Per-project blob persisted on the Workspace (mirror SteeringCommittee). */
-export type TimelogLinks = { userLinks: TimelogUserLink[]; projectLinks: TimelogProjectLink[] };
+/** Per-project blob persisted on the Workspace (mirror SteeringCommittee).
+ *  `customerId` is the TimeLog CustomerID the project's booking fetch is scoped
+ *  to (positive int; absent = unscoped / whole-org per-user fetch). */
+export type TimelogLinks = {
+  userLinks: TimelogUserLink[];
+  projectLinks: TimelogProjectLink[];
+  customerId?: number;
+};
 
 export type TimelogScopeMode = "auto" | "self" | "org";
 
