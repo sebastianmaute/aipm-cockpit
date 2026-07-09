@@ -42,6 +42,20 @@ export function autoMatchUsers(
   return out;
 }
 
+/** Resolve a free-text customer NAME (e.g. ProjectMeta.customer) to a TimeLog
+ *  customer by case-folded exact name match. Returns the unique hit, or null on
+ *  no match / blank name / an ambiguous >1 match (never guess). Generic so it
+ *  stays decoupled from the api-layer TimelogCustomer type (no import cycle). */
+export function resolveCustomerByName<T extends { id: number; name: string }>(
+  customers: readonly T[],
+  name: string | undefined,
+): T | null {
+  const q = norm(name ?? "");
+  if (!q) return null;
+  const hits = customers.filter((c) => norm(c.name) === q);
+  return hits.length === 1 ? hits[0] : null;
+}
+
 export type TimelogProjectRef = { id: number; name: string; no: string };
 
 export function autoMatchProjects(

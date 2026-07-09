@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { autoMatchUsers, autoMatchProjects, isDisplayableUser, displayableUsers } from "./timelog-match";
+import { autoMatchUsers, autoMatchProjects, isDisplayableUser, displayableUsers, resolveCustomerByName } from "./timelog-match";
 import type { TimelogUser, TimelogLinks } from "./timelog-types";
 import type { Resource, BudgetBucket } from "./types";
 
@@ -49,6 +49,23 @@ describe("displayableUsers / isDisplayableUser", () => {
       u({ userId: 3, email: "x@y.com", isActive: false }), // inactive
     ]);
     expect(out.map((r) => r.userId)).toEqual([1]);
+  });
+});
+
+describe("resolveCustomerByName", () => {
+  const cs = [{ id: 1, name: "Acme" }, { id: 2, name: "Acme GmbH" }, { id: 3, name: "acme gmbh" }];
+  it("returns the unique case-insensitive name hit", () => {
+    expect(resolveCustomerByName([{ id: 1, name: "Acme" }, { id: 2, name: "Acme" }], "  acme ")).toEqual({ id: 2, name: "Acme" });
+  });
+  it("returns null for a blank/undefined name", () => {
+    expect(resolveCustomerByName(cs, "")).toBeNull();
+    expect(resolveCustomerByName(cs, undefined)).toBeNull();
+  });
+  it("returns null on no match", () => {
+    expect(resolveCustomerByName(cs, "Nope Ltd")).toBeNull();
+  });
+  it("returns null on an ambiguous >1 match (never guess)", () => {
+    expect(resolveCustomerByName(cs, "Acme GmbH")).toBeNull();
   });
 });
 
