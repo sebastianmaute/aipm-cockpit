@@ -3,7 +3,7 @@
   "src/app/resources-panel.tsx": 821,
   "src/app/task-manager.tsx": 2373,
   "src/app/tasks-section.tsx": 853,
-  "src/app/timelog-panel.tsx": 850,
+  "src/app/timelog-panel.tsx": 876,
   "src/app/use-resource-planner.ts": 871,
   "src/app/workspace-section.tsx": 878
 }

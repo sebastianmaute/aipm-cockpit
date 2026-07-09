@@ -179,6 +179,7 @@ const enUS = {
   versionHighlightWorkloadActionable: "The workload view is now actionable — edit a resource's near-term utilization inline and reassign or reschedule their overdue tasks without leaving the view",
   versionHighlightResourceEnhance: "Resources overhaul — a single role picker replaces the discipline+grade dropdowns, rate-card rows drag to reorder, external resources are capacity-tracked but excluded from all costs, resources carry extra copy-on-click emails, the directory gains bulk edit + delete, the AI can manage directory entries, and stray unlinked workload rows can be cleared",
   versionHighlightResourceFollowup: "Resources & Time bookings follow-up — the Time bookings people list collapses so projects stay in view, external resources can be shown or hidden in the calendar, deleting a resource clears its calendar entries, planning inputs stay visible on row hover, and AI project creation now populates the resource directory",
+  versionHighlightTimelogCustomer: "Time bookings can now be scoped to the customer a project is created for — pick (or auto-resolve) a TimeLog customer and Fetch loads only that customer's projects' bookings instead of every user's whole history, cutting the data pulled",
 
   tasks: "Tasks",
   tasksCount: "({0})",

@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.170.0] - 2026-07-09 "Doctorow"
+
+TimeLog integration: the booking fetch can now be scoped to the customer a project is created for. No storage format change (the scope rides the existing `timelogLinks` JSON blob — no new persisted Workspace field, no golden regen).
+
+### Added
+- **Customer-scoped booking fetch (ported from project-burndown-dashboard)**: previously "Fetch bookings" pulled every ticked user's entire timesheet history across all customers/projects. You can now pick a TimeLog customer in the Time bookings header (or let it auto-resolve from the project's customer name); "Fetch bookings" then loads only that customer's projects' registrations — resolving the customer's projects, then fetching each project's bookings via the TimeLog v2 per-project endpoint. This sharply cuts the data pulled. Selecting "All customers" keeps the existing per-user fetch. The chosen scope persists per project.
+- The `/api/timelog` proxy now allows the `/v2/` API namespace (per-project time-registrations) alongside `/v1/`; host allowlist, private-IP block, and traversal/CRLF guards are unchanged.
+
+### Fixed / hardened
+- Persisting the customer scope uses a functional workspace update, so a link edit made during the (long, serial) per-project fetch is never reverted.
+- Fetched registrations are clamped to the requested date window client-side (defensive — the v2 endpoint is passed the dates but isn't relied on to honour them), so a scoped fetch can never silently ingest a project's full history.
+- A customer that resolves to zero visible projects no longer clobbers previously-fetched totals with an empty result; an info notice explains the empty customer / no-access case.
+
 ## [0.169.4] - 2026-07-08 "Sterling"
 
 Bugfix for the Budget bucket editor. No storage format change, no new fields.

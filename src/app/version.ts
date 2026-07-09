@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.169.4";
-export const APP_BUILD_DATE = "2026-07-08"; // 0.169.4: Budget bucket editor's role/discipline allocation controls were tier "full" while the app default is "advanced", so the add-role/add-discipline UI was hidden by default — users "could not add roles or disciplines to budget buckets" (the 0.169.3 "add a role line first" guidance was unreachable). Lowered planningDetail to the advanced tier + added an empty-rate-card hint pointing to Resources → Manage roles (Sterling)
+export const APP_VERSION = "0.170.0";
+export const APP_BUILD_DATE = "2026-07-09"; // 0.170.0: TimeLog booking fetch can now be scoped to the customer a project is created for — pick/auto-resolve a TimeLog customer and "Fetch bookings" loads only that customer's projects' registrations (per-project v2 endpoint) instead of every org user's whole history. Ported from project-burndown-dashboard (Doctorow)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.169.x line is "Sterling" (Bruce Sterling). */
-export const APP_MILESTONE = "Sterling";
+ *  0.170.x line is "Doctorow" (Cory Doctorow). */
+export const APP_MILESTONE = "Doctorow";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -191,4 +191,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightWorkloadActionable",
   "versionHighlightResourceEnhance",
   "versionHighlightResourceFollowup",
+  "versionHighlightTimelogCustomer",
 ] as const;
