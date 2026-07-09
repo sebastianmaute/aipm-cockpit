@@ -79,6 +79,7 @@ function defaultSyncReturn() {
     loadManagedProjects: vi.fn().mockResolvedValue(undefined),
     loadCustomers: vi.fn().mockResolvedValue(undefined),
     fetchBookings: vi.fn().mockResolvedValue(undefined),
+    fetchBookingsForCustomer: vi.fn().mockResolvedValue({ failedProjects: 0, customerId: 667, projectCount: 1 }),
     cancel: vi.fn(),
     removeUsers: vi.fn(),
     clearAll: vi.fn(),
@@ -515,6 +516,166 @@ describe("TimelogPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: t("en-US", "clearAll") }));
       await act(async () => {});
       expect(clearAll).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Customer-scoped booking fetch", () => {
+    const LINKS_WITH_CUSTOMER: TimelogLinks = { ...INITIAL_LINKS, customerId: 667 };
+
+    it("seeds the customer picker from the persisted scope (customerId on links)", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={LINKS_WITH_CUSTOMER} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      // Reconcile fires once links arrive (SeedWorkspace effect) → picker = 667.
+      await waitFor(() => expect(select.value).toBe("667"));
+      // The scope note is shown.
+      expect(screen.getByText(t("en-US", "timelogFetchScopedNote", "Acme"))).toBeInTheDocument();
+    });
+
+    it("routes Fetch to the per-project customer fetch and persists the scope", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const fetchBookingsForCustomer = vi.fn().mockResolvedValue({ failedProjects: 0, customerId: 667, projectCount: 1 });
+      const fetchBookings = vi.fn().mockResolvedValue({ failedEmployees: 0 });
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], fetchBookingsForCustomer, fetchBookings } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <LinksProbe testId="links-probe" />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // Pick a customer, then Fetch.
+      fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      await act(async () => { fireEvent.click(btn); });
+      expect(fetchBookingsForCustomer).toHaveBeenCalledWith(667, expect.any(String), expect.any(String));
+      expect(fetchBookings).not.toHaveBeenCalled();
+      // Scope persisted on the workspace links.
+      await waitFor(() => {
+        const parsed = JSON.parse(screen.getByTestId("links-probe").textContent ?? "null") as TimelogLinks | null;
+        expect(parsed?.customerId).toBe(667);
+      });
+    });
+
+    it("Fetch falls back to the per-user path when no customer is selected", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const fetchBookingsForCustomer = vi.fn();
+      const fetchBookings = vi.fn().mockResolvedValue({ failedEmployees: 0 });
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchBookingsForCustomer, fetchBookings } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      await act(async () => { fireEvent.click(btn); });
+      expect(fetchBookings).toHaveBeenCalled();
+      expect(fetchBookingsForCustomer).not.toHaveBeenCalled();
+    });
+
+    it("persists customerId via a functional updater — a link edit made during the fetch is not clobbered", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      // Deferred fetch so we can edit a link while it's in-flight.
+      let resolveFetch!: (v: { failedProjects: number; customerId: number; projectCount: number }) => void;
+      const fetchBookingsForCustomer = vi.fn().mockReturnValue(
+        new Promise((res) => { resolveFetch = res; }),
+      );
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], fetchBookingsForCustomer } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <LinksProbe testId="links-probe" />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      await act(async () => { fireEvent.click(btn); }); // fetch now pending
+
+      // Edit a project link WHILE the fetch is in-flight (ForgeOps id 9 → bucket 10).
+      const editLabel = `${t("en-US", "timelogMatchProjects")} – ForgeOps`;
+      act(() => { fireEvent.change(screen.getByRole("combobox", { name: editLabel }), { target: { value: "10" } }); });
+
+      // Resolve the fetch → the functional updater must merge customerId onto the
+      // CURRENT links (with the new project link), not the pre-fetch snapshot.
+      await act(async () => { resolveFetch({ failedProjects: 0, customerId: 667, projectCount: 1 }); });
+
+      const parsed = JSON.parse(screen.getByTestId("links-probe").textContent ?? "null") as TimelogLinks | null;
+      expect(parsed?.customerId).toBe(667);
+      expect(parsed?.projectLinks.find((l) => l.timelogProjectId === 9)?.bucketId).toBe(10);
+    });
+
+    it("shows an info toast (not a silent no-op) when the customer has zero projects", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const fetchBookingsForCustomer = vi.fn().mockResolvedValue({ failedProjects: 0, customerId: 667, projectCount: 0 });
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], fetchBookingsForCustomer } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      await act(async () => { fireEvent.click(btn); });
+      await waitFor(() => {
+        expect(showToast).toHaveBeenCalledWith("info", t("en-US", "timelogNoCustomerProjects"));
+      });
+    });
+
+    it("surfaces failedProjects with a partial-fetch toast", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      const fetchBookingsForCustomer = vi.fn().mockResolvedValue({ failedProjects: 3, customerId: 667, projectCount: 5 });
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], fetchBookingsForCustomer } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }), { target: { value: "667" } });
+      const btn = screen.getByRole("button", { name: t("en-US", "timelogSync") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      await act(async () => { fireEvent.click(btn); });
+      await waitFor(() => {
+        expect(showToast).toHaveBeenCalledWith("error", t("en-US", "guardTimelogPartialProjectFetch", 3));
+      });
+      expect(logDiag).toHaveBeenCalledWith("warn", "timelog.partialProjectFetch", { failedProjects: 3 });
     });
   });
 

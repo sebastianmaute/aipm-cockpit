@@ -39,6 +39,17 @@ describe("sanitizeTimelogLinks", () => {
     });
     expect(out?.projectLinks).toEqual([{ timelogProjectId: 3, bucketId: null, manual: false }]);
   });
+  it("keeps a positive integer customerId (project scope)", () => {
+    const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [], customerId: 42 });
+    expect(out?.customerId).toBe(42);
+  });
+  it("drops a non-positive / non-integer / missing customerId", () => {
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], customerId: 0 })?.customerId).toBeUndefined();
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], customerId: -3 })?.customerId).toBeUndefined();
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], customerId: 1.5 })?.customerId).toBeUndefined();
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], customerId: "7" })?.customerId).toBeUndefined();
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [] })?.customerId).toBeUndefined();
+  });
 });
 
 describe("sanitizeTimelogConfig", () => {

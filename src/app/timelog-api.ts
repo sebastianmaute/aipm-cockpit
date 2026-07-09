@@ -210,6 +210,25 @@ export async function listTimeItemsSelf(creds: TimelogCreds, startDate: string, 
   return (await callPaged(creds, "/v1/time-tracking-item/get-by-date", { startDate, endDate }, signal)).map(mapTimeItem);
 }
 
+/** Time registrations for ONE project (v2 per-project endpoint). The
+ *  customer-scoped booking fetch fans out over a customer's project ids,
+ *  loading only that customer's registrations instead of every org user's
+ *  whole history. `projectId` is validated as a positive int before it is
+ *  interpolated into the path (path-injection guard, mirrors the Confluence
+ *  pageId /^\d+$/ check). `mapTimeItem` defaults any absent field to 0/false,
+ *  so a v2 shape missing a field degrades (never crashes). */
+export async function listProjectTimeRegistrations(
+  creds: TimelogCreds,
+  projectId: number,
+  startDate: string,
+  endDate: string,
+  signal?: AbortSignal,
+): Promise<TimelogTimeItem[]> {
+  if (!Number.isInteger(projectId) || projectId <= 0) return [];
+  return (await callPaged(creds, `/v2/projects/${projectId}/time-registrations`,
+    { startDate, endDate }, signal)).map(mapTimeItem);
+}
+
 export async function listEmployeeTimeItems(creds: TimelogCreds, employeeUserId: number, startDate: string, endDate: string, signal?: AbortSignal): Promise<TimelogTimeItem[]> {
   return (await callPaged(creds, "/v1/approval/timesheets/get-status-by-period-with-rejected-time-tracking-items",
     { employeeUserId: String(employeeUserId), startDate, endDate }, signal)).map(mapTimeItem);
