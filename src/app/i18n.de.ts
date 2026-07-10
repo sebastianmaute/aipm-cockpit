@@ -937,6 +937,9 @@ export const de: Record<TranslationKey, string> = {
   ganttCriticalPath: "Kritischer Pfad",
   ganttCriticalPathHint:
     "Hebt die Kette der Aufgaben ohne Puffer hervor, die das Projektende bestimmen.",
+  ganttBaseline: "Baseline",
+  ganttBaselineHint:
+    "Zeigt das zugesagte Baseline-Datum jedes Meilensteins als Geisterraute hinter dem aktuellen Datum, um Terminverschiebungen sichtbar zu machen.",
   health: "Ampel",
   healthAuto: "Automatisch",
   healthRed: "Rot",

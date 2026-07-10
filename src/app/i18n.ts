@@ -946,6 +946,9 @@ const enUS = {
   ganttCriticalPath: "Critical path",
   ganttCriticalPathHint:
     "Highlight the chain of zero-slack tasks that drive the project end date.",
+  ganttBaseline: "Baseline",
+  ganttBaselineHint:
+    "Show each milestone's committed baseline date as a ghost diamond behind the current date, to reveal schedule slip.",
   health: "Health",
   healthAuto: "Auto",
   healthRed: "Red",
