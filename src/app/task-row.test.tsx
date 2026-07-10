@@ -66,6 +66,7 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     onDelete: vi.fn(),
     onAiEdit: vi.fn(),
     aiEditEnabled: () => false,
+    onInlinePatch: vi.fn(),
     ...overrides,
   };
 }
@@ -559,7 +560,7 @@ describe("TaskRow click-to-edit", () => {
         ),
       }),
     );
-    fireEvent.click(getByRole("button", { name: /review the deck/i }));
+    fireEvent.click(getByRole("button", { name: "Review the deck" }));
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
   });
 });
@@ -831,5 +832,97 @@ describe("TaskRow RAID badge", () => {
     );
     fireEvent.click(getByRole("button", { name: /raid item/i }));
     expect(onJumpToRaid).toHaveBeenCalledWith(14);
+  });
+});
+
+describe("TaskRow inline cell editing", () => {
+  function renderRow(context: RowContextValue, task: Task) {
+    return render(
+      rowWrapper({
+        context,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+  }
+
+  test("double-clicking the name reveals an input; typing + Enter commits a taskName patch", () => {
+    const onInlinePatch = vi.fn();
+    const onEdit = vi.fn();
+    const ctx = makeContext({ onInlinePatch, onEdit });
+    const task = makeTask({ id: 40, taskName: "Old name" });
+    const { getByRole, getByLabelText } = renderRow(ctx, task);
+
+    fireEvent.doubleClick(getByRole("button", { name: "Old name" }));
+    const input = getByLabelText("Task name – Old name") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "New name" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(onInlinePatch).toHaveBeenCalledWith(40, { taskName: "New name" });
+  });
+
+  test("single-clicking the due-date cell reveals a date input; change + blur commits a dueDate patch", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 41, taskName: "Ship it", dueDate: "2026-07-01" });
+    const { getByRole, getByLabelText } = renderRow(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "Due date – Ship it" }));
+    const input = getByLabelText("Due date – Ship it") as HTMLInputElement;
+    expect(input.type).toBe("date");
+    fireEvent.change(input, { target: { value: "2026-07-20" } });
+    fireEvent.blur(input);
+
+    expect(onInlinePatch).toHaveBeenCalledWith(41, { dueDate: "2026-07-20" });
+  });
+
+  test("Escape cancels an inline edit without committing", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 42, taskName: "Keep me", assignee: "Alice" });
+    const { getByRole, getByLabelText, queryByLabelText } = renderRow(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "Assignee – Keep me" }));
+    const input = getByLabelText("Assignee – Keep me") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Bob" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(onInlinePatch).not.toHaveBeenCalled();
+    // Editor closed → the labelled input is gone, the display button is back.
+    expect(queryByLabelText("Assignee – Keep me")?.tagName).toBe("BUTTON");
+  });
+
+  test("priority select commits the chosen value directly", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 43, taskName: "Rank me", priority: "Low" });
+    const { getByRole } = renderRow(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "Priority – Rank me" }));
+    const select = getByRole("combobox", { name: "Priority – Rank me" });
+    fireEvent.change(select, { target: { value: "High" } });
+
+    expect(onInlinePatch).toHaveBeenCalledWith(43, { priority: "High" });
+  });
+
+  test("Jira-synced rows render no inline edit affordance (read-only)", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 44, taskName: "Synced", jiraKey: "LOP-9", assignee: "Alice" });
+    const { queryByRole, getByText } = renderRow(ctx, task);
+
+    // No editable buttons for the inline fields; plain display only.
+    expect(queryByRole("button", { name: "Assignee – Synced" })).toBeNull();
+    expect(queryByRole("button", { name: "Due date – Synced" })).toBeNull();
+    expect(queryByRole("button", { name: "Priority – Synced" })).toBeNull();
+    expect(getByText("Alice")).toBeTruthy();
   });
 });

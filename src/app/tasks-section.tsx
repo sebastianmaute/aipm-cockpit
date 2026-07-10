@@ -18,6 +18,7 @@ import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
+import { sanitizeAssignee, sanitizeIsoDate, sanitizePriority, sanitizeTaskName } from "./sanitize";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
@@ -281,6 +282,30 @@ export function TasksSection({
     ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
     : filteredSortedTasks;
 
+  // Inline Open-Points cell edit: apply one sanitized field patch to a task via
+  // a functional setter, stamping localModifiedAt. Mirrors the form-save
+  // sanitizers (use-task-submit); Jira-synced rows are read-only and skipped.
+  const onInlinePatch = useCallback(
+    (taskId: number, patch: Partial<Task>) => {
+      setTasks((prev) =>
+        prev.map((row) => {
+          if (row.id !== taskId || row.jiraKey) return row;
+          const clean: Partial<Task> = {};
+          if ("taskName" in patch) {
+            const name = sanitizeTaskName(patch.taskName);
+            if (name) clean.taskName = name; // never blank out the task's identity
+          }
+          if ("assignee" in patch) clean.assignee = sanitizeAssignee(patch.assignee);
+          if ("startDate" in patch) clean.startDate = sanitizeIsoDate(patch.startDate);
+          if ("dueDate" in patch) clean.dueDate = sanitizeIsoDate(patch.dueDate);
+          if ("priority" in patch) clean.priority = sanitizePriority(patch.priority);
+          return { ...row, ...clean, localModifiedAt: new Date().toISOString() };
+        }),
+      );
+    },
+    [setTasks],
+  );
+
   const rowContextValue = useMemo<RowContextValue>(
     () => ({
       lang,
@@ -302,6 +327,7 @@ export function TasksSection({
       onDelete,
       onAiEdit,
       aiEditEnabled,
+      onInlinePatch,
     }),
     [
       lang,
@@ -323,6 +349,7 @@ export function TasksSection({
       onDelete,
       onAiEdit,
       aiEditEnabled,
+      onInlinePatch,
     ],
   );
 
