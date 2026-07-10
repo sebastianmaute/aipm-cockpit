@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { bucketActivePeriods, allocationPlannedHours, computeBudgetReport } from "./budget-report";
-import type { ResourcePlan, Resource, BudgetBucket } from "./types";
+import type { ResourcePlan, Resource, BudgetBucket, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR" };
 const noHolidays = new Set<string>();
@@ -35,6 +35,48 @@ describe("allocationPlannedHours", () => {
     const hours = allocationPlannedHours(alloc, period, [period], resources, 8, noHolidays, "month");
     // Only the internal resource (5) contributes — external (9) is skipped.
     expect(hours).toBeCloseTo(176, 5);
+  });
+});
+
+describe("computeBudgetReport — budget follows plan", () => {
+  const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+  // Jan 2026 = 22 Mon–Fri workdays × 8h = 176h planned capacity at 100% util.
+  const PLANNED_JAN = 176;
+  // A resourced allocation whose STORED budget (0) is stale vs the plan.
+  const resourcedStaleBucket: BudgetBucket = {
+    id: 1, name: "PAM", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 3, resourceIds: [5], budgetHours: { "2026-01": 0 }, actualHours: { "2026-01": 40 } }],
+  };
+  const resources = [res(5, 3, { "2026-01": 100 })];
+
+  test("ON — a resourced row's budget hours equal the planned hours, not the stored 0", () => {
+    const report = computeBudgetReport(
+      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays,
+    );
+    const b = report.buckets[0];
+    expect(b.budgetHours).toBeCloseTo(PLANNED_JAN, 5);
+    // Derived budget value (external rate 150) follows the planned hours too.
+    expect(b.budgetValue).toBeCloseTo(PLANNED_JAN * 150, 5);
+    expect(report.project.budgetHours).toBeCloseTo(PLANNED_JAN, 5);
+  });
+
+  test("OFF — a resourced row uses the stored budget hours (unchanged behavior)", () => {
+    const report = computeBudgetReport(
+      [resourcedStaleBucket], { ...plan, budgetFollowsPlan: false }, roles, resources, 8, noHolidays,
+    );
+    expect(report.buckets[0].budgetHours).toBe(0);
+  });
+
+  test("ON — a resource-LESS row still uses its stored budget hours", () => {
+    const unresourced: BudgetBucket = {
+      ...resourcedStaleBucket,
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
+    };
+    const report = computeBudgetReport(
+      [unresourced], { ...plan, budgetFollowsPlan: true }, roles, resources, 8, noHolidays,
+    );
+    expect(report.buckets[0].budgetHours).toBe(100);
   });
 });
 

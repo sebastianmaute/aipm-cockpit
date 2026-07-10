@@ -39,6 +39,29 @@ export function allocationPlannedHours(
   return sum;
 }
 
+/**
+ * The effective per-period BUDGET hours for an allocation: the live planned
+ * capacity when the plan's budget follows planning AND the allocation has
+ * resources, else the stored `budgetHours` entry. This is the SINGLE rule the
+ * budget cell and every budget aggregate share, so they can never diverge.
+ */
+export function effectiveBudgetHours(
+  alloc: { resourceIds: readonly number[]; budgetHours: Record<string, number> },
+  period: Period,
+  canonicalPeriods: readonly Period[],
+  resources: readonly Resource[],
+  workdayHours: number,
+  holidaySet: ReadonlySet<string>,
+  granularity: PlanGranularity,
+  absences: readonly Absence[],
+  budgetFollowsPlan: boolean,
+): number {
+  if (budgetFollowsPlan && alloc.resourceIds.length > 0) {
+    return allocationPlannedHours(alloc, period, canonicalPeriods, resources, workdayHours, holidaySet, granularity, absences);
+  }
+  return alloc.budgetHours[period.key] ?? 0;
+}
+
 /** Sum a periodKey -> number map over a set of period keys (or all when omitted). */
 function sumPeriodMap(map: Record<string, number>, keys?: readonly string[]): number {
   if (!keys) return Object.values(map).reduce((a, b) => a + b, 0);
@@ -143,20 +166,26 @@ export function computeBucketReport(
   let budgetValueExternal = 0;
   let budgetCost = 0;
 
+  // When the plan's budget follows planning, a resourced row's budget hours
+  // ARE the planned hours (the read-only cell the panel shows) — so cost, CCI,
+  // RAG, win/loss and the project rollup all follow planned too. Off, or a
+  // resource-less row → the stored budgetHours map, as before.
+  const budgetFollowsPlan = plan.budgetFollowsPlan ?? false;
   const rows = bucketRateRows(bucket, roles);
   for (const row of rows) {
     const { internal, external } = row.rates;
-    const aBudget = sumPeriodMap(row.budgetHours, keys);
+    let aBudget = 0;
     const aActual = sumPeriodMap(row.actualHours, keys);
+    for (const p of periods) {
+      aBudget += effectiveBudgetHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan);
+      plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences);
+    }
     budgetHours += aBudget;
     actualHours += aActual;
     cost += aActual * internal;
     tmRevenue += aActual * external;
     budgetValueExternal += aBudget * external;
     budgetCost += aBudget * internal;
-    for (const p of periods) {
-      plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences);
-    }
   }
 
   const isFixed = bucket.type === "fixed";

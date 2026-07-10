@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
-import { computeBudgetReport, bucketActivePeriods, allocationPlannedHours, type BucketReport, type CciValue } from "./budget-report";
+import { computeBudgetReport, bucketActivePeriods, effectiveBudgetHours, type BucketReport, type CciValue } from "./budget-report";
 import type { Period } from "./resource-capacity";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
@@ -200,11 +200,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
   // exhaustive-deps (no obj.member in dep arrays).
   const budgetFollowsPlan = plan.budgetFollowsPlan ?? false;
   const granularity = plan.granularity;
-  // Planned hours for one allocation in one period, using the bucket's own
-  // period list as canonicalPeriods — the SAME argument computeBucketReport
-  // passes, so the mirrored value equals the report's plannedHours.
-  const plannedFor = (alloc: { resourceIds: readonly number[] }, period: Period, periods: readonly Period[]): number =>
-    allocationPlannedHours(alloc, period, periods, resources, workdayHours, holidaySet, granularity, absences);
+  // The budget value a cell shows — the SAME `effectiveBudgetHours` the report
+  // aggregates through, so the cell and every bucket/CCI/RAG figure agree. When
+  // the plan's budget follows planning AND the row is resourced it mirrors the
+  // live planned capacity; otherwise it is the stored budgetHours entry.
+  const cellBudget = (
+    alloc: { resourceIds: readonly number[]; budgetHours: Record<string, number> },
+    period: Period, periods: readonly Period[],
+  ): number =>
+    effectiveBudgetHours(alloc, period, periods, resources, workdayHours, holidaySet, granularity, absences, budgetFollowsPlan);
 
   const { colWidths, startColResize, resetColWidths } = useColumnResize<BudgetCol>(
     "budget",
@@ -329,16 +333,20 @@ export function BudgetPanel(props: BudgetPanelProps) {
         </h2>
         <div className="flex items-center gap-2">
           {!isPopout && onSetBudgetFollowsPlan ? (
-            <label className="flex items-center gap-1.5 text-sm print:hidden">
-              <input
-                type="checkbox"
-                checked={plan.budgetFollowsPlan ?? false}
-                onChange={(e) => onSetBudgetFollowsPlan(e.target.checked)}
-                className={`${FOCUS_RING} ${TRANSITION}`}
-              />
-              <span>{t(lang, "budgetFollowsPlan")}</span>
+            // The InfoTooltip sits OUTSIDE the <label> so its hint text does not
+            // bleed into the checkbox's name-from-content accessible name.
+            <div className="flex items-center gap-1.5 text-sm print:hidden">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={plan.budgetFollowsPlan ?? false}
+                  onChange={(e) => onSetBudgetFollowsPlan(e.target.checked)}
+                  className={`${FOCUS_RING} ${TRANSITION}`}
+                />
+                <span>{t(lang, "budgetFollowsPlan")}</span>
+              </label>
               <InfoTooltip text={t(lang, "budgetFollowsPlanHint")} />
-            </label>
+            </div>
           ) : null}
           <button
             type="button"
@@ -502,7 +510,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           <HoursTd
                             key={p.key}
                             ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
-                            budget={mirror ? plannedFor(a, p, periods) : a.budgetHours[p.key]}
+                            budget={cellBudget(a, p, periods)}
                             actual={a.actualHours[p.key]}
                             readOnly={mirror}
                             onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
@@ -528,7 +536,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           <HoursTd
                             key={p.key}
                             ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
-                            budget={mirror ? plannedFor(a, p, periods) : a.budgetHours[p.key]}
+                            budget={cellBudget(a, p, periods)}
                             actual={a.actualHours[p.key]}
                             readOnly={mirror}
                             onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
@@ -571,6 +579,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
             </div>
           );
         })}
+        {bucketQuery && visibleBuckets.length === 0 && (
+          <p className="text-sm text-muted-foreground">{t(lang, "reportsNoMatches")}</p>
+        )}
         {report.buckets.length === 0 && (
           <button
             type="button"

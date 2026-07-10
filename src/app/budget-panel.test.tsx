@@ -123,6 +123,19 @@ test("budget: bucket-name search filters buckets", () => {
   expect(screen.queryByText("Beta")).not.toBeInTheDocument();
 });
 
+test("budget: bucket search with no matches shows a no-match line", () => {
+  const twoNamed: BudgetBucket[] = [
+    { ...buckets[0], id: 1, name: "Alpha", order: 0 },
+    { ...buckets[0], id: 2, name: "Beta", order: 1 },
+  ];
+  render(<BudgetPanel {...props} buckets={twoNamed} />);
+  const box = screen.getByLabelText(/filter buckets/i);
+  fireEvent.change(box, { target: { value: "zzz-no-such-bucket" } });
+  expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+  expect(screen.getByText(t("en-US", "reportsNoMatches"))).toBeInTheDocument();
+});
+
 test("renders InfoTooltip for CPI metric label by accessible name", () => {
   render(<BudgetPanel {...props} />);
   const hint = t("en-US", "budgetCciCpiHint");
@@ -221,7 +234,10 @@ describe("budget: follow-plan mirror (Task 8)", () => {
     );
     const budgetInput = screen.getAllByLabelText(/^budget-/)[0] as HTMLInputElement;
     expect(budgetInput).toHaveAttribute("readonly");
-    expect(budgetInput.value).not.toBe(""); // planned value shown, not the stored 100
+    // Must show the PLANNED value (Jan 2026 = 22 workdays × 8h = 176h at 100%),
+    // NOT the stored 100 — a broken mirror rendering 100 must fail here.
+    expect(budgetInput.value).not.toBe("100");
+    expect(Number(budgetInput.value)).toBeCloseTo(176, 5);
   });
 
   test("mirror ON — role line with NO assigned resource stays editable", () => {
