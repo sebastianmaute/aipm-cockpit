@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.170.2";
-export const APP_BUILD_DATE = "2026-07-10"; // 0.170.2: entity id-mint data-loss race fixed across Stakeholders/Changes/RAID/Milestones — a create whose modal-open id was committed by a concurrent writer (AI create tool, second tab, bulk op) no longer silently clobbers that row (shared resolveEntitySave: decide create/update by modal intent + re-mint on collision); editing a row a concurrent writer already deleted now surfaces a toast instead of a silent no-op (Doctorow)
+export const APP_VERSION = "0.171.0";
+export const APP_BUILD_DATE = "2026-07-10"; // 0.171.0: Gantt milestone baseline ghost bars — each milestone shows a hollow ghost diamond at its committed baseline date (from the pinned Turso snapshot) with a dotted connector to its current date and a signed slip label, plus a default-on "Baseline" toolbar toggle; Turso-gated (invisible off Turso, no per-task baseline data) (Gibson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.170.x line is "Doctorow" (Cory Doctorow). */
-export const APP_MILESTONE = "Doctorow";
+ *  0.171.x line is "Gibson" (William Gibson). */
+export const APP_MILESTONE = "Gibson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -192,4 +192,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightResourceEnhance",
   "versionHighlightResourceFollowup",
   "versionHighlightTimelogCustomer",
+  "versionHighlightGanttBaseline",
 ] as const;
