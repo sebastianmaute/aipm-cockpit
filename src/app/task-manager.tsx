@@ -29,12 +29,19 @@ import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { useCommTemplates } from "./use-comm-templates";
 import { useOperatingGuides } from "./use-operating-guides";
 import { useTaskSubmit } from "./use-task-submit";
+import { useTaskEditorBuffer, type RaidSpec, type LinkSpec } from "./use-task-editor-buffer";
+import { TaskEditorRaidMini } from "./task-editor-raid-mini";
+import { TaskLinkedTaskModal, type LinkedTaskDraft } from "./task-linked-task-modal";
+import { applyTaskLink } from "./task-link";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
+import { INTERACTIVE } from "./interaction-styles";
+import { applyStatusChange } from "./task-status";
+import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
-import { buildRaidByTaskIndex } from "./raid";
+import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -1067,11 +1074,105 @@ function TaskManagerInner() {
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
+  // Live mirror of the RAID list so RAID created from the task editor mints ids +
+  // logs OUTSIDE the setState updater (updaters must be pure — strict mode double-
+  // invokes them), while staying fresh across a buffer flush loop (N in one tick).
+  const raidRef = useRef(raid);
+  useEffect(() => {
+    raidRef.current = raid;
+  }, [raid]);
 
   const onPushToJiraRef = useRef<(taskId: number) => Promise<boolean>>(
     () => Promise.resolve(false),
   );
   const pendingLinkRaidIdRef = useRef<number | null>(null);
+
+  // Task editor: create RAID (Task 7) + linked tasks (Task 8) from the editor.
+  // Edit-mode applies immediately; create-mode stages in `editorBuffer` and
+  // flushes once the new parent id is resolved on save.
+  const applyRaidFromTask = useCallback(
+    (taskId: number, spec: RaidSpec) => {
+      const id = nextRaidId(raidRef.current);
+      const raw = {
+        id,
+        category: spec.category,
+        title: spec.title,
+        raisedDate: today,
+        linkedTaskIds: [taskId],
+      } as RaidItem;
+      const clean = sanitizeRaidItem(raw);
+      if (!clean) return; // malformed (e.g. empty title) → skip rather than persist raw
+      const next = [...raidRef.current, clean];
+      raidRef.current = next; // keep back-to-back flushes minting distinct ids
+      setRaid(next);
+      logActivity("raid.created", clean.id, clean.title);
+    },
+    [setRaid, today, logActivity],
+  );
+  const applyLinkFromTask = useCallback(
+    (parentId: number, spec: LinkSpec) => {
+      setTasks((prev) => applyTaskLink(prev, parentId, spec));
+    },
+    [setTasks],
+  );
+  const editorBuffer = useTaskEditorBuffer({
+    applyRaid: applyRaidFromTask,
+    applyLink: applyLinkFromTask,
+  });
+  const {
+    flush: flushEditorBuffer,
+    discard: discardEditorBuffer,
+    stageRaid: stageEditorRaid,
+    stageLink: stageEditorLink,
+  } = editorBuffer;
+
+  // create-RAID (Task 7): apply immediately in edit-mode, stage in create-mode.
+  const handleAddRaidFromEditor = useCallback(
+    (spec: RaidSpec) => {
+      if (editingId !== null) applyRaidFromTask(editingId, spec);
+      else stageEditorRaid(spec);
+    },
+    [editingId, applyRaidFromTask, stageEditorRaid],
+  );
+
+  // create linked task (Task 8): mirror the normal create path (mint id,
+  // functional setTasks, route status through applyStatusChange), then wire the
+  // parent↔child link (immediate for an existing parent, staged for a new one).
+  const [linkedTaskOpen, setLinkedTaskOpen] = useState(false);
+  const handleCreateLinkedTask = useCallback(
+    (draft: LinkedTaskDraft) => {
+      const childId = computeNextId(tasksRef.current);
+      const base: Task = {
+        id: childId,
+        taskName: draft.taskName,
+        assignee: draft.assignee,
+        assigneeEmail: "",
+        dueDate: draft.dueDate,
+        lastUpdateDate: today,
+        priority: draft.priority,
+        status: DEFAULT_TASK_STATUS,
+        blockers: "",
+        notes: "",
+        inquiriesSent: 0,
+        dependencies: [],
+      };
+      const child = applyStatusChange(base, DEFAULT_TASK_STATUS, today);
+      const nextList = [...tasksRef.current, child];
+      tasksRef.current = nextList;
+      setTasks(nextList);
+      logActivity("task.created", childId, child.taskName);
+      const spec: LinkSpec = { childId, direction: draft.direction, type: "FS" };
+      if (editingId !== null) applyLinkFromTask(editingId, spec);
+      else stageEditorLink(spec);
+      // NOTE (by design): the child task is committed here immediately (real id),
+      // while for a NEW parent only the LINK is staged. Cancelling the parent
+      // editor discards the staged link but keeps the child task — a nested child
+      // is a real task the moment it's saved, independent of the parent's outcome.
+      setLinkedTaskOpen(false);
+    },
+    [today, setTasks, logActivity, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
+  );
+
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
     setForm,
@@ -1092,6 +1193,8 @@ function TaskManagerInner() {
     raid,
     setRaid,
     pendingLinkRaidIdRef,
+    onTaskCreated: flushEditorBuffer,
+    onEditorDiscard: discardEditorBuffer,
   });
 
   // taskModalOpen<->activeTab sync for the full-page editor. editArmedRef tells OPEN apart from NAV-AWAY (any setActiveTab while editing — sidebar/search/alerts/top-bar — used to look like an open and get silently reverted); nav-away skips setActiveTab since the target view's already set.
@@ -1895,6 +1998,25 @@ function TaskManagerInner() {
     </>
   );
 
+  // Shared editor extras (create-RAID mini-form + new-linked-task button),
+  // mounted below the fields in BOTH editor surfaces. Never in popouts.
+  const editorExtrasEl = !isPopout ? (
+    <>
+      <TaskEditorRaidMini
+        lang={lang}
+        onAdd={handleAddRaidFromEditor}
+        pending={editorBuffer.pendingRaid}
+      />
+      <button
+        type="button"
+        onClick={() => setLinkedTaskOpen(true)}
+        className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-AIPM-light-grey dark:hover:bg-surface-muted ${INTERACTIVE}`}
+      >
+        {`+ ${t(lang, "taskEditorNewLinkedTask")}`}
+      </button>
+    </>
+  ) : null;
+
   const editViewEl = (
     <TaskEditView
       lang={lang}
@@ -1922,6 +2044,7 @@ function TaskManagerInner() {
       onClose={handleCancelEdit}
       footer={editActions}
       footerLeading={editorDeleteAction}
+      editorExtras={editorExtrasEl}
     />
   );
 
@@ -2134,6 +2257,7 @@ function TaskManagerInner() {
         showTaskFormModal={!useEditView}
         taskEditorActions={editorActions}
         taskDeleteAction={editorDeleteAction}
+        taskEditorExtras={editorExtrasEl}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}
@@ -2176,6 +2300,14 @@ function TaskManagerInner() {
         onCloseResourceModal={handleCloseResourceFromAnywhere}
         toast={toast}
       />
+      {linkedTaskOpen && (
+        <TaskLinkedTaskModal
+          lang={lang}
+          today={today}
+          onCreate={handleCreateLinkedTask}
+          onClose={() => setLinkedTaskOpen(false)}
+        />
+      )}
     </>
   );
 

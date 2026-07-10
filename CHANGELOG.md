@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.175.0] - 2026-07-10 "Bear"
+
+### Added
+
+- **Resizable Gantt task-name column.** Drag the column's right border to widen or
+  narrow the task-name column; a toolbar **reset** button restores the default. The
+  width persists per device.
+- **Draggable, resizable dialogs.** Modal windows can be moved by their header and
+  resized; a **reset** button restores the default centred size. Each edit dialog
+  remembers its position and size per device. (On small screens dialogs stay centred.)
+- **Create RAID items from the task editor.** A "+ Create RAID" mini-form inside the
+  task editor adds a risk/assumption/issue/dependency already linked to the task.
+- **Create linked tasks from the task editor.** "+ New linked task" opens a nested
+  editor to create another task and link it as a **predecessor or successor** without
+  leaving the current task. For a brand-new task, the RAID items and links are staged
+  and applied when the task is first saved (discarded on cancel).
+- **Inline editing in Open Points.** Edit a task's name (double-click), start/due
+  dates, assignee, and priority directly in the table — no need to open the full
+  editor. Jira-synced tasks stay read-only.
+
+### Changed
+
+- **Ask-Claude icon moved to a leading, hover-revealed cell.** The inline "Ask Claude"
+  edit trigger now sits at the start of each row and appears on hover or keyboard focus.
+
 ## [0.174.0] - 2026-07-10 "Egan"
 
 ### Added

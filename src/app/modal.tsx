@@ -31,6 +31,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { type Lang } from "./i18n";
 
 // Stack of currently-open modal tokens (mount order). Only the TOPMOST modal
 // responds to Escape / Tab so a nested modal (e.g. the setup wizard opened from
@@ -65,6 +66,10 @@ interface BaseProps {
   /** Optional element to focus when the modal opens. Falls back to the
    *  dialog root (so the next Tab walks naturally into the first input). */
   initialFocusRef?: RefObject<HTMLElement | null>;
+  /** Accepted but ignored — the modal has no i18n chrome of its own. Kept only
+   *  so callers that thread a `lang` through their dialog props still typecheck;
+   *  the panel + all labels are rendered by the caller's children. */
+  lang?: Lang;
   children: ReactNode;
 }
 

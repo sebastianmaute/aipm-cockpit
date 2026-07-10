@@ -54,6 +54,12 @@ export interface UseTaskSubmitArgs {
   raid: readonly RaidItem[];
   setRaid: React.Dispatch<React.SetStateAction<readonly RaidItem[]>>;
   pendingLinkRaidIdRef: React.MutableRefObject<number | null>;
+  /** Called with the new task id after a create-mode save resolves it, so the
+   *  editor buffer can flush staged RAID/links against the real parent id. */
+  onTaskCreated?: (newId: number) => void;
+  /** Called when the editor closes without creating (cancel/nav-away) so the
+   *  editor buffer discards any staged create-mode items. */
+  onEditorDiscard?: () => void;
 }
 
 export function useTaskSubmit(args: UseTaskSubmitArgs): {
@@ -83,6 +89,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     onPushToJiraRef,
     setRaid,
     pendingLinkRaidIdRef,
+    onTaskCreated,
+    onEditorDiscard,
   } = args;
 
   // `submitted` flips true on the first submit attempt so per-field errors can
@@ -202,6 +210,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         tasksRef.current = nextList;
         setTasks(nextList);
         logActivity("task.created", newId, taskName);
+        // Flush any editor-buffered RAID/links now that the parent id exists.
+        onTaskCreated?.(newId);
         const linkRaidId = pendingLinkRaidIdRef.current;
         pendingLinkRaidIdRef.current = null;
         if (linkRaidId != null) {
@@ -251,19 +261,26 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       onPushToJiraRef,
       setRaid,
       pendingLinkRaidIdRef,
+      onTaskCreated,
     ],
   );
 
   const handleCancelEdit = useCallback(() => {
     pendingLinkRaidIdRef.current = null;
+    onEditorDiscard?.();
     setEditingId(null);
     setSubmitted(false);
     setForm(emptyForm());
     setTaskModalOpen(false);
-  }, [setEditingId, setForm, setTaskModalOpen, pendingLinkRaidIdRef]);
+  }, [setEditingId, setForm, setTaskModalOpen, pendingLinkRaidIdRef, onEditorDiscard]);
 
   const openEditModal = useCallback(
     (task: Task) => {
+      // Switching the editor to an EXISTING task (e.g. a deep-link fired mid-create)
+      // must drop any create-mode staged RAID/links — otherwise saving this existing
+      // task takes the edit branch (no flush) and the stale items later flush onto the
+      // wrong parent id.
+      onEditorDiscard?.();
       pendingLinkRaidIdRef.current = null;
       setEditingId(task.id);
       setSubmitted(false);
@@ -293,7 +310,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     },
-    [setEditingId, setTaskModalOpen, setForm, pendingLinkRaidIdRef],
+    [setEditingId, setTaskModalOpen, setForm, pendingLinkRaidIdRef, onEditorDiscard],
   );
 
   return { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal };

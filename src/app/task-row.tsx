@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, memo, useContext, type MouseEvent, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
@@ -11,8 +11,9 @@ import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
-import { INTERACTIVE } from "./interaction-styles";
-import { type ChangeItem, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
+import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
+import { PRIORITIES, type ChangeItem, type Priority, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
 export interface RowContextValue {
   lang: Lang;
@@ -42,6 +43,10 @@ export interface RowContextValue {
   // threaded from the single useInlineAiEdit instance in TasksSection.
   onAiEdit: (task: Task) => void;
   aiEditEnabled: (task: Task) => boolean;
+  // Inline Open-Points cell editing: applies a sanitized field patch to one task
+  // (functional setter + localModifiedAt stamp on the pane side). Jira-synced
+  // rows are skipped there (read-only) and render no inline affordance here.
+  onInlinePatch: (taskId: number, patch: Partial<Task>) => void;
 }
 
 const RowContext = createContext<RowContextValue | undefined>(undefined);
@@ -191,7 +196,81 @@ function TaskRowImpl({
     onJumpToRaid,
     onStatusChange,
     onEdit,
+    onAiEdit,
+    aiEditEnabled,
+    onInlinePatch,
   } = useTaskRowContext();
+
+  // Single-active-cell inline editor for this row. A committed field routes
+  // through the pane's sanitizing patch handler; Jira-synced rows stay read-only
+  // (no inline affordance) and only the display value renders.
+  const inline = useInlineCellEdit((field, value) =>
+    onInlinePatch(task.id, { [field]: value } as Partial<Task>),
+  );
+  const inlineEditable = !task.jiraKey;
+  const onInlineKeyDown = (e: KeyboardEvent<HTMLElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      inline.commit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      inline.cancel();
+    }
+  };
+  // Name cell: single-click opens the full editor, double-click inline-renames.
+  // A raw onClick fires on the first click of a double-click (opening the editor
+  // and unmounting the row before dblclick lands), so DEFER the open and let a
+  // double-click cancel it. Non-editable (Jira) rows open immediately.
+  const nameClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (nameClickTimer.current) clearTimeout(nameClickTimer.current); }, []);
+  const handleNameClick = () => {
+    if (!inlineEditable) { onEdit(task); return; }
+    if (nameClickTimer.current) clearTimeout(nameClickTimer.current);
+    nameClickTimer.current = setTimeout(() => { nameClickTimer.current = null; onEdit(task); }, 220);
+  };
+  const handleNameDoubleClick = () => {
+    if (!inlineEditable) return;
+    if (nameClickTimer.current) { clearTimeout(nameClickTimer.current); nameClickTimer.current = null; }
+    inline.begin("taskName", task.taskName);
+  };
+  // Text/date inline cells (assignee/startDate/dueDate) share one shape: a
+  // labelled ghost button that reveals an <input> on click, committing on
+  // blur/Enter and cancelling on Escape. Priority (a <select>) + taskName
+  // (double-click) are handled bespoke below.
+  const renderInlineField = (
+    field: Extract<InlineField, "assignee" | "startDate" | "dueDate">,
+    type: "text" | "date",
+    current: string,
+    display: ReactNode,
+    displayClass?: string,
+  ): ReactNode => {
+    if (!inlineEditable) return display;
+    const label = `${t(lang, field)} – ${task.taskName}`;
+    if (inline.editing === field) {
+      return (
+        <input
+          autoFocus
+          type={type}
+          value={inline.draft}
+          onChange={(e) => inline.setDraft(e.target.value)}
+          onBlur={inline.commit}
+          onKeyDown={onInlineKeyDown}
+          aria-label={label}
+          className={`w-full rounded-md border border-line bg-surface px-2 py-0.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        />
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => inline.begin(field, current)}
+        aria-label={label}
+        className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${displayClass ?? ""} ${INTERACTIVE}`}
+      >
+        {display}
+      </button>
+    );
+  };
 
   const isComplete = !!task.completedDate;
   const health: TaskHealth = computeTaskHealth(task, today, holidaySet);
@@ -222,6 +301,24 @@ function TaskRowImpl({
         .filter(Boolean)
         .join(" ")}
     >
+      {/* Leading cell always renders (reserves width → no hover layout shift);
+          the inline "Ask Claude" trigger is revealed on row hover / focus and
+          only mounts when the row is AI-editable (not popout / not Jira-synced). */}
+      <Td className="w-8">
+        {aiEditEnabled(task) && (
+          <button
+            type="button"
+            onClick={() => onAiEdit(task)}
+            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
+            title={t(lang, "inlineAiEdit")}
+            className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+              <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
+            </svg>
+          </button>
+        )}
+      </Td>
       <Td>
         <input
           type="checkbox"
@@ -280,12 +377,25 @@ function TaskRowImpl({
       <Td
         className={`font-medium text-foreground ${isComplete ? "line-through" : ""}`}
       >
-        <button
-          type="button"
-          onClick={() => onEdit(task)}
-          title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-          className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
-        >{task.taskName}</button>
+        {inlineEditable && inline.editing === "taskName" ? (
+          <input
+            autoFocus
+            value={inline.draft}
+            onChange={(e) => inline.setDraft(e.target.value)}
+            onBlur={inline.commit}
+            onKeyDown={onInlineKeyDown}
+            aria-label={`${t(lang, "taskName")} – ${task.taskName}`}
+            className={`w-full rounded-md border border-line bg-surface px-2 py-0.5 text-sm font-medium text-foreground ${FOCUS_RING} ${TRANSITION}`}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={handleNameClick}
+            onDoubleClick={handleNameDoubleClick}
+            title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
+            className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+          >{task.taskName}</button>
+        )}
         {(task.group || (task.labels?.length ?? 0) > 0) && (
           <div className="mt-1 flex flex-wrap gap-1">
             {task.group && (
@@ -306,21 +416,60 @@ function TaskRowImpl({
       </Td>
       {!hiddenCols.has("assignee") && (
         <Td title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>
-          {task.assignee || "—"}
+          {renderInlineField("assignee", "text", task.assignee ?? "", task.assignee || "—")}
         </Td>
       )}
       {!hiddenCols.has("startDate") && (
-        <Td className="whitespace-nowrap text-muted-foreground" title={`${t(lang, "startDate")}: ${task.startDate || "—"}`}>
-          {task.startDate || "—"}
+        <Td className="whitespace-nowrap" title={`${t(lang, "startDate")}: ${task.startDate || "—"}`}>
+          {renderInlineField("startDate", "date", task.startDate ?? "", task.startDate || "—", "text-muted-foreground")}
         </Td>
       )}
-      {!hiddenCols.has("dueDate") && <Td title={`${t(lang, "dueDate")}: ${task.dueDate || "—"}`}>{task.dueDate}</Td>}
+      {!hiddenCols.has("dueDate") && (
+        <Td title={`${t(lang, "dueDate")}: ${task.dueDate || "—"}`}>
+          {renderInlineField("dueDate", "date", task.dueDate ?? "", task.dueDate || "—")}
+        </Td>
+      )}
       {!hiddenCols.has("lastUpdateDate") && <Td title={`${t(lang, "lastUpdateDate")}: ${task.lastUpdateDate || "—"}`}>{task.lastUpdateDate}</Td>}
       {!hiddenCols.has("priority") && (
-        <Td>
-          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>
-            {priorityLabel(lang, task.priority)}
-          </span>
+        <Td stopClick>
+          {inlineEditable && inline.editing === "priority" ? (
+            <select
+              autoFocus
+              value={inline.draft}
+              onChange={(e) => {
+                onInlinePatch(task.id, { priority: e.target.value as Priority });
+                inline.cancel();
+              }}
+              onBlur={inline.cancel}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  inline.cancel();
+                }
+              }}
+              aria-label={`${t(lang, "priority")} – ${task.taskName}`}
+              className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            >
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p}>{priorityLabel(lang, p)}</option>
+              ))}
+            </select>
+          ) : inlineEditable ? (
+            <button
+              type="button"
+              onClick={() => inline.begin("priority", task.priority)}
+              aria-label={`${t(lang, "priority")} – ${task.taskName}`}
+              className={`rounded-md border border-transparent p-0.5 hover:border-AIPM-dark-blue ${INTERACTIVE}`}
+            >
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>
+                {priorityLabel(lang, task.priority)}
+              </span>
+            </button>
+          ) : (
+            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>
+              {priorityLabel(lang, task.priority)}
+            </span>
+          )}
         </Td>
       )}
       {!hiddenCols.has("taskStatus") && (
@@ -411,8 +560,6 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
     onPushToJira,
     onEdit,
     onDelete,
-    onAiEdit,
-    aiEditEnabled,
   } = useTaskRowContext();
   return (
     <div className="flex flex-col gap-1 whitespace-nowrap">
@@ -459,19 +606,6 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
         >
           {t(lang, "delete")}
         </button>
-        {aiEditEnabled(task) && (
-          <button
-            type="button"
-            onClick={() => onAiEdit(task)}
-            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
-            title={t(lang, "inlineAiEdit")}
-            className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-              <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
-            </svg>
-          </button>
-        )}
       </div>
     </div>
   );

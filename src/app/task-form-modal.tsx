@@ -4,6 +4,7 @@ import { type ReactNode, type RefObject } from "react";
 import { ModalFieldControls } from "./modal-field-controls";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import type { listContacts } from "./contacts";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
@@ -44,6 +45,9 @@ export interface TaskFormModalProps {
   deleteAction?: ReactNode;
   /** When set, the task's Jira project is read-only; show a warning banner. */
   readOnlyJiraProjectName?: string;
+  /** Editor extras rendered below the fields (create-RAID mini-form + new
+   *  linked-task button). Omitted in popouts (read-only). */
+  editorExtras?: ReactNode;
 }
 
 export function TaskFormModal({
@@ -73,10 +77,15 @@ export function TaskFormModal({
   leadingActions,
   deleteAction,
   readOnlyJiraProjectName,
+  editorExtras,
 }: TaskFormModalProps) {
   const { editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
-  const { offset, handleProps } = useDraggable(taskModalOpen);
+  const { offset, reset: dragReset, handleProps } = useDraggable(
+    taskModalOpen,
+    "lop-app:modal-pos:task-form",
+  );
+  const { ref: sizeRef, reset: sizeReset } = useResizable("lop-app:modal-size:task-form");
   if (!taskModalOpen) return null;
 
   return (
@@ -89,7 +98,10 @@ export function TaskFormModal({
       backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto"
     >
       <div
-        ref={modalRef}
+        ref={(el) => {
+          modalRef.current = el;
+          sizeRef.current = el;
+        }}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
         className="relative flex h-[900px] max-h-[95vh] min-h-[480px] w-[700px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface dark:border-line dark:bg-surface"
@@ -99,6 +111,10 @@ export function TaskFormModal({
           title={isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")}
           onClose={onCancel}
           dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
         />
         <div className="flex justify-end border-b border-line px-4 py-2">
           <ModalFieldControls modalId="task" lang={lang} />
@@ -131,6 +147,9 @@ export function TaskFormModal({
             onRemoveContact={onRemoveContact}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
           />
+          {editorExtras && (
+            <div className="space-y-3 border-t border-line pt-4">{editorExtras}</div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <div>{deleteAction}</div>
             <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { render, renderHook, act, fireEvent } from "@testing-library/react";
+import { render, renderHook, act, fireEvent, within } from "@testing-library/react";
 import React, { Profiler, type ReactNode, type ProfilerOnRenderCallback } from "react";
 import {
   TaskRow,
@@ -66,6 +66,7 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     onDelete: vi.fn(),
     onAiEdit: vi.fn(),
     aiEditEnabled: () => false,
+    onInlinePatch: vi.fn(),
     ...overrides,
   };
 }
@@ -540,27 +541,35 @@ describe("TaskRow click-to-edit", () => {
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
   });
 
-  test("opens the editor when the task name is clicked", () => {
-    const onEdit = vi.fn();
-    const ctx = makeContext({ onEdit });
-    const task = makeTask({ id: 7, taskName: "Review the deck" });
-    const { getByRole } = render(
-      rowWrapper({
-        context: ctx,
-        children: (
-          <TaskRow
-            task={task}
-            isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
-            raidRefs={undefined}
-          />
-        ),
-      }),
-    );
-    fireEvent.click(getByRole("button", { name: /review the deck/i }));
-    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+  test("opens the editor a beat after the task name is single-clicked", () => {
+    vi.useFakeTimers();
+    try {
+      const onEdit = vi.fn();
+      const ctx = makeContext({ onEdit });
+      const task = makeTask({ id: 7, taskName: "Review the deck" });
+      const { getByRole } = render(
+        rowWrapper({
+          context: ctx,
+          children: (
+            <TaskRow
+              task={task}
+              isSelected={false}
+              isEditing={false}
+              isExpanded={false}
+              isPushing={false}
+              raidRefs={undefined}
+            />
+          ),
+        }),
+      );
+      // Single-click defers so a double-click can cancel it (inline rename).
+      fireEvent.click(getByRole("button", { name: "Review the deck" }));
+      expect(onEdit).not.toHaveBeenCalled();
+      act(() => { vi.advanceTimersByTime(250); });
+      expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -661,50 +670,70 @@ describe("TaskActions", () => {
     expect(ctx.onDelete).toHaveBeenCalledWith(99);
   });
 
-  test("renders the Ask Claude trigger with a row-unique label when enabled, and fires onAiEdit", () => {
+});
+
+describe("TaskRow Ask-Claude leading cell", () => {
+  test("renders the Ask-Claude trigger in a leading, hover-revealed cell when enabled, and fires onAiEdit", () => {
     const onAiEdit = vi.fn();
     const ctx = makeContext({ onAiEdit, aiEditEnabled: () => true });
     const task = makeTask({ id: 30, taskName: "Draft the report" });
 
-    const { getByRole } = render(
-      <table>
-        <tbody>
-          <tr>
-            <td>
-              <RowContextProvider value={ctx}>
-                <TaskActions task={task} isPushing={false} />
-              </RowContextProvider>
-            </td>
-          </tr>
-        </tbody>
-      </table>,
+    const { getByRole, container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
     );
 
     const trigger = getByRole("button", { name: "Ask Claude – Draft the report" });
+    const cell = trigger.closest("td");
+    const row = container.querySelector("tbody tr") as HTMLElement;
+    const cells = within(row).getAllByRole("cell");
+    // The trigger lives in the FIRST (leading) cell of the row.
+    expect(cell).toBe(cells[0]);
+    // Hidden by default, revealed on row hover / keyboard focus.
+    expect(trigger.className).toMatch(/opacity-0/);
+    expect(trigger.className).toMatch(/group-hover:opacity-100/);
+    expect(trigger.className).toMatch(/focus-visible:opacity-100/);
+
     fireEvent.click(trigger);
     expect(onAiEdit).toHaveBeenCalledTimes(1);
     expect(onAiEdit).toHaveBeenCalledWith(task);
   });
 
-  test("hides the Ask Claude trigger when aiEditEnabled returns false", () => {
+  test("omits the trigger when aiEditEnabled is false (e.g. Jira-synced) but keeps the reserved leading cell", () => {
     const ctx = makeContext({ aiEditEnabled: () => false });
-    const task = makeTask({ id: 31, taskName: "Skip AI" });
+    const task = makeTask({ id: 31, taskName: "Skip AI", jiraKey: "LOP-1" });
 
-    const { queryByRole } = render(
-      <table>
-        <tbody>
-          <tr>
-            <td>
-              <RowContextProvider value={ctx}>
-                <TaskActions task={task} isPushing={false} />
-              </RowContextProvider>
-            </td>
-          </tr>
-        </tbody>
-      </table>,
+    const { queryByRole, container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
     );
 
     expect(queryByRole("button", { name: /Ask Claude/ })).toBeNull();
+    // Leading cell still renders (reserves width → no hover layout shift).
+    const row = container.querySelector("tbody tr") as HTMLElement;
+    expect(within(row).getAllByRole("cell").length).toBeGreaterThan(0);
   });
 });
 
@@ -811,5 +840,108 @@ describe("TaskRow RAID badge", () => {
     );
     fireEvent.click(getByRole("button", { name: /raid item/i }));
     expect(onJumpToRaid).toHaveBeenCalledWith(14);
+  });
+});
+
+describe("TaskRow inline cell editing", () => {
+  function renderRow(context: RowContextValue, task: Task) {
+    return render(
+      rowWrapper({
+        context,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+  }
+
+  test("double-clicking the name reveals an input (cancelling the deferred editor-open); typing + Enter commits a taskName patch", () => {
+    vi.useFakeTimers();
+    try {
+      const onInlinePatch = vi.fn();
+      const onEdit = vi.fn();
+      const ctx = makeContext({ onInlinePatch, onEdit });
+      const task = makeTask({ id: 40, taskName: "Old name" });
+      const { getByRole, getByLabelText } = renderRow(ctx, task);
+
+      // A real double-click fires click (schedules the deferred open) then dblclick
+      // (which must cancel it and start inline rename).
+      const btn = getByRole("button", { name: "Old name" });
+      fireEvent.click(btn);
+      fireEvent.doubleClick(btn);
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(onEdit).not.toHaveBeenCalled(); // deferred open was cancelled
+
+      const input = getByLabelText("Task name – Old name") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "New name" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(onInlinePatch).toHaveBeenCalledWith(40, { taskName: "New name" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("single-clicking the due-date cell reveals a date input; change + blur commits a dueDate patch", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 41, taskName: "Ship it", dueDate: "2026-07-01" });
+    const { getByRole, getByLabelText } = renderRow(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "Due date – Ship it" }));
+    const input = getByLabelText("Due date – Ship it") as HTMLInputElement;
+    expect(input.type).toBe("date");
+    fireEvent.change(input, { target: { value: "2026-07-20" } });
+    fireEvent.blur(input);
+
+    expect(onInlinePatch).toHaveBeenCalledWith(41, { dueDate: "2026-07-20" });
+  });
+
+  test("Escape cancels an inline edit without committing", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 42, taskName: "Keep me", assignee: "Alice" });
+    const { getByRole, getByLabelText, queryByLabelText } = renderRow(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "Assignee – Keep me" }));
+    const input = getByLabelText("Assignee – Keep me") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Bob" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(onInlinePatch).not.toHaveBeenCalled();
+    // Editor closed → the labelled input is gone, the display button is back.
+    expect(queryByLabelText("Assignee – Keep me")?.tagName).toBe("BUTTON");
+  });
+
+  test("priority select commits the chosen value directly", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 43, taskName: "Rank me", priority: "Low" });
+    const { getByRole } = renderRow(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "Priority – Rank me" }));
+    const select = getByRole("combobox", { name: "Priority – Rank me" });
+    fireEvent.change(select, { target: { value: "High" } });
+
+    expect(onInlinePatch).toHaveBeenCalledWith(43, { priority: "High" });
+  });
+
+  test("Jira-synced rows render no inline edit affordance (read-only)", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 44, taskName: "Synced", jiraKey: "LOP-9", assignee: "Alice" });
+    const { queryByRole, getByText } = renderRow(ctx, task);
+
+    // No editable buttons for the inline fields; plain display only.
+    expect(queryByRole("button", { name: "Assignee – Synced" })).toBeNull();
+    expect(queryByRole("button", { name: "Due date – Synced" })).toBeNull();
+    expect(queryByRole("button", { name: "Priority – Synced" })).toBeNull();
+    expect(getByText("Alice")).toBeTruthy();
   });
 });

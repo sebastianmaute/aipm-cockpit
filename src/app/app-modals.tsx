@@ -72,6 +72,8 @@ export interface AppModalsProps {
   taskEditorActions?: ReactNode;
   /** Pink destructive Delete button for the left side of the classic modal footer. */
   taskDeleteAction?: ReactNode;
+  /** Editor extras (create-RAID mini-form + new linked-task button) rendered below the classic modal fields. */
+  taskEditorExtras?: ReactNode;
 
   // Resource edit modal
   editingResource: { resource: Resource; isNew: boolean } | null;
@@ -125,6 +127,7 @@ export function AppModals({
   handleRemoveContact,
   taskEditorActions,
   taskDeleteAction,
+  taskEditorExtras,
   editingResource,
   onSaveResource,
   onDeleteResource,
@@ -163,6 +166,7 @@ export function AppModals({
           onRemoveContact={handleRemoveContact}
           leadingActions={taskEditorActions}
           deleteAction={taskDeleteAction}
+          editorExtras={taskEditorExtras}
         />
       )}
 

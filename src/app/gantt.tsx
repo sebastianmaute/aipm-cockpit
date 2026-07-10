@@ -25,7 +25,7 @@
 // Nothing here is animated; this is a static, scrollable readout you can
 // glance at. For dynamic editing, the user goes back to the tasks list.
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ViewCallout } from "./view-callout";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -39,6 +39,7 @@ import { type Absence, type Milestone, type Priority, type Task } from "./types"
 import { sortMilestones } from "./milestones";
 import {
   addDays,
+  clampNameColWidth,
   computeCriticalPath,
   DAY_WIDTH_PX,
   deriveBar,
@@ -89,6 +90,42 @@ export function GanttPanel({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didInitialScroll = useRef(false);
   const { ref: ganttRef, reset: resetGanttSize } = useResizable("lop-app:gantt-size");
+
+  // --- resizable task-name (left gutter) column, persisted per-device -------
+  const NAME_COL_KEY = "lop-app:gantt-namecol";
+  const [nameColWidth, setNameColWidth] = useState<number>(() => {
+    try {
+      const raw = window.localStorage.getItem(NAME_COL_KEY);
+      if (raw) return clampNameColWidth(Number(JSON.parse(raw)));
+    } catch { /* ignore */ }
+    return LEFT_GUTTER_PX;
+  });
+  const persistNameColWidth = useCallback((w: number) => {
+    const c = clampNameColWidth(w);
+    setNameColWidth(c);
+    try { window.localStorage.setItem(NAME_COL_KEY, JSON.stringify(c)); } catch { /* ignore */ }
+  }, []);
+  const resetNameColWidth = useCallback(() => {
+    setNameColWidth(LEFT_GUTTER_PX);
+    try { window.localStorage.removeItem(NAME_COL_KEY); } catch { /* ignore */ }
+  }, []);
+  // Pointer-drag the gutter's right edge: capture the start x + width on
+  // mousedown, then track window mousemove until mouseup (mirrors
+  // useColumnResize's dragRef window-listener lifecycle).
+  const startNameColResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = nameColWidth;
+    function onMove(mv: MouseEvent) {
+      persistNameColWidth(startW + mv.clientX - startX);
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, [nameColWidth, persistNameColWidth]);
 
   // --- prefs: sort + filters + custom order, persisted in localStorage ---
   // The hook owns the state + hydration/persistence and exposes per-control
@@ -412,7 +449,7 @@ export function GanttPanel({
   }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref]);
 
   const todayOffsetPx =
-    LEFT_GUTTER_PX + diffDays(range.min, today) * DAY_WIDTH_PX;
+    nameColWidth + diffDays(range.min, today) * DAY_WIDTH_PX;
   const timelineWidthPx = range.days * DAY_WIDTH_PX;
 
   // On mount (and on the first render where layout is meaningful), scroll
@@ -432,7 +469,7 @@ export function GanttPanel({
     );
     didInitialScroll.current = true;
   }, [scrollRef, todayOffsetPx]);
-  const chartWidthPx = LEFT_GUTTER_PX + timelineWidthPx;
+  const chartWidthPx = nameColWidth + timelineWidthPx;
   const rowsCount = layout.placeable.length;
   // Total rows rendered in the chart body: task rows first, then one row per
   // sorted milestone. The dependency-edge overlay must span all of them so
@@ -478,6 +515,7 @@ export function GanttPanel({
       onAddTask={onAddTask}
       onAddMilestone={onAddMilestone}
       resetGanttSize={resetGanttSize}
+      resetNameColWidth={resetNameColWidth}
       setSearch={setSearch}
       setStatusFilter={setStatusFilter}
       setPriorityFilter={setPriorityFilter}
@@ -537,6 +575,8 @@ export function GanttPanel({
           range={range}
           today={today}
           timelineWidthPx={timelineWidthPx}
+          nameColWidth={nameColWidth}
+          onStartNameColResize={startNameColResize}
         />
 
         {/* --- rows ----------------------------------------------------- */}
@@ -544,7 +584,7 @@ export function GanttPanel({
           {/* Today marker — drawn as an absolutely positioned line that
               spans the rows area. Sits behind the bars (z-0) but on top
               of the row backgrounds. */}
-          {todayOffsetPx >= LEFT_GUTTER_PX && (
+          {todayOffsetPx >= nameColWidth && (
             <div
               aria-hidden
               className="pointer-events-none absolute z-10 w-px bg-AIPM-dark-blue/60"
@@ -569,6 +609,7 @@ export function GanttPanel({
             rowsCount={rowsCount}
             chartWidthPx={chartWidthPx}
             totalRowsCount={totalRowsCount}
+            nameColWidth={nameColWidth}
           />
 
           {layout.placeable.map((task) => {
@@ -582,6 +623,7 @@ export function GanttPanel({
                 lang={lang}
                 today={today}
                 timelineWidthPx={timelineWidthPx}
+                nameColWidth={nameColWidth}
                 range={range}
                 absencesByAssigneeKey={absencesByAssigneeKey}
                 critical={critical}
@@ -612,6 +654,7 @@ export function GanttPanel({
                 lang={lang}
                 range={range}
                 timelineWidthPx={timelineWidthPx}
+                nameColWidth={nameColWidth}
                 tasksById={tasksById}
                 todayISO={todayISO}
                 onEditMilestone={onEditMilestone}
@@ -638,7 +681,7 @@ export function GanttPanel({
             >
               <div
                 className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-AIPM-dark-blue"
-                style={{ width: LEFT_GUTTER_PX }}
+                style={{ width: nameColWidth }}
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 shrink-0">
                   <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />

@@ -15,6 +15,7 @@ import { ModalFieldControls } from "./modal-field-controls";
 import { useConfirm } from "./confirm-dialog";
 import type { ModalId } from "./modal-fields";
 import type { Offset, DragHandleProps } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 
 interface EditModalShellProps {
   lang: Lang;
@@ -24,6 +25,11 @@ interface EditModalShellProps {
   onSubmit: (e: React.FormEvent) => void;
   offset: Offset;
   dragHandleProps: DragHandleProps;
+  /** Recenter the draggable panel (from the caller's `useDraggable`). Combined
+   *  with the size reset behind the header's reset-layout button. */
+  onDragReset: () => void;
+  /** localStorage key for the persisted panel size (see `useResizable`). */
+  sizeKey: string;
   children: ReactNode;
 }
 
@@ -42,8 +48,11 @@ export function EditModalShell({
   onSubmit,
   offset,
   dragHandleProps,
+  onDragReset,
+  sizeKey,
   children,
 }: EditModalShellProps) {
+  const { ref: sizeRef, reset: sizeReset } = useResizable(sizeKey);
   return (
     <Modal
       open
@@ -54,11 +63,21 @@ export function EditModalShell({
       zIndex={50}
     >
       <div
+        ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <ModalHeader lang={lang} title={title} onClose={onClose} dragHandleProps={dragHandleProps} />
+        <ModalHeader
+          lang={lang}
+          title={title}
+          onClose={onClose}
+          dragHandleProps={dragHandleProps}
+          onResetLayout={() => {
+            onDragReset();
+            sizeReset();
+          }}
+        />
 
         <div className="flex justify-end border-b border-line px-4 py-2">
           <ModalFieldControls modalId={modalId} lang={lang} />

@@ -205,6 +205,7 @@ const enUS = {
   edit: "Edit",
   clear: "Clear",
   loading: "Loading…",
+  modalResetSize: "Reset dialog size",
   diagnosticsTitle: "Diagnostics",
   diagnosticsIntro: "Recent technical events on this device. No project content or secrets are recorded.",
   diagnosticsCopyBundle: "Copy diagnostic bundle",
@@ -940,6 +941,8 @@ const enUS = {
   ganttSortPriority: "Priority",
   ganttSortCustom: "Custom (drag)",
   ganttResetFilters: "Reset filters",
+  ganttResizeNameCol: "Resize the task name column",
+  ganttResetNameCol: "Reset the task name column width",
   ganttDragHint: "Drag to reorder rows",
   ganttBarDragHint:
     "Drag the bar to move it · drag an edge to resize",
@@ -2552,6 +2555,12 @@ const enUS = {
   changeEditTitle: "Edit change",
   stakeholderEditTitle: "Edit stakeholder",
   taskEditTitle: "Edit task",
+  // Task editor: create RAID / linked task
+  taskEditorCreateRaid: "Create RAID",
+  taskEditorNewLinkedTask: "New linked task",
+  taskLinkDirection: "Link direction",
+  taskLinkAsPredecessor: "Predecessor",
+  taskLinkAsSuccessor: "Successor",
   // Manage Roles tooltips
   rolesDisciplineHint: "The skill area this role belongs to (e.g. Engineering).",
   rolesGradeHint: "Seniority level used to derive the blended rate.",

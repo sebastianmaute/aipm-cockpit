@@ -25,9 +25,12 @@ export interface TaskEditViewProps extends TaskFormFieldsProps {
   onClose?: () => void;
   /** When set, the task's Jira project is read-only; show a warning banner. */
   readOnlyJiraProjectName?: string;
+  /** Editor extras rendered below the fields (create-RAID mini-form + new
+   *  linked-task button). Omitted in popouts (read-only). */
+  editorExtras?: React.ReactNode;
 }
 
-export function TaskEditView({ onSubmit, footer, footerLeading, heading, onClose, readOnlyJiraProjectName, ...fieldProps }: TaskEditViewProps) {
+export function TaskEditView({ onSubmit, footer, footerLeading, heading, onClose, readOnlyJiraProjectName, editorExtras, ...fieldProps }: TaskEditViewProps) {
   const { lang } = fieldProps;
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -64,6 +67,9 @@ export function TaskEditView({ onSubmit, footer, footerLeading, heading, onClose
             <JiraReadOnlyBanner lang={lang} projectName={readOnlyJiraProjectName} />
           )}
           <TaskFormFields {...fieldProps} />
+          {editorExtras && (
+            <div className="space-y-3 border-t border-line pt-4">{editorExtras}</div>
+          )}
           {(footer || footerLeading) && (
             <div className="flex items-center justify-between gap-2 border-t border-line pt-4">
               <div>{footerLeading}</div>

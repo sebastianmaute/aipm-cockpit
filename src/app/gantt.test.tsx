@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, test, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, act } from "@testing-library/react";
+import { render, act, fireEvent } from "@testing-library/react";
 import { GanttPanel } from "./gantt";
 import type { Milestone, Task } from "./types";
 
@@ -257,6 +257,36 @@ test("gantt root pane has print-root and print-landscape classes", () => {
   const src = readFileSync(join(__dirname, "gantt.tsx"), "utf8");
   expect(src).toMatch(/print-root/);
   expect(src).toMatch(/print-landscape/);
+});
+
+// ---------- resizable task-name column (Task 1) ----------------------------
+
+describe("GanttPanel task-name column resize", () => {
+  const KEY = "lop-app:gantt-namecol";
+
+  it("persists a resize drag and clears it on reset", () => {
+    window.localStorage.removeItem(KEY);
+    const { getByLabelText } = render(<GanttPanel {...BASE_PROPS} />);
+
+    // The reset control is present in the toolbar.
+    const resetBtn = getByLabelText(/reset the task name column width/i);
+    expect(resetBtn).toBeTruthy();
+
+    // Drag the gutter's right-edge handle +80px → 240 default + 80 = 320.
+    const handle = getByLabelText(/resize the task name column/i);
+    fireEvent.mouseDown(handle, { clientX: 100 });
+    act(() => {
+      fireEvent.mouseMove(window, { clientX: 180 });
+      fireEvent.mouseUp(window);
+    });
+    expect(JSON.parse(window.localStorage.getItem(KEY) as string)).toBe(320);
+
+    // Reset clears the persisted width.
+    act(() => {
+      fireEvent.click(resetBtn);
+    });
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
 });
 
 describe("GanttPanel baseline ghost range folding", () => {

@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.174.0";
-export const APP_BUILD_DATE = "2026-07-10"; // 0.174.0: Composite undo for reference-data deletes (resource/role/discipline/grade — one undo reverses the delete AND its FK/calendar cascade); TimeLog customer-scoped booking fetch (v2 per-project mapping, customer→project two-step, external resources excluded); version-history hardening (skip empty load-transient captures, version+restore steeringCommittee/timelogLinks, delete individual snapshots) (Egan)
+export const APP_VERSION = "0.175.0";
+export const APP_BUILD_DATE = "2026-07-10"; // 0.175.0: Gantt/task-editor UX batch — resizable Gantt task-name column with reset; draggable/resizable/reset dialogs (per-modal persisted geometry); create RAID items and linked tasks (predecessor/successor) from inside the task editor; hover-revealed leading Ask-Claude icon; inline editing of Open Points cells (name/dates/assignee/priority) (Bear)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.174.x line is "Egan" (Greg Egan). */
-export const APP_MILESTONE = "Egan";
+ *  0.175.x line is "Bear" (Greg Bear). */
+export const APP_MILESTONE = "Bear";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
