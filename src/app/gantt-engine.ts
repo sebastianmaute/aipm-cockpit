@@ -154,6 +154,16 @@ export function diffDays(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / DAY_MS);
 }
 
+/** Signed day slip of a milestone's live date vs its baseline target:
+ *  positive = slipped later, negative = pulled in, 0 = on baseline.
+ *  `null` when either date is unparseable. Pure (reuses parseISO/diffDays). */
+export function milestoneSlipDays(baselineISO: string, liveISO: string): number | null {
+  const base = parseISO(baselineISO);
+  const live = parseISO(liveISO);
+  if (!base || !live) return null;
+  return diffDays(base, live);
+}
+
 export function addDays(d: Date, n: number): Date {
   return new Date(d.getTime() + n * DAY_MS);
 }
