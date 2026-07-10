@@ -820,6 +820,7 @@ export function WorkspaceSection({
               onCaptureNow={(label) => void versionHistory.captureNow(label)}
               loadDiff={versionHistory.loadDiff}
               restore={versionHistory.restore}
+              onDelete={versionHistory.remove}
             />
           </div>
         )}
