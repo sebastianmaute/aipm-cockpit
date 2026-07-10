@@ -2,7 +2,7 @@
 // On-demand fetch of Timelog bookings. Resolves scope (auto/self/org),
 // aggregates via timelog-actuals, and caches the result per-project.
 // Never logs token or response body — errors carry only status digits.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   listUsers,
   getPrivileges,
@@ -65,9 +65,23 @@ export function useTimelogSync(args: Args) {
   // Customer directory for the project-scope picker. Lazy + lightweight (no busy
   // modal): the dropdown stays "All only" if it fails.
   const [customers, setCustomers] = useState<TimelogCustomer[]>([]);
+  // The selected customer's projects — the option list for the project picker
+  // (distinct from `projectRefs`, which holds projects SEEN in the latest fetch).
+  const [customerProjects, setCustomerProjects] = useState<TimelogProjectRef[]>([]);
   // Aborts the in-flight fetch chain (Cancel button on the loading modal). One
   // controller per sync run; the signal threads down to every proxied request.
   const abortRef = useRef<AbortController | null>(null);
+  // The FULL org directory, cached across fetches for EmployeeInitials→userId
+  // resolution. Kept SEPARATE from `users` — which now holds only the bookers
+  // subset — so a later fetch resolves against everyone, not the last bookers.
+  // Reset when the connection changes so a tenant switch never resolves against
+  // the previous org's directory.
+  const fullDirectoryRef = useRef<TimelogUser[] | null>(null);
+  useEffect(() => { fullDirectoryRef.current = null; }, [creds.host, creds.tenant, creds.token]);
+  // Monotonic request id so an out-of-order loadCustomerProjects response can't
+  // clobber a newer customer's project list (the picker/scope would otherwise
+  // show customer A's projects while B is selected).
+  const customerProjectsReqRef = useRef(0);
 
   // Shared abort/busy/error wrapper. Plain functions (not memoized): they read
   // live render-scope state every call (users/aggregates/…), like the storage
@@ -100,12 +114,20 @@ export function useTimelogSync(args: Args) {
     }
   }
 
+  // NOTE: `loadDirectory` and `fetchBookings` (the self/org per-user path below)
+  // are NOT wired into the panel anymore — the customer→project flow
+  // (`fetchBookingsForProjects`) superseded them. They remain exported (still
+  // exercised by tests) and could back a future non-customer mode. ★ Do NOT
+  // reuse `fetchBookings`'s org branch as-is: it reads the `users` state as the
+  // directory, which now holds only the bookers subset (see `fullDirectoryRef`).
+  //
   // STEP 1 — load the org directory only (cheap: paged /v1/user). Populates the
   // People table for selection/filtering WITHOUT pulling any bookings, so the
   // user can narrow + tick before the costly per-employee timesheet fetch.
   async function loadDirectory(): Promise<void> {
     await runGuarded(async (signal) => {
       const shown = displayableUsers(await listUsers(creds, signal));
+      fullDirectoryRef.current = shown;
       setUsers(shown);
       // Persist alongside EXISTING bookings only. A directory-only load (no prior
       // fetchedAt) stays in-memory — caching it would fabricate a `fetchedAt` that
@@ -129,6 +151,19 @@ export function useTimelogSync(args: Args) {
     setCustomers(await listCustomers(creds));
   }
 
+  // Load a customer's projects into the picker option list (includes closed —
+  // historical bookings live on closed projects). Lightweight like loadCustomers
+  // (no blocking modal); the rejection PROPAGATES so the panel can toast it.
+  // A falsy/non-positive customer clears the list.
+  async function loadCustomerProjects(customerId: number): Promise<void> {
+    if (isPopout) return;
+    const req = (customerProjectsReqRef.current += 1);
+    if (!customerId || customerId <= 0) { setCustomerProjects([]); return; }
+    const list = await listProjectsForCustomer(creds, customerId, undefined, true);
+    // Discard a response superseded by a newer customer pick (out-of-order guard).
+    if (req === customerProjectsReqRef.current) setCustomerProjects(list);
+  }
+
   // A customer (>0) loads ALL that customer's projects (server-side filter, not
   // PM-scoped — lets a non-PM link a client's projects); else the token owner's
   // managed (PM) projects.
@@ -150,7 +185,8 @@ export function useTimelogSync(args: Args) {
   // aggregateActuals, and persist the per-project cache. Plain function reading
   // live render-scope (users/resources/budgets/links/granularity) — same
   // non-memoized pattern as the other handlers.
-  function finish(items: readonly TimelogTimeItem[]): void {
+  function finish(items: readonly TimelogTimeItem[], usersOverride?: readonly TimelogUser[]): void {
+    const u = usersOverride ?? users;
     // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
     // Skip ProjectID 0 (absence / non-project time): it has an empty name, can't
     // map to a budget bucket, and already aggregates into `unattributed` — so it
@@ -171,7 +207,7 @@ export function useTimelogSync(args: Args) {
     // actually attributes hours to a resource/bucket. Manual pins ride through
     // even when their project isn't in this fetch's refs (autoMatch* keeps them).
     const effectiveLinks: TimelogLinks = {
-      userLinks: autoMatchUsers(users, resources, links),
+      userLinks: autoMatchUsers(u, resources, links),
       projectLinks: autoMatchProjects(refs, budgets, links),
     };
     const agg = aggregateActuals(items, effectiveLinks, granularity);
@@ -179,7 +215,7 @@ export function useTimelogSync(args: Args) {
     setAggregates(agg);
     setProjectRefs(refs);
     setFetchedAt(at);
-    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users, projectRefs: refs });
+    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs });
   }
 
   // STEP 2 — fetch bookings + aggregate. Org scope iterates ONLY `userIds` when
@@ -227,47 +263,56 @@ export function useTimelogSync(args: Args) {
     });
   }
 
-  // STEP 2 (customer-scoped) — the burndown-dashboard pattern: resolve the
-  // customer's projects (server-side customerID filter), then fetch bookings
-  // PER PROJECT via the v2 endpoint. Loads ONLY that customer's registrations
-  // instead of every ticked user's whole org history — the data reduction.
-  // Includes closed projects (historical bookings live on them). Serial +
-  // fail-soft per project, mirroring the org per-employee loop. Returns the
-  // resolved customerId so the panel can persist the scope.
-  async function fetchBookingsForCustomer(
-    customerId: number,
+  // STEP 2 (customer→project scoped) — fetch bookings for the SPECIFIC projects
+  // the user picked (a subset of the chosen customer's projects), via the v2
+  // per-project endpoint. Serial + fail-soft per project. The People table is
+  // then DERIVED from the fetched rows (only the employees who actually booked
+  // on these projects), not the whole org directory. The directory is loaded
+  // ONCE here (silently, if not already) purely to resolve v2 `EmployeeInitials`
+  // → `timelogUserId` (for names + resource linking); unmatched → userId 0
+  // (aggregated as unattributed, never dropped).
+  async function fetchBookingsForProjects(
+    projectIds: readonly number[],
     startDate: string,
     endDate: string,
-  ): Promise<{ failedProjects: number; customerId: number; projectCount: number } | undefined> {
+  ): Promise<{ failedProjects: number; projectCount: number } | undefined> {
     return runGuarded(async (signal) => {
-      const projects = await listProjectsForCustomer(creds, customerId, signal, true);
-      // Zero visible projects (empty customer OR no access): do NOT run finish()
-      // — clobbering prior good aggregates with an empty result would be silent
-      // data loss and can't be told apart from a real "no bookings". The panel
-      // notifies via projectCount === 0.
-      if (projects.length === 0) {
-        return { failedProjects: 0, customerId, projectCount: 0 };
+      const ids = [...new Set(projectIds.filter((id) => Number.isInteger(id) && id > 0))];
+      // No projects picked: do NOT run finish() — clobbering prior good aggregates
+      // with an empty result would be silent data loss. Panel notifies via count 0.
+      if (ids.length === 0) return { failedProjects: 0, projectCount: 0 };
+      // Resolve EmployeeInitials→userId against the FULL org directory (cached in
+      // a ref, loaded once). Must NOT reuse `users` — that now holds only the
+      // prior fetch's bookers subset, which would leave most rows unresolved.
+      if (!fullDirectoryRef.current) {
+        fullDirectoryRef.current = displayableUsers(await listUsers(creds, signal));
       }
+      const directory = fullDirectoryRef.current;
+      const initialsToUserId = new Map(
+        directory.filter((u) => u.initials).map((u) => [u.initials.trim().toLowerCase(), u.userId] as const),
+      );
       let items: TimelogTimeItem[] = [];
       let failedProjects = 0;
-      for (const p of projects) {
+      for (const id of ids) {
         if (signal.aborted) break;
         try {
-          const projItems = await listProjectTimeRegistrations(creds, p.id, startDate, endDate, signal);
-          items = items.concat(projItems);
+          items = items.concat(await listProjectTimeRegistrations(creds, id, startDate, endDate, signal, initialsToUserId));
         } catch (e) {
           if (signal.aborted) throw e; // propagate the cancel out of the fail-soft loop
           failedProjects++;
         }
       }
-      // Defensive date-window clamp: the v2 per-project endpoint is passed
-      // startDate/endDate but isn't guaranteed to honour them — a no-op when it
-      // does, a correct narrowing when it doesn't (dates are ISO YYYY-MM-DD, so
-      // a lexicographic compare is a true date compare). Prevents a full-history
-      // ingest silently aggregating out-of-window periods into the cache.
+      // The v2 endpoint returns the project's WHOLE history and ignores the date
+      // params — clamp to the requested window (ISO YYYY-MM-DD lexical = true date
+      // compare; also drops the summary-only empty-date row an empty project emits).
       const inWindow = items.filter((it) => it.date >= startDate && it.date <= endDate);
-      finish(inWindow);
-      return { failedProjects, customerId, projectCount: projects.length };
+      // People = only the employees who booked on the selected projects (the
+      // directory subset whose userId appears in the fetched rows).
+      const bookerIds = new Set(inWindow.map((it) => it.userId).filter((id) => id > 0));
+      const bookers = directory.filter((u) => bookerIds.has(u.userId));
+      setUsers(bookers);
+      finish(inWindow, bookers);
+      return { failedProjects, projectCount: ids.length };
     });
   }
 
@@ -296,8 +341,9 @@ export function useTimelogSync(args: Args) {
     setFetchedAt(undefined);
     setUsers([]);
     setProjectRefs([]);
+    fullDirectoryRef.current = null; // force a fresh directory on the next fetch
     clearActualsCache(projectId);
   }
 
-  return { aggregates, fetchedAt, users, projectRefs, customers, busy, error, loadDirectory, loadManagedProjects, loadCustomers, fetchBookings, fetchBookingsForCustomer, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
 }

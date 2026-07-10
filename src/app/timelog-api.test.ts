@@ -153,16 +153,28 @@ describe("listEmployeeTimeItems", () => {
 });
 
 describe("listProjectTimeRegistrations", () => {
-  it("POSTs the v2 per-project path and maps items", async () => {
+  it("POSTs the v2 path and maps the v2 shape (ActualHours/NonBillable, injected projectId, initials→userId)", async () => {
+    // The v2 per-project endpoint uses a DIFFERENT shape from v1 (verified live):
+    // ActualHours (not Hours), NonBillable (not IsBillable), TimeRegistrationId
+    // (lowercase d), EmployeeInitials (no UserID), ProjectName (no ProjectID).
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      Entities: [{ Properties: { TimeRegistrationID: 1, UserID: 5, ProjectID: 9, ProjectName: "P", ProjectNo: "P1",
-        TaskID: 3, Date: "2026-06-10T00:00:00", Hours: 4, BillableHours: 4, IsBillable: true } }],
+      Properties: { TimeRegistrationsTotalActualHours: 11 },
+      Entities: [
+        { Properties: { TimeRegistrationId: 100, EmployeeInitials: "maute", ProjectName: "Alpha",
+          TaskName: "Dev", Date: "2026-06-10T00:00:00", ActualHours: 7, NonBillable: false } },
+        { Properties: { TimeRegistrationId: 101, EmployeeInitials: "ghost", ProjectName: "Alpha",
+          TaskName: "Dev", Date: "2026-06-11T00:00:00", ActualHours: 4, NonBillable: true } },
+      ],
     }), { status: 200 }));
-    const items = await listProjectTimeRegistrations(creds, 9, "2026-06-01", "2026-06-30");
-    expect(items[0]).toMatchObject({ timeRegistrationId: 1, userId: 5, projectId: 9, hours: 4 });
+    const initials = new Map([["maute", 2144]]);
+    const items = await listProjectTimeRegistrations(creds, 9, "2026-06-01", "2026-06-30", undefined, initials);
+    // projectId injected from the request path; hours from ActualHours; user from initials
+    expect(items[0]).toEqual({ timeRegistrationId: 100, userId: 2144, projectId: 9, projectName: "Alpha",
+      projectNo: "", taskId: 0, date: "2026-06-10", hours: 7, billableHours: 7, isBillable: true });
+    // unmatched initials → userId 0; NonBillable → billableHours 0 + isBillable false
+    expect(items[1]).toMatchObject({ userId: 0, hours: 4, billableHours: 0, isBillable: false });
     const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
     expect(body.path).toBe("/v2/projects/9/time-registrations");
-    expect(body.query).toMatchObject({ startDate: "2026-06-01", endDate: "2026-06-30" });
   });
   it("returns [] without a request for a non-positive or non-integer projectId", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");

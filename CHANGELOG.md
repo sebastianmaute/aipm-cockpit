@@ -8,6 +8,47 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.174.0] - 2026-07-10 "Egan"
+
+### Added
+
+- **Composite undo for reference-data deletes.** Deleting a resource, role,
+  discipline or grade is now undoable — and one undo reverses the delete **and
+  its cascade** atomically. A role delete also cleared each affected resource's
+  role link; a discipline/grade delete reset the roles that referenced it; a
+  resource delete purged that person's absences and shifts. All of these are now
+  captured together, so a single Undo (toast button, Ctrl/⌘+Z, or the top-bar
+  control) restores every affected record across the involved lists. Discipline
+  and grade deletes are also recorded in the activity log for the first time.
+- **TimeLog customer-scoped booking fetch.** Time bookings now load by
+  **customer → project**: pick a customer, multi-select its projects (with a
+  wildcard/partial-match filter), and fetch loads only those projects'
+  registrations instead of the whole org's per-user history. The People table
+  shows only the people who actually booked on the selected projects, and the
+  selection persists per project. External resources (capacity-only, excluded
+  from cost) no longer appear as booking link targets.
+
+### Fixed
+
+- **TimeLog v2 registrations were mapped as empty.** The per-project
+  `/v2/projects/{id}/time-registrations` endpoint returns a different field
+  shape than v1 (`ActualHours`, inverted `NonBillable`, no `ProjectID`/`UserID`),
+  so every row mapped to zero hours and bookings appeared empty. Added a
+  dedicated v2 mapper that injects the project id and resolves the booker from
+  employee initials.
+- **Version history captured empty load-transient snapshots.** An auto-capture
+  firing during a project switch/reload could snapshot a near-empty workspace,
+  producing misleading "everything removed" compare summaries and a data-loss
+  restore risk. Empty transient auto-captures are now skipped, and a failed or
+  empty compare surfaces a diagnostic instead of a silent empty diff.
+- **Steering committee and TimeLog links were not versioned or restorable.**
+  They are now included in the version payload, diff, and restore.
+
+### Changed
+
+- **Delete individual version-history snapshots.** Each snapshot row gains a
+  confirm-gated Delete button.
+
 ## [0.173.0] - 2026-07-10 "Jordan"
 
 ### Added
