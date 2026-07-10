@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.171.0";
-export const APP_BUILD_DATE = "2026-07-10"; // 0.171.0: Gantt milestone baseline ghost bars — each milestone shows a hollow ghost diamond at its committed baseline date (from the pinned Turso snapshot) with a dotted connector to its current date and a signed slip label, plus a default-on "Baseline" toolbar toggle; Turso-gated (invisible off Turso, no per-task baseline data) (Gibson)
+export const APP_VERSION = "0.172.0";
+export const APP_BUILD_DATE = "2026-07-10"; // 0.172.0: Weekly status digest — a per-project Dashboard card summarizing RAG (with delta), overdue tasks, milestones due soon, and open RAID, on a per-device weekly cadence; optionally emailed via Outlook and announced by a desktop notification, with an optional AI narrative and a manual "Generate now"; deterministic base always works, AI/email/notification gated + fail-soft (Corey)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.171.x line is "Gibson" (William Gibson). */
-export const APP_MILESTONE = "Gibson";
+ *  0.172.x line is "Corey" (James S.A. Corey). */
+export const APP_MILESTONE = "Corey";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -193,4 +193,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightResourceFollowup",
   "versionHighlightTimelogCustomer",
   "versionHighlightGanttBaseline",
+  "versionHighlightStatusDigest",
 ] as const;
