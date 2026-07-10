@@ -71,7 +71,7 @@ export interface StakeholdersPanelProps {
   stakeholders: readonly Stakeholder[];
   resources: readonly Resource[];
   milestones: readonly Milestone[];
-  onSave: (item: Stakeholder) => void;
+  onSave: (item: Stakeholder, isNew?: boolean) => void;
   onDelete: (id: number, name: string) => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
   commsPendingStakeholderIds?: ReadonlySet<number>;
@@ -341,7 +341,7 @@ function StakeholdersPanelBody({
             onJumpToComms={onJumpToComms}
             onChange={setDraft}
             onSave={() => {
-              onSave(draft);
+              onSave(draft, isNew);
               closeModal();
             }}
             onCancel={closeModal}

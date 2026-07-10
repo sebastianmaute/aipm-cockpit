@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.170.1";
-export const APP_BUILD_DATE = "2026-07-10"; // 0.170.1: two TimeLog follow-up fixes — the customer-scope picker reconcile is now deterministic on an in-place project switch (no stale seed from the old project), and the /api/timelog proxy gives the heavy v2 per-project time-registrations fetch a 30s upstream timeout (it returns a project's whole unpaged history and was tripping the shared 10s cap) plus an attributable, secret-free error log (Doctorow)
+export const APP_VERSION = "0.170.2";
+export const APP_BUILD_DATE = "2026-07-10"; // 0.170.2: entity id-mint data-loss race fixed across Stakeholders/Changes/RAID/Milestones — a create whose modal-open id was committed by a concurrent writer (AI create tool, second tab, bulk op) no longer silently clobbers that row (shared resolveEntitySave: decide create/update by modal intent + re-mint on collision); editing a row a concurrent writer already deleted now surfaces a toast instead of a silent no-op (Doctorow)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.170.x line is "Doctorow" (Cory Doctorow). */
 export const APP_MILESTONE = "Doctorow";

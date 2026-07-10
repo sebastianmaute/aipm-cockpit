@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
+import { ToastProvider } from "./toast-context";
 import { MilestonesPanel } from "./milestones-panel";
 import { t } from "./i18n";
 import type { Milestone } from "./types";
@@ -114,6 +115,47 @@ describe("MilestonesPanel", () => {
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(onCreateConsumed).toHaveBeenCalled();
+  });
+
+  it("re-mints a create whose open-time id was taken by a concurrent commit — no clobber (id-mint race)", () => {
+    const seeded = (extra: readonly Milestone[]) => (
+      <>
+        <Seed milestones={[m("Existing", "2026-06-10", { id: 1 }), ...extra]} />
+        <MilestonesPanel {...baseProps} />
+      </>
+    );
+    const { rerender } = render(seeded([]), { wrapper });
+    // Open the create modal — it drafts id nextId([1]) = 2.
+    fireEvent.click(screen.getByRole("button", { name: /new milestone/i }));
+    const dialog = screen.getByRole("dialog");
+    // A concurrent writer commits a milestone at id 2 while the modal is open.
+    rerender(seeded([m("Concurrent", "2026-06-11", { id: 2 })]));
+    // Name and save the new milestone.
+    fireEvent.change(within(dialog).getAllByRole("textbox")[0], { target: { value: "Fresh" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+    // All three survive: the create got a fresh id instead of clobbering id 2.
+    expect(screen.getByText("Existing")).toBeInTheDocument();
+    expect(screen.getByText("Concurrent")).toBeInTheDocument();
+    expect(screen.getByText("Fresh")).toBeInTheDocument();
+  });
+
+  it("surfaces a toast when the edited milestone was concurrently deleted", () => {
+    const showToast = vi.fn();
+    const seeded = (ms: readonly Milestone[]) => (
+      <ToastProvider value={showToast}>
+        <Seed milestones={ms} />
+        <MilestonesPanel {...baseProps} />
+      </ToastProvider>
+    );
+    const doomed = m("Doomed", "2026-06-10", { id: 1 });
+    const { rerender } = render(seeded([doomed]), { wrapper });
+    // Open the milestone's editor (isNew=false).
+    fireEvent.click(screen.getByRole("button", { name: "Doomed" }));
+    // A concurrent writer deletes it while the modal is open.
+    rerender(seeded([]));
+    // Save → the row is gone; the edit must surface a toast, not vanish silently.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 
   it("renders the New milestone button at the left, styled like Gantt (solid dark-blue)", () => {

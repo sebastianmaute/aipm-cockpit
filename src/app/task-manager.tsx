@@ -593,13 +593,13 @@ function TaskManagerInner() {
   } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
-  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today, logActivity, logActivityChanges });
+  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges });
 
   // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
   // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
-    useStakeholders({ today, logActivity, logActivityChanges });
+    useStakeholders({ today, lang, showToast, logActivity, logActivityChanges });
 
   // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
   // assembles a Workspace from the live workspace-context collections the same
