@@ -504,6 +504,9 @@ export type ResourcePlan = {
   endDate: string; // "YYYY-MM-DD"
   granularity: PlanGranularity; // canonical (editable) granularity
   currency: string; // ISO 4217
+  /** When true, budget-hours cells for allocations WITH assigned resources
+   *  mirror planned capacity (read-only). Absent ⇒ false (manual entry). */
+  budgetFollowsPlan?: boolean;
 };
 
 /** Default plan currency when none is set. */

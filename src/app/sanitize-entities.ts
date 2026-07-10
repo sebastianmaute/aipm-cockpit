@@ -409,11 +409,12 @@ export function sanitizePlan(input: unknown, today: string): ResourcePlan {
   const endDate = sanitizeIsoDate(raw.endDate);
   const granularity: PlanGranularity = raw.granularity === "week" ? "week" : "month";
   const currency = typeof raw.currency === "string" && raw.currency.trim() ? raw.currency.trim() : fallback.currency;
+  const budgetFollowsPlan = raw.budgetFollowsPlan === true || raw.budgetFollowsPlan === "true";
   if (!startDate || !endDate) {
-    return { startDate: fallback.startDate, endDate: fallback.endDate, granularity, currency };
+    return { startDate: fallback.startDate, endDate: fallback.endDate, granularity, currency, ...(budgetFollowsPlan ? { budgetFollowsPlan: true } : {}) };
   }
   const [s, e] = endDate < startDate ? [endDate, startDate] : [startDate, endDate];
-  return { startDate: s, endDate: e, granularity, currency };
+  return { startDate: s, endDate: e, granularity, currency, ...(budgetFollowsPlan ? { budgetFollowsPlan: true } : {}) };
 }
 
 // --- Budget planner sanitizers ---------------------------------------------
