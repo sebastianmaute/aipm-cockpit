@@ -272,16 +272,26 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   // gated on a customer + ≥1 project; the People table is then derived from who
   // booked on these projects (the directory auto-loads on Fetch to resolve names).
   const [selectedProjectIds, setSelectedProjectIds] = useState<Set<number>>(new Set());
+  // Wildcard filter (`*`) over the customer's projects — matches name OR number.
+  const [projectFilter, setProjectFilter] = useState("");
+  const filteredProjects = useMemo(() => {
+    const m = customerMatcher(projectFilter);
+    return sync.customerProjects.filter((p) => m(p.name) || (!!p.no && m(p.no)));
+  }, [sync.customerProjects, projectFilter]);
   const toggleProject = (id: number) =>
     setSelectedProjectIds((prev) => {
       const n = new Set(prev);
       if (n.has(id)) n.delete(id); else n.add(id);
       return n;
     });
+  // Select-all toggles the CURRENTLY-VISIBLE (filtered) projects, preserving any
+  // selection hidden by the active filter.
   const toggleAllProjects = () =>
     setSelectedProjectIds((prev) => {
-      const all = sync.customerProjects.length > 0 && sync.customerProjects.every((p) => prev.has(p.id));
-      return all ? new Set() : new Set(sync.customerProjects.map((p) => p.id));
+      const allVisible = filteredProjects.length > 0 && filteredProjects.every((p) => prev.has(p.id));
+      const next = new Set(prev);
+      for (const p of filteredProjects) { if (allVisible) next.delete(p.id); else next.add(p.id); }
+      return next;
     });
   // Load the chosen customer's projects into the picker when the customer changes
   // (pick OR persisted-scope seed). An await-then-setState data load, not a
@@ -334,6 +344,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     setProjectCustomerId("");
     setCustomerFilter("");
     setSelectedProjectIds(new Set());
+    setProjectFilter("");
   }
   // (1) Persisted per-project scope wins over name auto-resolve (even if links
   // hydrate after the customer directory), but never over an explicit pick.
@@ -412,19 +423,12 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      {/* Header — the title was removed; the "enable Timelog" notice takes the
-          left slot when misconfigured so the button row stays right-aligned. */}
-      <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
-        {isMisconfigured ? (
-          <p className="text-sm text-muted-foreground">{t(lang, "timelogEnable")}</p>
-        ) : (
-          <span />
-        )}
+      {/* Header — the main fetch controls (customer search + dropdown, Clear all,
+          Fetch) are LEFT-aligned; the view utilities (Print, resets) stay right. */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Customer scope (lazy-loads on focus). When a customer is selected,
-              "Fetch bookings" loads ONLY that customer's projects' registrations
-              (per-project v2); "All customers" keeps the per-user fetch.
-              Auto-resolves from the project's customer name (see reconcile above). */}
+          {/* Customer scope (lazy-loads on focus). Selecting a customer loads its
+              projects into the picker below; Fetch is gated on customer + ≥1 project. */}
           <TimelogCustomerScope
             lang={lang}
             value={projectCustomerId}
@@ -432,7 +436,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
             filter={customerFilter}
             disabled={isPopout}
             onFilterChange={setCustomerFilter}
-            onSelectChange={(v) => { setUserPicked(true); setProjectCustomerId(v); setSelectedProjectIds(new Set()); }}
+            onSelectChange={(v) => { setUserPicked(true); setProjectCustomerId(v); setSelectedProjectIds(new Set()); setProjectFilter(""); }}
             onFocusLoad={() =>
               void sync
                 .loadCustomers()
@@ -458,11 +462,16 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
               ? t(lang, "loadingTimelog")
               : `${t(lang, "timelogSync")}${selectedProjectIds.size > 0 ? ` (${selectedProjectIds.size})` : ""}`}
           </button>
+        </div>
+        <div className="flex items-center gap-2">
           <PrintButton lang={lang} />
           <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
           <ResetSizeButton onClick={resetPaneSize} lang={lang} />
         </div>
       </div>
+      {isMisconfigured && (
+        <p className="mb-3 text-sm text-muted-foreground print:hidden">{t(lang, "timelogEnable")}</p>
+      )}
 
       {/* Customer-scope note — makes the reduced fetch explicit. */}
       {projectCustomerId !== "" && (
@@ -477,9 +486,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         <div className="mb-3 print:hidden">
           <TimelogProjectScope
             lang={lang}
-            projects={sync.customerProjects}
+            projects={filteredProjects}
             selectedIds={selectedProjectIds}
             hasCustomer={projectCustomerId !== ""}
+            filter={projectFilter}
+            onFilterChange={setProjectFilter}
             onToggle={toggleProject}
             onToggleAll={toggleAllProjects}
             disabled={isPopout || sync.busy}

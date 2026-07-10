@@ -10,12 +10,16 @@ import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 interface TimelogProjectScopeProps {
   lang: Lang;
-  /** The selected customer's projects (option list). Empty ⇒ no customer / none. */
+  /** The customer's projects, ALREADY wildcard-filtered by the caller. */
   projects: readonly TimelogProjectRef[];
   selectedIds: ReadonlySet<number>;
   /** True until a customer is chosen (list disabled + hint shown). */
   hasCustomer: boolean;
+  /** Wildcard filter text (`*` supported) + its setter — filters name/number. */
+  filter: string;
+  onFilterChange: (v: string) => void;
   onToggle: (id: number) => void;
+  /** Toggle every CURRENTLY-VISIBLE (filtered) project. */
   onToggleAll: () => void;
   disabled?: boolean;
 }
@@ -25,6 +29,8 @@ export function TimelogProjectScope({
   projects,
   selectedIds,
   hasCustomer,
+  filter,
+  onFilterChange,
   onToggle,
   onToggleAll,
   disabled,
@@ -51,13 +57,25 @@ export function TimelogProjectScope({
           </label>
         )}
       </div>
+      {hasCustomer && (
+        <input
+          type="text"
+          role="searchbox"
+          value={filter}
+          onChange={(e) => onFilterChange(e.target.value)}
+          placeholder={t(lang, "timelogProjectFilter")}
+          aria-label={t(lang, "timelogProjectFilter")}
+          disabled={disabled}
+          className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
+        />
+      )}
       {!hasCustomer ? (
         <p className="rounded-md border border-dashed border-line px-3 py-2 text-xs text-muted-foreground">
           {t(lang, "timelogProjectPickCustomerFirst")}
         </p>
       ) : projects.length === 0 ? (
         <p className="rounded-md border border-dashed border-line px-3 py-2 text-xs text-muted-foreground">
-          {t(lang, "timelogNoCustomerProjects")}
+          {t(lang, filter.trim() ? "timelogProjectNoMatch" : "timelogNoCustomerProjects")}
         </p>
       ) : (
         <ul className="max-h-40 min-w-56 overflow-auto rounded-md border border-line pr-2">

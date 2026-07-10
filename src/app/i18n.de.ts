@@ -1359,6 +1359,8 @@ export const de: Record<TranslationKey, string> = {
   timelogNoCustomerProjects: "Keine Projekte für diesen Kunden gefunden — nichts abzurufen (bisherige Daten bleiben erhalten).",
   timelogProjectScopeLabel: "Projekte",
   timelogProjectSelectAll: "Alle auswählen",
+  timelogProjectFilter: "Projekte filtern (* Platzhalter)",
+  timelogProjectNoMatch: "Keine Projekte entsprechen dem Filter.",
   timelogProjectPickCustomerFirst: "Zuerst einen Kunden auswählen, um dessen Projekte zu wählen.",
   timelogFetchNeedsSelection: "Zuerst einen Kunden und mindestens ein Projekt auswählen.",
   guardTimelogCustomerProjectsFailed: "Die Projekte des Kunden konnten nicht geladen werden.",

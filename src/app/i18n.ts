@@ -1367,6 +1367,8 @@ const enUS = {
   timelogNoCustomerProjects: "No projects found for this customer — nothing to fetch (previous data kept).",
   timelogProjectScopeLabel: "Projects",
   timelogProjectSelectAll: "Select all",
+  timelogProjectFilter: "Filter projects (* wildcard)",
+  timelogProjectNoMatch: "No projects match the filter.",
   timelogProjectPickCustomerFirst: "Select a customer first to choose its projects.",
   timelogFetchNeedsSelection: "Select a customer and at least one project first.",
   guardTimelogCustomerProjectsFailed: "Could not load the customer's projects.",
