@@ -84,6 +84,31 @@ describe("useVersionHistory", () => {
     act(() => { result.current.notifySaved(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     expect(append).toHaveBeenCalledTimes(1); // empty transient → NOT captured
+    const { readDiagLog } = await import("./diagnostics");
+    expect(readDiagLog().some((e) => e.code === "version.skipEmptyTransientCapture")).toBe(true);
+  });
+
+  it("loadDiff logs version.compareEmptyPayload (and returns []) when a version payload is missing/empty", async () => {
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue(null);
+    const { result } = renderHook(() => useVersionHistory(args()));
+    let diff: unknown;
+    await act(async () => { diff = await result.current.loadDiff("v1", "now"); });
+    expect(diff).toEqual([]);
+    const { readDiagLog } = await import("./diagnostics");
+    expect(readDiagLog().some((e) => e.code === "version.compareEmptyPayload")).toBe(true);
+  });
+
+  it("loadDiff logs version.compareParseFailed (and returns []) when a payload is truncated/malformed", async () => {
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    // Truncated JSON — strict parse throws instead of silently degrading to empty.
+    vi.spyOn(store, "loadVersionPayload").mockResolvedValue('{"tasks":[{"id":1,');
+    const { result } = renderHook(() => useVersionHistory(args()));
+    let diff: unknown;
+    await act(async () => { diff = await result.current.loadDiff("v1", "now"); });
+    expect(diff).toEqual([]);
+    const { readDiagLog } = await import("./diagnostics");
+    expect(readDiagLog().some((e) => e.code === "version.compareParseFailed")).toBe(true);
   });
 
   it("a MANUAL checkpoint still captures even an empty workspace (explicit user action)", async () => {

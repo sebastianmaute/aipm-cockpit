@@ -44,6 +44,9 @@ export interface UseVersionHistoryResult {
 // and briefly seeds default reference data before the new project hydrates, so
 // those defaults must not mask an otherwise-empty transient. A parse failure is
 // treated as NON-empty (don't skip on uncertainty). Pure.
+// ★ Deliberately a SEPARATE 9-content-list definition — NOT `isWorkspaceEmpty`
+// (which counts roles/disciplines/grades and would be defeated by the seeded
+// reference-data). Keep this list in sync when a new CONTENT collection is added.
 export function isEmptyWorkspacePayload(json: string): boolean {
   try {
     // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —
@@ -148,18 +151,18 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         const prev = lastPayload.current;
         // Cheap byte-identity short-circuit first.
         if (prev === payload) return; // no-op
-        // Guard against snapshotting a project-switch / reload TRANSIENT: the
-        // workspace resets its content arrays to [] before the new project
-        // hydrates. Capturing then stores a useless EMPTY version whose diff-vs-
-        // prev summary misleadingly shows big "removed" counts (e.g. "Tasks (35)")
-        // — and a later restore of it would WIPE the project. If the new payload
-        // is empty but the prior version had content, skip; a genuine change is
-        // captured on the next idle. (A real clear-all is re-captured on the next
-        // edit; a manual checkpoint is never skipped.)
-        if (prev && isEmptyWorkspacePayload(payload) && !isEmptyWorkspacePayload(prev)) {
-          logDiag("warn", "version.skipEmptyTransientCapture", {
-            prevLen: prev.length, payloadLen: payload.length,
-          });
+        // Never AUTO-snapshot an empty workspace: a project-switch / reload
+        // TRANSIENT resets the content arrays to [] before the new project
+        // hydrates, and an idle save there would store a useless EMPTY version
+        // whose diff-vs-prev summary misleadingly shows big "removed" counts
+        // (e.g. "Tasks (35)") — a later restore of it would WIPE the project.
+        // Unconditional (not gated on a non-empty prev) so it ALSO refuses a
+        // second empty capture when a pre-fix empty row is already the baseline.
+        // Tradeoff (accepted): a brand-new project's content-empty setup edits
+        // aren't versioned until the first real content exists — which is fine.
+        // A manual checkpoint is never skipped; a genuine change captures next.
+        if (isEmptyWorkspacePayload(payload)) {
+          logDiag("warn", "version.skipEmptyTransientCapture", { payloadLen: payload.length });
           return;
         }
         // Then a MEANINGFUL-change check: diffWorkspaces ignores volatile
@@ -233,7 +236,10 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         return [];
       }
       try {
-        return diffWorkspaces(jsonToWorkspace(fromStr), jsonToWorkspace(toStr));
+        // STRICT parse: a truncated/malformed payload THROWS here instead of
+        // silently degrading to an empty workspace (which would render a
+        // misleading "everything added" diff). Surfaced as compareParseFailed.
+        return diffWorkspaces(jsonToWorkspace(fromStr, { strict: true }), jsonToWorkspace(toStr, { strict: true }));
       } catch (parseErr) {
         // A parse throw here = a truncated/malformed payload (e.g. a big version
         // stored or read past a size limit). Distinct from a network/load error;
