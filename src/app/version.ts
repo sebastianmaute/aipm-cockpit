@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.173.0";
-export const APP_BUILD_DATE = "2026-07-10"; // 0.173.0: Local undo — a multi-level (~10), in-memory undo for destructive edits (deletes, clear-all, bulk-edit) across every entity, on every backend; reachable via a toast Undo button, Ctrl/Cmd+Z, and a top-bar control; item-level restore that survives interleaving and never clobbers a reused id (Jordan)
+export const APP_VERSION = "0.174.0";
+export const APP_BUILD_DATE = "2026-07-10"; // 0.174.0: Composite undo for reference-data deletes (resource/role/discipline/grade — one undo reverses the delete AND its FK/calendar cascade); TimeLog customer-scoped booking fetch (v2 per-project mapping, customer→project two-step, external resources excluded); version-history hardening (skip empty load-transient captures, version+restore steeringCommittee/timelogLinks, delete individual snapshots) (Egan)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.173.x line is "Jordan" (Robert Jordan). */
-export const APP_MILESTONE = "Jordan";
+ *  0.174.x line is "Egan" (Greg Egan). */
+export const APP_MILESTONE = "Egan";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
