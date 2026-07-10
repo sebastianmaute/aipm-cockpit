@@ -62,6 +62,18 @@ describe("applyUndoRestore", () => {
     ]);
   });
 
+  it("delete-image owns an id present in BOTH lists — the edit-image never clobbers", () => {
+    // id 3 is a live reused row; captured (defensively) as both delete and edit.
+    const current: Row[] = [{ id: 1, name: "a" }, { id: 3, name: "NEW-REUSED" }];
+    const out = applyUndoRestore(current, [
+      del(1, { id: 3, name: "OLD-DELETED" }),
+      edit(1, { id: 3, name: "OLD-DELETED" }),
+    ]);
+    expect(out.find((r) => r.name === "NEW-REUSED")).toEqual({ id: 3, name: "NEW-REUSED" });
+    expect(out.find((r) => r.name === "OLD-DELETED")).toEqual({ id: 4, name: "OLD-DELETED" });
+    expect(out).toHaveLength(3);
+  });
+
   it("restores a delete + its edited dependents together (task-delete shape)", () => {
     // id 2 was deleted; id 3 had a dependency on 2 stripped (edited in place).
     const current: Row[] = [{ id: 1, name: "a" }, { id: 3, name: "3-stripped" }];

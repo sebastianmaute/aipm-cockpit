@@ -56,9 +56,16 @@ export function applyUndoRestore<T extends { id: number }>(
 
   const out = current.slice();
 
+  // An id claimed by a delete-image is owned by the delete branch below — never
+  // let an edit-image for the same id revert (would overwrite a live reused-id
+  // row). Only reachable if a caller passes an id in BOTH lists (e.g. a
+  // self-dependent row), which upstream guards prevent — defensive here so the
+  // engine is correct regardless of caller.
+  const deleteIds = new Set(before.filter((b) => b.op === "delete").map((b) => b.item.id));
+
   // Edits first (in place), then deletes ordered by index so the splices compose.
   for (const { item, op } of before) {
-    if (op !== "edit") continue;
+    if (op !== "edit" || deleteIds.has(item.id)) continue;
     if (present.has(item.id)) {
       out[out.findIndex((r) => r.id === item.id)] = item;
     }
