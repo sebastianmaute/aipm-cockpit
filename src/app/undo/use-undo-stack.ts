@@ -60,7 +60,11 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Res
 
 /** A multi-array undo: one entry whose restore reverts a primary removal AND
  *  every cascade edit across N arrays (e.g. deleting a role also cleared
- *  resources' roleId → both are reverted by a single undo). */
+ *  resources' roleId → both are reverted by a single undo).
+ *  ★ Fragments do NOT coordinate re-mint across arrays: in the rare window where
+ *  a removed row's id was reused by a new row before undo, the removal fragment
+ *  re-mints the recovered row under a fresh id while an edit fragment reverts the
+ *  FK to the original (now-reused) id — same single-array semantics, accepted. */
 export interface CaptureCompositeOpts {
   kind: ActivityKind;
   /** User-facing count for the toast/badge — the PRIMARY rows the user acted

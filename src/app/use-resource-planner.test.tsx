@@ -305,15 +305,56 @@ describe("useResourcePlanner", () => {
       id, firstName: `R${id}`, lastName: "x", roleId, utilizationMode: "percent", utilization: {},
     });
 
-    it("resource delete captures a plain single-array undo", () => {
-      const capture = vi.fn();
-      const { result } = renderPlanner({ capture });
+    it("resource delete with no calendar entries captures a resource-only composite", () => {
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ captureComposite });
       act(() => { result.current.workspace.setResources([withRole(5, null)]); });
       act(() => { result.current.planner.handleDeleteResource(5); });
-      expect(capture).toHaveBeenCalledTimes(1);
-      const opts = capture.mock.calls[0][0] as { kind: string; removed: { id: number }[] };
+      expect(result.current.workspace.resources).toHaveLength(0);
+      expect(captureComposite).toHaveBeenCalledTimes(1);
+      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (null | (() => void))[] };
       expect(opts.kind).toBe("resource.deleted");
-      expect(opts.removed.map((r) => r.id)).toEqual([5]);
+      expect(opts.primaryCount).toBe(1);
+      // No absences/shifts → those parts are null (skipped); only the resource restores.
+      act(() => { for (const f of opts.parts) f?.(); });
+      expect(result.current.workspace.resources.map((r) => r.id)).toEqual([5]);
+    });
+
+    it("resource delete composite restores the resource AND its cascade-purged absences/shifts", () => {
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ captureComposite });
+      act(() => {
+        result.current.workspace.setResources([withRole(5, null)]);
+        result.current.workspace.setAbsences([
+          { id: 11, resourceId: 5, assignee: "R5 x", type: "vacation", startDate: "2026-06-01", endDate: "2026-06-05" } as never,
+        ]);
+        result.current.workspace.setShifts([
+          { id: 21, resourceId: 5, assignee: "R5 x", label: "Early", startDate: "2026-06-01", endDate: "2026-06-01" } as never,
+        ]);
+      });
+      act(() => { result.current.planner.handleDeleteResource(5); });
+      // Delete purged the calendar rows too.
+      expect(result.current.workspace.absences).toHaveLength(0);
+      expect(result.current.workspace.shifts).toHaveLength(0);
+      const opts = captureComposite.mock.calls[0][0] as { parts: (null | (() => void))[] };
+      // Undo restores all three arrays.
+      act(() => { for (const f of opts.parts) f?.(); });
+      expect(result.current.workspace.resources.map((r) => r.id)).toEqual([5]);
+      expect(result.current.workspace.absences.map((a) => a.id)).toEqual([11]);
+      expect(result.current.workspace.shifts.map((s) => s.id)).toEqual([21]);
+    });
+
+    it("bulk resource delete captures a composite (count = deleted resources)", () => {
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ captureComposite });
+      act(() => { result.current.workspace.setResources([withRole(5, null), withRole(6, null), withRole(7, null)]); });
+      act(() => { result.current.planner.handleBulkDeleteResources([5, 6]); });
+      expect(result.current.workspace.resources.map((r) => r.id)).toEqual([7]);
+      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (null | (() => void))[] };
+      expect(opts.kind).toBe("resource.deleted");
+      expect(opts.primaryCount).toBe(2);
+      act(() => { for (const f of opts.parts) f?.(); });
+      expect(result.current.workspace.resources.map((r) => r.id).sort()).toEqual([5, 6, 7]);
     });
 
     it("role delete captures a composite that restores the role AND the roleId cascade", () => {

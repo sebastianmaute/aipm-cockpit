@@ -464,10 +464,12 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
 
   // Cascade a resource removal to its calendar entries: drop every absence and
   // shift that belongs to a removed resource (else the orphan absence, joined by
-  // name, keeps re-creating a ghost calendar row). Functional setters.
+  // name, keeps re-creating a ghost calendar row). Functional setters. Returns
+  // the purged rows so the caller can fold them into a composite undo (else
+  // undo would resurrect the resource but silently lose its calendar entries).
   const purgeCalendarFor = useCallback(
     (removed: readonly Resource[], surviving: readonly Resource[]) => {
-      if (removed.length === 0) return;
+      if (removed.length === 0) return { purgedAbsences: [] as Absence[], purgedShifts: [] as Shift[] };
       const ids = new Set(removed.map((r) => r.id));
       const names = new Set(
         removed.map((r) => resourceDisplayName(r).trim().toLowerCase()).filter(Boolean),
@@ -483,14 +485,17 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const survivingEmails = new Set(
         surviving.map((r) => (r.email ?? "").trim().toLowerCase()).filter(Boolean),
       );
-      setAbsences((prev) =>
-        prev.filter((a) => !recordMatchesRemoved(a, ids, names, emails, survivingNames, survivingEmails)),
-      );
-      setShifts((prev) =>
-        prev.filter((s) => !recordMatchesRemoved(s, ids, names, emails, survivingNames, survivingEmails)),
-      );
+      const matches = (rec: { assignee?: string; assigneeEmail?: string; resourceId?: number | null }) =>
+        recordMatchesRemoved(rec, ids, names, emails, survivingNames, survivingEmails);
+      // Snapshot the purged rows from the PRE-op arrays (closure) before the
+      // setters run — these are the composite undo's delete-images.
+      const purgedAbsences = absences.filter(matches);
+      const purgedShifts = shifts.filter(matches);
+      if (purgedAbsences.length > 0) setAbsences((prev) => prev.filter((a) => !matches(a)));
+      if (purgedShifts.length > 0) setShifts((prev) => prev.filter((s) => !matches(s)));
+      return { purgedAbsences, purgedShifts };
     },
-    [setAbsences, setShifts],
+    [absences, shifts, setAbsences, setShifts],
   );
 
   const handleDeleteResource = useCallback(
@@ -500,15 +505,26 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setResources(surviving);
       setEditingResource(null);
       if (removed) {
-        // Resource delete has NO FK cascade (dangling refs are left as-is by
-        // design), so undo is single-array: just re-insert the row.
-        captureRef.current?.({ setter: setResources, kind: "resource.deleted", removed: [removed], fromArray: resources });
-        purgeCalendarFor([removed], surviving);
+        // Resource delete cascade-PURGES the person's absences/shifts (FK refs on
+        // tasks/RAID are left dangling by design, but calendar rows are deleted).
+        // So undo is COMPOSITE: re-insert the resource AND its purged calendar
+        // rows — a single-array undo would resurrect the person but lose their
+        // absences/shifts. Empty purge parts collapse to null (skipped).
+        const { purgedAbsences, purgedShifts } = purgeCalendarFor([removed], surviving);
+        captureCompositeRef.current?.({
+          kind: "resource.deleted",
+          primaryCount: 1,
+          parts: [
+            capturePart({ setter: setResources, removed: [removed], fromArray: resources }),
+            capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences }),
+            capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts }),
+          ],
+        });
         const name = `${removed.firstName} ${removed.lastName}`.trim();
         logActivityRef.current("resource.deleted", id, name);
       }
     },
-    [resources, setResources, purgeCalendarFor],
+    [resources, absences, shifts, setResources, setAbsences, setShifts, purgeCalendarFor],
   );
 
   // Bulk edit: merge the same patch into every selected resource in ONE
@@ -542,15 +558,26 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const idSet = new Set(ids);
       const removed = resources.filter((r) => idSet.has(r.id));
       const surviving = resources.filter((r) => !idSet.has(r.id));
-      if (removed.length > 0) captureRef.current?.({ setter: setResources, kind: "resource.deleted", removed, fromArray: resources });
       setResources((prev) => prev.filter((r) => !idSet.has(r.id)));
       setEditingResource(null);
-      purgeCalendarFor(removed, surviving);
+      const { purgedAbsences, purgedShifts } = purgeCalendarFor(removed, surviving);
+      if (removed.length > 0) {
+        // Composite: re-insert the deleted resources AND their purged calendar rows.
+        captureCompositeRef.current?.({
+          kind: "resource.deleted",
+          primaryCount: removed.length,
+          parts: [
+            capturePart({ setter: setResources, removed, fromArray: resources }),
+            capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences }),
+            capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts }),
+          ],
+        });
+      }
       for (const r of removed) {
         logActivityRef.current("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());
       }
     },
-    [resources, setResources, purgeCalendarFor],
+    [resources, absences, shifts, setResources, setAbsences, setShifts, purgeCalendarFor],
   );
 
   const handleImportResources = useCallback(
