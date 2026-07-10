@@ -248,12 +248,19 @@ export function useTimelogSync(args: Args) {
       if (projects.length === 0) {
         return { failedProjects: 0, customerId, projectCount: 0 };
       }
+      // v2 registration rows carry no UserID — only EmployeeInitials. Resolve
+      // them against the loaded directory so bookings attribute to a resource
+      // (unmatched → userId 0, aggregated as unattributed). Empty when the
+      // directory hasn't loaded yet — bookings still attribute by project bucket.
+      const initialsToUserId = new Map(
+        users.filter((u) => u.initials).map((u) => [u.initials.trim().toLowerCase(), u.userId] as const),
+      );
       let items: TimelogTimeItem[] = [];
       let failedProjects = 0;
       for (const p of projects) {
         if (signal.aborted) break;
         try {
-          const projItems = await listProjectTimeRegistrations(creds, p.id, startDate, endDate, signal);
+          const projItems = await listProjectTimeRegistrations(creds, p.id, startDate, endDate, signal, initialsToUserId);
           items = items.concat(projItems);
         } catch (e) {
           if (signal.aborted) throw e; // propagate the cancel out of the fail-soft loop
