@@ -35,7 +35,7 @@ export function useStakeholders(args: UseStakeholdersArgs) {
     );
     if (create) {
       args.logActivity?.("stakeholder.created", id, item.name);
-    } else if (args.logActivityChanges) {
+    } else if (previous && args.logActivityChanges) {
       args.logActivityChanges("stakeholder.updated", diffFields(previous, withStamp), id, item.name);
     } else {
       args.logActivity?.("stakeholder.updated", id, item.name);

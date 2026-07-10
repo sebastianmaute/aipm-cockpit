@@ -45,7 +45,7 @@ export function useChangeLog(args: UseChangeLogArgs) {
     );
     if (create) {
       args.logActivity?.("change.created", id, item.title);
-    } else if (args.logActivityChanges) {
+    } else if (previous && args.logActivityChanges) {
       args.logActivityChanges("change.updated", diffFields(previous, withStamp), id, item.title);
     } else {
       // Back-compat: a caller wiring only logActivity still records the update.

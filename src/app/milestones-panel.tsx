@@ -29,6 +29,7 @@ import {
 } from "./milestones";
 import { type Lang, t } from "./i18n";
 import { nextId } from "./resource-foundation";
+import { resolveEntitySave } from "./entity-id-mint";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton, PrintButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
@@ -238,21 +239,23 @@ function MilestonesPanelBody({
     clearPendingOpen();
   }, [pendingOpen, milestones, editing, setEditing, clearPendingOpen]);
 
-  function save(next: Milestone) {
-    const creating = !milestones.some((m) => m.id === next.id);
+  // isNewIntent carries the modal's create/edit intent so a create can't be
+  // misread as an update and clobber a row committed since the modal opened
+  // (id-mint race). Bulk edit omits it → id-existence fallback (unchanged).
+  function save(next: Milestone, isNewIntent?: boolean) {
+    const { create, id } = resolveEntitySave(milestones, next.id, isNewIntent, () => nextId(milestones));
+    const finalItem: Milestone = { ...next, id };
     setMilestones((prev) =>
-      prev.some((m) => m.id === next.id)
-        ? prev.map((m) => (m.id === next.id ? next : m))
-        : [...prev, next],
+      create ? [...prev, finalItem] : prev.map((m) => (m.id === id ? finalItem : m)),
     );
-    if (creating) {
-      logActivity?.("milestone.created", next.id, next.name);
+    if (create) {
+      logActivity?.("milestone.created", id, finalItem.name);
     } else {
-      const previous = milestones.find((m) => m.id === next.id);
+      const previous = milestones.find((m) => m.id === id);
       if (previous && logActivityChanges) {
-        logActivityChanges("milestone.updated", diffFields(previous, next), next.id);
+        logActivityChanges("milestone.updated", diffFields(previous, finalItem), id);
       } else {
-        logActivity?.("milestone.updated", next.id);
+        logActivity?.("milestone.updated", id);
       }
     }
     setEditing(null);
@@ -494,7 +497,7 @@ function MilestonesPanelBody({
           milestone={editing}
           isNew={isNew}
           tasks={tasks}
-          onSave={save}
+          onSave={(m) => save(m, isNew)}
           onDelete={del}
           onClose={() => setEditing(null)}
         />
