@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.170.2] - 2026-07-10 "Doctorow"
+
+### Fixed
+
+- **Entity create no longer silently clobbers a concurrent row (data-loss race).**
+  The Stakeholders, Changes, RAID, and Milestones "Add" modals mint the new
+  row's id at modal-open; a concurrent writer (the AI create tool, a second
+  browser tab, a bulk edit) could commit that id before you saved, and the save
+  then overwrote that row instead of appending. Saves now decide create-vs-update
+  by the modal's intent (not id-existence) and re-mint a create's id if it was
+  taken, so both rows survive. (Resources was already safe; the fix is now the
+  shared `resolveEntitySave` core across all five entities.)
+- **Editing a row that was deleted elsewhere surfaces a toast** instead of
+  silently dropping the edit — across Stakeholders, Changes, RAID, Resources,
+  and Milestones.
+
 ## [0.170.1] - 2026-07-10 "Doctorow"
 
 Two TimeLog follow-up fixes for the 0.170.0 customer-scoped booking fetch. No storage format change, no new fields.
