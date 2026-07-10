@@ -8,7 +8,8 @@ import { AbsenceEditModal } from "./absence-edit-modal";
 import { ShiftEditModal } from "./shift-edit-modal";
 import { ResourceEditModal } from "./resource-edit-modal";
 import type { listContacts } from "./contacts";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
 import { useSettings } from "./use-settings";
 import { DEFAULT_FOOTER_SLOGAN } from "./settings-types";
 import type { ConflictItem } from "./jira-api";
@@ -79,7 +80,7 @@ export interface AppModalsProps {
   onCloseResourceModal: () => void;
 
   // Toast
-  toast: { kind: "info" | "error"; text: string } | null;
+  toast: { kind: "info" | "error"; text: string; action?: { labelKey: import("./i18n").TranslationKey; run: () => void } } | null;
 }
 
 export function AppModals({
@@ -234,7 +235,18 @@ export function AppModals({
               : "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
           }`}
         >
-          {toast.text}
+          <div className="flex items-center gap-3">
+            <span>{toast.text}</span>
+            {toast.action && (
+              <button
+                type="button"
+                onClick={toast.action.run}
+                className={`shrink-0 font-medium underline underline-offset-2 ${INTERACTIVE}`}
+              >
+                {t(lang, toast.action.labelKey)}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </>

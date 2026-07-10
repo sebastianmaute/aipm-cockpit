@@ -166,7 +166,7 @@ function TaskManagerInner() {
   useApplyFavicon(settings.branding?.favicon ?? null);
   const { activityLog, setActivityLog, logActivity, logActivityChanges, handleClearActivityLog } =
     useActivityLog();
-  const { toast, showToast } = useToast();
+  const { toast, showToast, showToastAction } = useToast();
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();
@@ -2253,7 +2253,7 @@ function TaskManagerInner() {
     return (
       <ActivityLogProvider value={logActivity}>
         <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
-          <ToastProvider value={showToast}>
+          <ToastProvider value={{ showToast, showToastAction }}>
             <VoiceCommandProvider value={voiceHandlers}>
               <ConfirmProvider lang={lang}>
                 <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
@@ -2304,7 +2304,7 @@ function TaskManagerInner() {
   return (
     <ActivityLogProvider value={logActivity}>
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
-        <ToastProvider value={showToast}>
+        <ToastProvider value={{ showToast, showToastAction }}>
           <VoiceCommandProvider value={voiceHandlers}>
             <ConfirmProvider lang={lang}>
             <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>

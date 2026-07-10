@@ -59,7 +59,7 @@ function setup(templates: CommTemplate[], onChange = vi.fn(), overrides: Partial
     ...overrides,
   };
   render(
-    <ToastProvider value={showToastSpy}>
+    <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastSpy }}>
       <CommTemplatesSection lang="en-US" templates={templates} config={null} settings={defaultSettings} onChange={onChange} {...handlers} />
     </ToastProvider>,
   );

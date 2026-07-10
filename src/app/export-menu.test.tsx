@@ -35,7 +35,7 @@ const PLAN: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", gra
 
 function renderMenu(showToastSpy: (kind: "info" | "error", text: string) => void) {
   return render(
-    <ToastProvider value={showToastSpy}>
+    <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastSpy }}>
       <ExportMenu
         lang="en-US"
         tasks={[]}
