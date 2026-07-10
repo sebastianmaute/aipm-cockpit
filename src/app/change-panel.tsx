@@ -89,7 +89,7 @@ export type ChangePanelProps = {
   changes: readonly ChangeItem[];
   /** YYYY-MM-DD; default `raisedDate` for new drafts + decisionDate autofill. */
   today: string;
-  onSave: (item: ChangeItem) => void;
+  onSave: (item: ChangeItem, isNew?: boolean) => void;
   onDelete: (id: number, title: string) => void;
   /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
   raidEnabled?: boolean;
@@ -327,7 +327,7 @@ function ChangePanelBody({
   function commitDraft() {
     if (!draft) return;
     if (!draft.title.trim()) return;
-    onSave(draft);
+    onSave(draft, isNew);
     closeModal();
   }
 

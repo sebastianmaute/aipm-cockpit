@@ -2421,6 +2421,7 @@ export const de: Record<TranslationKey, string> = {
   // Guard-transparency: user-facing messages surfaced when a silent-fail guard trips
   guardClipboardCopyFailed: "Kopieren in die Zwischenablage nicht möglich — prüfen Sie die Browser-Berechtigungen und versuchen Sie es erneut.",
   guardRestoreVersionMissing: "Diese Version konnte nicht mehr geladen werden — es wurde nichts wiederhergestellt.",
+  guardEditVanished: "Dieser Eintrag wurde an anderer Stelle gelöscht — Ihre Änderung wurde nicht gespeichert.",
   guardCommTemplateSaveFailed: "Vorlage konnte nicht gespeichert werden — Ihre Änderung wurde nicht gespeichert. Bitte erneut versuchen.",
   guardTimelogPartialFetch: "Buchungen für {0} Mitarbeiter konnten nicht abgerufen werden — die Summen sind möglicherweise unvollständig.",
   guardTimelogPartialProjectFetch: "Buchungen für {0} Projekt(e) konnten nicht abgerufen werden — die Summen sind möglicherweise unvollständig.",

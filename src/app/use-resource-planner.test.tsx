@@ -229,6 +229,22 @@ describe("useResourcePlanner", () => {
       expect(logActivity).toHaveBeenCalledWith("resource.updated", 2, "Marc Jordan");
     });
 
+    it("surfaces a toast and drops the edit when the resource was concurrently deleted", () => {
+      const showToast = vi.fn();
+      const { result } = renderPlanner({ showToast });
+      const ghost: Resource = {
+        id: 9, firstName: "Ghost", lastName: "Gone",
+        roleId: null, utilizationMode: "percent", utilization: {},
+      };
+      // Open the editor (isNew=false intent), but the row is NOT in the list —
+      // a concurrent writer deleted it between open and save.
+      act(() => { result.current.planner.handleEditResource(ghost); });
+      act(() => { result.current.planner.handleSaveResource(ghost); });
+      expect(result.current.workspace.resources.find((r) => r.id === 9)).toBeUndefined();
+      expect(result.current.planner.editingResource).toBeNull(); // modal still closed
+      expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    });
+
     it("handleDeleteResource logs resource.deleted with name", () => {
       const logActivity = vi.fn();
       const { result } = renderPlanner({ logActivity });
@@ -491,6 +507,41 @@ describe("useResourcePlanner", () => {
       expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
       expect(logActivity).toHaveBeenCalledWith("raid.statusChanged", 1, "Open", "Realized");
       expect(logActivity).toHaveBeenCalledWith("raid.autoIssue", 1, expect.any(Number));
+    });
+
+    it("re-mints a known-create whose open-time id was taken since — no clobber (id-mint race)", () => {
+      const { result } = renderPlanner();
+      const mk = (id: number, title: string): RaidItem => ({
+        id, category: "R", title, description: "", severity: "Medium", status: "Open",
+        owner: "", ownerEmail: "", mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [],
+        stakeholderIds: [], raisedDate: "2026-05-20", targetDate: undefined,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      });
+      // A concurrent writer committed id 1 after this modal opened at id 1.
+      act(() => { result.current.planner.handleSaveRaidItem(mk(1, "Existing")); });
+      // The modal now saves as a KNOWN create (isNew=true).
+      act(() => { result.current.planner.handleSaveRaidItem(mk(1, "Fresh"), true); });
+      const raid = result.current.workspace.raid as RaidItem[];
+      expect(raid).toHaveLength(2);
+      expect(raid.find((r) => r.title === "Existing")).toBeTruthy();
+      const fresh = raid.find((r) => r.title === "Fresh");
+      expect(fresh).toBeTruthy();
+      expect(fresh?.id).not.toBe(1);
+    });
+
+    it("surfaces a toast and drops the edit when the RAID row was concurrently deleted", () => {
+      const showToast = vi.fn();
+      const { result } = renderPlanner({ showToast });
+      const ghost: RaidItem = {
+        id: 9, category: "R", title: "Ghost", description: "", severity: "Medium", status: "Open",
+        owner: "", ownerEmail: "", mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [],
+        stakeholderIds: [], raisedDate: "2026-05-20", targetDate: undefined,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      };
+      // Editing (isNew=false) a row not in the list — deleted by a concurrent writer.
+      act(() => { result.current.planner.handleSaveRaidItem(ghost, false); });
+      expect(result.current.workspace.raid).toHaveLength(0);
+      expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
     });
 
     it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {

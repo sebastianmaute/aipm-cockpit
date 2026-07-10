@@ -29,6 +29,9 @@ import {
 } from "./milestones";
 import { type Lang, t } from "./i18n";
 import { nextId } from "./resource-foundation";
+import { resolveEntitySave } from "./entity-id-mint";
+import { reportSilentFailure } from "./guard-feedback";
+import { useToastContext } from "./toast-context";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton, PrintButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
@@ -129,6 +132,7 @@ function MilestonesPanelBody({
   const { ref, reset: resetSize } = useResizable("lop-app:milestones-size-full");
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const showToast = useToastContext();
   const pf = usePanelFilters();
   const hiddenSet = new Set(pf.hiddenCols ?? []);
 
@@ -238,22 +242,29 @@ function MilestonesPanelBody({
     clearPendingOpen();
   }, [pendingOpen, milestones, editing, setEditing, clearPendingOpen]);
 
-  function save(next: Milestone) {
-    const creating = !milestones.some((m) => m.id === next.id);
+  // isNewIntent carries the modal's create/edit intent so a create can't be
+  // misread as an update and clobber a row committed since the modal opened
+  // (id-mint race). Bulk edit omits it → id-existence fallback (unchanged).
+  function save(next: Milestone, isNewIntent?: boolean) {
+    const { create, id } = resolveEntitySave(milestones, next.id, isNewIntent, () => nextId(milestones));
+    const finalItem: Milestone = { ...next, id };
+    const previous = create ? undefined : milestones.find((m) => m.id === id);
+    // Editing a row a concurrent writer already deleted: the map-replace below
+    // would silently no-op. Surface it instead of dropping the edit in silence.
+    if (!create && !previous) {
+      reportSilentFailure(showToast, lang, "milestone.editVanished", "concurrent delete during edit", "guardEditVanished");
+      setEditing(null);
+      return;
+    }
     setMilestones((prev) =>
-      prev.some((m) => m.id === next.id)
-        ? prev.map((m) => (m.id === next.id ? next : m))
-        : [...prev, next],
+      create ? [...prev, finalItem] : prev.map((m) => (m.id === id ? finalItem : m)),
     );
-    if (creating) {
-      logActivity?.("milestone.created", next.id, next.name);
+    if (create) {
+      logActivity?.("milestone.created", id, finalItem.name);
+    } else if (previous && logActivityChanges) {
+      logActivityChanges("milestone.updated", diffFields(previous, finalItem), id);
     } else {
-      const previous = milestones.find((m) => m.id === next.id);
-      if (previous && logActivityChanges) {
-        logActivityChanges("milestone.updated", diffFields(previous, next), next.id);
-      } else {
-        logActivity?.("milestone.updated", next.id);
-      }
+      logActivity?.("milestone.updated", id);
     }
     setEditing(null);
   }
@@ -494,7 +505,7 @@ function MilestonesPanelBody({
           milestone={editing}
           isNew={isNew}
           tasks={tasks}
-          onSave={save}
+          onSave={(m) => save(m, isNew)}
           onDelete={del}
           onClose={() => setEditing(null)}
         />

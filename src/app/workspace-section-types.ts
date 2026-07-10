@@ -97,13 +97,15 @@ export interface WorkspaceSectionProps {
   contactsList: Contact[];
   onCreateResource: (name: string, email: string) => number;
   handleClearRaidTaskFilter: () => void;
-  handleSaveRaidItem: (item: RaidItem) => void;
+  // isNew carries the modal's create/edit intent (id-mint race fix — see
+  // entity-id-mint.ts); non-modal callers (bulk edit) omit it.
+  handleSaveRaidItem: (item: RaidItem, isNew?: boolean) => void;
   handleDeleteRaidItem: (id: number) => void;
   changes: readonly ChangeItem[];
-  handleSaveChange: (item: ChangeItem) => void;
+  handleSaveChange: (item: ChangeItem, isNew?: boolean) => void;
   handleDeleteChange: (id: number, title: string) => void;
   stakeholders: readonly Stakeholder[];
-  handleSaveStakeholder: (item: Stakeholder) => void;
+  handleSaveStakeholder: (item: Stakeholder, isNew?: boolean) => void;
   handleDeleteStakeholder: (id: number, name: string) => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
   commsPendingStakeholderIds?: ReadonlySet<number>;

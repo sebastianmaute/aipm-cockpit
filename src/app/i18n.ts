@@ -2449,6 +2449,7 @@ const enUS = {
   // Guard-transparency: user-facing messages surfaced when a silent-fail guard trips
   guardClipboardCopyFailed: "Couldn't copy to clipboard — check browser permissions and try again.",
   guardRestoreVersionMissing: "This version could no longer be loaded — nothing was restored.",
+  guardEditVanished: "This item was deleted elsewhere — your change wasn't saved.",
   guardCommTemplateSaveFailed: "Couldn't save the template — your change wasn't stored. Please retry.",
   guardTimelogPartialFetch: "Bookings for {0} employee(s) couldn't be fetched — totals may be incomplete.",
   guardTimelogPartialProjectFetch: "Bookings for {0} project(s) couldn't be fetched — totals may be incomplete.",

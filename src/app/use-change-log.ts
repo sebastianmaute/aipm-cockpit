@@ -1,8 +1,11 @@
 "use client";
 import { useCallback } from "react";
 import { useWorkspace } from "./workspace-context";
-import { isPendingChange } from "./change-log";
+import { isPendingChange, nextChangeId } from "./change-log";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
+import { resolveEntitySave } from "./entity-id-mint";
+import { reportSilentFailure } from "./guard-feedback";
+import type { Lang } from "./i18n";
 import type { ChangeItem, ChangeStatus } from "./types";
 
 /** Status transition: auto-fill decisionDate the first time the item leaves the
@@ -18,6 +21,8 @@ export function applyChangeStatus(item: ChangeItem, status: ChangeStatus, today:
 
 export interface UseChangeLogArgs {
   today: string;
+  lang?: Lang;
+  showToast?: (kind: "info" | "error", text: string) => void;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   logActivityChanges?: (
     kind: ActivityKind,
@@ -29,24 +34,34 @@ export interface UseChangeLogArgs {
 export function useChangeLog(args: UseChangeLogArgs) {
   const { changes, setChanges } = useWorkspace();
 
-  const handleSaveChange = useCallback((item: ChangeItem) => {
-    const withStamp: ChangeItem = { ...item, localModifiedAt: new Date().toISOString() };
-    const previous = changes.find((c) => c.id === item.id);
-    const isNew = previous === undefined;
+  // isNew carries the modal's create/edit intent so a create can't be misread as
+  // an update and clobber a row committed since the modal opened (id-mint race).
+  // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
+  const handleSaveChange = useCallback((item: ChangeItem, isNew?: boolean) => {
+    const { create, id } = resolveEntitySave(changes, item.id, isNew, () => nextChangeId(changes));
+    const withStamp: ChangeItem = { ...item, id, localModifiedAt: new Date().toISOString() };
+    const previous = create ? undefined : changes.find((c) => c.id === id);
+    // Editing a row a concurrent writer already deleted: the map-replace below
+    // would silently no-op. Surface it instead of dropping the edit in silence.
+    if (!create && !previous) {
+      if (args.showToast && args.lang) {
+        reportSilentFailure(args.showToast, args.lang, "change.editVanished", "concurrent delete during edit", "guardEditVanished");
+      }
+      return;
+    }
     // Functional updater so N back-to-back saves in one tick (bulk edit) each
     // see the latest array and compose, instead of all reading the same stale
     // closure and the last write clobbering the rest.
-    setChanges((prev) => {
-      const idx = prev.findIndex((c) => c.id === item.id);
-      return idx < 0 ? [...prev, withStamp] : prev.map((c) => (c.id === item.id ? withStamp : c));
-    });
-    if (isNew) {
-      args.logActivity?.("change.created", item.id, item.title);
-    } else if (args.logActivityChanges) {
-      args.logActivityChanges("change.updated", diffFields(previous, withStamp), item.id, item.title);
+    setChanges((prev) =>
+      create ? [...prev, withStamp] : prev.map((c) => (c.id === id ? withStamp : c)),
+    );
+    if (create) {
+      args.logActivity?.("change.created", id, item.title);
+    } else if (previous && args.logActivityChanges) {
+      args.logActivityChanges("change.updated", diffFields(previous, withStamp), id, item.title);
     } else {
       // Back-compat: a caller wiring only logActivity still records the update.
-      args.logActivity?.("change.updated", item.id, item.title);
+      args.logActivity?.("change.updated", id, item.title);
     }
   }, [changes, setChanges, args]);
 

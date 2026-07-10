@@ -78,7 +78,7 @@ export type RaidPanelProps = {
   onClearTaskFilter: () => void;
   /** Upsert (create or replace) a RAID item. The parent stamps
    *  `localModifiedAt`. */
-  onSave: (item: RaidItem) => void;
+  onSave: (item: RaidItem, isNew?: boolean) => void;
   onDelete: (id: number) => void;
   /** Spawns a Task pre-filled from the item; returns its new id so the
    *  modal can add it to `linkedTaskIds` immediately. In a read-only (popout)
@@ -358,7 +358,7 @@ function RaidPanelBody({
   function commitDraft() {
     if (!draft) return;
     if (!draft.title.trim()) return;
-    onSave(draft);
+    onSave(draft, isNew);
     closeModal();
   }
 
@@ -370,7 +370,7 @@ function RaidPanelBody({
 
   function commitCreateMitigationTask() {
     if (!draft || isNew) return;
-    onSave(draft);
+    onSave(draft, false); // guarded above: only ever an existing item
     const newTaskId = onCreateMitigationTask(draft.id);
     if (newTaskId != null) {
       setDraft({ ...draft, linkedTaskIds: [...draft.linkedTaskIds, newTaskId] });

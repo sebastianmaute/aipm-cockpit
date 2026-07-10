@@ -2,10 +2,16 @@
 import { useCallback } from "react";
 import { useWorkspace } from "./workspace-context";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
+import { resolveEntitySave } from "./entity-id-mint";
+import { reportSilentFailure } from "./guard-feedback";
+import { nextStakeholderId } from "./stakeholders";
+import type { Lang } from "./i18n";
 import type { Stakeholder } from "./types";
 
 export interface UseStakeholdersArgs {
   today: string;
+  lang?: Lang;
+  showToast?: (kind: "info" | "error", text: string) => void;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   logActivityChanges?: (
     kind: ActivityKind,
@@ -17,22 +23,34 @@ export interface UseStakeholdersArgs {
 export function useStakeholders(args: UseStakeholdersArgs) {
   const { stakeholders, setStakeholders } = useWorkspace();
 
-  const handleSaveStakeholder = useCallback((item: Stakeholder) => {
-    const withStamp: Stakeholder = { ...item, localModifiedAt: new Date().toISOString() };
-    const previous = stakeholders.find((s) => s.id === item.id);
-    const isNew = previous === undefined;
+  // isNew carries the modal's create/edit intent so a create can't be misread as
+  // an update and clobber a row committed since the modal opened (id-mint race).
+  // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
+  const handleSaveStakeholder = useCallback((item: Stakeholder, isNew?: boolean) => {
+    const { create, id } = resolveEntitySave(stakeholders, item.id, isNew, () =>
+      nextStakeholderId(stakeholders),
+    );
+    const withStamp: Stakeholder = { ...item, id, localModifiedAt: new Date().toISOString() };
+    const previous = create ? undefined : stakeholders.find((s) => s.id === id);
+    // Editing a row a concurrent writer already deleted: the map-replace below
+    // would silently no-op. Surface it instead of dropping the edit in silence.
+    if (!create && !previous) {
+      if (args.showToast && args.lang) {
+        reportSilentFailure(args.showToast, args.lang, "stakeholder.editVanished", "concurrent delete during edit", "guardEditVanished");
+      }
+      return;
+    }
     // Functional updater so N back-to-back saves in one tick (bulk edit) compose
     // instead of each reading the same stale closure (last write would win).
-    setStakeholders((prev) => {
-      const idx = prev.findIndex((s) => s.id === item.id);
-      return idx < 0 ? [...prev, withStamp] : prev.map((s) => (s.id === item.id ? withStamp : s));
-    });
-    if (isNew) {
-      args.logActivity?.("stakeholder.created", item.id, item.name);
-    } else if (args.logActivityChanges) {
-      args.logActivityChanges("stakeholder.updated", diffFields(previous, withStamp), item.id, item.name);
+    setStakeholders((prev) =>
+      create ? [...prev, withStamp] : prev.map((s) => (s.id === id ? withStamp : s)),
+    );
+    if (create) {
+      args.logActivity?.("stakeholder.created", id, item.name);
+    } else if (previous && args.logActivityChanges) {
+      args.logActivityChanges("stakeholder.updated", diffFields(previous, withStamp), id, item.name);
     } else {
-      args.logActivity?.("stakeholder.updated", item.id, item.name);
+      args.logActivity?.("stakeholder.updated", id, item.name);
     }
   }, [stakeholders, setStakeholders, args]);
 
