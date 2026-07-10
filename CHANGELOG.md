@@ -8,6 +8,25 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.176.0] - 2026-07-11 "Tchaikovsky"
+
+### Planning / budget batch
+
+- **Planning:** the utilization input now shows a mode-aware suffix — `%` in percent
+  mode, `h` in hours mode (decorative; the cost line keeps the currency symbol).
+- **Planning + budget:** period date-column headers are left-aligned (editable planning
+  grid, the collapsible planning rollup, and the budget bucket tables); numeric cell
+  values stay right-aligned.
+- **Budget — "budget hours follow plan" (opt-in, per project, default off):** a toolbar
+  toggle. When on, budget-hours cells for allocations with assigned resources mirror the
+  planned capacity, read-only and live; lines with no assigned resource stay manually
+  editable. All budget aggregates (row/bucket RAG, Budget-hours card, margin/CPI/
+  consumption, win/loss, project rollup) follow planned under the toggle, so the cell and
+  the totals never contradict. Persisted on the plan (`ResourcePlan.budgetFollowsPlan`);
+  existing Turso databases self-heal the new column on first save.
+- **Budget:** a bucket-name search box beside the existing role filter (the two compose);
+  a "no matches" line when a search filters out every bucket.
+
 ## [0.175.0] - 2026-07-10 "Bear"
 
 ### Added
