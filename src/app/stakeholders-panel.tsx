@@ -73,6 +73,8 @@ export interface StakeholdersPanelProps {
   milestones: readonly Milestone[];
   onSave: (item: Stakeholder, isNew?: boolean) => void;
   onDelete: (id: number, name: string) => void;
+  /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
+  onCaptureBulk?: (ids: readonly number[]) => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
   commsPendingStakeholderIds?: ReadonlySet<number>;
   /** Jump to the Action Center for the given stakeholder. */
@@ -128,6 +130,7 @@ function StakeholdersPanelBody({
   milestones,
   onSave,
   onDelete,
+  onCaptureBulk,
   commsPendingStakeholderIds,
   onJumpToComms,
   showHints,
@@ -200,6 +203,7 @@ function StakeholdersPanelBody({
   );
 
   const applyBulk = (changes: Record<string, string>) => {
+    onCaptureBulk?.(Array.from(sel.selectedIds));
     for (const id of sel.selectedIds) {
       const item = stakeholderById.get(id);
       if (!item) continue;

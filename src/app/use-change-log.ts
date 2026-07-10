@@ -7,6 +7,7 @@ import { resolveEntitySave } from "./entity-id-mint";
 import { reportSilentFailure } from "./guard-feedback";
 import type { Lang } from "./i18n";
 import type { ChangeItem, ChangeStatus } from "./types";
+import type { UndoStackApi } from "./undo/use-undo-stack";
 
 /** Status transition: auto-fill decisionDate the first time the item leaves the
  *  pending set; clear it if it returns to pending. Pure + exported for testing. */
@@ -29,6 +30,8 @@ export interface UseChangeLogArgs {
     changes: readonly FieldChange[],
     ...args: (string | number)[]
   ) => void;
+  /** Capture a pre-op snapshot for undo (delete removes the row). */
+  capture?: UndoStackApi["capture"];
 }
 
 export function useChangeLog(args: UseChangeLogArgs) {
@@ -66,9 +69,18 @@ export function useChangeLog(args: UseChangeLogArgs) {
   }, [changes, setChanges, args]);
 
   const handleDeleteChange = useCallback((id: number, title: string) => {
+    const doomed = changes.find((c) => c.id === id);
+    if (doomed) args.capture?.({ setter: setChanges, kind: "change.deleted", before: [doomed], fromArray: changes });
     setChanges((prev) => prev.filter((c) => c.id !== id));
     args.logActivity?.("change.deleted", id, title);
-  }, [setChanges, args]);
+  }, [changes, setChanges, args]);
 
-  return { changes, handleSaveChange, handleDeleteChange };
+  // Snapshot the selected rows' pre-edit images before a bulk edit loops the
+  // per-row save handler; call BEFORE the loop mutates them.
+  const captureBulkUndo = useCallback((ids: readonly number[]) => {
+    const before = changes.filter((c) => ids.includes(c.id));
+    if (before.length) args.capture?.({ setter: setChanges, kind: "bulk.edit", before, fromArray: changes });
+  }, [changes, setChanges, args]);
+
+  return { changes, handleSaveChange, handleDeleteChange, captureBulkUndo };
 }

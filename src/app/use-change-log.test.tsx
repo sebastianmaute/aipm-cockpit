@@ -83,6 +83,20 @@ describe("useChangeLog — logActivity", () => {
     expect(logActivity).toHaveBeenCalledWith("change.deleted", 5, "To delete");
   });
 
+  it("captures the deleted change for undo before removing it", () => {
+    const capture = vi.fn();
+    const { result } = renderHook(
+      () => useChangeLog({ today: "2026-06-09", capture }),
+      { wrapper: Wrapper },
+    );
+    act(() => result.current.handleSaveChange(ci({ id: 5, title: "To delete" })));
+    act(() => result.current.handleDeleteChange(5, "To delete"));
+    expect(capture).toHaveBeenCalledTimes(1);
+    const opts = capture.mock.calls[0][0] as { kind: string; before: { id: number }[] };
+    expect(opts.kind).toBe("change.deleted");
+    expect(opts.before.map((c) => c.id)).toEqual([5]);
+  });
+
   it("logs change.updated WITH a per-field diff when logActivityChanges is wired (#22)", () => {
     const logActivity = vi.fn<(kind: ActivityKind, ...args: (string | number)[]) => void>();
     const logActivityChanges =

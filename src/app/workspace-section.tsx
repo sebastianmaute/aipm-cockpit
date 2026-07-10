@@ -106,9 +106,11 @@ export function WorkspaceSection({
   changes,
   handleSaveChange,
   handleDeleteChange,
+  onCaptureChangeBulk,
   stakeholders,
   handleSaveStakeholder,
   handleDeleteStakeholder,
+  onCaptureStakeholderBulk,
   commsPendingStakeholderIds,
   onJumpToComms,
   handleCreateMitigationTaskFromRaid,
@@ -568,6 +570,7 @@ export function WorkspaceSection({
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
+              onCaptureBulk={onCaptureChangeBulk}
               raidEnabled={raidEnabledForChanges}
               stakeholdersEnabled={stakeholdersEnabled}
               stakeholders={stakeholders}
@@ -603,6 +606,7 @@ export function WorkspaceSection({
               milestones={milestones}
               onSave={handleSaveStakeholder}
               onDelete={handleDeleteStakeholder}
+              onCaptureBulk={onCaptureStakeholderBulk}
               commsPendingStakeholderIds={commsPendingStakeholderIds}
               onJumpToComms={onJumpToComms}
               showHints={settings.showViewHints !== false}

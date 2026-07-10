@@ -90,6 +90,20 @@ describe("useStakeholders — logActivity", () => {
     expect(logActivity).toHaveBeenCalledWith("stakeholder.deleted", 7, "S7");
   });
 
+  it("captures the deleted stakeholder for undo before removing it", () => {
+    const capture = vi.fn();
+    const { result } = renderHook(
+      () => useStakeholders({ today: "2026-06-09", capture }),
+      { wrapper: Wrapper },
+    );
+    act(() => result.current.handleSaveStakeholder(mk(7)));
+    act(() => result.current.handleDeleteStakeholder(7, "S7"));
+    expect(capture).toHaveBeenCalledTimes(1);
+    const opts = capture.mock.calls[0][0] as { kind: string; before: { id: number }[] };
+    expect(opts.kind).toBe("stakeholder.deleted");
+    expect(opts.before.map((s) => s.id)).toEqual([7]);
+  });
+
   it("routes stakeholder.updated through logActivityChanges with a diff (#22)", () => {
     const logActivity = vi.fn<(kind: ActivityKind, ...args: (string | number)[]) => void>();
     const logActivityChanges =

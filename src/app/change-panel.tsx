@@ -91,6 +91,8 @@ export type ChangePanelProps = {
   today: string;
   onSave: (item: ChangeItem, isNew?: boolean) => void;
   onDelete: (id: number, title: string) => void;
+  /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
+  onCaptureBulk?: (ids: readonly number[]) => void;
   /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
   raidEnabled?: boolean;
   /** When false, the Stakeholders picker is hidden in the edit modal. Default true. */
@@ -174,6 +176,7 @@ function ChangePanelBody({
   today,
   onSave,
   onDelete,
+  onCaptureBulk,
   raidEnabled = true,
   stakeholdersEnabled = true,
   stakeholders = [],
@@ -262,6 +265,7 @@ function ChangePanelBody({
   );
 
   const applyBulk = (patch: Record<string, string>) => {
+    onCaptureBulk?.(Array.from(sel.selectedIds));
     for (const id of sel.selectedIds) {
       const item = changesById.get(id);
       if (!item) continue;
