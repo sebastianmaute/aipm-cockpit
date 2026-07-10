@@ -62,6 +62,9 @@ import { useCalendarIntegrations } from "./use-calendar-integrations";
 import { useActionCenterHandlers } from "./use-action-center-handlers";
 import { useAiOrchestration } from "./use-ai-orchestration";
 import { buildShellChrome } from "./shell-chrome";
+import { useUndoStack } from "./undo/use-undo-stack";
+import { useUndoHotkey } from "./use-undo-hotkey";
+import { UndoControl } from "./undo/undo-control";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -167,6 +170,10 @@ function TaskManagerInner() {
   const { activityLog, setActivityLog, logActivity, logActivityChanges, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction } = useToast();
+  // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
+  // capture is threaded into each entity hook below; undo/control are surfaces.
+  const undoApi = useUndoStack({ lang, logActivity, showToast, showToastAction });
+  useUndoHotkey(undoApi.undo);
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();
@@ -2002,6 +2009,9 @@ function TaskManagerInner() {
 
   // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
   // built together in buildShellChrome so a new top-bar control lands in BOTH.
+  const undoControlEl = isPopout ? null : (
+    <UndoControl lang={lang} depth={undoApi.stack.length} onUndo={undoApi.undo} />
+  );
   const { appHeaderEl, topBarMenus } = buildShellChrome({
     handleCancelEdit,
     setTaskModalOpen,
@@ -2026,6 +2036,7 @@ function TaskManagerInner() {
     projectTemplates,
     handleSaveTemplate,
     handleApplyTemplate,
+    undoControl: undoControlEl,
   });
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic

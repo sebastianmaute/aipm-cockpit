@@ -52,6 +52,9 @@ export interface ShellChromeDeps {
   projectTemplates: readonly ProjectTemplate[];
   handleSaveTemplate: (input: SaveTemplateInput) => void;
   handleApplyTemplate: (id: string, opts: { includeSeed: boolean }) => void;
+  /** Top-bar undo control (or null in popouts / empty stack). Placed in BOTH
+   *  header mounts so it can't go missing in one layout. */
+  undoControl: ReactNode;
 }
 
 // NOT a hook — a plain builder that returns render output (JSX). It calls no
@@ -83,6 +86,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
     projectTemplates,
     handleSaveTemplate,
     handleApplyTemplate,
+    undoControl,
   } = deps;
 
   // Session display-timezone switcher. Sits in both header sites alongside the
@@ -93,6 +97,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
 
   const topBarMenus = (
     <>
+      {undoControl}
       {displayTzSwitcherEl}
       <ActionMenus
         lang={lang}
@@ -132,6 +137,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       trailing={
         <div className="flex items-center gap-2">
           <GlobalSearchConnected lang={lang} />
+          {undoControl}
           {displayTzSwitcherEl}
         </div>
       }
