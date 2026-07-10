@@ -258,3 +258,20 @@ test("gantt root pane has print-root and print-landscape classes", () => {
   expect(src).toMatch(/print-root/);
   expect(src).toMatch(/print-landscape/);
 });
+
+describe("GanttPanel baseline ghost range folding", () => {
+  it("folds a far baseline date into the range so the ghost diamond stays on-axis", () => {
+    const milestones: Milestone[] = [
+      { id: 1, name: "M1", date: dayPlus(0), linkedTaskIds: [] },
+    ];
+    // Baseline pinned ~200 days before the live milestone (a big slip). Without
+    // folding it into the range, its ghost x would be far negative (off-axis).
+    const baselineMilestoneDates = new Map<number, string>([[1, dayPlus(-200)]]);
+    const { container } = render(
+      <GanttPanel {...BASE_PROPS} milestones={milestones} baselineMilestoneDates={baselineMilestoneDates} />,
+    );
+    const ghost = container.querySelector("rect[fill='none'][stroke='var(--line)']");
+    expect(ghost).not.toBeNull();
+    expect(Number(ghost!.getAttribute("x"))).toBeGreaterThanOrEqual(0);
+  });
+});

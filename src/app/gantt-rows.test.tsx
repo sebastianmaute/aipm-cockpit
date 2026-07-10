@@ -35,7 +35,12 @@ describe("GanttMilestoneRow ghost baseline", () => {
     const { getByText } = render(
       <GanttMilestoneRow m={m} {...base} baselineDate="2026-06-25" showBaseline />,
     );
-    expect(getByText("−5d")).toBeInTheDocument(); // live is 5 days earlier
+    const label = getByText("−5d"); // live is 5 days earlier
+    expect(label).toBeInTheDocument();
+    // The ghost sits RIGHT of the live diamond for a pulled-in slip, so the label
+    // must anchor right of the ghost (bx), not the live diamond (mx), or it overlaps.
+    // mx = diffDays(2026-06-01, 2026-06-20)*28 = 532; bx = diffDays(..., 2026-06-25)*28 = 672.
+    expect((label as HTMLElement).style.left).toBe(`${672 + 14}px`);
   });
 
   it("renders no ghost when showBaseline is off", () => {

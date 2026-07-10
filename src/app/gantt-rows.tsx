@@ -528,7 +528,10 @@ export function GanttMilestoneRow({
         {showGhost && (
           <span
             className="pointer-events-none absolute -translate-y-1/2 text-[10px] text-muted-foreground"
-            style={{ left: mx + MILESTONE_DIAMOND_PX, top: ROW_HEIGHT_PX / 2 }}
+            // Right of whichever diamond is rightmost — for a negative (pulled-in)
+            // slip the ghost sits right of the live diamond, so anchoring on `mx`
+            // alone would overlap it.
+            style={{ left: Math.max(mx, bx) + MILESTONE_DIAMOND_PX, top: ROW_HEIGHT_PX / 2 }}
             aria-hidden="true"
           >
             {slipLabel}
