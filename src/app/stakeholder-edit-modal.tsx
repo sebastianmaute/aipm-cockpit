@@ -166,6 +166,7 @@ export function StakeholderEditModal({
       onSubmit={handleSubmit}
       offset={offset}
       dragHandleProps={handleProps}
+      persistKey="stakeholder-edit"
     >
           {/* Name */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">

@@ -237,6 +237,7 @@ export function ChangeEditModal({
       onSubmit={handleSubmit}
       offset={offset}
       dragHandleProps={handleProps}
+      persistKey="change-edit"
     >
           {/* Title */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">

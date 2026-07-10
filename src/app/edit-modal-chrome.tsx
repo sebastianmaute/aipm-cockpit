@@ -24,6 +24,9 @@ interface EditModalShellProps {
   onSubmit: (e: React.FormEvent) => void;
   offset: Offset;
   dragHandleProps: DragHandleProps;
+  /** Opt the shared dialog into draggable + resizable chrome with per-modal
+   *  geometry persistence (see `Modal`). Omitted → centered, no persistence. */
+  persistKey?: string;
   children: ReactNode;
 }
 
@@ -42,6 +45,7 @@ export function EditModalShell({
   onSubmit,
   offset,
   dragHandleProps,
+  persistKey,
   children,
 }: EditModalShellProps) {
   return (
@@ -52,6 +56,8 @@ export function EditModalShell({
       align="center"
       backdropClassName="bg-AIPM-dark-blue/40"
       zIndex={50}
+      lang={lang}
+      persistKey={persistKey}
     >
       <div
         data-modal-panel

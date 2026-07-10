@@ -205,6 +205,8 @@ const enUS = {
   edit: "Edit",
   clear: "Clear",
   loading: "Loading…",
+  modalMove: "Move dialog",
+  modalResetSize: "Reset dialog size",
   diagnosticsTitle: "Diagnostics",
   diagnosticsIntro: "Recent technical events on this device. No project content or secrets are recorded.",
   diagnosticsCopyBundle: "Copy diagnostic bundle",

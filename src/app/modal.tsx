@@ -26,11 +26,28 @@
 // trapped focus or restored it on close — this component fixes all four.
 
 import {
+  useCallback,
   useEffect,
   useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
 } from "react";
+import {
+  clampToViewport,
+  loadGeom,
+  serializeGeom,
+  type ModalGeom,
+} from "./modal-geometry";
+import { type Lang, t } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
+import { useMediaQuery } from "./use-media-query";
+import { SIDEBAR_NARROW_QUERY } from "./use-sidebar-collapsed";
+
+// localStorage prefix for per-modal persisted geometry (only when a caller
+// opts in with `persistKey`).
+const GEOM_KEY_PREFIX = "lop-app:modal-geom:";
 
 // Stack of currently-open modal tokens (mount order). Only the TOPMOST modal
 // responds to Escape / Tab so a nested modal (e.g. the setup wizard opened from
@@ -65,6 +82,16 @@ interface BaseProps {
   /** Optional element to focus when the modal opens. Falls back to the
    *  dialog root (so the next Tab walks naturally into the first input). */
   initialFocusRef?: RefObject<HTMLElement | null>;
+  /** Language for the drag-handle / reset-size accessible labels. Defaults to
+   *  en-US so plain callers (which pass a pre-translated `ariaLabel`) don't
+   *  have to thread it. */
+  lang?: Lang;
+  /** Opt a modal into draggable + resizable chrome. When set (and the viewport
+   *  is not narrow), the panel gets a move handle + reset button + resize grip,
+   *  and its geometry persists to `lop-app:modal-geom:<persistKey>`. Modals
+   *  without a persistKey stay centered with NO drag chrome (preserves the
+   *  focus-trap contract + keyboard operability of the simple dialogs). */
+  persistKey?: string;
   children: ReactNode;
 }
 
@@ -83,9 +110,12 @@ export function Modal({
   align = "start",
   zIndex = 40,
   initialFocusRef,
+  lang = "en-US",
+  persistKey,
   children,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const pressStartedOnBackdrop = useRef(false);
   // Stable per-instance token for the open-modal stack (topmost-only handling).
   const tokenRef = useRef<symbol>(Symbol("modal"));
@@ -198,7 +228,136 @@ export function Modal({
     // onClose is read via onCloseRef, so [open] is the complete dep set.
   }, [open]);
 
+  // --- Draggable / resizable geometry (opt-in via persistKey) -------------
+  // Below the app's narrow breakpoint we keep the modal centered/full-screen
+  // with drag+resize DISABLED and never persist.
+  const isNarrow = useMediaQuery(SIDEBAR_NARROW_QUERY);
+
+  const [geom, setGeomState] = useState<ModalGeom | null>(() => {
+    if (!persistKey || typeof window === "undefined") return null;
+    try {
+      const loaded = loadGeom(
+        window.localStorage.getItem(GEOM_KEY_PREFIX + persistKey),
+      );
+      if (!loaded) return null;
+      return clampToViewport(loaded, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    } catch {
+      return null;
+    }
+  });
+  // Mirror geom in a ref so a pointerup at the end of a gesture persists the
+  // latest value without waiting for a state flush.
+  const geomRef = useRef<ModalGeom | null>(geom);
+  const setGeom = useCallback((g: ModalGeom | null) => {
+    geomRef.current = g;
+    setGeomState(g);
+  }, []);
+
+  const draggable = !!persistKey && !isNarrow;
+
+  const persistGeom = useCallback(
+    (g: ModalGeom | null) => {
+      if (!persistKey || isNarrow || typeof window === "undefined") return;
+      try {
+        if (g) {
+          window.localStorage.setItem(
+            GEOM_KEY_PREFIX + persistKey,
+            serializeGeom(g),
+          );
+        } else {
+          window.localStorage.removeItem(GEOM_KEY_PREFIX + persistKey);
+        }
+      } catch {
+        /* ignore quota / disabled storage */
+      }
+    },
+    [persistKey, isNarrow],
+  );
+
+  const resetGeom = useCallback(() => {
+    setGeom(null);
+    if (persistKey && typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(GEOM_KEY_PREFIX + persistKey);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [persistKey, setGeom]);
+
+  // Base geometry for a gesture: the live geom if positioned, else the panel's
+  // current on-screen rect (so the first drag/resize starts from the centered
+  // position).
+  const baseGeom = useCallback((): ModalGeom => {
+    if (geomRef.current) return geomRef.current;
+    const r = panelRef.current?.getBoundingClientRect();
+    return {
+      x: r?.left ?? 0,
+      y: r?.top ?? 0,
+      w: r?.width ?? 0,
+      h: r?.height ?? 0,
+    };
+  }, []);
+
+  const runGesture = useCallback(
+    (
+      e: ReactPointerEvent,
+      compute: (base: ModalGeom, dx: number, dy: number) => ModalGeom,
+    ) => {
+      if (!draggable || typeof window === "undefined") return;
+      e.preventDefault();
+      e.stopPropagation();
+      const base = baseGeom();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const move = (ev: PointerEvent) => {
+        setGeom(
+          clampToViewport(compute(base, ev.clientX - startX, ev.clientY - startY), {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          }),
+        );
+      };
+      const end = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", end);
+        persistGeom(geomRef.current);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", end);
+    },
+    [draggable, baseGeom, setGeom, persistGeom],
+  );
+
+  const beginDrag = useCallback(
+    (e: ReactPointerEvent) =>
+      runGesture(e, (base, dx, dy) => ({
+        x: base.x + dx,
+        y: base.y + dy,
+        w: base.w,
+        h: base.h,
+      })),
+    [runGesture],
+  );
+
+  const beginResize = useCallback(
+    (e: ReactPointerEvent) =>
+      runGesture(e, (base, dx, dy) => ({
+        x: base.x,
+        y: base.y,
+        w: base.w + dx,
+        h: base.h + dy,
+      })),
+    [runGesture],
+  );
+
   if (!open) return null;
+
+  // When narrow or not opted-in, ignore any stored geometry and stay centered.
+  const activeGeom = draggable ? geom : null;
 
   return (
     <div
@@ -220,7 +379,70 @@ export function Modal({
       } justify-center p-4 sm:p-10 ${backdropClassName}`}
       style={{ zIndex }}
     >
-      {children}
+      {draggable ? (
+        <div
+          ref={panelRef}
+          className="relative flex max-h-full flex-col"
+          style={
+            activeGeom
+              ? {
+                  position: "fixed",
+                  left: activeGeom.x,
+                  top: activeGeom.y,
+                  width: activeGeom.w,
+                  height: activeGeom.h,
+                }
+              : undefined
+          }
+        >
+          <div className="flex items-center justify-between gap-2 rounded-t-xl border border-b-0 border-line bg-surface px-2 py-1">
+            <button
+              type="button"
+              aria-label={t(lang, "modalMove")}
+              onPointerDown={beginDrag}
+              className={`cursor-move touch-none rounded p-1 text-muted-foreground hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                className="h-4 w-4"
+              >
+                <circle cx="7" cy="5" r="1.4" />
+                <circle cx="13" cy="5" r="1.4" />
+                <circle cx="7" cy="10" r="1.4" />
+                <circle cx="13" cy="10" r="1.4" />
+                <circle cx="7" cy="15" r="1.4" />
+                <circle cx="13" cy="15" r="1.4" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label={t(lang, "modalResetSize")}
+              onClick={resetGeom}
+              className={`rounded p-1 text-muted-foreground hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                className="h-4 w-4"
+              >
+                <path d="M10 3a7 7 0 105.66 2.87V3.5a.75.75 0 00-1.5 0v1.06A7 7 0 0010 3zm0 1.5a5.5 5.5 0 11-4.2 1.95l1.02 1.02a.75.75 0 001.06-1.06L6.1 5.53A5.47 5.47 0 0110 4.5z" />
+              </svg>
+            </button>
+          </div>
+          {children}
+          <div
+            aria-hidden="true"
+            tabIndex={-1}
+            onPointerDown={beginResize}
+            className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize touch-none"
+          />
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }

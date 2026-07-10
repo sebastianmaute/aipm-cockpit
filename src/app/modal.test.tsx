@@ -162,6 +162,57 @@ describe("Modal", () => {
   });
 });
 
+// Draggable / resizable / resettable behavior — enabled only when a
+// `persistKey` is supplied (so the existing plain modals — and their
+// focus-trap tests — are byte-unaffected).
+describe("Modal — drag / resize / reset (persistKey)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  test("drags the panel by its header and clamps + persists to the viewport", () => {
+    render(
+      <Modal open onClose={() => {}} ariaLabel="Test" persistKey="test-modal">
+        <p>body</p>
+      </Modal>,
+    );
+    const handle = screen.getByLabelText(/move dialog/i);
+    fireEvent.pointerDown(handle, { clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(window, { clientX: 260, clientY: 220 });
+    fireEvent.pointerUp(window);
+    const raw = window.localStorage.getItem("lop-app:modal-geom:test-modal");
+    expect(raw).not.toBeNull();
+    const geom = JSON.parse(raw!);
+    expect(geom.x).not.toBe(0); // moved
+  });
+
+  test("reset restores the default (clears persisted geometry)", () => {
+    window.localStorage.setItem(
+      "lop-app:modal-geom:test-modal",
+      JSON.stringify({ x: 50, y: 50, w: 400, h: 300 }),
+    );
+    render(
+      <Modal open onClose={() => {}} ariaLabel="Test" persistKey="test-modal">
+        <p>body</p>
+      </Modal>,
+    );
+    fireEvent.click(screen.getByLabelText(/reset dialog size/i));
+    expect(
+      window.localStorage.getItem("lop-app:modal-geom:test-modal"),
+    ).toBeNull();
+  });
+
+  test("a modal WITHOUT a persistKey exposes no drag/reset chrome", () => {
+    render(
+      <Modal open onClose={() => {}} ariaLabel="Plain">
+        <p>body</p>
+      </Modal>,
+    );
+    expect(screen.queryByLabelText(/move dialog/i)).toBeNull();
+    expect(screen.queryByLabelText(/reset dialog size/i)).toBeNull();
+  });
+});
+
 // Nested modals (e.g. the backend setup wizard opened from inside the
 // create-project modal). Only the TOPMOST open modal may respond to Escape /
 // Tab — guards the modalStack regression that re-shipped twice.

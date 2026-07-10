@@ -87,6 +87,8 @@ export function TaskFormModal({
         isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")
       }
       backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto"
+      lang={lang}
+      persistKey="task-form"
     >
       <div
         ref={modalRef}
