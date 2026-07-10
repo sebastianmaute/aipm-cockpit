@@ -493,6 +493,26 @@ describe("useResourcePlanner", () => {
       expect(logActivity).toHaveBeenCalledWith("raid.autoIssue", 1, expect.any(Number));
     });
 
+    it("re-mints a known-create whose open-time id was taken since — no clobber (id-mint race)", () => {
+      const { result } = renderPlanner();
+      const mk = (id: number, title: string): RaidItem => ({
+        id, category: "R", title, description: "", severity: "Medium", status: "Open",
+        owner: "", ownerEmail: "", mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [],
+        stakeholderIds: [], raisedDate: "2026-05-20", targetDate: undefined,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      });
+      // A concurrent writer committed id 1 after this modal opened at id 1.
+      act(() => { result.current.planner.handleSaveRaidItem(mk(1, "Existing")); });
+      // The modal now saves as a KNOWN create (isNew=true).
+      act(() => { result.current.planner.handleSaveRaidItem(mk(1, "Fresh"), true); });
+      const raid = result.current.workspace.raid as RaidItem[];
+      expect(raid).toHaveLength(2);
+      expect(raid.find((r) => r.title === "Existing")).toBeTruthy();
+      const fresh = raid.find((r) => r.title === "Fresh");
+      expect(fresh).toBeTruthy();
+      expect(fresh?.id).not.toBe(1);
+    });
+
     it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
       const { result } = renderPlanner();
       const base = (id: number, title: string): RaidItem => ({

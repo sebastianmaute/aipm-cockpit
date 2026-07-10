@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { nextRaidId } from "./raid";
+import { resolveEntitySave } from "./entity-id-mint";
 import { nextId, resourceDisplayName } from "./resource-foundation";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
@@ -154,31 +155,31 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     isNew: boolean;
   } | null>(null);
 
+  // isNew carries the modal's create/edit intent so a create can't be misread as
+  // an update and clobber a row committed since the modal opened (id-mint race).
+  // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
   const handleSaveRaidItem = useCallback(
-    (item: RaidItem) => {
+    (item: RaidItem, isNew?: boolean) => {
       const stamp = new Date().toISOString();
-      const previous = raid.find((r) => r.id === item.id);
-      const withStamp: RaidItem = { ...item, localModifiedAt: stamp };
-      // Base off the CURRENT closure — used only to derive the auto-issue id; the
-      // real write below uses a functional updater so bulk (N saves in one tick)
-      // composes instead of each call clobbering the last.
-      const baseList =
-        raid.findIndex((r) => r.id === item.id) < 0
-          ? [...raid, withStamp]
-          : raid.map((r) => (r.id === item.id ? withStamp : r));
+      const { create, id } = resolveEntitySave(raid, item.id, isNew, () => nextRaidId(raid));
+      const withStamp: RaidItem = { ...item, id, localModifiedAt: stamp };
+      // Only a genuine UPDATE of an existing Risk can auto-raise an Issue; a create
+      // (re-minted id) has no meaningful `previous`.
+      const previous = create ? undefined : raid.find((r) => r.id === id);
 
       const triggersAutoIssue =
         previous !== undefined &&
         item.category === "R" &&
         previous.status !== "Realized" &&
         item.status === "Realized" &&
-        !raid.some(
-          (r) => r.category === "I" && r.causedByRaidIds.includes(item.id),
-        );
+        !raid.some((r) => r.category === "I" && r.causedByRaidIds.includes(id));
 
       let autoIssueId: number | null = null;
       let autoIssue: RaidItem | null = null;
       if (triggersAutoIssue) {
+        // Derive the auto-issue id off the closure WITH this update applied so it
+        // can't collide with the item being saved.
+        const baseList = raid.map((r) => (r.id === id ? withStamp : r));
         autoIssueId = nextRaidId(baseList);
         autoIssue = {
           id: autoIssueId,
@@ -191,7 +192,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           ownerEmail: item.ownerEmail,
           mitigation: undefined,
           linkedTaskIds: [],
-          causedByRaidIds: [item.id],
+          causedByRaidIds: [id],
           stakeholderIds: [],
           raisedDate: today,
           targetDate: item.targetDate,
@@ -199,32 +200,28 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         };
       }
 
+      // Functional updater so bulk (N saves in one tick) composes instead of each
+      // call clobbering the last.
       setRaid((prev) => {
-        const i = prev.findIndex((r) => r.id === item.id);
-        const base = i < 0 ? [...prev, withStamp] : prev.map((r) => (r.id === item.id ? withStamp : r));
+        const base = create ? [...prev, withStamp] : prev.map((r) => (r.id === id ? withStamp : r));
         return autoIssue ? [...base, autoIssue] : base;
       });
       if (autoIssue) {
         showToastRef.current(
           "info",
-          t(langRef.current, "raidAutoCreatedIssue", item.id, autoIssueId ?? 0),
+          t(langRef.current, "raidAutoCreatedIssue", id, autoIssueId ?? 0),
         );
       }
 
-      if (previous === undefined) {
-        logActivityRef.current("raid.created", item.id, item.category, item.title);
-      } else if (previous.status !== item.status) {
-        logActivityRef.current(
-          "raid.statusChanged",
-          item.id,
-          previous.status,
-          item.status,
-        );
+      if (create) {
+        logActivityRef.current("raid.created", id, item.category, item.title);
+      } else if (previous && previous.status !== item.status) {
+        logActivityRef.current("raid.statusChanged", id, previous.status, item.status);
       } else {
-        logUpdate("raid.updated", previous, withStamp, item.id, item.category, item.title);
+        logUpdate("raid.updated", previous, withStamp, id, item.category, item.title);
       }
       if (autoIssueId !== null) {
-        logActivityRef.current("raid.autoIssue", item.id, autoIssueId);
+        logActivityRef.current("raid.autoIssue", id, autoIssueId);
       }
     },
     [raid, setRaid, today, logUpdate],
