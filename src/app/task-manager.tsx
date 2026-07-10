@@ -1155,6 +1155,7 @@ function TaskManagerInner() {
     deselectIdRef,
     handleCancelEdit,
     logActivity,
+    capture: undoApi.capture,
     resolveTemplateBody: resolveCommBody,
     sendCommTemplate: commSend.send,
   });
@@ -1234,6 +1235,7 @@ function TaskManagerInner() {
     handlers: { onEdit, onDelete, onSendInquiry },
     onCancelEdit: handleCancelEdit,
     logActivity,
+    capture: undoApi.capture,
     showToast, allowDestructiveSave,
     requestClearAllConfirm: () => {
       setActiveTab("open-points");

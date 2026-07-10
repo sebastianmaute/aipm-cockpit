@@ -76,6 +76,7 @@ function makeArgs(
     logActivity: vi.fn() as Parameters<
       typeof useTaskRowHandlers
     >[0]["logActivity"],
+    capture: vi.fn() as Parameters<typeof useTaskRowHandlers>[0]["capture"],
     ...overrides,
   };
 }
@@ -460,6 +461,22 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     expect(next[0].dependencies).toEqual([]);
     expect(deselect).toHaveBeenCalledWith(1);
     expect(logActivity).toHaveBeenCalledWith("task.deleted", 1, "Doomed");
+  });
+
+  it("captures the deleted task PLUS dependents whose dependency was stripped (undo)", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const capture = vi.fn();
+    const target = makeTask({ id: 1, taskName: "Doomed" });
+    const dependent = makeTask({ id: 2, dependencies: [{ taskId: 1, type: "FS" }] as Task["dependencies"] });
+    const tasksRef = { current: [target, dependent] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks: vi.fn(), capture })),
+    );
+    act(() => result.current.onDelete(1));
+    expect(capture).toHaveBeenCalledTimes(1);
+    const opts = capture.mock.calls[0][0] as { kind: string; before: Task[] };
+    expect(opts.kind).toBe("task.deleted");
+    expect(opts.before.map((t) => t.id).sort()).toEqual([1, 2]);
   });
 
   it("onJumpToRaid sets the filter, switches to the raid tab, and uncollapses", () => {
