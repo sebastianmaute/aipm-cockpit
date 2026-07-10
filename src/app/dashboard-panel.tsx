@@ -33,6 +33,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { EmptyState } from "./empty-state";
 import { DashboardCoachingCard } from "./dashboard-coaching-card";
 import { DashboardTipCard } from "./dashboard-tip-card";
+import { DigestCardConnected } from "./digest/digest-card-connected";
 import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { type AppView } from "./nav-config";
 import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
@@ -241,6 +242,17 @@ export function DashboardPanel(props: DashboardPanelProps) {
 
         {/* Tip of the day — dismissable, rotates daily (per-device) */}
         <DashboardTipCard lang={lang} dc={dc} isPopout={props.isPopout} />
+
+        {/* Weekly status digest — self-hides until enabled (Settings) + generated */}
+        <DigestCardConnected
+          lang={lang}
+          dc={dc}
+          model={model}
+          raid={props.raid}
+          projectId={props.projectId ?? "default"}
+          today={today}
+          isPopout={props.isPopout ?? false}
+        />
 
         {/* Tier 1 — hero: Overall RAG band + Adjust-health disclosure */}
         <DashboardHero
