@@ -229,6 +229,22 @@ describe("useResourcePlanner", () => {
       expect(logActivity).toHaveBeenCalledWith("resource.updated", 2, "Marc Jordan");
     });
 
+    it("surfaces a toast and drops the edit when the resource was concurrently deleted", () => {
+      const showToast = vi.fn();
+      const { result } = renderPlanner({ showToast });
+      const ghost: Resource = {
+        id: 9, firstName: "Ghost", lastName: "Gone",
+        roleId: null, utilizationMode: "percent", utilization: {},
+      };
+      // Open the editor (isNew=false intent), but the row is NOT in the list —
+      // a concurrent writer deleted it between open and save.
+      act(() => { result.current.planner.handleEditResource(ghost); });
+      act(() => { result.current.planner.handleSaveResource(ghost); });
+      expect(result.current.workspace.resources.find((r) => r.id === 9)).toBeUndefined();
+      expect(result.current.planner.editingResource).toBeNull(); // modal still closed
+      expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    });
+
     it("handleDeleteResource logs resource.deleted with name", () => {
       const logActivity = vi.fn();
       const { result } = renderPlanner({ logActivity });
