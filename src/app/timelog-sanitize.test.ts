@@ -50,6 +50,13 @@ describe("sanitizeTimelogLinks", () => {
     expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], customerId: "7" })?.customerId).toBeUndefined();
     expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [] })?.customerId).toBeUndefined();
   });
+  it("keeps positive-int projectIds, deduped; drops bad values + the empty key", () => {
+    const out = sanitizeTimelogLinks({ userLinks: [], projectLinks: [], projectIds: [9, 9, 12, 0, -1, 1.5, "3", null] });
+    expect(out?.projectIds).toEqual([9, 12]);
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], projectIds: [] })?.projectIds).toBeUndefined();
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [], projectIds: "nope" })?.projectIds).toBeUndefined();
+    expect(sanitizeTimelogLinks({ userLinks: [], projectLinks: [] })?.projectIds).toBeUndefined();
+  });
 });
 
 describe("sanitizeTimelogConfig", () => {
