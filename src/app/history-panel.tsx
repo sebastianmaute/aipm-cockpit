@@ -14,6 +14,7 @@ import type { VersionChange } from "./version-diff";
 import { VersionDiffView } from "./version-diff-view";
 import { changeKey, type RestoreSelection } from "./version-restore";
 import { useToastContext } from "./toast-context";
+import { useConfirm } from "./confirm-dialog";
 import { EmptyState } from "./empty-state";
 import { PrintButton } from "./task-manager-ui";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
@@ -25,11 +26,13 @@ interface HistoryPanelProps {
   onCaptureNow: (label: string) => void;
   loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
   restore: (versionId: string, selection: RestoreSelection, versionLabel: string) => Promise<boolean>;
+  onDelete?: (versionId: string) => Promise<boolean>;
 }
 
-export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, restore }: HistoryPanelProps) {
+export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, restore, onDelete }: HistoryPanelProps) {
   const { displayTz } = useDisplayTimezone();
   const showToast = useToastContext();
+  const confirm = useConfirm();
   const [diff, setDiff] = useState<VersionChange[] | null>(null);
   const [comparing, setComparing] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -120,6 +123,16 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
     const sel: RestoreSelection = {};
     for (const c of changes) sel[changeKey(c.collection, c.recordId)] = "all";
     await restore(v.id, sel, labelOf(v));
+  };
+
+  // Delete a snapshot from history (confirm-gated — it's irreversible).
+  const deleteVersionRow = async (v: ProjectVersionMeta) => {
+    if (!onDelete) return;
+    if (!(await confirm({ message: t(lang, "historyDeleteConfirm", labelOf(v)) }))) return;
+    // If the deleted version was the active compare source, drop the compare view.
+    const ok = await onDelete(v.id);
+    if (!ok) { showToast("error", t(lang, "historyDeleteFailed")); return; }
+    if (compareFrom?.id === v.id || restoreFrom?.id === v.id) { setDiff(null); setCompareFrom(null); setRestoreFrom(null); }
   };
 
   // "Restore this" on a single record row — reverts that record to `restoreFrom`
@@ -247,6 +260,18 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 >
                   {t(lang, "historyRestoreState")}
                 </button>
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => { void deleteVersionRow(v); }}
+                    disabled={busy || comparing}
+                    title={t(lang, "historyDelete")}
+                    aria-label={`${t(lang, "historyDelete")} – ${labelOf(v)}`}
+                    className={`cursor-pointer rounded-md border border-AIPM-pink/50 px-2 py-0.5 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                  >
+                    {t(lang, "historyDelete")}
+                  </button>
+                )}
                 <span className="text-xs text-muted-foreground">{formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
               </span>
             </li>

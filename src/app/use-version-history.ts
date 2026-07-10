@@ -5,7 +5,7 @@
 // when `enabled` is false (non-Turso backends / popout).
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { appendVersion, listVersionMeta, loadVersionPayload, pruneVersions } from "./version-store";
+import { appendVersion, listVersionMeta, loadVersionPayload, pruneVersions, deleteVersion } from "./version-store";
 import { diffWorkspaces, summarizeDiff } from "./version-diff";
 import type { VersionChange } from "./version-diff";
 import { jsonToWorkspace, workspaceToJson } from "./workspace";
@@ -35,6 +35,7 @@ export interface UseVersionHistoryResult {
   captureNow: (label: string) => Promise<void>;
   loadDiff: (fromId: string, to: string | "now") => Promise<VersionChange[]>;
   restore: (versionId: string, selection: RestoreSelection, versionLabel: string) => Promise<boolean>;
+  remove: (versionId: string) => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -267,5 +268,18 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     [],
   );
 
-  return { versions, busy, notifySaved, captureNow, loadDiff, restore, refresh };
+  // Delete a single snapshot (any trigger). Refreshes the list on success.
+  const remove = useCallback(async (versionId: string): Promise<boolean> => {
+    if (!active) return false;
+    try {
+      await deleteVersion(config, versionId, projectId);
+      await refresh();
+      return true;
+    } catch (err) {
+      onError?.(err);
+      return false;
+    }
+  }, [active, config, projectId, refresh, onError]);
+
+  return { versions, busy, notifySaved, captureNow, loadDiff, restore, remove, refresh };
 }

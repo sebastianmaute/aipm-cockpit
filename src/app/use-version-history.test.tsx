@@ -133,6 +133,17 @@ describe("useVersionHistory", () => {
     expect(isEmptyWorkspacePayload("{not json")).toBe(false);
   });
 
+  it("remove deletes a snapshot and refreshes the list", async () => {
+    const del = vi.spyOn(store, "deleteVersion").mockResolvedValue();
+    const list = vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const { result } = renderHook(() => useVersionHistory(args()));
+    let ok: boolean | undefined;
+    await act(async () => { ok = await result.current.remove("v1"); });
+    expect(del).toHaveBeenCalledWith(cfg, "v1", "p1");
+    expect(ok).toBe(true);
+    expect(list).toHaveBeenCalled(); // refreshed
+  });
+
   it("captureNow writes a manual version immediately with the label", async () => {
     const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
     vi.spyOn(store, "pruneVersions").mockResolvedValue();
