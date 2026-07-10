@@ -17,7 +17,6 @@ function deps(over: Partial<UseDigestDeps> = {}): UseDigestDeps {
     isPopout: false,
     lang: "en-US",
     now: () => "2026-07-10T09:00:00.000Z",
-    today: "2026-07-10",
     getModel: () => model(),
     getRaid: () => [],
     config: { enabled: false, cadenceDays: 7 },

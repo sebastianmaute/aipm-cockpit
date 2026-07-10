@@ -39,9 +39,10 @@ export interface DigestModel {
 
 const HIGH_SEVERITIES: ReadonlySet<RaidItem["severity"]> = new Set(["High", "Critical"]);
 
-/** Build the digest facts. `today` is the effective-zone today (YYYY-MM-DD);
- *  `generatedAt` is a full ISO instant. Both passed in (purity). */
-export function buildDigest(input: DigestInput, today: string, generatedAt: string): DigestModel {
+/** Build the digest facts. `generatedAt` is a full ISO instant, passed in
+ *  (purity — no `new Date()` here). The projection reads everything else from
+ *  the already-computed `DashboardModel`. */
+export function buildDigest(input: DigestInput, generatedAt: string): DigestModel {
   const { model, raid, prior } = input;
   const overdueCount = model.overdue.length;
   const openRaid = model.openRaidCount;

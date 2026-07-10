@@ -634,12 +634,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           <input
             type="checkbox"
             checked={settings.digest?.enabled ?? false}
-            onChange={(e) =>
+            onChange={(e) => {
+              if (e.target.checked) notifyEnable();
               onChange({
                 ...settings,
                 digest: { enabled: e.target.checked, cadenceDays: settings.digest?.cadenceDays ?? 7 },
-              })
-            }
+              });
+            }}
             className="h-4 w-4"
           />
           <span>{t(lang, "digestEnableLabel")}</span>

@@ -250,7 +250,6 @@ export function DashboardPanel(props: DashboardPanelProps) {
           model={model}
           raid={props.raid}
           projectId={props.projectId ?? "default"}
-          today={today}
           isPopout={props.isPopout ?? false}
         />
 

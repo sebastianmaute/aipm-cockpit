@@ -39,7 +39,7 @@ describe("buildDigest", () => {
       raid: [raid(1, "High"), raid(2, "Critical"), raid(3, "Low")],
       prior: null,
     };
-    const d = buildDigest(input, "2026-07-10", "2026-07-10T09:00:00.000Z");
+    const d = buildDigest(input, "2026-07-10T09:00:00.000Z");
     expect(d.rag).toBe("R");
     expect(d.ragPrev).toBeNull();
     expect(d.overdue).toEqual({ count: 2, delta: null });
@@ -55,7 +55,6 @@ describe("buildDigest", () => {
     const closedHigh = { id: 4, category: "D", status: "Delivered", severity: "High" } as unknown as RaidItem;
     const d = buildDigest(
       { model: model({ openRaidCount: 2 }), raid: [openCritical, closedCritical, openHigh, closedHigh], prior: null },
-      "2026-07-10",
       "2026-07-10T09:00:00.000Z",
     );
     // Only the two OPEN high/critical items count; the closed ones are excluded.
@@ -68,14 +67,14 @@ describe("buildDigest", () => {
       raid: [],
       prior: { rag: "A", overdue: 1, openRaid: 2 },
     };
-    const d = buildDigest(input, "2026-07-10", "2026-07-10T09:00:00.000Z");
+    const d = buildDigest(input, "2026-07-10T09:00:00.000Z");
     expect(d.ragPrev).toBe("A");
     expect(d.overdue).toEqual({ count: 3, delta: 2 });
     expect(d.openRaid.delta).toBe(3);
   });
 
   it("returns a minimal model for an empty project (no crash)", () => {
-    const d = buildDigest(BASE, "2026-07-10", "2026-07-10T09:00:00.000Z");
+    const d = buildDigest(BASE, "2026-07-10T09:00:00.000Z");
     expect(d.overdue.count).toBe(0);
     expect(d.milestonesDueSoon).toEqual([]);
     expect(d.openRaid).toEqual({ count: 0, high: 0, delta: null });

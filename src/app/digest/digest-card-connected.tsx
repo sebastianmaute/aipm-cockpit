@@ -23,7 +23,6 @@ interface DigestCardConnectedProps {
   model: DashboardModel;
   raid: readonly RaidItem[];
   projectId: string;
-  today: string;
   isPopout: boolean;
 }
 
@@ -33,7 +32,6 @@ export function DigestCardConnected({
   model,
   raid,
   projectId,
-  today,
   isPopout,
 }: DigestCardConnectedProps) {
   const { settings } = useSettings();
@@ -47,7 +45,6 @@ export function DigestCardConnected({
     isPopout,
     lang,
     now: () => new Date().toISOString(),
-    today,
     getModel: () => model,
     getRaid: () => raid,
     config: settings.digest ?? DEFAULT_DIGEST_CONFIG,
@@ -63,10 +60,10 @@ export function DigestCardConnected({
       }
       await sendMail(token, buildGraphMessage(to, subject, html));
     },
-    fireNotification: (_title, body) => {
+    fireNotification: (title, body) => {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         try {
-          new Notification(t(lang, "digestNotifyTitle"), { body, tag: "lop-digest" });
+          new Notification(title, { body, tag: "lop-digest" });
         } catch {
           /* notification construction can throw on some platforms — non-fatal */
         }

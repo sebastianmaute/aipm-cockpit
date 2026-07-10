@@ -9,7 +9,7 @@ import type { RaidItem } from "./types";
 import { buildDigest, type DigestModel } from "./digest/digest-model";
 import { loadDigestState, advanceDigestState, isDigestDue } from "./digest/digest-state";
 import { buildDigestEmailHtml, buildDigestEmailSubject } from "./digest/digest-email";
-import { runDigestNarrative, parseDigestNarrative } from "./digest/digest-narrative";
+import { runDigestNarrative } from "./digest/digest-narrative";
 import type { DigestConfig } from "./digest/digest-config";
 
 /** Bound the optional AI narrative call so a hung request can't leave the card's
@@ -21,7 +21,6 @@ export interface UseDigestDeps {
   isPopout: boolean;
   lang: Lang;
   now: () => string;
-  today: string;
   getModel: () => DashboardModel;
   getRaid: () => readonly RaidItem[];
   config: DigestConfig;
@@ -59,7 +58,6 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
         const now = deps.now();
         let d = buildDigest(
           { model: deps.getModel(), raid: deps.getRaid(), prior: prior ? { rag: prior.priorRag, overdue: prior.priorMetrics.overdue, openRaid: prior.priorMetrics.openRaid } : null },
-          deps.today,
           now,
         );
         // Deterministic base renders IMMEDIATELY — the card never waits on AI.
@@ -80,8 +78,8 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
             const timer = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
             try {
               const runner = deps.runNarrative ?? runDigestNarrative;
-              const text = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang }, ctrl.signal);
-              const narrative = parseDigestNarrative(text);
+              // runDigestNarrative already sanitizes + caps its return value.
+              const narrative = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang }, ctrl.signal);
               if (narrative) {
                 d = { ...d, narrative };
                 setDigest(d);
@@ -112,6 +110,8 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps.projectId, deps.config.enabled]);
 
+  // Manual "Generate now" is a REAL generate: it advances the cadence + rebaselines
+  // the deltas (this IS the current digest), but doesn't notify.
   const generateNow = useCallback(async () => {
     await generate({ notify: false, advance: true });
   }, [generate]);
