@@ -479,6 +479,9 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device weekly status digest config (enable + cadence in days). Default
+   *  disabled, 7-day. Rides the writeSettings spread (no allowlist edit). */
+  digest?: import("./digest/digest-config").DigestConfig;
   /** Per-device Timelog "Time bookings" People-section collapse. Default OFF (expanded). */
   timelogPeopleCollapsed?: boolean;
   /** Per-device: include external resources in the resource Calendar. Default ON (included). */
@@ -549,6 +552,7 @@ export const defaultSettings: Settings = {
   hideFinishedTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
+  digest: { enabled: false, cadenceDays: 7 },
   dictation: { engine: "web-speech", hotkey: "F4" },
   showViewHints: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },

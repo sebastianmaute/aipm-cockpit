@@ -629,6 +629,41 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           )}
         </div>
       )}
+      <div className="mt-3 border-t border-line pt-3">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.digest?.enabled ?? false}
+            onChange={(e) => {
+              if (e.target.checked) notifyEnable();
+              onChange({
+                ...settings,
+                digest: { enabled: e.target.checked, cadenceDays: settings.digest?.cadenceDays ?? 7 },
+              });
+            }}
+            className="h-4 w-4"
+          />
+          <span>{t(lang, "digestEnableLabel")}</span>
+        </label>
+        <label className="mt-2 block text-xs">
+          <span className="text-muted-foreground">{t(lang, "digestCadenceLabel")}</span>
+          <select
+            aria-label={t(lang, "digestCadenceLabel")}
+            value={settings.digest?.cadenceDays ?? 7}
+            onChange={(e) =>
+              onChange({
+                ...settings,
+                digest: { enabled: settings.digest?.enabled ?? false, cadenceDays: Number(e.target.value) },
+              })
+            }
+            className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
+          >
+            <option value={7}>{t(lang, "digestCadenceWeekly")}</option>
+            <option value={14}>{t(lang, "digestCadenceBiweekly")}</option>
+            <option value={30}>{t(lang, "digestCadenceMonthly")}</option>
+          </select>
+        </label>
+      </div>
       <TimelogSettings
         lang={lang}
         config={settings.timelog ?? defaultTimelogConfig}

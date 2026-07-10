@@ -13,6 +13,7 @@ describe("clearAppConfig", () => {
     localStorage.setItem("lop-app:projects", "[]");
     localStorage.setItem("lop-app:secrets", "cipher");
     localStorage.setItem("lop-app:dashboard-size", "{}");
+    localStorage.setItem("lop-app:digest-state", '{"p1":{}}');
     localStorage.setItem("some-other-app:keep", "x");
 
     clearAppConfig();
@@ -21,6 +22,7 @@ describe("clearAppConfig", () => {
     expect(localStorage.getItem("lop-app:projects")).toBeNull();
     expect(localStorage.getItem("lop-app:secrets")).toBeNull();
     expect(localStorage.getItem("lop-app:dashboard-size")).toBeNull();
+    expect(localStorage.getItem("lop-app:digest-state")).toBeNull();
     // A non-namespaced key from another origin/app is left alone.
     expect(localStorage.getItem("some-other-app:keep")).toBe("x");
   });

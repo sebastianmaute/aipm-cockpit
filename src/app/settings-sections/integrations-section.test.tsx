@@ -61,6 +61,27 @@ describe("IntegrationsSection Outlook calendar push toggle", () => {
   });
 });
 
+describe("IntegrationsSection weekly digest control", () => {
+  it("renders the digest enable control with an accessible name", () => {
+    const { getByLabelText } = render(
+      <IntegrationsSection lang="en-US" settings={defaultSettings} onChange={() => {}} />,
+    );
+    expect(getByLabelText(/Weekly status digest/i)).toBeTruthy();
+  });
+
+  it("enabling the digest calls onChange with digest.enabled: true", () => {
+    const onChange = vi.fn();
+    const { getByText } = render(
+      <IntegrationsSection lang="en-US" settings={defaultSettings} onChange={onChange} />,
+    );
+    fireEvent.click(getByText(/Weekly status digest/i));
+    expect(onChange).toHaveBeenCalled();
+    const next = onChange.mock.calls.at(-1)![0];
+    expect(next.digest.enabled).toBe(true);
+    expect(next.digest.cadenceDays).toBe(7);
+  });
+});
+
 describe("IntegrationsSection Turso auth token sealing", () => {
   it("device-seals the Turso auth token when edited", async () => {
     const { container } = render(

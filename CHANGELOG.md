@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.172.0] - 2026-07-10 "Corey"
+
+### Added
+
+- **Weekly status digest (audit #7).** A new per-project digest card on the Dashboard summarizes the
+  project — overall RAG (with the change since last time), overdue tasks, milestones due soon, and open
+  RAID — on a per-device weekly cadence (configurable 7 / 14 / 30 days in Settings → Integrations,
+  default off). Enable it and the card appears on your next Dashboard visit; it also renders on demand via
+  a **Generate now** button. The digest can optionally be **emailed via Outlook** (Microsoft Graph),
+  announced by a **desktop notification**, and prefixed with an **AI-written narrative** — each gated
+  behind its respective integration/AI setting and fully fail-soft, so the deterministic digest always
+  works on every backend. Per-project scope for this release; a portfolio-wide digest is a planned
+  follow-up. Pure engine (`digest/digest-model`, `digest-state`, `digest-email`, `digest-narrative`,
+  `digest-config`) + a render-scope hook (`use-digest`) + a self-hiding card; no new persisted Workspace
+  field (the cadence state and config are per-device, swept by the app-reset config wipe).
+
 ## [0.171.0] - 2026-07-10 "Gibson"
 
 ### Added
