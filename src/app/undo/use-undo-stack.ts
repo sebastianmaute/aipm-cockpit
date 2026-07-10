@@ -7,10 +7,10 @@ import type { ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import {
   applyUndoRestore,
+  buildBeforeImages,
   pushUndo,
   popUndo,
   dropEntry,
-  type BeforeImage,
   type UndoEntry,
   type UndoMeta,
 } from "./undo-stack";
@@ -30,8 +30,50 @@ export interface CaptureOpts<T extends { id: number }> {
   fromArray: readonly T[];
 }
 
+/** One array's contribution to a composite (multi-array) undo — the same shape
+ *  as `CaptureOpts` minus the entry-level `kind` (a composite op has one kind). */
+export interface CapturePart<T extends { id: number }> {
+  setter: Dispatch<SetStateAction<readonly T[]>>;
+  removed?: readonly T[];
+  edited?: readonly T[];
+  fromArray: readonly T[];
+}
+
+/** A pre-computed, type-erased restore for ONE array of a composite undo. */
+export type RestoreFragment = () => void;
+
+/**
+ * Build a restore fragment for ONE array of a composite undo. Computes the
+ * before-images eagerly from the PRE-op snapshots (so it's safe to call after
+ * the mutating setter — `fromArray`/`removed`/`edited` are pre-mutation values)
+ * and closes over the setter. Returns `null` when the array contributed nothing
+ * (no removed/edited rows) so `captureComposite` can skip a no-op re-render.
+ * Generic per-call, so each array's `T` stays precise; the returned thunk is
+ * type-erased, letting a composite mix heterogeneous arrays (roles + resources).
+ */
+export function capturePart<T extends { id: number }>(part: CapturePart<T>): RestoreFragment | null {
+  const { setter, removed = [], edited = [], fromArray } = part;
+  const images = buildBeforeImages(removed, edited, fromArray);
+  if (images.length === 0) return null;
+  return () => setter((prev) => applyUndoRestore(prev, images));
+}
+
+/** A multi-array undo: one entry whose restore reverts a primary removal AND
+ *  every cascade edit across N arrays (e.g. deleting a role also cleared
+ *  resources' roleId → both are reverted by a single undo). */
+export interface CaptureCompositeOpts {
+  kind: ActivityKind;
+  /** User-facing count for the toast/badge — the PRIMARY rows the user acted
+   *  on, never the incidental cascade dependents. */
+  primaryCount: number;
+  /** One fragment per affected array (build via `capturePart`); nulls (arrays
+   *  that contributed nothing) are ignored. */
+  parts: readonly (RestoreFragment | null)[];
+}
+
 export interface UndoStackApi {
   capture: <T extends { id: number }>(opts: CaptureOpts<T>) => void;
+  captureComposite: (opts: CaptureCompositeOpts) => void;
   undo: () => void;
   undoById: (id: number) => void;
   stack: readonly UndoMeta[];
@@ -76,20 +118,11 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     commitRestore(popped.entry, popped.rest);
   }, [commitRestore]);
 
-  const capture = useCallback(<T extends { id: number }>(opts: CaptureOpts<T>) => {
-    const { setter, kind, removed = [], edited = [], fromArray } = opts;
-    const at = (item: T) => Math.max(0, fromArray.findIndex((r) => r.id === item.id));
-    const images: BeforeImage<T>[] = [
-      ...removed.map((item) => ({ index: at(item), item, op: "delete" as const })),
-      ...edited.map((item) => ({ index: at(item), item, op: "edit" as const })),
-    ];
-    if (images.length === 0) return;
-    // Toast/count reflect the PRIMARY op (the rows the user acted on), not the
-    // incidental dependents an edit-cascade also captured.
-    const primaryCount = removed.length > 0 ? removed.length : edited.length;
+  // Shared tail: push one entry + fire its action toast. `restore` is the entry's
+  // impure thunk (single- or multi-array). Keeps capture/captureComposite DRY.
+  const pushEntry = useCallback((kind: ActivityKind, primaryCount: number, restore: () => void) => {
     const id = (idRef.current += 1);
     const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString() };
-    const restore = () => setter((prev) => applyUndoRestore(prev, images));
     setStack((s) => pushUndo(s, { meta, restore }, UNDO_CAP));
     const { lang, showToastAction } = depsRef.current;
     const isDelete = kind.endsWith(".deleted");
@@ -97,7 +130,23 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     showToastAction("info", text, { labelKey: "undo", run: () => undoById(id) });
   }, [undoById]);
 
+  const capture = useCallback(<T extends { id: number }>(opts: CaptureOpts<T>) => {
+    const { setter, kind, removed = [], edited = [], fromArray } = opts;
+    const images = buildBeforeImages(removed, edited, fromArray);
+    if (images.length === 0) return;
+    // Toast/count reflect the PRIMARY op (the rows the user acted on), not the
+    // incidental dependents an edit-cascade also captured.
+    const primaryCount = removed.length > 0 ? removed.length : edited.length;
+    pushEntry(kind, primaryCount, () => setter((prev) => applyUndoRestore(prev, images)));
+  }, [pushEntry]);
+
+  const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
+    const fragments = opts.parts.filter((f): f is RestoreFragment => f !== null);
+    if (fragments.length === 0) return;
+    pushEntry(opts.kind, opts.primaryCount, () => { for (const f of fragments) f(); });
+  }, [pushEntry]);
+
   const metas = useMemo(() => stack.map((e) => e.meta), [stack]);
 
-  return { capture, undo, undoById, stack: metas, canUndo: stack.length > 0 };
+  return { capture, captureComposite, undo, undoById, stack: metas, canUndo: stack.length > 0 };
 }

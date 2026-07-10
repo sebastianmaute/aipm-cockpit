@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { SetStateAction } from "react";
-import { useUndoStack } from "./use-undo-stack";
+import { useUndoStack, capturePart } from "./use-undo-stack";
 
 type Row = { id: number; name: string };
+type Ref = { id: number; roleId: number | null };
 
 function makeDeps(overrides: Partial<Parameters<typeof useUndoStack>[0]> = {}) {
   return {
@@ -64,5 +65,64 @@ describe("useUndoStack", () => {
     const { result } = renderHook(() => useUndoStack(deps));
     act(() => result.current.undo());
     expect(deps.logActivity).not.toHaveBeenCalled();
+  });
+
+  it("captureComposite restores BOTH arrays in one undo (role delete + roleId cascade)", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    // Pre-op snapshots: role #7 exists; two resources point at it.
+    let roles: readonly Row[] = [{ id: 7, name: "Dev/Sr" }];
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }, { id: 2, roleId: 7 }];
+    const rolesBefore = roles;
+    const refsBefore = refs;
+    const affected = refs.filter((r) => r.roleId === 7);
+    const setRoles = (u: SetStateAction<readonly Row[]>) => { roles = typeof u === "function" ? u(roles) : u; };
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    // Simulate the delete: remove the role, clear the cascade.
+    roles = [];
+    refs = refs.map((r) => (r.roleId === 7 ? { ...r, roleId: null } : r));
+
+    act(() => {
+      result.current.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRefs, edited: affected, fromArray: refsBefore }),
+        ],
+      });
+    });
+    // One entry, count = the PRIMARY op (1 role), not the 2 cascade edits.
+    expect(result.current.stack).toHaveLength(1);
+    expect(result.current.stack[0].count).toBe(1);
+
+    act(() => result.current.undo());
+    expect(roles).toEqual([{ id: 7, name: "Dev/Sr" }]);       // role re-inserted
+    expect(refs).toEqual([{ id: 1, roleId: 7 }, { id: 2, roleId: 7 }]); // roleId reverted
+    expect(result.current.canUndo).toBe(false);
+  });
+
+  it("captureComposite ignores null parts and skips a wholly-empty op", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    const setRoles = vi.fn();
+    // A discipline delete whose cascade touched NO roles → the roles part is null.
+    act(() => {
+      result.current.captureComposite({
+        kind: "discipline.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setRoles, removed: [{ id: 3, name: "QA" }], fromArray: [{ id: 3, name: "QA" }] }),
+          capturePart({ setter: vi.fn(), edited: [], fromArray: [] }), // null (nothing edited)
+        ],
+      });
+    });
+    expect(result.current.stack).toHaveLength(1);
+
+    // A composite with ONLY empty parts pushes nothing.
+    act(() => {
+      result.current.captureComposite({ kind: "grade.deleted", primaryCount: 0, parts: [null, capturePart({ setter: vi.fn(), fromArray: [] })] });
+    });
+    expect(result.current.stack).toHaveLength(1); // unchanged
   });
 });

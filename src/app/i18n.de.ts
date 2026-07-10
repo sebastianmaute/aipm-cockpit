@@ -1499,6 +1499,8 @@ export const de: Record<TranslationKey, string> = {
   activityRoleCreated: "Rolle #{0} erstellt: {1}",
   activityRoleUpdated: "Rolle #{0} aktualisiert: {1}",
   activityRoleDeleted: "Rolle #{0} gelöscht: {1}",
+  activityDisciplineDeleted: "Disziplin #{0} gelöscht: {1}",
+  activityGradeDeleted: "Stufe #{0} gelöscht: {1}",
   activitySettingsUpdated: "Einstellungen aktualisiert",
   activityDocLinkAdded: "Dokument verknüpft {0}",
   activityDocLinkRemoved: "Dokumentverknüpfung entfernt {0}",

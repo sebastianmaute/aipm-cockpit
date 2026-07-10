@@ -1505,6 +1505,8 @@ const enUS = {
   activityRoleCreated: "Role #{0} created: {1}",
   activityRoleUpdated: "Role #{0} updated: {1}",
   activityRoleDeleted: "Role #{0} deleted: {1}",
+  activityDisciplineDeleted: "Discipline #{0} deleted: {1}",
+  activityGradeDeleted: "Grade #{0} deleted: {1}",
   activitySettingsUpdated: "Settings updated",
   activityDocLinkAdded: "Linked document {0}",
   activityDocLinkRemoved: "Removed document link {0}",

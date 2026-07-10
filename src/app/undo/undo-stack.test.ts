@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyUndoRestore, pushUndo, popUndo, dropEntry, type UndoEntry } from "./undo-stack";
+import { applyUndoRestore, buildBeforeImages, pushUndo, popUndo, dropEntry, type UndoEntry } from "./undo-stack";
 
 type Row = { id: number; name: string };
 
@@ -116,5 +116,22 @@ describe("stack ops", () => {
   it("dropEntry removes a specific entry by id", () => {
     const s = [mk(1), mk(2), mk(3)];
     expect(dropEntry(s, 2).map((e) => e.meta.id)).toEqual([1, 3]);
+  });
+});
+
+describe("buildBeforeImages", () => {
+  const from: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }];
+
+  it("tags removed rows as delete and edited rows as edit, resolving indices", () => {
+    const images = buildBeforeImages([{ id: 2, name: "b" }], [{ id: 3, name: "c" }], from);
+    expect(images).toEqual([
+      { index: 1, item: { id: 2, name: "b" }, op: "delete" },
+      { index: 3 - 1, item: { id: 3, name: "c" }, op: "edit" },
+    ]);
+  });
+
+  it("clamps a not-found row's index to 0 and returns [] when nothing changed", () => {
+    expect(buildBeforeImages([{ id: 99, name: "x" }], [], from)[0].index).toBe(0);
+    expect(buildBeforeImages([], [], from)).toEqual([]);
   });
 });

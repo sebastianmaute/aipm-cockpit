@@ -300,6 +300,75 @@ describe("useResourcePlanner", () => {
     });
   });
 
+  describe("composite undo capture (reference-data deletes)", () => {
+    const withRole = (id: number, roleId: number | null): Resource => ({
+      id, firstName: `R${id}`, lastName: "x", roleId, utilizationMode: "percent", utilization: {},
+    });
+
+    it("resource delete captures a plain single-array undo", () => {
+      const capture = vi.fn();
+      const { result } = renderPlanner({ capture });
+      act(() => { result.current.workspace.setResources([withRole(5, null)]); });
+      act(() => { result.current.planner.handleDeleteResource(5); });
+      expect(capture).toHaveBeenCalledTimes(1);
+      const opts = capture.mock.calls[0][0] as { kind: string; removed: { id: number }[] };
+      expect(opts.kind).toBe("resource.deleted");
+      expect(opts.removed.map((r) => r.id)).toEqual([5]);
+    });
+
+    it("role delete captures a composite that restores the role AND the roleId cascade", () => {
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ captureComposite });
+      act(() => {
+        result.current.workspace.setRoles([{ id: 7, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 0 }]);
+        result.current.workspace.setResources([withRole(1, 7), withRole(2, 7)]);
+      });
+      act(() => { result.current.planner.handleDeleteRole(7); });
+      // Delete applied: role gone, both resources' roleId cleared.
+      expect(result.current.workspace.roles).toHaveLength(0);
+      expect(result.current.workspace.resources.map((r) => r.roleId)).toEqual([null, null]);
+      // Captured as ONE composite, count = the primary op (1 role).
+      expect(captureComposite).toHaveBeenCalledTimes(1);
+      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (null | (() => void))[] };
+      expect(opts.kind).toBe("role.deleted");
+      expect(opts.primaryCount).toBe(1);
+      // Running the captured fragments restores BOTH arrays.
+      act(() => { for (const f of opts.parts) f?.(); });
+      expect(result.current.workspace.roles.map((r) => r.id)).toEqual([7]);
+      expect(result.current.workspace.resources.map((r) => r.roleId)).toEqual([7, 7]);
+    });
+
+    it("discipline delete captures a composite that restores the discipline AND roles' FK/rates", () => {
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ captureComposite });
+      act(() => {
+        result.current.workspace.setDisciplines([{ id: 3, name: "Dev" }]);
+        result.current.workspace.setRoles([{ id: 9, disciplineId: 3, gradeId: 2, internalRate: 100, externalRate: 150 }]);
+      });
+      act(() => { result.current.planner.onDeleteDiscipline(3); });
+      expect(result.current.workspace.disciplines).toHaveLength(0);
+      expect(result.current.workspace.roles[0]).toMatchObject({ disciplineId: 0, internalRate: 0, externalRate: 0 });
+      const opts = captureComposite.mock.calls[0][0] as { kind: string; parts: (null | (() => void))[] };
+      expect(opts.kind).toBe("discipline.deleted");
+      act(() => { for (const f of opts.parts) f?.(); });
+      expect(result.current.workspace.disciplines.map((d) => d.id)).toEqual([3]);
+      expect(result.current.workspace.roles[0]).toMatchObject({ disciplineId: 3, internalRate: 100, externalRate: 150 });
+    });
+
+    it("grade delete captures a composite with kind grade.deleted", () => {
+      const captureComposite = vi.fn();
+      const { result } = renderPlanner({ captureComposite });
+      act(() => {
+        result.current.workspace.setGrades([{ id: 4, name: "Senior" }]);
+        result.current.workspace.setRoles([{ id: 9, disciplineId: 1, gradeId: 4, internalRate: 0, externalRate: 0 }]);
+      });
+      act(() => { result.current.planner.onDeleteGrade(4); });
+      expect(result.current.workspace.grades).toHaveLength(0);
+      expect(result.current.workspace.roles[0].gradeId).toBe(0);
+      expect((captureComposite.mock.calls[0][0] as { kind: string }).kind).toBe("grade.deleted");
+    });
+  });
+
   describe("resource modal", () => {
     it("editingResource is null initially", () => {
       const { result } = renderPlanner();

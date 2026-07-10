@@ -13,7 +13,7 @@ import { sanitizeResource } from "./sanitize";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
-import type { UndoStackApi } from "./undo/use-undo-stack";
+import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
 // Envelope-level defense against a caller accidentally forwarding a DOM/synthetic
 // event as `seed` (e.g. `onClick={onAddResource}`). Spreading an event injects a
@@ -70,6 +70,9 @@ export interface UseResourcePlannerArgs {
   holidaySet: ReadonlySet<string>;
   /** Capture a pre-op snapshot for undo (RAID/absence/shift delete, resource bulk-edit). */
   capture?: UndoStackApi["capture"];
+  /** Capture a MULTI-array pre-op snapshot for undo — reference-data deletes
+   *  (role/discipline/grade) that cascade an edit into a second array. */
+  captureComposite?: UndoStackApi["captureComposite"];
 }
 
 /** True when an absence/shift belongs to one of the removed resources — by
@@ -122,6 +125,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const logActivityRef = useRef(args.logActivity);
   const captureRef = useRef(args.capture);
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
+  const captureCompositeRef = useRef(args.captureComposite);
+  useEffect(() => { captureCompositeRef.current = args.captureComposite; }, [args.captureComposite]);
   const logActivityChangesRef = useRef(args.logActivityChanges);
   const showToastRef = useRef(args.showToast);
   const tasksRef = useRef(tasks);
@@ -495,6 +500,9 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setResources(surviving);
       setEditingResource(null);
       if (removed) {
+        // Resource delete has NO FK cascade (dangling refs are left as-is by
+        // design), so undo is single-array: just re-insert the row.
+        captureRef.current?.({ setter: setResources, kind: "resource.deleted", removed: [removed], fromArray: resources });
         purgeCalendarFor([removed], surviving);
         const name = `${removed.firstName} ${removed.lastName}`.trim();
         logActivityRef.current("resource.deleted", id, name);
@@ -534,6 +542,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const idSet = new Set(ids);
       const removed = resources.filter((r) => idSet.has(r.id));
       const surviving = resources.filter((r) => !idSet.has(r.id));
+      if (removed.length > 0) captureRef.current?.({ setter: setResources, kind: "resource.deleted", removed, fromArray: resources });
       setResources((prev) => prev.filter((r) => !idSet.has(r.id)));
       setEditingResource(null);
       purgeCalendarFor(removed, surviving);
@@ -591,6 +600,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     (id: number) => {
       const removed = roles.find((r) => r.id === id);
       const stamp = new Date().toISOString();
+      // Rows the cascade will edit (roleId → null) — snapshot BEFORE the setter.
+      const affected = resources.filter((r) => r.roleId === id);
       setRoles((prev) => prev.filter((r) => r.id !== id));
       setResources((prev) =>
         prev.map((r) =>
@@ -598,10 +609,19 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         ),
       );
       if (removed) {
+        // One undo reverts BOTH the role removal and the roleId-clearing cascade.
+        captureCompositeRef.current?.({
+          kind: "role.deleted",
+          primaryCount: 1,
+          parts: [
+            capturePart({ setter: setRoles, removed: [removed], fromArray: roles }),
+            capturePart({ setter: setResources, edited: affected, fromArray: resources }),
+          ],
+        });
         logActivityRef.current("role.deleted", id, `${removed.disciplineId}/${removed.gradeId}`);
       }
     },
-    [roles, setRoles, setResources],
+    [roles, resources, setRoles, setResources],
   );
 
   const handleAssignResourceRole = useCallback(
@@ -697,18 +717,45 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   );
 
   const onDeleteDiscipline = useCallback((id: number) => {
+    const removed = disciplines.find((d) => d.id === id);
+    const affected = roles.filter((r) => r.disciplineId === id);
     setDisciplines((prev) => prev.filter((d) => d.id !== id));
     setRoles((prev) => prev.map((r) =>
       r.disciplineId === id ? { ...r, disciplineId: 0, internalRate: 0, externalRate: 0 } : r,
     ));
-  }, [setDisciplines, setRoles]);
+    if (removed) {
+      // One undo reverts the discipline removal AND the roles' cleared FK + rates.
+      captureCompositeRef.current?.({
+        kind: "discipline.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setDisciplines, removed: [removed], fromArray: disciplines }),
+          capturePart({ setter: setRoles, edited: affected, fromArray: roles }),
+        ],
+      });
+      logActivityRef.current("discipline.deleted", id, removed.name);
+    }
+  }, [disciplines, roles, setDisciplines, setRoles]);
 
   const onDeleteGrade = useCallback((id: number) => {
+    const removed = grades.find((g) => g.id === id);
+    const affected = roles.filter((r) => r.gradeId === id);
     setGrades((prev) => prev.filter((g) => g.id !== id));
     setRoles((prev) => prev.map((r) =>
       r.gradeId === id ? { ...r, gradeId: 0, internalRate: 0, externalRate: 0 } : r,
     ));
-  }, [setGrades, setRoles]);
+    if (removed) {
+      captureCompositeRef.current?.({
+        kind: "grade.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setGrades, removed: [removed], fromArray: grades }),
+          capturePart({ setter: setRoles, edited: affected, fromArray: roles }),
+        ],
+      });
+      logActivityRef.current("grade.deleted", id, removed.name);
+    }
+  }, [grades, roles, setGrades, setRoles]);
 
   const onReorderDisciplines = useCallback((orderedIds: number[]) => {
     setDisciplines((prev) =>

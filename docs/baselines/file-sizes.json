@@ -4,6 +4,6 @@
   "src/app/task-manager.tsx": 2393,
   "src/app/tasks-section.tsx": 853,
   "src/app/timelog-panel.tsx": 883,
-  "src/app/use-resource-planner.ts": 899,
+  "src/app/use-resource-planner.ts": 946,
   "src/app/workspace-section.tsx": 900
 }
