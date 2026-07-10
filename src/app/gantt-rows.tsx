@@ -18,6 +18,7 @@ import {
   fmtFull,
   LEFT_GUTTER_PX,
   MILESTONE_DIAMOND_PX,
+  milestoneSlipDays,
   milestoneDiamondProps,
   parseISO,
   priorityFillClass,
@@ -392,6 +393,8 @@ export function GanttMilestoneRow({
   tasksById,
   todayISO,
   onEditMilestone,
+  baselineDate,
+  showBaseline,
 }: {
   m: Milestone;
   lang: Lang;
@@ -400,10 +403,20 @@ export function GanttMilestoneRow({
   tasksById: ReadonlyMap<number, Task>;
   todayISO: string;
   onEditMilestone?: (m: Milestone) => void;
+  baselineDate?: string;
+  showBaseline?: boolean;
 }) {
   const md = parseISO(m.date);
   if (!md) return null;
   const mx = diffDays(range.min, md) * DAY_WIDTH_PX;
+  // Baseline ghost: a hollow diamond at the committed baseline date, a dotted
+  // connector to the live diamond, and a signed slip label. Only when enabled,
+  // a baseline exists, it is parseable, and the slip is non-zero.
+  const bd = showBaseline && baselineDate ? parseISO(baselineDate) : null;
+  const slip = bd ? milestoneSlipDays(baselineDate!, m.date) : null;
+  const showGhost = bd !== null && slip !== null && slip !== 0;
+  const bx = bd ? diffDays(range.min, bd) * DAY_WIDTH_PX : 0;
+  const slipLabel = slip !== null ? `${slip > 0 ? "+" : "−"}${Math.abs(slip)}d` : "";
   const mstatus = milestoneStatus(
     m,
     tasksById,
@@ -467,13 +480,42 @@ export function GanttMilestoneRow({
       <div
         className="relative"
         style={{ width: timelineWidthPx, height: ROW_HEIGHT_PX }}
-        title={`${m.name} · ${m.date}`}
+        title={
+          showGhost
+            ? `${m.name} · ${m.date} · baseline ${baselineDate} (${slipLabel})`
+            : `${m.name} · ${m.date}`
+        }
       >
         <svg
           className="h-full w-full overflow-visible"
           viewBox={`0 0 ${timelineWidthPx} ${ROW_HEIGHT_PX}`}
           preserveAspectRatio="none"
         >
+          {showGhost && (
+            <>
+              {/* dotted connector baseline -> live, at row mid-height */}
+              <line
+                x1={bx}
+                y1={ROW_HEIGHT_PX / 2}
+                x2={mx}
+                y2={ROW_HEIGHT_PX / 2}
+                stroke="var(--line)"
+                strokeWidth={1}
+                strokeDasharray="2 2"
+              />
+              {/* hollow ghost diamond at the baseline date */}
+              <rect
+                x={bx - MILESTONE_DIAMOND_PX / 2}
+                y={(ROW_HEIGHT_PX - MILESTONE_DIAMOND_PX) / 2}
+                width={MILESTONE_DIAMOND_PX}
+                height={MILESTONE_DIAMOND_PX}
+                transform={`rotate(45 ${bx} ${ROW_HEIGHT_PX / 2})`}
+                fill="none"
+                stroke="var(--line)"
+                strokeWidth={1.5}
+              />
+            </>
+          )}
           <rect
             x={mx - MILESTONE_DIAMOND_PX / 2}
             y={(ROW_HEIGHT_PX - MILESTONE_DIAMOND_PX) / 2}
@@ -483,6 +525,15 @@ export function GanttMilestoneRow({
             {...milestoneDiamondProps(achieved, atRisk)}
           />
         </svg>
+        {showGhost && (
+          <span
+            className="pointer-events-none absolute -translate-y-1/2 text-[10px] text-muted-foreground"
+            style={{ left: mx + MILESTONE_DIAMOND_PX, top: ROW_HEIGHT_PX / 2 }}
+            aria-hidden="true"
+          >
+            {slipLabel}
+          </span>
+        )}
       </div>
     </div>
   );
