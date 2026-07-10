@@ -12,6 +12,10 @@ import { buildDigestEmailHtml, buildDigestEmailSubject } from "./digest/digest-e
 import { runDigestNarrative, parseDigestNarrative } from "./digest/digest-narrative";
 import type { DigestConfig } from "./digest/digest-config";
 
+/** Bound the optional AI narrative call so a hung request can't leave the card's
+ *  `busy` flag stuck (the deterministic digest already rendered by then). */
+const AI_TIMEOUT_MS = 20_000;
+
 export interface UseDigestDeps {
   projectId: string;
   isPopout: boolean;
@@ -43,39 +47,51 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
   const [busy, setBusy] = useState(false);
   const autoHandled = useRef(false);
 
+  // `advance` = a REAL generate (advance the cadence + notify + run AI). When
+  // false the digest is DISPLAY-ONLY: render current facts on a remount without
+  // touching the cadence, notifying, or spending an AI call.
   const generate = useCallback(
-    async (notify: boolean): Promise<DigestModel | null> => {
+    async (opts: { notify: boolean; advance: boolean }): Promise<DigestModel | null> => {
       if (deps.isPopout) return null;
       setBusy(true);
       try {
-        const model = deps.getModel();
         const prior = loadDigestState(deps.projectId);
         const now = deps.now();
         let d = buildDigest(
-          { model, raid: deps.getRaid(), prior: prior ? { rag: prior.priorRag, overdue: prior.priorMetrics.overdue, openRaid: prior.priorMetrics.openRaid } : null },
+          { model: deps.getModel(), raid: deps.getRaid(), prior: prior ? { rag: prior.priorRag, overdue: prior.priorMetrics.overdue, openRaid: prior.priorMetrics.openRaid } : null },
           deps.today,
           now,
         );
-        if (deps.aiKey) {
-          try {
-            const runner = deps.runNarrative ?? runDigestNarrative;
-            const text = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang });
-            const narrative = parseDigestNarrative(text);
-            if (narrative) d = { ...d, narrative };
-          } catch {
-            /* AI fail-soft: deterministic digest stands */
-          }
-        }
+        // Deterministic base renders IMMEDIATELY — the card never waits on AI.
         setDigest(d);
-        advanceDigestState(deps.projectId, {
-          now,
-          cadenceDays: deps.config.cadenceDays,
-          rag: d.rag,
-          metrics: { overdue: d.overdue.count, openRaid: d.openRaid.count },
-        });
-        if (notify) {
-          const body = `${t(deps.lang, "digestOverdue")}: ${d.overdue.count} · ${t(deps.lang, "digestOpenRaid")}: ${d.openRaid.count}`;
-          deps.fireNotification(t(deps.lang, "digestNotifyTitle"), body);
+        if (opts.advance) {
+          advanceDigestState(deps.projectId, {
+            now,
+            cadenceDays: deps.config.cadenceDays,
+            rag: d.rag,
+            metrics: { overdue: d.overdue.count, openRaid: d.openRaid.count },
+          });
+          if (opts.notify) {
+            const body = `${t(deps.lang, "digestOverdue")}: ${d.overdue.count} · ${t(deps.lang, "digestOpenRaid")}: ${d.openRaid.count}`;
+            deps.fireNotification(t(deps.lang, "digestNotifyTitle"), body);
+          }
+          if (deps.aiKey) {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
+            try {
+              const runner = deps.runNarrative ?? runDigestNarrative;
+              const text = await runner(d, { apiKey: deps.aiKey, model: deps.aiModel, lang: deps.lang }, ctrl.signal);
+              const narrative = parseDigestNarrative(text);
+              if (narrative) {
+                d = { ...d, narrative };
+                setDigest(d);
+              }
+            } catch {
+              /* AI fail-soft: deterministic digest stands */
+            } finally {
+              clearTimeout(timer);
+            }
+          }
         }
         return d;
       } finally {
@@ -90,19 +106,19 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
     autoHandled.current = true;
     const state = loadDigestState(deps.projectId);
     const due = state ? isDigestDue(state, deps.now()) : true;
-    // Defer off the effect's synchronous phase: generate() sets state, and a
-    // synchronous setState inside an effect is banned (cascading-render rule).
-    if (due) void Promise.resolve().then(() => generate(true));
+    // Due → full generate; not due → display-only (card still renders after a
+    // remount). Deferred off the effect's sync phase (setState-in-effect banned).
+    void Promise.resolve().then(() => generate({ notify: due, advance: due }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deps.projectId, deps.config.enabled]);
 
   const generateNow = useCallback(async () => {
-    await generate(false);
+    await generate({ notify: false, advance: true });
   }, [generate]);
 
   const emailDigest = useCallback(async () => {
     if (deps.isPopout || !deps.m365Configured) return;
-    const d = digest ?? (await generate(false));
+    const d = digest ?? (await generate({ notify: false, advance: true }));
     if (!d) return;
     try {
       const token = await deps.acquireToken(["Mail.Send"], { interactive: true });

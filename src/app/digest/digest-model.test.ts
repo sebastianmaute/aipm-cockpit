@@ -48,6 +48,20 @@ describe("buildDigest", () => {
     expect(d.generatedAt).toBe("2026-07-10T09:00:00.000Z");
   });
 
+  it("counts high severity only over NON-terminal (open) RAID", () => {
+    const openCritical = { id: 1, category: "R", status: "Open", severity: "Critical" } as unknown as RaidItem;
+    const closedCritical = { id: 2, category: "R", status: "Closed", severity: "Critical" } as unknown as RaidItem;
+    const openHigh = { id: 3, category: "A", status: "Open", severity: "High" } as unknown as RaidItem;
+    const closedHigh = { id: 4, category: "D", status: "Delivered", severity: "High" } as unknown as RaidItem;
+    const d = buildDigest(
+      { model: model({ openRaidCount: 2 }), raid: [openCritical, closedCritical, openHigh, closedHigh], prior: null },
+      "2026-07-10",
+      "2026-07-10T09:00:00.000Z",
+    );
+    // Only the two OPEN high/critical items count; the closed ones are excluded.
+    expect(d.openRaid.high).toBe(2);
+  });
+
   it("computes deltas against a prior snapshot", () => {
     const input: DigestInput = {
       model: model({ overall: { computed: "R", effective: "R", overridden: false }, overdue: [task(1), task(2), task(3)], openRaidCount: 5 }),

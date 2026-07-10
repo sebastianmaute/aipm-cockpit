@@ -59,6 +59,24 @@ describe("useDigest", () => {
     expect(fire).toHaveBeenCalledTimes(1);
   });
 
+  it("renders a display-only digest on remount when enabled but NOT due (no advance, no notify)", async () => {
+    advanceDigestState("p1", { now: "2026-07-10T09:00:00.000Z", cadenceDays: 7, rag: "G", metrics: { overdue: 0, openRaid: 0 } });
+    const before = JSON.parse(localStorage.getItem("lop-app:digest-state")!).p1.nextDueAt;
+    const fire = vi.fn();
+    let hook: ReturnType<typeof renderHook> | undefined;
+    await act(async () => {
+      hook = renderHook(() =>
+        useDigest(deps({ config: { enabled: true, cadenceDays: 7 }, now: () => "2026-07-11T09:00:00.000Z", fireNotification: fire })),
+      );
+    });
+    // Card renders the current facts even though it's not a scheduled run…
+    expect((hook!.result.current as { digest: unknown }).digest).not.toBeNull();
+    // …but the cadence is NOT advanced and no notification fires.
+    expect(fire).not.toHaveBeenCalled();
+    const after = JSON.parse(localStorage.getItem("lop-app:digest-state")!).p1.nextDueAt;
+    expect(after).toBe(before);
+  });
+
   it("popout is read-only: no advance, no send, no notify", async () => {
     const fire = vi.fn();
     const { result } = renderHook(() => useDigest(deps({ isPopout: true, fireNotification: fire })));

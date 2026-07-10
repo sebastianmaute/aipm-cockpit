@@ -4,6 +4,7 @@
 // dashboard model, so it can never disagree with the Dashboard.
 import type { DashboardModel } from "../dashboard";
 import type { Health } from "../health";
+import { isTerminalStatus } from "../raid";
 import type { Milestone, RaidItem } from "../types";
 
 /** Prior snapshot for "since last digest" deltas (from the per-device store). */
@@ -44,7 +45,12 @@ export function buildDigest(input: DigestInput, today: string, generatedAt: stri
   const { model, raid, prior } = input;
   const overdueCount = model.overdue.length;
   const openRaid = model.openRaidCount;
-  const high = raid.filter((r) => HIGH_SEVERITIES.has(r.severity)).length;
+  // `high` must be a subset of `openRaid` (both open-only) — the card/email
+  // render "{count} ({high} high)". Count High/Critical over NON-terminal items
+  // only, matching how model.openRaidCount excludes closed RAID.
+  const high = raid.filter(
+    (r) => !isTerminalStatus(r.status, r.category) && HIGH_SEVERITIES.has(r.severity),
+  ).length;
   // Overdue + due-soon milestones are the "coming up / already slipped" set.
   const milestonesDueSoon: DigestMilestoneFact[] = [
     ...model.overdueMilestones,
