@@ -1,6 +1,6 @@
 {
   "name": "lop-app",
-  "version": "0.170.0",
+  "version": "0.170.1",
   "private": true,
   "license": "EUPL-1.2",
   "scripts": {
@@ -80,8 +80,8 @@
   },
   "allowScripts": {
     "sharp@0.34.5": true,
-    "unrs-resolver@1.11.1": true,
-    "msw@2.14.6": true,
-    "esbuild@0.28.1": true
+    "esbuild@0.28.1": true,
+    "msw@2.15.0": true,
+    "unrs-resolver@1.12.2": true
   }
 }

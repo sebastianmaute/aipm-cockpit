@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.170.1] - 2026-07-10 "Doctorow"
+
+Two TimeLog follow-up fixes for the 0.170.0 customer-scoped booking fetch. No storage format change, no new fields.
+
+### Fixed
+- **Customer-scope picker resets correctly when you switch projects in place**: the render-time reconcile that seeds the Time-bookings customer picker (from a persisted scope, or auto-resolved from the project's customer name) is now gated so an in-place project switch doesn't seed the new project from the *old* project's stale flags/links before its own workspace has hydrated. A manual pick still always wins over both.
+- **Large customer fetches no longer time out**: the `/api/timelog` proxy capped every upstream request at 10 s, but the v2 per-project time-registrations endpoint returns a project's entire (unpaged) history in one response, so a large or closed project legitimately took longer and the fetch dropped that project's data with a "TimeoutError". The v2 per-project call now gets a 30 s budget (matching the reference implementation) while all other calls keep the 10 s guard, and the proxy's failure log now names the failing endpoint and elapsed time (secret-free) so any future upstream stall is attributable.
+
 ## [0.170.0] - 2026-07-09 "Doctorow"
 
 TimeLog integration: the booking fetch can now be scoped to the customer a project is created for. No storage format change (the scope rides the existing `timelogLinks` JSON blob — no new persisted Workspace field, no golden regen).
