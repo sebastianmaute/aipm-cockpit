@@ -249,6 +249,8 @@ function TaskManagerInner() {
     setStakeholders,
     steeringCommittee,
     setSteeringCommittee,
+    timelogLinks,
+    setTimelogLinks,
     setFieldVisibility,
     fxRates,
     project,
@@ -819,9 +821,11 @@ function TaskManagerInner() {
     () => workspaceToJson({
       tasks, raid, absences, shifts, resources, roles, disciplines, grades,
       plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
+      steeringCommittee, timelogLinks,
     }),
     [tasks, raid, absences, shifts, resources, roles, disciplines, grades,
-     plan, budgets, fxRates, status, project, milestones, changes, stakeholders],
+     plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
+     steeringCommittee, timelogLinks],
   );
 
   // Fan a restored workspace into every setter (mirrors use-storage-backend's
@@ -831,8 +835,8 @@ function TaskManagerInner() {
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
-    setSteeringCommittee(w.steeringCommittee);
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee]);
+    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the
