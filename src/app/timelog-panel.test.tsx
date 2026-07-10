@@ -121,12 +121,14 @@ const INITIAL_LINKS: TimelogLinks = {
 /** Seed workspace data on mount. */
 function SeedWorkspace({
   links,
+  resources,
 }: {
   links?: TimelogLinks;
+  resources?: Resource[];
 }) {
   const ws = useWorkspace();
   useEffect(() => {
-    ws.setResources([RESOURCE]);
+    ws.setResources(resources ?? [RESOURCE]);
     ws.setBudgets([BUCKET]);
     if (links) ws.setTimelogLinks(links);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -227,6 +229,56 @@ describe("TimelogPanel", () => {
       // Unattributed = 2 h
       expect(screen.getByText(t("en-US", "timelogKpiWinLoss"))).toBeInTheDocument();
       expect(screen.getByText("2 h")).toBeInTheDocument();
+    });
+  });
+
+  describe("External resource exclusion", () => {
+    // External resources are capacity-only (excluded from cost) and never book
+    // time as an internal TimeLog user — so they must be dropped from BOTH the
+    // cost-attribution engine (the hook input) AND the People-table picker.
+    const INTERNAL: Resource = { ...RESOURCE, id: 1, firstName: "Alice", lastName: "Smith" };
+    const EXTERNAL: Resource = {
+      ...RESOURCE,
+      id: 2,
+      firstName: "Ext",
+      lastName: "Contractor",
+      email: "ext@vendor.example",
+      isExternal: true,
+    };
+
+    it("passes only internal resources to the sync hook (aggregation excludes externals)", async () => {
+      enableTimelog();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      render(
+        <>
+          <SeedWorkspace resources={[INTERNAL, EXTERNAL]} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // SeedWorkspace sets resources in an effect → panel re-renders → the hook is
+      // re-invoked with the filtered list. Assert on the LATEST call's input.
+      await waitFor(() => {
+        const calls = vi.mocked(useTimelogSync).mock.calls;
+        const last = calls[calls.length - 1][0] as { resources: readonly Resource[] };
+        expect(last.resources.map((r) => r.id)).toEqual([1]);
+      });
+    });
+
+    it("omits external resources from the People-table resource picker", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace resources={[INTERNAL, EXTERNAL]} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // People row for the mocked booker (userId 42, alice@example.com).
+      const label = `${t("en-US", "timelogMatchPeople")} – alice@example.com`;
+      const select = await screen.findByRole("combobox", { name: label });
+      expect(within(select).getByRole("option", { name: "Alice Smith" })).toBeInTheDocument();
+      expect(within(select).queryByRole("option", { name: "Ext Contractor" })).toBeNull();
     });
   });
 

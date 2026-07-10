@@ -61,6 +61,14 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const resources = ws.resources;
   const planGranularity = ws.plan?.granularity ?? "month";
 
+  // Only INTERNAL resources are linkable to TimeLog people — external resources
+  // are capacity-only (excluded from cost) and never book time as an internal
+  // user, so they're dropped from the auto-match pool, the aggregation engine
+  // (byResource/byBucket), AND the picker below. Filter at the SOURCE (before the
+  // hook) so display and cost attribution agree — filtering only the dropdown
+  // would still let a name-colliding external soak up hours in apply-to-budget.
+  const matchableResources = useMemo(() => resources.filter((r) => !r.isExternal), [resources]);
+
   const links: TimelogLinks = useMemo(
     () => timelogLinks ?? { userLinks: [], projectLinks: [] },
     [timelogLinks],
@@ -74,7 +82,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const sync = useTimelogSync({
     creds,
     links,
-    resources,
+    resources: matchableResources,
     budgets,
     scopeMode: cfg.scopeMode,
     granularity: planGranularity,
@@ -166,11 +174,6 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   // Hoist obj.member values to scalar locals before any useMemo dep array.
   const projectLinks = links.projectLinks;
   const fetchedProjectRefs = sync.projectRefs;
-
-  // Only INTERNAL resources are linkable to TimeLog people — external resources
-  // are capacity-only (excluded from cost) and never book time as an internal
-  // user, so they're dropped from both the auto-match pool and the picker below.
-  const matchableResources = useMemo(() => resources.filter((r) => !r.isExternal), [resources]);
 
   // Derive effective user matches (auto + manual, manual wins)
   const effectiveUserLinks = useMemo(
