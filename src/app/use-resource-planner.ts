@@ -13,6 +13,7 @@ import { sanitizeResource } from "./sanitize";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
+import type { UndoStackApi } from "./undo/use-undo-stack";
 
 // Envelope-level defense against a caller accidentally forwarding a DOM/synthetic
 // event as `seed` (e.g. `onClick={onAddResource}`). Spreading an event injects a
@@ -67,6 +68,8 @@ export interface UseResourcePlannerArgs {
   showToast: (kind: "info" | "error", text: string) => void;
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
+  /** Capture a pre-op snapshot for undo (RAID/absence/shift delete, resource bulk-edit). */
+  capture?: UndoStackApi["capture"];
 }
 
 /** True when an absence/shift belongs to one of the removed resources — by
@@ -117,6 +120,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
 
   const langRef = useRef(args.lang);
   const logActivityRef = useRef(args.logActivity);
+  const captureRef = useRef(args.capture);
+  useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
   const logActivityChangesRef = useRef(args.logActivityChanges);
   const showToastRef = useRef(args.showToast);
   const tasksRef = useRef(tasks);
@@ -237,6 +242,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteRaidItem = useCallback(
     (id: number) => {
       const removed = raid.find((r) => r.id === id);
+      if (removed) captureRef.current?.({ setter: setRaid, kind: "raid.deleted", before: [removed], fromArray: raid });
       setRaid((prev) => prev.filter((r) => r.id !== id));
       if (removed) {
         logActivityRef.current("raid.deleted", id, removed.category, removed.title);
@@ -244,6 +250,13 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     },
     [raid, setRaid],
   );
+
+  // Snapshot the selected RAID rows' pre-edit images before a bulk apply loops
+  // the per-row save handler; call BEFORE the loop mutates them.
+  const captureRaidBulkUndo = useCallback((ids: readonly number[]) => {
+    const before = raid.filter((r) => ids.includes(r.id));
+    if (before.length) captureRef.current?.({ setter: setRaid, kind: "bulk.edit", before, fromArray: raid });
+  }, [raid, setRaid]);
 
   const handleOpenAddAbsence = useCallback(
     (seed?: Partial<Absence>) => {
@@ -315,6 +328,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteAbsence = useCallback(
     (id: number) => {
       const removed = absences.find((a) => a.id === id);
+      if (removed) captureRef.current?.({ setter: setAbsences, kind: "absence.deleted", before: [removed], fromArray: absences });
       setAbsences((prev) => prev.filter((a) => a.id !== id));
       if (removed) {
         logActivityRef.current("absence.deleted", id, removed.assignee);
@@ -368,6 +382,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteShift = useCallback(
     (id: number) => {
       const removed = shifts.find((s) => s.id === id);
+      if (removed) captureRef.current?.({ setter: setShifts, kind: "shift.deleted", before: [removed], fromArray: shifts });
       setShifts((prev) => prev.filter((s) => s.id !== id));
       if (removed) {
         logActivityRef.current("shift.deleted", id, removed.assignee);
@@ -496,6 +511,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const idSet = new Set(ids);
       const stamp = new Date().toISOString();
       const affected = resources.filter((r) => idSet.has(r.id));
+      if (affected.length > 0) captureRef.current?.({ setter: setResources, kind: "bulk.edit", before: affected, fromArray: resources });
       setResources((prev) =>
         prev.map((r) => {
           if (!idSet.has(r.id)) return r;
@@ -846,6 +862,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleImportResources,
     handleSaveRaidItem,
     handleDeleteRaidItem,
+    captureRaidBulkUndo,
     handleOpenAddAbsence,
     handleImportAbsences,
     handleEditAbsence,

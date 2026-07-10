@@ -81,6 +81,8 @@ type MilestonesPanelProps = {
     changes: readonly FieldChange[],
     ...args: (string | number)[]
   ) => void;
+  /** Capture a pre-op snapshot for undo (delete / bulk-edit). */
+  capture?: import("./undo/use-undo-stack").UndoStackApi["capture"];
   openCreateNonce?: number;
   /** Called after an `openCreateNonce` create-request has been honoured so the
    *  parent can reset the nonce. Without it a stale nonce re-opens the create
@@ -109,6 +111,7 @@ export function MilestonesPanel(props: MilestonesPanelProps) {
 
 function MilestonesPanelBody({
   lang,
+  capture,
   today,
   holidaySet,
   logActivity,
@@ -189,6 +192,8 @@ function MilestonesPanelBody({
   );
 
   const applyBulk = (changes: Record<string, string>) => {
+    const beforeRows = milestones.filter((m) => sel.selectedIds.has(m.id));
+    if (beforeRows.length) capture?.({ setter: setMilestones, kind: "bulk.edit", before: beforeRows, fromArray: milestones });
     for (const id of sel.selectedIds) {
       const item = milestoneById.get(id);
       if (!item) continue;
@@ -270,6 +275,8 @@ function MilestonesPanelBody({
   }
 
   function del(id: number) {
+    const doomed = milestones.find((m) => m.id === id);
+    if (doomed) capture?.({ setter: setMilestones, kind: "milestone.deleted", before: [doomed], fromArray: milestones });
     setMilestones((prev) => prev.filter((m) => m.id !== id));
     logActivity?.("milestone.deleted", id);
     setEditing(null);

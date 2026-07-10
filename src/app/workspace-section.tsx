@@ -103,6 +103,8 @@ export function WorkspaceSection({
   handleClearRaidTaskFilter,
   handleSaveRaidItem,
   handleDeleteRaidItem,
+  onCaptureRaidBulk,
+  onCaptureUndo,
   changes,
   handleSaveChange,
   handleDeleteChange,
@@ -405,6 +407,7 @@ export function WorkspaceSection({
             onClearTaskFilter={handleClearRaidTaskFilter}
             onSave={handleSaveRaidItem}
             onDelete={handleDeleteRaidItem}
+            onCaptureBulk={onCaptureRaidBulk}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
             showHints={settings.showViewHints !== false}
@@ -698,6 +701,7 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               logActivity={logActivity}
               logActivityChanges={logActivityChanges}
+              capture={onCaptureUndo}
               openCreateNonce={milestoneCreateNonce}
               onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}

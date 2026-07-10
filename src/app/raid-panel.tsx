@@ -80,6 +80,8 @@ export type RaidPanelProps = {
    *  `localModifiedAt`. */
   onSave: (item: RaidItem, isNew?: boolean) => void;
   onDelete: (id: number) => void;
+  /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
+  onCaptureBulk?: (ids: readonly number[]) => void;
   /** Spawns a Task pre-filled from the item; returns its new id so the
    *  modal can add it to `linkedTaskIds` immediately. In a read-only (popout)
    *  context the guard returns undefined; callers must treat undefined as null. */
@@ -134,6 +136,7 @@ function RaidPanelBody({
   onClearTaskFilter,
   onSave,
   onDelete,
+  onCaptureBulk,
   onCreateMitigationTask,
   onJumpToTask,
   showHints,
@@ -258,6 +261,7 @@ function RaidPanelBody({
   }, [lang, resources]);
 
   const applyBulk = (changes: Record<string, string>) => {
+    onCaptureBulk?.(Array.from(sel.selectedIds));
     for (const id of sel.selectedIds) {
       const item = raidById.get(id);
       if (!item) continue;

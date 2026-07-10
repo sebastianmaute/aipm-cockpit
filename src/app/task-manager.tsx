@@ -560,6 +560,7 @@ function TaskManagerInner() {
     editingShift,
     handleSaveRaidItem,
     handleDeleteRaidItem,
+    captureRaidBulkUndo,
     handleOpenAddAbsence,
     handleEditAbsence,
     handleCloseAbsenceModal,
@@ -597,7 +598,7 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
+  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture });
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
   const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture });
@@ -1580,6 +1581,8 @@ function TaskManagerInner() {
     handleClearRaidTaskFilter,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
+    onCaptureRaidBulk: captureRaidBulkUndo,
+    onCaptureUndo: undoApi.capture,
     m365Configured: m365Enabled,
     raidCalendar: {
       enabled: calendarRaidEnabled,
