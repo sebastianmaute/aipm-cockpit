@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -114,6 +114,28 @@ describe("MilestonesPanel", () => {
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(onCreateConsumed).toHaveBeenCalled();
+  });
+
+  it("re-mints a create whose open-time id was taken by a concurrent commit — no clobber (id-mint race)", () => {
+    const seeded = (extra: readonly Milestone[]) => (
+      <>
+        <Seed milestones={[m("Existing", "2026-06-10", { id: 1 }), ...extra]} />
+        <MilestonesPanel {...baseProps} />
+      </>
+    );
+    const { rerender } = render(seeded([]), { wrapper });
+    // Open the create modal — it drafts id nextId([1]) = 2.
+    fireEvent.click(screen.getByRole("button", { name: /new milestone/i }));
+    const dialog = screen.getByRole("dialog");
+    // A concurrent writer commits a milestone at id 2 while the modal is open.
+    rerender(seeded([m("Concurrent", "2026-06-11", { id: 2 })]));
+    // Name and save the new milestone.
+    fireEvent.change(within(dialog).getAllByRole("textbox")[0], { target: { value: "Fresh" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+    // All three survive: the create got a fresh id instead of clobbering id 2.
+    expect(screen.getByText("Existing")).toBeInTheDocument();
+    expect(screen.getByText("Concurrent")).toBeInTheDocument();
+    expect(screen.getByText("Fresh")).toBeInTheDocument();
   });
 
   it("renders the New milestone button at the left, styled like Gantt (solid dark-blue)", () => {
