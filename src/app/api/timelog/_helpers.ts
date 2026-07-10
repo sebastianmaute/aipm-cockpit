@@ -33,9 +33,26 @@ function normalizeHost(host: string): string | null {
   return h;
 }
 
-// Bound every upstream call so a hung Timelog endpoint cannot hold the
-// serverless function (and the client's spinner) for the platform timeout.
+// Bound every upstream call so a hung Timelog endpoint cannot hold the request
+// (and the client's spinner) indefinitely. Default 10s for the light v1 calls.
 const TIMELOG_UPSTREAM_TIMEOUT_MS = 10_000;
+// The v2 per-project time-registrations endpoint returns a project's ENTIRE
+// registration history in ONE unpaged response (it ignores $pagesize/date
+// params — verified against the reference impl, which gives this exact call
+// 30s and never pages it). A large project (esp. closed history) legitimately
+// takes >10s, so the customer-scoped fetch was tripping the 10s cap and dropping
+// that project's data. Give this one heavy call a 30s budget; v1 stays 10s so
+// light calls still fail fast. Safe because the app is self-hosted (`next
+// start`) — there is no serverless function-timeout ceiling above this.
+const TIMELOG_V2_PROJECT_REG_TIMEOUT_MS = 30_000;
+const V2_PROJECT_REG_RE = /^\/v2\/projects\/\d+\/time-registrations/;
+
+/** Per-call upstream timeout: heavy v2 per-project registrations get 30s, else 10s. */
+function upstreamTimeoutFor(pathOnly: string): number {
+  return V2_PROJECT_REG_RE.test(pathOnly)
+    ? TIMELOG_V2_PROJECT_REG_TIMEOUT_MS
+    : TIMELOG_UPSTREAM_TIMEOUT_MS;
+}
 
 export type TimelogRequest = {
   creds: TimelogCreds;
@@ -109,6 +126,10 @@ export async function callTimelog(
   }
 
   const url = `https://${host}/${encodeURIComponent(creds.tenant)}/api${path}`;
+  // Query-stripped path drives BOTH the per-call timeout selection and the
+  // attributable error log below (secret-free: the token lives only in the
+  // Authorization header; the query can carry ids).
+  const pathOnly = path.split("?")[0];
   const startedAt = Date.now();
   try {
     return await fetch(url, {
@@ -120,13 +141,13 @@ export async function callTimelog(
         ...(init?.headers ?? {}),
       },
       cache: "no-store",
-      signal: AbortSignal.timeout(TIMELOG_UPSTREAM_TIMEOUT_MS),
+      signal: AbortSignal.timeout(upstreamTimeoutFor(pathOnly)),
     });
   } catch (err) {
     // Network-level failure before any response (DNS, connection refused, TLS,
     // timeout). Log enough to ATTRIBUTE it — the failure class, the elapsed time
-    // (a value near TIMELOG_UPSTREAM_TIMEOUT_MS => a genuine upstream timeout,
-    // not a fast DNS/TLS reject) and the request PATH with its query stripped
+    // (a value near the call's budget => a genuine upstream timeout, not a fast
+    // DNS/TLS reject) and the request PATH with its query stripped
     // (the query can carry ids like employeeUserId; the token lives only in the
     // Authorization header, never the path, so the bare path is secret-free).
     // Never log `creds`, the token, the url (has the tenant), or a response body.
@@ -139,7 +160,6 @@ export async function callTimelog(
         ? (err as { name: string }).name
         : "unknown";
     const elapsedMs = Date.now() - startedAt;
-    const pathOnly = path.split("?")[0];
     console.error(
       `Timelog upstream fetch failed: ${failureClass} after ${elapsedMs}ms (path ${pathOnly})`,
     );

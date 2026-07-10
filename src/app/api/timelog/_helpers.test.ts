@@ -72,6 +72,20 @@ describe("timelog proxy SSRF guard", () => {
     const out = await parseTimelogRequest(req({ ...creds, path: "/v1/x\r\nX: y" }));
     expect("error" in out && (out.error as Response).status).toBe(400);
   });
+  it("gives the heavy v2 per-project time-registrations call a longer (30s) upstream timeout", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    await callTimelog(creds, "/v2/projects/12345/time-registrations?startDate=2026-06-01", { method: "GET" });
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+  });
+
+  it("keeps the default (10s) upstream timeout for light v1 calls", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 200 }));
+    await callTimelog(creds, "/v1/user?$page=1", { method: "GET" });
+    expect(timeoutSpy).toHaveBeenCalledWith(10_000);
+  });
+
   it("on an upstream timeout returns 502 and logs the attributable path (query-stripped) but never the token", async () => {
     const err = new DOMException("The operation was aborted due to timeout", "TimeoutError");
     vi.spyOn(globalThis, "fetch").mockRejectedValue(err);
