@@ -69,6 +69,7 @@ export function GanttPanel({
   showHints,
   isPopout,
   onLearnMore,
+  baselineMilestoneDates,
 }: {
   lang: Lang;
   tasks: readonly Task[];
@@ -82,6 +83,7 @@ export function GanttPanel({
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  baselineMilestoneDates?: ReadonlyMap<number, string>;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -101,7 +103,12 @@ export function GanttPanel({
     setAssigneeFilter,
     resetFilters,
     toggleCriticalPath,
+    toggleBaseline,
   } = useGanttPrefs();
+
+  // The Gantt shows the milestone baseline overlay only when the pinned snapshot
+  // carries baseline dates (Turso). Off Turso this is undefined/empty → no toggle.
+  const hasBaseline = (baselineMilestoneDates?.size ?? 0) > 0;
 
   // Today is used in date math (overdue computation, range padding). It's
   // evaluated once per render — server / client first paint produce the
@@ -459,6 +466,8 @@ export function GanttPanel({
       setSort={setSort}
       resetFilters={resetFilters}
       toggleCriticalPath={toggleCriticalPath}
+      toggleBaseline={toggleBaseline}
+      hasBaseline={hasBaseline}
     />
   );
 
@@ -587,6 +596,8 @@ export function GanttPanel({
                 tasksById={tasksById}
                 todayISO={todayISO}
                 onEditMilestone={onEditMilestone}
+                baselineDate={baselineMilestoneDates?.get(m.id)}
+                showBaseline={prefs.showBaseline}
               />
             );
           })}

@@ -38,6 +38,8 @@ export function GanttToolbar({
   setSort,
   resetFilters,
   toggleCriticalPath,
+  toggleBaseline,
+  hasBaseline,
 }: {
   lang: Lang;
   prefs: GanttPrefs;
@@ -53,6 +55,8 @@ export function GanttToolbar({
   setSort: (sort: GanttSort) => void;
   resetFilters: () => void;
   toggleCriticalPath: () => void;
+  toggleBaseline: () => void;
+  hasBaseline: boolean;
 }) {
   return (
     <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
@@ -187,6 +191,33 @@ export function GanttToolbar({
         </svg>
         <span>{t(lang, "ganttCriticalPath")}</span>
       </button>
+      {hasBaseline && (
+        <button
+          type="button"
+          onClick={toggleBaseline}
+          aria-pressed={prefs.showBaseline}
+          title={t(lang, "ganttBaselineHint")}
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 ${
+            prefs.showBaseline
+              ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
+              : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
+          }`}
+        >
+          {/* ghost + solid diamond glyph — baseline vs current */}
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.6}
+            aria-hidden="true"
+            className="h-3.5 w-3.5"
+          >
+            <rect x={2} y={7} width={5} height={5} transform="rotate(45 4.5 9.5)" />
+            <rect x={11} y={7} width={5} height={5} transform="rotate(45 13.5 9.5)" fill="currentColor" />
+          </svg>
+          <span>{t(lang, "ganttBaseline")}</span>
+        </button>
+      )}
       <PrintButton lang={lang} />
       <ResetSizeButton onClick={resetGanttSize} lang={lang} />
     </div>
