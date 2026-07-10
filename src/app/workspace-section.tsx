@@ -136,6 +136,7 @@ export function WorkspaceSection({
   onSetAllUtilizationMode,
   onSetAbsenceOverride,
   onSetPlanWindow,
+  onSetBudgetFollowsPlan,
   onEditResource,
   onAddResource,
   onImportOutlook,
@@ -663,6 +664,7 @@ export function WorkspaceSection({
               workdayHours={settings.resources.workdayHours}
               today={today}
               onChangeBuckets={onChangeBudgets}
+              onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}
               fxLoading={fxLoading}
               showHints={settings.showViewHints !== false}

@@ -522,6 +522,8 @@ export const de: Record<TranslationKey, string> = {
   budgetNoDisciplinesDefinedHint: "Disziplinen unter Ressourcen → {0} anlegen.",
   budgetBudgetHoursHint: "Budgetierte Stunden für diesen Zeitraum.",
   budgetActualHoursHint: "Tatsächlich gebuchte Stunden für diesen Zeitraum.",
+  budgetFollowsPlan: "Budgetstunden folgen Planung",
+  budgetFollowsPlanHint: "Wenn aktiv, spiegeln die Budgetstunden von Zeilen mit zugewiesenen Ressourcen die geplante Kapazität wider und sind schreibgeschützt.",
   budgetCellPlan: "Plan",
   budgetCellActual: "Ist",
   budgetRoleStatus: "Status",

@@ -135,6 +135,7 @@ export interface BudgetPanelProps {
   workdayHours: number;
   today: string;
   onChangeBuckets: (next: BudgetBucket[]) => void;
+  onSetBudgetFollowsPlan?: (v: boolean) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
   showHints?: boolean;
@@ -174,7 +175,7 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
 
@@ -308,6 +309,18 @@ export function BudgetPanel(props: BudgetPanelProps) {
           </span>
         </h2>
         <div className="flex items-center gap-2">
+          {!isPopout && onSetBudgetFollowsPlan ? (
+            <label className="flex items-center gap-1.5 text-sm print:hidden">
+              <input
+                type="checkbox"
+                checked={plan.budgetFollowsPlan ?? false}
+                onChange={(e) => onSetBudgetFollowsPlan(e.target.checked)}
+                className={`${FOCUS_RING} ${TRANSITION}`}
+              />
+              <span>{t(lang, "budgetFollowsPlan")}</span>
+              <InfoTooltip text={t(lang, "budgetFollowsPlanHint")} />
+            </label>
+          ) : null}
           <button
             type="button"
             onClick={addBucket}

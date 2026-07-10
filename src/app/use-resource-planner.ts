@@ -922,6 +922,13 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [setPlan],
   );
 
+  const handleSetBudgetFollowsPlan = useCallback(
+    (v: boolean) => {
+      setPlan((prev) => ({ ...prev, budgetFollowsPlan: v }));
+    },
+    [setPlan],
+  );
+
   return {
     editingAbsence,
     editingShift,
@@ -968,5 +975,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleSetAbsenceOverride,
     handleSetPlanWindow,
     handleSetPlanGranularity,
+    handleSetBudgetFollowsPlan,
   };
 }

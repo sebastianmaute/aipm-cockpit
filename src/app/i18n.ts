@@ -517,6 +517,8 @@ const enUS = {
   budgetNoDisciplinesDefinedHint: "Add disciplines under Resources → {0} first.",
   budgetBudgetHoursHint: "Budgeted hours for this period.",
   budgetActualHoursHint: "Actual booked hours for this period.",
+  budgetFollowsPlan: "Budget hours follow plan",
+  budgetFollowsPlanHint: "When on, budget hours for lines with assigned resources mirror planned capacity and become read-only.",
   budgetCellPlan: "Plan",
   budgetCellActual: "Actual",
   budgetRoleStatus: "Status",

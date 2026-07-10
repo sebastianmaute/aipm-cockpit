@@ -1026,6 +1026,14 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.plan.granularity).toBe("week");
     });
 
+    it("handleSetBudgetFollowsPlan updates the plan", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleSetBudgetFollowsPlan(true); });
+      expect(result.current.workspace.plan.budgetFollowsPlan).toBe(true);
+      act(() => { result.current.planner.handleSetBudgetFollowsPlan(false); });
+      expect(result.current.workspace.plan.budgetFollowsPlan).toBe(false);
+    });
+
     it("handleSetAllUtilizationMode converts all resources' utilization and switches mode", () => {
       // Seed: Feb 2026, monthly granularity, 8h/day, no holidays.
       // Feb 2026 = 20 workdays → possible = 20 × 8 = 160 h.

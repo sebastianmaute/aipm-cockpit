@@ -59,6 +59,13 @@ describe("BudgetPanel", () => {
     expect(next.find((b) => b.name === "DEV")!.order).toBe(0);
   });
 
+  test("budget: toggling 'budget hours follow plan' calls the setter", () => {
+    const onSetBudgetFollowsPlan = vi.fn();
+    render(<BudgetPanel {...props} onSetBudgetFollowsPlan={onSetBudgetFollowsPlan} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /budget hours follow plan/i }));
+    expect(onSetBudgetFollowsPlan).toHaveBeenCalledWith(true);
+  });
+
   test("ArrowUp on the top bucket's handle is a no-op", () => {
     const onChangeBuckets = vi.fn();
     render(<BudgetPanel {...props} buckets={twoBuckets()} onChangeBuckets={onChangeBuckets} />);
