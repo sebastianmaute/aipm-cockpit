@@ -2556,6 +2556,12 @@ const enUS = {
   changeEditTitle: "Edit change",
   stakeholderEditTitle: "Edit stakeholder",
   taskEditTitle: "Edit task",
+  // Task editor: create RAID / linked task
+  taskEditorCreateRaid: "Create RAID",
+  taskEditorNewLinkedTask: "New linked task",
+  taskLinkDirection: "Link direction",
+  taskLinkAsPredecessor: "Predecessor",
+  taskLinkAsSuccessor: "Successor",
   // Manage Roles tooltips
   rolesDisciplineHint: "The skill area this role belongs to (e.g. Engineering).",
   rolesGradeHint: "Seniority level used to derive the blended rate.",

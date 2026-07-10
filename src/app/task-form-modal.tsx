@@ -44,6 +44,9 @@ export interface TaskFormModalProps {
   deleteAction?: ReactNode;
   /** When set, the task's Jira project is read-only; show a warning banner. */
   readOnlyJiraProjectName?: string;
+  /** Editor extras rendered below the fields (create-RAID mini-form + new
+   *  linked-task button). Omitted in popouts (read-only). */
+  editorExtras?: ReactNode;
 }
 
 export function TaskFormModal({
@@ -73,6 +76,7 @@ export function TaskFormModal({
   leadingActions,
   deleteAction,
   readOnlyJiraProjectName,
+  editorExtras,
 }: TaskFormModalProps) {
   const { editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
@@ -133,6 +137,9 @@ export function TaskFormModal({
             onRemoveContact={onRemoveContact}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
           />
+          {editorExtras && (
+            <div className="space-y-3 border-t border-line pt-4">{editorExtras}</div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <div>{deleteAction}</div>
             <div className="flex items-center gap-2">
