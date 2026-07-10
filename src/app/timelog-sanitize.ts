@@ -46,7 +46,17 @@ export function sanitizeTimelogLinks(raw: unknown): TimelogLinks | undefined {
     isNum(r.customerId) && Number.isInteger(r.customerId) && r.customerId > 0
       ? r.customerId
       : undefined;
-  return { userLinks, projectLinks, ...(customerId !== undefined ? { customerId } : {}) };
+  // Selected projects for the scoped fetch: positive ints, deduped, capped.
+  // Drop the key when empty so an unscoped blob stays byte-stable.
+  const projectIds = Array.isArray(r.projectIds)
+    ? [...new Set(r.projectIds.filter((v): v is number => isNum(v) && Number.isInteger(v) && v > 0))].slice(0, 200)
+    : [];
+  return {
+    userLinks,
+    projectLinks,
+    ...(customerId !== undefined ? { customerId } : {}),
+    ...(projectIds.length > 0 ? { projectIds } : {}),
+  };
 }
 
 const SCOPES: readonly TimelogScopeMode[] = ["auto", "self", "org"];
