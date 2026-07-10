@@ -254,6 +254,21 @@ it("fetchBookingsForProjects is fail-soft: one project error does not abort the 
   expect(out?.failedProjects).toBe(1);
 });
 
+it("loadCustomerProjects discards an out-of-order (superseded) response", async () => {
+  let resolveA!: (v: unknown) => void;
+  (api.listProjectsForCustomer as ReturnType<typeof vi.fn>)
+    .mockReturnValueOnce(new Promise((r) => { resolveA = r; }))       // customer A — stays pending
+    .mockResolvedValueOnce([{ id: 2, name: "B", no: "" }]);           // customer B — resolves first
+  const { result } = renderHook(() => useTimelogSync(args()));
+  let pA!: Promise<void>;
+  act(() => { pA = result.current.loadCustomerProjects(10); });       // A requested (pending)
+  await act(async () => { await result.current.loadCustomerProjects(20); }); // B resolves → B's list
+  expect(result.current.customerProjects).toEqual([{ id: 2, name: "B", no: "" }]);
+  // A resolves LATE — must be discarded (the newer B request superseded it).
+  await act(async () => { resolveA([{ id: 1, name: "A", no: "" }]); await pA; });
+  expect(result.current.customerProjects).toEqual([{ id: 2, name: "B", no: "" }]);
+});
+
 it("loadManagedProjects sets projectRefs to the token owner's managed projects", async () => {
   (api.getMe as ReturnType<typeof vi.fn>).mockResolvedValue({ userId: 2144 });
   (api.listManagedProjects as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 12286, name: "KfW", no: "x" }]);

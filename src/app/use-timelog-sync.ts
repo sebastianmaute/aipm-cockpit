@@ -2,7 +2,7 @@
 // On-demand fetch of Timelog bookings. Resolves scope (auto/self/org),
 // aggregates via timelog-actuals, and caches the result per-project.
 // Never logs token or response body — errors carry only status digits.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   listUsers,
   getPrivileges,
@@ -74,7 +74,14 @@ export function useTimelogSync(args: Args) {
   // The FULL org directory, cached across fetches for EmployeeInitials→userId
   // resolution. Kept SEPARATE from `users` — which now holds only the bookers
   // subset — so a later fetch resolves against everyone, not the last bookers.
+  // Reset when the connection changes so a tenant switch never resolves against
+  // the previous org's directory.
   const fullDirectoryRef = useRef<TimelogUser[] | null>(null);
+  useEffect(() => { fullDirectoryRef.current = null; }, [creds.host, creds.tenant, creds.token]);
+  // Monotonic request id so an out-of-order loadCustomerProjects response can't
+  // clobber a newer customer's project list (the picker/scope would otherwise
+  // show customer A's projects while B is selected).
+  const customerProjectsReqRef = useRef(0);
 
   // Shared abort/busy/error wrapper. Plain functions (not memoized): they read
   // live render-scope state every call (users/aggregates/…), like the storage
@@ -107,6 +114,13 @@ export function useTimelogSync(args: Args) {
     }
   }
 
+  // NOTE: `loadDirectory` and `fetchBookings` (the self/org per-user path below)
+  // are NOT wired into the panel anymore — the customer→project flow
+  // (`fetchBookingsForProjects`) superseded them. They remain exported (still
+  // exercised by tests) and could back a future non-customer mode. ★ Do NOT
+  // reuse `fetchBookings`'s org branch as-is: it reads the `users` state as the
+  // directory, which now holds only the bookers subset (see `fullDirectoryRef`).
+  //
   // STEP 1 — load the org directory only (cheap: paged /v1/user). Populates the
   // People table for selection/filtering WITHOUT pulling any bookings, so the
   // user can narrow + tick before the costly per-employee timesheet fetch.
@@ -143,8 +157,11 @@ export function useTimelogSync(args: Args) {
   // A falsy/non-positive customer clears the list.
   async function loadCustomerProjects(customerId: number): Promise<void> {
     if (isPopout) return;
+    const req = (customerProjectsReqRef.current += 1);
     if (!customerId || customerId <= 0) { setCustomerProjects([]); return; }
-    setCustomerProjects(await listProjectsForCustomer(creds, customerId, undefined, true));
+    const list = await listProjectsForCustomer(creds, customerId, undefined, true);
+    // Discard a response superseded by a newer customer pick (out-of-order guard).
+    if (req === customerProjectsReqRef.current) setCustomerProjects(list);
   }
 
   // A customer (>0) loads ALL that customer's projects (server-side filter, not
@@ -324,6 +341,7 @@ export function useTimelogSync(args: Args) {
     setFetchedAt(undefined);
     setUsers([]);
     setProjectRefs([]);
+    fullDirectoryRef.current = null; // force a fresh directory on the next fetch
     clearActualsCache(projectId);
   }
 
