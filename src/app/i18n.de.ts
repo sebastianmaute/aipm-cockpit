@@ -930,6 +930,8 @@ export const de: Record<TranslationKey, string> = {
   ganttSortPriority: "Priorität",
   ganttSortCustom: "Eigene (Drag & Drop)",
   ganttResetFilters: "Filter zurücksetzen",
+  ganttResizeNameCol: "Aufgabenspalte anpassen",
+  ganttResetNameCol: "Breite der Aufgabenspalte zurücksetzen",
   ganttDragHint: "Ziehen, um Reihenfolge zu ändern",
   ganttBarDragHint:
     "Balken ziehen zum Verschieben · Rand ziehen zum Ändern der Dauer",

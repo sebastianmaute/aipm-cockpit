@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { milestoneSlipDays } from "./gantt-engine";
+import {
+  clampNameColWidth,
+  GANTT_NAME_COL_MAX,
+  GANTT_NAME_COL_MIN,
+  LEFT_GUTTER_PX,
+  milestoneSlipDays,
+} from "./gantt-engine";
+
+describe("clampNameColWidth", () => {
+  it("clamps below min and above max, passes through in-range", () => {
+    expect(clampNameColWidth(50)).toBe(GANTT_NAME_COL_MIN);
+    expect(clampNameColWidth(9999)).toBe(GANTT_NAME_COL_MAX);
+    expect(clampNameColWidth(300)).toBe(300);
+  });
+  it("falls back to the default for a non-finite value", () => {
+    expect(clampNameColWidth(Number.NaN)).toBe(LEFT_GUTTER_PX);
+  });
+});
 
 describe("milestoneSlipDays", () => {
   it("is positive when the live date is later than the baseline (slipped)", () => {

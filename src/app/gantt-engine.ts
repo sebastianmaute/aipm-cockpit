@@ -122,7 +122,14 @@ export const DAY_WIDTH_PX = 28; // ~one day per column
 export const ROW_HEIGHT_PX = 32;
 export const HEADER_ROW_HEIGHT_PX = 22; // each of the two header rows
 export const HEADER_HEIGHT_PX = HEADER_ROW_HEIGHT_PX * 2;
-export const LEFT_GUTTER_PX = 240; // task-name column width
+export const LEFT_GUTTER_PX = 240; // task-name column width (runtime default)
+export const GANTT_NAME_COL_MIN = 140;
+export const GANTT_NAME_COL_MAX = 560;
+/** Clamp a candidate task-name column width to sane bounds; non-finite → default. */
+export function clampNameColWidth(w: number): number {
+  if (!Number.isFinite(w)) return LEFT_GUTTER_PX;
+  return Math.max(GANTT_NAME_COL_MIN, Math.min(GANTT_NAME_COL_MAX, Math.round(w)));
+}
 export const BAR_HEIGHT_PX = 18;
 export const BAR_VPADDING_PX = (ROW_HEIGHT_PX - BAR_HEIGHT_PX) / 2;
 // Size of the chart-scale timeline diamond. The gutter uses a fixed 16-viewBox

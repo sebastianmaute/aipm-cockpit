@@ -940,6 +940,8 @@ const enUS = {
   ganttSortPriority: "Priority",
   ganttSortCustom: "Custom (drag)",
   ganttResetFilters: "Reset filters",
+  ganttResizeNameCol: "Resize the task name column",
+  ganttResetNameCol: "Reset the task name column width",
   ganttDragHint: "Drag to reorder rows",
   ganttBarDragHint:
     "Drag the bar to move it · drag an edge to resize",

@@ -8,6 +8,7 @@ const base = {
   lang: "en-US" as const,
   range: { min: new Date(Date.UTC(2026, 5, 1)) },
   timelineWidthPx: 1000,
+  nameColWidth: 240,
   tasksById: new Map(),
   todayISO: "2026-06-10",
 };

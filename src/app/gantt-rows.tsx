@@ -16,7 +16,6 @@ import {
   EMPTY_HOLIDAY_SET,
   type GanttBarEdit,
   fmtFull,
-  LEFT_GUTTER_PX,
   MILESTONE_DIAMOND_PX,
   milestoneSlipDays,
   milestoneDiamondProps,
@@ -31,6 +30,7 @@ export function GanttTaskRow({
   lang,
   today,
   timelineWidthPx,
+  nameColWidth,
   range,
   absencesByAssigneeKey,
   critical,
@@ -52,6 +52,7 @@ export function GanttTaskRow({
   lang: Lang;
   today: Date;
   timelineWidthPx: number;
+  nameColWidth: number;
   range: { min: Date; max: Date };
   absencesByAssigneeKey: ReadonlyMap<string, Absence[]>;
   critical: { criticalTasks: ReadonlySet<number> };
@@ -141,7 +142,7 @@ export function GanttTaskRow({
       )}
       <div
         className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 truncate border-r border-line bg-surface pr-3 text-xs"
-        style={{ width: LEFT_GUTTER_PX }}
+        style={{ width: nameColWidth }}
         title={task.taskName}
       >
         <span
@@ -390,6 +391,7 @@ export function GanttMilestoneRow({
   lang,
   range,
   timelineWidthPx,
+  nameColWidth,
   tasksById,
   todayISO,
   onEditMilestone,
@@ -400,6 +402,7 @@ export function GanttMilestoneRow({
   lang: Lang;
   range: { min: Date };
   timelineWidthPx: number;
+  nameColWidth: number;
   tasksById: ReadonlyMap<number, Task>;
   todayISO: string;
   onEditMilestone?: (m: Milestone) => void;
@@ -433,7 +436,7 @@ export function GanttMilestoneRow({
     >
       <div
         className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 truncate border-r border-line bg-surface pr-3 text-xs"
-        style={{ width: LEFT_GUTTER_PX }}
+        style={{ width: nameColWidth }}
         title={`${m.name} · ${m.date}`}
       >
         {/* Gutter diamond icon — intentionally fixed 16-viewBox size,

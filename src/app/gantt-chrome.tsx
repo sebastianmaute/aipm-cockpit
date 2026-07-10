@@ -4,7 +4,7 @@
 // owns the data + handlers and passes them in.
 import { type Lang, t } from "./i18n";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
-import { PrintButton, ResetSizeButton } from "./task-manager-ui";
+import { PrintButton, ResetSizeButton, ResetSizeIcon } from "./task-manager-ui";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
 import {
   addDays,
@@ -18,7 +18,6 @@ import {
   type GanttStatusFilter,
   HEADER_HEIGHT_PX,
   HEADER_ROW_HEIGHT_PX,
-  LEFT_GUTTER_PX,
   parseISO,
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
@@ -31,6 +30,7 @@ export function GanttToolbar({
   onAddTask,
   onAddMilestone,
   resetGanttSize,
+  resetNameColWidth,
   setSearch,
   setStatusFilter,
   setPriorityFilter,
@@ -48,6 +48,7 @@ export function GanttToolbar({
   onAddTask?: () => void;
   onAddMilestone?: () => void;
   resetGanttSize: () => void;
+  resetNameColWidth: () => void;
   setSearch: (search: string) => void;
   setStatusFilter: (status: GanttStatusFilter) => void;
   setPriorityFilter: (priority: Priority | "All") => void;
@@ -218,6 +219,15 @@ export function GanttToolbar({
           <span>{t(lang, "ganttBaseline")}</span>
         </button>
       )}
+      <button
+        type="button"
+        onClick={resetNameColWidth}
+        aria-label={t(lang, "ganttResetNameCol")}
+        title={t(lang, "ganttResetNameCol")}
+        className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
+      >
+        <ResetSizeIcon />
+      </button>
       <PrintButton lang={lang} />
       <ResetSizeButton onClick={resetGanttSize} lang={lang} />
     </div>
@@ -230,12 +240,16 @@ export function GanttHeader({
   range,
   today,
   timelineWidthPx,
+  nameColWidth,
+  onStartNameColResize,
 }: {
   lang: Lang;
   monthGroups: ReadonlyArray<{ label: string; widthPx: number }>;
   range: { min: Date; days: number };
   today: Date;
   timelineWidthPx: number;
+  nameColWidth: number;
+  onStartNameColResize?: (e: React.MouseEvent) => void;
 }) {
   return (
     <div
@@ -243,10 +257,19 @@ export function GanttHeader({
       style={{ height: HEADER_HEIGHT_PX }}
     >
       <div
-        className="sticky left-0 z-30 flex shrink-0 items-center border-r border-line bg-surface-muted px-3 font-medium uppercase tracking-wide text-muted-foreground"
-        style={{ width: LEFT_GUTTER_PX }}
+        className="sticky left-0 z-30 flex shrink-0 items-center border-r border-line bg-surface-muted px-3 font-medium uppercase tracking-wide text-muted-foreground relative"
+        style={{ width: nameColWidth }}
       >
         {t(lang, "task")}
+        {onStartNameColResize && (
+          <div
+            role="button"
+            aria-label={t(lang, "ganttResizeNameCol")}
+            title={t(lang, "ganttResizeNameCol")}
+            onMouseDown={onStartNameColResize}
+            className="absolute right-0 top-0 z-40 h-full w-1.5 cursor-col-resize select-none hover:bg-AIPM-dark-blue/20 print:hidden"
+          />
+        )}
       </div>
       <div
         className="relative flex flex-col"
@@ -307,6 +330,7 @@ export function GanttDependencyLayer({
   rowsCount,
   chartWidthPx,
   totalRowsCount,
+  nameColWidth,
 }: {
   placeable: readonly Task[];
   bars: ReadonlyMap<number, { start: Date; end: Date }>;
@@ -317,6 +341,7 @@ export function GanttDependencyLayer({
   rowsCount: number;
   chartWidthPx: number;
   totalRowsCount: number;
+  nameColWidth: number;
 }) {
   return (
     <svg
@@ -359,10 +384,10 @@ export function GanttDependencyLayer({
         const myBar = bars.get(task.id);
         if (!myBar) return [];
         const myStartX =
-          LEFT_GUTTER_PX +
+          nameColWidth +
           diffDays(range.min, myBar.start) * DAY_WIDTH_PX;
         const myEndX =
-          LEFT_GUTTER_PX +
+          nameColWidth +
           (diffDays(range.min, myBar.end) + 1) * DAY_WIDTH_PX;
         const myYMid = rowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
         return task.dependencies.map((dep, depIdx) => {
@@ -371,10 +396,10 @@ export function GanttDependencyLayer({
           const predBar = bars.get(dep.taskId);
           if (!predBar) return null;
           const predStartX =
-            LEFT_GUTTER_PX +
+            nameColWidth +
             diffDays(range.min, predBar.start) * DAY_WIDTH_PX;
           const predEndX =
-            LEFT_GUTTER_PX +
+            nameColWidth +
             (diffDays(range.min, predBar.end) + 1) * DAY_WIDTH_PX;
           const predYMid =
             predRowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
@@ -431,7 +456,7 @@ export function GanttDependencyLayer({
         const md = parseISO(m.date);
         if (!md) return [];
         const milestoneX =
-          LEFT_GUTTER_PX + diffDays(range.min, md) * DAY_WIDTH_PX;
+          nameColWidth + diffDays(range.min, md) * DAY_WIDTH_PX;
         const milestoneYMid =
           (rowsCount + mIdx) * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
         return (m.linkedTaskIds ?? []).flatMap((taskId) => {
@@ -440,7 +465,7 @@ export function GanttDependencyLayer({
           const taskRowIdx = rowIndexById.get(taskId) ?? -1;
           if (taskRowIdx < 0) return [];
           const taskEndX =
-            LEFT_GUTTER_PX +
+            nameColWidth +
             (diffDays(range.min, bar.end) + 1) * DAY_WIDTH_PX;
           const taskYMid =
             taskRowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
