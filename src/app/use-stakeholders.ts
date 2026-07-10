@@ -59,7 +59,7 @@ export function useStakeholders(args: UseStakeholdersArgs) {
 
   const handleDeleteStakeholder = useCallback((id: number, name: string) => {
     const doomed = stakeholders.find((s) => s.id === id);
-    if (doomed) args.capture?.({ setter: setStakeholders, kind: "stakeholder.deleted", before: [doomed], fromArray: stakeholders });
+    if (doomed) args.capture?.({ setter: setStakeholders, kind: "stakeholder.deleted", removed: [doomed], fromArray: stakeholders });
     setStakeholders((prev) => prev.filter((s) => s.id !== id));
     args.logActivity?.("stakeholder.deleted", id, name);
   }, [stakeholders, setStakeholders, args]);
@@ -67,8 +67,8 @@ export function useStakeholders(args: UseStakeholdersArgs) {
   // Snapshot the selected rows' pre-edit images before a bulk edit loops the
   // per-row save handler; call BEFORE the loop mutates them.
   const captureBulkUndo = useCallback((ids: readonly number[]) => {
-    const before = stakeholders.filter((s) => ids.includes(s.id));
-    if (before.length) args.capture?.({ setter: setStakeholders, kind: "bulk.edit", before, fromArray: stakeholders });
+    const edited = stakeholders.filter((s) => ids.includes(s.id));
+    if (edited.length) args.capture?.({ setter: setStakeholders, kind: "bulk.edit", edited, fromArray: stakeholders });
   }, [stakeholders, setStakeholders, args]);
 
   return { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo };

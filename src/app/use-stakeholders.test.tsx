@@ -99,9 +99,9 @@ describe("useStakeholders — logActivity", () => {
     act(() => result.current.handleSaveStakeholder(mk(7)));
     act(() => result.current.handleDeleteStakeholder(7, "S7"));
     expect(capture).toHaveBeenCalledTimes(1);
-    const opts = capture.mock.calls[0][0] as { kind: string; before: { id: number }[] };
+    const opts = capture.mock.calls[0][0] as { kind: string; removed: { id: number }[] };
     expect(opts.kind).toBe("stakeholder.deleted");
-    expect(opts.before.map((s) => s.id)).toEqual([7]);
+    expect(opts.removed.map((s) => s.id)).toEqual([7]);
   });
 
   it("routes stakeholder.updated through logActivityChanges with a diff (#22)", () => {

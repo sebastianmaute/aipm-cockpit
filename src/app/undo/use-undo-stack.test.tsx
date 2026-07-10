@@ -22,7 +22,7 @@ describe("useUndoStack", () => {
     const arr: readonly Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
     const setter = vi.fn();
     act(() => {
-      result.current.capture({ setter, kind: "task.deleted", before: [{ id: 2, name: "b" }], fromArray: arr });
+      result.current.capture({ setter, kind: "task.deleted", removed: [{ id: 2, name: "b" }], fromArray: arr });
     });
     expect(result.current.canUndo).toBe(true);
     expect(result.current.stack).toHaveLength(1);
@@ -35,7 +35,7 @@ describe("useUndoStack", () => {
     let arr: readonly Row[] = [{ id: 1, name: "a" }];
     const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
     act(() => {
-      result.current.capture({ setter, kind: "task.deleted", before: [{ id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }] });
+      result.current.capture({ setter, kind: "task.deleted", removed: [{ id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }] });
     });
     act(() => result.current.undo());
     expect(arr).toEqual([{ id: 1, name: "a" }, { id: 2, name: "b" }]);
@@ -50,8 +50,8 @@ describe("useUndoStack", () => {
     const setterA = vi.fn();
     const setterB = vi.fn();
     act(() => {
-      result.current.capture({ setter: setterA, kind: "task.deleted", before: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] });
-      result.current.capture({ setter: setterB, kind: "change.deleted", before: [{ id: 9, name: "x" }], fromArray: [{ id: 9, name: "x" }] });
+      result.current.capture({ setter: setterA, kind: "task.deleted", removed: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] });
+      result.current.capture({ setter: setterB, kind: "change.deleted", removed: [{ id: 9, name: "x" }], fromArray: [{ id: 9, name: "x" }] });
     });
     const firstId = result.current.stack[0].id;
     act(() => result.current.undoById(firstId));

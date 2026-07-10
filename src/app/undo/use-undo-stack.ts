@@ -20,8 +20,12 @@ const UNDO_CAP = 10;
 export interface CaptureOpts<T extends { id: number }> {
   setter: Dispatch<SetStateAction<readonly T[]>>;
   kind: ActivityKind;
-  /** The rows the op touched (deleted rows, or pre-edit before-images). */
-  before: readonly T[];
+  /** Rows REMOVED by the op (delete / clear-all). Restored by re-insertion;
+   *  re-minted if their id was reused by a live row since (no clobber). */
+  removed?: readonly T[];
+  /** Rows EDITED in place (bulk-edit, or a delete's dependency-stripped
+   *  dependents). Restored by reverting the same id in place. */
+  edited?: readonly T[];
   /** The array as it was BEFORE the op — used to resolve each row's index. */
   fromArray: readonly T[];
 }
@@ -73,19 +77,23 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   }, [commitRestore]);
 
   const capture = useCallback(<T extends { id: number }>(opts: CaptureOpts<T>) => {
-    const { setter, kind, before, fromArray } = opts;
-    if (before.length === 0) return;
-    const images: BeforeImage<T>[] = before.map((item) => ({
-      index: Math.max(0, fromArray.findIndex((r) => r.id === item.id)),
-      item,
-    }));
+    const { setter, kind, removed = [], edited = [], fromArray } = opts;
+    const at = (item: T) => Math.max(0, fromArray.findIndex((r) => r.id === item.id));
+    const images: BeforeImage<T>[] = [
+      ...removed.map((item) => ({ index: at(item), item, op: "delete" as const })),
+      ...edited.map((item) => ({ index: at(item), item, op: "edit" as const })),
+    ];
+    if (images.length === 0) return;
+    // Toast/count reflect the PRIMARY op (the rows the user acted on), not the
+    // incidental dependents an edit-cascade also captured.
+    const primaryCount = removed.length > 0 ? removed.length : edited.length;
     const id = (idRef.current += 1);
-    const meta: UndoMeta = { id, kind, count: before.length, timestamp: new Date().toISOString() };
+    const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString() };
     const restore = () => setter((prev) => applyUndoRestore(prev, images));
     setStack((s) => pushUndo(s, { meta, restore }, UNDO_CAP));
     const { lang, showToastAction } = depsRef.current;
     const isDelete = kind.endsWith(".deleted");
-    const text = t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", before.length);
+    const text = t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", primaryCount);
     showToastAction("info", text, { labelKey: "undo", run: () => undoById(id) });
   }, [undoById]);
 

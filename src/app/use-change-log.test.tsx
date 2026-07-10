@@ -92,9 +92,9 @@ describe("useChangeLog — logActivity", () => {
     act(() => result.current.handleSaveChange(ci({ id: 5, title: "To delete" })));
     act(() => result.current.handleDeleteChange(5, "To delete"));
     expect(capture).toHaveBeenCalledTimes(1);
-    const opts = capture.mock.calls[0][0] as { kind: string; before: { id: number }[] };
+    const opts = capture.mock.calls[0][0] as { kind: string; removed: { id: number }[] };
     expect(opts.kind).toBe("change.deleted");
-    expect(opts.before.map((c) => c.id)).toEqual([5]);
+    expect(opts.removed.map((c) => c.id)).toEqual([5]);
   });
 
   it("logs change.updated WITH a per-field diff when logActivityChanges is wired (#22)", () => {

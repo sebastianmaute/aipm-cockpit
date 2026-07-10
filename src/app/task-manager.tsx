@@ -174,6 +174,8 @@ function TaskManagerInner() {
   // capture is threaded into each entity hook below; undo/control are surfaces.
   const undoApi = useUndoStack({ lang, logActivity, showToast, showToastAction });
   useUndoHotkey(undoApi.undo);
+  // Stable identity so ToastProvider consumers don't re-render on every parent render.
+  const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();
@@ -2271,7 +2273,7 @@ function TaskManagerInner() {
     return (
       <ActivityLogProvider value={logActivity}>
         <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
-          <ToastProvider value={{ showToast, showToastAction }}>
+          <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
               <ConfirmProvider lang={lang}>
                 <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
@@ -2322,7 +2324,7 @@ function TaskManagerInner() {
   return (
     <ActivityLogProvider value={logActivity}>
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
-        <ToastProvider value={{ showToast, showToastAction }}>
+        <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
             <ConfirmProvider lang={lang}>
             <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>

@@ -281,7 +281,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         tk.dependencies?.some((d) => d.taskId === id),
       );
       if (doomed) {
-        capture({ setter: setTasks, kind: "task.deleted", before: [doomed, ...dependents], fromArray: arr });
+        capture({ setter: setTasks, kind: "task.deleted", removed: [doomed], edited: dependents, fromArray: arr });
       }
       setTasks((prev) =>
         prev

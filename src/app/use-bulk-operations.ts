@@ -179,7 +179,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const stamp = new Date().toISOString();
     const beforeRows = tasks.filter((r) => selectedIds.has(r.id));
     if (beforeRows.length > 0) {
-      captureRef.current({ setter: setTasks, kind: "bulk.edit", before: beforeRows, fromArray: tasks });
+      captureRef.current({ setter: setTasks, kind: "bulk.edit", edited: beforeRows, fromArray: tasks });
     }
     setTasks((prev) =>
       prev.map((row) => {
@@ -215,7 +215,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   // with TypeToConfirmDialog; the voice command below gates it with window.confirm).
   const handleClearAll = useCallback(() => {
     if (tasks.length === 0) return;
-    captureRef.current({ setter: setTasks, kind: "task.deleted", before: tasks, fromArray: tasks });
+    captureRef.current({ setter: setTasks, kind: "task.deleted", removed: tasks, fromArray: tasks });
     allowDestructiveSaveRef.current?.(); // arm the storage destructive-save bypass (button + voice)
     setTasks([]);
     setSelectedIds(new Set());

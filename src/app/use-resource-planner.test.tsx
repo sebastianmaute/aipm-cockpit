@@ -541,9 +541,9 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.planner.handleSaveRaidItem(mk(3, "Doomed")); });
       act(() => { result.current.planner.handleDeleteRaidItem(3); });
       expect(capture).toHaveBeenCalledTimes(1);
-      const opts = capture.mock.calls[0][0] as { kind: string; before: { id: number }[] };
+      const opts = capture.mock.calls[0][0] as { kind: string; removed: { id: number }[] };
       expect(opts.kind).toBe("raid.deleted");
-      expect(opts.before.map((r) => r.id)).toEqual([3]);
+      expect(opts.removed.map((r) => r.id)).toEqual([3]);
     });
 
     it("surfaces a toast and drops the edit when the RAID row was concurrently deleted", () => {

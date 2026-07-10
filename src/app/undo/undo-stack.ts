@@ -5,8 +5,14 @@
 // and survives edits made to OTHER rows between the op and the undo.
 import type { ActivityKind } from "../activity-log";
 
-/** A captured pre-op snapshot of one row plus its position in the source array. */
-export type BeforeImage<T> = { index: number; item: T };
+/** Whether a captured row was REMOVED by the op (delete/clear) or EDITED in place
+ *  (bulk-edit / a dependency-stripped dependent). The op disambiguates restore:
+ *  an edit-image reverts the same row by id; a delete-image re-inserts, and if
+ *  its id was reused by a live row since, re-mints rather than clobbering it. */
+export type UndoOp = "delete" | "edit";
+
+/** A captured pre-op snapshot of one row plus its position and op. */
+export type BeforeImage<T> = { index: number; item: T; op: UndoOp };
 
 /** Display data for one undoable op (toast text, top-bar badge, React key). */
 export interface UndoMeta {
@@ -23,22 +29,54 @@ export interface UndoEntry {
 }
 
 /**
- * Upsert before-images into `current` by id: a still-present row is reverted to
- * its before-image (bulk-edit); an absent row is re-inserted at its original
- * index, clamped to the array end (delete / clear-all). Pure.
+ * Restore before-images into `current`, op-aware so undo never clobbers a live
+ * row whose id was reused after a delete (ids are minted `max+1`, so deleting
+ * the highest row frees its id for the next create):
+ *
+ * - **edit** image: the row still has that id (edits don't change id) → revert
+ *   it in place. If it's ABSENT (edited then deleted since) → skip; do not
+ *   resurrect it (that's the delete's undo job, not this edit's).
+ * - **delete** image: ABSENT → re-insert at its original index (clamped). If a
+ *   DIFFERENT live row now holds that id (reuse) → re-insert the deleted row
+ *   under a FRESH id (max+1) so the live row is untouched and the deleted data
+ *   is still recovered.
+ *
+ * Delete-images are applied in ascending original-index order so sequential
+ * splices land correctly regardless of caller order. Pure.
  */
 export function applyUndoRestore<T extends { id: number }>(
   current: readonly T[],
   before: readonly BeforeImage<T>[],
 ): T[] {
   const present = new Set(current.map((r) => r.id));
+  // Fresh-id source covers current ids AND every captured id, so a re-mint can
+  // never collide with a to-be-reinserted delete-image.
+  let maxId = current.reduce((m, r) => Math.max(m, r.id), 0);
+  for (const b of before) maxId = Math.max(maxId, b.item.id);
+
   const out = current.slice();
-  for (const { index, item } of before) {
+
+  // Edits first (in place), then deletes ordered by index so the splices compose.
+  for (const { item, op } of before) {
+    if (op !== "edit") continue;
     if (present.has(item.id)) {
       out[out.findIndex((r) => r.id === item.id)] = item;
-    } else {
+    }
+    // absent edit-image → skip (row deleted since; not this op's to restore)
+  }
+  const deletes = before
+    .filter((b) => b.op === "delete")
+    .slice()
+    .sort((a, b) => a.index - b.index);
+  for (const { index, item } of deletes) {
+    if (!present.has(item.id)) {
       out.splice(Math.min(index, out.length), 0, item);
       present.add(item.id);
+    } else {
+      // id reused by a live row → recover the deleted row under a fresh id.
+      maxId += 1;
+      out.splice(Math.min(index, out.length), 0, { ...item, id: maxId });
+      present.add(maxId);
     }
   }
   return out;

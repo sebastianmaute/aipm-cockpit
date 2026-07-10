@@ -3,28 +3,26 @@ import { applyUndoRestore, pushUndo, popUndo, dropEntry, type UndoEntry } from "
 
 type Row = { id: number; name: string };
 
+const del = (index: number, item: Row) => ({ index, item, op: "delete" as const });
+const edit = (index: number, item: Row) => ({ index, item, op: "edit" as const });
+
 describe("applyUndoRestore", () => {
   it("re-inserts deleted rows at their original index", () => {
     const current: Row[] = [{ id: 1, name: "a" }, { id: 3, name: "c" }];
-    const before = [{ index: 1, item: { id: 2, name: "b" } }];
-    expect(applyUndoRestore(current, before)).toEqual([
+    expect(applyUndoRestore(current, [del(1, { id: 2, name: "b" })])).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" },
     ]);
   });
 
   it("reverts an edited row to its before-image (present → replace)", () => {
     const current: Row[] = [{ id: 1, name: "EDITED" }, { id: 2, name: "b" }];
-    const before = [{ index: 0, item: { id: 1, name: "a" } }];
-    expect(applyUndoRestore(current, before)).toEqual([
+    expect(applyUndoRestore(current, [edit(0, { id: 1, name: "a" })])).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" },
     ]);
   });
 
   it("restores a fully-cleared array (clear-all)", () => {
-    const before = [
-      { index: 0, item: { id: 1, name: "a" } },
-      { index: 1, item: { id: 2, name: "b" } },
-    ];
+    const before = [del(0, { id: 1, name: "a" }), del(1, { id: 2, name: "b" })];
     expect(applyUndoRestore<Row>([], before)).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" },
     ]);
@@ -32,17 +30,47 @@ describe("applyUndoRestore", () => {
 
   it("leaves rows the op never touched intact (interleaving)", () => {
     const current: Row[] = [{ id: 1, name: "EDITED-LATER" }, { id: 3, name: "c" }];
-    const before = [{ index: 1, item: { id: 2, name: "b" } }];
-    expect(applyUndoRestore(current, before)).toEqual([
+    expect(applyUndoRestore(current, [del(1, { id: 2, name: "b" })])).toEqual([
       { id: 1, name: "EDITED-LATER" }, { id: 2, name: "b" }, { id: 3, name: "c" },
     ]);
   });
 
   it("clamps a stale index to the array end", () => {
     const current: Row[] = [{ id: 1, name: "a" }];
-    const before = [{ index: 99, item: { id: 2, name: "b" } }];
-    expect(applyUndoRestore(current, before)).toEqual([
+    expect(applyUndoRestore(current, [del(99, { id: 2, name: "b" })])).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" },
+    ]);
+  });
+
+  it("re-mints a delete-image whose id was reused by a live row (NO clobber)", () => {
+    // Deleted id 3, then a DIFFERENT row was created reusing id 3. Undo must
+    // recover the deleted row WITHOUT overwriting the live id-3 row.
+    const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "NEW-REUSED" }];
+    const out = applyUndoRestore(current, [del(2, { id: 3, name: "OLD-DELETED" })]);
+    // live row survives unchanged
+    expect(out.find((r) => r.name === "NEW-REUSED")).toEqual({ id: 3, name: "NEW-REUSED" });
+    // deleted row recovered under a fresh id (max+1 = 4)
+    expect(out.find((r) => r.name === "OLD-DELETED")).toEqual({ id: 4, name: "OLD-DELETED" });
+    expect(out).toHaveLength(4);
+  });
+
+  it("skips an edit-image whose row was deleted since (does not resurrect it)", () => {
+    const current: Row[] = [{ id: 1, name: "a" }];
+    // edit-image for id 2, but id 2 is gone (deleted after the edit) → skip
+    expect(applyUndoRestore(current, [edit(1, { id: 2, name: "stale" })])).toEqual([
+      { id: 1, name: "a" },
+    ]);
+  });
+
+  it("restores a delete + its edited dependents together (task-delete shape)", () => {
+    // id 2 was deleted; id 3 had a dependency on 2 stripped (edited in place).
+    const current: Row[] = [{ id: 1, name: "a" }, { id: 3, name: "3-stripped" }];
+    const out = applyUndoRestore(current, [
+      del(1, { id: 2, name: "b" }),
+      edit(2, { id: 3, name: "3-with-dep" }),
+    ]);
+    expect(out).toEqual([
+      { id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "3-with-dep" },
     ]);
   });
 });

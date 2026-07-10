@@ -474,9 +474,10 @@ describe("useTaskRowHandlers — onDelete & navigation", () => {
     );
     act(() => result.current.onDelete(1));
     expect(capture).toHaveBeenCalledTimes(1);
-    const opts = capture.mock.calls[0][0] as { kind: string; before: Task[] };
+    const opts = capture.mock.calls[0][0] as { kind: string; removed: Task[]; edited: Task[] };
     expect(opts.kind).toBe("task.deleted");
-    expect(opts.before.map((t) => t.id).sort()).toEqual([1, 2]);
+    expect(opts.removed.map((t) => t.id)).toEqual([1]);
+    expect(opts.edited.map((t) => t.id)).toEqual([2]);
   });
 
   it("onJumpToRaid sets the filter, switches to the raid tab, and uncollapses", () => {

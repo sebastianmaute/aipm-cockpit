@@ -242,7 +242,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteRaidItem = useCallback(
     (id: number) => {
       const removed = raid.find((r) => r.id === id);
-      if (removed) captureRef.current?.({ setter: setRaid, kind: "raid.deleted", before: [removed], fromArray: raid });
+      if (removed) captureRef.current?.({ setter: setRaid, kind: "raid.deleted", removed: [removed], fromArray: raid });
       setRaid((prev) => prev.filter((r) => r.id !== id));
       if (removed) {
         logActivityRef.current("raid.deleted", id, removed.category, removed.title);
@@ -254,8 +254,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   // Snapshot the selected RAID rows' pre-edit images before a bulk apply loops
   // the per-row save handler; call BEFORE the loop mutates them.
   const captureRaidBulkUndo = useCallback((ids: readonly number[]) => {
-    const before = raid.filter((r) => ids.includes(r.id));
-    if (before.length) captureRef.current?.({ setter: setRaid, kind: "bulk.edit", before, fromArray: raid });
+    const edited = raid.filter((r) => ids.includes(r.id));
+    if (edited.length) captureRef.current?.({ setter: setRaid, kind: "bulk.edit", edited, fromArray: raid });
   }, [raid, setRaid]);
 
   const handleOpenAddAbsence = useCallback(
@@ -328,7 +328,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteAbsence = useCallback(
     (id: number) => {
       const removed = absences.find((a) => a.id === id);
-      if (removed) captureRef.current?.({ setter: setAbsences, kind: "absence.deleted", before: [removed], fromArray: absences });
+      if (removed) captureRef.current?.({ setter: setAbsences, kind: "absence.deleted", removed: [removed], fromArray: absences });
       setAbsences((prev) => prev.filter((a) => a.id !== id));
       if (removed) {
         logActivityRef.current("absence.deleted", id, removed.assignee);
@@ -382,7 +382,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteShift = useCallback(
     (id: number) => {
       const removed = shifts.find((s) => s.id === id);
-      if (removed) captureRef.current?.({ setter: setShifts, kind: "shift.deleted", before: [removed], fromArray: shifts });
+      if (removed) captureRef.current?.({ setter: setShifts, kind: "shift.deleted", removed: [removed], fromArray: shifts });
       setShifts((prev) => prev.filter((s) => s.id !== id));
       if (removed) {
         logActivityRef.current("shift.deleted", id, removed.assignee);
@@ -511,7 +511,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const idSet = new Set(ids);
       const stamp = new Date().toISOString();
       const affected = resources.filter((r) => idSet.has(r.id));
-      if (affected.length > 0) captureRef.current?.({ setter: setResources, kind: "bulk.edit", before: affected, fromArray: resources });
+      if (affected.length > 0) captureRef.current?.({ setter: setResources, kind: "bulk.edit", edited: affected, fromArray: resources });
       setResources((prev) =>
         prev.map((r) => {
           if (!idSet.has(r.id)) return r;
