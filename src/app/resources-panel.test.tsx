@@ -67,6 +67,17 @@ describe("ResourcesPanel", () => {
     expect(th.className).not.toMatch(/text-right/);
   });
 
+  test("planning: rollup period date header is also left-aligned", () => {
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan}
+      workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Show rollup" }));
+    const rollupHeaders = screen.getAllByRole("columnheader", { name: /2026-W/ });
+    expect(rollupHeaders.length).toBeGreaterThan(0);
+    for (const th of rollupHeaders) expect(th.className).not.toMatch(/text-right/);
+  });
+
   test("planning view: editable utilization input has an opaque bg so it stays visible on row hover", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };

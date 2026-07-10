@@ -645,7 +645,7 @@ function ResourcesPanelInner({
                           {rollupPeriods.map((rp) => (
                             <th
                               key={rp.key}
-                              className="relative px-3 py-2 text-right font-medium tabular-nums"
+                              className="relative px-3 py-2 font-medium tabular-nums"
                               style={{ width: rollup.colWidths.period, minWidth: rollup.colWidths.period }}
                             >
                               {rp.key}
