@@ -112,6 +112,19 @@ describe("useChangeLog — logActivity", () => {
     expect(titleChange).toEqual({ field: "title", from: "Existing", to: "Renamed" });
   });
 
+  it("re-mints a known-create whose open-time id was taken since — no clobber (id-mint race)", () => {
+    const { result } = renderHook(() => useChangeLog({ today: "2026-06-09" }), { wrapper: Wrapper });
+    // A concurrent writer committed id 1 after this modal opened at id 1.
+    act(() => result.current.handleSaveChange(ci({ id: 1, title: "Existing" })));
+    // The modal now saves as a KNOWN create (isNew=true).
+    act(() => result.current.handleSaveChange(ci({ id: 1, title: "Fresh" }), true));
+    expect(result.current.changes).toHaveLength(2);
+    expect(result.current.changes.find((c) => c.title === "Existing")).toBeTruthy();
+    const fresh = result.current.changes.find((c) => c.title === "Fresh");
+    expect(fresh).toBeTruthy();
+    expect(fresh?.id).not.toBe(1);
+  });
+
   it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
     const { result } = renderHook(() => useChangeLog({ today: "2026-06-09" }), { wrapper: Wrapper });
     act(() => result.current.handleSaveChange(ci({ id: 1, title: "A" })));
