@@ -263,7 +263,7 @@ describe("RaidPanel — stakeholders", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "fieldViewFull") }));
     fireEvent.click(screen.getByLabelText("Dana"));
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ stakeholderIds: [3] }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ stakeholderIds: [3] }), false);
   });
 
   it("hides the stakeholder picker when the module is disabled", () => {
@@ -296,6 +296,7 @@ describe("RaidPanel — owner ResourcePicker", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ ownerResourceId: 1, owner: "Alex Example" }),
+      false,
     );
   });
 });
@@ -341,6 +342,7 @@ describe("RaidPanel — document links", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ documentLinks: [] }),
+      true,
     );
   });
 });
