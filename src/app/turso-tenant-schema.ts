@@ -109,7 +109,7 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
   }
   if (isDirty("plan")) {
     const p = ws.plan;
-    out.push(tenantInsert("plan", PLAN_COLUMNS, [p.startDate, p.endDate, p.granularity, p.currency], projectId));
+    out.push(tenantInsert("plan", PLAN_COLUMNS, [p.startDate, p.endDate, p.granularity, p.currency, p.budgetFollowsPlan ? "true" : ""], projectId));
   }
   if (ws.fxRates && isDirty("fx_rates")) {
     const fx = ws.fxRates;
