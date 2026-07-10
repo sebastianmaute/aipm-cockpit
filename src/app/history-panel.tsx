@@ -129,9 +129,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const deleteVersionRow = async (v: ProjectVersionMeta) => {
     if (!onDelete) return;
     if (!(await confirm({ message: t(lang, "historyDeleteConfirm", labelOf(v)) }))) return;
-    // If the deleted version was the active compare source, drop the compare view.
     const ok = await onDelete(v.id);
     if (!ok) { showToast("error", t(lang, "historyDeleteFailed")); return; }
+    // Drop the deleted id from the two-version tick list, else a lingering dead id
+    // makes the NEXT "Compare selected" a silent no-op (find() → undefined → no
+    // diff, no feedback — the same silent-no-op class this feature fixes).
+    setSelected((prev) => prev.filter((x) => x !== v.id));
+    // If the deleted version was the active compare source, drop the compare view.
     if (compareFrom?.id === v.id || restoreFrom?.id === v.id) { setDiff(null); setCompareFrom(null); setRestoreFrom(null); }
   };
 

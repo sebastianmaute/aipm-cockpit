@@ -1,8 +1,13 @@
 import { it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { HistoryPanel } from "./history-panel";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import type { ProjectVersionMeta } from "./version-history";
+
+// Delete is confirm-gated; auto-accept the branded dialog so the flow proceeds.
+vi.mock("./confirm-dialog", () => ({
+  useConfirm: () => () => Promise.resolve(true),
+}));
 
 // The panel reads useDisplayTimezone(); wrap every render in the provider. A
 // non-UTC zone (Asia/Kolkata, +5:30) makes the zone conversion observable.
@@ -70,6 +75,23 @@ it("compares two ticked versions, ordered oldest→newest", async () => {
   fireEvent.click(compareBtn);
   // ordered oldest (v1) → newest (v2)
   expect(loadDiff).toHaveBeenCalledWith("v1", "v2");
+});
+
+it("deletes a snapshot and drops it from the two-version tick list", async () => {
+  const onDelete = vi.fn().mockResolvedValue(true);
+  renderPanel(<HistoryPanel lang="en-US" versions={metas} busy={false} onCaptureNow={vi.fn()} loadDiff={vi.fn().mockResolvedValue([])} restore={vi.fn().mockResolvedValue(undefined)} onDelete={onDelete} />);
+  // Tick both versions so "Compare selected" is enabled.
+  const boxes = screen.getAllByRole("checkbox");
+  fireEvent.click(boxes[0]); // v2 (newer)
+  fireEvent.click(boxes[1]); // v1 (older)
+  const compareBtn = screen.getByRole("button", { name: "Compare selected" });
+  expect(compareBtn).toBeEnabled();
+  // Delete the newer ticked version.
+  fireEvent.click(screen.getByRole("button", { name: "Delete – Before review" }));
+  await waitFor(() => expect(onDelete).toHaveBeenCalledWith("v2"));
+  // Its dead id must be dropped from `selected`, so compare falls back to disabled
+  // (only one valid tick remains) — not a silent no-op on the next compare click.
+  await waitFor(() => expect(compareBtn).toBeDisabled());
 });
 
 it("compares two ticked versions side by side with column headers", async () => {
