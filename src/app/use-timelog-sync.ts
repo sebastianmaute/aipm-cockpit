@@ -71,6 +71,10 @@ export function useTimelogSync(args: Args) {
   // Aborts the in-flight fetch chain (Cancel button on the loading modal). One
   // controller per sync run; the signal threads down to every proxied request.
   const abortRef = useRef<AbortController | null>(null);
+  // The FULL org directory, cached across fetches for EmployeeInitials→userId
+  // resolution. Kept SEPARATE from `users` — which now holds only the bookers
+  // subset — so a later fetch resolves against everyone, not the last bookers.
+  const fullDirectoryRef = useRef<TimelogUser[] | null>(null);
 
   // Shared abort/busy/error wrapper. Plain functions (not memoized): they read
   // live render-scope state every call (users/aggregates/…), like the storage
@@ -109,6 +113,7 @@ export function useTimelogSync(args: Args) {
   async function loadDirectory(): Promise<void> {
     await runGuarded(async (signal) => {
       const shown = displayableUsers(await listUsers(creds, signal));
+      fullDirectoryRef.current = shown;
       setUsers(shown);
       // Persist alongside EXISTING bookings only. A directory-only load (no prior
       // fetchedAt) stays in-memory — caching it would fabricate a `fetchedAt` that
@@ -259,10 +264,13 @@ export function useTimelogSync(args: Args) {
       // No projects picked: do NOT run finish() — clobbering prior good aggregates
       // with an empty result would be silent data loss. Panel notifies via count 0.
       if (ids.length === 0) return { failedProjects: 0, projectCount: 0 };
-      // Ensure the directory is available for initials→userId resolution. Use it
-      // locally (not the possibly-stale `users` state) so the very first fetch
-      // resolves names without a prior explicit directory load.
-      const directory = users.length > 0 ? users : displayableUsers(await listUsers(creds, signal));
+      // Resolve EmployeeInitials→userId against the FULL org directory (cached in
+      // a ref, loaded once). Must NOT reuse `users` — that now holds only the
+      // prior fetch's bookers subset, which would leave most rows unresolved.
+      if (!fullDirectoryRef.current) {
+        fullDirectoryRef.current = displayableUsers(await listUsers(creds, signal));
+      }
+      const directory = fullDirectoryRef.current;
       const initialsToUserId = new Map(
         directory.filter((u) => u.initials).map((u) => [u.initials.trim().toLowerCase(), u.userId] as const),
       );
