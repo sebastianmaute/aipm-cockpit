@@ -100,6 +100,22 @@ test("filters the bucket role table by role name", () => {
   expect(screen.getByText("Frontend Junior")).toBeInTheDocument();
 });
 
+test("budget: bucket-name search filters buckets", () => {
+  const twoNamed: BudgetBucket[] = [
+    { ...buckets[0], id: 1, name: "Alpha", order: 0 },
+    { ...buckets[0], id: 2, name: "Beta", order: 1 },
+  ];
+  render(<BudgetPanel {...props} buckets={twoNamed} />);
+  // Both buckets render before filtering.
+  expect(screen.getByText("Alpha")).toBeInTheDocument();
+  expect(screen.getByText("Beta")).toBeInTheDocument();
+  // The bucket filter box is distinct from the role filter (distinct accessible name).
+  const box = screen.getByLabelText(/filter buckets/i);
+  fireEvent.change(box, { target: { value: "alph" } });
+  expect(screen.getByText("Alpha")).toBeInTheDocument();
+  expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+});
+
 test("renders InfoTooltip for CPI metric label by accessible name", () => {
   render(<BudgetPanel {...props} />);
   const hint = t("en-US", "budgetCciCpiHint");

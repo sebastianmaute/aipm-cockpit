@@ -197,7 +197,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const [dragId, setDragId] = useState<number | null>(null);
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
   const [roleFilter, setRoleFilter] = useState("");
+  const [bucketFilter, setBucketFilter] = useState("");
   const [roleSort, setRoleSort] = useState<SortDir>("off");
+
+  const bucketQuery = bucketFilter.trim().toLowerCase();
+  const visibleBuckets = bucketQuery
+    ? report.buckets.filter((b) => b.name.toLowerCase().includes(bucketQuery))
+    : report.buckets;
 
   const stamp = () => new Date().toISOString();
 
@@ -338,9 +344,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
       <section className="flex flex-col gap-3">
         {report.buckets.length > 0 && (
-          <TableFilter lang={lang} value={roleFilter} onChange={setRoleFilter} placeholderKey="budgetRoleFilter" />
+          <div className="flex flex-wrap items-center gap-2">
+            <TableFilter lang={lang} value={roleFilter} onChange={setRoleFilter} placeholderKey="budgetRoleFilter" />
+            <TableFilter lang={lang} value={bucketFilter} onChange={setBucketFilter} placeholderKey="budgetReportFilterBucket" />
+          </div>
         )}
-        {report.buckets.map((br: BucketReport) => {
+        {visibleBuckets.map((br: BucketReport) => {
           const bucket = bucketById.get(br.bucketId)!;
           const isBlended = bucket.planningMode === "blended";
           const rate = resolveRate(bucket, fxRates);
