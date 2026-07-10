@@ -299,7 +299,13 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const [seenProjectId, setSeenProjectId] = useState(projectId);
   const projectCustomerName = ws.project?.customer;
   const syncCustomers = sync.customers;
-  if (seenProjectId !== projectId) {
+  // On an in-place project switch, reset and DON'T seed this render: the reset
+  // setStates are queued (not yet visible in this render's `linksSeeded`/
+  // `projectCustomerId` locals), so seeding now would read the OLD project's
+  // stale flags/links. The seed blocks below are gated on `!projectChanged` and
+  // fire on the next render with fresh state.
+  const projectChanged = seenProjectId !== projectId;
+  if (projectChanged) {
     setSeenProjectId(projectId);
     setUserPicked(false);
     setLinksSeeded(false);
@@ -309,13 +315,14 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   }
   // (1) Persisted per-project scope wins over name auto-resolve (even if links
   // hydrate after the customer directory), but never over an explicit pick.
-  if (!linksSeeded && !userPicked && links.customerId !== undefined) {
+  if (!projectChanged && !linksSeeded && !userPicked && links.customerId !== undefined) {
     setLinksSeeded(true);
     setProjectCustomerId(links.customerId);
   }
   // (2) Else auto-resolve the project's free-text customer name once the
   // directory loads, only while untouched and no scope is persisted.
   if (
+    !projectChanged &&
     !autoResolved &&
     !userPicked &&
     !linksSeeded &&

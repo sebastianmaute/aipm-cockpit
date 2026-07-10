@@ -142,6 +142,21 @@ function LinksProbe({ testId }: { testId: string }) {
   );
 }
 
+/** Buttons that drive workspace setters AFTER mount (late link hydration /
+ *  in-place project switch) so the reconcile edge cases can be exercised. */
+function Controls() {
+  const ws = useWorkspace();
+  return (
+    <>
+      <button data-testid="hydrate-links-999" onClick={() => ws.setTimelogLinks({ ...INITIAL_LINKS, customerId: 999 })}>hl</button>
+      <button data-testid="switch-project-b-empty" onClick={() => {
+        ws.setProject({ code: "proj-b" } as unknown as Parameters<typeof ws.setProject>[0]);
+        ws.setTimelogLinks({ ...INITIAL_LINKS }); // new project: no customerId scope
+      }}>sw</button>
+    </>
+  );
+}
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <FiltersProvider>
@@ -540,6 +555,51 @@ describe("TimelogPanel", () => {
       await waitFor(() => expect(select.value).toBe("667"));
       // The scope note is shown.
       expect(screen.getByText(t("en-US", "timelogFetchScopedNote", "Acme"))).toBeInTheDocument();
+    });
+
+    it("a manual pick wins over a persisted scope that hydrates AFTER the pick", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <Controls />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      // User picks 667.
+      fireEvent.change(select, { target: { value: "667" } });
+      expect(select.value).toBe("667");
+      // Persisted links (customerId 999) hydrate LATE — must NOT override the pick.
+      await act(async () => { fireEvent.click(screen.getByTestId("hydrate-links-999")); });
+      expect(select.value).toBe("667");
+    });
+
+    it("resets the picker when the project changes in place (no remount)", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 667 }} />
+          <Controls />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      // Seeded from the persisted scope.
+      await waitFor(() => expect(select.value).toBe("667"));
+      // Switch project in place → new project has no customerId scope → picker resets.
+      await act(async () => { fireEvent.click(screen.getByTestId("switch-project-b-empty")); });
+      await waitFor(() => expect(select.value).toBe(""));
     });
 
     it("routes Fetch to the per-project customer fetch and persists the scope", async () => {
