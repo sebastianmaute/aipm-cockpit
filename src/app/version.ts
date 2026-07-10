@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.172.0";
-export const APP_BUILD_DATE = "2026-07-10"; // 0.172.0: Weekly status digest — a per-project Dashboard card summarizing RAG (with delta), overdue tasks, milestones due soon, and open RAID, on a per-device weekly cadence; optionally emailed via Outlook and announced by a desktop notification, with an optional AI narrative and a manual "Generate now"; deterministic base always works, AI/email/notification gated + fail-soft (Corey)
+export const APP_VERSION = "0.173.0";
+export const APP_BUILD_DATE = "2026-07-10"; // 0.173.0: Local undo — a multi-level (~10), in-memory undo for destructive edits (deletes, clear-all, bulk-edit) across every entity, on every backend; reachable via a toast Undo button, Ctrl/Cmd+Z, and a top-bar control; item-level restore that survives interleaving and never clobbers a reused id (Jordan)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.172.x line is "Corey" (James S.A. Corey). */
-export const APP_MILESTONE = "Corey";
+ *  0.173.x line is "Jordan" (Robert Jordan). */
+export const APP_MILESTONE = "Jordan";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -194,4 +194,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTimelogCustomer",
   "versionHighlightGanttBaseline",
   "versionHighlightStatusDigest",
+  "versionHighlightUndo",
 ] as const;

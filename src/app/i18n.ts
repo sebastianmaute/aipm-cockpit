@@ -182,6 +182,7 @@ const enUS = {
   versionHighlightTimelogCustomer: "Time bookings can now be scoped to the customer a project is created for — pick (or auto-resolve) a TimeLog customer and Fetch loads only that customer's projects' bookings instead of every user's whole history, cutting the data pulled",
   versionHighlightGanttBaseline: "The Gantt now shows each milestone's committed baseline as a hollow ghost diamond behind its current date, with a connector and a signed slip label, so schedule drift is visible where you plan — toggle it from the toolbar (Turso snapshot projects only)",
   versionHighlightStatusDigest: "A weekly status digest card on the Dashboard sums up your project — overall RAG with the change since last time, overdue tasks, milestones due soon, and open RAID — on a cadence you choose; optionally email it via Outlook, get a desktop notification, and add an AI-written summary, or generate one on demand",
+  versionHighlightUndo: "Undo destructive edits — deletes, clear-all, and bulk edits across every register — with a multi-level undo that works on any storage backend; reach it from the toast Undo button, Ctrl/Cmd+Z, or the top-bar control",
 
   tasks: "Tasks",
   tasksCount: "({0})",

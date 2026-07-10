@@ -185,6 +185,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTimelogCustomer: "Zeitbuchungen lassen sich jetzt auf den Kunden eingrenzen, für den ein Projekt angelegt wurde — einen TimeLog-Kunden wählen (oder automatisch auflösen) und Abrufen lädt nur die Buchungen der Projekte dieses Kunden statt der gesamten Historie aller Nutzer, was die geladene Datenmenge reduziert.",
   versionHighlightGanttBaseline: "Das Gantt-Diagramm zeigt jetzt die zugesagte Baseline jedes Meilensteins als hohle Geisterraute hinter dem aktuellen Datum, mit Verbindungslinie und vorzeichenbehaftetem Verschiebungslabel, sodass Terminabweichungen dort sichtbar werden, wo geplant wird — umschaltbar über die Symbolleiste (nur bei Projekten mit Turso-Snapshots).",
   versionHighlightStatusDigest: "Eine wöchentliche Statuszusammenfassung im Dashboard fasst Ihr Projekt zusammen — Gesamt-Ampel mit der Veränderung seit dem letzten Mal, überfällige Aufgaben, bald fällige Meilensteine und offene RAID — in einem von Ihnen gewählten Rhythmus; optional per Outlook versenden, eine Desktop-Benachrichtigung erhalten und eine KI-Zusammenfassung ergänzen, oder bei Bedarf sofort erstellen.",
+  versionHighlightUndo: "Destruktive Änderungen rückgängig machen — Löschungen, Alle-löschen und Sammelbearbeitungen in jedem Register — mit einer mehrstufigen Undo-Funktion, die mit jedem Speicher-Backend funktioniert; erreichbar über die Undo-Schaltfläche im Hinweis, Strg/Cmd+Z oder das Bedienelement in der oberen Leiste.",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
