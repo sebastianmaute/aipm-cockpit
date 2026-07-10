@@ -4,6 +4,8 @@ import { useWorkspace } from "./workspace-context";
 import { isPendingChange, nextChangeId } from "./change-log";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { resolveEntitySave } from "./entity-id-mint";
+import { reportSilentFailure } from "./guard-feedback";
+import type { Lang } from "./i18n";
 import type { ChangeItem, ChangeStatus } from "./types";
 
 /** Status transition: auto-fill decisionDate the first time the item leaves the
@@ -19,6 +21,8 @@ export function applyChangeStatus(item: ChangeItem, status: ChangeStatus, today:
 
 export interface UseChangeLogArgs {
   today: string;
+  lang?: Lang;
+  showToast?: (kind: "info" | "error", text: string) => void;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   logActivityChanges?: (
     kind: ActivityKind,
@@ -37,6 +41,14 @@ export function useChangeLog(args: UseChangeLogArgs) {
     const { create, id } = resolveEntitySave(changes, item.id, isNew, () => nextChangeId(changes));
     const withStamp: ChangeItem = { ...item, id, localModifiedAt: new Date().toISOString() };
     const previous = create ? undefined : changes.find((c) => c.id === id);
+    // Editing a row a concurrent writer already deleted: the map-replace below
+    // would silently no-op. Surface it instead of dropping the edit in silence.
+    if (!create && !previous) {
+      if (args.showToast && args.lang) {
+        reportSilentFailure(args.showToast, args.lang, "change.editVanished", "concurrent delete during edit", "guardEditVanished");
+      }
+      return;
+    }
     // Functional updater so N back-to-back saves in one tick (bulk edit) each
     // see the latest array and compose, instead of all reading the same stale
     // closure and the last write clobbering the rest.

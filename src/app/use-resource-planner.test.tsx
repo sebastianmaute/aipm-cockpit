@@ -513,6 +513,21 @@ describe("useResourcePlanner", () => {
       expect(fresh?.id).not.toBe(1);
     });
 
+    it("surfaces a toast and drops the edit when the RAID row was concurrently deleted", () => {
+      const showToast = vi.fn();
+      const { result } = renderPlanner({ showToast });
+      const ghost: RaidItem = {
+        id: 9, category: "R", title: "Ghost", description: "", severity: "Medium", status: "Open",
+        owner: "", ownerEmail: "", mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [],
+        stakeholderIds: [], raisedDate: "2026-05-20", targetDate: undefined,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      };
+      // Editing (isNew=false) a row not in the list — deleted by a concurrent writer.
+      act(() => { result.current.planner.handleSaveRaidItem(ghost, false); });
+      expect(result.current.workspace.raid).toHaveLength(0);
+      expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    });
+
     it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
       const { result } = renderPlanner();
       const base = (id: number, title: string): RaidItem => ({

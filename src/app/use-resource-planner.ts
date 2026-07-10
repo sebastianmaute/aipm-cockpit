@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { nextRaidId } from "./raid";
 import { resolveEntitySave } from "./entity-id-mint";
+import { reportSilentFailure } from "./guard-feedback";
 import { nextId, resourceDisplayName } from "./resource-foundation";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
@@ -166,6 +167,12 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       // Only a genuine UPDATE of an existing Risk can auto-raise an Issue; a create
       // (re-minted id) has no meaningful `previous`.
       const previous = create ? undefined : raid.find((r) => r.id === id);
+      // Editing a row a concurrent writer already deleted: the map-replace below
+      // would silently no-op. Surface it instead of dropping the edit in silence.
+      if (!create && !previous) {
+        reportSilentFailure(showToastRef.current, langRef.current, "raid.editVanished", "concurrent delete during edit", "guardEditVanished");
+        return;
+      }
 
       const triggersAutoIssue =
         previous !== undefined &&
@@ -419,10 +426,17 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         logActivityRef.current("resource.created", id, name);
       } else {
         const previous = resources.find((r) => r.id === next.id);
+        // Editing a row a concurrent writer already deleted: the map-replace below
+        // would silently no-op. Surface it instead of dropping the edit in silence.
+        if (!previous) {
+          reportSilentFailure(showToastRef.current, langRef.current, "resource.editVanished", "concurrent delete during edit", "guardEditVanished");
+          setEditingResource(null);
+          return;
+        }
         const withStamp: Resource = { ...next, localModifiedAt: stamp };
         setResources((prev) => prev.map((r) => (r.id === next.id ? withStamp : r)));
         setEditingResource(null);
-        if (previous) logUpdate("resource.updated", previous, withStamp, next.id, name);
+        logUpdate("resource.updated", previous, withStamp, next.id, name);
       }
     },
     [resources, setResources, logUpdate, editingResource],

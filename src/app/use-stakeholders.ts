@@ -3,11 +3,15 @@ import { useCallback } from "react";
 import { useWorkspace } from "./workspace-context";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { resolveEntitySave } from "./entity-id-mint";
+import { reportSilentFailure } from "./guard-feedback";
 import { nextStakeholderId } from "./stakeholders";
+import type { Lang } from "./i18n";
 import type { Stakeholder } from "./types";
 
 export interface UseStakeholdersArgs {
   today: string;
+  lang?: Lang;
+  showToast?: (kind: "info" | "error", text: string) => void;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   logActivityChanges?: (
     kind: ActivityKind,
@@ -28,6 +32,14 @@ export function useStakeholders(args: UseStakeholdersArgs) {
     );
     const withStamp: Stakeholder = { ...item, id, localModifiedAt: new Date().toISOString() };
     const previous = create ? undefined : stakeholders.find((s) => s.id === id);
+    // Editing a row a concurrent writer already deleted: the map-replace below
+    // would silently no-op. Surface it instead of dropping the edit in silence.
+    if (!create && !previous) {
+      if (args.showToast && args.lang) {
+        reportSilentFailure(args.showToast, args.lang, "stakeholder.editVanished", "concurrent delete during edit", "guardEditVanished");
+      }
+      return;
+    }
     // Functional updater so N back-to-back saves in one tick (bulk edit) compose
     // instead of each reading the same stale closure (last write would win).
     setStakeholders((prev) =>

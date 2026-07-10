@@ -125,6 +125,18 @@ describe("useChangeLog — logActivity", () => {
     expect(fresh?.id).not.toBe(1);
   });
 
+  it("surfaces a toast and drops the edit when the row was concurrently deleted (no silent no-op)", () => {
+    const showToast = vi.fn();
+    const { result } = renderHook(
+      () => useChangeLog({ today: "2026-06-09", lang: "en-US", showToast }),
+      { wrapper: Wrapper },
+    );
+    // Editing (isNew=false) a row that is NOT in the list — deleted by a concurrent writer.
+    act(() => result.current.handleSaveChange(ci({ id: 9, title: "Ghost" }), false));
+    expect(result.current.changes).toHaveLength(0);
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+  });
+
   it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
     const { result } = renderHook(() => useChangeLog({ today: "2026-06-09" }), { wrapper: Wrapper });
     act(() => result.current.handleSaveChange(ci({ id: 1, title: "A" })));

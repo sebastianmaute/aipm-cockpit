@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
+import { ToastProvider } from "./toast-context";
 import { MilestonesPanel } from "./milestones-panel";
 import { t } from "./i18n";
 import type { Milestone } from "./types";
@@ -136,6 +137,25 @@ describe("MilestonesPanel", () => {
     expect(screen.getByText("Existing")).toBeInTheDocument();
     expect(screen.getByText("Concurrent")).toBeInTheDocument();
     expect(screen.getByText("Fresh")).toBeInTheDocument();
+  });
+
+  it("surfaces a toast when the edited milestone was concurrently deleted", () => {
+    const showToast = vi.fn();
+    const seeded = (ms: readonly Milestone[]) => (
+      <ToastProvider value={showToast}>
+        <Seed milestones={ms} />
+        <MilestonesPanel {...baseProps} />
+      </ToastProvider>
+    );
+    const doomed = m("Doomed", "2026-06-10", { id: 1 });
+    const { rerender } = render(seeded([doomed]), { wrapper });
+    // Open the milestone's editor (isNew=false).
+    fireEvent.click(screen.getByRole("button", { name: "Doomed" }));
+    // A concurrent writer deletes it while the modal is open.
+    rerender(seeded([]));
+    // Save → the row is gone; the edit must surface a toast, not vanish silently.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 
   it("renders the New milestone button at the left, styled like Gantt (solid dark-blue)", () => {

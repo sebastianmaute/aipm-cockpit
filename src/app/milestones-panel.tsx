@@ -30,6 +30,8 @@ import {
 import { type Lang, t } from "./i18n";
 import { nextId } from "./resource-foundation";
 import { resolveEntitySave } from "./entity-id-mint";
+import { reportSilentFailure } from "./guard-feedback";
+import { useToastContext } from "./toast-context";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton, PrintButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
@@ -130,6 +132,7 @@ function MilestonesPanelBody({
   const { ref, reset: resetSize } = useResizable("lop-app:milestones-size-full");
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const showToast = useToastContext();
   const pf = usePanelFilters();
   const hiddenSet = new Set(pf.hiddenCols ?? []);
 
@@ -245,18 +248,23 @@ function MilestonesPanelBody({
   function save(next: Milestone, isNewIntent?: boolean) {
     const { create, id } = resolveEntitySave(milestones, next.id, isNewIntent, () => nextId(milestones));
     const finalItem: Milestone = { ...next, id };
+    const previous = create ? undefined : milestones.find((m) => m.id === id);
+    // Editing a row a concurrent writer already deleted: the map-replace below
+    // would silently no-op. Surface it instead of dropping the edit in silence.
+    if (!create && !previous) {
+      reportSilentFailure(showToast, lang, "milestone.editVanished", "concurrent delete during edit", "guardEditVanished");
+      setEditing(null);
+      return;
+    }
     setMilestones((prev) =>
       create ? [...prev, finalItem] : prev.map((m) => (m.id === id ? finalItem : m)),
     );
     if (create) {
       logActivity?.("milestone.created", id, finalItem.name);
+    } else if (previous && logActivityChanges) {
+      logActivityChanges("milestone.updated", diffFields(previous, finalItem), id);
     } else {
-      const previous = milestones.find((m) => m.id === id);
-      if (previous && logActivityChanges) {
-        logActivityChanges("milestone.updated", diffFields(previous, finalItem), id);
-      } else {
-        logActivity?.("milestone.updated", id);
-      }
+      logActivity?.("milestone.updated", id);
     }
     setEditing(null);
   }
