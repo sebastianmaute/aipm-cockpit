@@ -244,7 +244,7 @@ function parsePlanMarkdown(md: string): ResourcePlan | null {
     const cells = t.split(",").map((s) => s.trim());
     if (cells.length < 4) continue;
     const today = new Date().toISOString().slice(0, 10);
-    return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3] }, today);
+    return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3], budgetFollowsPlan: cells[4] }, today);
   }
   return null;
 }

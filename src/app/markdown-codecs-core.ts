@@ -561,7 +561,9 @@ function refsToMarkdown(heading: string, rs: readonly { id: number; name: string
 }
 
 function planToMarkdown(p: ResourcePlan): string {
-  return `## Plan\n\n${p.startDate},${p.endDate},${p.granularity},${p.currency}\n`;
+  const cells = [p.startDate, p.endDate, p.granularity, p.currency];
+  if (p.budgetFollowsPlan) cells.push("true");
+  return `## Plan\n\n${cells.join(",")}\n`;
 }
 
 /** Combined markdown workspace. Each entity section is its own heading + table.
