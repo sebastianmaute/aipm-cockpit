@@ -439,7 +439,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       {periods.map((p) => (
                         <th
                           key={p.key}
-                          className="relative px-1 py-1 text-right"
+                          className="relative px-1 py-1"
                           style={{ width: colWidths.period, minWidth: colWidths.period }}
                         >
                           {p.key}

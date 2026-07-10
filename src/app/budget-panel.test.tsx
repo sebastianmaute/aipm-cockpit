@@ -30,6 +30,16 @@ describe("BudgetPanel", () => {
     expect(screen.getByText("PAM")).toBeInTheDocument();
   });
 
+  test("budget: bucket period date header is not right-aligned", () => {
+    const oneMonthBuckets: BudgetBucket[] = [{
+      id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+    }];
+    render(<BudgetPanel {...props} buckets={oneMonthBuckets} />);
+    const th = screen.getByRole("columnheader", { name: /\d{4}-\d{2}/ });
+    expect(th.className).not.toMatch(/text-right/);
+  });
+
   const twoBuckets = (): BudgetBucket[] => [
     { ...buckets[0], id: 1, name: "PAM", order: 0 },
     {

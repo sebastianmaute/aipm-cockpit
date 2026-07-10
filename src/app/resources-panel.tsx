@@ -482,7 +482,7 @@ function ResourcesPanelInner({
                   {periods.map((p) => (
                     <th
                       key={p.key}
-                      className="relative px-3 py-2 text-right font-medium tabular-nums"
+                      className="relative px-3 py-2 font-medium tabular-nums"
                       style={{ width: planning.colWidths.period, minWidth: planning.colWidths.period }}
                     >
                       {p.key}
