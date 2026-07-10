@@ -73,6 +73,24 @@ describe("ResourcesPanel", () => {
     expect(override.className).toContain("bg-surface");
   });
 
+  test("planning: utilization box shows % suffix in percent mode", () => {
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
+      workdayHours={8} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    expect(screen.getByText("%")).toBeInTheDocument();
+  });
+
+  test("planning: utilization box shows h suffix in hours mode", () => {
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "hours" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
+      workdayHours={8} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    expect(screen.getByText("h")).toBeInTheDocument();
+  });
+
   test("planning view: changing the From date calls onSetPlanWindow", () => {
     const onSetPlanWindow = vi.fn();
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };

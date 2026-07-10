@@ -560,14 +560,19 @@ function ResourcesPanelInner({
                           : (r.utilization[p.key] ?? "");
                         return (
                         <td key={p.key} className="px-3 py-2 text-right align-top">
-                          <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
-                            aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
-                            title={t(lang, "resourcesUtilizationHint")}
-                            value={cellValue}
-                            readOnly={derived}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
-                            className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
+                          <span className="inline-flex items-center gap-0.5">
+                            <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
+                              aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
+                              title={t(lang, "resourcesUtilizationHint")}
+                              value={cellValue}
+                              readOnly={derived}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => { if (!derived) onSetUtilization(r.id, p.key, Number(e.target.value) || 0); }}
+                              className={`w-16 rounded border border-line px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
+                            <span aria-hidden="true" className="text-xs text-muted-foreground">
+                              {r.utilizationMode === "percent" ? "%" : "h"}
+                            </span>
+                          </span>
                           <input type="number" min={0} step={1}
                             aria-label={`Absence override for ${resourceDisplayName(r)} in ${p.key}`}
                             title={t(lang, "resourcesAbsenceOverrideHint")}
