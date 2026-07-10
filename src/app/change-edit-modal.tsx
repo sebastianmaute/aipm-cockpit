@@ -129,7 +129,7 @@ export function ChangeEditModal({
       update("title", describeTextCap(appendDictation(draftRef.current.title ?? "", txt), BUDGET_NAME_MAX).value),
   });
 
-  const { offset, handleProps } = useDraggable(true);
+  const { offset, reset: dragReset, handleProps } = useDraggable(true, "lop-app:modal-pos:change-edit");
 
   useEscapeKey(onCancel);
 
@@ -237,7 +237,8 @@ export function ChangeEditModal({
       onSubmit={handleSubmit}
       offset={offset}
       dragHandleProps={handleProps}
-      persistKey="change-edit"
+      onDragReset={dragReset}
+      sizeKey="lop-app:modal-size:change-edit"
     >
           {/* Title */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">

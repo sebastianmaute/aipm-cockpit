@@ -1,5 +1,6 @@
-import { describe, expect, test } from "vitest";
-import { clampOffset } from "./use-draggable";
+import { describe, expect, test, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { clampOffset, useDraggable } from "./use-draggable";
 
 describe("clampOffset", () => {
   // viewport 1000x800; panel rect at left=300 top=100 w=400 h=500.
@@ -24,5 +25,39 @@ describe("clampOffset", () => {
   test("clamps downward drag so the header stays above the bottom edge", () => {
     const out = clampOffset({ x: 0, y: 10000 }, rect, vp);
     expect(rect.top + out.y).toBeLessThanOrEqual(vp.h - 24);
+  });
+});
+
+describe("useDraggable persistence (storageKey)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  test("initializes the offset from a valid persisted value", () => {
+    window.localStorage.setItem("k", JSON.stringify({ x: 12, y: 34 }));
+    const { result } = renderHook(() => useDraggable(true, "k"));
+    expect(result.current.offset).toEqual({ x: 12, y: 34 });
+  });
+
+  test("falls back to {0,0} for missing or garbage storage", () => {
+    window.localStorage.setItem("bad", "not json");
+    const { result } = renderHook(() => useDraggable(true, "bad"));
+    expect(result.current.offset).toEqual({ x: 0, y: 0 });
+  });
+
+  test("reset recenters and clears the persisted entry", () => {
+    window.localStorage.setItem("k", JSON.stringify({ x: 5, y: 5 }));
+    const { result } = renderHook(() => useDraggable(true, "k"));
+    act(() => result.current.reset());
+    expect(result.current.offset).toEqual({ x: 0, y: 0 });
+    expect(window.localStorage.getItem("k")).toBeNull();
+  });
+
+  test("without a storageKey the offset stays {0,0} and nothing persists", () => {
+    const { result } = renderHook(() => useDraggable(true));
+    expect(result.current.offset).toEqual({ x: 0, y: 0 });
+    act(() => result.current.reset());
+    expect(result.current.offset).toEqual({ x: 0, y: 0 });
+    expect(window.localStorage.length).toBe(0);
   });
 });

@@ -208,7 +208,6 @@ export const de: Record<TranslationKey, string> = {
   edit: "Bearbeiten",
   clear: "Leeren",
   loading: "Wird geladen…",
-  modalMove: "Dialog verschieben",
   modalResetSize: "Dialoggröße zurücksetzen",
   diagnosticsTitle: "Diagnose",
   diagnosticsIntro: "Aktuelle technische Ereignisse auf diesem Gerät. Keine Projektinhalte oder Geheimnisse werden erfasst.",

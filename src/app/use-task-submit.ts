@@ -276,6 +276,11 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
 
   const openEditModal = useCallback(
     (task: Task) => {
+      // Switching the editor to an EXISTING task (e.g. a deep-link fired mid-create)
+      // must drop any create-mode staged RAID/links — otherwise saving this existing
+      // task takes the edit branch (no flush) and the stale items later flush onto the
+      // wrong parent id.
+      onEditorDiscard?.();
       pendingLinkRaidIdRef.current = null;
       setEditingId(task.id);
       setSubmitted(false);
@@ -305,7 +310,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     },
-    [setEditingId, setTaskModalOpen, setForm, pendingLinkRaidIdRef],
+    [setEditingId, setTaskModalOpen, setForm, pendingLinkRaidIdRef, onEditorDiscard],
   );
 
   return { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal };

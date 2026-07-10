@@ -541,27 +541,35 @@ describe("TaskRow click-to-edit", () => {
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
   });
 
-  test("opens the editor when the task name is clicked", () => {
-    const onEdit = vi.fn();
-    const ctx = makeContext({ onEdit });
-    const task = makeTask({ id: 7, taskName: "Review the deck" });
-    const { getByRole } = render(
-      rowWrapper({
-        context: ctx,
-        children: (
-          <TaskRow
-            task={task}
-            isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
-            raidRefs={undefined}
-          />
-        ),
-      }),
-    );
-    fireEvent.click(getByRole("button", { name: "Review the deck" }));
-    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+  test("opens the editor a beat after the task name is single-clicked", () => {
+    vi.useFakeTimers();
+    try {
+      const onEdit = vi.fn();
+      const ctx = makeContext({ onEdit });
+      const task = makeTask({ id: 7, taskName: "Review the deck" });
+      const { getByRole } = render(
+        rowWrapper({
+          context: ctx,
+          children: (
+            <TaskRow
+              task={task}
+              isSelected={false}
+              isEditing={false}
+              isExpanded={false}
+              isPushing={false}
+              raidRefs={undefined}
+            />
+          ),
+        }),
+      );
+      // Single-click defers so a double-click can cancel it (inline rename).
+      fireEvent.click(getByRole("button", { name: "Review the deck" }));
+      expect(onEdit).not.toHaveBeenCalled();
+      act(() => { vi.advanceTimersByTime(250); });
+      expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -854,19 +862,30 @@ describe("TaskRow inline cell editing", () => {
     );
   }
 
-  test("double-clicking the name reveals an input; typing + Enter commits a taskName patch", () => {
-    const onInlinePatch = vi.fn();
-    const onEdit = vi.fn();
-    const ctx = makeContext({ onInlinePatch, onEdit });
-    const task = makeTask({ id: 40, taskName: "Old name" });
-    const { getByRole, getByLabelText } = renderRow(ctx, task);
+  test("double-clicking the name reveals an input (cancelling the deferred editor-open); typing + Enter commits a taskName patch", () => {
+    vi.useFakeTimers();
+    try {
+      const onInlinePatch = vi.fn();
+      const onEdit = vi.fn();
+      const ctx = makeContext({ onInlinePatch, onEdit });
+      const task = makeTask({ id: 40, taskName: "Old name" });
+      const { getByRole, getByLabelText } = renderRow(ctx, task);
 
-    fireEvent.doubleClick(getByRole("button", { name: "Old name" }));
-    const input = getByLabelText("Task name – Old name") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "New name" } });
-    fireEvent.keyDown(input, { key: "Enter" });
+      // A real double-click fires click (schedules the deferred open) then dblclick
+      // (which must cancel it and start inline rename).
+      const btn = getByRole("button", { name: "Old name" });
+      fireEvent.click(btn);
+      fireEvent.doubleClick(btn);
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(onEdit).not.toHaveBeenCalled(); // deferred open was cancelled
 
-    expect(onInlinePatch).toHaveBeenCalledWith(40, { taskName: "New name" });
+      const input = getByLabelText("Task name – Old name") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: "New name" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(onInlinePatch).toHaveBeenCalledWith(40, { taskName: "New name" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("single-clicking the due-date cell reveals a date input; change + blur commits a dueDate patch", () => {

@@ -776,6 +776,10 @@ export function TasksSection({
             style={{ tableLayout: "fixed", width: "max-content", minWidth: "100%" }}
           >
             <colgroup>
+              {/* Leading gutter column matching the per-row hover Ask-Claude cell
+                  and the leading <th> below — under table-layout:fixed a missing
+                  <col> shifts every column's width to its left neighbour. */}
+              <col className="w-8" />
               {ALL_TASK_COLS
                 .filter((col) => !hiddenCols.has(col))
                 .map((col) => (

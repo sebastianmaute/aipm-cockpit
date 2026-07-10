@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, memo, useContext, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
@@ -217,6 +217,22 @@ function TaskRowImpl({
       inline.cancel();
     }
   };
+  // Name cell: single-click opens the full editor, double-click inline-renames.
+  // A raw onClick fires on the first click of a double-click (opening the editor
+  // and unmounting the row before dblclick lands), so DEFER the open and let a
+  // double-click cancel it. Non-editable (Jira) rows open immediately.
+  const nameClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (nameClickTimer.current) clearTimeout(nameClickTimer.current); }, []);
+  const handleNameClick = () => {
+    if (!inlineEditable) { onEdit(task); return; }
+    if (nameClickTimer.current) clearTimeout(nameClickTimer.current);
+    nameClickTimer.current = setTimeout(() => { nameClickTimer.current = null; onEdit(task); }, 220);
+  };
+  const handleNameDoubleClick = () => {
+    if (!inlineEditable) return;
+    if (nameClickTimer.current) { clearTimeout(nameClickTimer.current); nameClickTimer.current = null; }
+    inline.begin("taskName", task.taskName);
+  };
   // Text/date inline cells (assignee/startDate/dueDate) share one shape: a
   // labelled ghost button that reveals an <input> on click, committing on
   // blur/Enter and cancelling on Escape. Priority (a <select>) + taskName
@@ -374,8 +390,8 @@ function TaskRowImpl({
         ) : (
           <button
             type="button"
-            onClick={() => onEdit(task)}
-            onDoubleClick={inlineEditable ? () => inline.begin("taskName", task.taskName) : undefined}
+            onClick={handleNameClick}
+            onDoubleClick={handleNameDoubleClick}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
             className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >{task.taskName}</button>

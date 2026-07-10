@@ -2,6 +2,7 @@
 
 import { type ReactNode } from "react";
 import { type Lang, t } from "./i18n";
+import { INTERACTIVE } from "./interaction-styles";
 import { useVoiceCommand } from "./voice-command-context";
 import { VoiceCommandButton } from "./voice-button";
 
@@ -25,6 +26,9 @@ interface ModalHeaderProps {
   /** Extra controls rendered in the header's right cluster, before the close
    *  button (e.g. a reset-size button for a resizable modal panel). */
   headerExtra?: ReactNode;
+  /** When set, render a "reset dialog layout" button (recenters + restores the
+   *  default size) in the header's right cluster before the close button. */
+  onResetLayout?: () => void;
   /** Optional branding rendered top-left, before the title (e.g. the Acme
    *  logo on the first-run empty-state). */
   logo?: ReactNode;
@@ -43,6 +47,7 @@ export function ModalHeader({
   dragHandleProps,
   hideClose = false,
   headerExtra,
+  onResetLayout,
   logo,
 }: ModalHeaderProps) {
   const voice = useVoiceCommand();
@@ -63,6 +68,19 @@ export function ModalHeader({
         {headerExtra}
         {voice && (
           <VoiceCommandButton lang={lang} onCommand={voice.onCommand} onError={voice.onError} />
+        )}
+        {onResetLayout && (
+          <button
+            type="button"
+            onClick={onResetLayout}
+            aria-label={t(lang, "modalResetSize")}
+            title={t(lang, "modalResetSize")}
+            className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+              <path d="M10 3a7 7 0 105.66 2.87V3.5a.75.75 0 00-1.5 0v1.06A7 7 0 0010 3zm0 1.5a5.5 5.5 0 11-4.2 1.95l1.02 1.02a.75.75 0 001.06-1.06L6.1 5.53A5.47 5.47 0 0110 4.5z" />
+            </svg>
+          </button>
         )}
         {!hideClose && (
           <button

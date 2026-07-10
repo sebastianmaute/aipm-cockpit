@@ -1074,6 +1074,13 @@ function TaskManagerInner() {
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
+  // Live mirror of the RAID list so RAID created from the task editor mints ids +
+  // logs OUTSIDE the setState updater (updaters must be pure — strict mode double-
+  // invokes them), while staying fresh across a buffer flush loop (N in one tick).
+  const raidRef = useRef(raid);
+  useEffect(() => {
+    raidRef.current = raid;
+  }, [raid]);
 
   const onPushToJiraRef = useRef<(taskId: number) => Promise<boolean>>(
     () => Promise.resolve(false),
@@ -1085,19 +1092,20 @@ function TaskManagerInner() {
   // flushes once the new parent id is resolved on save.
   const applyRaidFromTask = useCallback(
     (taskId: number, spec: RaidSpec) => {
-      setRaid((prev) => {
-        const id = nextRaidId(prev);
-        const raw = {
-          id,
-          category: spec.category,
-          title: spec.title,
-          raisedDate: today,
-          linkedTaskIds: [taskId],
-        } as RaidItem;
-        const clean = sanitizeRaidItem(raw) ?? raw;
-        logActivity("raid.created", clean.id, clean.title);
-        return [...prev, clean];
-      });
+      const id = nextRaidId(raidRef.current);
+      const raw = {
+        id,
+        category: spec.category,
+        title: spec.title,
+        raisedDate: today,
+        linkedTaskIds: [taskId],
+      } as RaidItem;
+      const clean = sanitizeRaidItem(raw);
+      if (!clean) return; // malformed (e.g. empty title) → skip rather than persist raw
+      const next = [...raidRef.current, clean];
+      raidRef.current = next; // keep back-to-back flushes minting distinct ids
+      setRaid(next);
+      logActivity("raid.created", clean.id, clean.title);
     },
     [setRaid, today, logActivity],
   );
@@ -1111,15 +1119,20 @@ function TaskManagerInner() {
     applyRaid: applyRaidFromTask,
     applyLink: applyLinkFromTask,
   });
-  const { flush: flushEditorBuffer, discard: discardEditorBuffer } = editorBuffer;
+  const {
+    flush: flushEditorBuffer,
+    discard: discardEditorBuffer,
+    stageRaid: stageEditorRaid,
+    stageLink: stageEditorLink,
+  } = editorBuffer;
 
   // create-RAID (Task 7): apply immediately in edit-mode, stage in create-mode.
   const handleAddRaidFromEditor = useCallback(
     (spec: RaidSpec) => {
       if (editingId !== null) applyRaidFromTask(editingId, spec);
-      else editorBuffer.stageRaid(spec);
+      else stageEditorRaid(spec);
     },
-    [editingId, applyRaidFromTask, editorBuffer],
+    [editingId, applyRaidFromTask, stageEditorRaid],
   );
 
   // create linked task (Task 8): mirror the normal create path (mint id,
@@ -1150,10 +1163,14 @@ function TaskManagerInner() {
       logActivity("task.created", childId, child.taskName);
       const spec: LinkSpec = { childId, direction: draft.direction, type: "FS" };
       if (editingId !== null) applyLinkFromTask(editingId, spec);
-      else editorBuffer.stageLink(spec);
+      else stageEditorLink(spec);
+      // NOTE (by design): the child task is committed here immediately (real id),
+      // while for a NEW parent only the LINK is staged. Cancelling the parent
+      // editor discards the staged link but keeps the child task — a nested child
+      // is a real task the moment it's saved, independent of the parent's outcome.
       setLinkedTaskOpen(false);
     },
-    [today, setTasks, logActivity, editingId, applyLinkFromTask, editorBuffer, setLinkedTaskOpen],
+    [today, setTasks, logActivity, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
   );
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({

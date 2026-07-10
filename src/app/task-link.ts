@@ -18,6 +18,9 @@ export function applyTaskLink(
   parentId: number,
   link: LinkSpec,
 ): Task[] {
+  // A self-link (child id === parent id) would make a task its own predecessor —
+  // never wire it (guards a degenerate flush, e.g. an id-reuse edge).
+  if (parentId === link.childId) return tasks.slice();
   const targetId = link.direction === "predecessor" ? parentId : link.childId;
   const depId = link.direction === "predecessor" ? link.childId : parentId;
   const type = link.type as DependencyType;

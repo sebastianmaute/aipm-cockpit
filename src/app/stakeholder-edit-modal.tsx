@@ -128,7 +128,7 @@ export function StakeholderEditModal({
       update("title", describeTextCap(appendDictation(draftRef.current.title ?? "", txt), BUDGET_NAME_MAX).value),
   });
 
-  const { offset, handleProps } = useDraggable(true);
+  const { offset, reset: dragReset, handleProps } = useDraggable(true, "lop-app:modal-pos:stakeholder-edit");
 
   useEscapeKey(onCancel);
 
@@ -166,7 +166,8 @@ export function StakeholderEditModal({
       onSubmit={handleSubmit}
       offset={offset}
       dragHandleProps={handleProps}
-      persistKey="stakeholder-edit"
+      onDragReset={dragReset}
+      sizeKey="lop-app:modal-size:stakeholder-edit"
     >
           {/* Name */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
