@@ -319,7 +319,7 @@ describe("AiSection API-key validation", () => {
         ai: { ...defaultSettings.ai, enabled: true },
       });
       return (
-        <ToastProvider value={showToast}>
+        <ToastProvider value={{ showToast, showToastAction: showToast }}>
           <AiSection
             lang="en-US"
             settings={s}

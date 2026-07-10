@@ -103,12 +103,16 @@ export function WorkspaceSection({
   handleClearRaidTaskFilter,
   handleSaveRaidItem,
   handleDeleteRaidItem,
+  onCaptureRaidBulk,
+  onCaptureUndo,
   changes,
   handleSaveChange,
   handleDeleteChange,
+  onCaptureChangeBulk,
   stakeholders,
   handleSaveStakeholder,
   handleDeleteStakeholder,
+  onCaptureStakeholderBulk,
   commsPendingStakeholderIds,
   onJumpToComms,
   handleCreateMitigationTaskFromRaid,
@@ -403,6 +407,7 @@ export function WorkspaceSection({
             onClearTaskFilter={handleClearRaidTaskFilter}
             onSave={handleSaveRaidItem}
             onDelete={handleDeleteRaidItem}
+            onCaptureBulk={onCaptureRaidBulk}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
             showHints={settings.showViewHints !== false}
@@ -568,6 +573,7 @@ export function WorkspaceSection({
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
+              onCaptureBulk={onCaptureChangeBulk}
               raidEnabled={raidEnabledForChanges}
               stakeholdersEnabled={stakeholdersEnabled}
               stakeholders={stakeholders}
@@ -603,6 +609,7 @@ export function WorkspaceSection({
               milestones={milestones}
               onSave={handleSaveStakeholder}
               onDelete={handleDeleteStakeholder}
+              onCaptureBulk={onCaptureStakeholderBulk}
               commsPendingStakeholderIds={commsPendingStakeholderIds}
               onJumpToComms={onJumpToComms}
               showHints={settings.showViewHints !== false}
@@ -694,6 +701,7 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               logActivity={logActivity}
               logActivityChanges={logActivityChanges}
+              capture={onCaptureUndo}
               openCreateNonce={milestoneCreateNonce}
               onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}

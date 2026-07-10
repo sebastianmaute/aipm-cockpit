@@ -37,6 +37,7 @@ function makeArgs(
     },
     onCancelEdit: vi.fn(),
     logActivity: vi.fn(),
+    capture: vi.fn(),
     showToast: vi.fn(),
     ...overrides,
   };
@@ -138,7 +139,8 @@ describe("useBulkOperations", () => {
     it("applyBulkEdit patches selected tasks with enabled fields, logs bulk.edit, clears selection", () => {
       const logActivity = vi.fn();
       const showToast = vi.fn();
-      const { result } = renderBulk({ logActivity, showToast });
+      const capture = vi.fn();
+      const { result } = renderBulk({ logActivity, showToast, capture });
       act(() => {
         result.current.workspace.setTasks([
           {
@@ -169,6 +171,11 @@ describe("useBulkOperations", () => {
       expect(result.current.workspace.tasks[0].priority).toBe("High");
       expect(logActivity).toHaveBeenCalledWith("bulk.edit", 1);
       expect(result.current.bulk.selectedIds.size).toBe(0);
+      // Undo captured the selected row's PRE-edit image (priority still Medium).
+      expect(capture).toHaveBeenCalledTimes(1);
+      const capOpts = capture.mock.calls[0][0] as { kind: string; edited: { id: number; priority: string }[] };
+      expect(capOpts.kind).toBe("bulk.edit");
+      expect(capOpts.edited).toEqual([expect.objectContaining({ id: 1, priority: "Medium" })]);
     });
 
     it("skips Jira-managed fields on synced rows but applies local-only fields; warns", () => {
@@ -274,6 +281,17 @@ describe("useBulkOperations", () => {
       act(() => { result.current.workspace.setTasks([seedOne()]); });
       act(() => { result.current.bulk.handleClearAll(); });
       expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("captures all tasks before a clear-all (undo)", () => {
+      const capture = vi.fn();
+      const { result } = renderBulk({ capture });
+      act(() => { result.current.workspace.setTasks([seedOne()]); });
+      act(() => { result.current.bulk.handleClearAll(); });
+      expect(capture).toHaveBeenCalledTimes(1);
+      const opts = capture.mock.calls[0][0] as { kind: string; removed: unknown[] };
+      expect(opts.kind).toBe("task.deleted");
+      expect(opts.removed).toHaveLength(1);
     });
 
     it("voice 'clearAll' requests the type-to-confirm dialog instead of wiping directly", () => {

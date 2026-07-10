@@ -15,6 +15,7 @@ import type { ActivityKind } from "./activity-log";
 import type { Task, TaskStatus } from "./types";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
+import type { UndoStackApi } from "./undo/use-undo-stack";
 
 export interface UseTaskRowHandlersArgs {
   tasksRef: React.RefObject<readonly Task[]>;
@@ -30,6 +31,8 @@ export interface UseTaskRowHandlersArgs {
   deselectIdRef: React.MutableRefObject<(id: number) => void>;
   handleCancelEdit: () => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** Capture a pre-op snapshot for undo (a delete removes rows). */
+  capture: UndoStackApi["capture"];
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
   sendCommTemplate?: (req: CommSendRequest) => void;
 }
@@ -49,6 +52,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     deselectIdRef,
     handleCancelEdit,
     logActivity,
+    capture,
     resolveTemplateBody,
     sendCommTemplate,
   } = args;
@@ -268,8 +272,17 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   const onDelete = useCallback(
     (id: number) => {
       if (!window.confirm(t(lang, "confirmDelete", id))) return;
-      const deletedName =
-        tasksRef.current.find((tk) => tk.id === id)?.taskName ?? "";
+      const arr = tasksRef.current;
+      const doomed = arr.find((tk) => tk.id === id);
+      const deletedName = doomed?.taskName ?? "";
+      // The delete also strips this id from other tasks' dependencies[], so undo
+      // must restore the deleted task AND those edited dependents.
+      const dependents = arr.filter((tk) =>
+        tk.dependencies?.some((d) => d.taskId === id),
+      );
+      if (doomed) {
+        capture({ setter: setTasks, kind: "task.deleted", removed: [doomed], edited: dependents, fromArray: arr });
+      }
       setTasks((prev) =>
         prev
           .filter((tk) => tk.id !== id)
@@ -288,7 +301,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       if (editingId === id) handleCancelEditRef.current();
       logActivityRef.current("task.deleted", id, deletedName);
     },
-    [lang, tasksRef, setTasks, deselectIdRef, editingId],
+    [lang, tasksRef, setTasks, deselectIdRef, editingId, capture],
   );
 
   const handleClearRaidTaskFilter = useCallback(() => {

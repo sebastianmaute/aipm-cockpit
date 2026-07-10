@@ -64,4 +64,19 @@ describe("useToast", () => {
     });
     expect(result.current.toast).toBeNull();
   });
+
+  it("showToastAction attaches an action to the toast", () => {
+    const { result } = renderHook(() => useToast());
+    const run = () => {};
+    act(() => result.current.showToastAction("info", "Deleted 3 tasks", { labelKey: "undo", run }));
+    expect(result.current.toast?.text).toBe("Deleted 3 tasks");
+    expect(result.current.toast?.action?.labelKey).toBe("undo");
+    expect(result.current.toast?.action?.run).toBe(run);
+  });
+
+  it("showToast leaves action undefined (back-compat)", () => {
+    const { result } = renderHook(() => useToast());
+    act(() => result.current.showToast("info", "plain"));
+    expect(result.current.toast?.action).toBeUndefined();
+  });
 });

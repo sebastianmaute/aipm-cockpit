@@ -101,12 +101,20 @@ export interface WorkspaceSectionProps {
   // entity-id-mint.ts); non-modal callers (bulk edit) omit it.
   handleSaveRaidItem: (item: RaidItem, isNew?: boolean) => void;
   handleDeleteRaidItem: (id: number) => void;
+  /** Capture the selected RAID rows' pre-edit images for undo before a bulk apply. */
+  onCaptureRaidBulk?: (ids: readonly number[]) => void;
+  /** Raw undo capture (milestone panel builds its own restore via setMilestones). */
+  onCaptureUndo?: import("./undo/use-undo-stack").UndoStackApi["capture"];
   changes: readonly ChangeItem[];
   handleSaveChange: (item: ChangeItem, isNew?: boolean) => void;
   handleDeleteChange: (id: number, title: string) => void;
+  /** Capture the selected changes' pre-edit images for undo before a bulk apply. */
+  onCaptureChangeBulk?: (ids: readonly number[]) => void;
   stakeholders: readonly Stakeholder[];
   handleSaveStakeholder: (item: Stakeholder, isNew?: boolean) => void;
   handleDeleteStakeholder: (id: number, name: string) => void;
+  /** Capture the selected stakeholders' pre-edit images for undo before a bulk apply. */
+  onCaptureStakeholderBulk?: (ids: readonly number[]) => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
   commsPendingStakeholderIds?: ReadonlySet<number>;
   /** Jump to the Action Center for the given stakeholder. */

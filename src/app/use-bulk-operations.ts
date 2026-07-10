@@ -15,6 +15,7 @@ import {
 } from "./sanitize";
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
 import { todayInZone, resolveTimezone } from "./timezone";
+import type { UndoStackApi } from "./undo/use-undo-stack";
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
 // them on a `jiraKey` row would be silently reverted by the next read-only pull
@@ -36,6 +37,8 @@ export interface UseBulkOperationsArgs {
   handlers: BulkRowHandlers;
   onCancelEdit: () => void;
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** Capture a pre-op snapshot for undo (clear-all deletes, bulk-edit changes). */
+  capture: UndoStackApi["capture"];
   showToast: (kind: "info" | "error", text: string) => void;
   /** Arm the storage layer's one-shot destructive-save bypass before a clear-all
    *  — else the persistence data-loss guard refuses the mass deletion. */
@@ -66,6 +69,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const setSettingsRef = useRef(args.setSettings);
   const allowDestructiveSaveRef = useRef(args.allowDestructiveSave);
   const requestClearAllConfirmRef = useRef(args.requestClearAllConfirm);
+  const captureRef = useRef(args.capture);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
@@ -74,6 +78,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   useEffect(() => { setSettingsRef.current = args.setSettings; }, [args.setSettings]);
   useEffect(() => { allowDestructiveSaveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
   useEffect(() => { requestClearAllConfirmRef.current = args.requestClearAllConfirm; }, [args.requestClearAllConfirm]);
+  useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -172,6 +177,10 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const untouchedSynced = managedEnabled && Object.keys(jiraSafeUpdates).length === 0 ? skippedSynced : 0;
     const count = selectedIds.size - untouchedSynced;
     const stamp = new Date().toISOString();
+    const beforeRows = tasks.filter((r) => selectedIds.has(r.id));
+    if (beforeRows.length > 0) {
+      captureRef.current({ setter: setTasks, kind: "bulk.edit", edited: beforeRows, fromArray: tasks });
+    }
     setTasks((prev) =>
       prev.map((row) => {
         if (!selectedIds.has(row.id)) return row;
@@ -206,6 +215,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   // with TypeToConfirmDialog; the voice command below gates it with window.confirm).
   const handleClearAll = useCallback(() => {
     if (tasks.length === 0) return;
+    captureRef.current({ setter: setTasks, kind: "task.deleted", removed: tasks, fromArray: tasks });
     allowDestructiveSaveRef.current?.(); // arm the storage destructive-save bypass (button + voice)
     setTasks([]);
     setSelectedIds(new Set());

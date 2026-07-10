@@ -19,7 +19,7 @@ describe("toast-context", () => {
     const spy = vi.fn();
     let fn: ((k: "info" | "error", t: string) => void) | null = null;
     render(
-      <ToastProvider value={spy}>
+      <ToastProvider value={{ showToast: spy, showToastAction: spy }}>
         <Caller onReady={(f) => (fn = f)} />
       </ToastProvider>,
     );

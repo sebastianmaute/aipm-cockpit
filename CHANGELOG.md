@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.173.0] - 2026-07-10 "Jordan"
+
+### Added
+
+- **Local undo for destructive edits (audit #11).** A multi-level (~10), in-memory
+  undo that reverses destructive edits — single/bulk deletes, clear-all, and bulk
+  edits — across every entity (tasks, RAID, changes, stakeholders, milestones,
+  absences, shifts, resources) and on **every storage backend**, closing the gap
+  where file/IndexedDB projects had no recovery (version history is Turso-only).
+  Three ways to undo: an **Undo** button on the action toast, global **Ctrl/⌘+Z**
+  (ignored inside text fields so native undo still works), and a **top-bar control**.
+- Item-level restore: only the rows an operation touched are affected, so an undo
+  survives edits made to *other* rows in between, and it never overwrites a live
+  row whose id was reused after a delete (the recovered row is re-minted instead).
+- Undo actions are recorded in the activity log.
+
+### Notes
+
+- Undo is session-scoped and in-memory by design (a reload starts fresh; the
+  destructive save has already committed). Redo and cross-reload undo are out of
+  scope. Deleting a **resource / role / discipline / grade** is not yet undoable —
+  those deletes cascade across entities (removing linked absences/shifts, clearing
+  FK references), so a correct undo needs a follow-up composite-restore pass rather
+  than a partial (potentially inconsistent) one.
+
 ## [0.172.0] - 2026-07-10 "Corey"
 
 ### Added

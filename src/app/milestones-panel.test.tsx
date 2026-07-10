@@ -142,7 +142,7 @@ describe("MilestonesPanel", () => {
   it("surfaces a toast when the edited milestone was concurrently deleted", () => {
     const showToast = vi.fn();
     const seeded = (ms: readonly Milestone[]) => (
-      <ToastProvider value={showToast}>
+      <ToastProvider value={{ showToast, showToastAction: showToast }}>
         <Seed milestones={ms} />
         <MilestonesPanel {...baseProps} />
       </ToastProvider>

@@ -62,6 +62,9 @@ import { useCalendarIntegrations } from "./use-calendar-integrations";
 import { useActionCenterHandlers } from "./use-action-center-handlers";
 import { useAiOrchestration } from "./use-ai-orchestration";
 import { buildShellChrome } from "./shell-chrome";
+import { useUndoStack } from "./undo/use-undo-stack";
+import { useUndoHotkey } from "./use-undo-hotkey";
+import { UndoControl } from "./undo/undo-control";
 import { RolesPanel } from "./roles-panel";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
@@ -166,7 +169,13 @@ function TaskManagerInner() {
   useApplyFavicon(settings.branding?.favicon ?? null);
   const { activityLog, setActivityLog, logActivity, logActivityChanges, handleClearActivityLog } =
     useActivityLog();
-  const { toast, showToast } = useToast();
+  const { toast, showToast, showToastAction } = useToast();
+  // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
+  // capture is threaded into each entity hook below; undo/control are surfaces.
+  const undoApi = useUndoStack({ lang, logActivity, showToast, showToastAction });
+  useUndoHotkey(undoApi.undo);
+  // Stable identity so ToastProvider consumers don't re-render on every parent render.
+  const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
 
   const { workspaceCollapsed, setWorkspaceCollapsed } = useWorkspaceCollapsed();
   const { collapsed: sidebarCollapsed, toggle: toggleSidebar } = useSidebarCollapsed();
@@ -553,6 +562,7 @@ function TaskManagerInner() {
     editingShift,
     handleSaveRaidItem,
     handleDeleteRaidItem,
+    captureRaidBulkUndo,
     handleOpenAddAbsence,
     handleEditAbsence,
     handleCloseAbsenceModal,
@@ -590,16 +600,16 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet });
+  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture });
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
-  const { handleSaveChange, handleDeleteChange } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges });
+  const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture });
 
   // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
   // context inside WorkspaceSection.
-  const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder } =
-    useStakeholders({ today, lang, showToast, logActivity, logActivityChanges });
+  const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo: captureStakeholderBulk } =
+    useStakeholders({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture });
 
   // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
   // assembles a Workspace from the live workspace-context collections the same
@@ -1148,6 +1158,7 @@ function TaskManagerInner() {
     deselectIdRef,
     handleCancelEdit,
     logActivity,
+    capture: undoApi.capture,
     resolveTemplateBody: resolveCommBody,
     sendCommTemplate: commSend.send,
   });
@@ -1227,6 +1238,7 @@ function TaskManagerInner() {
     handlers: { onEdit, onDelete, onSendInquiry },
     onCancelEdit: handleCancelEdit,
     logActivity,
+    capture: undoApi.capture,
     showToast, allowDestructiveSave,
     requestClearAllConfirm: () => {
       setActiveTab("open-points");
@@ -1571,6 +1583,8 @@ function TaskManagerInner() {
     handleClearRaidTaskFilter,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
+    onCaptureRaidBulk: captureRaidBulkUndo,
+    onCaptureUndo: undoApi.capture,
     m365Configured: m365Enabled,
     raidCalendar: {
       enabled: calendarRaidEnabled,
@@ -1599,9 +1613,11 @@ function TaskManagerInner() {
     changes,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
+    onCaptureChangeBulk: captureChangeBulk,
     stakeholders,
     handleSaveStakeholder: guardEdit(handleSaveStakeholder),
     handleDeleteStakeholder: guardEdit(handleDeleteStakeholder),
+    onCaptureStakeholderBulk: captureStakeholderBulk,
     handleCreateMitigationTaskFromRaid: guardEdit(handleCreateMitigationTaskFromRaid),
     handleJumpToTaskFromRaid,
     activityLog,
@@ -2002,6 +2018,9 @@ function TaskManagerInner() {
 
   // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
   // built together in buildShellChrome so a new top-bar control lands in BOTH.
+  const undoControlEl = isPopout ? null : (
+    <UndoControl lang={lang} depth={undoApi.stack.length} onUndo={undoApi.undo} />
+  );
   const { appHeaderEl, topBarMenus } = buildShellChrome({
     handleCancelEdit,
     setTaskModalOpen,
@@ -2026,6 +2045,7 @@ function TaskManagerInner() {
     projectTemplates,
     handleSaveTemplate,
     handleApplyTemplate,
+    undoControl: undoControlEl,
   });
 
   // The Birthday / Jira-token / Storage reminder banners, shared by the classic
@@ -2253,7 +2273,7 @@ function TaskManagerInner() {
     return (
       <ActivityLogProvider value={logActivity}>
         <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
-          <ToastProvider value={showToast}>
+          <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
               <ConfirmProvider lang={lang}>
                 <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>{legacyTree}</DisplayTimezoneProvider>
@@ -2304,7 +2324,7 @@ function TaskManagerInner() {
   return (
     <ActivityLogProvider value={logActivity}>
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
-        <ToastProvider value={showToast}>
+        <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>
             <ConfirmProvider lang={lang}>
             <DisplayTimezoneProvider effectiveTz={effectiveTz} showSwitcher={!!settings.showDisplayTzSwitcher}>

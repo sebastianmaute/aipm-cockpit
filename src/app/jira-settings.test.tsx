@@ -90,7 +90,7 @@ describe("JiraSettingsSection — project-list load failure after a successful t
       apiToken: "ATATT-token",
     };
     render(
-      <ToastProvider value={showToastSpy}>
+      <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastSpy }}>
         <JiraSettingsSection lang="en-US" config={config} onChange={vi.fn()} alwaysOpen />
       </ToastProvider>,
     );
@@ -129,7 +129,7 @@ describe("JiraSettingsSection — issue-types load failure on project change", (
       projectName: "LOP",
     };
     render(
-      <ToastProvider value={showToastSpy}>
+      <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastSpy }}>
         <JiraSettingsSection lang="en-US" config={config} onChange={vi.fn()} alwaysOpen />
       </ToastProvider>,
     );

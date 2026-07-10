@@ -529,6 +529,23 @@ describe("useResourcePlanner", () => {
       expect(fresh?.id).not.toBe(1);
     });
 
+    it("captures the deleted RAID item for undo before removing it", () => {
+      const capture = vi.fn();
+      const { result } = renderPlanner({ capture });
+      const mk = (id: number, title: string): RaidItem => ({
+        id, category: "R", title, description: "", severity: "Medium", status: "Open",
+        owner: "", ownerEmail: "", mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [],
+        stakeholderIds: [], raisedDate: "2026-05-20", targetDate: undefined,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      });
+      act(() => { result.current.planner.handleSaveRaidItem(mk(3, "Doomed")); });
+      act(() => { result.current.planner.handleDeleteRaidItem(3); });
+      expect(capture).toHaveBeenCalledTimes(1);
+      const opts = capture.mock.calls[0][0] as { kind: string; removed: { id: number }[] };
+      expect(opts.kind).toBe("raid.deleted");
+      expect(opts.removed.map((r) => r.id)).toEqual([3]);
+    });
+
     it("surfaces a toast and drops the edit when the RAID row was concurrently deleted", () => {
       const showToast = vi.fn();
       const { result } = renderPlanner({ showToast });
