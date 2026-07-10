@@ -89,6 +89,24 @@ export function applyUndoRestore<T extends { id: number }>(
   return out;
 }
 
+/**
+ * Build the before-images for ONE array from the rows an op removed and/or
+ * edited, resolving each row's original index against the pre-op array. Shared
+ * by the single-array `capture` and the multi-array `capturePart` (composite)
+ * paths so both produce identical image shapes. Pure.
+ */
+export function buildBeforeImages<T extends { id: number }>(
+  removed: readonly T[],
+  edited: readonly T[],
+  fromArray: readonly T[],
+): BeforeImage<T>[] {
+  const at = (item: T) => Math.max(0, fromArray.findIndex((r) => r.id === item.id));
+  return [
+    ...removed.map((item) => ({ index: at(item), item, op: "delete" as const })),
+    ...edited.map((item) => ({ index: at(item), item, op: "edit" as const })),
+  ];
+}
+
 /** Push an entry on top (end); evict the oldest (front) past `cap`. Pure. */
 export function pushUndo(
   stack: readonly UndoEntry[],
