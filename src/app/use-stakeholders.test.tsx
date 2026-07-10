@@ -118,6 +118,20 @@ describe("useStakeholders — logActivity", () => {
     });
   });
 
+  it("re-mints a known-create whose open-time id was taken since — no clobber (id-mint race)", () => {
+    const { result } = renderHook(() => useStakeholders({ today: "2026-06-09" }), { wrapper: Wrapper });
+    // A concurrent writer committed id 1 after this modal opened at id 1.
+    act(() => result.current.handleSaveStakeholder(mk(1)));
+    // The modal now saves as a KNOWN create (isNew=true).
+    act(() => result.current.handleSaveStakeholder({ ...mk(1), name: "Fresh" }, true));
+    // Both survive; the create got a fresh id instead of clobbering the row.
+    expect(result.current.stakeholders).toHaveLength(2);
+    expect(result.current.stakeholders.find((s) => s.name === "S1")).toBeTruthy();
+    const fresh = result.current.stakeholders.find((s) => s.name === "Fresh");
+    expect(fresh).toBeTruthy();
+    expect(fresh?.id).not.toBe(1);
+  });
+
   it("persists every one of N back-to-back saves in a single tick (bulk edit)", () => {
     const { result } = renderHook(() => useStakeholders({ today: "2026-06-09" }), { wrapper: Wrapper });
     act(() => result.current.handleSaveStakeholder(mk(1)));
