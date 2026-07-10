@@ -4,6 +4,7 @@ import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from 
 import { type Lang, loadI18n, migrateLang } from "./i18n";
 import { defaultSettings, sanitizeIntegrations, sanitizeOutlookCalendar, type Settings, type NextActionsLearningConfig } from "./settings-types";
 import { defaultTimelogConfig } from "./timelog-types";
+import { sanitizeDigestConfig } from "./digest/digest-config";
 import { defaultNotificationsConfig, resolveSnapshotSettings, resolveNextActionsConfig, sanitizeAiConfig, sanitizeExportConfig, sanitizeBranding } from "./settings-types";
 import type { StakeholderQuadrant } from "./stakeholders";
 import { resolveExtraReports } from "./addable-reports";
@@ -265,6 +266,7 @@ export function useSettings(): {
             expertMode: (parsed as Record<string, unknown>).expertMode === true,
             hideFinishedTasks: (parsed as Record<string, unknown>).hideFinishedTasks === true,
             tasksViewMode: (parsed as Record<string, unknown>).tasksViewMode === "board" ? "board" : "table",
+            digest: sanitizeDigestConfig((parsed as Record<string, unknown>).digest),
             dictation: {
               engine:
                 isPlainObject((parsed as Record<string, unknown>).dictation) &&
