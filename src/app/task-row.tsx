@@ -191,6 +191,8 @@ function TaskRowImpl({
     onJumpToRaid,
     onStatusChange,
     onEdit,
+    onAiEdit,
+    aiEditEnabled,
   } = useTaskRowContext();
 
   const isComplete = !!task.completedDate;
@@ -222,6 +224,24 @@ function TaskRowImpl({
         .filter(Boolean)
         .join(" ")}
     >
+      {/* Leading cell always renders (reserves width → no hover layout shift);
+          the inline "Ask Claude" trigger is revealed on row hover / focus and
+          only mounts when the row is AI-editable (not popout / not Jira-synced). */}
+      <Td className="w-8">
+        {aiEditEnabled(task) && (
+          <button
+            type="button"
+            onClick={() => onAiEdit(task)}
+            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
+            title={t(lang, "inlineAiEdit")}
+            className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+              <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
+            </svg>
+          </button>
+        )}
+      </Td>
       <Td>
         <input
           type="checkbox"
@@ -411,8 +431,6 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
     onPushToJira,
     onEdit,
     onDelete,
-    onAiEdit,
-    aiEditEnabled,
   } = useTaskRowContext();
   return (
     <div className="flex flex-col gap-1 whitespace-nowrap">
@@ -459,19 +477,6 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
         >
           {t(lang, "delete")}
         </button>
-        {aiEditEnabled(task) && (
-          <button
-            type="button"
-            onClick={() => onAiEdit(task)}
-            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
-            title={t(lang, "inlineAiEdit")}
-            className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-              <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
-            </svg>
-          </button>
-        )}
       </div>
     </div>
   );

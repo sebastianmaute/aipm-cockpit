@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { render, renderHook, act, fireEvent } from "@testing-library/react";
+import { render, renderHook, act, fireEvent, within } from "@testing-library/react";
 import React, { Profiler, type ReactNode, type ProfilerOnRenderCallback } from "react";
 import {
   TaskRow,
@@ -661,50 +661,70 @@ describe("TaskActions", () => {
     expect(ctx.onDelete).toHaveBeenCalledWith(99);
   });
 
-  test("renders the Ask Claude trigger with a row-unique label when enabled, and fires onAiEdit", () => {
+});
+
+describe("TaskRow Ask-Claude leading cell", () => {
+  test("renders the Ask-Claude trigger in a leading, hover-revealed cell when enabled, and fires onAiEdit", () => {
     const onAiEdit = vi.fn();
     const ctx = makeContext({ onAiEdit, aiEditEnabled: () => true });
     const task = makeTask({ id: 30, taskName: "Draft the report" });
 
-    const { getByRole } = render(
-      <table>
-        <tbody>
-          <tr>
-            <td>
-              <RowContextProvider value={ctx}>
-                <TaskActions task={task} isPushing={false} />
-              </RowContextProvider>
-            </td>
-          </tr>
-        </tbody>
-      </table>,
+    const { getByRole, container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
     );
 
     const trigger = getByRole("button", { name: "Ask Claude – Draft the report" });
+    const cell = trigger.closest("td");
+    const row = container.querySelector("tbody tr") as HTMLElement;
+    const cells = within(row).getAllByRole("cell");
+    // The trigger lives in the FIRST (leading) cell of the row.
+    expect(cell).toBe(cells[0]);
+    // Hidden by default, revealed on row hover / keyboard focus.
+    expect(trigger.className).toMatch(/opacity-0/);
+    expect(trigger.className).toMatch(/group-hover:opacity-100/);
+    expect(trigger.className).toMatch(/focus-visible:opacity-100/);
+
     fireEvent.click(trigger);
     expect(onAiEdit).toHaveBeenCalledTimes(1);
     expect(onAiEdit).toHaveBeenCalledWith(task);
   });
 
-  test("hides the Ask Claude trigger when aiEditEnabled returns false", () => {
+  test("omits the trigger when aiEditEnabled is false (e.g. Jira-synced) but keeps the reserved leading cell", () => {
     const ctx = makeContext({ aiEditEnabled: () => false });
-    const task = makeTask({ id: 31, taskName: "Skip AI" });
+    const task = makeTask({ id: 31, taskName: "Skip AI", jiraKey: "LOP-1" });
 
-    const { queryByRole } = render(
-      <table>
-        <tbody>
-          <tr>
-            <td>
-              <RowContextProvider value={ctx}>
-                <TaskActions task={task} isPushing={false} />
-              </RowContextProvider>
-            </td>
-          </tr>
-        </tbody>
-      </table>,
+    const { queryByRole, container } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={task}
+            isSelected={false}
+            isEditing={false}
+            isExpanded={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
     );
 
     expect(queryByRole("button", { name: /Ask Claude/ })).toBeNull();
+    // Leading cell still renders (reserves width → no hover layout shift).
+    const row = container.querySelector("tbody tr") as HTMLElement;
+    expect(within(row).getAllByRole("cell").length).toBeGreaterThan(0);
   });
 });
 

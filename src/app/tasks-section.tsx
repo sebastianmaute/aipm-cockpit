@@ -757,6 +757,8 @@ export function TasksSection({
             </colgroup>
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
+                {/* Leading gutter matching the per-row hover Ask-Claude cell. */}
+                <th className="w-8" aria-hidden="true" />
                 <Th onResize={(e) => startColResize("sel", e)}>
                   <input
                     type="checkbox"
@@ -788,7 +790,7 @@ export function TasksSection({
             <tbody className="divide-y divide-line">
               {visibleRows.length === 0 && (
                 <tr>
-                  <td colSpan={visibleColumnCount} className="p-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={visibleColumnCount + 1} className="p-10 text-center text-sm text-muted-foreground">
                     {t(lang, "noTasksFiltered")}
                   </td>
                 </tr>
@@ -808,7 +810,7 @@ export function TasksSection({
                 />
               ))}
               <tr>
-                <td colSpan={visibleColumnCount}>
+                <td colSpan={visibleColumnCount + 1}>
                   <button
                     type="button"
                     onClick={() => { handleCancelEdit(); setTaskModalOpen(true); }}
