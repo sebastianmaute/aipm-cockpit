@@ -38,6 +38,27 @@ export interface UseVersionHistoryResult {
   refresh: () => Promise<void>;
 }
 
+// True when a payload holds NO substantive project data — every content list is
+// empty. Reference data (roles/disciplines/grades) and singletons (plan/status/
+// project) are IGNORED: a project switch/reload resets the content arrays to []
+// and briefly seeds default reference data before the new project hydrates, so
+// those defaults must not mask an otherwise-empty transient. A parse failure is
+// treated as NON-empty (don't skip on uncertainty). Pure.
+export function isEmptyWorkspacePayload(json: string): boolean {
+  try {
+    // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —
+    // the guard reflects what the payload literally stores.
+    const w = JSON.parse(json) as Record<string, unknown>;
+    const lists = [
+      "tasks", "raid", "milestones", "stakeholders", "resources",
+      "changes", "budgets", "absences", "shifts",
+    ];
+    return lists.every((k) => !Array.isArray(w[k]) || (w[k] as unknown[]).length === 0);
+  } catch {
+    return false;
+  }
+}
+
 export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistoryResult {
   const { config, projectId, enabled, idleMs, retention, getPayload, onError, applyWorkspace, logActivity } = args;
   const [versions, setVersions] = useState<ProjectVersionMeta[]>([]);
@@ -127,6 +148,20 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         const prev = lastPayload.current;
         // Cheap byte-identity short-circuit first.
         if (prev === payload) return; // no-op
+        // Guard against snapshotting a project-switch / reload TRANSIENT: the
+        // workspace resets its content arrays to [] before the new project
+        // hydrates. Capturing then stores a useless EMPTY version whose diff-vs-
+        // prev summary misleadingly shows big "removed" counts (e.g. "Tasks (35)")
+        // — and a later restore of it would WIPE the project. If the new payload
+        // is empty but the prior version had content, skip; a genuine change is
+        // captured on the next idle. (A real clear-all is re-captured on the next
+        // edit; a manual checkpoint is never skipped.)
+        if (prev && isEmptyWorkspacePayload(payload) && !isEmptyWorkspacePayload(prev)) {
+          logDiag("warn", "version.skipEmptyTransientCapture", {
+            prevLen: prev.length, payloadLen: payload.length,
+          });
+          return;
+        }
         // Then a MEANINGFUL-change check: diffWorkspaces ignores volatile
         // bookkeeping (e.g. localModifiedAt), so an auto-save that only bumps
         // timestamps — with no real content change — does not create an empty
@@ -187,9 +222,36 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
     try {
       const fromStr = await loadVersionPayload(config, fromId, projectId);
       const toStr = to === "now" ? getPayload() : await loadVersionPayload(config, to, projectId);
-      if (!fromStr || !toStr) return [];
-      return diffWorkspaces(jsonToWorkspace(fromStr), jsonToWorkspace(toStr));
-    } catch (err) { onError?.(err); return []; }
+      // A null/empty payload is NOT "no changes" — it's a load failure (the row's
+      // payload never stored, or came back empty/truncated). Log the lengths so a
+      // failed compare is attributable (Settings → Diagnostics) instead of looking
+      // identical to an unchanged version.
+      if (!fromStr || !toStr) {
+        logDiag("warn", "version.compareEmptyPayload", {
+          fromId, to, fromLen: fromStr?.length ?? 0, toLen: toStr?.length ?? 0,
+        });
+        return [];
+      }
+      try {
+        return diffWorkspaces(jsonToWorkspace(fromStr), jsonToWorkspace(toStr));
+      } catch (parseErr) {
+        // A parse throw here = a truncated/malformed payload (e.g. a big version
+        // stored or read past a size limit). Distinct from a network/load error;
+        // reportStorageOutcome only recognises storage errors, so log it directly.
+        logDiag("error", "version.compareParseFailed", {
+          fromId, to, fromLen: fromStr.length, toLen: toStr.length,
+          message: String((parseErr as { message?: unknown })?.message ?? parseErr).slice(0, 200),
+        });
+        onError?.(parseErr);
+        return [];
+      }
+    } catch (err) {
+      logDiag("error", "version.compareLoadFailed", {
+        fromId, to, message: String((err as { message?: unknown })?.message ?? err).slice(0, 200),
+      });
+      onError?.(err);
+      return [];
+    }
   }, [active, config, projectId, getPayload, onError]);
 
   useEffect(

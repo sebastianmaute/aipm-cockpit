@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as store from "./version-store";
-import { useVersionHistory } from "./use-version-history";
+import { useVersionHistory, isEmptyWorkspacePayload } from "./use-version-history";
 
 vi.mock("./version-store", { spy: true });
 const cfg = { url: "x", authToken: "t" } as never;
@@ -64,6 +64,48 @@ describe("useVersionHistory", () => {
     act(() => { result.current.notifySaved(); });
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     expect(append).toHaveBeenCalledTimes(1); // timestamp-only → no 2nd capture
+  });
+
+  it("skips an auto capture of a load-transient (empty workspace over a prior non-empty version)", async () => {
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const base = { raid: [], absences: [], shifts: [], resources: [], roles: [], disciplines: [],
+      grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} };
+    let payload = JSON.stringify({ tasks: [{ id: 1, taskName: "A" }], ...base }); // full
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => payload })));
+    act(() => { result.current.notifySaved(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(append).toHaveBeenCalledTimes(1); // full snapshot captured
+
+    // Project-switch transient: content arrays reset to [] before the new project
+    // hydrates. This must NOT overwrite history with an empty version.
+    payload = JSON.stringify({ tasks: [], ...base });
+    act(() => { result.current.notifySaved(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(append).toHaveBeenCalledTimes(1); // empty transient → NOT captured
+  });
+
+  it("a MANUAL checkpoint still captures even an empty workspace (explicit user action)", async () => {
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const empty = JSON.stringify({ tasks: [], raid: [], absences: [], shifts: [], resources: [], roles: [],
+      disciplines: [], grades: [], plan: {}, budgets: [], milestones: [], changes: [], stakeholders: [], status: {} });
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => empty })));
+    await act(async () => { await result.current.captureNow("empty checkpoint"); });
+    expect(append).toHaveBeenCalledTimes(1); // manual always captures
+  });
+
+  it("isEmptyWorkspacePayload: true when all content lists empty (reference data ignored)", () => {
+    const payload = JSON.stringify({ tasks: [], raid: [], milestones: [], stakeholders: [], resources: [],
+      changes: [], budgets: [], absences: [], shifts: [], roles: [{ id: 1 }], disciplines: [{ id: 1 }],
+      grades: [{ id: 1 }], plan: {}, status: {}, project: {} });
+    expect(isEmptyWorkspacePayload(payload)).toBe(true);
+  });
+  it("isEmptyWorkspacePayload: false when a content list has items, and false on parse failure", () => {
+    expect(isEmptyWorkspacePayload(JSON.stringify({ tasks: [{ id: 1, taskName: "A" }] }))).toBe(false);
+    expect(isEmptyWorkspacePayload("{not json")).toBe(false);
   });
 
   it("captureNow writes a manual version immediately with the label", async () => {
