@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import type { SetStateAction } from "react";
 import { useUndoStack } from "./use-undo-stack";
 
 type Row = { id: number; name: string };
@@ -32,7 +33,7 @@ describe("useUndoStack", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));
     let arr: readonly Row[] = [{ id: 1, name: "a" }];
-    const setter = (u: (p: readonly Row[]) => readonly Row[]) => { arr = u(arr); };
+    const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
     act(() => {
       result.current.capture({ setter, kind: "task.deleted", before: [{ id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }] });
     });
