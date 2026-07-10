@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.171.0] - 2026-07-10 "Gibson"
+
+### Added
+
+- **Gantt milestone baseline ghost bars.** Each milestone now shows a hollow
+  "ghost" diamond at its committed baseline date — taken from the pinned Turso
+  snapshot — with a dotted connector to its current date and a signed `+Nd` /
+  `−Nd` slip label, so schedule drift is visible right where you plan. A default-on
+  "Baseline" toggle in the Gantt toolbar shows/hides the overlay. Turso-gated
+  (the overlay and toggle appear only on projects with a pinned baseline snapshot;
+  tasks have no per-task baseline data, so this is milestone-only).
+
 ## [0.170.2] - 2026-07-10 "Doctorow"
 
 ### Fixed

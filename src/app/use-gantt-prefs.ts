@@ -24,6 +24,7 @@ export type GanttPrefsApi = {
   setAssigneeFilter: (assignee: string) => void;
   resetFilters: () => void;
   toggleCriticalPath: () => void;
+  toggleBaseline: () => void;
 };
 
 export function useGanttPrefs(): GanttPrefsApi {
@@ -73,6 +74,9 @@ export function useGanttPrefs(): GanttPrefsApi {
   function toggleCriticalPath() {
     setPrefs((p) => ({ ...p, showCriticalPath: !p.showCriticalPath }));
   }
+  function toggleBaseline() {
+    setPrefs((p) => ({ ...p, showBaseline: !p.showBaseline }));
+  }
 
   return {
     prefs,
@@ -84,5 +88,6 @@ export function useGanttPrefs(): GanttPrefsApi {
     setAssigneeFilter,
     resetFilters,
     toggleCriticalPath,
+    toggleBaseline,
   };
 }

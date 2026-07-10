@@ -36,6 +36,10 @@ export type GanttPrefs = {
   /** When true, the chart paints critical-path tasks with a red ring and
    *  the dependency arrows between them in red. Defaults on. */
   showCriticalPath: boolean;
+  /** When true, milestones show a hollow ghost diamond at their committed
+   *  baseline date (from the pinned snapshot) with a connector + slip label.
+   *  Defaults on; only visible when baseline data exists (Turso). */
+  showBaseline: boolean;
 };
 
 const PREFS_KEY = "lop-app:gantt-prefs";
@@ -48,6 +52,7 @@ export const DEFAULT_PREFS: GanttPrefs = {
   assignee: "All",
   customOrder: [],
   showCriticalPath: true,
+  showBaseline: true,
 };
 
 export function loadPrefs(): GanttPrefs {
@@ -92,6 +97,11 @@ export function loadPrefs(): GanttPrefs {
         typeof parsed.showCriticalPath === "boolean"
           ? parsed.showCriticalPath
           : DEFAULT_PREFS.showCriticalPath,
+      // Older saved prefs won't have this field; missing means "on".
+      showBaseline:
+        typeof parsed.showBaseline === "boolean"
+          ? parsed.showBaseline
+          : DEFAULT_PREFS.showBaseline,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -152,6 +162,16 @@ export function todayUTC(): Date {
 
 export function diffDays(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / DAY_MS);
+}
+
+/** Signed day slip of a milestone's live date vs its baseline target:
+ *  positive = slipped later, negative = pulled in, 0 = on baseline.
+ *  `null` when either date is unparseable. Pure (reuses parseISO/diffDays). */
+export function milestoneSlipDays(baselineISO: string, liveISO: string): number | null {
+  const base = parseISO(baselineISO);
+  const live = parseISO(liveISO);
+  if (!base || !live) return null;
+  return diffDays(base, live);
 }
 
 export function addDays(d: Date, n: number): Date {

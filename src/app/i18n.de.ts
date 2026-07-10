@@ -183,6 +183,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightResourceEnhance: "Ressourcen-Überarbeitung — eine einzelne Rollenauswahl ersetzt die Disziplin-/Grade-Dropdowns, Rate-Card-Zeilen lassen sich per Drag-and-drop neu ordnen, externe Ressourcen werden bei der Kapazität berücksichtigt, aber aus allen Kosten ausgeschlossen, Ressourcen tragen zusätzliche per Klick kopierbare E-Mail-Adressen, das Verzeichnis erhält Sammelbearbeitung und -löschung, die KI kann Verzeichniseinträge verwalten, und verwaiste Auslastungszeilen lassen sich bereinigen",
   versionHighlightResourceFollowup: "Ressourcen & Zeitbuchungen — die Personenliste der Zeitbuchungen lässt sich einklappen, damit Projekte sichtbar bleiben, externe Ressourcen können im Kalender ein- oder ausgeblendet werden, das Löschen einer Ressource entfernt ihre Kalendereinträge, Planungseingaben bleiben beim Überfahren der Zeile sichtbar, und die KI-Projekterstellung füllt jetzt das Ressourcenverzeichnis.",
   versionHighlightTimelogCustomer: "Zeitbuchungen lassen sich jetzt auf den Kunden eingrenzen, für den ein Projekt angelegt wurde — einen TimeLog-Kunden wählen (oder automatisch auflösen) und Abrufen lädt nur die Buchungen der Projekte dieses Kunden statt der gesamten Historie aller Nutzer, was die geladene Datenmenge reduziert.",
+  versionHighlightGanttBaseline: "Das Gantt-Diagramm zeigt jetzt die zugesagte Baseline jedes Meilensteins als hohle Geisterraute hinter dem aktuellen Datum, mit Verbindungslinie und vorzeichenbehaftetem Verschiebungslabel, sodass Terminabweichungen dort sichtbar werden, wo geplant wird — umschaltbar über die Symbolleiste (nur bei Projekten mit Turso-Snapshots).",
 
   tasks: "Aufgaben",
   tasksCount: "({0})",
@@ -937,6 +938,9 @@ export const de: Record<TranslationKey, string> = {
   ganttCriticalPath: "Kritischer Pfad",
   ganttCriticalPathHint:
     "Hebt die Kette der Aufgaben ohne Puffer hervor, die das Projektende bestimmen.",
+  ganttBaseline: "Baseline",
+  ganttBaselineHint:
+    "Zeigt das zugesagte Baseline-Datum jedes Meilensteins als Geisterraute hinter dem aktuellen Datum, um Terminverschiebungen sichtbar zu machen.",
   health: "Ampel",
   healthAuto: "Automatisch",
   healthRed: "Rot",

@@ -2,6 +2,7 @@
 import type React from "react";
 import {
   useCallback,
+  useMemo,
   useState,
 } from "react";
 import {
@@ -78,6 +79,7 @@ import {
   DocumentsPanel,
   TimelogPanel,
 } from "./workspace-panels";
+import { baselineMilestoneTargets } from "./snapshot";
 import type { WorkspaceSectionProps } from "./workspace-section-types";
 import { WorkspaceTabStrip } from "./workspace-section-chrome";
 import { isAiEnabled } from "./settings-types";
@@ -221,6 +223,17 @@ export function WorkspaceSection({
   const [milestoneCreateNonce, setMilestoneCreateNonce] = useState(0);
   const subTabs = subTabsFor(activeTab, features, trends.active);
   const milestonesEnabled = isModuleEnabled("milestones", features);
+
+  // Per-milestone committed baseline dates for the Gantt ghost overlay — only
+  // when snapshots are live (Turso). Off Turso `trends.active` is false → empty
+  // map → no ghosts, no toggle. Derived from the already-threaded `trends`.
+  // Hoist the members to scalars — exhaustive-deps rejects `obj.member` deps.
+  const trendsActive = trends.active;
+  const trendsSnapshots = trends.snapshots;
+  const baselineMilestoneDates = useMemo(
+    () => (trendsActive ? baselineMilestoneTargets(trendsSnapshots) : undefined),
+    [trendsActive, trendsSnapshots],
+  );
   const raidEnabledForChanges = isModuleEnabled("raid", features);
   const stakeholdersEnabled = isModuleEnabled("stakeholders", features);
 
@@ -365,6 +378,7 @@ export function WorkspaceSection({
               showHints={settings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
+              baselineMilestoneDates={baselineMilestoneDates}
             />
           </div>
         )}

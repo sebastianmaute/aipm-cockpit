@@ -69,6 +69,7 @@ export function GanttPanel({
   showHints,
   isPopout,
   onLearnMore,
+  baselineMilestoneDates,
 }: {
   lang: Lang;
   tasks: readonly Task[];
@@ -82,6 +83,7 @@ export function GanttPanel({
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  baselineMilestoneDates?: ReadonlyMap<number, string>;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -101,7 +103,14 @@ export function GanttPanel({
     setAssigneeFilter,
     resetFilters,
     toggleCriticalPath,
+    toggleBaseline,
   } = useGanttPrefs();
+
+  // The Gantt shows the milestone baseline overlay only when the pinned snapshot
+  // carries baseline dates (Turso). Off Turso this is undefined/empty → no toggle.
+  const hasBaseline = (baselineMilestoneDates?.size ?? 0) > 0;
+  // Hoisted for the range dep array (exhaustive-deps bans `prefs.showBaseline`).
+  const showBaselinePref = prefs.showBaseline;
 
   // Today is used in date math (overdue computation, range padding). It's
   // evaluated once per render — server / client first paint produce the
@@ -369,6 +378,23 @@ export function GanttPanel({
       if (d.getTime() < min.getTime()) min = d;
       if (d.getTime() > max.getTime()) max = d;
     }
+    // Fold baseline ghost dates in too (when the overlay is on) so a milestone
+    // that slipped far from its committed baseline still has its ghost diamond +
+    // connector on the visible axis, not clipped off the left/right edge.
+    if (showBaselinePref && baselineMilestoneDates) {
+      for (const iso of baselineMilestoneDates.values()) {
+        const d = parseISO(iso);
+        if (!d) continue;
+        if (!initialized) {
+          min = d;
+          max = d;
+          initialized = true;
+          continue;
+        }
+        if (d.getTime() < min.getTime()) min = d;
+        if (d.getTime() > max.getTime()) max = d;
+      }
+    }
     if (!initialized) {
       min = addDays(today, -7);
       max = addDays(today, 14);
@@ -383,7 +409,7 @@ export function GanttPanel({
     }
     const days = Math.max(1, diffDays(min, max) + 1);
     return { min, max, days };
-  }, [layout.bars, milestones]);
+  }, [layout.bars, milestones, baselineMilestoneDates, showBaselinePref]);
 
   const todayOffsetPx =
     LEFT_GUTTER_PX + diffDays(range.min, today) * DAY_WIDTH_PX;
@@ -459,6 +485,8 @@ export function GanttPanel({
       setSort={setSort}
       resetFilters={resetFilters}
       toggleCriticalPath={toggleCriticalPath}
+      toggleBaseline={toggleBaseline}
+      hasBaseline={hasBaseline}
     />
   );
 
@@ -587,6 +615,8 @@ export function GanttPanel({
                 tasksById={tasksById}
                 todayISO={todayISO}
                 onEditMilestone={onEditMilestone}
+                baselineDate={baselineMilestoneDates?.get(m.id)}
+                showBaseline={prefs.showBaseline}
               />
             );
           })}
