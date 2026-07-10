@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { t } from "./i18n";
-import type { BudgetBucket, Role, ResourcePlan } from "./types";
+import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
@@ -191,6 +191,73 @@ describe("Cci primary prop", () => {
       // Currency amount big figure should NOT be just a percent string (it's a formatted number)
       expect(big?.textContent).not.toMatch(/^\s*\d+\.\d+%\s*$/);
     }
+  });
+});
+
+describe("budget: follow-plan mirror (Task 8)", () => {
+  // A resource with January capacity so allocationPlannedHours > 0.
+  const resourceWithCapacity: Resource = {
+    id: 7, firstName: "Cap", lastName: "Acity", roleId: 3,
+    utilizationMode: "percent", utilization: { "2026-01": 100 },
+  };
+  // One-month bucket → a single period column → getAllByLabelText(...)[0] is the cell.
+  const resourcedBucket = (): BudgetBucket[] => [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 3, resourceIds: [7], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+  }];
+  const unresourcedBucket = (): BudgetBucket[] => [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+  }];
+
+  test("mirror ON — resourced line's budget input is read-only and shows planned hours", () => {
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: true }}
+        buckets={resourcedBucket()}
+      />,
+    );
+    const budgetInput = screen.getAllByLabelText(/^budget-/)[0] as HTMLInputElement;
+    expect(budgetInput).toHaveAttribute("readonly");
+    expect(budgetInput.value).not.toBe(""); // planned value shown, not the stored 100
+  });
+
+  test("mirror ON — role line with NO assigned resource stays editable", () => {
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: true }}
+        buckets={unresourcedBucket()}
+      />,
+    );
+    expect(screen.getAllByLabelText(/^budget-/)[0]).not.toHaveAttribute("readonly");
+  });
+
+  test("mirror OFF — budget input editable (unchanged)", () => {
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: false }}
+        buckets={resourcedBucket()}
+      />,
+    );
+    expect(screen.getAllByLabelText(/^budget-/)[0]).not.toHaveAttribute("readonly");
+  });
+
+  test("mirror ON — actual input stays editable", () => {
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: true }}
+        buckets={resourcedBucket()}
+      />,
+    );
+    expect(screen.getAllByLabelText(/^actual-/)[0]).not.toHaveAttribute("readonly");
   });
 });
 

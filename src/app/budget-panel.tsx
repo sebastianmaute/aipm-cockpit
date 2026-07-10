@@ -2,7 +2,8 @@
 import { useMemo, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
-import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciValue } from "./budget-report";
+import { computeBudgetReport, bucketActivePeriods, allocationPlannedHours, type BucketReport, type CciValue } from "./budget-report";
+import type { Period } from "./resource-capacity";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
@@ -49,7 +50,7 @@ function filterSortAllocations<T>(
 }
 
 function HoursCell({
-  ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang,
+  ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang, readOnly,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
@@ -59,6 +60,10 @@ function HoursCell({
   budgetHint: string;
   actualHint: string;
   lang: Lang;
+  // When true, the budget input mirrors the live planned hours and is not
+  // editable (the 'budget hours follow plan' toggle). The actual input is
+  // always editable regardless.
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -71,8 +76,9 @@ function HoursCell({
           aria-label={`budget-${ariaPrefix}`}
           type="number"
           value={budget ?? ""}
-          onChange={(e) => onBudget(Number(e.target.value) || 0)}
-          className={`w-16 rounded border border-line bg-surface px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+          readOnly={readOnly}
+          onChange={readOnly ? undefined : (e) => onBudget(Number(e.target.value) || 0)}
+          className={`w-16 rounded border border-line ${readOnly ? "bg-surface-muted text-muted-foreground" : "bg-surface"} px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
         />
       </div>
       <div className="flex items-center gap-1">
@@ -96,7 +102,7 @@ function HoursCell({
 // A period `<td>` wrapping a HoursCell — shared by the role rows and the
 // discipline (blended) rows, which differ only in ariaPrefix + the setter.
 function HoursTd({
-  ariaPrefix, budget, actual, onBudget, onActual, lang,
+  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
@@ -104,6 +110,7 @@ function HoursTd({
   onBudget: (v: number) => void;
   onActual: (v: number) => void;
   lang: Lang;
+  readOnly?: boolean;
 }) {
   return (
     <td className="px-1 py-1">
@@ -116,6 +123,7 @@ function HoursTd({
         budgetHint={t(lang, "budgetBudgetHoursHint")}
         actualHint={t(lang, "budgetActualHoursHint")}
         lang={lang}
+        readOnly={readOnly}
       />
     </td>
   );
@@ -186,6 +194,17 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const projCur = plan.currency || "EUR"; // project rollup is in the plan base currency (EUR)
+
+  // "Budget hours follow plan": when on, a resourced allocation's budget input
+  // mirrors the live planned hours and becomes read-only. Scalars hoisted for
+  // exhaustive-deps (no obj.member in dep arrays).
+  const budgetFollowsPlan = plan.budgetFollowsPlan ?? false;
+  const granularity = plan.granularity;
+  // Planned hours for one allocation in one period, using the bucket's own
+  // period list as canonicalPeriods — the SAME argument computeBucketReport
+  // passes, so the mirrored value equals the report's plannedHours.
+  const plannedFor = (alloc: { resourceIds: readonly number[] }, period: Period, periods: readonly Period[]): number =>
+    allocationPlannedHours(alloc, period, periods, resources, workdayHours, holidaySet, granularity, absences);
 
   const { colWidths, startColResize, resetColWidths } = useColumnResize<BudgetCol>(
     "budget",
@@ -474,6 +493,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     {!isBlended && detailedRows.map((a) => {
                       const totBudget = sumPeriods(a.budgetHours, periods);
                       const totActual = sumPeriods(a.actualHours, periods);
+                      const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       return (
                       <tr key={a.roleId} className="border-t border-line">
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
@@ -482,8 +502,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           <HoursTd
                             key={p.key}
                             ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
-                            budget={a.budgetHours[p.key]}
+                            budget={mirror ? plannedFor(a, p, periods) : a.budgetHours[p.key]}
                             actual={a.actualHours[p.key]}
+                            readOnly={mirror}
                             onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
                             onActual={(v) => setCell(bucket.id, a.roleId, p.key, "actualHours", v)}
                             lang={lang}
@@ -495,6 +516,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     {isBlended && blendedRows.map((a) => {
                       const totBudget = sumPeriods(a.budgetHours, periods);
                       const totActual = sumPeriods(a.actualHours, periods);
+                      // Each blended row IS one disciplineAllocation carrying its own
+                      // resourceIds, and allocationPlannedHours already sums over them —
+                      // so the mirror rule is identical to the role rows.
+                      const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       return (
                       <tr key={a.disciplineId} className="border-t border-line">
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
@@ -503,8 +528,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           <HoursTd
                             key={p.key}
                             ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
-                            budget={a.budgetHours[p.key]}
+                            budget={mirror ? plannedFor(a, p, periods) : a.budgetHours[p.key]}
                             actual={a.actualHours[p.key]}
+                            readOnly={mirror}
                             onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
                             onActual={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "actualHours", v)}
                             lang={lang}
