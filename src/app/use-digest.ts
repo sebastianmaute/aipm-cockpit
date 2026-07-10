@@ -3,7 +3,7 @@
 // dispatches (card = returned state, Graph email, desktop notification). Reads
 // live scope each render → NON-memoized handlers. Coverage-excluded UI glue.
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 import type { DashboardModel } from "./dashboard";
 import type { RaidItem } from "./types";
 import { buildDigest, type DigestModel } from "./digest/digest-model";
@@ -73,7 +73,10 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
           rag: d.rag,
           metrics: { overdue: d.overdue.count, openRaid: d.openRaid.count },
         });
-        if (notify) deps.fireNotification("digest", `${d.rag}`);
+        if (notify) {
+          const body = `${t(deps.lang, "digestOverdue")}: ${d.overdue.count} · ${t(deps.lang, "digestOpenRaid")}: ${d.openRaid.count}`;
+          deps.fireNotification(t(deps.lang, "digestNotifyTitle"), body);
+        }
         return d;
       } finally {
         setBusy(false);
@@ -105,8 +108,8 @@ export function useDigest(deps: UseDigestDeps): UseDigestApi {
       const token = await deps.acquireToken(["Mail.Send"], { interactive: true });
       if (!token) return;
       await deps.sendDigestMail(token, buildDigestEmailSubject(d, deps.lang), buildDigestEmailHtml(d, deps.lang));
-    } catch (err) {
-      deps.showToast(String((err as Error)?.message ?? "error"), "error");
+    } catch {
+      deps.showToast(t(deps.lang, "digestEmailFailed"), "error");
     }
   }, [deps, digest, generate]);
 

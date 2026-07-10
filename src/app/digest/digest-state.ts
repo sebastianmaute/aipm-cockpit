@@ -28,8 +28,8 @@ function isState(v: unknown): v is DigestState {
   const o = v as Record<string, unknown>;
   const m = o.priorMetrics as Record<string, unknown> | undefined;
   return (
-    typeof o.lastRunAt === "string" &&
-    typeof o.nextDueAt === "string" &&
+    typeof o.lastRunAt === "string" && !Number.isNaN(Date.parse(o.lastRunAt)) &&
+    typeof o.nextDueAt === "string" && !Number.isNaN(Date.parse(o.nextDueAt)) &&
     typeof o.priorRag === "string" && RAGS.has(o.priorRag) &&
     typeof m === "object" && m !== null &&
     typeof m.overdue === "number" && typeof m.openRaid === "number"

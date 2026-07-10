@@ -50,6 +50,14 @@ describe("digest-state", () => {
     expect(loadDigestState("p1")).toBeNull();
   });
 
+  it("rejects a record with an unparseable date (avoids a silently-stuck cadence)", () => {
+    localStorage.setItem(
+      "lop-app:digest-state",
+      JSON.stringify({ p1: { lastRunAt: "x", nextDueAt: "garbage", priorRag: "A", priorMetrics: { overdue: 0, openRaid: 0 } } }),
+    );
+    expect(loadDigestState("p1")).toBeNull();
+  });
+
   it("clearDigestState wipes the key", () => {
     advanceDigestState("p1", { now: "2026-07-10T09:00:00.000Z", cadenceDays: 7, rag: "A", metrics: { overdue: 0, openRaid: 0 } });
     clearDigestState();

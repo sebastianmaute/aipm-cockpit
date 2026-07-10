@@ -57,6 +57,10 @@ export function DigestCardConnected({
     acquireToken: (scopes, opts) => msAuth.acquireToken(scopes, opts),
     sendDigestMail: async (token, subject, html) => {
       const to = msAuth.account?.username ?? "";
+      if (!to) {
+        toast("error", t(lang, "digestEmailFailed")); // no signed-in account → no recipient
+        return;
+      }
       await sendMail(token, buildGraphMessage(to, subject, html));
     },
     fireNotification: (_title, body) => {
