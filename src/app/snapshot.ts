@@ -278,3 +278,16 @@ export function computeVariance(
   });
   return rows;
 }
+
+/** Per-milestone committed baseline (`target`) dates from the pinned baseline
+ *  snapshot, keyed by milestone id. Empty when no snapshot is flagged
+ *  `isBaseline`. Pure — the Gantt overlays these behind the live diamonds. */
+export function baselineMilestoneTargets(
+  snapshots: readonly SnapshotRecord[],
+): Map<number, string> {
+  const base = snapshots.find((s) => s.isBaseline);
+  const map = new Map<number, string>();
+  if (!base) return map;
+  for (const m of base.milestones) map.set(m.id, m.target);
+  return map;
+}

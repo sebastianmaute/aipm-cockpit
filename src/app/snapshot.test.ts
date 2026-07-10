@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate } from "./snapshot";
-import type { SnapshotRecord } from "./snapshot";
+import { baselineMilestoneTargets, bucketKey, buildSnapshot, computeVariance, detectGaps, expectedBuckets, forecastEndDate } from "./snapshot";
+import type { SnapshotMilestone, SnapshotRecord } from "./snapshot";
 import type { DashboardModel } from "./dashboard";
 
 function snap(capturedAt: string, bucket: string): SnapshotRecord {
@@ -164,5 +164,31 @@ describe("computeVariance", () => {
     expect(pct?.baseline).toBeNull();
     expect(pct?.current).toBe(40);
     expect(pct?.health).toBeNull();
+  });
+});
+
+describe("baselineMilestoneTargets", () => {
+  const ms = (id: number, target: string): SnapshotMilestone => ({ id, name: `M${id}`, target, forecast: target });
+
+  it("returns an empty map when there are no snapshots", () => {
+    expect(baselineMilestoneTargets([]).size).toBe(0);
+  });
+
+  it("returns an empty map when no snapshot is the baseline", () => {
+    const a = snap("2026-06-01T00:00:00Z", "2026-W23");
+    a.milestones = [ms(1, "2026-07-01")];
+    expect(baselineMilestoneTargets([a]).size).toBe(0);
+  });
+
+  it("maps each milestone id to its target date from the baseline snapshot", () => {
+    const older = snap("2026-06-01T00:00:00Z", "2026-W23");
+    older.milestones = [ms(1, "2026-06-15")];
+    const base = snap("2026-06-08T00:00:00Z", "2026-W24");
+    base.isBaseline = true;
+    base.milestones = [ms(1, "2026-07-01"), ms(2, "2026-08-01")];
+    const map = baselineMilestoneTargets([older, base]);
+    expect(map.get(1)).toBe("2026-07-01");
+    expect(map.get(2)).toBe("2026-08-01");
+    expect(map.size).toBe(2);
   });
 });
