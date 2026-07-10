@@ -167,10 +167,15 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const projectLinks = links.projectLinks;
   const fetchedProjectRefs = sync.projectRefs;
 
+  // Only INTERNAL resources are linkable to TimeLog people — external resources
+  // are capacity-only (excluded from cost) and never book time as an internal
+  // user, so they're dropped from both the auto-match pool and the picker below.
+  const matchableResources = useMemo(() => resources.filter((r) => !r.isExternal), [resources]);
+
   // Derive effective user matches (auto + manual, manual wins)
   const effectiveUserLinks = useMemo(
-    () => autoMatchUsers(fetchedUsers, resources, links),
-    [fetchedUsers, resources, links],
+    () => autoMatchUsers(fetchedUsers, matchableResources, links),
+    [fetchedUsers, matchableResources, links],
   );
 
   // Merge fetched project refs with any already-linked projects absent from the
@@ -693,7 +698,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                             className={`rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
                           >
                             <option value="">{t(lang, "timelogMatchNone")}</option>
-                            {resources.map((r) => (
+                            {matchableResources.map((r) => (
                               <option key={r.id} value={r.id}>
                                 {r.firstName} {r.lastName}
                               </option>
