@@ -48,6 +48,21 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
     return m;
   }, [stakeholders]);
 
+  // Count each (case-folded) display name so shared names can be disambiguated
+  // in the picker — otherwise two stakeholders called "Sam" collapse to the
+  // first match and the second is unreachable.
+  const nameCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of stakeholders) {
+      const k = s.name.trim().toLowerCase();
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return m;
+  }, [stakeholders]);
+  // Picker label: bare name when unique, else `Name (#id)` so it's unambiguous.
+  const labelFor = (s: Stakeholder): string =>
+    (nameCounts.get(s.name.trim().toLowerCase()) ?? 0) > 1 ? `${s.name} (#${s.id})` : s.name;
+
   // Person (column) filter — additive: `filtered` holds the ids to SHOW (empty = all shown).
   const [filtered, setFiltered] = useState<ReadonlySet<number>>(new Set());
   const [filterInput, setFilterInput] = useState("");
@@ -61,9 +76,19 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
   );
 
   function addPerson(rawName: string) {
-    const needle = rawName.trim().toLowerCase();
-    if (needle === "") return;
-    const match = stakeholders.find((s) => s.name.trim().toLowerCase() === needle);
+    const trimmed = rawName.trim();
+    if (trimmed === "") return;
+    // A `(#id)` suffix (from a disambiguated picker option) resolves exactly;
+    // otherwise fall back to a full-label then bare-name match.
+    let match: Stakeholder | undefined;
+    const idm = trimmed.match(/\(#(\d+)\)\s*$/);
+    if (idm) match = stakeholderMap.get(Number(idm[1]));
+    if (!match) {
+      const needle = trimmed.toLowerCase();
+      match =
+        stakeholders.find((s) => labelFor(s).toLowerCase() === needle) ??
+        stakeholders.find((s) => s.name.trim().toLowerCase() === needle);
+    }
     if (!match) return;
     setFiltered((prev) => {
       if (prev.has(match.id)) return prev;
@@ -119,8 +144,10 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
             onChange={(e) => {
               const v = e.target.value;
               setFilterInput(v);
-              // Picking a datalist option fires change with the full name → add it.
-              if (stakeholders.some((s) => s.name.trim().toLowerCase() === v.trim().toLowerCase())) {
+              // Picking a datalist option fires change with the full (possibly
+              // disambiguated) label → add it.
+              const needle = v.trim().toLowerCase();
+              if (stakeholders.some((s) => labelFor(s).toLowerCase() === needle || s.name.trim().toLowerCase() === needle)) {
                 addPerson(v);
               }
             }}
@@ -139,7 +166,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
             {stakeholders
               .filter((s) => !filtered.has(s.id))
               .map((s) => (
-                <option key={s.id} value={s.name} />
+                <option key={s.id} value={labelFor(s)} />
               ))}
           </datalist>
           {visibleStakeholders

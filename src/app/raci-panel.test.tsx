@@ -58,4 +58,24 @@ describe("RaciPanel", () => {
     expect(screen.getByRole("columnheader", { name: "Sam" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Lee" })).toBeInTheDocument();
   });
+
+  it("disambiguates duplicate stakeholder names with (#id) so the second is selectable", () => {
+    const dup: Stakeholder[] = [
+      { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: { "10": "A" } },
+      { id: 2, name: "Lee", category: "Internal", influence: "Medium", interest: "High", raci: { "10": "R" } },
+      { id: 3, name: "Sam", category: "Internal", influence: "Low", interest: "Low", raci: { "10": "C" } },
+    ];
+    render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
+
+    // The shared name is disambiguated in the picker; the unique one stays bare.
+    expect(document.querySelector('option[value="Sam (#1)"]')).not.toBeNull();
+    expect(document.querySelector('option[value="Sam (#3)"]')).not.toBeNull();
+    expect(document.querySelector('option[value="Lee"]')).not.toBeNull();
+
+    // Selecting the SECOND Sam filters to exactly that one column (was unreachable).
+    const input = screen.getByRole("combobox", { name: /filter people/i });
+    fireEvent.change(input, { target: { value: "Sam (#3)" } });
+    expect(screen.getAllByRole("columnheader", { name: "Sam" })).toHaveLength(1);
+    expect(screen.queryByRole("columnheader", { name: "Lee" })).not.toBeInTheDocument();
+  });
 });
