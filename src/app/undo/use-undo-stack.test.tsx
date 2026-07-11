@@ -303,16 +303,57 @@ describe("useUndoStack", () => {
     expect(result.current.redoStack).toHaveLength(0);
   });
 
-  it("undoById of a NON-top entry clears redo; of the TOP entry keeps it redoable", () => {
+  it("undoById: undoing the TOP entry stays redoable; undoing a NON-top entry clears redo", () => {
+    // TOP branch: undoById the newest entry behaves like undo() → redoable.
+    const top = renderHook(() => useUndoStack(makeDeps()));
+    act(() => {
+      top.result.current.capture({ setter: vi.fn(), kind: "task.deleted", removed: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] });
+      top.result.current.capture({ setter: vi.fn(), kind: "change.deleted", removed: [{ id: 9, name: "x" }], fromArray: [{ id: 9, name: "x" }] });
+    });
+    act(() => top.result.current.undoById(top.result.current.stack[top.result.current.stack.length - 1].id));
+    expect(top.result.current.canRedo).toBe(true);
+
+    // NON-top branch: with a pending redo, undoById an OLDER (non-top) entry
+    // clears it (out-of-order undo can't stay coherently redoable).
+    const non = renderHook(() => useUndoStack(makeDeps()));
+    act(() => {
+      non.result.current.capture({ setter: vi.fn(), kind: "task.deleted", removed: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] });
+      non.result.current.capture({ setter: vi.fn(), kind: "change.deleted", removed: [{ id: 2, name: "b" }], fromArray: [{ id: 2, name: "b" }] });
+      non.result.current.capture({ setter: vi.fn(), kind: "raid.deleted", removed: [{ id: 3, name: "c" }], fromArray: [{ id: 3, name: "c" }] });
+    });
+    act(() => non.result.current.undo()); // newest → redo pending
+    expect(non.result.current.canRedo).toBe(true);
+    act(() => non.result.current.undoById(non.result.current.stack[0].id)); // oldest = non-top
+    expect(non.result.current.canRedo).toBe(false);
+  });
+
+  it("uses the explicit isPrimary fragment as the remap source, regardless of parts order", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));
+    let roles: readonly Row[] = [{ id: 7, name: "Dev/Sr" }];
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }];
+    const rolesBefore = roles;
+    const refsBefore = refs;
+    const setRoles = (u: SetStateAction<readonly Row[]>) => { roles = typeof u === "function" ? u(roles) : u; };
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    roles = [];
+    refs = [{ id: 1, roleId: null }];
     act(() => {
-      result.current.capture({ setter: vi.fn(), kind: "task.deleted", removed: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] });
-      result.current.capture({ setter: vi.fn(), kind: "change.deleted", removed: [{ id: 9, name: "x" }], fromArray: [{ id: 9, name: "x" }] });
+      result.current.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          // CASCADE first, PRIMARY second — the primary is chosen by the flag,
+          // NOT by position, and still runs first so its remap publishes.
+          capturePart({ setter: setRefs, edited: refsBefore, fromArray: refsBefore, fkRemapField: "roleId" }),
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore, isPrimary: true }),
+        ],
+      });
     });
-    const bottomId = result.current.stack[0].id;
-    act(() => result.current.undoById(bottomId)); // NON-top
-    expect(result.current.canRedo).toBe(false);
+    roles = [{ id: 7, name: "NEW-ROLE" }]; // id reused before undo
+    act(() => result.current.undo());
+    expect(roles).toEqual([{ id: 8, name: "Dev/Sr" }, { id: 7, name: "NEW-ROLE" }]);
+    expect(refs).toEqual([{ id: 1, roleId: 8 }]); // FK follows the re-mint via the flagged primary
   });
 
   it("exposes redoStack metas and reports canRedo", () => {

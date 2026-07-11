@@ -168,6 +168,20 @@ describe("applyUndoForward", () => {
     ]);
     expect(out).toEqual([{ id: 1, name: "a" }, { id: 3, name: "3-stripped" }]);
   });
+
+  it("removes the recovered row on redo when it still MATCHES", () => {
+    // delete → undo → redo: the recovered row is unchanged, so redo removes it.
+    expect(applyUndoForward([{ id: 1, name: "Alice" }], [del(0, { id: 1, name: "Alice" })])).toEqual([]);
+  });
+
+  it("does NOT remove a reused-id row that no longer matches the recovered row (capture-bypass guard)", () => {
+    // The recovered Alice(id 1) was deleted outside the undo system and id 1 reused
+    // by Bob (a capture-bypassing path that didn't clear the redo stack). Redo's
+    // forward delete-image is Alice's — it must NOT destroy the live Bob.
+    expect(applyUndoForward([{ id: 1, name: "Bob" }], [del(0, { id: 1, name: "Alice" })])).toEqual([
+      { id: 1, name: "Bob" },
+    ]);
+  });
 });
 
 describe("buildForwardImages", () => {

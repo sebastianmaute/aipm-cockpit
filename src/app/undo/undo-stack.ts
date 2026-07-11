@@ -119,21 +119,42 @@ export function applyUndoRestoreWithRemap<T extends { id: number }>(
  * Edits are applied first, then removals, mirroring the restore ordering so a
  * redo that both edits and removes composes correctly. Id-based and pure.
  */
+/** Structural deep-equality for plain rows (primitives, arrays, plain objects) —
+ *  used to confirm a row's IDENTITY before redo removes it. Pure. */
+function rowsEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a as object);
+  const kb = Object.keys(b as object);
+  if (ka.length !== kb.length) return false;
+  return ka.every((k) => rowsEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+}
+
 export function applyUndoForward<T extends { id: number }>(
   current: readonly T[],
   forward: readonly BeforeImage<T>[],
 ): T[] {
   let out = current.slice();
-  // An id owned by a delete-image is removed below — never let an edit-image for
-  // the same id apply first (it would be overwritten anyway; skipping mirrors
-  // `applyUndoRestore`'s edit/delete ownership rule for symmetry/robustness).
-  const removeIds = new Set(forward.filter((f) => f.op === "delete").map((f) => f.item.id));
+  // Map each delete-image's id → the RECOVERED row it represents.
+  const deletes = new Map<number, T>();
+  for (const f of forward) if (f.op === "delete") deletes.set(f.item.id, f.item);
   for (const { item, op } of forward) {
-    if (op !== "edit" || removeIds.has(item.id)) continue;
+    if (op !== "edit" || deletes.has(item.id)) continue; // delete-image owns this id
     const idx = out.findIndex((r) => r.id === item.id);
     if (idx !== -1) out[idx] = item; // absent edit → skip
   }
-  if (removeIds.size > 0) out = out.filter((r) => !removeIds.has(r.id));
+  if (deletes.size > 0) {
+    // ★★ Remove a row ONLY if the live row at that id still MATCHES the recovered
+    // row. A capture-bypassing mutation (e.g. the AI delete tools) that deleted
+    // the recovered row and freed its id — without clearing the redo stack — could
+    // leave an unrelated NEW row reusing that id; without this identity guard, redo
+    // would destroy that live row (data loss). Mismatched id → skip.
+    out = out.filter((r) => {
+      const recovered = deletes.get(r.id);
+      return recovered === undefined || !rowsEqual(r, recovered);
+    });
+  }
   return out;
 }
 

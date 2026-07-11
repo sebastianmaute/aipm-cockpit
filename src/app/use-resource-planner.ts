@@ -515,7 +515,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           kind: "resource.deleted",
           primaryCount: 1,
           parts: [
-            capturePart({ setter: setResources, removed: [removed], fromArray: resources }),
+            capturePart({ setter: setResources, removed: [removed], fromArray: resources, isPrimary: true }),
             capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
@@ -567,7 +567,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           kind: "resource.deleted",
           primaryCount: removed.length,
           parts: [
-            capturePart({ setter: setResources, removed, fromArray: resources }),
+            capturePart({ setter: setResources, removed, fromArray: resources, isPrimary: true }),
             capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
@@ -641,7 +641,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           kind: "role.deleted",
           primaryCount: 1,
           parts: [
-            capturePart({ setter: setRoles, removed: [removed], fromArray: roles }),
+            capturePart({ setter: setRoles, removed: [removed], fromArray: roles, isPrimary: true }),
             capturePart({ setter: setResources, edited: affected, fromArray: resources, fkRemapField: "roleId" }),
           ],
         });
@@ -756,7 +756,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         kind: "discipline.deleted",
         primaryCount: 1,
         parts: [
-          capturePart({ setter: setDisciplines, removed: [removed], fromArray: disciplines }),
+          capturePart({ setter: setDisciplines, removed: [removed], fromArray: disciplines, isPrimary: true }),
           capturePart({ setter: setRoles, edited: affected, fromArray: roles, fkRemapField: "disciplineId" }),
         ],
       });
@@ -776,7 +776,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         kind: "grade.deleted",
         primaryCount: 1,
         parts: [
-          capturePart({ setter: setGrades, removed: [removed], fromArray: grades }),
+          capturePart({ setter: setGrades, removed: [removed], fromArray: grades, isPrimary: true }),
           capturePart({ setter: setRoles, edited: affected, fromArray: roles, fkRemapField: "gradeId" }),
         ],
       });

@@ -50,6 +50,11 @@ export interface CapturePart<T extends { id: number }> {
    *  Applies to edit-images (a re-set FK) AND delete-images (a re-inserted row
    *  carrying the FK). Omit on the primary fragment (it has no self-FK). */
   fkRemapField?: keyof T & string;
+  /** Marks THIS fragment as the composite's PRIMARY delete — the one whose
+   *  id-remap the cascades' `fkRemapField` follow. Exactly one part sets it; if
+   *  none does, the first fragment is assumed primary (back-compat). Making it
+   *  explicit removes the fragile positional "fragments[0] = primary" convention. */
+  isPrimary?: boolean;
 }
 
 /**
@@ -109,6 +114,8 @@ const EMPTY_REMAP: ReadonlyMap<number, number> = new Map();
  * `T` is captured inside `capturePart`'s closure and erased at this boundary.
  */
 export interface CompositeFragment {
+  /** Whether this fragment is the PRIMARY delete (its id-remap drives cascades). */
+  isPrimary: boolean;
   restore: (primaryRemap: { current: ReadonlyMap<number, number> }, isPrimary: boolean) => () => void;
 }
 
@@ -125,24 +132,23 @@ export interface CompositeFragment {
  * `runUndo`, re-orchestrating from the fixed before-images — fully reusable.
  */
 function compositeUndoRunner(fragments: readonly CompositeFragment[]): Runner {
+  // The PRIMARY (remap source) is the explicitly-flagged fragment; fall back to
+  // index 0 for back-compat. Explicit beats the fragile positional convention.
+  const primaryIdx = Math.max(0, fragments.findIndex((f) => f.isPrimary));
   const runUndo: Runner = () => {
     // Fresh box each undo so a re-undo (after redo) re-derives the remap from
     // live state rather than a stale one.
     const primaryRemap = { current: EMPTY_REMAP };
-    const redos: (() => void)[] = [];
-    fragments.forEach((f, i) => {
-      if (i === 0) {
-        // ★★ Flush the PRIMARY fragment synchronously so its published remap is
-        // populated BEFORE the cascade updaters run. `undo()` fires from an event
-        // handler, so under React-18 auto-batching the separate setters would
-        // otherwise flush in fiber (hook-declaration) order, not call order — a
-        // cascade could read the still-empty box and its FK wouldn't follow the
-        // re-mint. flushSync is transparent to synchronous (test) setters.
-        flushSync(() => { redos.push(f.restore(primaryRemap, true)); });
-      } else {
-        redos.push(f.restore(primaryRemap, false));
-      }
-    });
+    const redos: (() => void)[] = new Array(fragments.length);
+    const runPrimary = () => { redos[primaryIdx] = fragments[primaryIdx].restore(primaryRemap, true); };
+    // ★★ Flush the PRIMARY synchronously so its published remap is populated
+    // BEFORE the cascade updaters run — `undo()` fires from an event handler, so
+    // under React-18 auto-batching the separate setters would otherwise flush in
+    // fiber (hook-declaration) order, not call order, and a cascade could read the
+    // still-empty box. Only when there ARE cascades: a lone fragment needs no
+    // cross-fragment sync, so flushSync would just force a needless extra commit.
+    if (fragments.length > 1) flushSync(runPrimary); else runPrimary();
+    fragments.forEach((f, i) => { if (i !== primaryIdx) redos[i] = f.restore(primaryRemap, false); });
     const runRedo: Runner = () => {
       for (const redo of redos) redo();
       return runUndo;
@@ -166,7 +172,7 @@ function compositeUndoRunner(fragments: readonly CompositeFragment[]): Runner {
  * ⇒ same result), exactly like the single-array `fragmentUndoRunner`.
  */
 export function capturePart<T extends { id: number }>(part: CapturePart<T>): CompositeFragment | null {
-  const { setter, removed = [], edited = [], fromArray, fkRemapField } = part;
+  const { setter, removed = [], edited = [], fromArray, fkRemapField, isPrimary } = part;
   const images = buildBeforeImages(removed, edited, fromArray);
   if (images.length === 0) return null;
   const restore = (
@@ -189,7 +195,7 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
     });
     return () => { setter((prev) => applyUndoForward(prev, forward)); };
   };
-  return { restore };
+  return { isPrimary: isPrimary === true, restore };
 }
 
 /** A multi-array undo: one entry whose restore reverts a primary removal AND
