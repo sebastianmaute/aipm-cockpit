@@ -3254,6 +3254,7 @@ const enUS = {
   versionHighlightRedo: "Redo: reverse an undo with Ctrl/Cmd+Shift+Z or the top-bar redo button — for deletes, bulk edits, and clear-all on any storage backend.",
   versionHighlightIdIntegrity: "ID integrity: entity ids are never reused within a session, so an id freed by a delete can't be reassigned and later clobbered by an undo — covers every create path, including Outlook imports and opening a file.",
   versionHighlightLiveNames: "Live names: assignees, RAID owners and absences linked to a directory resource now show, search, filter, sort and email by the resource's current name/email everywhere — no more stale names after a rename or re-link.",
+  versionHighlightSteeringReports: "Steering-committee status reports: draft a per-meeting report with Claude from the current project status and the meeting agenda, edit it in a rich-text editor, email it to committee members, and (on Turso) keep a restorable version history.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

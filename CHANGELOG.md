@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.181.0] - 2026-07-11 "Anderson"
+
+### AI status reports for steering-committee meetings
+
+- **Per-meeting status reports:** each meeting in the Steering Committee view now has a **Status
+  report** button that opens a report editor. Write the report in a **rich-text editor**, or click
+  **Draft with AI** to have Claude write a first draft from the current project status (RAG, progress,
+  overdue/due-soon, open RAID, recent changes) woven together with the meeting's agenda.
+- **Email to the committee:** send the report to the committee members with one click (via Microsoft
+  365). Recipients are prefilled from the members' directory emails and are **editable** before you
+  send.
+- **Version history (Turso):** on a Turso backend, every save/draft/restore keeps a version of the
+  report; you can **restore** an earlier version (restoring first snapshots the current one, so it's
+  reversible). File/IndexedDB projects get draft, edit, and send without version history.
+- Draft (AI) needs the AI assistant enabled; email needs Microsoft 365 configured; version history
+  needs Turso. Each degrades independently. No change to stored project data or file formats — the
+  report rides the existing steering-committee record.
+
 ## [0.180.0] - 2026-07-11 "Farmer"
 
 ### Live resource names everywhere (no more stale assignee/owner)
