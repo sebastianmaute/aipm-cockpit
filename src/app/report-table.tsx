@@ -201,7 +201,7 @@ export function SortResizeTh<K extends string>({
 }
 
 export function Tile({
-  label, value, rag, trend, bar, onActivate, activateLabel,
+  label, value, rag, trend, bar, onActivate, activateLabel, hint,
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
@@ -210,6 +210,10 @@ export function Tile({
   bar?: React.ReactNode;
   onActivate?: () => void;
   activateLabel?: string;
+  /** Optional explanation shown as an InfoTooltip in the tile's corner. Rendered
+   *  as a SIBLING of the (possibly clickable) tile, never nested inside the
+   *  button — a tooltip trigger inside a button is a nested-interactive axe fail. */
+  hint?: string;
 }) {
   const inner = (
     <>
@@ -222,19 +226,27 @@ export function Tile({
       {trend ? <div className="mt-1">{trend}</div> : null}
     </>
   );
-  if (onActivate) {
-    return (
-      <button
-        type="button"
-        aria-label={activateLabel}
-        onClick={onActivate}
-        className={`w-full rounded-lg border border-line bg-surface p-3 text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue hover:bg-surface-muted hover:shadow-[var(--shadow-card-hover)] ${INTERACTIVE}`}
-      >
-        {inner}
-      </button>
-    );
-  }
-  return <div className="rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-card)]">{inner}</div>;
+  const tile = onActivate ? (
+    <button
+      type="button"
+      aria-label={activateLabel}
+      onClick={onActivate}
+      className={`w-full rounded-lg border border-line bg-surface p-3 text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue hover:bg-surface-muted hover:shadow-[var(--shadow-card-hover)] ${INTERACTIVE}`}
+    >
+      {inner}
+    </button>
+  ) : (
+    <div className="rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-card)]">{inner}</div>
+  );
+  if (!hint) return tile;
+  return (
+    <div className="relative h-full">
+      {tile}
+      <span className="absolute right-2 top-2 z-10 print:hidden">
+        <InfoTooltip text={hint} />
+      </span>
+    </div>
+  );
 }
 
 /** Slim "more=better" completion gauge. Fill width tracks `percent` (0–100);

@@ -15,7 +15,6 @@ import { changeImpactRag } from "./change-log";
 import type { Absence, BudgetBucket, ChangeItem, ChangeStatus, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
 import { formatCurrency } from "./resource-cost";
 import { RagBadge } from "./rag-badge";
-import { InfoTooltip } from "./info-tooltip";
 import { BurndownCharts } from "./burndown-chart";
 import type { SuggestedAction } from "./next-actions/types";
 import { useResizable } from "./use-resizable";
@@ -294,7 +293,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                   activateLabel={`${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
                 />
                 <Tile
-                  label={<>R / A / G<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "dashboardRagHint")} /></span></>}
+                  label="R / A / G" hint={t(lang, "dashboardRagHint")}
                   value={
                     <span>
                       <span className={healthText.R}>{model.progress.counts.R}</span>
@@ -350,14 +349,14 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 {model.burn ? (
                   <div className="flex flex-wrap gap-2">
                     <Tile
-                      label={<>{t(lang, "dashboardSubBudget")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "dashboardBudgetHint")} /></span></>}
+                      label={t(lang, "dashboardSubBudget")} hint={t(lang, "dashboardBudgetHint")}
                       value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
                       rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
                       onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
                       activateLabel={`${t(lang, "dashboardSubBudget")} – ${t(lang, "dashboardOpenBudgetView")}`}
                     />
                     <Tile
-                      label={<>h<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "dashboardHoursHint")} /></span></>}
+                      label="h" hint={t(lang, "dashboardHoursHint")}
                       value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
                       rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
                       onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
@@ -370,13 +369,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 {model.evm.coverage.withEstimate > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Tile
-                      label={<>{t(lang, "evmSpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "evmSpiHint")} /></span></>}
+                      label={t(lang, "evmSpi")} hint={t(lang, "evmSpiHint")}
                       value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
                       onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
                       activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
                     />
                     <Tile
-                      label={<>{t(lang, "evmCpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "evmCpiHint")} /></span></>}
+                      label={t(lang, "evmCpi")} hint={t(lang, "evmCpiHint")}
                       value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
                       onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
                       activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}

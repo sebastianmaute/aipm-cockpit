@@ -2,7 +2,6 @@
 
 import { KpiGradientBar, Tile } from "../report-table";
 import { type Lang, t } from "../i18n";
-import { InfoTooltip } from "../info-tooltip";
 import { TrendArrow } from "../trend-arrow";
 import type { DashboardModel } from "../dashboard";
 import type { MetricKey, MetricTrend } from "../dashboard-trends";
@@ -24,7 +23,8 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
     <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
       <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
         <Tile
-          label={<>{t(lang, "dashboardKpiComplete")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "dashboardKpiCompleteHint")} /></span></>}
+          label={t(lang, "dashboardKpiComplete")}
+          hint={t(lang, "dashboardKpiCompleteHint")}
           value={`${model.progress.percent}%`}
           bar={<KpiGradientBar percent={model.progress.percent} label={t(lang, "dashboardKpiComplete")} />}
           trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
@@ -32,14 +32,16 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           activateLabel={`${t(lang, "dashboardKpiComplete")} – ${t(lang, "dashboardOpenTasksView")}`}
         />
         <Tile
-          label={<>{t(lang, "dashboardKpiOverdue")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "dashboardKpiOverdueHint")} /></span></>}
+          label={t(lang, "dashboardKpiOverdue")}
+          hint={t(lang, "dashboardKpiOverdueHint")}
           value={String(model.overdue.length)}
           trend={<TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
           onActivate={onNavigate ? () => onNavigate("open-points") : undefined}
           activateLabel={`${t(lang, "dashboardKpiOverdue")} – ${t(lang, "dashboardOpenTasksView")}`}
         />
         <Tile
-          label={<>{t(lang, "dashboardKpiOpenRaid")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "dashboardKpiOpenRaidHint")} /></span></>}
+          label={t(lang, "dashboardKpiOpenRaid")}
+          hint={t(lang, "dashboardKpiOpenRaidHint")}
           value={String(model.openRaidCount)}
           trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
           onActivate={onNavigate ? () => onNavigate("raid") : undefined}
