@@ -620,7 +620,9 @@ function TaskManagerInner() {
   // is banned) so cost figures stay correct without waiting for a manual re-edit.
   const workdayHoursNow = settings.resources.workdayHours;
   const [wdhForRoles, setWdhForRoles] = useState(workdayHoursNow);
-  if (workdayHoursNow !== wdhForRoles) {
+  // Object.is (not !==) so a corrupted NaN workdayHours can't loop forever
+  // (NaN !== NaN is always true → infinite render); Object.is(NaN,NaN)===true.
+  if (!Object.is(workdayHoursNow, wdhForRoles)) {
     setWdhForRoles(workdayHoursNow);
     setRoles((prev) =>
       prev.some((r) => r.rateBasis === "day")

@@ -78,16 +78,16 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
   function addPerson(rawName: string) {
     const trimmed = rawName.trim();
     if (trimmed === "") return;
-    // A `(#id)` suffix (from a disambiguated picker option) resolves exactly;
-    // otherwise fall back to a full-label then bare-name match.
-    let match: Stakeholder | undefined;
-    const idm = trimmed.match(/\(#(\d+)\)\s*$/);
-    if (idm) match = stakeholderMap.get(Number(idm[1]));
+    // Prefer a real label/name match (so a stakeholder literally named "Foo (#5)"
+    // resolves to itself); only fall back to parsing a `(#id)` suffix when the
+    // text isn't a valid name/label (i.e. a disambiguated duplicate-name pick).
+    const needle = trimmed.toLowerCase();
+    let match: Stakeholder | undefined =
+      stakeholders.find((s) => labelFor(s).toLowerCase() === needle) ??
+      stakeholders.find((s) => s.name.trim().toLowerCase() === needle);
     if (!match) {
-      const needle = trimmed.toLowerCase();
-      match =
-        stakeholders.find((s) => labelFor(s).toLowerCase() === needle) ??
-        stakeholders.find((s) => s.name.trim().toLowerCase() === needle);
+      const idm = trimmed.match(/\(#(\d+)\)\s*$/);
+      if (idm) match = stakeholderMap.get(Number(idm[1]));
     }
     if (!match) return;
     setFiltered((prev) => {
