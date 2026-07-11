@@ -4,6 +4,7 @@ import { computeDashboard, buildDashboardInput } from "../dashboard";
 import { densityClasses } from "../dashboard-density";
 import { computeMetricTrends } from "../dashboard-trends";
 import { DashboardKpiStrip } from "./dashboard-kpi-strip";
+import { t } from "../i18n";
 
 const plan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" };
 
@@ -47,5 +48,27 @@ describe("DashboardKpiStrip", () => {
       />,
     );
     expect(screen.getByRole("button", { name: /Open RAID –/ })).toBeInTheDocument();
+  });
+
+  it("renders an explanatory InfoTooltip trigger on each KPI tile", () => {
+    render(
+      <DashboardKpiStrip
+        lang="en-US"
+        model={model()}
+        trends={trends}
+        onNavigate={vi.fn()}
+        dc={densityClasses("comfortable")}
+      />,
+    );
+    // InfoTooltip renders a span[role=button] whose accessible name defaults to the hint text.
+    expect(
+      screen.getByRole("button", { name: t("en-US", "dashboardKpiCompleteHint") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "dashboardKpiOverdueHint") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("en-US", "dashboardKpiOpenRaidHint") }),
+    ).toBeInTheDocument();
   });
 });
