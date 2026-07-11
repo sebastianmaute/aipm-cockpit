@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.179.0";
-export const APP_BUILD_DATE = "2026-07-11"; // 0.179.0: session-scoped monotonic id minting — entity ids are never reused within a session, so an id freed by a delete can't be handed to a new row that a later undo would then clobber (root fix for the undo edit-image reuse class); covers every create path incl. Outlook calendar/contacts imports and the classic file-open (Priest)
+export const APP_VERSION = "0.180.0";
+export const APP_BUILD_DATE = "2026-07-11"; // 0.180.0: person references (task assignee, RAID owner, absence assignee) now DISPLAY, search, filter, sort, group and email by the linked resource's CURRENT name/email everywhere — the stored string is only a stale-able cache the editor already resolved live. Fixes stale assignee/owner names shown after a directory rename/re-link across Open Points, Kanban, Reports, RAID panel + report, Gantt and the resource calendar (Farmer)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.179.x line is "Priest" (Christopher Priest). */
-export const APP_MILESTONE = "Priest";
+ *  0.180.x line is "Farmer" (Philip Jose Farmer). */
+export const APP_MILESTONE = "Farmer";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -198,4 +198,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightUxBatchAldiss",
   "versionHighlightRedo",
   "versionHighlightIdIntegrity",
+  "versionHighlightLiveNames",
 ] as const;
