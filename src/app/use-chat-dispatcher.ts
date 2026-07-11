@@ -21,6 +21,7 @@ import {
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import { greetingName } from "./contacts";
+import { mintId } from "./id-mint-session";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
 import {
@@ -52,12 +53,6 @@ const STATUS_SET = new Set<string>(TASK_STATUSES);
 /** True when `v` is one of the known task statuses. */
 function isTaskStatus(v: unknown): v is TaskStatus {
   return typeof v === "string" && STATUS_SET.has(v);
-}
-
-/** Next numeric id for an entity list (max + 1, or 1 when empty). Mirrors the
- *  per-entity nextId helpers used by the panels. */
-function nextEntityId(list: readonly { id: number }[]): number {
-  return list.length > 0 ? Math.max(...list.map((r) => r.id)) + 1 : 1;
 }
 
 export interface ChatDispatcherArgs {
@@ -208,8 +203,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       createTask: (input) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const list = tasksRef.current;
-        const id =
-          list.length > 0 ? Math.max(...list.map((row) => row.id)) + 1 : 1;
+        const id = mintId("task", list);
         const taskName = sanitizeTaskName(input.taskName);
         const assignee = sanitizeAssignee(input.assignee);
         const dueDate = sanitizeIsoDate(input.dueDate);
@@ -387,7 +381,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
       createRaid: (input) => {
         if (args.isReadOnly) throw readOnlyError();
-        const id = nextEntityId(raidRef.current);
+        const id = mintId("raid", raidRef.current);
         const sanitized = sanitizeRaidItem({
           ...input,
           id,
@@ -434,7 +428,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
       createChange: (input) => {
         if (args.isReadOnly) throw readOnlyError();
-        const id = nextEntityId(changesRef.current);
+        const id = mintId("change", changesRef.current);
         const sanitized = sanitizeChangeItem({
           ...input,
           id,
@@ -479,7 +473,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
       createMilestone: (input) => {
         if (args.isReadOnly) throw readOnlyError();
-        const id = nextEntityId(milestonesRef.current);
+        const id = mintId("milestone", milestonesRef.current);
         const item = sanitizeMilestone({
           ...input,
           id,
@@ -518,7 +512,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
       createStakeholder: (input) => {
         if (args.isReadOnly) throw readOnlyError();
-        const id = nextEntityId(stakeholdersRef.current);
+        const id = mintId("stakeholder", stakeholdersRef.current);
         const item = sanitizeStakeholder({ ...input, id, raci: {} });
         if (!item) throw new Error("invalid stakeholder: name is required");
         const next = [...stakeholdersRef.current, item];
@@ -554,7 +548,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listResources: () => resourcesRef.current.map(toResourceSummary),
       createResource: (input: ResourceInput) => {
         if (args.isReadOnly) throw readOnlyError();
-        const id = nextEntityId(resourcesRef.current);
+        const id = mintId("resource", resourcesRef.current);
         // sanitizeResource fills roleId/utilization defaults; returns null with
         // no first/last name (or splittable full name).
         const item = sanitizeResource({ ...input, id });

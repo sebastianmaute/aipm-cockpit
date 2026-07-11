@@ -6,7 +6,7 @@
 // into the resource directory + assignee address book.
 
 import type { Resource } from "./types";
-import { nextId } from "./resource-foundation";
+import { mintId } from "./id-mint-session";
 import { sanitizeEmail } from "./sanitize";
 
 /** Raw Graph /me/contacts item — the subset we $select. */
@@ -149,7 +149,9 @@ export function mergeImportedResources(
       };
     } else {
       const created: Resource = {
-        id: nextId(result),
+        // Session minter (monotonic per call) — a freed resource id is never
+        // reused by this contacts import.
+        id: mintId("resource", result),
         firstName: c.firstName,
         lastName: c.lastName,
         roleId: null,

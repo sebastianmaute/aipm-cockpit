@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   mapGraphContact,
   parseGraphBirthday,
@@ -7,7 +7,12 @@ import {
   type GraphContact,
   type OutlookContact,
 } from "./outlook-contacts";
+import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import type { Resource } from "./types";
+
+// mergeImportedResources now mints via the session minter; reset its high-water
+// so per-test id assertions are deterministic.
+beforeEach(__resetMintStateForTests);
 
 function res(partial: Partial<Resource> & { id: number }): Resource {
   return {
@@ -139,6 +144,15 @@ describe("mergeImportedResources", () => {
       ],
     );
     expect(out.map((r) => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it("never reuses a freed resource id within a session", () => {
+    // Mint id 5 this session, then import against a list whose max is 4
+    // (id 5 was 'deleted'). The session minter must NOT reuse 5.
+    mintId("resource", [res({ id: 4 })]); // high-water -> 5
+    const out = mergeImportedResources([res({ id: 4 })], [contact]);
+    expect(out.map((r) => r.id)).not.toContain(5);
+    expect(out[out.length - 1].id).toBe(6);
   });
 
   it("clears a field on update when the contact leaves it blank", () => {

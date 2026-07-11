@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
+import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
 import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
@@ -148,6 +149,20 @@ test("budget renders a bucket-count heading and is a resizable card", () => {
   const src = readFileSync(join(__dirname, "budget-panel.tsx"), "utf8");
   expect(src).toMatch(/budgetBucketsCount/);
   expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
+});
+
+// nextBucketId is module-private; it now delegates to mintId("budgetBucket", …),
+// so we prove the no-reuse contract on that mint kind directly.
+describe("nextBucketId (session mint)", () => {
+  beforeEach(__resetMintStateForTests);
+
+  test("never reuses a deleted bucket id within the session", () => {
+    const three: BudgetBucket[] = [1, 2, 3].map((id) => ({ ...buckets[0], id }));
+    expect(mintId("budgetBucket", three)).toBe(4);
+    // id 3 "deleted" — minting over [1,2] must NOT reuse 3
+    const two: BudgetBucket[] = [1, 2].map((id) => ({ ...buckets[0], id }));
+    expect(mintId("budgetBucket", two)).toBe(5);
+  });
 });
 
 describe("Cci primary prop", () => {

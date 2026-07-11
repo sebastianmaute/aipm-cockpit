@@ -6,6 +6,7 @@ import type { Lang } from "./i18n";
 import type { Task } from "./types";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
+import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { useBroadcastSync } from "./broadcast-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
@@ -1427,6 +1428,73 @@ describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
     await act(async () => { await result.current.reloadCurrentProject(); });
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(result.current.tasks).toHaveLength(1);
+  });
+});
+
+describe("useStorageBackend — id-minter high-water seeding on load", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    __resetMintStateForTests();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  it("seeds the session minter on load so the next task mint clears the loaded max (RESET)", async () => {
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 1, taskName: "a" }, { id: 100, taskName: "b" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount load applies + seeds
+    expect(result.current.tasks).toHaveLength(2);
+    // The load RESET the mark to the loaded max (100), so the next mint is 101.
+    expect(mintId("task", result.current.tasks)).toBe(101);
+  });
+
+  it("a same-project reload NEVER frees a locally-deleted max id (RAISE)", async () => {
+    // Load with max id 100 → mark reset to 100.
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 1, taskName: "a" }, { id: 100, taskName: "b" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect(mintId("task", result.current.tasks)).toBe(101); // advances mark to 101
+
+    // A reload reflecting the deletion of task 100 (backend now returns max 99)
+    // must RAISE (not reset): the freed id 100/101 can't be reused.
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 1, taskName: "a" }, { id: 99, taskName: "c" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(result.current.tasks.some((t) => (t as { id: number }).id === 100)).toBe(false);
+    expect(mintId("task", result.current.tasks)).toBeGreaterThanOrEqual(102);
+  });
+
+  it("onOpenStorageFile seeds the minter so the opened file's max task id can't be reused (RAISE)", async () => {
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve(undefined),
+    );
+    // Mount load: a small project (max task id 10) → mark reset to 10.
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 10, taskName: "small" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    // onOpenStorageFile: a DIFFERENT, larger file (max task id 500).
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 1, taskName: "a" }, { id: 500, taskName: "big" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // The opened file's tasks are now live (max 500). Without seeding, the mark
+    // would still be 10 → deleting task 500 would let the next create reuse 500.
+    expect(mintId("task", result.current.tasks)).toBeGreaterThanOrEqual(501);
   });
 });
 

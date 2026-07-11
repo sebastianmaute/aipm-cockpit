@@ -8,7 +8,14 @@
 // is understood (e.g. the future calendar prop-bag consolidation renames these) —
 // it is NOT a golden fixture. Coarse on purpose: a tripwire, not a spec.
 import { render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { __resetMintStateForTests } from "./id-mint-session";
+
+// task-manager mints task/resource ids from session-scoped state on interaction;
+// clear it before each test so the suite never inherits another test's mark.
+beforeEach(() => {
+  __resetMintStateForTests();
+});
 
 // Capture the props task-manager threads into WorkspaceSection. Preserve every
 // other real export (types/re-exports) via importOriginal so the module graph

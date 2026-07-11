@@ -4,7 +4,8 @@ import { type Lang, t } from "./i18n";
 import { nextRaidId } from "./raid";
 import { resolveEntitySave } from "./entity-id-mint";
 import { reportSilentFailure } from "./guard-feedback";
-import { nextId, resourceDisplayName } from "./resource-foundation";
+import { resourceDisplayName } from "./resource-foundation";
+import { mintId } from "./id-mint-session";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
@@ -265,8 +266,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
 
   const handleOpenAddAbsence = useCallback(
     (seed?: Partial<Absence>) => {
-      const nextId =
-        absences.length > 0 ? Math.max(...absences.map((a) => a.id)) + 1 : 1;
+      const nextId = mintId("absence", absences);
       const draft: Absence = {
         ...emptyAbsenceDraft(nextId, today),
         ...plainSeed(seed),
@@ -349,8 +349,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         setEditingShift({ shift: existing, isNew: false });
         return;
       }
-      const nextId =
-        shifts.length > 0 ? Math.max(...shifts.map((s) => s.id)) + 1 : 1;
+      const nextId = mintId("shift", shifts);
       const draft: Shift = {
         ...emptyShiftDraft(nextId),
         assignee: seed.display,
@@ -404,7 +403,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
 
   const handleOpenAddResource = useCallback(
     (seed?: Partial<Resource>) => {
-      const id = nextId(resources);
+      const id = mintId("resource", resources);
       const draft: Resource = {
         firstName: "",
         lastName: "",
@@ -439,7 +438,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       if (isNew) {
         // Re-mint at SAVE time if the open-time id was taken since, so the append
         // can't collide with a row committed while the modal was open.
-        const id = resources.some((r) => r.id === next.id) ? nextId(resources) : next.id;
+        const id = resources.some((r) => r.id === next.id) ? mintId("resource", resources) : next.id;
         const created: Resource = { ...next, id, localModifiedAt: stamp };
         setResources((prev) => [...prev, created]);
         setEditingResource(null);
@@ -594,7 +593,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         (r) => r.disciplineId === disciplineId && r.gradeId === gradeId,
       );
       if (existing) return existing.id;
-      const id = nextId(roles);
+      const id = mintId("role", roles);
       const role: Role = {
         id,
         disciplineId,
@@ -695,7 +694,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     (name: string): number | null => {
       const clean = name.trim();
       if (!clean) return null;
-      const id = nextId(disciplines);
+      const id = mintId("discipline", disciplines);
       setDisciplines((prev) => [
         ...prev,
         { id, name: clean, localModifiedAt: new Date().toISOString() },
@@ -721,7 +720,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     (name: string): number | null => {
       const clean = name.trim();
       if (!clean) return null;
-      const id = nextId(grades);
+      const id = mintId("grade", grades);
       setGrades((prev) => [
         ...prev,
         { id, name: clean, localModifiedAt: new Date().toISOString() },
@@ -818,8 +817,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const item = raid.find((r) => r.id === raidItemId);
       if (!item) return null;
       const list = tasksRef.current;
-      const newId =
-        list.length > 0 ? Math.max(...list.map((tk) => tk.id)) + 1 : 1;
+      const newId = mintId("task", list);
       const stamp = new Date().toISOString();
       const newTask: Task = {
         id: newId,

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   isTimeAway,
   mapGraphEvent,
@@ -7,7 +7,12 @@ import {
   type GraphEvent,
   type OutlookEvent,
 } from "./outlook-calendar";
+import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import type { Absence } from "./types";
+
+// eventsToAbsences now mints via the session minter; reset its high-water so
+// per-test id assertions are deterministic.
+beforeEach(__resetMintStateForTests);
 
 const allDay: GraphEvent = {
   id: "e1",
@@ -115,7 +120,18 @@ describe("eventsToAbsences", () => {
       localModifiedAt: STAMP,
     });
   });
-  it("assigns ids from max(existing)+1 incrementing", () => {
+  it("never reuses a freed absence id within a session", () => {
+    // Mint id 5 this session, then import against a list whose max is 4
+    // (id 5 was 'deleted'). The session minter must NOT hand out 5 again.
+    mintId("absence", [{ id: 4 } as Absence]); // high-water -> 5
+    const shrunk: Absence[] = [
+      { id: 4, assignee: "Y", startDate: "2026-01-01", endDate: "2026-01-01", type: "other" },
+    ];
+    const out = eventsToAbsences([{ event: ev, type: "vacation" }], shrunk, target, STAMP);
+    expect(out.map((a) => a.id)).not.toContain(5);
+    expect(out[out.length - 1].id).toBe(6);
+  });
+  it("assigns session-minted ids above max(existing) incrementing", () => {
     const existing: Absence[] = [{ id: 9, assignee: "X", startDate: "2026-01-01", endDate: "2026-01-01", type: "other" }];
     const out = eventsToAbsences(
       [

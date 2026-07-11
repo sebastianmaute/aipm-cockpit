@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { __resetMintStateForTests } from "./id-mint-session";
 import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
 import { useChatDispatcher } from "./use-chat-dispatcher";
@@ -130,7 +131,62 @@ function renderDispatcher(
   return { result, setSelectedIds, setSettings };
 }
 
+// Reset the session-scoped id minter before EVERY test in this file (all
+// describe blocks) so exact-id assertions aren't inflated by ids minted in
+// prior tests or other suites.
+beforeEach(() => {
+  __resetMintStateForTests();
+});
+
 describe("useChatDispatcher", () => {
+  it("mints monotonic ids: two back-to-back createTask calls get distinct ids", () => {
+    const { result } = renderDispatcher([]);
+    let a: Task;
+    let b: Task;
+    act(() => {
+      a = result.current.createTask({
+        taskName: "First",
+        assignee: "Alice",
+        dueDate: "2026-06-01",
+      });
+      b = result.current.createTask({
+        taskName: "Second",
+        assignee: "Bob",
+        dueDate: "2026-06-02",
+      });
+    });
+    expect(a!.id).toBe(1);
+    expect(b!.id).toBe(2);
+    expect(a!.id).not.toBe(b!.id);
+  });
+
+  it("never reuses a deleted task's id within a session", () => {
+    const { result } = renderDispatcher([]);
+    let a: Task;
+    let b: Task;
+    act(() => {
+      a = result.current.createTask({
+        taskName: "First",
+        assignee: "Alice",
+        dueDate: "2026-06-01",
+      });
+    });
+    act(() => {
+      result.current.deleteTask(a!.id);
+    });
+    act(() => {
+      b = result.current.createTask({
+        taskName: "Second",
+        assignee: "Bob",
+        dueDate: "2026-06-02",
+      });
+    });
+    // Old inline mint (max+1 over the now-empty list) would reuse id 1;
+    // the session minter must hand out 2.
+    expect(a!.id).toBe(1);
+    expect(b!.id).toBe(2);
+  });
+
   it("listTasks() returns the workspace tasks", () => {
     const { result } = renderDispatcher();
     const tasks = result.current.listTasks();

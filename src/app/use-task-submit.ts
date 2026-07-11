@@ -6,7 +6,7 @@ import { upsertContact, type ContactsMap } from "./contacts";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useAdjustmentTracker } from "./field-feedback";
 import { t, type Lang } from "./i18n";
-import { nextId } from "./resource-foundation";
+import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem } from "./types";
 import { applyStatusChange } from "./task-status";
@@ -197,7 +197,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
       } else {
         const newTask: Task = applyStatusChange(
-          { id: nextId(tasks), ...payload, status: form.status, inquiriesSent: 0 },
+          { id: mintId("task", tasks), ...payload, status: form.status, inquiriesSent: 0 },
           form.status,
           today,
         );

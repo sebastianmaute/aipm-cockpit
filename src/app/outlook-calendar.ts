@@ -7,6 +7,7 @@
 
 import type { Absence, AbsenceType } from "./types";
 import { isoAddDays } from "./due-dates";
+import { mintId } from "./id-mint-session";
 
 /** Raw Graph /me/calendarView item (subset we $select). */
 export interface GraphEvent {
@@ -75,8 +76,9 @@ export interface AbsenceImportTarget {
 /**
  * Merge selected events (with their chosen types) into the absence list,
  * attributed to `target` (the signed-in user). Dedups against existing
- * absences by assignee+date-range. New ids continue from max(existing)+1.
- * Pure: the caller passes the `localModifiedAt` stamp. Immutable.
+ * absences by assignee+date-range. New ids come from the session minter
+ * (`mintId("absence", …)`) so a freed id is never reused within a session.
+ * The caller passes the `localModifiedAt` stamp. Immutable.
  */
 export function eventsToAbsences(
   rows: readonly { event: OutlookEvent; type: AbsenceType }[],
@@ -85,14 +87,15 @@ export function eventsToAbsences(
   stamp: string,
 ): Absence[] {
   const seen = new Set(existing.map((a) => dedupeKey(a.assignee, a.startDate, a.endDate)));
-  let nextId = existing.length > 0 ? Math.max(...existing.map((a) => a.id)) + 1 : 1;
   const created: Absence[] = [];
   for (const { event, type } of rows) {
     const key = dedupeKey(target.assignee, event.startDate, event.endDate);
     if (seen.has(key)) continue;
     seen.add(key);
     const absence: Absence = {
-      id: nextId++,
+      // Session minter: monotonic per call (high-water rises each mint), so a
+      // deleted absence id is never reused by this import.
+      id: mintId("absence", existing),
       assignee: target.assignee,
       startDate: event.startDate,
       endDate: event.endDate,

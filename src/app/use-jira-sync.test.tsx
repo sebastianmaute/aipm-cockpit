@@ -7,6 +7,14 @@ import type { Settings } from "./settings-types";
 import { useJiraSync } from "./use-jira-sync";
 import { useWorkspace } from "./workspace-context";
 import { TestProviders } from "./test-providers";
+import { __resetMintStateForTests, mintId } from "./id-mint-session";
+
+// New Jira tasks draw ids from the session-scoped minter. Clear its high-water
+// state before every test so created-id assertions stay deterministic and the
+// no-reuse test controls the mark itself.
+beforeEach(() => {
+  __resetMintStateForTests();
+});
 
 // ── Jira API mock ────────────────────────────────────────────────────────────
 vi.mock("./jira-api", () => ({
@@ -311,6 +319,33 @@ describe("useJiraSync — handleJiraSync", () => {
     expect(created).toBeDefined();
     expect(created?.taskName).toBe("Brand new");
     expect(created?.status).toBe("In Progress");  // status follows Jira statusCategory
+  });
+
+  it("create path: minted id sits above the session mark and never reuses a deleted id", async () => {
+    // Local list holds a task at id 5. Simulate a prior create-then-delete by
+    // advancing the session mark to 6 (as if task id 6 was minted then deleted,
+    // so it is absent from the list). A Jira import must mint id 7 — strictly
+    // above both the list max (5) and the deleted id (6) — never reusing 6.
+    mintId("task", [{ id: 5 }]); // high-water → 6
+
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    const newRemoteIssue = {
+      key: "TEST-100",
+      fields: { summary: "After delete", updated: "2026-05-01T00:00:00" },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([newRemoteIssue]);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "After delete",
+      status: "To Do",
+      jiraIssueType: "Task",
+    });
+
+    const { result } = renderSync([makeTask({ id: 5 })]);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    const created = result.current.currentTasks.find(t => t.jiraKey === "TEST-100");
+    expect(created).toBeDefined();
+    expect(created?.id).toBe(7); // above list max (5) AND the deleted id (6)
   });
 
   it("error path: searchAllIssues throws network error → info toast (unreachable), jiraSyncing reset to false", async () => {

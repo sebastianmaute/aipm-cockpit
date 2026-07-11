@@ -40,7 +40,8 @@ import { INTERACTIVE } from "./interaction-styles";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
-import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
+import { splitName, resourceDisplayName } from "./resource-foundation";
+import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -565,7 +566,11 @@ function TaskManagerInner() {
     [changes, changesEnabled],
   );
 
-  const nextId = computeNextId(tasks);
+  // Display-only preview of the id the next created task will receive. Uses the
+  // session minter's non-advancing peek so the "#N" shown matches what
+  // use-task-submit will actually mint (a plain max+1 would under-predict after
+  // a same-session delete of the current max task).
+  const nextId = peekMintId("task", tasks);
 
   const {
     editingAbsence,
@@ -859,6 +864,11 @@ function TaskManagerInner() {
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks);
+    // Version restore replaces the SAME project's data — RAISE the id-minter
+    // high-water (never lower it) so an id freed by restoring an older (smaller)
+    // snapshot can't be reused this session. Side-effecting; runs on restore
+    // (callback), not during render.
+    seedMintFromWorkspace(w, "raise");
   }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
@@ -929,7 +939,7 @@ function TaskManagerInner() {
   const handleCreateResource = useCallback(
     (name: string, email: string): number => {
       const { firstName, lastName } = splitName(name);
-      const id = computeNextId(resources);
+      const id = mintId("resource", resources);
       // Mirror handleSaveResource's new-resource commit: stamp localModifiedAt
       // (change-tracking / Turso sync) and log resource.created for activity-log
       // completeness — a picker-created person must behave like a Resources-view one.
@@ -1157,7 +1167,7 @@ function TaskManagerInner() {
   const [linkedTaskOpen, setLinkedTaskOpen] = useState(false);
   const handleCreateLinkedTask = useCallback(
     (draft: LinkedTaskDraft) => {
-      const childId = computeNextId(tasksRef.current);
+      const childId = mintId("task", tasksRef.current);
       const base: Task = {
         id: childId,
         taskName: draft.taskName,

@@ -17,6 +17,7 @@ import type { Workspace } from "./storage";
 import type { ProjectMeta } from "./types";
 import type { TursoConfig } from "./turso-config";
 import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
+import { resetMintState, snapshotMintState, restoreMintState } from "./id-mint-session";
 import { saveCurrentTursoProjectId, savePortfolioMode } from "./portfolio-mode";
 import { TursoBackend } from "./turso-backend";
 import {
@@ -94,6 +95,13 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     // the pending debounced save). Mirrors the file createProject flush.
     await flushOutgoing(deps.currentWorkspace());
     const id = crypto.randomUUID();
+    // Fresh id space for a new project — clear the session minter so seed ids
+    // start at #1, not continuing the previously open project's high-water.
+    // applyWorkspace(ws) below reseeds from the built data. Snapshot first: a
+    // failed create (e.g. Turso save throws) before applyWorkspace reseeds must
+    // not wipe the still-active old project's marks — restored in catch.
+    const mintSnapshot = snapshotMintState();
+    resetMintState();
     const ws = buildNewProjectWorkspace(meta, opts);
     try {
       await portfolioCreate(cfg, meta, id);
@@ -110,6 +118,10 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       saveCurrentTursoProjectId(id);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
     } catch (err) {
+      // Create aborted before applyWorkspace reseeded — roll the minter back so
+      // the still-active old project doesn't lose its high-water marks (which
+      // would re-arm freed-id reuse).
+      restoreMintState(mintSnapshot);
       deps.reportProjectError(err);
     }
   }

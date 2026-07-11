@@ -28,7 +28,7 @@ import {
   type MilestoneStatus,
 } from "./milestones";
 import { type Lang, t } from "./i18n";
-import { nextId } from "./resource-foundation";
+import { mintId } from "./id-mint-session";
 import { resolveEntitySave } from "./entity-id-mint";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
@@ -210,7 +210,7 @@ function MilestonesPanelBody({
 
   function openNew() {
     setIsNew(true);
-    setEditing({ id: nextId(milestones), name: "", date: today, linkedTaskIds: [], documentLinks: [] });
+    setEditing({ id: mintId("milestone", milestones), name: "", date: today, linkedTaskIds: [], documentLinks: [] });
   }
 
   // One-way signal from the parent (Gantt "Add milestone"): when the nonce
@@ -251,7 +251,7 @@ function MilestonesPanelBody({
   // misread as an update and clobber a row committed since the modal opened
   // (id-mint race). Bulk edit omits it → id-existence fallback (unchanged).
   function save(next: Milestone, isNewIntent?: boolean) {
-    const { create, id } = resolveEntitySave(milestones, next.id, isNewIntent, () => nextId(milestones));
+    const { create, id } = resolveEntitySave(milestones, next.id, isNewIntent, () => mintId("milestone", milestones));
     const finalItem: Milestone = { ...next, id };
     const previous = create ? undefined : milestones.find((m) => m.id === id);
     // Editing a row a concurrent writer already deleted: the map-replace below

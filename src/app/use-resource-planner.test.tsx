@@ -1,6 +1,7 @@
 // src/app/use-resource-planner.test.tsx
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { __resetMintStateForTests } from "./id-mint-session";
 import type { Absence, RaidItem, Resource, Role, Shift } from "./types";
 import type { Lang } from "./i18n";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -55,6 +56,12 @@ function renderPlanner(overrides?: Partial<UseResourcePlannerArgs>) {
 }
 
 describe("useResourcePlanner", () => {
+  // Mint state is session-scoped (module-level high-water marks). Reset it before
+  // every test so ids minted by a prior test don't inflate this test's assertions.
+  beforeEach(() => {
+    __resetMintStateForTests();
+  });
+
   describe("initial state", () => {
     it("editingAbsence is null initially", () => {
       const { result } = renderPlanner();
@@ -477,6 +484,23 @@ describe("useResourcePlanner", () => {
       const user = rs.find((r) => r.firstName === "User");
       expect(user).toBeTruthy();
       expect(user!.id).not.toBe(1);
+    });
+
+    it("never reuses a deleted resource id within the session (session-scoped mint)", () => {
+      const { result } = renderPlanner();
+      // Create the first resource — mints id 1 (empty list, fresh session).
+      act(() => { result.current.planner.handleOpenAddResource(); });
+      const first = result.current.planner.editingResource!.resource;
+      expect(first.id).toBe(1);
+      act(() => { result.current.planner.handleSaveResource({ ...first, firstName: "Nora", lastName: "Ito" }); });
+      // Delete the (max-id) resource — a naive max+1 minter would hand id 1 back out.
+      act(() => { result.current.planner.handleDeleteResource(1); });
+      expect(result.current.workspace.resources).toHaveLength(0);
+      // Create again — the high-water mark must have advanced past the deleted id.
+      act(() => { result.current.planner.handleOpenAddResource(); });
+      const second = result.current.planner.editingResource!.resource;
+      expect(second.id).not.toBe(1);
+      expect(second.id).toBe(2);
     });
 
     it("handleSaveResource updates an existing resource in place", () => {

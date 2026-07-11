@@ -1,15 +1,14 @@
 // Pure helpers for the Stakeholder register + RACI. No React, no DOM.
 // Sibling to raid.ts / change-log.ts.
+import { mintId } from "./id-mint-session";
 import type {
   InfluenceInterest, Milestone, RaciRole, Stakeholder, StakeholderCategory,
 } from "./types";
 import { STAKEHOLDER_CATEGORIES } from "./types";
 
-/** Next id — monotonic, separate id space. */
+/** Next id — routes through the session-scoped minter (no id reuse per session). */
 export function nextStakeholderId(items: readonly Stakeholder[]): number {
-  let max = 0;
-  for (const s of items) if (s.id > max) max = s.id;
-  return max + 1;
+  return mintId("stakeholder", items);
 }
 
 export type StakeholderQuadrant =

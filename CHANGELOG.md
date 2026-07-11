@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.179.0] - 2026-07-11 "Priest"
+
+### Session-scoped id integrity (no reused ids within a session)
+
+- **Root fix for a rare undo data-loss class:** entity ids (tasks, RAID, changes, milestones,
+  stakeholders, resources, roles, disciplines, grades, absences, shifts, budget buckets) are now
+  minted from a **session-scoped monotonic** counter. An id freed by deleting the current
+  highest-id row is **never handed to the next new row within the same session** — so a later undo
+  of an edit can no longer clobber an unrelated row that had reused the freed id. (Ids still start
+  fresh on reload, which is safe: the undo/redo history is in-memory only.)
+- **Every create path is covered**, including the two that previously still used raw `max+1`:
+  importing Outlook **calendar** events as absences and Outlook **contacts** as resources, plus the
+  classic **"Open storage file"** flow, which now seeds the counter from the opened file so its ids
+  can't be reused after a delete.
+- **New projects start clean:** creating a project from a template or an AI seed resets the counter,
+  so its ids start at #1 rather than continuing a previously open project's numbering.
+- Internal robustness only — no change to stored data, file formats, or any backend write path.
+
 ## [0.178.0] - 2026-07-11 "Zelazny"
 
 ### Redo for the local undo stack

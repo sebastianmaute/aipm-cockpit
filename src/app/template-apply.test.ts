@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { applyTemplate, appendSeed } from "./template-apply";
+import { __resetMintStateForTests } from "./id-mint-session";
 import { emptyWorkspace } from "./workspace";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type {
@@ -39,6 +40,9 @@ function tpl(seed: TemplateSeed | undefined): ProjectTemplate {
 }
 
 describe("applyTemplate", () => {
+  // Session-scoped minter carries state across applies — isolate every test.
+  beforeEach(() => __resetMintStateForTests());
+
   it("replaces fieldVisibility", () => {
     const ws = applyTemplate(emptyWorkspace(), tpl(undefined), { includeSeed: false });
     expect(ws.fieldVisibility?.task.fields).toEqual(["taskName"]);
@@ -216,6 +220,26 @@ describe("applyTemplate", () => {
     const b3 = ws.budgets!.find((b) => b.name === "Phase3")!;
     expect(b2.successorId).toBe(b1.id);
     expect(b3.successorId).toBeNull();
+  });
+  it("mints per-kind ids above each existing max and never reuses a deleted max-id row across a session", () => {
+    const existingMilestone: Milestone = { id: 20, name: "M", date: "2026-01-01", linkedTaskIds: [] };
+    const base = { ...emptyWorkspace(), tasks: [mkTask(10, "Existing")], milestones: [existingMilestone] };
+    const seededMilestone: Milestone = { id: 1, name: "SM", date: "2026-01-01", linkedTaskIds: [] };
+    const ws1 = applyTemplate(
+      base,
+      tpl({ tasks: [mkTask(1, "S")], milestones: [seededMilestone] }),
+      { includeSeed: true },
+    );
+    const seededTask = ws1.tasks.find((t) => t.taskName === "S")!;
+    const seededMs = ws1.milestones!.find((m) => m.name === "SM")!;
+    expect(seededTask.id).toBeGreaterThan(10); // above the TASK max — its own kind's counter
+    expect(seededMs.id).toBeGreaterThan(20); // above the MILESTONE max — a separate per-kind counter
+
+    // Delete the freshly-minted max-id task, then apply again IN THE SAME SESSION.
+    const afterDelete = { ...ws1, tasks: ws1.tasks.filter((t) => t.id !== seededTask.id) };
+    const ws2 = applyTemplate(afterDelete, tpl({ tasks: [mkTask(1, "S2")] }), { includeSeed: true });
+    const seededTask2 = ws2.tasks.find((t) => t.taskName === "S2")!;
+    expect(seededTask2.id).toBeGreaterThan(seededTask.id); // monotonic — the deleted id is NOT reused
   });
 });
 

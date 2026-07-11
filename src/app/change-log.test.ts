@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { __resetMintStateForTests } from "./id-mint-session";
 import {
   buildChangeByTaskIndex, changeImpactRag, compareChange, computeScopeStatus, countByStatus, countByType,
   defaultChangeStatus, isPendingChange, isTerminalChangeStatus, nextChangeId,
@@ -31,9 +32,16 @@ describe("change-log predicates", () => {
 });
 
 describe("change-log helpers", () => {
+  beforeEach(__resetMintStateForTests);
+
   it("nextChangeId is max+1 (1 when empty)", () => {
     expect(nextChangeId([])).toBe(1);
     expect(nextChangeId([ci({ id: 3 }), ci({ id: 7 })])).toBe(8);
+  });
+  it("nextChangeId never reuses a deleted id within the session", () => {
+    expect(nextChangeId([ci({ id: 1 }), ci({ id: 2 }), ci({ id: 3 })])).toBe(4);
+    // id 3 "deleted" — minting over [1,2] must NOT reuse 3
+    expect(nextChangeId([ci({ id: 1 }), ci({ id: 2 })])).toBe(5);
   });
   it("changeImpactRag maps via severity", () => {
     expect(changeImpactRag("Critical")).toBe("R");

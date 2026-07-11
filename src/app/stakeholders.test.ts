@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { __resetMintStateForTests } from "./id-mint-session";
 import {
   nextStakeholderId, quadrantFor, buildRaciMatrix, accountableCountByMilestone,
   raciWarningFor, compareStakeholder, setRaciRole, applyQuadrantMove,
@@ -16,9 +17,16 @@ function mkM(id: number, name = `M${id}`): Milestone {
 }
 
 describe("nextStakeholderId", () => {
+  beforeEach(__resetMintStateForTests);
+
   it("returns 1 for empty and max+1 otherwise", () => {
     expect(nextStakeholderId([])).toBe(1);
     expect(nextStakeholderId([mkS({ id: 3 }), mkS({ id: 7 })])).toBe(8);
+  });
+  it("never reuses a deleted id within the session", () => {
+    expect(nextStakeholderId([mkS({ id: 1 }), mkS({ id: 2 }), mkS({ id: 3 })])).toBe(4);
+    // id 3 "deleted" — minting over [1,2] must NOT reuse 3
+    expect(nextStakeholderId([mkS({ id: 1 }), mkS({ id: 2 })])).toBe(5);
   });
 });
 

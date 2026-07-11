@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.178.0";
-export const APP_BUILD_DATE = "2026-07-11"; // 0.178.0: multi-level REDO for the local undo stack (Ctrl/Cmd+Shift+Z + top-bar control), redoing the last undone delete / bulk-edit / clear-all / composite op on every backend; undo retention raised 10→25; composite cascade FKs follow the primary delete's re-mint (Zelazny)
+export const APP_VERSION = "0.179.0";
+export const APP_BUILD_DATE = "2026-07-11"; // 0.179.0: session-scoped monotonic id minting — entity ids are never reused within a session, so an id freed by a delete can't be handed to a new row that a later undo would then clobber (root fix for the undo edit-image reuse class); covers every create path incl. Outlook calendar/contacts imports and the classic file-open (Priest)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.178.x line is "Zelazny" (Roger Zelazny). */
-export const APP_MILESTONE = "Zelazny";
+ *  0.179.x line is "Priest" (Christopher Priest). */
+export const APP_MILESTONE = "Priest";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -197,4 +197,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightUndo",
   "versionHighlightUxBatchAldiss",
   "versionHighlightRedo",
+  "versionHighlightIdIntegrity",
 ] as const;
