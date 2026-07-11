@@ -92,7 +92,7 @@ import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
-import { defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { aiKeyIfEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -1272,6 +1272,9 @@ function TaskManagerInner() {
     m365Configured: m365Enabled,
     acquireToken: msAuth.acquireToken,
     showToast,
+    getDashboardModel: () => dashboardModel,
+    aiKey: aiKeyIfEnabled(settings.ai),
+    aiModel: settings.ai.model,
   });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
   // object, so consumers don't re-create on every render.

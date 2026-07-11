@@ -2,9 +2,14 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useMeetingReportActions, type MeetingReportActionsDeps } from "./use-meeting-report-actions";
 import type { SteeringCommittee, Resource } from "./types";
+import type { DashboardModel } from "./dashboard";
 import { defaultSettings } from "./settings-types";
 
 const sendMail = vi.fn<(token: string, msg: unknown) => Promise<void>>(async () => {});
+const runMeetingReport = vi.fn<() => Promise<string>>(async () => "<p>ai draft</p>");
+vi.mock("./committee-report/report-call", () => ({
+  runMeetingReport: (...args: unknown[]) => runMeetingReport(...(args as [])),
+}));
 vi.mock("./graph-mail", () => ({
   MAIL_SEND_SCOPE: ["Mail.Send"],
   buildGraphMessage: (to: unknown, subject: string, html: string) => ({ to, subject, html }),
@@ -38,11 +43,14 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     m365Configured: true,
     acquireToken: vi.fn(async () => "token"),
     showToast: vi.fn(),
+    getDashboardModel: () => ({}) as DashboardModel,
+    aiKey: "sk-ant-test",
+    aiModel: "claude-x",
     ...over,
   };
 }
 
-beforeEach(() => { sendMail.mockClear(); });
+beforeEach(() => { sendMail.mockClear(); runMeetingReport.mockClear(); });
 
 describe("useMeetingReportActions", () => {
   it("returns undefined in popouts", () => {
@@ -81,6 +89,31 @@ describe("useMeetingReportActions", () => {
     const updater = setSteeringCommittee.mock.calls.at(-1)![0] as (c: SteeringCommittee) => SteeringCommittee;
     expect(updater(committee()).meetings[0].report?.sentAt).toBeTruthy();
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
+  });
+
+  it("generate drafts via AI and saves the sanitized result", async () => {
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ setSteeringCommittee })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(runMeetingReport).toHaveBeenCalledTimes(1));
+    const updater = setSteeringCommittee.mock.calls.at(-1)![0] as (c: SteeringCommittee) => SteeringCommittee;
+    expect(updater(committee()).meetings[0].report?.html).toBe("<p>ai draft</p>");
+  });
+
+  it("generate is a no-op with no AI key", async () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ aiKey: "" })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    expect(runMeetingReport).not.toHaveBeenCalled();
+  });
+
+  it("generate failure surfaces an error toast (no body leak)", async () => {
+    runMeetingReport.mockRejectedValueOnce(new Error("secret-body"));
+    const showToast = vi.fn();
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
+    await act(async () => { result.current!.onGenerateReport(10); });
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)));
+    const errText = showToast.mock.calls.find((c) => c[0] === "error")![1] as string;
+    expect(errText).not.toContain("secret-body");
   });
 
   it("send failure surfaces an error toast (no body leak)", async () => {

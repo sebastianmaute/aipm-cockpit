@@ -10,6 +10,8 @@ import { isAiEnabled } from "./settings-types";
 import { committeeMemberEmails } from "./committee-report/report-recipients";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
 import { sanitizeTemplateHtml } from "./sanitize-html";
+import { runMeetingReport } from "./committee-report/report-call";
+import type { DashboardModel } from "./dashboard";
 import type { TursoConfig } from "./turso-config";
 
 export interface MeetingReportActionsDeps {
@@ -25,6 +27,11 @@ export interface MeetingReportActionsDeps {
   m365Configured: boolean;
   acquireToken: (scopes: readonly string[], options?: { interactive?: boolean }) => Promise<string | null>;
   showToast: (kind: "info" | "error", text: string) => void;
+  /** Live project status projection for the AI draft (read at generate time). */
+  getDashboardModel: () => DashboardModel;
+  /** Resolved Anthropic key ("" when the AI master switch is off / no key). */
+  aiKey: string;
+  aiModel: string;
 }
 
 export interface MeetingReportBag {
@@ -34,6 +41,8 @@ export interface MeetingReportBag {
   onSaveReport: (meetingId: number, html: string) => void;
   onSendReport: (meetingId: number) => void;
   sendBusyMeetingId: number | null;
+  onGenerateReport: (meetingId: number) => void;
+  generateBusyMeetingId: number | null;
 }
 
 function nowIso(): string {
@@ -42,6 +51,7 @@ function nowIso(): string {
 
 export function useMeetingReportActions(deps: MeetingReportActionsDeps): MeetingReportBag | undefined {
   const [sendBusyMeetingId, setSendBusyMeetingId] = useState<number | null>(null);
+  const [generateBusyMeetingId, setGenerateBusyMeetingId] = useState<number | null>(null);
   if (deps.isPopout) return undefined;
 
   // Functional committee setter — writes the report onto the meeting; the prior
@@ -100,6 +110,29 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     }
   }
 
+  async function onGenerateReport(meetingId: number): Promise<void> {
+    const committee = deps.committee;
+    if (!committee || !deps.aiKey) return;
+    const meeting = committee.meetings.find((m) => m.id === meetingId);
+    if (!meeting) return;
+    setGenerateBusyMeetingId(meetingId);
+    try {
+      const html = await runMeetingReport(deps.getDashboardModel(), meeting.agenda ?? "", {
+        apiKey: deps.aiKey,
+        model: deps.aiModel,
+        lang: deps.lang,
+      });
+      // AI output is untrusted — sanitize before it lands in the editor/blob.
+      onSaveReport(meetingId, sanitizeTemplateHtml(html));
+    } catch {
+      // Status-only — never surface the response body (runMeetingReport already
+      // throws status-digits/"parse" only).
+      deps.showToast("error", t(deps.lang, "reportGenerateFailed"));
+    } finally {
+      setGenerateBusyMeetingId(null);
+    }
+  }
+
   return {
     m365Configured: deps.m365Configured,
     aiConfigured: isAiEnabled(deps.settings.ai),
@@ -109,5 +142,9 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       void onSendReport(meetingId);
     },
     sendBusyMeetingId,
+    onGenerateReport: (meetingId: number) => {
+      void onGenerateReport(meetingId);
+    },
+    generateBusyMeetingId,
   };
 }

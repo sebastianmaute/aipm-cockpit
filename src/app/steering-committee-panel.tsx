@@ -509,6 +509,8 @@ export function SteeringCommitteePanel({
                     sendBusy={report.sendBusyMeetingId === m.id}
                     isPopout={isPopout}
                     aiConfigured={report.aiConfigured}
+                    onGenerate={() => report.onGenerateReport(m.id)}
+                    generateBusy={report.generateBusyMeetingId === m.id}
                   />
                 </div>
               </Modal>
