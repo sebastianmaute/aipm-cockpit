@@ -14,6 +14,7 @@ import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
 import { type ActivityKind } from "./activity-log";
 import { callInlineEdit } from "./inline-ai-edit-call";
+import { AiHttpError, classifyAiError } from "./ai-errors";
 import { describeEntityCalls, isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
 import { INLINE_DESCRIPTORS, type InlineEntity } from "./inline-ai-edit/entity-descriptor";
 
@@ -149,9 +150,10 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       const next = describeEntityCalls(blocks, { descriptor: d, item: target, ws: deps.ws });
       if (isEmptyPlan(next)) { setClarifyText(text || t(deps.lang, "inlineAiEditNoChanges")); setPhase("clarify"); return; }
       setPlan(next); setPhase("preview");
-    } catch {
+    } catch (err) {
       if (reqId !== reqIdRef.current) return; // stale failure — don't clobber current state
-      setErrorText(t(deps.lang, "inlineAiEditError")); setPhase("error");
+      const isLimit = err instanceof AiHttpError && classifyAiError(err.status, err.errorType) === "limit";
+      setErrorText(t(deps.lang, isLimit ? "aiUsageLimitReached" : "inlineAiEditError")); setPhase("error");
     }
   };
 

@@ -2857,6 +2857,10 @@ const enUS = {
   fieldsAdjusted: "Saved — {0} field(s) adjusted to fit limits",
 
   usage80Toast: "You've used 80% of your token budget",
+  aiUsageLimitReached:
+    "Claude usage limit reached — this is Anthropic's own rate/usage limit. Please wait and try again after it resets.",
+  aiSelfLimitReached:
+    "You've reached your own token limit. This is only a notice — the assistant keeps working. You can adjust the limit in Settings.",
   aiUsageSession: "Current session",
   aiUsageWeek: "Current week (all models)",
   aiUsageResetAt: "Resets {0}",

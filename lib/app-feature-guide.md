@@ -40,6 +40,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Attach documents (PDF, image, text) — they are read natively and records can be extracted from them.
 - Reads the live workspace via list tools for grounded answers.
 - AI: that's me — I can create/update/delete tasks, RAID items, change items, milestones, and stakeholders, and read everything else.
+- AI: usage limits are advisory and never block a message. If you hit Claude's own weekly or rate limit a notice is appended to this transcript and you can retry after it resets; if you hit your own token cap (set in Settings → AI) you get a notice too, but the assistant keeps working.
 
 ## Dashboard
 
@@ -126,6 +127,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Integrations panel holds storage, Turso, Microsoft 365, Timelog, and Jira together. Jira lives inside Integrations: its configuration fields appear only after the "Enable Jira sync" checkbox is ticked. Configure a primary Jira project (two-way sync) and optionally add extra projects to sync read-only (pull-only — edits never push back); each extra project has a per-project read-only toggle (default ON). The task Jira badge shows a padlock for read-only vs sync-arrows for two-way, and the task editor shows a read-only warning for watched projects.
 - A **guided backend setup wizard** (Settings → Integrations → "Run setup wizard") steps through Storage & connections (storage, Turso, M365, Timelog), AI, and Jira, then a Review step summarising what is configured. The same wizard is reachable from the new-project window. Steps are skippable, and the flat Integrations panel can be used to adjust any setting later.
 - AI: can explain where each setting lives and what it does; cannot open or run the setup wizard (it is a UI affordance only).
+- AI: your session and weekly token caps in Settings → AI are advisory notices you set yourself — reaching one shows a notice but never blocks a request; a token multiplier scales how usage is counted against those caps. Claude's own weekly/rate limit is separate: it shows a distinct notice and you retry after it resets.
 
 ## Budget
 

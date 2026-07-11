@@ -21,11 +21,22 @@ describe("useActionAnalysis", () => {
   });
 
   it("sets a status-only error on HTTP failure (no key or body leaked)", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 429, json: async () => ({}) } as unknown as Response);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false, status: 500, json: async () => ({}) } as unknown as Response);
     const { result } = renderHook(() => useActionAnalysis({ apiKey: "secret-key", model: "m" }));
     await act(async () => { await result.current.analyze("ctx"); });
-    expect(result.current.error).toBe("429");
+    expect(result.current.error).toBe("500");
     expect(result.current.error).not.toContain("secret-key");
+  });
+
+  it("classifies a 429 as the 'limit' token (Anthropic's own rate/usage limit)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: { type: "rate_limit_error" } }),
+    } as unknown as Response);
+    const { result } = renderHook(() => useActionAnalysis({ apiKey: "k", model: "m" }));
+    await act(async () => { await result.current.analyze("ctx"); });
+    expect(result.current.error).toBe("limit");
   });
 
   it("errors 'no-key' when apiKey is blank", async () => {

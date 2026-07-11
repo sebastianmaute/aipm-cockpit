@@ -38,6 +38,7 @@ interface NextActionsSectionProps {
 function suggestErrorKey(error: string): TranslationKey {
   if (error === "no-key") return "weightSuggestErrorKey";
   if (error === "parse") return "weightSuggestErrorParse";
+  if (error === "limit") return "aiUsageLimitReached";
   return "weightSuggestErrorNetwork"; // "network" or a digit-status
 }
 

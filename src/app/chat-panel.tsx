@@ -53,6 +53,7 @@ import {
   type ApiMessage,
   type DisplayItem,
 } from "./chat-api";
+import { AiHttpError, classifyAiError } from "./ai-errors";
 
 /** A staged upload: the Anthropic content block plus display metadata. */
 type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
@@ -475,6 +476,16 @@ function ChatPanelInner({
             ...prev,
             { kind: "assistant", text: t(lang, "chatStopped") },
           ]);
+        } else if (
+          err instanceof AiHttpError &&
+          classifyAiError(err.status, err.errorType) === "limit"
+        ) {
+          // Anthropic's own rate/usage limit. ADVISORY — APPEND a notice to the
+          // transcript (do NOT setError-replace or clear prior messages).
+          setDisplay((prev) => [
+            ...prev,
+            { kind: "notice", text: t(lang, "aiUsageLimitReached") },
+          ]);
         } else {
           const msg = err instanceof Error ? err.message : String(err);
           setError(t(lang, "chatError", msg));
@@ -706,6 +717,14 @@ function ChatPanelInner({
                     <div className="max-w-[85%] rounded-lg bg-surface px-3 py-2 text-sm text-foreground">
                       <Markdown text={item.text} />
                     </div>
+                  </div>
+                )}
+                {item.kind === "notice" && (
+                  <div
+                    role="status"
+                    className="rounded-md border border-AIPM-dark-blue/30 bg-AIPM-dark-blue/5 px-3 py-2 text-sm text-foreground"
+                  >
+                    {item.text}
                   </div>
                 )}
                 {item.kind === "tool" && (

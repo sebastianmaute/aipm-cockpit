@@ -1046,3 +1046,39 @@ describe("conversation persistence across navigation (in-memory per-project stor
     expect(screen.queryByText("from p1")).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Usage-limit notice (T1): a 429 (Anthropic's own rate/usage limit) must APPEND
+// a notice to the transcript and MUST NOT clear the prior messages.
+// ---------------------------------------------------------------------------
+describe("usage-limit notice", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("appends a notice on a 429 and keeps prior messages (does not clear the transcript)", async () => {
+    const rateLimitBody = { error: { type: "rate_limit_error", message: "SECRET-do-not-render" } };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: () => Promise.resolve(rateLimitBody),
+      text: () => Promise.resolve(JSON.stringify(rateLimitBody)),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // The advisory notice is appended to the transcript.
+    await screen.findByText(/Claude usage limit reached/i);
+    // The prior user message is STILL present — the transcript was not cleared.
+    expect(screen.getByText("list tasks")).toBeInTheDocument();
+    // Rendered as an in-transcript notice, not the error banner.
+    expect(screen.queryByRole("alert")).toBeNull();
+    // The response body's message text is never surfaced.
+    expect(screen.queryByText(/SECRET-do-not-render/)).toBeNull();
+    // Not blocked — the composer is usable again after the notice.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
+  });
+});

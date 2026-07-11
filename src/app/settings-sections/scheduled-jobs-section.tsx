@@ -158,7 +158,9 @@ function JobRow({
             {" — "}
             {lastRun.ok
               ? t(lang, "scheduledJobActionsN", String(lastRun.actionCount))
-              : t(lang, "scheduledJobFailed", lastRun.error ?? "")}
+              : lastRun.error === "limit"
+                ? t(lang, "aiUsageLimitReached")
+                : t(lang, "scheduledJobFailed", lastRun.error ?? "")}
           </span>
         ) : (
           <span>{t(lang, "scheduledJobNeverRun")}</span>
@@ -183,7 +185,9 @@ function JobRow({
                   {" — "}
                   {run.ok
                     ? t(lang, "scheduledJobActionsN", String(run.actionCount))
-                    : t(lang, "scheduledJobFailed", run.error ?? "")}
+                    : run.error === "limit"
+                      ? t(lang, "aiUsageLimitReached")
+                      : t(lang, "scheduledJobFailed", run.error ?? "")}
                 </li>
               ))}
             </ul>

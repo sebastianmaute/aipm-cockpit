@@ -3,9 +3,13 @@
 // i18n-free (per the repo's "engines live in plain modules; React surfaces import
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
+import { AiHttpError, safeAiErrorType } from "./ai-errors";
 import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
 import type { AttachmentBlock } from "./chat-attachments";
+
+// Re-export so chat consumers can catch the typed HTTP failure without a second import.
+export { AiHttpError } from "./ai-errors";
 
 export type TextBlock = { type: "text"; text: string };
 export type ToolUseBlock = {
@@ -31,6 +35,7 @@ export type ApiMessage =
 export type DisplayItem =
   | { kind: "user"; text: string }
   | { kind: "assistant"; text: string }
+  | { kind: "notice"; text: string }
   | {
       kind: "tool";
       name: string;
@@ -225,8 +230,15 @@ export async function callClaude(
     signal,
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status}: ${text.slice(0, 300)}`);
+    // Read ONLY the safe `error.type` token from the body — never the body's
+    // message text (security: nothing but status + type may be surfaced/logged).
+    let errorType: string | undefined;
+    try {
+      errorType = safeAiErrorType(await res.json());
+    } catch {
+      // Non-JSON / unreadable body — status alone is enough to classify.
+    }
+    throw new AiHttpError(res.status, errorType);
   }
   const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: ApiUsage };
   return {

@@ -126,11 +126,13 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
       </div>
       {aiAnalysis?.error && (
         <p role="alert" className="mb-3 text-sm text-AIPM-pink-strong">
-          {/^\d+$/.test(aiAnalysis.error)
-            ? t(lang, "actionAiErrorStatus", aiAnalysis.error)
-            : aiAnalysis.error === "network"
-              ? t(lang, "actionAiErrorNetwork")
-              : t(lang, "actionAiErrorGeneric")}
+          {aiAnalysis.error === "limit"
+            ? t(lang, "aiUsageLimitReached")
+            : /^\d+$/.test(aiAnalysis.error)
+              ? t(lang, "actionAiErrorStatus", aiAnalysis.error)
+              : aiAnalysis.error === "network"
+                ? t(lang, "actionAiErrorNetwork")
+                : t(lang, "actionAiErrorGeneric")}
         </p>
       )}
       {aiAnalysis?.result && (

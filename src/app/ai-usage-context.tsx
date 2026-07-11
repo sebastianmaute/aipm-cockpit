@@ -18,7 +18,7 @@ import {
   type Usage,
   type UsageBuckets,
 } from "./ai-usage";
-import { crossed80 } from "./usage-warning";
+import { crossed80, crossed100 } from "./usage-warning";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { AiConfig } from "./settings-types";
@@ -83,6 +83,9 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   // never trigger re-renders and are never reset within the provider lifetime
   // (session resets on page reload; week flag is accurate enough as a simple bool).
   const warnedRef = useRef({ session: false, week: false });
+  // Separate per-scope flags for the 100 % (own-cap-reached) notice, so it fires
+  // once independently of the 80 % warning.
+  const warned100Ref = useRef({ session: false, week: false });
 
   const sessionCap = ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
@@ -126,6 +129,16 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       if (!warnedRef.current.week && crossed80(prevWeek, nextWeek, weeklyCap)) {
         warnedRef.current.week = true;
         showToast("error", t(lang, "usage80Toast"));
+      }
+      // Crossing 100 % of a self-imposed cap: ADVISORY notice only — nothing is
+      // blocked, the assistant keeps working.
+      if (!warned100Ref.current.session && crossed100(prevSession, nextSession, sessionCap)) {
+        warned100Ref.current.session = true;
+        showToast("error", t(lang, "aiSelfLimitReached"));
+      }
+      if (!warned100Ref.current.week && crossed100(prevWeek, nextWeek, weeklyCap)) {
+        warned100Ref.current.week = true;
+        showToast("error", t(lang, "aiSelfLimitReached"));
       }
     },
     [lang, sessionCap, weeklyCap, multiplier, showToast],
