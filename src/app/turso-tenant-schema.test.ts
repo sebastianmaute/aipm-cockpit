@@ -105,6 +105,13 @@ describe("turso-tenant-schema", () => {
     expect(decoded.plan.currency).toBe("EUR");
   });
 
+  it("round-trips plan.budgetFollowsPlan === true through the tenant path", () => {
+    const ws = { ...emptyWorkspace(), plan: { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month" as const, currency: "EUR" as const, budgetFollowsPlan: true } };
+    const results = simulateSelect(tenantWorkspaceToStatements(ws, "p1"));
+    const decoded = rowsToWorkspace(results);
+    expect(decoded.plan.budgetFollowsPlan).toBe(true);
+  });
+
   it("round-trips per-project field_visibility and features through the tenant path", () => {
     const ws = {
       ...emptyWorkspace(),

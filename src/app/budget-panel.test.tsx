@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BudgetPanel } from "./budget-panel";
 import { t } from "./i18n";
-import type { BudgetBucket, Role, ResourcePlan } from "./types";
+import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
@@ -30,6 +30,16 @@ describe("BudgetPanel", () => {
     expect(screen.getByText("PAM")).toBeInTheDocument();
   });
 
+  test("budget: bucket period date header is not right-aligned", () => {
+    const oneMonthBuckets: BudgetBucket[] = [{
+      id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+    }];
+    render(<BudgetPanel {...props} buckets={oneMonthBuckets} />);
+    const th = screen.getByRole("columnheader", { name: /\d{4}-\d{2}/ });
+    expect(th.className).not.toMatch(/text-right/);
+  });
+
   const twoBuckets = (): BudgetBucket[] => [
     { ...buckets[0], id: 1, name: "PAM", order: 0 },
     {
@@ -47,6 +57,13 @@ describe("BudgetPanel", () => {
     const next = onChangeBuckets.mock.calls[0][0] as BudgetBucket[];
     expect(next.find((b) => b.name === "PAM")!.order).toBe(1);
     expect(next.find((b) => b.name === "DEV")!.order).toBe(0);
+  });
+
+  test("budget: toggling 'budget hours follow plan' calls the setter", () => {
+    const onSetBudgetFollowsPlan = vi.fn();
+    render(<BudgetPanel {...props} onSetBudgetFollowsPlan={onSetBudgetFollowsPlan} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: /budget hours follow plan/i }));
+    expect(onSetBudgetFollowsPlan).toHaveBeenCalledWith(true);
   });
 
   test("ArrowUp on the top bucket's handle is a no-op", () => {
@@ -88,6 +105,35 @@ test("filters the bucket role table by role name", () => {
   // Filtering to "Frontend" hides the Backend row.
   expect(screen.queryByText("Backend Senior")).not.toBeInTheDocument();
   expect(screen.getByText("Frontend Junior")).toBeInTheDocument();
+});
+
+test("budget: bucket-name search filters buckets", () => {
+  const twoNamed: BudgetBucket[] = [
+    { ...buckets[0], id: 1, name: "Alpha", order: 0 },
+    { ...buckets[0], id: 2, name: "Beta", order: 1 },
+  ];
+  render(<BudgetPanel {...props} buckets={twoNamed} />);
+  // Both buckets render before filtering.
+  expect(screen.getByText("Alpha")).toBeInTheDocument();
+  expect(screen.getByText("Beta")).toBeInTheDocument();
+  // The bucket filter box is distinct from the role filter (distinct accessible name).
+  const box = screen.getByLabelText(/filter buckets/i);
+  fireEvent.change(box, { target: { value: "alph" } });
+  expect(screen.getByText("Alpha")).toBeInTheDocument();
+  expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+});
+
+test("budget: bucket search with no matches shows a no-match line", () => {
+  const twoNamed: BudgetBucket[] = [
+    { ...buckets[0], id: 1, name: "Alpha", order: 0 },
+    { ...buckets[0], id: 2, name: "Beta", order: 1 },
+  ];
+  render(<BudgetPanel {...props} buckets={twoNamed} />);
+  const box = screen.getByLabelText(/filter buckets/i);
+  fireEvent.change(box, { target: { value: "zzz-no-such-bucket" } });
+  expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+  expect(screen.getByText(t("en-US", "reportsNoMatches"))).toBeInTheDocument();
 });
 
 test("renders InfoTooltip for CPI metric label by accessible name", () => {
@@ -158,6 +204,96 @@ describe("Cci primary prop", () => {
       // Currency amount big figure should NOT be just a percent string (it's a formatted number)
       expect(big?.textContent).not.toMatch(/^\s*\d+\.\d+%\s*$/);
     }
+  });
+});
+
+describe("budget: follow-plan mirror (Task 8)", () => {
+  // A resource with January capacity so allocationPlannedHours > 0.
+  const resourceWithCapacity: Resource = {
+    id: 7, firstName: "Cap", lastName: "Acity", roleId: 3,
+    utilizationMode: "percent", utilization: { "2026-01": 100 },
+  };
+  // One-month bucket → a single period column → getAllByLabelText(...)[0] is the cell.
+  const resourcedBucket = (): BudgetBucket[] => [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 3, resourceIds: [7], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+  }];
+  const unresourcedBucket = (): BudgetBucket[] => [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+  }];
+
+  test("mirror ON — resourced line's budget input is read-only and shows planned hours", () => {
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: true }}
+        buckets={resourcedBucket()}
+      />,
+    );
+    const budgetInput = screen.getAllByLabelText(/^budget-/)[0] as HTMLInputElement;
+    expect(budgetInput).toHaveAttribute("readonly");
+    // Must show the PLANNED value (Jan 2026 = 22 workdays × 8h = 176h at 100%),
+    // NOT the stored 100 — a broken mirror rendering 100 must fail here.
+    expect(budgetInput.value).not.toBe("100");
+    expect(Number(budgetInput.value)).toBeCloseTo(176, 5);
+  });
+
+  test("mirror ON — role line with NO assigned resource stays editable", () => {
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: true }}
+        buckets={unresourcedBucket()}
+      />,
+    );
+    expect(screen.getAllByLabelText(/^budget-/)[0]).not.toHaveAttribute("readonly");
+  });
+
+  test("mirror OFF — budget input editable (unchanged)", () => {
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: false }}
+        buckets={resourcedBucket()}
+      />,
+    );
+    expect(screen.getAllByLabelText(/^budget-/)[0]).not.toHaveAttribute("readonly");
+  });
+
+  test("mirror ON — actual input stays editable", () => {
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: true }}
+        buckets={resourcedBucket()}
+      />,
+    );
+    expect(screen.getAllByLabelText(/^actual-/)[0]).not.toHaveAttribute("readonly");
+  });
+
+  test("mirror ON — row RAG follows planned, not the stored 0 budget", () => {
+    // Stored budget is 0 (planning drives it). Without routing the row total
+    // through the mirror, the badge would be ratioHealth(80, 0) → null → "—";
+    // with planned (176) mirrored in it must be a real RAG band.
+    const zeroBudgetBucket: BudgetBucket[] = [{
+      id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 3, resourceIds: [7], budgetHours: { "2026-01": 0 }, actualHours: { "2026-01": 80 } }],
+    }];
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: true }}
+        buckets={zeroBudgetBucket}
+      />,
+    );
+    const rowStatus = screen.getByLabelText(t("en-US", "budgetRoleStatus"));
+    expect(rowStatus.textContent).not.toBe("—");
   });
 });
 

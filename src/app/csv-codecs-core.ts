@@ -615,7 +615,9 @@ export function refsToCsv(rs: readonly { id: number; name: string; localModified
 }
 
 export function planToCsvLine(p: ResourcePlan): string {
-  return [CSV_SECTION_PLAN, [p.startDate, p.endDate, p.granularity, p.currency].map(csvEscape).join(",")].join("\r\n");
+  const cells = [p.startDate, p.endDate, p.granularity, p.currency];
+  if (p.budgetFollowsPlan) cells.push("true");
+  return [CSV_SECTION_PLAN, cells.map(csvEscape).join(",")].join("\r\n");
 }
 
 // Section markers used by `workspaceToCsv` / `csvToWorkspace`. The hash

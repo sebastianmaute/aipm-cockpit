@@ -294,7 +294,7 @@ function parsePlanLine(line: string): ResourcePlan | null {
   const cells = parseCsv(line)[0];
   if (!cells || cells.length < 4) return null;
   const today = new Date().toISOString().slice(0, 10);
-  return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3] }, today);
+  return sanitizePlan({ startDate: cells[0], endDate: cells[1], granularity: cells[2], currency: cells[3], budgetFollowsPlan: cells[4] }, today);
 }
 
 /**

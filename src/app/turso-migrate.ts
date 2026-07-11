@@ -17,7 +17,7 @@
 // results. The backend (turso-backend.ts) runs the resulting statements.
 
 import {
-  ENTITY_SPECS, type SqlStmt, type PipelineResultLike,
+  ENTITY_SPECS, PLAN_COLUMNS, type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
 
 /** Column added to every workspace table in multi-tenant mode (see
@@ -30,22 +30,28 @@ export interface TableColumns {
   columns: readonly string[];
 }
 
-/** Entity tables only (NOT plan/fx_rates/meta — those have stable column sets
- *  and the singleton/meta rows are re-written wholesale). The column-ensure
- *  fix targets the entity tables, whose column sets grow as features are added. */
+/** Entity tables only (NOT fx_rates/meta — those have stable column sets and
+ *  the singleton/meta rows are re-written wholesale). The column-ensure fix
+ *  targets tables whose column sets grow as features are added.
+ *
+ *  NOTE: `plan` is NOT stable — a TEXT column (e.g. `budgetFollowsPlan`) was
+ *  added to PLAN_COLUMNS + both plan INSERTs, so an existing DB's 4-column plan
+ *  table must self-heal too. It is included separately (via PLAN_COLUMNS) in the
+ *  single-tenant/tenant spec builders below, since it is not an ENTITY_SPEC. */
 function entityTableColumns(): TableColumns[] {
   return ENTITY_SPECS.map((s) => ({ table: s.table, columns: s.columns }));
 }
 
-/** Single-tenant expected columns: each ENTITY_SPEC's own columns. */
+/** Single-tenant expected columns: each ENTITY_SPEC's own columns, plus the
+ *  `plan` singleton table's columns (all TEXT — safe to ALTER-add). */
 export function singleTenantTableColumns(): TableColumns[] {
-  return entityTableColumns();
+  return [...entityTableColumns(), { table: "plan", columns: PLAN_COLUMNS }];
 }
 
-/** Multi-tenant expected columns: the entity columns PLUS the `project_id`
- *  column the tenant DDL appends to every workspace table. */
+/** Multi-tenant expected columns: the entity + plan columns PLUS the
+ *  `project_id` column the tenant DDL appends to every workspace table. */
 export function tenantTableColumns(): TableColumns[] {
-  return entityTableColumns().map((t) => ({
+  return singleTenantTableColumns().map((t) => ({
     table: t.table,
     columns: [...t.columns, TENANT_PROJECT_ID_COLUMN],
   }));

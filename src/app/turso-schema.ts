@@ -68,7 +68,7 @@ export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Stakeholder>({ table: "stakeholders", wsKey: "stakeholders", columns: STAKEHOLDERS_CSV_COLUMNS, get: (w) => w.stakeholders ?? [], toRow: stakeholderFieldToString as unknown as (e: Stakeholder, col: string) => string, fromObj: buildStakeholderFromObj }),
 ] as unknown as EntitySpec<unknown>[];
 
-export const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency"] as const;
+export const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency", "budgetFollowsPlan"] as const;
 export const FX_COLUMNS = ["base", "date", "fetchedAt", "rates"] as const;
 
 export function colDdl(columns: readonly string[]): string {
@@ -235,7 +235,7 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
   }
   if (isDirty("plan")) {
     const p = ws.plan;
-    out.push(insertStmt("plan", ["id", ...PLAN_COLUMNS], ["1", p.startDate, p.endDate, p.granularity, p.currency]));
+    out.push(insertStmt("plan", ["id", ...PLAN_COLUMNS], ["1", p.startDate, p.endDate, p.granularity, p.currency, p.budgetFollowsPlan ? "true" : ""]));
   }
   if (ws.fxRates && isDirty("fx_rates")) {
     const fx = ws.fxRates;

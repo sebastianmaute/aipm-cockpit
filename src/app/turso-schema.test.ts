@@ -49,6 +49,13 @@ describe("rowsToWorkspace", () => {
     expect(out.plan).toBeTruthy();
   });
 
+  it("round-trips plan.budgetFollowsPlan === true", () => {
+    const base = emptyWorkspace();
+    const ws = { ...base, plan: { ...base.plan, budgetFollowsPlan: true } };
+    const out = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
+    expect(out.plan.budgetFollowsPlan).toBe(true);
+  });
+
   it("empty results → emptyWorkspace", () => {
     const empties: PipelineResultLike[] = selectStatements().map(() => ({ type: "ok", response: { type: "execute", result: { cols: [], rows: [] } } }));
     const out = rowsToWorkspace(empties);

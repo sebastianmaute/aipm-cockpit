@@ -2,7 +2,8 @@
 import { useMemo, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
-import { computeBudgetReport, bucketActivePeriods, type BucketReport, type CciValue } from "./budget-report";
+import { computeBudgetReport, bucketActivePeriods, effectiveBudgetHours, type BucketReport, type CciValue } from "./budget-report";
+import type { Period } from "./resource-capacity";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
@@ -49,7 +50,7 @@ function filterSortAllocations<T>(
 }
 
 function HoursCell({
-  ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang,
+  ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang, readOnly,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
@@ -59,6 +60,10 @@ function HoursCell({
   budgetHint: string;
   actualHint: string;
   lang: Lang;
+  // When true, the budget input mirrors the live planned hours and is not
+  // editable (the 'budget hours follow plan' toggle). The actual input is
+  // always editable regardless.
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -71,8 +76,9 @@ function HoursCell({
           aria-label={`budget-${ariaPrefix}`}
           type="number"
           value={budget ?? ""}
-          onChange={(e) => onBudget(Number(e.target.value) || 0)}
-          className={`w-16 rounded border border-line bg-surface px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+          readOnly={readOnly}
+          onChange={readOnly ? undefined : (e) => onBudget(Number(e.target.value) || 0)}
+          className={`w-16 rounded border border-line ${readOnly ? "bg-surface-muted text-muted-foreground" : "bg-surface"} px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
         />
       </div>
       <div className="flex items-center gap-1">
@@ -96,7 +102,7 @@ function HoursCell({
 // A period `<td>` wrapping a HoursCell — shared by the role rows and the
 // discipline (blended) rows, which differ only in ariaPrefix + the setter.
 function HoursTd({
-  ariaPrefix, budget, actual, onBudget, onActual, lang,
+  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
@@ -104,6 +110,7 @@ function HoursTd({
   onBudget: (v: number) => void;
   onActual: (v: number) => void;
   lang: Lang;
+  readOnly?: boolean;
 }) {
   return (
     <td className="px-1 py-1">
@@ -116,6 +123,7 @@ function HoursTd({
         budgetHint={t(lang, "budgetBudgetHoursHint")}
         actualHint={t(lang, "budgetActualHoursHint")}
         lang={lang}
+        readOnly={readOnly}
       />
     </td>
   );
@@ -135,6 +143,7 @@ export interface BudgetPanelProps {
   workdayHours: number;
   today: string;
   onChangeBuckets: (next: BudgetBucket[]) => void;
+  onSetBudgetFollowsPlan?: (v: boolean) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
   showHints?: boolean;
@@ -174,7 +183,7 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
 
@@ -185,6 +194,22 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const projCur = plan.currency || "EUR"; // project rollup is in the plan base currency (EUR)
+
+  // "Budget hours follow plan": when on, a resourced allocation's budget input
+  // mirrors the live planned hours and becomes read-only. Scalars hoisted for
+  // exhaustive-deps (no obj.member in dep arrays).
+  const budgetFollowsPlan = plan.budgetFollowsPlan ?? false;
+  const granularity = plan.granularity;
+  // The budget value a cell shows — the SAME `effectiveBudgetHours` the report
+  // aggregates through, so the cell and every bucket/CCI/RAG figure agree. When
+  // the plan's budget follows planning AND the row is resourced it mirrors the
+  // live planned capacity; otherwise it is the stored budgetHours entry.
+  const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
+  const cellBudget = (
+    alloc: { resourceIds: readonly number[]; budgetHours: Record<string, number> },
+    period: Period, periods: readonly Period[],
+  ): number =>
+    effectiveBudgetHours(alloc, period, periods, resources, workdayHours, holidaySet, granularity, absences, budgetFollowsPlan, resourcesById);
 
   const { colWidths, startColResize, resetColWidths } = useColumnResize<BudgetCol>(
     "budget",
@@ -197,7 +222,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const [dragId, setDragId] = useState<number | null>(null);
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);
   const [roleFilter, setRoleFilter] = useState("");
+  const [bucketFilter, setBucketFilter] = useState("");
   const [roleSort, setRoleSort] = useState<SortDir>("off");
+
+  const bucketQuery = bucketFilter.trim().toLowerCase();
+  const visibleBuckets = bucketQuery
+    ? report.buckets.filter((b) => b.name.toLowerCase().includes(bucketQuery))
+    : report.buckets;
 
   const stamp = () => new Date().toISOString();
 
@@ -302,6 +333,22 @@ export function BudgetPanel(props: BudgetPanelProps) {
           </span>
         </h2>
         <div className="flex items-center gap-2">
+          {!isPopout && onSetBudgetFollowsPlan ? (
+            // The InfoTooltip sits OUTSIDE the <label> so its hint text does not
+            // bleed into the checkbox's name-from-content accessible name.
+            <div className="flex items-center gap-1.5 text-sm print:hidden">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={plan.budgetFollowsPlan ?? false}
+                  onChange={(e) => onSetBudgetFollowsPlan(e.target.checked)}
+                  className={`${FOCUS_RING} ${TRANSITION}`}
+                />
+                <span>{t(lang, "budgetFollowsPlan")}</span>
+              </label>
+              <InfoTooltip text={t(lang, "budgetFollowsPlanHint")} />
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={addBucket}
@@ -338,9 +385,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
       <section className="flex flex-col gap-3">
         {report.buckets.length > 0 && (
-          <TableFilter lang={lang} value={roleFilter} onChange={setRoleFilter} placeholderKey="budgetRoleFilter" />
+          <div className="flex flex-wrap items-center gap-2">
+            <TableFilter lang={lang} value={roleFilter} onChange={setRoleFilter} placeholderKey="budgetRoleFilter" />
+            <TableFilter lang={lang} value={bucketFilter} onChange={setBucketFilter} placeholderKey="budgetReportFilterBucket" />
+          </div>
         )}
-        {report.buckets.map((br: BucketReport) => {
+        {visibleBuckets.map((br: BucketReport) => {
           const bucket = bucketById.get(br.bucketId)!;
           const isBlended = bucket.planningMode === "blended";
           const rate = resolveRate(bucket, fxRates);
@@ -439,7 +489,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       {periods.map((p) => (
                         <th
                           key={p.key}
-                          className="relative px-1 py-1 text-right"
+                          className="relative px-1 py-1"
                           style={{ width: colWidths.period, minWidth: colWidths.period }}
                         >
                           {p.key}
@@ -450,8 +500,11 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </thead>
                   <tbody>
                     {!isBlended && detailedRows.map((a) => {
-                      const totBudget = sumPeriods(a.budgetHours, periods);
+                      // Effective budget (mirrors planned when follow-plan is on) so the
+                      // row RAG agrees with the cells + bucket dot — not the stored hours.
+                      const totBudget = periods.reduce((s, p) => s + cellBudget(a, p, periods), 0);
                       const totActual = sumPeriods(a.actualHours, periods);
+                      const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       return (
                       <tr key={a.roleId} className="border-t border-line">
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
@@ -460,8 +513,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           <HoursTd
                             key={p.key}
                             ariaPrefix={`${bucket.id}-${a.roleId}-${p.key}`}
-                            budget={a.budgetHours[p.key]}
+                            budget={cellBudget(a, p, periods)}
                             actual={a.actualHours[p.key]}
+                            readOnly={mirror}
                             onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
                             onActual={(v) => setCell(bucket.id, a.roleId, p.key, "actualHours", v)}
                             lang={lang}
@@ -471,8 +525,14 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       );
                     })}
                     {isBlended && blendedRows.map((a) => {
-                      const totBudget = sumPeriods(a.budgetHours, periods);
+                      // Effective budget (mirrors planned when follow-plan is on) so the
+                      // row RAG agrees with the cells + bucket dot — not the stored hours.
+                      const totBudget = periods.reduce((s, p) => s + cellBudget(a, p, periods), 0);
                       const totActual = sumPeriods(a.actualHours, periods);
+                      // Each blended row IS one disciplineAllocation carrying its own
+                      // resourceIds, and allocationPlannedHours already sums over them —
+                      // so the mirror rule is identical to the role rows.
+                      const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       return (
                       <tr key={a.disciplineId} className="border-t border-line">
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
@@ -481,8 +541,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                           <HoursTd
                             key={p.key}
                             ariaPrefix={`${bucket.id}-d${a.disciplineId}-${p.key}`}
-                            budget={a.budgetHours[p.key]}
+                            budget={cellBudget(a, p, periods)}
                             actual={a.actualHours[p.key]}
+                            readOnly={mirror}
                             onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
                             onActual={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "actualHours", v)}
                             lang={lang}
@@ -523,6 +584,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
             </div>
           );
         })}
+        {bucketQuery && visibleBuckets.length === 0 && (
+          <p className="text-sm text-muted-foreground">{t(lang, "reportsNoMatches")}</p>
+        )}
         {report.buckets.length === 0 && (
           <button
             type="button"

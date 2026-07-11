@@ -8,7 +8,7 @@ import {
   tenantTableColumns,
   type TableColumns,
 } from "./turso-migrate";
-import { ENTITY_SPECS, type PipelineResultLike } from "./turso-schema";
+import { ENTITY_SPECS, PLAN_COLUMNS, type PipelineResultLike } from "./turso-schema";
 
 /** Build a realistic PRAGMA table_info result: rows of (cid,name,type,notnull,dflt_value,pk). */
 function pragmaResult(columnNames: string[]): PipelineResultLike {
@@ -160,20 +160,67 @@ describe("buildColumnEnsureAlters", () => {
 });
 
 describe("column-set sources", () => {
-  it("singleTenantTableColumns mirrors ENTITY_SPECS tables + columns", () => {
+  it("singleTenantTableColumns mirrors ENTITY_SPECS tables + columns, plus the plan table", () => {
     const cols = singleTenantTableColumns();
-    expect(cols.map((c) => c.table)).toEqual(ENTITY_SPECS.map((s) => s.table));
+    expect(cols.map((c) => c.table)).toEqual([...ENTITY_SPECS.map((s) => s.table), "plan"]);
     const milestones = cols.find((c) => c.table === "milestones");
     expect(milestones?.columns).toContain("outlookEventId");
     expect(milestones?.columns).not.toContain("project_id");
   });
 
-  it("tenantTableColumns appends project_id to every entity table", () => {
+  it("tenantTableColumns appends project_id to every entity table, plus the plan table", () => {
     const cols = tenantTableColumns();
-    expect(cols.map((c) => c.table)).toEqual(ENTITY_SPECS.map((s) => s.table));
+    expect(cols.map((c) => c.table)).toEqual([...ENTITY_SPECS.map((s) => s.table), "plan"]);
     expect(cols.every((c) => c.columns.includes("project_id"))).toBe(true);
     const milestones = cols.find((c) => c.table === "milestones");
     expect(milestones?.columns).toContain("outlookEventId");
     expect(milestones?.columns).toContain("project_id");
+  });
+});
+
+// Regression: a new TEXT column (budgetFollowsPlan) was added to PLAN_COLUMNS +
+// both plan INSERTs. The plan table must be part of the column-ensure spec so an
+// EXISTING Turso DB (created before the column) self-heals via ALTER TABLE — else
+// the next named-column INSERT throws "table plan has no column named …" and every
+// workspace save fails. fx_rates/meta stay excluded (their column sets are stable).
+describe("plan table self-heal (budgetFollowsPlan)", () => {
+  // The pre-change plan table: single-tenant carries `id`, tenant carries `project_id`.
+  const LEGACY_PLAN = ["startDate", "endDate", "granularity", "currency"];
+  const hasPlanBudgetFollowsPlanAlter = (alters: { sql: string }[]): boolean =>
+    alters.some((a) => /ALTER TABLE .*plan.* ADD COLUMN .*budgetFollowsPlan.* TEXT/i.test(a.sql));
+
+  it("single-tenant spec includes the plan table carrying budgetFollowsPlan", () => {
+    const plan = singleTenantTableColumns().find((c) => c.table === "plan");
+    expect(plan?.columns).toContain("budgetFollowsPlan");
+  });
+
+  it("tenant spec includes the plan table carrying budgetFollowsPlan + project_id", () => {
+    const plan = tenantTableColumns().find((c) => c.table === "plan");
+    expect(plan?.columns).toContain("budgetFollowsPlan");
+    expect(plan?.columns).toContain("project_id");
+  });
+
+  it("self-heals an existing plan table missing budgetFollowsPlan (single-tenant)", () => {
+    const specs = singleTenantTableColumns();
+    const results = specs.map((s) =>
+      s.table === "plan" ? pragmaResult(["id", ...LEGACY_PLAN]) : pragmaResult([...s.columns]),
+    );
+    expect(hasPlanBudgetFollowsPlanAlter(buildColumnEnsureAlters(specs, results))).toBe(true);
+  });
+
+  it("self-heals an existing plan table missing budgetFollowsPlan (tenant)", () => {
+    const specs = tenantTableColumns();
+    const results = specs.map((s) =>
+      s.table === "plan" ? pragmaResult([...LEGACY_PLAN, "project_id"]) : pragmaResult([...s.columns]),
+    );
+    expect(hasPlanBudgetFollowsPlanAlter(buildColumnEnsureAlters(specs, results))).toBe(true);
+  });
+
+  it("emits NO plan ALTER for an up-to-date plan table (single-tenant)", () => {
+    const specs = singleTenantTableColumns();
+    const results = specs.map((s) =>
+      s.table === "plan" ? pragmaResult(["id", ...PLAN_COLUMNS]) : pragmaResult([...s.columns]),
+    );
+    expect(hasPlanBudgetFollowsPlanAlter(buildColumnEnsureAlters(specs, results))).toBe(false);
   });
 });

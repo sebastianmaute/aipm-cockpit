@@ -148,6 +148,7 @@ export interface WorkspaceSectionProps {
   onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
   onSetAbsenceOverride: (resourceId: number, periodKey: string, hours: number | null) => void;
   onSetPlanWindow: (startDate: string, endDate: string) => void;
+  onSetBudgetFollowsPlan: (v: boolean) => void;
   onEditResource: (resource: Resource) => void;
   /** Bulk-apply a patch to the selected resources (omitted in read-only popouts). */
   onBulkEditResources?: (ids: readonly number[], patch: Partial<Resource>) => void;

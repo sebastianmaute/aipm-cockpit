@@ -166,6 +166,20 @@ describe("sanitizePlan", () => {
     expect(p.granularity).toBe("week");   // granularity/currency still honored
     expect(p.currency).toBe("GBP");
   });
+  it("keeps budgetFollowsPlan when true (boolean)", () => {
+    const p = sanitizePlan({ startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month", currency: "EUR", budgetFollowsPlan: true }, "2026-01-01");
+    expect(p.budgetFollowsPlan).toBe(true);
+  });
+  it('coerces the string "true" from CSV/MD/Turso to boolean true', () => {
+    const p = sanitizePlan({ startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month", currency: "EUR", budgetFollowsPlan: "true" }, "2026-01-01");
+    expect(p.budgetFollowsPlan).toBe(true);
+  });
+  it("omits budgetFollowsPlan when absent or falsy (no false key)", () => {
+    const p = sanitizePlan({ startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month", currency: "EUR" }, "2026-01-01");
+    expect("budgetFollowsPlan" in p).toBe(false);
+    const p2 = sanitizePlan({ startDate: "2026-01-01", endDate: "2026-06-30", granularity: "month", currency: "EUR", budgetFollowsPlan: "nope" }, "2026-01-01");
+    expect("budgetFollowsPlan" in p2).toBe(false);
+  });
 });
 
 describe("sanitizeRole / sanitizeDiscipline / sanitizeGrade", () => {
