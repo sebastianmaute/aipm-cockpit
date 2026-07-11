@@ -41,7 +41,7 @@ import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
-import { mintId } from "./id-mint-session";
+import { mintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -860,6 +860,11 @@ function TaskManagerInner() {
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks);
+    // Version restore replaces the SAME project's data — RAISE the id-minter
+    // high-water (never lower it) so an id freed by restoring an older (smaller)
+    // snapshot can't be reused this session. Side-effecting; runs on restore
+    // (callback), not during render.
+    seedMintFromWorkspace(w, "raise");
   }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a

@@ -146,6 +146,23 @@ describe("seedMintFromWorkspace", () => {
     // ws.tasks max is 7; the prior mark (500) must survive.
     expect(mintId("task", [])).toBe(501);
   });
+
+  it("reset-then-raise-reload never frees a deleted max id (load→delete→reload wiring)", () => {
+    // Initial load: RESET to the loaded max (100).
+    seedMintFromWorkspace(
+      { tasks: [{ id: 1 }, { id: 100 }] } as unknown as Parameters<typeof seedMintFromWorkspace>[0],
+      "reset",
+    );
+    expect(mintId("task", [{ id: 1 }, { id: 100 }])).toBe(101);
+    // User deletes task 100; a same-project RELOAD reflects the shrunk set (max
+    // 99). RAISE must keep the mark at 101's precursor — the freed id 100 is
+    // never handed out again.
+    seedMintFromWorkspace(
+      { tasks: [{ id: 1 }, { id: 99 }] } as unknown as Parameters<typeof seedMintFromWorkspace>[0],
+      "raise",
+    );
+    expect(mintId("task", [{ id: 1 }, { id: 99 }])).toBeGreaterThanOrEqual(101);
+  });
 });
 
 describe("__resetMintStateForTests", () => {

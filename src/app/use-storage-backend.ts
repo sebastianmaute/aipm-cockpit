@@ -19,6 +19,7 @@ import {
 import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
+import { seedMintFromWorkspace } from "./id-mint-session";
 import { saveRegistry, type ProjectsRegistry } from "./projects-registry";
 import { saveHandle } from "./project-file-handles";
 import { getTursoConfig } from "./turso-config";
@@ -149,7 +150,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // Fan a loaded workspace into every setter. Shared by the load effect and the
   // project switch / create / load-from-file flows so they apply data the same
   // way. No side-effects beyond the setState calls.
-  const applyWorkspace = (workspace: Workspace) => {
+  const applyWorkspace = (workspace: Workspace, seedMode: "reset" | "raise" = "reset") => {
     setTasks(workspace.tasks ?? []);
     setRaid(workspace.raid ?? []);
     setAbsences(workspace.absences ?? []);
@@ -170,6 +171,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setStakeholders(workspace.stakeholders ?? []);
     setSteeringCommittee(workspace.steeringCommittee);
     setTimelogLinks(workspace.timelogLinks);
+    // Seed the session id-minter's high-water from the loaded set so the next
+    // mint after a delete can never reuse a just-freed id. RESET (default) for a
+    // possibly-DIFFERENT loaded workspace — initial load / project switch /
+    // create / load-from-file (file + Turso ops), each owning its own id space.
+    // reloadCurrentProject passes "raise" so a SAME-project refresh reflecting a
+    // locally-deleted max-id row never LOWERS the mark (which would free that id).
+    // Side-effecting (mutates module state) — safe here inside the load callback,
+    // never a render body.
+    seedMintFromWorkspace(workspace, seedMode);
   };
 
   const refreshBackendStatus = async () => {
@@ -619,7 +629,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           return;
         }
       }
-      applyWorkspace(workspace);
+      // RAISE (not reset): this same-project reload may reflect a locally-deleted
+      // max-id row; lowering the mark to the reloaded max would free that id.
+      applyWorkspace(workspace, "raise");
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
       args.onStorageOutcome?.(null);
