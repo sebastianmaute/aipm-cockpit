@@ -182,3 +182,40 @@ export function splitName(name: string): { firstName: string; lastName: string }
 export function resourceDisplayName(r: Pick<Resource, "firstName" | "lastName">): string {
   return `${r.firstName} ${r.lastName}`.trim();
 }
+
+/** True when a `resourceId` resolves to a live directory resource (i.e. it is
+ *  linked, not free-text and not a dangling id). */
+export function isResourceLinked(
+  resourceId: number | null | undefined,
+  resourcesById: ReadonlyMap<number, unknown>,
+): boolean {
+  return resourceId != null && resourcesById.has(resourceId);
+}
+
+/**
+ * The name to DISPLAY for a person reference that carries both an FK id AND a
+ * cached name string (task `assignee`/`resourceId`, RAID `owner`/
+ * `ownerResourceId`, absence `assignee`/`resourceId`). When the id resolves to
+ * a live directory resource, that resource's CURRENT name wins — the stored
+ * string is only a cache and can go stale after a rename/re-link. Falls back to
+ * the cached string when unlinked or dangling. Mirrors ResourcePicker's
+ * `linked ? resourceDisplayName(linked) : value.name`, so every surface shows
+ * the same live name the editor does.
+ */
+export function effectivePersonName(
+  cachedName: string,
+  resourceId: number | null | undefined,
+  resourcesById: ReadonlyMap<number, Pick<Resource, "firstName" | "lastName">>,
+): string {
+  const r = resourceId != null ? resourcesById.get(resourceId) : undefined;
+  return r ? resourceDisplayName(r) : cachedName;
+}
+
+/** Convenience wrapper of {@link effectivePersonName} for a task/absence-shaped
+ *  reference (`{ assignee, resourceId }`). */
+export function effectiveAssignee(
+  ref: { assignee: string; resourceId?: number | null },
+  resourcesById: ReadonlyMap<number, Pick<Resource, "firstName" | "lastName">>,
+): string {
+  return effectivePersonName(ref.assignee, ref.resourceId, resourcesById);
+}
