@@ -27,4 +27,13 @@ describe("plan codec round-trip: budgetFollowsPlan", () => {
     const md = workspaceToMarkdown(wsWith(false));
     expect("budgetFollowsPlan" in markdownToWorkspace(md).plan).toBe(false);
   });
+  it("CSV: a hand-authored empty 5th cell decodes to no key (not true)", () => {
+    // A file authored with a trailing comma → cells[4] === "" must coerce to
+    // false, never truthy.
+    const csv = workspaceToCsv(wsWith(false)).replace(
+      /2026-01-01,2026-06-30,month,EUR(\r?\n)/,
+      "2026-01-01,2026-06-30,month,EUR,$1",
+    );
+    expect("budgetFollowsPlan" in csvToWorkspace(csv).plan).toBe(false);
+  });
 });

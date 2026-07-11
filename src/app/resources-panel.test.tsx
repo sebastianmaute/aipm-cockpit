@@ -99,7 +99,11 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
-    expect(screen.getByText("%")).toBeInTheDocument();
+    // Scope to the utilization input's wrapper so a bare "%"/"h" elsewhere in the
+    // view can't satisfy (or break) the assertion.
+    const util = screen.getByLabelText("Utilization for Sample in 2026-02");
+    expect(util.parentElement).toHaveTextContent("%");
+    expect(util.parentElement).not.toHaveTextContent("h");
   });
 
   test("planning: utilization box shows h suffix in hours mode", () => {
@@ -108,7 +112,9 @@ describe("ResourcesPanel", () => {
     render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
       workdayHours={8} onSetUtilization={() => {}}
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
-    expect(screen.getByText("h")).toBeInTheDocument();
+    const util = screen.getByLabelText("Utilization for Sample in 2026-02");
+    expect(util.parentElement).toHaveTextContent("h");
+    expect(util.parentElement).not.toHaveTextContent("%");
   });
 
   test("planning view: changing the From date calls onSetPlanWindow", () => {

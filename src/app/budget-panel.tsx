@@ -204,11 +204,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
   // aggregates through, so the cell and every bucket/CCI/RAG figure agree. When
   // the plan's budget follows planning AND the row is resourced it mirrors the
   // live planned capacity; otherwise it is the stored budgetHours entry.
+  const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
   const cellBudget = (
     alloc: { resourceIds: readonly number[]; budgetHours: Record<string, number> },
     period: Period, periods: readonly Period[],
   ): number =>
-    effectiveBudgetHours(alloc, period, periods, resources, workdayHours, holidaySet, granularity, absences, budgetFollowsPlan);
+    effectiveBudgetHours(alloc, period, periods, resources, workdayHours, holidaySet, granularity, absences, budgetFollowsPlan, resourcesById);
 
   const { colWidths, startColResize, resetColWidths } = useColumnResize<BudgetCol>(
     "budget",

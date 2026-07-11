@@ -24,11 +24,15 @@ export function allocationPlannedHours(
   holidaySet: ReadonlySet<string>,
   granularity: PlanGranularity,
   absences: readonly Absence[] = [],
+  // Optional pre-built id→resource index. Pass it when calling per allocation×
+  // period (the report loop, the budget cell) to avoid rebuilding the map on
+  // every call; omitted, it is built from `resources` (back-compat default).
+  byId?: ReadonlyMap<number, Resource>,
 ): number {
-  const byId = new Map(resources.map((r) => [r.id, r]));
+  const idx = byId ?? new Map(resources.map((r) => [r.id, r]));
   let sum = 0;
   for (const rid of alloc.resourceIds) {
-    const r = byId.get(rid);
+    const r = idx.get(rid);
     if (!r) continue;
     // External resources are planned/capacity-tracked elsewhere but excluded
     // from all budget figures — including the budget report's planned hours.
@@ -55,9 +59,10 @@ export function effectiveBudgetHours(
   granularity: PlanGranularity,
   absences: readonly Absence[],
   budgetFollowsPlan: boolean,
+  byId?: ReadonlyMap<number, Resource>,
 ): number {
   if (budgetFollowsPlan && alloc.resourceIds.length > 0) {
-    return allocationPlannedHours(alloc, period, canonicalPeriods, resources, workdayHours, holidaySet, granularity, absences);
+    return allocationPlannedHours(alloc, period, canonicalPeriods, resources, workdayHours, holidaySet, granularity, absences, byId);
   }
   return alloc.budgetHours[period.key] ?? 0;
 }
@@ -171,14 +176,17 @@ export function computeBucketReport(
   // RAG, win/loss and the project rollup all follow planned too. Off, or a
   // resource-less row → the stored budgetHours map, as before.
   const budgetFollowsPlan = plan.budgetFollowsPlan ?? false;
+  // Built once and threaded into the per-row×period planned/budget helpers so
+  // they don't rebuild the id→resource index on every cell.
+  const resourcesById = new Map(resources.map((r) => [r.id, r]));
   const rows = bucketRateRows(bucket, roles);
   for (const row of rows) {
     const { internal, external } = row.rates;
     let aBudget = 0;
     const aActual = sumPeriodMap(row.actualHours, keys);
     for (const p of periods) {
-      aBudget += effectiveBudgetHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan);
-      plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences);
+      aBudget += effectiveBudgetHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById);
+      plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, resourcesById);
     }
     budgetHours += aBudget;
     actualHours += aActual;
