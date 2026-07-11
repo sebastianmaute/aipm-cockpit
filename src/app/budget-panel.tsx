@@ -9,6 +9,7 @@ import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
+import { mintId } from "./id-mint-session";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -172,7 +173,7 @@ function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amoun
 }
 
 function nextBucketId(buckets: readonly BudgetBucket[]): number {
-  return buckets.reduce((m, b) => Math.max(m, b.id), 0) + 1;
+  return mintId("budgetBucket", buckets);
 }
 
 function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {

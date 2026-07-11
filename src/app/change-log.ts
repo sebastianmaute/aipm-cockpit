@@ -1,5 +1,6 @@
 // Pure helpers for the Change-control Log. No React, no DOM. Sibling to raid.ts.
 import type { Health } from "./health";
+import { mintId } from "./id-mint-session";
 import { severityRag } from "./raid";
 import {
   CHANGE_STATUSES, CHANGE_TYPES,
@@ -24,11 +25,9 @@ export function changeImpactRag(impact: ChangeImpact | undefined): Health {
   return severityRag(impact);
 }
 
-/** Next id — monotonic, separate from task/raid ids. */
+/** Next id — routes through the session-scoped minter (no id reuse per session). */
 export function nextChangeId(items: readonly ChangeItem[]): number {
-  let max = 0;
-  for (const i of items) if (i.id > max) max = i.id;
-  return max + 1;
+  return mintId("change", items);
 }
 
 export function countByType(items: readonly ChangeItem[]): Record<ChangeType, number> {

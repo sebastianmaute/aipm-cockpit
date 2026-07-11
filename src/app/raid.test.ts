@@ -1,4 +1,5 @@
-import { describe, it, expect, test } from "vitest";
+import { describe, it, expect, test, beforeEach } from "vitest";
+import { __resetMintStateForTests } from "./id-mint-session";
 import {
   riskSeverityFromMatrix,
   statusOptionsFor,
@@ -352,8 +353,22 @@ describe("countByCategory", () => {
 // nextRaidId
 // ---------------------------------------------------------------------------
 describe("nextRaidId", () => {
+  beforeEach(__resetMintStateForTests);
+
   it("returns 1 for an empty list", () => {
     expect(nextRaidId([])).toBe(1);
+  });
+
+  it("never reuses a deleted id within the session", () => {
+    const three = [
+      makeItem({ id: 1, category: "R" }),
+      makeItem({ id: 2, category: "A" }),
+      makeItem({ id: 3, category: "I" }),
+    ];
+    expect(nextRaidId(three)).toBe(4);
+    // id 3 "deleted" — minting over [1,2] must NOT reuse 3
+    const two = [makeItem({ id: 1, category: "R" }), makeItem({ id: 2, category: "A" })];
+    expect(nextRaidId(two)).toBe(5);
   });
 
   it("returns max id + 1 for a non-empty list", () => {

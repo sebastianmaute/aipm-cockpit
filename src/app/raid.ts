@@ -3,6 +3,7 @@
 // storage layer (for parsing severity on load).
 
 import type { Health } from "./health";
+import { mintId } from "./id-mint-session";
 import {
   ASSUMPTION_STATUSES,
   DEPENDENCY_STATUSES,
@@ -122,11 +123,12 @@ export function countByCategory(
   return out;
 }
 
-/** Next id for a new RAID item — monotonic, separate from Task ids. */
+/**
+ * Next id for a new RAID item — routes through the session-scoped minter so a
+ * deleted max-id row's id is never reused within the session.
+ */
 export function nextRaidId(items: readonly RaidItem[]): number {
-  let max = 0;
-  for (const i of items) if (i.id > max) max = i.id;
-  return max + 1;
+  return mintId("raid", items);
 }
 
 /**

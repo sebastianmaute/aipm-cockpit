@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import fc from "fast-check";
+import { __resetMintStateForTests } from "./id-mint-session";
 import {
   riskSeverityFromMatrix,
   compareRaid,
@@ -112,6 +113,7 @@ describe("raid — properties", () => {
   });
 
   test("nextRaidId is strictly greater than every existing id", () => {
+    __resetMintStateForTests();
     fc.assert(
       fc.property(fc.array(raidItemArb, { maxLength: 40 }), (items) => {
         const next = nextRaidId(items);

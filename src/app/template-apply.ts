@@ -1,27 +1,28 @@
 import type { Workspace } from "./workspace";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type { TaskDependency } from "./types";
-import { nextId, resourceDisplayName } from "./resource-foundation";
+import { resourceDisplayName } from "./resource-foundation";
+import { mintIds, type MintKind } from "./id-mint-session";
 
 export interface ApplyTemplateOptions {
   includeSeed: boolean;
 }
 
 /**
- * Build an old-id -> new-id map for one seed entity list. New ids start at the
- * target workspace's `nextId` and increment, so seed content never collides
- * with existing rows.
+ * Build an old-id -> new-id map for one seed entity list. New ids are drawn from
+ * the session-scoped minter for `kind`, so they clear both the target
+ * workspace's existing rows AND any id already handed out this session — a
+ * deleted max-id row is never reassigned. Each kind draws from its OWN counter
+ * (cross-kind id overlap is fine — different arrays).
  */
 function idMap(
+  kind: MintKind,
   existing: ReadonlyArray<{ id: number }>,
   seed: ReadonlyArray<{ id: number }>,
 ): Map<number, number> {
   const map = new Map<number, number>();
-  let next = nextId(existing);
-  for (const item of seed) {
-    map.set(item.id, next);
-    next += 1;
-  }
+  const newIds = mintIds(kind, existing, seed.length);
+  seed.forEach((item, i) => map.set(item.id, newIds[i]));
   return map;
 }
 
@@ -59,13 +60,13 @@ function remapDeps(
  * Pure — returns a new seed, never mutates the input.
  */
 export function remapSeed(ws: Workspace, seed: TemplateSeed): TemplateSeed {
-  const taskMap = idMap(ws.tasks, seed.tasks ?? []);
-  const milestoneMap = idMap(ws.milestones ?? [], seed.milestones ?? []);
-  const raidMap = idMap(ws.raid, seed.raid ?? []);
-  const changeMap = idMap(ws.changes ?? [], seed.changes ?? []);
-  const stakeholderMap = idMap(ws.stakeholders ?? [], seed.stakeholders ?? []);
-  const budgetMap = idMap(ws.budgets ?? [], seed.budgets ?? []);
-  const resourceMap = idMap(ws.resources ?? [], seed.resources ?? []);
+  const taskMap = idMap("task", ws.tasks, seed.tasks ?? []);
+  const milestoneMap = idMap("milestone", ws.milestones ?? [], seed.milestones ?? []);
+  const raidMap = idMap("raid", ws.raid, seed.raid ?? []);
+  const changeMap = idMap("change", ws.changes ?? [], seed.changes ?? []);
+  const stakeholderMap = idMap("stakeholder", ws.stakeholders ?? [], seed.stakeholders ?? []);
+  const budgetMap = idMap("budgetBucket", ws.budgets ?? [], seed.budgets ?? []);
+  const resourceMap = idMap("resource", ws.resources ?? [], seed.resources ?? []);
 
   // Re-id seeded resources, then index them by case-folded name/email so the
   // model's plain-string task assignees / RAID owners / stakeholders resolve to
