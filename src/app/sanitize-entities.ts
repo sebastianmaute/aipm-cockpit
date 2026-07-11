@@ -358,11 +358,12 @@ export function sanitizeRole(input: unknown): Role | null {
     gradeId,
     internalRate: sanitizeRate(input.internalRate),
     externalRate: sanitizeRate(input.externalRate),
-    // Which unit the user edits — absent/unknown ⇒ "hour" (legacy roles keep
-    // their exact hourly as authoritative). No cross-derive here: workdayHours
-    // is not available at load; the editor materializes on edit.
-    rateBasis: input.rateBasis === "day" ? "day" : "hour",
   };
+  // Which unit the user edits. Sparse-emit "day" only; absent/unknown/"hour" ⇒
+  // omit the key so legacy hour-basis roles stay byte-identical (consumers read
+  // `role.rateBasis ?? "hour"`). No cross-derive here: workdayHours is not
+  // available at load; the editor materializes on edit.
+  if (input.rateBasis === "day") role.rateBasis = "day";
   // Sparse-emit day rates only when present so blobs stay minimal for legacy
   // (hour-basis) roles. The CSV/MD named columns always exist regardless.
   if (input.internalRateDay !== undefined && input.internalRateDay !== null && input.internalRateDay !== "") {

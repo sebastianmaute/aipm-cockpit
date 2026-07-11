@@ -55,13 +55,14 @@ function CapInput({
 }) {
   const displayed = value != null && value > 0 ? value : defaultValue;
   return (
-    <label className="mt-2 block">
+    <div className="mt-2 block">
       <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
         {label}
-        {hint ? <InfoTooltip text={hint} label={label} /> : null}
+        {hint ? <InfoTooltip text={hint} /> : null}
       </span>
       <input
         type="number"
+        aria-label={label}
         min={min}
         max={max}
         step={step}
@@ -72,7 +73,7 @@ function CapInput({
         }}
         className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />
-    </label>
+    </div>
   );
 }
 

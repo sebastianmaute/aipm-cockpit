@@ -184,14 +184,17 @@ describe("sanitizePlan", () => {
 
 describe("sanitizeRole / sanitizeDiscipline / sanitizeGrade", () => {
   test("role clamps negative rates to 0 and requires ids", () => {
+    // rateBasis is sparse-emitted: absent for the "hour" default so legacy roles
+    // stay byte-identical (no extra key).
     expect(sanitizeRole({ id: 1, disciplineId: 2, gradeId: 3, internalRate: -10, externalRate: 90 }))
-      .toEqual({ id: 1, disciplineId: 2, gradeId: 3, internalRate: 0, externalRate: 90, rateBasis: "hour" });
+      .toEqual({ id: 1, disciplineId: 2, gradeId: 3, internalRate: 0, externalRate: 90 });
     expect(sanitizeRole({ id: 1, disciplineId: 0, gradeId: 3 })).toBeNull();
   });
 
-  test("role: absent rateBasis defaults to 'hour', unknown coerced to 'hour'", () => {
-    expect(sanitizeRole({ id: 1, disciplineId: 1, gradeId: 1 })?.rateBasis).toBe("hour");
-    expect(sanitizeRole({ id: 1, disciplineId: 1, gradeId: 1, rateBasis: "weird" })?.rateBasis).toBe("hour");
+  test("role: rateBasis is sparse — omitted for 'hour'/unknown, kept only for 'day'", () => {
+    expect(sanitizeRole({ id: 1, disciplineId: 1, gradeId: 1 })?.rateBasis).toBeUndefined();
+    expect(sanitizeRole({ id: 1, disciplineId: 1, gradeId: 1, rateBasis: "weird" })?.rateBasis).toBeUndefined();
+    expect(sanitizeRole({ id: 1, disciplineId: 1, gradeId: 1, rateBasis: "hour" })?.rateBasis).toBeUndefined();
     expect(sanitizeRole({ id: 1, disciplineId: 1, gradeId: 1, rateBasis: "day" })?.rateBasis).toBe("day");
   });
 
