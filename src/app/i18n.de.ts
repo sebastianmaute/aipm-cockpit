@@ -3203,4 +3203,5 @@ export const de: Record<TranslationKey, string> = {
   historyDeselectAll: "Auswahl aufheben",
   planningHideExternal: "Externe ausblenden",
   planningCapacityHours: "Kapazität (Std.)",
+  versionHighlightUxBatchAldiss: "Neu: Claude-Nutzungslimit-Hinweise, konfigurierbare KI-Schrittzahl und Token-Zählfaktor, Dashboard-Kachel-Tooltips, Tagessatz-Karten, RACI-Personenfilter, Planungs-Kapazitätsspalte und History-Wiederherstellungswerkzeuge.",
 };

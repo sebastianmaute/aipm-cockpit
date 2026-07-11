@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.176.0";
-export const APP_BUILD_DATE = "2026-07-11"; // 0.176.0: planning/budget batch — %/h suffix on the planning utilization box; left-aligned date-column headers in planning (incl. rollup) and budget; opt-in per-project "budget hours follow plan" mirror (resourced lines read-only = planned capacity, aggregates follow); bucket-name search in budget (Tchaikovsky)
+export const APP_VERSION = "0.177.0";
+export const APP_BUILD_DATE = "2026-07-11"; // 0.177.0: UX batch — usage-limit notices + configurable AI turn cap & token multiplier; dashboard tile tooltips; gantt milestone date; day-rate cards (day = source of truth); RACI people filter; planning hide-external + capacity column; history compare feedback/scroll + select-all/restore-this-state; status-dropdown hover; npm run stop (Aldiss)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.176.x line is "Tchaikovsky" (Adrian Tchaikovsky). */
-export const APP_MILESTONE = "Tchaikovsky";
+ *  0.177.x line is "Aldiss" (Brian Aldiss). */
+export const APP_MILESTONE = "Aldiss";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -195,4 +195,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightGanttBaseline",
   "versionHighlightStatusDigest",
   "versionHighlightUndo",
+  "versionHighlightUxBatchAldiss",
 ] as const;

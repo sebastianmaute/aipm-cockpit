@@ -3223,6 +3223,7 @@ const enUS = {
   historyDeselectAll: "Deselect all",
   planningHideExternal: "Hide external",
   planningCapacityHours: "Capacity (h)",
+  versionHighlightUxBatchAldiss: "New: Claude usage-limit notices, configurable AI turn cap and token multiplier, dashboard tile tooltips, day-rate cards, RACI people filter, planning capacity column, and history restore tools.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

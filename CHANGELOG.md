@@ -8,6 +8,36 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.177.0] - 2026-07-11 "Aldiss"
+
+### UX batch (14 improvements)
+
+- **AI usage limits:** a distinct, translated notice now appears when Claude's own
+  weekly/rate limit is hit (HTTP 429 / `rate_limit_error` / `overloaded_error`) and when
+  your own token cap is reached — across all AI surfaces (chat, inline edit, action
+  analysis, scheduled jobs, weight suggestions, create wizard). Advisory only: nothing is
+  blocked. In chat the notice is appended to the transcript and never clears history. No
+  API key or response body is ever logged. Documented in the built-in app-feature guide.
+- **AI settings:** configurable **max assistant turns per message** (default 12) and a
+  configurable **token-counting multiplier** (default 5, applied to both session and
+  weekly counting); clarified that the session/weekly caps are your own advisory limits.
+- **Dashboard:** explanatory tooltips on the cockpit tiles (completion %, overdue, open
+  RAID, R/A/G health, budget, hours, SPI, CPI) — what each shows and how to read it.
+- **Gantt:** milestone hover labels now format the date (as task bars do) instead of the
+  raw ISO string.
+- **Rate card:** enter **day rates** (`internal/d`, `external/d`) — day is now the source
+  of truth; the hourly rate is derived from your workday hours. Only the daily or the
+  hourly field is editable at a time; clear the filled one to switch. Tooltips explain it.
+- **Planning:** a **Capacity (h)** column and a **hide-external-resources** toggle.
+- **RACI:** an additive type-to-filter for the people columns — add people to the filter,
+  remove them, or clear it; empty filter shows everyone.
+- **Version history:** "Compare with current" now scrolls to its output and gives clear
+  feedback when the version is identical to the current workspace (distinct from a load
+  error). New **Select all** / **Deselect all** and **Restore this state** controls.
+- **Open Points:** the inline status dropdown gains a hover affordance.
+- **Tooling:** `npm run stop` stops the dev server on the app port (port-scoped; leaves
+  unrelated node processes alone).
+
 ## [0.176.0] - 2026-07-11 "Tchaikovsky"
 
 ### Planning / budget batch
