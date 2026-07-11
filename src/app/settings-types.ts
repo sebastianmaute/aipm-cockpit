@@ -47,6 +47,15 @@ export type AiConfig = {
 };
 
 export const DEFAULT_MAX_CHAT_TURNS = 12;
+
+/** Clamp a chat-turn value to the valid integer range [1, 50]; anything invalid
+ *  or out of range → the default. The SINGLE source of truth used by the settings
+ *  sanitizer, the settings input, and the chat loop read site so a directly-typed
+ *  out-of-range value can never drive an unbounded number of billed API calls. */
+export function clampMaxChatTurns(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 50 ? n : DEFAULT_MAX_CHAT_TURNS;
+}
 export const DEFAULT_TOKEN_MULTIPLIER = 5;
 
 export const defaultAiConfig: AiConfig = {
@@ -67,10 +76,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     return Number.isFinite(n) && n > 0 ? Math.round(n) : def;
   };
   // Chat-turn cap: integer in [1, 50]; anything invalid or out of range → default.
-  const coerceTurns = (v: unknown): number => {
-    const n = Math.round(Number(v));
-    return Number.isFinite(n) && n >= 1 && n <= 50 ? n : DEFAULT_MAX_CHAT_TURNS;
-  };
+  const coerceTurns = clampMaxChatTurns;
   // Token multiplier: any finite value > 0 (decimals allowed); else default.
   const coerceMultiplier = (v: unknown): number => {
     const n = Number(v);

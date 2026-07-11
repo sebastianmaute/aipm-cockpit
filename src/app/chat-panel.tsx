@@ -20,6 +20,7 @@ const PROMPT_CHIPS: PromptChip[] = [
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig, Settings } from "./settings-types";
+import { clampMaxChatTurns } from "./settings-types";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
@@ -60,11 +61,6 @@ type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
 
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
-
-// Max callClaude round-trips per user send (runaway guard). Shared by tool-use
-// round-trips AND max_tokens continuations, so 12 (up from 8) gives headroom
-// now that a truncated answer resumes within the same send.
-const MAX_CHAT_TURNS = 12;
 
 function ChatPanelImpl({
   lang,
@@ -324,7 +320,10 @@ function ChatPanelInner({
       // Round-trip loop: keep going until the model finishes (end_turn). Two
       // reasons to continue — a tool call to run, or a length-cap truncation to
       // resume — both share the turn budget (a runaway guard).
-      const maxTurns = ai.maxChatTurns ?? MAX_CHAT_TURNS;
+      // Clamp at the read site too (defence in depth): a directly-typed
+      // out-of-range value that bypassed the input clamp can never drive an
+      // unbounded number of billed API calls.
+      const maxTurns = clampMaxChatTurns(ai.maxChatTurns);
       for (let turn = 0; turn < maxTurns; turn++) {
         if (stale()) break;
         const response = await callClaude(

@@ -485,7 +485,7 @@ export function GanttMilestoneRow({
         style={{ width: timelineWidthPx, height: ROW_HEIGHT_PX }}
         title={
           showGhost
-            ? `${m.name} · ${fmtFull(md, lang)} · baseline ${baselineDate} (${slipLabel})`
+            ? `${m.name} · ${fmtFull(md, lang)} · baseline ${bd ? fmtFull(bd, lang) : baselineDate} (${slipLabel})`
             : `${m.name} · ${fmtFull(md, lang)}`
         }
       >

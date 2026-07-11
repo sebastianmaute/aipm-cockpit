@@ -112,8 +112,12 @@ export function RolesEditor({
   function rateCell(r: Role, rowCtx: string, unit: "hour" | "day", field: "internal" | "external") {
     const dayBasis = (r.rateBasis ?? "hour") === "day";
     const editable = unit === "day" ? dayBasis : !dayBasis;
-    const internalDay = r.internalRateDay ?? round2(r.internalRate * workdayHours);
-    const externalDay = r.externalRateDay ?? round2(r.externalRate * workdayHours);
+    // Day-basis: the stored day rate is authoritative (editable). Hour-basis: the
+    // day figure is display-only and ALWAYS recomputed live from the current
+    // workday hours (never a frozen `internalRateDay`), so two hour-basis roles
+    // with the same hourly always show the same day rate regardless of edit history.
+    const internalDay = dayBasis ? round2(r.internalRateDay ?? 0) : round2(r.internalRate * workdayHours);
+    const externalDay = dayBasis ? round2(r.externalRateDay ?? 0) : round2(r.externalRate * workdayHours);
     const value =
       field === "internal"
         ? unit === "day" ? internalDay : r.internalRate

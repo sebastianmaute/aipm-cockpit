@@ -17,10 +17,10 @@ function pidsOnPort(p) {
   const pids = new Set();
   try {
     if (process.platform === "win32") {
-      // netstat -ano rows: "  TCP  0.0.0.0:3000  0.0.0.0:0  LISTENING  12345"
-      const out = execFileSync("netstat", ["-ano", "-p", "TCP"], {
-        encoding: "utf8",
-      });
+      // netstat -ano rows: "  TCP  0.0.0.0:3000  0.0.0.0:0  LISTENING  12345".
+      // No "-p TCP" filter so IPv6-only listeners ("[::]:3000") are included; the
+      // LISTENING check below still excludes UDP rows (which have no state).
+      const out = execFileSync("netstat", ["-ano"], { encoding: "utf8" });
       for (const line of out.split(/\r?\n/)) {
         if (!/LISTENING/i.test(line)) continue;
         const cols = line.trim().split(/\s+/);

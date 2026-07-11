@@ -69,7 +69,13 @@ function CapInput({
         value={displayed}
         onChange={(e) => {
           const n = decimal ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
-          onChange(Number.isFinite(n) && n > 0 ? n : defaultValue);
+          if (!Number.isFinite(n) || n <= 0) {
+            onChange(defaultValue);
+            return;
+          }
+          // Clamp a directly-typed value to [min, max] (the max/min attrs are only
+          // spinner hints; a typed value ignores them).
+          onChange(Math.min(max ?? Infinity, Math.max(min, n)));
         }}
         className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />

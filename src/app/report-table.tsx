@@ -240,7 +240,7 @@ export function Tile({
   );
   if (!hint) return tile;
   return (
-    <div className="relative h-full">
+    <div className="relative h-full w-full">
       {tile}
       <span className="absolute right-2 top-2 z-10 print:hidden">
         <InfoTooltip text={hint} />
