@@ -185,6 +185,14 @@ function RaidPanelBody({
     return map;
   }, [raid]);
 
+  // Live directory lookup for the owner column: a linked resource's CURRENT
+  // name wins over the cached `owner` string (which goes stale on rename).
+  const resourcesById = useMemo(() => {
+    const map = new Map<number, Resource>();
+    for (const r of resources) map.set(r.id, r);
+    return map;
+  }, [resources]);
+
   // Parent → children index; used to (a) paint a "→ N" cause-count chip on
   // rows that are themselves causes and (b) list children inside an item's
   // edit modal.
@@ -491,6 +499,7 @@ function RaidPanelBody({
           colWidths={colWidths}
           startResize={startResize}
           visible={visible}
+          resourcesById={resourcesById}
           tasksById={tasksById}
           raidById={raidById}
           causesIndex={causesIndex}

@@ -216,8 +216,16 @@ export function TasksSection({
   } = useFilters();
 
   const workspaceCtx = useWorkspace();
-  const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById, setTasks } =
+  const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById, setTasks, resources } =
     workspaceCtx;
+  // id -> Resource lookup for resolving the LIVE assignee name of linked tasks
+  // (the stored `assignee` string is a cache that goes stale after a rename).
+  // Built once here and threaded to both the table rows (row context) and the
+  // Kanban board (which renders outside RowContextProvider).
+  const resourcesById = useMemo(
+    () => new Map((resources ?? []).map((r) => [r.id, r])),
+    [resources],
+  );
 
   const { editingId, bulkEditOpen, setBulkEditOpen } = useTaskForm();
 
@@ -328,6 +336,7 @@ export function TasksSection({
       onAiEdit,
       aiEditEnabled,
       onInlinePatch,
+      resourcesById,
     }),
     [
       lang,
@@ -350,6 +359,7 @@ export function TasksSection({
       onAiEdit,
       aiEditEnabled,
       onInlinePatch,
+      resourcesById,
     ],
   );
 
@@ -738,6 +748,7 @@ export function TasksSection({
           tasks={filteredSortedTasks}
           today={today}
           holidaySet={holidaySet}
+          resourcesById={resourcesById}
           raidByTask={raidByTask}
           changeByTask={changeByTask}
           onStatusChange={onStatusChange}

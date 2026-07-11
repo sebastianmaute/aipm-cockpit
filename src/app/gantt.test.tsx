@@ -289,6 +289,76 @@ describe("GanttPanel task-name column resize", () => {
   });
 });
 
+describe("GanttPanel effective assignee names (stale resource-link)", () => {
+  // Two tasks linked to the SAME resource (id 7, live name "Live") but each
+  // carrying a DIFFERENT stale cached `assignee` string. The Gantt must group /
+  // filter / list by the live resource name, not the stale caches.
+  const RESOURCES = [
+    {
+      id: 7,
+      firstName: "Live",
+      lastName: "",
+      roleId: null,
+      utilizationMode: "percent" as const,
+      utilization: {},
+    },
+  ] as unknown as import("./types").Resource[];
+
+  const STALE_TASKS: Task[] = [
+    {
+      id: 1,
+      taskName: "A",
+      assignee: "Old A",
+      resourceId: 7,
+      priority: "Medium" as const,
+      startDate: dayPlus(-10),
+      dueDate: dayPlus(10),
+    } as unknown as Task,
+    {
+      id: 2,
+      taskName: "B",
+      assignee: "Old B",
+      resourceId: 7,
+      priority: "Medium" as const,
+      startDate: dayPlus(-5),
+      dueDate: dayPlus(15),
+    } as unknown as Task,
+  ];
+
+  it("lists the live resource name in the assignee filter, collapsing the stale caches", () => {
+    const { getByRole } = render(
+      <GanttPanel {...BASE_PROPS} tasks={STALE_TASKS} resources={RESOURCES} />,
+    );
+    const select = getByRole("combobox", { name: "All assignees" });
+    const optionTexts = Array.from(select.querySelectorAll("option")).map(
+      (o) => o.textContent,
+    );
+    expect(optionTexts).toContain("Live");
+    expect(optionTexts).not.toContain("Old A");
+    expect(optionTexts).not.toContain("Old B");
+  });
+
+  it("filters both stale-named tasks under the single live resource name", () => {
+    const { getByRole } = render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={STALE_TASKS}
+        resources={RESOURCES}
+        onEditTask={() => {}}
+      />,
+    );
+    const select = getByRole("combobox", {
+      name: "All assignees",
+    }) as HTMLSelectElement;
+    act(() => {
+      fireEvent.change(select, { target: { value: "Live" } });
+    });
+    // Both rows remain visible because each task's EFFECTIVE assignee is "Live".
+    expect(getByRole("button", { name: "A" })).toBeTruthy();
+    expect(getByRole("button", { name: "B" })).toBeTruthy();
+  });
+});
+
 describe("GanttPanel baseline ghost range folding", () => {
   it("folds a far baseline date into the range so the ghost diamond stays on-axis", () => {
     const milestones: Milestone[] = [

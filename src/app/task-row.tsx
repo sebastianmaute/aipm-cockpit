@@ -13,7 +13,8 @@ import { TaskStatusSelect } from "./task-status-select";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
-import { PRIORITIES, type ChangeItem, type Priority, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
+import { effectiveAssignee, isResourceLinked } from "./resource-foundation";
+import { PRIORITIES, type ChangeItem, type Priority, type Resource, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
 export interface RowContextValue {
   lang: Lang;
@@ -47,6 +48,11 @@ export interface RowContextValue {
   // (functional setter + localModifiedAt stamp on the pane side). Jira-synced
   // rows are skipped there (read-only) and render no inline affordance here.
   onInlinePatch: (taskId: number, patch: Partial<Task>) => void;
+  // Directory lookup (id -> Resource) for resolving the LIVE assignee name of a
+  // linked task. The stored `assignee` string is only a cache and goes stale
+  // after a resource rename/re-link, so linked rows render the resource's
+  // current name instead. Built once (useMemo) on the pane side.
+  resourcesById: ReadonlyMap<number, Resource>;
 }
 
 const RowContext = createContext<RowContextValue | undefined>(undefined);
@@ -199,6 +205,7 @@ function TaskRowImpl({
     onAiEdit,
     aiEditEnabled,
     onInlinePatch,
+    resourcesById,
   } = useTaskRowContext();
 
   // Single-active-cell inline editor for this row. A committed field routes
@@ -414,11 +421,22 @@ function TaskRowImpl({
           </div>
         )}
       </Td>
-      {!hiddenCols.has("assignee") && (
-        <Td title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>
-          {renderInlineField("assignee", "text", task.assignee ?? "", task.assignee || "—")}
-        </Td>
-      )}
+      {!hiddenCols.has("assignee") && (() => {
+        // Linked → the resource's LIVE name wins over the stale cache and is
+        // read-only (a linked assignee isn't free-text editable). Unlinked →
+        // keep inline editing, seeded from the (cached) effective name.
+        const displayName = effectiveAssignee(task, resourcesById);
+        const linked = isResourceLinked(task.resourceId, resourcesById);
+        return (
+          <Td title={`${t(lang, "assignee")}: ${displayName || "—"}`}>
+            {linked ? (
+              <span className="px-2 py-0.5">{displayName || "—"}</span>
+            ) : (
+              renderInlineField("assignee", "text", displayName, displayName || "—")
+            )}
+          </Td>
+        );
+      })()}
       {!hiddenCols.has("startDate") && (
         <Td className="whitespace-nowrap" title={`${t(lang, "startDate")}: ${task.startDate || "—"}`}>
           {renderInlineField("startDate", "date", task.startDate ?? "", task.startDate || "—", "text-muted-foreground")}

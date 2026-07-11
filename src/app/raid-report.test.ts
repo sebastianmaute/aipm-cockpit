@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UNASSIGNED_OWNER, computeRaidReport } from "./raid-report";
-import type { RaidItem } from "./types";
+import type { RaidItem, Resource } from "./types";
 
 const TODAY = "2026-05-28";
 
@@ -29,6 +29,22 @@ describe("computeRaidReport", () => {
     expect(r.byAging.every((row) => row.open === 0)).toBe(true);
     expect(r.topOpen).toEqual([]);
     expect(r.fullDetail).toEqual([]);
+  });
+
+  it("By Owner resolves a linked owner's LIVE name over the stale cache and merges", () => {
+    // Two open risks share ownerResourceId 7 (live 'Live Owner') but carry
+    // different stale cached `owner` strings. They must merge into ONE by-owner
+    // row keyed by the live name, not split by the stale caches.
+    const byId = new Map<number, Resource>([
+      [7, { id: 7, firstName: "Live", lastName: "Owner", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
+    ]);
+    const r = computeRaidReport([
+      item({ id: 1, category: "R", status: "Open", owner: "Old Name", ownerResourceId: 7 }),
+      item({ id: 2, category: "R", status: "Open", owner: "Older Alias", ownerResourceId: 7 }),
+    ], TODAY, byId);
+    expect(r.byOwner).toHaveLength(1);
+    expect(r.byOwner[0].owner).toBe("Live Owner");
+    expect(r.byOwner[0].total).toBe(2);
   });
 
   it("tile counts respect 'open' per category", () => {

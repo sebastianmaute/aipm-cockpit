@@ -35,7 +35,8 @@ import { useGanttBarDrag } from "./use-gantt-bar-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
 import { GanttDependencyLayer, GanttHeader, GanttToolbar } from "./gantt-chrome";
 import { GanttMilestoneRow, GanttTaskRow } from "./gantt-rows";
-import { type Absence, type Milestone, type Priority, type Task } from "./types";
+import { type Absence, type Milestone, type Priority, type Resource, type Task } from "./types";
+import { effectivePersonName } from "./resource-foundation";
 import { sortMilestones } from "./milestones";
 import {
   addDays,
@@ -61,6 +62,7 @@ export function GanttPanel({
   lang,
   tasks,
   absences,
+  resources = [],
   milestones = [],
   onUpdateBar,
   onAddTask,
@@ -75,6 +77,7 @@ export function GanttPanel({
   lang: Lang;
   tasks: readonly Task[];
   absences: readonly Absence[];
+  resources?: readonly Resource[];
   milestones?: readonly Milestone[];
   onUpdateBar?: (edit: GanttBarEdit) => void;
   onAddTask?: () => void;
@@ -159,6 +162,14 @@ export function GanttPanel({
   // (which would bail out the component's manual memoization).
   const todayISO = toISODay(todayUTC());
 
+  // Resource lookup for resolving the LIVE display name of a linked person
+  // reference. Kept as its own memo keyed on [resources] so it doesn't bust the
+  // [tasks]-keyed search-haystack memo when unrelated state changes.
+  const resourcesById = useMemo(
+    () => new Map(resources.map((r) => [r.id, r])),
+    [resources],
+  );
+
   // Task lookup for milestone at-risk computation (linked-task end vs. date).
   const tasksById = useMemo(() => {
     const m = new Map<number, Task>();
@@ -208,13 +219,13 @@ export function GanttPanel({
   const assigneeOptions = useMemo(() => {
     const set = new Set<string>();
     for (const t of tasks) {
-      const a = t.assignee?.trim();
+      const a = effectivePersonName(t.assignee, t.resourceId, resourcesById).trim();
       if (a) set.add(a);
     }
     return Array.from(set).sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: "base" }),
     );
-  }, [tasks]);
+  }, [tasks, resourcesById]);
 
   // Precompute each task's lowercased search haystack keyed on the tasks array
   // ONLY. A search keystroke changes `prefs`, not `tasks`, so the filter loop
@@ -227,7 +238,7 @@ export function GanttPanel({
         task.id,
         [
           task.taskName,
-          task.assignee,
+          effectivePersonName(task.assignee, task.resourceId, resourcesById),
           task.assigneeEmail ?? "",
           task.blockers ?? "",
           task.notes ?? "",
@@ -239,7 +250,7 @@ export function GanttPanel({
       );
     }
     return map;
-  }, [tasks]);
+  }, [tasks, resourcesById]);
 
   // --- filter + sort pipeline -----------------------------------------
   const visible = useMemo(() => {
@@ -260,8 +271,13 @@ export function GanttPanel({
       if (prefs.priority !== "All" && task.priority !== prefs.priority)
         continue;
 
-      // Assignee filter.
-      if (prefs.assignee !== "All" && task.assignee !== prefs.assignee)
+      // Assignee filter — compare against the LIVE resolved name so a renamed
+      // linked resource still matches the (resolved) dropdown option.
+      if (
+        prefs.assignee !== "All" &&
+        effectivePersonName(task.assignee, task.resourceId, resourcesById) !==
+          prefs.assignee
+      )
         continue;
 
       // Full-text search across the same surfaces the tasks-list search uses,
@@ -316,7 +332,7 @@ export function GanttPanel({
     }
 
     return placeable;
-  }, [tasks, allBars, prefs, today, haystacks]);
+  }, [tasks, allBars, prefs, today, haystacks, resourcesById]);
 
   // Compatibility alias so the existing chart code keeps reading from
   // `layout.placeable` / `layout.bars`.
@@ -376,14 +392,16 @@ export function GanttPanel({
   const absencesByAssigneeKey = useMemo<Map<string, Absence[]>>(() => {
     const m = new Map<string, Absence[]>();
     for (const a of absences) {
-      const key = a.assignee.trim().toLowerCase();
+      const key = effectivePersonName(a.assignee, a.resourceId, resourcesById)
+        .trim()
+        .toLowerCase();
       if (!key) continue;
       const list = m.get(key);
       if (list) list.push(a);
       else m.set(key, [a]);
     }
     return m;
-  }, [absences]);
+  }, [absences, resourcesById]);
 
   // Date range for the time axis.
   const range = useMemo(() => {
@@ -626,6 +644,7 @@ export function GanttPanel({
                 nameColWidth={nameColWidth}
                 range={range}
                 absencesByAssigneeKey={absencesByAssigneeKey}
+                resourcesById={resourcesById}
                 critical={critical}
                 draggingId={draggingId}
                 dropTargetId={dropTargetId}

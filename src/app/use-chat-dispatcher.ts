@@ -22,6 +22,7 @@ import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
+import { effectivePersonEmail } from "./resource-foundation";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
 import {
@@ -143,7 +144,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       if (args.isReadOnly) return { sent: false, reason: "read-only" };
       const task = tasksRef.current.find((row) => row.id === id);
       if (!task) return { sent: false, reason: "task-not-found" };
-      let email = task.assigneeEmail?.trim();
+      // Prefer the linked resource's CURRENT email; cached assigneeEmail can be
+      // stale after a rename/re-link.
+      const resById = new Map(resourcesRef.current.map((r) => [r.id, r]));
+      let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resById).trim();
       if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
       if (!email) return { sent: false, reason: "no-email-on-file" };
 

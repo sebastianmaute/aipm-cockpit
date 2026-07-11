@@ -4,7 +4,8 @@
 // GanttPanel owns the data, drag state, and handlers and threads them in.
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
-import { type Absence, type Milestone, type Task } from "./types";
+import { type Absence, type Milestone, type Resource, type Task } from "./types";
+import { effectivePersonName } from "./resource-foundation";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./milestones";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
 import {
@@ -33,6 +34,7 @@ export function GanttTaskRow({
   nameColWidth,
   range,
   absencesByAssigneeKey,
+  resourcesById,
   critical,
   draggingId,
   dropTargetId,
@@ -55,6 +57,7 @@ export function GanttTaskRow({
   nameColWidth: number;
   range: { min: Date; max: Date };
   absencesByAssigneeKey: ReadonlyMap<string, Absence[]>;
+  resourcesById: ReadonlyMap<number, Pick<Resource, "firstName" | "lastName">>;
   critical: { criticalTasks: ReadonlySet<number> };
   draggingId: number | null;
   dropTargetId: number | null;
@@ -207,7 +210,9 @@ export function GanttTaskRow({
           don't intercept drag-edits.
         */}
         {(() => {
-          const rowKey = task.assignee?.trim().toLowerCase();
+          const rowKey = effectivePersonName(task.assignee, task.resourceId, resourcesById)
+            .trim()
+            .toLowerCase();
           if (!rowKey) return null;
           const rowAbsences = absencesByAssigneeKey.get(rowKey);
           if (!rowAbsences) return null;
@@ -238,7 +243,7 @@ export function GanttTaskRow({
               <div
                 key={a.id}
                 aria-hidden="true"
-                title={`${a.assignee}: ${a.type} ${a.startDate}${
+                title={`${effectivePersonName(a.assignee, a.resourceId, resourcesById)}: ${a.type} ${a.startDate}${
                   a.startDate === a.endDate ? "" : `–${a.endDate}`
                 }${a.note ? ` (${a.note})` : ""}`}
                 className={`pointer-events-none absolute ${absenceBandBg(a.type)}`}

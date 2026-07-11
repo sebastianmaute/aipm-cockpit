@@ -21,7 +21,7 @@ import {
   computeRaidReport,
   type RaidReport,
 } from "./raid-report";
-import type { RaidItem } from "./types";
+import type { RaidItem, Resource } from "./types";
 
 // ---------------------------------------------------------------------------
 // Column-width default maps
@@ -117,13 +117,18 @@ interface Props {
   lang: Lang;
   items: readonly RaidItem[];
   today: string;
+  /** Directory for resolving a linked owner's live name (stale-cache fix). */
+  resourcesById?: ReadonlyMap<number, Resource>;
   embedded?: boolean;
 }
 
 type View = "summary" | "full";
 
-export function RaidReportPanel({ lang, items, today, embedded = false }: Props) {
-  const rep: RaidReport = useMemo(() => computeRaidReport(items, today), [items, today]);
+export function RaidReportPanel({ lang, items, today, resourcesById, embedded = false }: Props) {
+  const rep: RaidReport = useMemo(
+    () => computeRaidReport(items, today, resourcesById),
+    [items, today, resourcesById],
+  );
   const [view, setView] = useState<View>("summary");
 
   // Resizable card

@@ -9,7 +9,8 @@ import type React from "react";
 import { type Lang, t } from "./i18n";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { isTerminalStatus, severityRag, type RaidSortKey } from "./raid";
-import type { RaidCategory, RaidItem, Task } from "./types";
+import type { RaidCategory, RaidItem, Resource, Task } from "./types";
+import { effectivePersonName } from "./resource-foundation";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
@@ -44,6 +45,9 @@ export interface RaidTableProps {
   colWidths: Record<keyof typeof RAID_COL_WIDTHS, number>;
   startResize: (col: string, e: React.MouseEvent) => void;
   visible: readonly RaidItem[];
+  /** Live directory lookup so the owner cell shows the linked resource's
+   *  CURRENT name, not the (possibly stale) cached `owner` string. */
+  resourcesById: ReadonlyMap<number, Resource>;
   tasksById: Map<number, Task>;
   raidById: Map<number, RaidItem>;
   causesIndex: Map<number, readonly RaidItem[]>;
@@ -68,6 +72,7 @@ export function RaidTable({
   colWidths,
   startResize,
   visible,
+  resourcesById,
   tasksById,
   raidById,
   causesIndex,
@@ -247,7 +252,7 @@ export function RaidTable({
               )}
               {!hiddenSet.has("owner") && (
               <td className="px-3 py-2 text-foreground">
-                {item.owner ?? ""}
+                {effectivePersonName(item.owner ?? "", item.ownerResourceId, resourcesById)}
               </td>
               )}
               {!hiddenSet.has("targetDate") && (

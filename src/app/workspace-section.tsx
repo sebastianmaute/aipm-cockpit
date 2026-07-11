@@ -367,6 +367,7 @@ export function WorkspaceSection({
               lang={lang}
               tasks={tasks}
               absences={absences}
+              resources={resources}
               milestones={milestonesEnabled ? milestones : []}
               onUpdateBar={handleGanttBarUpdate}
               onAddTask={isPopout ? undefined : () => {

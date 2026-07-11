@@ -4,7 +4,7 @@ import { describe, test, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
 import { t } from "./i18n";
-import type { Resource } from "./types";
+import type { Resource, Task } from "./types";
 
 const resources: Resource[] = [
   { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} },
@@ -413,6 +413,29 @@ test("calendar view lists directory resources that have no tasks/absences/shifts
   render(<ResourcesPanel {...baseProps} view="calendar" today="2026-05-23" />);
   expect(screen.getByRole("button", { name: "Alex Example" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Mateo Rossi" })).toBeInTheDocument();
+});
+
+test("calendar folds a stale-cache linked task under its live resource row, not a duplicate", () => {
+  // A task carries a live FK (resourceId:1 → "Alex Example") but a STALE cached
+  // assignee string ("Old Name") left over from before a rename. The calendar
+  // directory must attribute it to the live resource-1 row (mirroring
+  // resource-workload-rows.ts `resolve`), NOT fork a duplicate "Old Name" row.
+  const staleTask = {
+    id: 99,
+    taskName: "Task",
+    assignee: "Old Name",
+    assigneeEmail: "",
+    resourceId: 1,
+    dueDate: "",
+    lastUpdateDate: "",
+    priority: "Medium",
+    status: "To Do",
+    blockers: "",
+    notes: "",
+  } as unknown as Task;
+  render(<ResourcesPanel {...baseProps} view="calendar" today="2026-05-23" tasks={[staleTask]} />);
+  expect(screen.getByRole("button", { name: "Alex Example" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Old Name" })).toBeNull();
 });
 
 test("resources-panel: no view SegmentedControl, no roles/report/add-absence buttons; resizable", () => {

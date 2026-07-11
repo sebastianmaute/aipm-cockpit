@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import type { Settings } from "./settings-types";
-import type { Task } from "./types";
+import type { Task, Resource } from "./types";
+import { effectivePersonEmail } from "./resource-foundation";
 import type { ActivityKind } from "./activity-log";
 import type { Command } from "./voice";
 import { useWorkspace } from "./workspace-context";
@@ -51,7 +52,13 @@ export interface UseBulkOperationsArgs {
 }
 
 export function useBulkOperations(args: UseBulkOperationsArgs) {
-  const { tasks, setTasks, filteredSortedTasks, project } = useWorkspace();
+  const { tasks, setTasks, filteredSortedTasks, project, resources } = useWorkspace();
+  // Directory for resolving a linked assignee's LIVE email on bulk inquiries
+  // (the cached assigneeEmail can be stale after a rename/re-link).
+  const resourcesById = useMemo<ReadonlyMap<number, Resource>>(
+    () => new Map(resources.map((r) => [r.id, r])),
+    [resources],
+  );
   const { setSearchImmediate } = useFilters();
   const {
     bulkEdit,
@@ -231,7 +238,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const resolved: Array<{ task: Task; email: string }> = [];
 
     for (const task of selected) {
-      let email = task.assigneeEmail?.trim() || "";
+      let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resourcesById).trim();
       if (!email && isValidEmail(task.assignee)) email = task.assignee.trim();
       if (!email) {
         const provided = window.prompt(t(lang, "promptEmail", task.assignee), "");
@@ -294,7 +301,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     showToastRef.current("info", t(lang, "bulkSendDone", groups.size, resolved.length));
     logActivityRef.current("bulk.inquiries", resolved.length);
     setSelectedIds(new Set());
-  }, [tasks, selectedIds, setTasks]);
+  }, [tasks, selectedIds, setTasks, resourcesById]);
 
   const handleCommand = useCallback(
     (cmd: Command, originalText: string) => {
