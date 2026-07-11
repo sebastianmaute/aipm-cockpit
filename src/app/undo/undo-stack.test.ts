@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { applyUndoRestore, buildBeforeImages, pushUndo, popUndo, dropEntry, type UndoEntry } from "./undo-stack";
+import {
+  applyUndoRestore,
+  applyUndoForward,
+  buildBeforeImages,
+  buildForwardImages,
+  pushUndo,
+  popUndo,
+  dropEntry,
+  type UndoEntry,
+} from "./undo-stack";
 
 type Row = { id: number; name: string };
 
@@ -116,6 +125,78 @@ describe("stack ops", () => {
   it("dropEntry removes a specific entry by id", () => {
     const s = [mk(1), mk(2), mk(3)];
     expect(dropEntry(s, 2).map((e) => e.meta.id)).toEqual([1, 3]);
+  });
+});
+
+describe("applyUndoForward", () => {
+  it("re-applies an edit (replaces the row with the after-value)", () => {
+    const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
+    // forward edit-image carries the AFTER value
+    expect(applyUndoForward(current, [edit(0, { id: 1, name: "AFTER" })])).toEqual([
+      { id: 1, name: "AFTER" }, { id: 2, name: "b" },
+    ]);
+  });
+
+  it("re-applies a delete (removes the row with that id)", () => {
+    const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }];
+    expect(applyUndoForward(current, [del(1, { id: 2, name: "b" })])).toEqual([
+      { id: 1, name: "a" }, { id: 3, name: "c" },
+    ]);
+  });
+
+  it("re-applies a clear-all (removes every captured row)", () => {
+    const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
+    expect(applyUndoForward(current, [del(0, { id: 1, name: "a" }), del(1, { id: 2, name: "b" })])).toEqual([]);
+  });
+
+  it("skips an absent edit/delete row (no crash, no change)", () => {
+    const current: Row[] = [{ id: 1, name: "a" }];
+    expect(applyUndoForward(current, [edit(9, { id: 9, name: "gone" }), del(9, { id: 8, name: "gone" })])).toEqual([
+      { id: 1, name: "a" },
+    ]);
+  });
+
+  it("applies edits before removals (edit + delete in one forward set)", () => {
+    // id 2 deleted; id 3 had a dependency stripped (edited to the after-value).
+    const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "3-with-dep" }];
+    const out = applyUndoForward(current, [
+      del(1, { id: 2, name: "b" }),
+      edit(2, { id: 3, name: "3-stripped" }),
+    ]);
+    expect(out).toEqual([{ id: 1, name: "a" }, { id: 3, name: "3-stripped" }]);
+  });
+});
+
+describe("buildForwardImages", () => {
+  it("builds an edit forward-image from the after-value in the post-op array", () => {
+    // undo-time state: id 1 currently holds the EDITED value.
+    const afterArray: Row[] = [{ id: 1, name: "EDITED" }, { id: 2, name: "b" }];
+    // before-image reverts id 1 to "a"; forward must carry the after "EDITED".
+    const forward = buildForwardImages([edit(0, { id: 1, name: "a" })], afterArray);
+    expect(forward).toEqual([{ index: 0, item: { id: 1, name: "EDITED" }, op: "edit" }]);
+  });
+
+  it("falls back to the before-image item when the edited row is gone from the after-array", () => {
+    const forward = buildForwardImages([edit(0, { id: 5, name: "old" })], [{ id: 1, name: "a" }]);
+    expect(forward).toEqual([{ index: 0, item: { id: 5, name: "old" }, op: "edit" }]);
+  });
+
+  it("builds a delete forward-image carrying the deleted row's id", () => {
+    // undo-time state: the deleted row was re-inserted, so it's back in the array.
+    const afterArray: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
+    const forward = buildForwardImages([del(1, { id: 2, name: "b" })], afterArray);
+    expect(forward).toEqual([{ index: 1, item: { id: 2, name: "b" }, op: "delete" }]);
+  });
+
+  it("round-trips a delete: restore then forward returns the post-op array", () => {
+    const preOp: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
+    const before = buildBeforeImages([{ id: 2, name: "b" }], [], preOp);
+    const postOp = applyUndoForward(preOp, buildForwardImages(before, preOp));
+    expect(postOp).toEqual([{ id: 1, name: "a" }]); // delete applied
+    const restored = applyUndoRestore(postOp, before);
+    expect(restored).toEqual(preOp); // undo restored
+    const forward = buildForwardImages(before, restored);
+    expect(applyUndoForward(restored, forward)).toEqual([{ id: 1, name: "a" }]); // redo re-deletes
   });
 });
 

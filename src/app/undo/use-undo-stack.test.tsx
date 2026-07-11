@@ -102,6 +102,116 @@ describe("useUndoStack", () => {
     expect(result.current.canUndo).toBe(false);
   });
 
+  it("delete → undo → redo round-trips (gone → restored → gone)", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let arr: readonly Row[] = [{ id: 1, name: "a" }]; // already deleted id 2
+    const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+    act(() => {
+      result.current.capture({ setter, kind: "task.deleted", removed: [{ id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }] });
+    });
+    expect(result.current.canRedo).toBe(false);
+    act(() => result.current.undo());
+    expect(arr).toEqual([{ id: 1, name: "a" }, { id: 2, name: "b" }]); // restored
+    expect(result.current.canRedo).toBe(true);
+    expect(result.current.canUndo).toBe(false);
+    act(() => result.current.redo());
+    expect(arr).toEqual([{ id: 1, name: "a" }]); // gone again
+    expect(deps.logActivity).toHaveBeenCalledWith("redo", 1);
+    expect(result.current.canRedo).toBe(false);
+    expect(result.current.canUndo).toBe(true); // re-undoable
+  });
+
+  it("edit → undo → redo round-trips (after → before → after)", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let arr: readonly Row[] = [{ id: 1, name: "AFTER" }]; // already edited from "a"
+    const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+    act(() => {
+      result.current.capture({ setter, kind: "task.updated", edited: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] });
+    });
+    act(() => result.current.undo());
+    expect(arr).toEqual([{ id: 1, name: "a" }]); // reverted to before
+    act(() => result.current.redo());
+    expect(arr).toEqual([{ id: 1, name: "AFTER" }]); // re-applied
+  });
+
+  it("composite → undo → redo round-trips both arrays", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let roles: readonly Row[] = [{ id: 7, name: "Dev/Sr" }];
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }, { id: 2, roleId: 7 }];
+    const rolesBefore = roles;
+    const refsBefore = refs;
+    const affected = refs.filter((r) => r.roleId === 7);
+    const setRoles = (u: SetStateAction<readonly Row[]>) => { roles = typeof u === "function" ? u(roles) : u; };
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    roles = [];
+    refs = refs.map((r) => (r.roleId === 7 ? { ...r, roleId: null } : r));
+    act(() => {
+      result.current.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRefs, edited: affected, fromArray: refsBefore }),
+        ],
+      });
+    });
+    act(() => result.current.undo());
+    expect(roles).toEqual([{ id: 7, name: "Dev/Sr" }]);
+    expect(refs).toEqual([{ id: 1, roleId: 7 }, { id: 2, roleId: 7 }]);
+    act(() => result.current.redo());
+    expect(roles).toEqual([]); // role removed again
+    expect(refs).toEqual([{ id: 1, roleId: null }, { id: 2, roleId: null }]); // cascade re-applied
+    expect(result.current.canUndo).toBe(true);
+  });
+
+  it("a NEW capture after an undo CLEARS the redo stack", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    const setter = vi.fn();
+    act(() => result.current.capture({ setter, kind: "task.deleted", removed: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] }));
+    act(() => result.current.undo());
+    expect(result.current.canRedo).toBe(true);
+    act(() => result.current.capture({ setter, kind: "task.deleted", removed: [{ id: 2, name: "b" }], fromArray: [{ id: 2, name: "b" }] }));
+    expect(result.current.canRedo).toBe(false);
+    expect(result.current.redoStack).toHaveLength(0);
+  });
+
+  it("undoById of a NON-top entry clears redo; of the TOP entry keeps it redoable", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => {
+      result.current.capture({ setter: vi.fn(), kind: "task.deleted", removed: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] });
+      result.current.capture({ setter: vi.fn(), kind: "change.deleted", removed: [{ id: 9, name: "x" }], fromArray: [{ id: 9, name: "x" }] });
+    });
+    const bottomId = result.current.stack[0].id;
+    act(() => result.current.undoById(bottomId)); // NON-top
+    expect(result.current.canRedo).toBe(false);
+  });
+
+  it("exposes redoStack metas and reports canRedo", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => result.current.capture({ setter: vi.fn(), kind: "task.deleted", removed: [{ id: 1, name: "a" }], fromArray: [{ id: 1, name: "a" }] }));
+    act(() => result.current.undo());
+    expect(result.current.redoStack).toHaveLength(1);
+    expect(result.current.redoStack[0].kind).toBe("task.deleted");
+    expect(result.current.redoStack[0].count).toBe(1);
+  });
+
+  it("retains up to 25 undo entries (bumped cap)", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => {
+      for (let i = 1; i <= 27; i++) {
+        result.current.capture({ setter: vi.fn(), kind: "task.deleted", removed: [{ id: i, name: `n${i}` }], fromArray: [{ id: i, name: `n${i}` }] });
+      }
+    });
+    expect(result.current.stack).toHaveLength(25);
+  });
+
   it("captureComposite ignores null parts and skips a wholly-empty op", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));

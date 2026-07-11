@@ -90,6 +90,58 @@ export function applyUndoRestore<T extends { id: number }>(
 }
 
 /**
+ * Re-apply the destructive op (REDO) — the exact inverse of `applyUndoRestore`,
+ * driven by FORWARD images (the post-op / after values, built by
+ * `buildForwardImages` at undo time):
+ *
+ * - **edit** image: replace the row with that id by `item` (the AFTER value).
+ *   ABSENT (row deleted since) → skip.
+ * - **delete** image: REMOVE the row with that id from `current` (only the id is
+ *   used). ABSENT → skip.
+ *
+ * Edits are applied first, then removals, mirroring the restore ordering so a
+ * redo that both edits and removes composes correctly. Id-based and pure.
+ */
+export function applyUndoForward<T extends { id: number }>(
+  current: readonly T[],
+  forward: readonly BeforeImage<T>[],
+): T[] {
+  let out = current.slice();
+  for (const { item, op } of forward) {
+    if (op !== "edit") continue;
+    const idx = out.findIndex((r) => r.id === item.id);
+    if (idx !== -1) out[idx] = item; // absent edit → skip
+  }
+  const removeIds = new Set(forward.filter((f) => f.op === "delete").map((f) => f.item.id));
+  if (removeIds.size > 0) out = out.filter((r) => !removeIds.has(r.id));
+  return out;
+}
+
+/**
+ * Build the FORWARD (redo) images from the before-images plus the array as it
+ * existed AT UNDO TIME (`afterArray` = the post-op state, i.e. the value the
+ * setter held just before undo restored it). Pure.
+ *
+ * - **edit** before-image (id X): forward carries the AFTER value —
+ *   `afterArray.find(id === X)`. If the row was deleted since the undo-capture,
+ *   fall back to the before-image's own item (best available).
+ * - **delete** before-image (id X): forward carries the before-image item
+ *   unchanged (only its id is used, to REMOVE it on redo).
+ */
+export function buildForwardImages<T extends { id: number }>(
+  before: readonly BeforeImage<T>[],
+  afterArray: readonly T[],
+): BeforeImage<T>[] {
+  return before.map((b) => {
+    if (b.op === "edit") {
+      const after = afterArray.find((r) => r.id === b.item.id);
+      return { index: b.index, item: after ?? b.item, op: "edit" as const };
+    }
+    return { index: b.index, item: b.item, op: "delete" as const };
+  });
+}
+
+/**
  * Build the before-images for ONE array from the rows an op removed and/or
  * edited, resolving each row's original index against the pre-op array. Shared
  * by the single-array `capture` and the multi-array `capturePart` (composite)
@@ -107,28 +159,29 @@ export function buildBeforeImages<T extends { id: number }>(
   ];
 }
 
-/** Push an entry on top (end); evict the oldest (front) past `cap`. Pure. */
-export function pushUndo(
-  stack: readonly UndoEntry[],
-  entry: UndoEntry,
+/** Push an entry on top (end); evict the oldest (front) past `cap`. Generic
+ *  over the entry shape (any `{ meta }`) so the undo AND redo stacks share it. Pure. */
+export function pushUndo<E extends { meta: UndoMeta }>(
+  stack: readonly E[],
+  entry: E,
   cap: number,
-): UndoEntry[] {
+): E[] {
   const next = [...stack, entry];
   return next.length > cap ? next.slice(next.length - cap) : next;
 }
 
 /** Remove and return the top entry (end) plus the remaining stack, or null. Pure. */
-export function popUndo(
-  stack: readonly UndoEntry[],
-): { entry: UndoEntry; rest: UndoEntry[] } | null {
+export function popUndo<E extends { meta: UndoMeta }>(
+  stack: readonly E[],
+): { entry: E; rest: E[] } | null {
   if (stack.length === 0) return null;
   return { entry: stack[stack.length - 1], rest: stack.slice(0, -1) };
 }
 
 /** Return the stack without the entry whose meta.id === id. Pure. */
-export function dropEntry(
-  stack: readonly UndoEntry[],
+export function dropEntry<E extends { meta: UndoMeta }>(
+  stack: readonly E[],
   id: number,
-): UndoEntry[] {
+): E[] {
   return stack.filter((e) => e.meta.id !== id);
 }
