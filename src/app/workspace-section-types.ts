@@ -216,6 +216,8 @@ export interface WorkspaceSectionProps {
   onPullMilestonesFromOutlook?: () => void;
   calendarPullBusy?: boolean;
   committeeOutlookPush?: { onPush: () => void; busy: boolean };
+  /** Per-meeting status-report bag (save/email; AI + versions via extended fields). */
+  committeeReport?: import("./use-meeting-report-actions").MeetingReportBag;
   /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
   m365Configured?: boolean;
   /** RAID review-date two-way Outlook sync (SP2/SP3). Absent in popouts. */

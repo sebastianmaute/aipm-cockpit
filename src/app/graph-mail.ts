@@ -19,11 +19,18 @@ export class GraphMailError extends Error {
   }
 }
 
-export function buildGraphMessage(to: string, subject: string, htmlBody: string): GraphMessage {
+export function buildGraphMessage(
+  to: string | readonly string[],
+  subject: string,
+  htmlBody: string,
+): GraphMessage {
+  const addresses = (typeof to === "string" ? [to] : to)
+    .map((a) => a.trim())
+    .filter((a) => a.length > 0);
   return {
     subject,
     body: { contentType: "HTML", content: htmlBody },
-    toRecipients: [{ emailAddress: { address: to } }],
+    toRecipients: addresses.map((address) => ({ emailAddress: { address } })),
   };
 }
 
