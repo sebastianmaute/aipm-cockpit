@@ -275,6 +275,26 @@ describe("budget: follow-plan mirror (Task 8)", () => {
     );
     expect(screen.getAllByLabelText(/^actual-/)[0]).not.toHaveAttribute("readonly");
   });
+
+  test("mirror ON — row RAG follows planned, not the stored 0 budget", () => {
+    // Stored budget is 0 (planning drives it). Without routing the row total
+    // through the mirror, the badge would be ratioHealth(80, 0) → null → "—";
+    // with planned (176) mirrored in it must be a real RAG band.
+    const zeroBudgetBucket: BudgetBucket[] = [{
+      id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 3, resourceIds: [7], budgetHours: { "2026-01": 0 }, actualHours: { "2026-01": 80 } }],
+    }];
+    render(
+      <BudgetPanel
+        {...props}
+        resources={[resourceWithCapacity]}
+        plan={{ ...plan, budgetFollowsPlan: true }}
+        buckets={zeroBudgetBucket}
+      />,
+    );
+    const rowStatus = screen.getByLabelText(t("en-US", "budgetRoleStatus"));
+    expect(rowStatus.textContent).not.toBe("—");
+  });
 });
 
 test("over-budget allocation row shows a Red RAG badge", () => {

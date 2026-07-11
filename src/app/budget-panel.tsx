@@ -500,7 +500,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   </thead>
                   <tbody>
                     {!isBlended && detailedRows.map((a) => {
-                      const totBudget = sumPeriods(a.budgetHours, periods);
+                      // Effective budget (mirrors planned when follow-plan is on) so the
+                      // row RAG agrees with the cells + bucket dot — not the stored hours.
+                      const totBudget = periods.reduce((s, p) => s + cellBudget(a, p, periods), 0);
                       const totActual = sumPeriods(a.actualHours, periods);
                       const mirror = budgetFollowsPlan && a.resourceIds.length > 0;
                       return (
@@ -523,7 +525,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       );
                     })}
                     {isBlended && blendedRows.map((a) => {
-                      const totBudget = sumPeriods(a.budgetHours, periods);
+                      // Effective budget (mirrors planned when follow-plan is on) so the
+                      // row RAG agrees with the cells + bucket dot — not the stored hours.
+                      const totBudget = periods.reduce((s, p) => s + cellBudget(a, p, periods), 0);
                       const totActual = sumPeriods(a.actualHours, periods);
                       // Each blended row IS one disciplineAllocation carrying its own
                       // resourceIds, and allocationPlannedHours already sums over them —
