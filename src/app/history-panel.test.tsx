@@ -192,6 +192,11 @@ it("shows the 'identical' message when a vs-now compare yields no changes", asyn
 
 it("scrolls the compare output into view after a compare resolves", async () => {
   const scrollSpy = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+  // Capture the scheduled rAF callback and fire it MANUALLY after the diff has
+  // committed, so the assertion doesn't depend on real frame timing (jsdom's rAF
+  // isn't reliably flushed under CI load → the old waitFor was flaky).
+  let rafCb: FrameRequestCallback | undefined;
+  const rafSpy = vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation((cb) => { rafCb = cb; return 1; });
   const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "auto", label: null, summary: null }];
   const loadDiff = vi.fn().mockResolvedValue([
     { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "T1",
@@ -200,7 +205,9 @@ it("scrolls the compare output into view after a compare resolves", async () => 
   renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={vi.fn().mockResolvedValue(undefined)} />);
   fireEvent.click(screen.getByText(/Compared with current/i));
   await screen.findByText("T1"); // diff committed → compareRef is populated
-  await waitFor(() => expect(scrollSpy).toHaveBeenCalled()); // rAF fires post-commit
+  rafCb?.(0); // fire the scheduled rAF now that the compare output is in the DOM
+  expect(scrollSpy).toHaveBeenCalled();
+  rafSpy.mockRestore();
   scrollSpy.mockRestore();
 });
 
