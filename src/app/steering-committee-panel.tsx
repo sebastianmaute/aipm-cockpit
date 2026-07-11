@@ -512,11 +512,10 @@ export function SteeringCommitteePanel({
                   <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
                   <MeetingReportPanel
                     lang={lang}
-                    meeting={m}
                     report={m.report}
                     recipients={committeeMemberEmails(c, resources)}
                     onSave={(html) => report.onSaveReport(m.id, html)}
-                    onSend={() => report.onSendReport(m.id)}
+                    onSend={(recips) => report.onSendReport(m.id, recips)}
                     m365Configured={report.m365Configured}
                     sendBusy={report.sendBusyMeetingId === m.id}
                     isPopout={isPopout}

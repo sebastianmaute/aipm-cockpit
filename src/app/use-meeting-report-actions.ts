@@ -7,7 +7,6 @@ import { t, type Lang } from "./i18n";
 import type { SteeringCommittee, Resource } from "./types";
 import type { Settings } from "./settings-types";
 import { isAiEnabled } from "./settings-types";
-import { committeeMemberEmails } from "./committee-report/report-recipients";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
 import { sanitizeTemplateHtml } from "./sanitize-html";
 import { runMeetingReport } from "./committee-report/report-call";
@@ -43,7 +42,7 @@ export interface MeetingReportBag {
   aiConfigured: boolean;
   tursoActive: boolean;
   onSaveReport: (meetingId: number, html: string) => void;
-  onSendReport: (meetingId: number) => void;
+  onSendReport: (meetingId: number, recipients: readonly string[]) => void;
   sendBusyMeetingId: number | null;
   onGenerateReport: (meetingId: number) => void;
   generateBusyMeetingId: number | null;
@@ -90,26 +89,28 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
   // sentAt survives (a re-save doesn't clear the last-sent stamp).
   function onSaveReport(meetingId: number, html: string): void {
     void snapshotCurrent(meetingId); // snapshot the prior before we overwrite it
+    // Uniform write-time sanitization (defense-in-depth) — every body write
+    // (manual save, AI draft, restore) routes through here. A NEW body is
+    // unsent, so `sentAt` is intentionally dropped.
+    const clean = sanitizeTemplateHtml(html);
     deps.setSteeringCommittee((c) =>
       c
         ? {
             ...c,
             meetings: c.meetings.map((m) =>
-              m.id === meetingId
-                ? { ...m, report: { html, updatedAt: nowIso(), ...(m.report?.sentAt ? { sentAt: m.report.sentAt } : {}) } }
-                : m,
+              m.id === meetingId ? { ...m, report: { html: clean, updatedAt: nowIso() } } : m,
             ),
           }
         : c,
     );
   }
 
-  async function onSendReport(meetingId: number): Promise<void> {
+  async function onSendReport(meetingId: number, recipients: readonly string[]): Promise<void> {
     const committee = deps.committee;
     if (!committee || !deps.m365Configured) return;
     const meeting = committee.meetings.find((m) => m.id === meetingId);
     if (!meeting?.report) return;
-    const emails = committeeMemberEmails(committee, deps.resources);
+    const emails = recipients.map((e) => e.trim()).filter((e) => e !== "");
     if (emails.length === 0) {
       deps.showToast("info", t(deps.lang, "reportNoRecipients"));
       return;
@@ -155,8 +156,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
         model: deps.aiModel,
         lang: deps.lang,
       });
-      // AI output is untrusted — sanitize before it lands in the editor/blob.
-      onSaveReport(meetingId, sanitizeTemplateHtml(html));
+      // onSaveReport sanitizes (AI output is untrusted) before it lands.
+      onSaveReport(meetingId, html);
     } catch {
       // Status-only — never surface the response body (runMeetingReport already
       // throws status-digits/"parse" only).
@@ -199,8 +200,8 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     aiConfigured: isAiEnabled(deps.settings.ai),
     tursoActive: deps.tursoConfig !== null,
     onSaveReport,
-    onSendReport: (meetingId: number) => {
-      void onSendReport(meetingId);
+    onSendReport: (meetingId: number, recipients: readonly string[]) => {
+      void onSendReport(meetingId, recipients);
     },
     sendBusyMeetingId,
     onGenerateReport: (meetingId: number) => {

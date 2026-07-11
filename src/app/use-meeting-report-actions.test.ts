@@ -81,21 +81,20 @@ describe("useMeetingReportActions", () => {
     expect(next.meetings[0].report?.html).toBe("<p>new</p>");
   });
 
-  it("send with no member emails shows the no-recipients toast and does NOT send", async () => {
+  it("send with an empty recipient list shows the no-recipients toast and does NOT send", async () => {
     const showToast = vi.fn();
-    const deps = makeDeps({ showToast, resources: [resources[1]] }); // only the emailless member
-    const { result } = renderHook(() => useMeetingReportActions(deps));
-    await act(async () => { result.current!.onSendReport(10); });
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
+    await act(async () => { result.current!.onSendReport(10, []); });
     expect(showToast).toHaveBeenCalledWith("info", expect.any(String));
     expect(sendMail).not.toHaveBeenCalled();
   });
 
-  it("happy path sends to resolved emails, stamps sentAt, success toast", async () => {
+  it("happy path sends to the given recipients, stamps sentAt, success toast", async () => {
     const showToast = vi.fn();
     const setSteeringCommittee = vi.fn();
     const deps = makeDeps({ showToast, setSteeringCommittee });
     const { result } = renderHook(() => useMeetingReportActions(deps));
-    await act(async () => { result.current!.onSendReport(10); });
+    await act(async () => { result.current!.onSendReport(10, ["a@x.com"]); });
     await waitFor(() => expect(sendMail).toHaveBeenCalledTimes(1));
     const [, msg] = sendMail.mock.calls[0] as [string, { to: string[] }];
     expect(msg.to).toEqual(["a@x.com"]);
@@ -134,7 +133,7 @@ describe("useMeetingReportActions", () => {
     sendMail.mockRejectedValueOnce(new Error("boom-body"));
     const showToast = vi.fn();
     const { result } = renderHook(() => useMeetingReportActions(makeDeps({ showToast })));
-    await act(async () => { result.current!.onSendReport(10); });
+    await act(async () => { result.current!.onSendReport(10, ["a@x.com"]); });
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)));
     const errText = showToast.mock.calls.find((c) => c[0] === "error")![1] as string;
     expect(errText).not.toContain("boom-body");

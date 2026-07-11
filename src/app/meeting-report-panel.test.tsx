@@ -1,7 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { MeetingReportPanel } from "./meeting-report-panel";
-import type { CommitteeMeeting } from "./types";
 
 // Stub the dynamically-imported Tiptap editor with a plain textarea so the test
 // exercises the pane's buttons/logic, not the browser-only editor.
@@ -11,13 +10,10 @@ vi.mock("./rich-text-editor", () => ({
   ),
 }));
 
-const meeting: CommitteeMeeting = { id: 1, date: "2026-06-01", title: "M1" };
-
 function renderPanel(overrides = {}) {
   return render(
     <MeetingReportPanel
       lang="en-US"
-      meeting={meeting}
       report={{ html: "<p>hi</p>", updatedAt: "2026-05-30T10:00:00.000Z" }}
       recipients={["alice@x.com"]}
       onSave={vi.fn()}
@@ -51,7 +47,15 @@ describe("MeetingReportPanel", () => {
     const onSend = vi.fn();
     renderPanel({ onSend });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    expect(onSend).toHaveBeenCalled();
+    expect(onSend).toHaveBeenCalledWith(["alice@x.com"]);
+  });
+
+  it("sends the EDITED recipient list, not just the seeded members", () => {
+    const onSend = vi.fn();
+    renderPanel({ onSend });
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "a@x.com, b@x.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(onSend).toHaveBeenCalledWith(["a@x.com", "b@x.com"]);
   });
 
   it("shows Draft-with-AI only when aiConfigured + onGenerate", () => {
@@ -60,7 +64,7 @@ describe("MeetingReportPanel", () => {
     expect(screen.queryByRole("button", { name: "Draft with AI" })).toBeNull();
     rerender(
       <MeetingReportPanel
-        lang="en-US" meeting={meeting}
+        lang="en-US"
         report={{ html: "<p>hi</p>", updatedAt: "2026-05-30T10:00:00.000Z" }}
         recipients={["a@x.com"]} onSave={vi.fn()} onSend={vi.fn()} m365Configured
         aiConfigured onGenerate={onGenerate}

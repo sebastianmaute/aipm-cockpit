@@ -7,9 +7,9 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { t, type Lang } from "./i18n";
-import type { CommitteeMeeting, MeetingReport } from "./types";
+import type { MeetingReport } from "./types";
 import { sanitizeTemplateHtml } from "./sanitize-html";
-import { INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 const RichTextEditor = dynamic(() => import("./rich-text-editor").then((m) => m.RichTextEditor), {
   ssr: false,
@@ -45,11 +45,11 @@ export interface MeetingReportVersionUi {
 
 export interface MeetingReportPanelProps {
   lang: Lang;
-  meeting: CommitteeMeeting;
   report: MeetingReport | undefined;
+  /** Initial recipients (committee members' emails) — editable before send. */
   recipients: readonly string[];
   onSave: (html: string) => void;
-  onSend: () => void;
+  onSend: (recipients: readonly string[]) => void;
   m365Configured: boolean;
   sendBusy?: boolean;
   isPopout?: boolean;
@@ -61,6 +61,19 @@ export interface MeetingReportPanelProps {
   versions?: readonly MeetingReportVersionUi[];
   onRestore?: (versionId: string) => void;
   restoreBusyId?: string | null;
+}
+
+function parseRecipients(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(",")) {
+    const email = part.trim();
+    if (email && !seen.has(email.toLowerCase())) {
+      seen.add(email.toLowerCase());
+      out.push(email);
+    }
+  }
+  return out;
 }
 
 export function MeetingReportPanel({
@@ -90,7 +103,11 @@ export function MeetingReportPanel({
     setDraft(report?.html ?? "");
   }
 
-  const noRecipients = recipients.length === 0;
+  // Recipients are seeded from the committee members but EDITABLE before send
+  // (fresh mount per modal-open re-seeds from the current members).
+  const [toList, setToList] = useState(recipients.join(", "));
+  const parsedRecipients = parseRecipients(toList);
+  const noRecipients = parsedRecipients.length === 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -150,9 +167,19 @@ export function MeetingReportPanel({
         </details>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        {t(lang, "reportTo")}: {noRecipients ? t(lang, "reportNoRecipients") : recipients.join(", ")}
-      </p>
+      {readOnly ? null : (
+        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          {t(lang, "reportTo")}
+          <input
+            type="text"
+            value={toList}
+            onChange={(e) => setToList(e.target.value)}
+            aria-label={t(lang, "reportTo")}
+            className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+          />
+          {noRecipients && <span className="text-AIPM-pink-strong">{t(lang, "reportNoRecipients")}</span>}
+        </label>
+      )}
 
       {!readOnly && (
         <div className="flex items-center justify-end gap-2">
@@ -161,7 +188,7 @@ export function MeetingReportPanel({
           </button>
           <button
             type="button"
-            onClick={onSend}
+            onClick={() => onSend(parsedRecipients)}
             disabled={!m365Configured || sendBusy || noRecipients}
             className={`${BTN_PRIMARY} ${INTERACTIVE}`}
           >
