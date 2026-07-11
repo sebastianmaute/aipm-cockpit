@@ -11,6 +11,7 @@ import {
   resourceDisplayName,
   effectiveAssignee,
   effectivePersonName,
+  effectivePersonEmail,
   isResourceLinked,
 } from "./resource-foundation";
 import { PRESET_DISCIPLINES, PRESET_GRADES, type Task, type Absence, type Role, type Discipline, type Grade } from "./types";
@@ -142,5 +143,22 @@ describe("effectivePersonName / effectiveAssignee / isResourceLinked", () => {
   test("dangling (id not in directory): falls back to the cached string", () => {
     expect(effectivePersonName("Deleted Person", 999, byId)).toBe("Deleted Person");
     expect(isResourceLinked(999, byId)).toBe(false);
+  });
+});
+
+describe("effectivePersonEmail", () => {
+  const byId = new Map([
+    [7, { email: "current@corp.com" }],
+    [8, { email: undefined }],
+  ]);
+  test("linked resource with an email: the live email wins over the cache", () => {
+    expect(effectivePersonEmail("old@corp.com", 7, byId)).toBe("current@corp.com");
+  });
+  test("linked resource without an email: falls back to the cached email", () => {
+    expect(effectivePersonEmail("cached@corp.com", 8, byId)).toBe("cached@corp.com");
+  });
+  test("unlinked/dangling: falls back to the cached email", () => {
+    expect(effectivePersonEmail("cached@corp.com", null, byId)).toBe("cached@corp.com");
+    expect(effectivePersonEmail("cached@corp.com", 999, byId)).toBe("cached@corp.com");
   });
 });

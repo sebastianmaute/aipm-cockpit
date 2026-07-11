@@ -219,3 +219,19 @@ export function effectiveAssignee(
 ): string {
   return effectivePersonName(ref.assignee, ref.resourceId, resourcesById);
 }
+
+/**
+ * The email to USE for an outbound action (draft/escalate) on a person
+ * reference carrying both an FK id and a cached email. When the id resolves to
+ * a live resource WITH an email, that current email wins; otherwise the cached
+ * email is the fallback (so a linked resource whose email changed is never
+ * mailed at its stale address). Mirrors {@link effectivePersonName}.
+ */
+export function effectivePersonEmail(
+  cachedEmail: string,
+  resourceId: number | null | undefined,
+  resourcesById: ReadonlyMap<number, Pick<Resource, "email">>,
+): string {
+  const r = resourceId != null ? resourcesById.get(resourceId) : undefined;
+  return r?.email ? r.email : cachedEmail;
+}
