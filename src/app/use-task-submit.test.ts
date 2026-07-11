@@ -1,10 +1,17 @@
 // src/app/use-task-submit.test.ts
 import { act, renderHook } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RaidItem } from "./types";
+import { __resetMintStateForTests } from "./id-mint-session";
 
 beforeAll(() => {
   window.scrollTo = vi.fn();
+});
+
+// The task-id minter is session-scoped: clear its high-water state before each
+// test so the exact-id assertions (max+1, id 1 on empty) stay deterministic.
+beforeEach(() => {
+  __resetMintStateForTests();
 });
 import { useTaskSubmit } from "./use-task-submit";
 import type { TaskFormDraft } from "./task-form-context";

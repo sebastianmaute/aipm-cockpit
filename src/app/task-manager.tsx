@@ -41,6 +41,7 @@ import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
 import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
+import { mintId } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -929,7 +930,7 @@ function TaskManagerInner() {
   const handleCreateResource = useCallback(
     (name: string, email: string): number => {
       const { firstName, lastName } = splitName(name);
-      const id = computeNextId(resources);
+      const id = mintId("resource", resources);
       // Mirror handleSaveResource's new-resource commit: stamp localModifiedAt
       // (change-tracking / Turso sync) and log resource.created for activity-log
       // completeness — a picker-created person must behave like a Resources-view one.
@@ -1157,7 +1158,7 @@ function TaskManagerInner() {
   const [linkedTaskOpen, setLinkedTaskOpen] = useState(false);
   const handleCreateLinkedTask = useCallback(
     (draft: LinkedTaskDraft) => {
-      const childId = computeNextId(tasksRef.current);
+      const childId = mintId("task", tasksRef.current);
       const base: Task = {
         id: childId,
         taskName: draft.taskName,

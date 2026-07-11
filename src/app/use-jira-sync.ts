@@ -9,6 +9,7 @@ import type { Settings } from "./settings-types";
 import type { Task } from "./types";
 import { daysUntil } from "./jira-token-status";
 import { isReadOnlyIssue, jiraProjectKeyOf } from "./jira-projects";
+import { mintId } from "./id-mint-session";
 import { useWorkspace } from "./workspace-context";
 
 // ── Lazy-load cache ──────────────────────────────────────────────────────────
@@ -104,8 +105,6 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       let pushed = 0;
       let pushErrors = 0;
       const conflictItems: ConflictItem[] = [];
-      let nextId =
-        list.length > 0 ? Math.max(...list.map((row) => row.id)) + 1 : 1;
 
       // Walk existing tasks first; decide pull/push/conflict per row.
       const next: Task[] = [];
@@ -251,8 +250,11 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       for (const issue of issues) {
         if (existingKeys.has(issue.key)) continue;
         const patch = issueToTaskFields(issue, todayNow);
+        // Mint a fresh, session-monotonic id per created row. `next` already holds
+        // every kept/pulled/pushed existing task plus rows added earlier in this
+        // loop, so each mint sees the growing accumulator and never reuses an id.
         next.push({
-          id: nextId++,
+          id: mintId("task", next),
           taskName: patch.taskName ?? issue.key,
           assignee: patch.assignee ?? "",
           assigneeEmail: patch.assigneeEmail ?? "",

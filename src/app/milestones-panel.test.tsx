@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
+import { __resetMintStateForTests } from "./id-mint-session";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -13,6 +14,12 @@ vi.mock("./activity-log", async (orig) => ({
   ...(await orig<typeof import("./activity-log")>()),
   loadActivityLog: () => [],
 }));
+
+// Milestone ids are minted from session-scoped state; reset it before each test
+// so the id-mint-race draft ("nextId([1]) = 2") stays deterministic.
+beforeEach(() => {
+  __resetMintStateForTests();
+});
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
