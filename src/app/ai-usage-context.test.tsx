@@ -62,7 +62,10 @@ describe("AiUsageProvider", () => {
 
     act(() => { result.current.record({ input: 100, output: 100 }); });
 
+    // The multiplier applies to BOTH the session total AND the weekly buckets,
+    // so the two caps are compared against the same (multiplied) scale.
     expect(result.current.sessionTotal).toBe(1000);
+    expect(result.current.weekTotal).toBe(1000);
   });
 
   it("accumulates raw tokens when tokenMultiplier is 1", async () => {

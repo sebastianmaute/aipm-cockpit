@@ -90,7 +90,11 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
   const record = useCallback(
     (u: Usage): void => {
-      const tokens = (u.input + u.output) * multiplier;
+      // Apply the counting multiplier ONCE, up front, so BOTH the session
+      // total and the weekly buckets count in the same (multiplied) units —
+      // otherwise the two caps would be compared against different scales.
+      const scaled: Usage = { input: u.input * multiplier, output: u.output * multiplier };
+      const tokens = scaled.input + scaled.output;
 
       // Read previous values from refs — no state reads inside updaters.
       const prevSession = sessionTotalRef.current;
@@ -100,7 +104,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       // Compute next values purely.
       const nextSession = prevSession + tokens;
       const prevWeek = weekToDate(prevBuckets, now);
-      const nextBuckets = addToBuckets(prevBuckets, now, u);
+      const nextBuckets = addToBuckets(prevBuckets, now, scaled);
       const nextWeek = weekToDate(nextBuckets, now);
 
       // Advance refs before setState so back-to-back record() calls in the
