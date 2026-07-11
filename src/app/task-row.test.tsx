@@ -9,7 +9,7 @@ import {
   useTaskRowContext,
   type RowContextValue,
 } from "./task-row";
-import { type ChangeItem, type RaidItem, type Task } from "./types";
+import { type ChangeItem, type RaidItem, type Resource, type Task } from "./types";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -67,6 +67,19 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     onAiEdit: vi.fn(),
     aiEditEnabled: () => false,
     onInlinePatch: vi.fn(),
+    resourcesById: new Map(),
+    ...overrides,
+  };
+}
+
+function makeResource(overrides: Partial<Resource> = {}): Resource {
+  return {
+    id: 1,
+    firstName: "First",
+    lastName: "Last",
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
     ...overrides,
   };
 }
@@ -122,6 +135,46 @@ describe("TaskRow", () => {
     expect(getByText("2026-09-01")).toBeTruthy();
     // "High" is the English label for priority High.
     expect(getByText("High")).toBeTruthy();
+  });
+
+  test("assignee cell shows the LIVE resource name when the task is linked, not the stale cache", () => {
+    // The task's cached `assignee` string is stale ("Old Removed") but its
+    // resourceId resolves to a live resource renamed to "Correct Name". The
+    // cell must render the resource's current name, read-only (no inline-edit
+    // ghost button) since a linked assignee is not free-text editable.
+    const ctx = makeContext({
+      resourcesById: new Map([[7, makeResource({ id: 7, firstName: "Correct", lastName: "Name" })]]),
+    });
+    const task = makeTask({ id: 3, taskName: "Linked task", assignee: "Old Removed", resourceId: 7 });
+    const { getByText, queryByText, queryByLabelText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow task={task} isSelected={false} isEditing={false} isExpanded={false} isPushing={false} raidRefs={undefined} />
+        ),
+      }),
+    );
+    expect(getByText("Correct Name")).toBeTruthy();
+    expect(queryByText("Old Removed")).toBeNull();
+    // Linked → plain read-only text, no inline-edit ghost button for assignee.
+    expect(queryByLabelText("Assignee – Linked task")).toBeNull();
+  });
+
+  test("assignee cell stays inline-editable (seeded from the cache) when the task is unlinked", () => {
+    const ctx = makeContext({ resourcesById: new Map() });
+    const task = makeTask({ id: 4, taskName: "Freetext task", assignee: "Freetext Person", resourceId: undefined });
+    const { getByLabelText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow task={task} isSelected={false} isEditing={false} isExpanded={false} isPushing={false} raidRefs={undefined} />
+        ),
+      }),
+    );
+    // Unlinked → the inline-edit ghost button exists and shows the cached name.
+    const btn = getByLabelText("Assignee – Freetext task");
+    expect(btn).toBeTruthy();
+    expect(btn.textContent).toContain("Freetext Person");
   });
 
   test("dependency chip resolves predecessor name from the split lookup context", () => {

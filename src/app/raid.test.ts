@@ -554,6 +554,22 @@ describe("compareRaid", () => {
     ).toEqual([2, 1]);
   });
 
+  test("owner sorts by the linked resource's LIVE name, not the stale cache", () => {
+    const byId = new Map<number, import("./types").Resource>([
+      [7, { id: 7, firstName: "Aaa", lastName: "Live", roleId: null, utilizationMode: "percent", utilization: {} } as import("./types").Resource],
+      [8, { id: 8, firstName: "Zzz", lastName: "Live", roleId: null, utilizationMode: "percent", utilization: {} } as import("./types").Resource],
+    ]);
+    // id1's cache sorts LAST but its live name is first; id2 the opposite.
+    const items = [
+      ri({ id: 1, owner: "Zzz Cache", ownerResourceId: 7 }),
+      ri({ id: 2, owner: "Aaa Cache", ownerResourceId: 8 }),
+    ];
+    // With the directory → live names: Aaa(id1) before Zzz(id2).
+    expect([...items].sort((a, b) => compareRaid(a, b, "owner", "asc", byId)).map((i) => i.id)).toEqual([1, 2]);
+    // Without it → cache: "Aaa Cache"(id2) before "Zzz Cache"(id1).
+    expect([...items].sort((a, b) => compareRaid(a, b, "owner", "asc")).map((i) => i.id)).toEqual([2, 1]);
+  });
+
   test("missing targetDate sorts LAST in both directions", () => {
     const items = [
       ri({ id: 1, targetDate: undefined }),

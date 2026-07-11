@@ -9,6 +9,10 @@ import {
   roleLabel,
   splitName,
   resourceDisplayName,
+  effectiveAssignee,
+  effectivePersonName,
+  effectivePersonEmail,
+  isResourceLinked,
 } from "./resource-foundation";
 import { PRESET_DISCIPLINES, PRESET_GRADES, type Task, type Absence, type Role, type Discipline, type Grade } from "./types";
 
@@ -116,5 +120,45 @@ describe("resourceDisplayName", () => {
   });
   test("omits the trailing space when last name is empty", () => {
     expect(resourceDisplayName({ firstName: "Madonna", lastName: "" })).toBe("Madonna");
+  });
+});
+
+describe("effectivePersonName / effectiveAssignee / isResourceLinked", () => {
+  const byId = new Map([[7, { firstName: "Correct", lastName: "Name" }]]);
+
+  test("linked: the LIVE resource name wins over a stale cached string", () => {
+    // The reported bug: import cached name='Old Removed', resourceId->live 7.
+    expect(effectivePersonName("Old Removed", 7, byId)).toBe("Correct Name");
+    expect(effectiveAssignee({ assignee: "Old Removed", resourceId: 7 }, byId)).toBe("Correct Name");
+    expect(isResourceLinked(7, byId)).toBe(true);
+  });
+
+  test("unlinked (id null/undefined): falls back to the cached string", () => {
+    expect(effectivePersonName("Free Text", null, byId)).toBe("Free Text");
+    expect(effectivePersonName("Free Text", undefined, byId)).toBe("Free Text");
+    expect(effectiveAssignee({ assignee: "Free Text", resourceId: null }, byId)).toBe("Free Text");
+    expect(isResourceLinked(null, byId)).toBe(false);
+  });
+
+  test("dangling (id not in directory): falls back to the cached string", () => {
+    expect(effectivePersonName("Deleted Person", 999, byId)).toBe("Deleted Person");
+    expect(isResourceLinked(999, byId)).toBe(false);
+  });
+});
+
+describe("effectivePersonEmail", () => {
+  const byId = new Map([
+    [7, { email: "current@corp.com" }],
+    [8, { email: undefined }],
+  ]);
+  test("linked resource with an email: the live email wins over the cache", () => {
+    expect(effectivePersonEmail("old@corp.com", 7, byId)).toBe("current@corp.com");
+  });
+  test("linked resource without an email: falls back to the cached email", () => {
+    expect(effectivePersonEmail("cached@corp.com", 8, byId)).toBe("cached@corp.com");
+  });
+  test("unlinked/dangling: falls back to the cached email", () => {
+    expect(effectivePersonEmail("cached@corp.com", null, byId)).toBe("cached@corp.com");
+    expect(effectivePersonEmail("cached@corp.com", 999, byId)).toBe("cached@corp.com");
   });
 });

@@ -12,7 +12,7 @@ import {
 import { useFilters } from "./filters-context";
 import type { FeatureModuleId } from "./feature-modules";
 import type { FieldVisibilityConfig } from "./field-visibility";
-import { defaultResourcePlan } from "./resource-foundation";
+import { defaultResourcePlan, effectiveAssignee } from "./resource-foundation";
 import { statusSortIndex } from "./task-status";
 import {
   PRIORITY_RANK,
@@ -130,12 +130,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     sortDir,
   } = useFilters();
 
+  // Directory map for resolving a linked assignee's LIVE name — the stored
+  // `assignee` string is a stale-able cache. The filter options, the filter
+  // comparison, the search haystack, and the assignee sort all resolve through
+  // this so a renamed linked resource is shown/searchable/filterable by its
+  // current name consistently (mirrors the Gantt assignee handling).
+  const resourcesById = useMemo(
+    () => new Map(resources.map((r) => [r.id, r])),
+    [resources],
+  );
+
   const uniqueAssignees = useMemo(
     () =>
-      Array.from(new Set(tasks.map((t) => t.assignee))).sort((a, b) =>
+      Array.from(new Set(tasks.map((t) => effectiveAssignee(t, resourcesById)))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    [tasks],
+    [tasks, resourcesById],
   );
 
   const uniqueGroups = useMemo(
@@ -171,7 +181,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         [
           `#${t.id}`,
           t.taskName,
-          t.assignee,
+          effectiveAssignee(t, resourcesById),
           t.blockers,
           t.notes,
           t.group ?? "",
@@ -182,14 +192,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       );
     }
     return map;
-  }, [tasks]);
+  }, [tasks, resourcesById]);
 
   const filteredSortedTasks = useMemo(() => {
     const q = searchDebounced.trim().toLowerCase();
     const filtered = tasks.filter((t) => {
       if (priorityFilter !== "All" && t.priority !== priorityFilter)
         return false;
-      if (assigneeFilter !== "All" && t.assignee !== assigneeFilter)
+      if (assigneeFilter !== "All" && effectiveAssignee(t, resourcesById) !== assigneeFilter)
         return false;
       if (groupFilter !== "All" && (t.group ?? "") !== groupFilter)
         return false;
@@ -228,7 +238,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         else if (!av && bv) cmp = 1;
         else if (!av && !bv) cmp = 0;
         else cmp = av.localeCompare(bv);
-      } else cmp = a[sortKey].localeCompare(b[sortKey]);
+      } else if (sortKey === "assignee")
+        cmp = effectiveAssignee(a, resourcesById).localeCompare(effectiveAssignee(b, resourcesById));
+      else cmp = a[sortKey].localeCompare(b[sortKey]);
       return cmp * dir;
     });
   }, [
@@ -241,6 +253,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     labelFilter,
     sortKey,
     sortDir,
+    resourcesById,
   ]);
 
   // Memoized container: useState setters are identity-stable and excluded

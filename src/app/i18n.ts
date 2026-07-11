@@ -3235,6 +3235,7 @@ const enUS = {
   helpSecUsageLimitsBody: "The assistant shows a clear notice when Claude's own weekly or rate limit is reached, and when you hit a token limit you set yourself — these are advisory and never block your work; in chat the notice is added to the conversation without clearing it. In Settings → AI you can set your own session and weekly token limits, a token-counting multiplier (default 5), and the maximum number of assistant steps per message (default 12).",
   versionHighlightRedo: "Redo: reverse an undo with Ctrl/Cmd+Shift+Z or the top-bar redo button — for deletes, bulk edits, and clear-all on any storage backend.",
   versionHighlightIdIntegrity: "ID integrity: entity ids are never reused within a session, so an id freed by a delete can't be reassigned and later clobbered by an undo — covers every create path, including Outlook imports and opening a file.",
+  versionHighlightLiveNames: "Live names: assignees, RAID owners and absences linked to a directory resource now show, search, filter, sort and email by the resource's current name/email everywhere — no more stale names after a rename or re-link.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -83,9 +83,15 @@ export function ReportsPanel({
   onOpenAction?: (a: SuggestedAction) => void;
   onShowActions?: () => void;
 }) {
+  // id -> Resource lookup so the by-assignee grouping keys off each linked
+  // task's LIVE resource name (the stored `assignee` cache goes stale on rename).
+  const resourcesById = useMemo(
+    () => new Map(resources.map((r) => [r.id, r])),
+    [resources],
+  );
   const stats = useMemo(
-    () => computeStats(tasks, today, holidaySet),
-    [tasks, today, holidaySet],
+    () => computeStats(tasks, today, holidaySet, resourcesById),
+    [tasks, today, holidaySet, resourcesById],
   );
 
   // Group tasks by `task.group`, then compute RAG per group. Sorted R → A → G
@@ -267,7 +273,7 @@ export function ReportsPanel({
   };
 
   const renderEmbedded = (id: AddableReportId) => {
-    if (id === "raid-report") return <RaidReportPanel embedded lang={lang} items={raid} today={today} />;
+    if (id === "raid-report") return <RaidReportPanel embedded lang={lang} items={raid} today={today} resourcesById={resourcesById} />;
     if (id === "budget-report") return plan ? <BudgetReportPanel embedded lang={lang} buckets={buckets} plan={plan} roles={roles} resources={resources} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} fxRates={fxRates} tasks={tasks} today={today} /> : null;
     if (id === "resource-report") return plan ? <ResourcesReportPanel embedded lang={lang} resources={resources} roles={roles} disciplines={disciplines} grades={grades} plan={plan} absences={absences} holidaySet={holidaySet} workdayHours={workdayHours} /> : null;
     if (id === "stakeholder-report") return <StakeholderReportPanel embedded lang={lang} stakeholders={stakeholders} milestones={milestones} />;

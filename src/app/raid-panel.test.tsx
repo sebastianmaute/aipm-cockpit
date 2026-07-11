@@ -380,6 +380,26 @@ describe("RAID column visibility", () => {
   });
 });
 
+describe("RAID owner column — live resource name (stale-cache fix)", () => {
+  it("renders the linked resource's CURRENT name, not the stale cached owner string", () => {
+    const raid = [
+      makeRaidItem({ id: 1, title: "Vendor risk", severity: "High", owner: "Old Name", ownerResourceId: 7 }),
+    ];
+    const resources: Resource[] = [res({ id: 7, firstName: "Live", lastName: "Owner" })];
+    renderPanel(makeProps({ raid, resources }));
+    expect(screen.getByText("Live Owner")).toBeInTheDocument();
+    expect(screen.queryByText("Old Name")).toBeNull();
+  });
+
+  it("falls back to the cached owner string when the ownerResourceId is unset/unlinked", () => {
+    const raid = [
+      makeRaidItem({ id: 1, title: "Vendor risk", severity: "High", owner: "Freetext Owner", ownerResourceId: null }),
+    ];
+    renderPanel(makeProps({ raid, resources: [] }));
+    expect(screen.getByText("Freetext Owner")).toBeInTheDocument();
+  });
+});
+
 describe("RAID bulk edit", () => {
   it("applies a bulk severity change to the selected row via onSave", () => {
     const onSave = vi.fn();

@@ -12,13 +12,20 @@ import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
 import { applyStatusChange } from "./task-status";
 import type { ActivityKind } from "./activity-log";
-import type { Task, TaskStatus } from "./types";
+import type { Task, TaskStatus, Resource } from "./types";
+import { effectivePersonEmail } from "./resource-foundation";
 import type { Settings } from "./settings-types";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 
+const EMPTY_RESOURCE_MAP: ReadonlyMap<number, Resource> = new Map();
+
 export interface UseTaskRowHandlersArgs {
   tasksRef: React.RefObject<readonly Task[]>;
+  /** Directory for resolving a linked assignee's LIVE email on outbound
+   *  inquiries (the cached `assigneeEmail` can be stale after a rename).
+   *  Optional; an absent/empty map just falls back to the cached email. */
+  resourcesById?: ReadonlyMap<number, Resource>;
   settings: Settings;
   lang: Lang;
   today: string;
@@ -40,6 +47,7 @@ export interface UseTaskRowHandlersArgs {
 export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   const {
     tasksRef,
+    resourcesById = EMPTY_RESOURCE_MAP,
     settings,
     lang,
     today,
@@ -125,7 +133,9 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
 
   const onSendInquiry = useCallback(
     (task: Task) => {
-      let email = task.assigneeEmail?.trim();
+      // Prefer the linked resource's CURRENT email; the cached assigneeEmail
+      // can be stale after a rename/re-link. Unlinked → the cached email.
+      let email = effectivePersonEmail(task.assigneeEmail ?? "", task.resourceId, resourcesById).trim();
       if (!email && isValidEmail(task.assignee)) {
         email = task.assignee.trim();
       }
@@ -169,7 +179,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         ),
       );
     },
-    [lang, setTasks, resolveTemplateBody, sendCommTemplate],
+    [lang, setTasks, resolveTemplateBody, sendCommTemplate, resourcesById],
   );
 
   const onPushToJira = useCallback(

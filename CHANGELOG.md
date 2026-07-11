@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.180.0] - 2026-07-11 "Farmer"
+
+### Live resource names everywhere (no more stale assignee/owner)
+
+- **Fix:** when a task assignee, RAID owner, or absence is linked to a directory resource,
+  every surface now shows/searches/filters/sorts/groups by that resource's **current** name —
+  the stored name string is only a cache the editor already resolved live. Previously, after you
+  renamed or re-linked a resource in the directory, the old cached name lingered in the **Open
+  Points** table (and its assignee filter/search/sort), the **Kanban** board, the **Reports →
+  by-assignee** grouping, the **RAID** owner column + text search + owner sort, the **RAID By-Owner
+  report** (both the embedded and standalone views), the **Gantt** grouping/filter/search, and the
+  **resource calendar** (which forked a duplicate row under the old name) — until you re-saved the
+  item. All of these now resolve the live name automatically.
+- **Email:** "send status inquiry" (single, bulk, and the AI chat tool) now addresses the linked
+  resource's **current** email, not a cached address that may have changed.
+- Unlinked/free-text people are unaffected (their typed name/email is used as before). Internal
+  robustness only — no change to stored data, file formats, or any backend write path.
+
 ## [0.179.0] - 2026-07-11 "Priest"
 
 ### Session-scoped id integrity (no reused ids within a session)

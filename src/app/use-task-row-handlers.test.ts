@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { loadJiraApi } from "./use-jira-sync";
-import type { Task } from "./types";
+import type { Task, Resource } from "./types";
 
 vi.mock("./workspace-tab-context", () => ({
   useWorkspaceTab: vi.fn(() => ({
@@ -273,6 +273,18 @@ describe("useTaskRowHandlers — onSendInquiry", () => {
     expect(hrefValue.startsWith("mailto:")).toBe(true);
     const updater = setTasks.mock.calls.at(-1)![0] as (p: Task[]) => Task[];
     expect(updater([task])[0].inquiriesSent).toBe(3);
+  });
+
+  it("sends to the linked resource's LIVE email, not a stale cached assigneeEmail", () => {
+    const setTasks = vi.fn();
+    const task = makeTask({ id: 1, assigneeEmail: "old@corp.com", resourceId: 7 });
+    const resourcesById = new Map<number, Resource>([
+      [7, { id: 7, firstName: "Live", lastName: "Person", roleId: null, utilizationMode: "percent", utilization: {}, email: "current@corp.com" } as Resource],
+    ]);
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ setTasks, resourcesById })));
+    act(() => result.current.onSendInquiry(task));
+    expect(hrefValue).toContain(encodeURIComponent("current@corp.com"));
+    expect(hrefValue).not.toContain(encodeURIComponent("old@corp.com"));
   });
 
   it("aborts silently when the email prompt is cancelled", () => {

@@ -38,7 +38,7 @@ import {
   type Task,
   type WeekHours,
 } from "./types";
-import { resourceDisplayName } from "./resource-foundation";
+import { effectivePersonEmail, effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import { useSettings } from "./use-settings";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -225,6 +225,12 @@ function ResourcesPanelInner({
     setViewGranularity(plan.granularity);
   }
 
+  const resourcesById = useMemo(() => {
+    const m = new Map<number, Resource>();
+    for (const r of resources) m.set(r.id, r);
+    return m;
+  }, [resources]);
+
   const rows = useMemo<AssigneeRow[]>(() => {
     const byKey = new Map<string, AssigneeRow>();
     const upsert = (
@@ -252,10 +258,25 @@ function ResourcesPanelInner({
       }
       return row;
     };
+    // Resolve a task/absence/shift's person reference FK-first (mirrors
+    // resource-workload-rows.ts `resolve`): a record carrying a `resourceId`
+    // that resolves to a live directory resource is attributed to THAT
+    // resource's row (keyed by its current name/email), so a stale cached
+    // `assignee` string after a rename no longer forks a duplicate row. Only a
+    // record with no resolvable FK falls back to name-keying.
+    const upsertRef = (
+      resourceId: number | null | undefined,
+      rawAssignee: string,
+      rawEmail: string | undefined,
+    ): AssigneeRow | null =>
+      upsert(
+        effectivePersonName(rawAssignee, resourceId, resourcesById),
+        effectivePersonEmail(rawEmail ?? "", resourceId, resourcesById),
+      );
 
     // Tasks contribute the assignee + open/overdue counts.
     for (const task of tasks) {
-      const row = upsert(task.assignee, task.assigneeEmail);
+      const row = upsertRef(task.resourceId, task.assignee, task.assigneeEmail);
       if (!row) continue;
       if (!task.completedDate) {
         row.openCount++;
@@ -272,7 +293,7 @@ function ResourcesPanelInner({
       return d.toISOString().slice(0, 10);
     })();
     for (const a of absences) {
-      const row = upsert(a.assignee, a.assigneeEmail);
+      const row = upsertRef(a.resourceId, a.assignee, a.assigneeEmail);
       if (!row) continue;
       if (a.endDate < today) continue;
       if (horizon && a.startDate > horizon) continue;
@@ -280,7 +301,7 @@ function ResourcesPanelInner({
     }
     // Shifts contribute weekly-hours + ensure the assignee row exists.
     for (const s of shifts) {
-      const row = upsert(s.assignee, s.assigneeEmail);
+      const row = upsertRef(s.resourceId, s.assignee, s.assigneeEmail);
       if (!row) continue;
       row.shift = s;
       row.weeklyHours = sumHours(s.hoursPerWeekday);
@@ -298,7 +319,7 @@ function ResourcesPanelInner({
     return Array.from(byKey.values()).sort((a, b) =>
       a.display.localeCompare(b.display),
     );
-  }, [tasks, absences, shifts, resources, today]);
+  }, [tasks, absences, shifts, resources, resourcesById, today]);
 
   // Planning grid: name filter + sortable cost/capacity headers. Hooks MUST run
   // unconditionally here (never inside the `view === "planning"` IIFE) to keep

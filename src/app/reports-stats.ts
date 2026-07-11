@@ -2,7 +2,8 @@
 // i18n-free engine (per the repo's "engines live in plain modules; React
 // surfaces import them" pattern); `reports.tsx` + `reports-tables.tsx` consume.
 import { workdaysUntil } from "./due-dates";
-import { type Priority, type Task } from "./types";
+import { effectivePersonName } from "./resource-foundation";
+import { type Priority, type Resource, type Task } from "./types";
 
 export type GroupOrLabelRow = {
   name: string;
@@ -47,6 +48,7 @@ export function computeStats(
   tasks: readonly Task[],
   today: string,
   holidaySet: Set<string>,
+  resourcesById: ReadonlyMap<number, Resource>,
 ): Stats {
   const stats: Stats = {
     total: tasks.length,
@@ -136,7 +138,10 @@ export function computeStats(
       }
     }
 
-    const aKey = task.assignee.trim() || "—";
+    // Key by the LIVE assignee name (resource rename-safe): a linked task's
+    // stored `assignee` string is a cache, so two tasks pointing at the same
+    // renamed resource must collapse into ONE row under its current name.
+    const aKey = effectivePersonName(task.assignee, task.resourceId, resourcesById).trim() || "—";
     let entry = assigneeMap.get(aKey);
     if (!entry) {
       entry = {

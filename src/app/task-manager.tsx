@@ -1264,6 +1264,10 @@ function TaskManagerInner() {
   // object, so consumers don't re-create on every render.
   const resolveCommBody = commTemplates.resolveTemplateBody;
 
+  // Directory map for resolving a linked assignee's LIVE email on outbound
+  // inquiries (the cached assigneeEmail can go stale after a rename/re-link).
+  const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
+
   const {
     expandedNotes,
     pushingIds,
@@ -1279,6 +1283,7 @@ function TaskManagerInner() {
     handleJumpToTaskFromRaid,
   } = useTaskRowHandlers({
     tasksRef,
+    resourcesById,
     settings,
     lang,
     today,

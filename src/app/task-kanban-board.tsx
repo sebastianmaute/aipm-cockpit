@@ -5,7 +5,7 @@
 // `task-kanban.tsx` would silently hijack the engine import (see AGENTS.md).
 import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
-import { TASK_STATUSES, type ChangeItem, type RaidItem, type Task, type TaskStatus } from "./types";
+import { TASK_STATUSES, type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
 import { groupByStatus } from "./task-kanban";
 import { isJiraSynced } from "./jira-status-map";
@@ -25,6 +25,10 @@ interface TaskKanbanProps {
   /** Jira config subset — drives the per-card read-only badge variant via isReadOnlyIssue. */
   jiraProjectKey?: string;
   jiraExtraProjects?: readonly JiraExtraProject[];
+  /** Directory lookup (id -> Resource) for the LIVE assignee name of a linked
+   *  card. Optional (defaults empty) so lightweight callers/tests can omit it;
+   *  the live board threads the same map the table rows use. */
+  resourcesById?: ReadonlyMap<number, Resource>;
   /** Per-task RAID / change references (same maps the table rows use). */
   raidByTask?: Map<number, RaidItem[]>;
   changeByTask?: Map<number, ChangeItem[]>;
@@ -45,6 +49,7 @@ interface TaskKanbanProps {
 }
 
 const EMPTY_HOLIDAYS: Set<string> = new Set();
+const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
 const EMPTY_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
 
@@ -53,6 +58,7 @@ export function TaskKanban({
   tasks,
   today = "",
   holidaySet = EMPTY_HOLIDAYS,
+  resourcesById = EMPTY_RESOURCE_LOOKUP,
   jiraProjectKey = "",
   jiraExtraProjects = EMPTY_EXTRA_PROJECTS,
   raidByTask,
@@ -104,6 +110,7 @@ export function TaskKanban({
                     task={task}
                     today={today}
                     holidaySet={holidaySet}
+                    resourcesById={resourcesById}
                     raidRefs={raidByTask?.get(task.id)}
                     changeRefs={changeByTask?.get(task.id)}
                     onStatusChange={onStatusChange}

@@ -11,13 +11,20 @@ import { JiraBadge } from "./task-jira-badge";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
-import type { ChangeItem, RaidItem, Task, TaskStatus } from "./types";
+import { effectiveAssignee } from "./resource-foundation";
+import type { ChangeItem, RaidItem, Resource, Task, TaskStatus } from "./types";
+
+const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
 
 interface TaskKanbanCardProps {
   lang: Lang;
   task: Task;
   today: string;
   holidaySet: Set<string>;
+  /** Directory lookup (id -> Resource) for resolving the LIVE assignee name of
+   *  a linked task; the stored `assignee` cache goes stale after a rename.
+   *  Optional (defaults empty) so lightweight callers/tests can omit it. */
+  resourcesById?: ReadonlyMap<number, Resource>;
   raidRefs?: RaidItem[];
   changeRefs?: ChangeItem[];
   onStatusChange: (id: number, next: TaskStatus) => void;
@@ -35,6 +42,7 @@ export function TaskKanbanCard({
   task,
   today,
   holidaySet,
+  resourcesById,
   raidRefs,
   changeRefs,
   onStatusChange,
@@ -44,6 +52,9 @@ export function TaskKanbanCard({
   onAiEdit,
   aiEditEnabled,
 }: TaskKanbanCardProps) {
+  // Linked tasks show the resource's LIVE name; the stored `assignee` cache can
+  // be stale after a rename/re-link (falls back to the cache when unlinked).
+  const assigneeName = effectiveAssignee(task, resourcesById ?? EMPTY_RESOURCE_LOOKUP);
   const health: TaskHealth = computeTaskHealth(task, today, holidaySet);
   const healthTip = formatHealthTooltip(health, lang);
   const overdue = !!task.dueDate && task.dueDate < today && !isTaskFinished(task);
@@ -94,7 +105,7 @@ export function TaskKanbanCard({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs text-muted-foreground">
-        <span title={`${t(lang, "assignee")}: ${task.assignee || "—"}`}>{task.assignee || "—"}</span>
+        <span title={`${t(lang, "assignee")}: ${assigneeName || "—"}`}>{assigneeName || "—"}</span>
         {task.dueDate && (
           <span
             title={`${t(lang, "dueDate")}: ${task.dueDate}`}

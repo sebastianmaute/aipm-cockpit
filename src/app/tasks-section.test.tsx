@@ -91,7 +91,11 @@ function stubTaskForm() {
   });
 }
 
-function stubWorkspace(tasks: unknown[], filteredSortedTasks: unknown[]) {
+function stubWorkspace(
+  tasks: unknown[],
+  filteredSortedTasks: unknown[],
+  resources: unknown[] = [],
+) {
   mockUseWorkspace.mockReturnValue({
     tasks,
     setTasks: vi.fn(),
@@ -101,6 +105,7 @@ function stubWorkspace(tasks: unknown[], filteredSortedTasks: unknown[]) {
     uniqueLabels: [],
     tasksById: new Map(),
     taskSearchIndex: new Map(),
+    resources,
     raid: [], setRaid: vi.fn(),
     absences: [], setAbsences: vi.fn(),
     shifts: [], setShifts: vi.fn(),
@@ -302,6 +307,32 @@ describe("TasksSection", () => {
     expect(tagged.length).toBe(rows.length);
     const ids = Array.from(tagged).map((r) => r.getAttribute("data-deeplink-row"));
     expect(ids).toContain(String(rows[0].id));
+  });
+
+  it("board cards show the live resource name for a linked task (provider threads resourcesById)", () => {
+    // Board mode renders the REAL TaskKanban/TaskKanbanCard (only TaskRow is
+    // mocked here). The task's cached assignee is stale; its resourceId #7
+    // resolves to a renamed resource. The provider must build resourcesById
+    // from workspace.resources and thread it into the board so the card shows
+    // the live name, not the stale cache.
+    stubSettings({ tasksViewMode: "board" });
+    const task = {
+      id: 1,
+      taskName: "T1",
+      assignee: "Old Removed",
+      resourceId: 7,
+      priority: "Medium",
+      status: "To Do",
+      dueDate: "",
+      lastUpdateDate: "2026-05-01",
+    };
+    const resources = [
+      { id: 7, firstName: "Correct", lastName: "Name", roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    stubWorkspace([task], [task], resources);
+    render(<TasksSection {...makeProps()} />);
+    expect(screen.getByText("Correct Name")).toBeInTheDocument();
+    expect(screen.queryByText("Old Removed")).not.toBeInTheDocument();
   });
 
   it("renders a Dark-Blue sticky table header", () => {

@@ -12,7 +12,9 @@ import {
   type RaidItem,
   type RaidSeverity,
   type RaidStatus,
+  type Resource,
 } from "./types";
+import { effectivePersonName } from "./resource-foundation";
 
 export const UNASSIGNED_OWNER = "__unassigned__";
 
@@ -133,6 +135,7 @@ function categoryRank(c: RaidCategory): number {
 export function computeRaidReport(
   items: readonly RaidItem[],
   today: string,
+  resourcesById: ReadonlyMap<number, Resource> = new Map(),
 ): RaidReport {
   const tiles: RaidTiles = { openR: 0, openA: 0, openI: 0, openD: 0 };
   const sevMap = new Map<RaidSeverity | "Unrated", RaidSeverityRow>();
@@ -157,7 +160,9 @@ export function computeRaidReport(
     const open = isOpen(it);
     const overdue = open && !!it.targetDate && it.targetDate < today;
     const ageDays = daysBetween(it.raisedDate, today);
-    const owner = normalizeOwner(it.owner);
+    // Resolve the live resource name when the owner is linked; the stored
+    // `owner` string is only a cache and can go stale after a rename/re-link.
+    const owner = normalizeOwner(effectivePersonName(it.owner ?? "", it.ownerResourceId, resourcesById));
 
     if (open) {
       if (it.category === "R") tiles.openR++;

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TaskKanban } from "./task-kanban-board";
-import type { RaidItem, Task } from "./types";
+import type { RaidItem, Resource, Task } from "./types";
 
 const t = (over: Partial<Task>): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
@@ -107,6 +107,24 @@ describe("TaskKanban", () => {
     const trigger = screen.getByRole("button", { name: /ask claude/i });
     fireEvent.click(trigger);
     expect(onAiEdit).toHaveBeenCalledWith(task);
+  });
+  // Stale FK+cache: a card whose task links to a renamed resource must show the
+  // resource's LIVE name (via resourcesById), not its stale cached assignee.
+  it("shows the live resource name on a linked card, not the stale cached assignee", () => {
+    const resourcesById = new Map<number, Resource>([
+      [7, { id: 7, firstName: "Correct", lastName: "Name", roleId: null, utilizationMode: "percent", utilization: {} }],
+    ]);
+    render(
+      <TaskKanban
+        lang="en-US"
+        tasks={[t({ id: 3, status: "To Do", assignee: "Old Removed", resourceId: 7 })]}
+        resourcesById={resourcesById}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Correct Name")).toBeInTheDocument();
+    expect(screen.queryByText("Old Removed")).not.toBeInTheDocument();
   });
   it("omits the Ask Claude trigger when aiEditEnabled returns false", () => {
     render(
