@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import type { SetStateAction } from "react";
+import { useState, type SetStateAction } from "react";
 import { useUndoStack, capturePart } from "./use-undo-stack";
 
 type Row = { id: number; name: string };
@@ -358,5 +358,45 @@ describe("useUndoStack", () => {
       result.current.captureComposite({ kind: "grade.deleted", primaryCount: 0, parts: [null, capturePart({ setter: vi.fn(), fromArray: [] })] });
     });
     expect(result.current.stack).toHaveLength(1); // unchanged
+  });
+
+  // ★ Proves the flushSync fix (not just the pure remap logic): REAL useState
+  // hooks with the CASCADE hook declared BEFORE the primary (mirroring
+  // workspace-context's resources-before-roles order). Under React batching the
+  // separate setters flush in hook-declaration order, so without flushSync the
+  // cascade updater would read the still-empty remap box and its FK would NOT
+  // follow the re-mint (roleId stays 7). This test fails if flushSync is removed.
+  it("REAL useState, cascade hook before primary: cascade FK follows the re-mint under batching", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => {
+      const [refs, setRefs] = useState<readonly Ref[]>([{ id: 1, roleId: 7 }]); // cascade FIRST
+      const [roles, setRoles] = useState<readonly Row[]>([{ id: 7, name: "Dev/Sr" }]); // primary SECOND
+      const undo = useUndoStack(deps);
+      return { refs, roles, setRefs, setRoles, undo };
+    });
+    const rolesBefore = result.current.roles;
+    const refsBefore = result.current.refs;
+    // Simulate the role delete + roleId cascade.
+    act(() => {
+      result.current.setRoles([]);
+      result.current.setRefs([{ id: 1, roleId: null }]);
+    });
+    act(() => {
+      result.current.undo.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: result.current.setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: result.current.setRefs, edited: refsBefore, fromArray: refsBefore, fkRemapField: "roleId" }),
+        ],
+      });
+    });
+    // A brand-new role reuses the freed id 7 before undo.
+    act(() => { result.current.setRoles([{ id: 7, name: "NEW-ROLE" }]); });
+    act(() => { result.current.undo.undo(); });
+    // Dev/Sr recovered under id 8; the live NEW-ROLE (id 7) untouched.
+    expect(result.current.roles).toEqual([{ id: 8, name: "Dev/Sr" }, { id: 7, name: "NEW-ROLE" }]);
+    // ★ Cascade FK follows the re-mint to 8 (would be a stale 7 without flushSync).
+    expect(result.current.refs).toEqual([{ id: 1, roleId: 8 }]);
   });
 });
