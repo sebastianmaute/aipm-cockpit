@@ -3188,4 +3188,19 @@ export const de: Record<TranslationKey, string> = {
   infoMore: "Weitere Informationen",
   contactPersonsTip:
     "Kontakt hinzufügen: unter „Manuell hinzufügen“ ein Teammitglied oder einen gespeicherten Kontakt wählen, um ihn zu verknüpfen, oder einen neuen Namen für eine Person außerhalb Ihres Verzeichnisses eingeben; im E-Mail-Feld eine Adresse für einen manuell eingegebenen (externen) Kontakt hinterlegen; mit Hinzufügen zur Liste hinzufügen. Mindestens ein Kontakt ist erforderlich.",
+  // UX batch "Aldiss" (0.177.0)
+  dashboardKpiCompleteHint: "Anteil der als erledigt markierten Aufgaben an allen Aufgaben. Steigend ist gut; eine flache Linie deutet auf stockende Lieferung hin.",
+  dashboardKpiOverdueHint: "Aufgaben, die überfällig und noch nicht erledigt sind. Möglichst auf null senken.",
+  dashboardKpiOpenRaidHint: "Offene Risiken, Annahmen, Probleme und Abhängigkeiten, die noch Aufmerksamkeit brauchen.",
+  dashboardRagHint: "Rot / Gelb / Grün: Anzahl der Projektbereiche, die vom Kurs abweichen, gefährdet oder gesund sind.",
+  dashboardBudgetHint: "Ist-Kosten gegenüber geplantem Budget. Über 100% bedeutet, der Plan wurde überschritten.",
+  dashboardHoursHint: "Gebuchte Stunden gegenüber den budgetierten Stunden für diesen Zeitraum.",
+  raciFilterAdd: "Personen filtern…",
+  raciFilterRemove: "{0} aus Filter entfernen",
+  raciFilterClear: "Filter leeren",
+  historyCompareIdentical: "Diese Version ist mit dem aktuellen Arbeitsbereich identisch — es gibt nichts zu vergleichen oder wiederherzustellen.",
+  historySelectAll: "Alle auswählen",
+  historyDeselectAll: "Auswahl aufheben",
+  planningHideExternal: "Externe ausblenden",
+  planningCapacityHours: "Kapazität (Std.)",
 };

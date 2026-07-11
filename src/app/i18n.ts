@@ -3208,6 +3208,21 @@ const enUS = {
   infoMore: "More information",
   contactPersonsTip:
     "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
+  // UX batch "Aldiss" (0.177.0)
+  dashboardKpiCompleteHint: "Share of tasks marked Done out of all tasks. Trending up is good; a flat line signals stalled delivery.",
+  dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",
+  dashboardKpiOpenRaidHint: "Open risks, assumptions, issues and dependencies that still need attention.",
+  dashboardRagHint: "Red / Amber / Green health counts across your project areas — how many are off track, at risk, or healthy.",
+  dashboardBudgetHint: "Actual spend against planned budget. Above 100% means you have exceeded the plan.",
+  dashboardHoursHint: "Hours booked against the budgeted hours for this period.",
+  raciFilterAdd: "Filter people…",
+  raciFilterRemove: "Remove {0} from filter",
+  raciFilterClear: "Clear filter",
+  historyCompareIdentical: "This version is identical to the current workspace — there is nothing to compare or restore.",
+  historySelectAll: "Select all",
+  historyDeselectAll: "Deselect all",
+  planningHideExternal: "Hide external",
+  planningCapacityHours: "Capacity (h)",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
