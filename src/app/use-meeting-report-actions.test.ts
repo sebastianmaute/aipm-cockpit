@@ -10,6 +10,12 @@ const runMeetingReport = vi.fn<() => Promise<string>>(async () => "<p>ai draft</
 vi.mock("./committee-report/report-call", () => ({
   runMeetingReport: (...args: unknown[]) => runMeetingReport(...(args as [])),
 }));
+const saveVersion = vi.fn<() => Promise<void>>(async () => {});
+const loadVersionsFn = vi.fn<() => Promise<unknown[]>>(async () => []);
+vi.mock("./committee-report-versions-store", () => ({
+  saveVersion: (...a: unknown[]) => saveVersion(...(a as [])),
+  loadVersions: (...a: unknown[]) => loadVersionsFn(...(a as [])),
+}));
 vi.mock("./graph-mail", () => ({
   MAIL_SEND_SCOPE: ["Mail.Send"],
   buildGraphMessage: (to: unknown, subject: string, html: string) => ({ to, subject, html }),
@@ -46,11 +52,19 @@ function makeDeps(over: Partial<MeetingReportActionsDeps> = {}): MeetingReportAc
     getDashboardModel: () => ({}) as DashboardModel,
     aiKey: "sk-ant-test",
     aiModel: "claude-x",
+    projectId: "p1",
     ...over,
   };
 }
 
-beforeEach(() => { sendMail.mockClear(); runMeetingReport.mockClear(); });
+const TURSO = {} as unknown as MeetingReportActionsDeps["tursoConfig"];
+
+beforeEach(() => {
+  sendMail.mockClear();
+  runMeetingReport.mockClear();
+  saveVersion.mockClear();
+  loadVersionsFn.mockClear();
+});
 
 describe("useMeetingReportActions", () => {
   it("returns undefined in popouts", () => {
@@ -124,5 +138,36 @@ describe("useMeetingReportActions", () => {
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)));
     const errText = showToast.mock.calls.find((c) => c[0] === "error")![1] as string;
     expect(errText).not.toContain("boom-body");
+  });
+
+  it("snapshots the prior report before an overwrite when Turso is active", async () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps({ tursoConfig: TURSO })));
+    await act(async () => { result.current!.onSaveReport(10, "<p>new</p>"); });
+    await waitFor(() => expect(saveVersion).toHaveBeenCalledTimes(1));
+  });
+
+  it("does NOT snapshot on file backends (tursoConfig null)", () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    act(() => result.current!.onSaveReport(10, "<p>new</p>"));
+    expect(saveVersion).not.toHaveBeenCalled();
+  });
+
+  it("restore loads the version and writes its html into the meeting", async () => {
+    loadVersionsFn.mockResolvedValueOnce([
+      { id: "v1", projectId: "p1", meetingId: 10, html: "<p>old version</p>", isAuto: true, capturedAt: "t" },
+    ]);
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useMeetingReportActions(makeDeps({ tursoConfig: TURSO, setSteeringCommittee })),
+    );
+    await act(async () => { result.current!.onRestore(10, "v1"); });
+    await waitFor(() => expect(setSteeringCommittee).toHaveBeenCalled());
+    const updater = setSteeringCommittee.mock.calls.at(-1)![0] as (c: SteeringCommittee) => SteeringCommittee;
+    expect(updater(committee()).meetings[0].report?.html).toBe("<p>old version</p>");
+  });
+
+  it("loadVersions returns [] on file backends", async () => {
+    const { result } = renderHook(() => useMeetingReportActions(makeDeps()));
+    await expect(result.current!.loadVersions(10)).resolves.toEqual([]);
   });
 });

@@ -11,6 +11,8 @@ import { committeeMemberEmails } from "./committee-report/report-recipients";
 import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
 import { sanitizeTemplateHtml } from "./sanitize-html";
 import { runMeetingReport } from "./committee-report/report-call";
+import { loadVersions, saveVersion } from "./committee-report-versions-store";
+import type { MeetingReportVersionUi } from "./meeting-report-panel";
 import type { DashboardModel } from "./dashboard";
 import type { TursoConfig } from "./turso-config";
 
@@ -32,6 +34,8 @@ export interface MeetingReportActionsDeps {
   /** Resolved Anthropic key ("" when the AI master switch is off / no key). */
   aiKey: string;
   aiModel: string;
+  /** Turso project id for version rows (only used when tursoConfig !== null). */
+  projectId: string;
 }
 
 export interface MeetingReportBag {
@@ -43,6 +47,11 @@ export interface MeetingReportBag {
   sendBusyMeetingId: number | null;
   onGenerateReport: (meetingId: number) => void;
   generateBusyMeetingId: number | null;
+  /** Turso-only: load a meeting's report version history (newest first). Returns
+   *  [] when Turso is inactive. */
+  loadVersions: (meetingId: number) => Promise<MeetingReportVersionUi[]>;
+  onRestore: (meetingId: number, versionId: string) => void;
+  restoreBusyId: string | null;
 }
 
 function nowIso(): string {
@@ -52,11 +61,35 @@ function nowIso(): string {
 export function useMeetingReportActions(deps: MeetingReportActionsDeps): MeetingReportBag | undefined {
   const [sendBusyMeetingId, setSendBusyMeetingId] = useState<number | null>(null);
   const [generateBusyMeetingId, setGenerateBusyMeetingId] = useState<number | null>(null);
+  const [restoreBusyId, setRestoreBusyId] = useState<string | null>(null);
   if (deps.isPopout) return undefined;
+
+  // Turso-only: snapshot the meeting's CURRENT report as a version before it's
+  // overwritten (manual save / AI draft / restore all route through onSaveReport,
+  // so this is the single snapshot point). Best-effort — a snapshot failure never
+  // blocks the write.
+  async function snapshotCurrent(meetingId: number): Promise<void> {
+    if (!deps.tursoConfig) return;
+    const meeting = deps.committee?.meetings.find((m) => m.id === meetingId);
+    if (!meeting?.report) return;
+    try {
+      await saveVersion(deps.tursoConfig, {
+        id: crypto.randomUUID(),
+        projectId: deps.projectId,
+        meetingId,
+        html: meeting.report.html,
+        isAuto: true,
+        capturedAt: nowIso(),
+      });
+    } catch {
+      /* snapshot is best-effort — never block the overwrite */
+    }
+  }
 
   // Functional committee setter — writes the report onto the meeting; the prior
   // sentAt survives (a re-save doesn't clear the last-sent stamp).
   function onSaveReport(meetingId: number, html: string): void {
+    void snapshotCurrent(meetingId); // snapshot the prior before we overwrite it
     deps.setSteeringCommittee((c) =>
       c
         ? {
@@ -133,6 +166,34 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     }
   }
 
+  async function loadVersionsUi(meetingId: number): Promise<MeetingReportVersionUi[]> {
+    if (!deps.tursoConfig) return [];
+    try {
+      const records = await loadVersions(deps.tursoConfig, deps.projectId, meetingId);
+      return records.map((v) => ({ id: v.id, capturedAt: v.capturedAt, isAuto: v.isAuto }));
+    } catch {
+      return [];
+    }
+  }
+
+  async function onRestore(meetingId: number, versionId: string): Promise<void> {
+    if (!deps.tursoConfig) return;
+    setRestoreBusyId(versionId);
+    try {
+      const records = await loadVersions(deps.tursoConfig, deps.projectId, meetingId);
+      const v = records.find((x) => x.id === versionId);
+      if (!v) return;
+      // onSaveReport snapshots the current (pre-restore) report, then writes the
+      // restored body — so a restore is itself undoable via a new version.
+      onSaveReport(meetingId, v.html);
+      deps.showToast("info", t(deps.lang, "reportRestored"));
+    } catch {
+      deps.showToast("error", t(deps.lang, "reportGenerateFailed"));
+    } finally {
+      setRestoreBusyId(null);
+    }
+  }
+
   return {
     m365Configured: deps.m365Configured,
     aiConfigured: isAiEnabled(deps.settings.ai),
@@ -146,5 +207,10 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
       void onGenerateReport(meetingId);
     },
     generateBusyMeetingId,
+    loadVersions: loadVersionsUi,
+    onRestore: (meetingId: number, versionId: string) => {
+      void onRestore(meetingId, versionId);
+    },
+    restoreBusyId,
   };
 }

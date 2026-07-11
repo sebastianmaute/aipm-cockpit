@@ -18,7 +18,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { CommitteeMeeting, InfoSchedule, Resource, SteeringCommittee } from "./types";
 import { Modal } from "./modal";
-import { MeetingReportPanel } from "./meeting-report-panel";
+import { MeetingReportPanel, type MeetingReportVersionUi } from "./meeting-report-panel";
 import { committeeMemberEmails } from "./committee-report/report-recipients";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
 
@@ -97,6 +97,7 @@ export function SteeringCommitteePanel({
 }: SteeringCommitteePanelProps) {
   const c = committee ?? EMPTY_COMMITTEE;
   const [reportMeetingId, setReportMeetingId] = useState<number | null>(null);
+  const [reportVersions, setReportVersions] = useState<readonly MeetingReportVersionUi[]>([]);
   const { ref: paneRef, reset: resetSize } = useResizable("lop-app:steering-size");
   const meetingCols = useColumnResize<MeetingCol>("committeeMeetings", MEETING_COL_WIDTHS);
   const scheduleCols = useColumnResize<ScheduleCol>("committeeSchedules", SCHEDULE_COL_WIDTHS);
@@ -324,7 +325,10 @@ export function SteeringCommitteePanel({
                       <td className="text-right">
                         <button
                           type="button"
-                          onClick={() => setReportMeetingId(m.id)}
+                          onClick={async () => {
+                            setReportMeetingId(m.id);
+                            setReportVersions(report.tursoActive ? await report.loadVersions(m.id) : []);
+                          }}
                           className={BTN_SECONDARY}
                           aria-label={`${t(lang, "reportStatusReport")} – ${m.title || m.date}`}
                         >
@@ -495,7 +499,15 @@ export function SteeringCommitteePanel({
             if (!m) return null;
             const title = `${t(lang, "reportStatusReport")} – ${m.title || m.date}`;
             return (
-              <Modal open onClose={() => setReportMeetingId(null)} ariaLabel={title} align="center">
+              <Modal
+                open
+                onClose={() => {
+                  setReportMeetingId(null);
+                  setReportVersions([]);
+                }}
+                ariaLabel={title}
+                align="center"
+              >
                 <div className="w-[min(90vw,720px)] rounded-lg border border-line bg-surface p-4">
                   <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
                   <MeetingReportPanel
@@ -511,6 +523,9 @@ export function SteeringCommitteePanel({
                     aiConfigured={report.aiConfigured}
                     onGenerate={() => report.onGenerateReport(m.id)}
                     generateBusy={report.generateBusyMeetingId === m.id}
+                    versions={reportVersions}
+                    onRestore={(versionId) => report.onRestore(m.id, versionId)}
+                    restoreBusyId={report.restoreBusyId}
                   />
                 </div>
               </Modal>

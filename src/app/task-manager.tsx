@@ -1275,6 +1275,7 @@ function TaskManagerInner() {
     getDashboardModel: () => dashboardModel,
     aiKey: aiKeyIfEnabled(settings.ai),
     aiModel: settings.ai.model,
+    projectId: portfolioMode === "turso" ? (tursoProjectId ?? "") : "",
   });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
   // object, so consumers don't re-create on every render.
