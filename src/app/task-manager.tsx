@@ -71,7 +71,7 @@ import { useAiOrchestration } from "./use-ai-orchestration";
 import { buildShellChrome } from "./shell-chrome";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useUndoHotkey } from "./use-undo-hotkey";
-import { UndoControl } from "./undo/undo-control";
+import { UndoControl, RedoControl } from "./undo/undo-control";
 import { RolesPanel } from "./roles-panel";
 import { rematerializeDayBasisRoles } from "./role-rates";
 import { getUpcomingBirthdays } from "./birthdays";
@@ -181,7 +181,7 @@ function TaskManagerInner() {
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
   // capture is threaded into each entity hook below; undo/control are surfaces.
   const undoApi = useUndoStack({ lang, logActivity, showToast, showToastAction });
-  useUndoHotkey(undoApi.undo);
+  useUndoHotkey(undoApi.undo, undoApi.redo);
   // Stable identity so ToastProvider consumers don't re-render on every parent render.
   const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
 
@@ -2164,7 +2164,10 @@ function TaskManagerInner() {
   // Both header mounts (classic AppHeader + modern TopBar trailing slot) are
   // built together in buildShellChrome so a new top-bar control lands in BOTH.
   const undoControlEl = isPopout ? null : (
-    <UndoControl lang={lang} depth={undoApi.stack.length} onUndo={undoApi.undo} />
+    <>
+      <UndoControl lang={lang} depth={undoApi.stack.length} onUndo={undoApi.undo} />
+      <RedoControl lang={lang} depth={undoApi.redoStack.length} onRedo={undoApi.redo} />
+    </>
   );
   const { appHeaderEl, topBarMenus } = buildShellChrome({
     handleCancelEdit,

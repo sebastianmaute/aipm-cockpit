@@ -10,22 +10,36 @@ function isEditableTarget(el: EventTarget | null): boolean {
 }
 
 /**
- * Global Ctrl/⌘+Z → `undo()` (stack top). Ignores Shift (redo is out of scope)
- * and any keystroke inside a text field so native field-undo is untouched.
- * Mirrors the app's ⌘K search shortcut. `undo` is read via a ref so the
- * listener is attached once.
+ * Global undo/redo keyboard shortcuts, skipped inside a text field so native
+ * field-undo is untouched. Mirrors the app's ⌘K search shortcut; both callbacks
+ * are read via refs so the listener is attached once.
+ *
+ * - **Undo:** Ctrl/⌘+Z (no Shift) → `undo()` (stack top).
+ * - **Redo:** Ctrl/⌘+Shift+Z OR Ctrl/⌘+Y → `redo()` (only when a `redo` cb is
+ *   passed; otherwise the redo chords are inert and the browser default stands).
  */
-export function useUndoHotkey(undo: () => void): void {
+export function useUndoHotkey(undo: () => void, redo?: () => void): void {
   const undoRef = useRef(undo);
-  useEffect(() => { undoRef.current = undo; }, [undo]);
+  const redoRef = useRef(redo);
+  useEffect(() => { undoRef.current = undo; redoRef.current = redo; }, [undo, redo]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return;
-      if (e.key !== "z" && e.key !== "Z") return;
+      if (!(e.ctrlKey || e.metaKey)) return;
       if (isEditableTarget(e.target)) return;
-      e.preventDefault();
-      undoRef.current();
+      const key = e.key.toLowerCase();
+      // Redo: mod+Shift+Z or mod+Y.
+      if ((e.shiftKey && key === "z") || (!e.shiftKey && key === "y")) {
+        if (!redoRef.current) return;
+        e.preventDefault();
+        redoRef.current();
+        return;
+      }
+      // Undo: mod+Z (no Shift).
+      if (!e.shiftKey && key === "z") {
+        e.preventDefault();
+        undoRef.current();
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

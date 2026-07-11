@@ -52,7 +52,8 @@ export type ActivityKind =
   | "history.restore"
   | "calendar.autoPulled"
   | "ai.inlineEdit"
-  | "undo";
+  | "undo"
+  | "redo";
 
 /** One field-level change on an UPDATE event, for the audit-diff detail. */
 export interface FieldChange {
@@ -198,6 +199,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "calendar.autoPulled": "activityCalendarAutoPulled",
   "ai.inlineEdit": "activityAiInlineEdit",
   "undo": "activityUndo",
+  "redo": "activityRedo",
 };
 
 const ACTIVITY_KINDS: ReadonlySet<ActivityKind> = new Set(

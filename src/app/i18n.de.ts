@@ -1859,6 +1859,10 @@ export const de: Record<TranslationKey, string> = {
   undoRestored: "{0} Element(e) wiederhergestellt",
   undoToastDelete: "{0} Element(e) gelöscht",
   undoToastEdit: "{0} Element(e) bearbeitet",
+  activityRedo: "Wiederholen: {0} Element(e) erneut angewendet",
+  redo: "Wiederholen",
+  redoTooltip: "Letzte Änderung wiederholen",
+  redoRestored: "{0} Element(e) wiederholt",
   integrationsTooltip: "Externe Dienste wie Microsoft 365 und Turso verbinden.",
   integrationsM365Tooltip: "Mit Microsoft 365 anmelden, um SharePoint-Speicher und Outlook-Import zu nutzen.",
   integrationsM365ClientIdTooltip: "Die Anwendungs-(Client-)ID Ihrer Azure-App-Registrierung.",
@@ -3209,4 +3213,5 @@ export const de: Record<TranslationKey, string> = {
   helpSecRateCardBody: "Unter Ressourcen → Rollen verwalten geben Sie die Kosten je Rolle entweder als Tagessatz (intern/Tag, extern/Tag) oder als Stundensatz ein — der eingegebene Wert ist maßgeblich, der andere wird automatisch aus Ihren Arbeitsstunden pro Tag (Einstellungen → Allgemein) berechnet. Pro Rolle ist jeweils nur eine Einheit bearbeitbar; leeren Sie das ausgefüllte Feld, um zu wechseln. Alle Budget- und Margenzahlen verwenden den resultierenden Stundensatz.",
   helpSecUsageLimitsTitle: "KI-Nutzungslimits und Steuerung",
   helpSecUsageLimitsBody: "Der Assistent zeigt einen deutlichen Hinweis, wenn das wöchentliche Limit oder das Ratenlimit von Claude erreicht ist und wenn Sie ein selbst gesetztes Token-Limit erreichen — diese Hinweise sind rein informativ und blockieren Ihre Arbeit nie; im Chat wird der Hinweis zur Unterhaltung hinzugefügt, ohne sie zu löschen. Unter Einstellungen → KI legen Sie eigene Sitzungs- und Wochen-Token-Limits, einen Token-Zählfaktor (Standard 5) und die maximale Anzahl an Assistenzschritten pro Nachricht (Standard 12) fest.",
+  versionHighlightRedo: "Wiederholen: Eine Rückgängig-Aktion mit Strg/Cmd+Umschalt+Z oder der Wiederholen-Schaltfläche in der Kopfleiste erneut anwenden — für Löschungen, Sammelbearbeitungen und Alles-löschen auf jedem Speicher-Backend.",
 };

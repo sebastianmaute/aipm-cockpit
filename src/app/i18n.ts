@@ -1860,11 +1860,15 @@ const enUS = {
   inlineAiEditEntityStakeholder: "stakeholder",
   activityAiInlineEdit: "AI inline edit",
   activityUndo: "Undo: restored {0} item(s)",
+  activityRedo: "Redo: reapplied {0} item(s)",
   undo: "Undo",
   undoTooltip: "Undo last change",
   undoRestored: "Restored {0} item(s)",
   undoToastDelete: "Deleted {0} item(s)",
   undoToastEdit: "Edited {0} item(s)",
+  redo: "Redo",
+  redoTooltip: "Redo last change",
+  redoRestored: "Redid {0} item(s)",
   integrationsTooltip: "Connect external services like Microsoft 365 and Turso.",
   integrationsM365Tooltip: "Sign in with Microsoft 365 to use SharePoint storage and Outlook import.",
   integrationsM365ClientIdTooltip: "The Application (client) ID of your Azure app registration.",
@@ -3229,6 +3233,7 @@ const enUS = {
   helpSecRateCardBody: "In Resources → Manage roles, enter each role's cost either as a day rate (internal/d, external/d) or an hourly rate — whichever you enter is the source of truth, and the other is calculated automatically from your workday hours (Settings → General). Only one unit is editable per role at a time; clear the filled field to switch. All budget and margin figures use the resulting hourly rate.",
   helpSecUsageLimitsTitle: "AI usage limits and controls",
   helpSecUsageLimitsBody: "The assistant shows a clear notice when Claude's own weekly or rate limit is reached, and when you hit a token limit you set yourself — these are advisory and never block your work; in chat the notice is added to the conversation without clearing it. In Settings → AI you can set your own session and weekly token limits, a token-counting multiplier (default 5), and the maximum number of assistant steps per message (default 12).",
+  versionHighlightRedo: "Redo: reverse an undo with Ctrl/Cmd+Shift+Z or the top-bar redo button — for deletes, bulk edits, and clear-all on any storage backend.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

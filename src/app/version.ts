@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.177.0";
-export const APP_BUILD_DATE = "2026-07-11"; // 0.177.0: UX batch — usage-limit notices + configurable AI turn cap & token multiplier; dashboard tile tooltips; gantt milestone date; day-rate cards (day = source of truth); RACI people filter; planning hide-external + capacity column; history compare feedback/scroll + select-all/restore-this-state; status-dropdown hover; npm run stop (Aldiss)
+export const APP_VERSION = "0.178.0";
+export const APP_BUILD_DATE = "2026-07-11"; // 0.178.0: multi-level REDO for the local undo stack (Ctrl/Cmd+Shift+Z + top-bar control), redoing the last undone delete / bulk-edit / clear-all / composite op on every backend; undo retention raised 10→25; composite cascade FKs follow the primary delete's re-mint (Zelazny)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.177.x line is "Aldiss" (Brian Aldiss). */
-export const APP_MILESTONE = "Aldiss";
+ *  0.178.x line is "Zelazny" (Roger Zelazny). */
+export const APP_MILESTONE = "Zelazny";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -196,4 +196,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightStatusDigest",
   "versionHighlightUndo",
   "versionHighlightUxBatchAldiss",
+  "versionHighlightRedo",
 ] as const;
