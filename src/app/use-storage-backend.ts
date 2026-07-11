@@ -413,6 +413,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         return;
       }
       suppressNextSaveRef.current = true;
+      // Seed the session minter from the opened file so its (possibly larger)
+      // task/raid ids can't be reused after a delete. "raise" never lowers a
+      // kind's mark, so the absences/shifts NOT applied below keep their
+      // current-project high-water intact.
+      seedMintFromWorkspace(loaded, "raise");
       setTasks(loaded.tasks);
       setRaid(loaded.raid);
       // NOTE: absences and shifts intentionally NOT restored here —

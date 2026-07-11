@@ -28,6 +28,7 @@ import { addProject, loadRegistry, saveRegistry, setCurrentProject as setCurrent
 import { getHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
 import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
+import { resetMintState } from "./id-mint-session";
 import type { ProjectMeta } from "./types";
 import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
 import { writeSettings } from "./use-settings";
@@ -118,6 +119,11 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     }
     const id = crypto.randomUUID();
     const storageConfig: StorageConfig = { kind: localKindForFormat(format) };
+    // A brand-new project starts a fresh id space — clear the session minter so
+    // any template/AI seed ids start at #1 rather than continuing a previously
+    // open project's high-water. applyWorkspace(ws) below reseeds from the
+    // built data.
+    resetMintState();
     // Empty workspace by default; with a template/features opts it applies the
     // template's field-visibility + optional seed and sets per-project features.
     const ws: Workspace = buildNewProjectWorkspace(meta, opts);

@@ -3,6 +3,8 @@ import {
   __resetMintStateForTests,
   mintId,
   mintIds,
+  peekMintId,
+  resetMintState,
   seedMintFromWorkspace,
   seedMintKind,
   type MintKind,
@@ -162,6 +164,35 @@ describe("seedMintFromWorkspace", () => {
       "raise",
     );
     expect(mintId("task", [{ id: 1 }, { id: 99 }])).toBeGreaterThanOrEqual(101);
+  });
+});
+
+describe("peekMintId", () => {
+  it("returns the id the next mintId would hand out", () => {
+    expect(peekMintId("task", [{ id: 4 }])).toBe(5);
+    expect(mintId("task", [{ id: 4 }])).toBe(5);
+  });
+
+  it("does NOT advance the high-water mark (repeatable)", () => {
+    expect(peekMintId("raid", [{ id: 7 }])).toBe(8);
+    expect(peekMintId("raid", [{ id: 7 }])).toBe(8);
+    // A real mint still yields the same next id after peeks.
+    expect(mintId("raid", [{ id: 7 }])).toBe(8);
+  });
+
+  it("reflects a prior session mint above the list max", () => {
+    mintId("change", [{ id: 3 }]); // mark -> 4
+    // List shrank to max 2 (id 3 deleted); peek must still reflect the mark.
+    expect(peekMintId("change", [{ id: 2 }])).toBe(5);
+  });
+});
+
+describe("resetMintState", () => {
+  it("clears all marks so a new project's ids start fresh", () => {
+    mintId("task", [{ id: 500 }]); // mark -> 501 (prior project)
+    resetMintState();
+    // A brand-new (empty) project seed starts at 1.
+    expect(mintIds("task", [], 2)).toEqual([1, 2]);
   });
 });
 

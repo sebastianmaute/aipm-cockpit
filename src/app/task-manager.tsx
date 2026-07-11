@@ -40,8 +40,8 @@ import { INTERACTIVE } from "./interaction-styles";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
-import { splitName, resourceDisplayName, nextId as computeNextId } from "./resource-foundation";
-import { mintId, seedMintFromWorkspace } from "./id-mint-session";
+import { splitName, resourceDisplayName } from "./resource-foundation";
+import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
 import { FiltersProvider, useFilters } from "./filters-context";
@@ -566,7 +566,11 @@ function TaskManagerInner() {
     [changes, changesEnabled],
   );
 
-  const nextId = computeNextId(tasks);
+  // Display-only preview of the id the next created task will receive. Uses the
+  // session minter's non-advancing peek so the "#N" shown matches what
+  // use-task-submit will actually mint (a plain max+1 would under-predict after
+  // a same-session delete of the current max task).
+  const nextId = peekMintId("task", tasks);
 
   const {
     editingAbsence,

@@ -1470,6 +1470,32 @@ describe("useStorageBackend — id-minter high-water seeding on load", () => {
     expect(result.current.tasks.some((t) => (t as { id: number }).id === 100)).toBe(false);
     expect(mintId("task", result.current.tasks)).toBeGreaterThanOrEqual(102);
   });
+
+  it("onOpenStorageFile seeds the minter so the opened file's max task id can't be reused (RAISE)", async () => {
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(
+      Promise.resolve(undefined),
+    );
+    // Mount load: a small project (max task id 10) → mark reset to 10.
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 10, taskName: "small" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    // onOpenStorageFile: a DIFFERENT, larger file (max task id 500).
+    mockBackend.load.mockResolvedValueOnce({
+      tasks: [{ id: 1, taskName: "a" }, { id: 500, taskName: "big" }] as unknown as Task[],
+      raid: [], absences: [], shifts: [],
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+
+    await act(async () => { await result.current.onOpenStorageFile(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // The opened file's tasks are now live (max 500). Without seeding, the mark
+    // would still be 10 → deleting task 500 would let the next create reuse 500.
+    expect(mintId("task", result.current.tasks)).toBeGreaterThanOrEqual(501);
+  });
 });
 
 describe("useStorageBackend — Layer 3 wipe guard (persistence choke point)", () => {

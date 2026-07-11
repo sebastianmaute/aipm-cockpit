@@ -63,6 +63,15 @@ export function mintIds(kind: MintKind, list: readonly HasId[], count: number): 
 }
 
 /**
+ * Peek the id the next `mintId(kind, list)` would return WITHOUT advancing the
+ * mark. Display-only (e.g. the "#next id" preview in a create form) — never
+ * consume a slot just by rendering.
+ */
+export function peekMintId(kind: MintKind, list: readonly HasId[]): number {
+  return Math.max(highWater.get(kind) ?? 0, maxIdOf(list)) + 1;
+}
+
+/**
  * Seed the high-water mark for `kind` from `list`.
  * - `"reset"`: set the mark to the list's max id (0 when empty).
  * - `"raise"`: lift the mark to `max(currentMark, listMax)` — never lowers it.
@@ -122,7 +131,17 @@ export function seedMintFromWorkspace(
   seedMintKind("budgetBucket", collectBudgetBuckets(ws.budgets), mode);
 }
 
-/** Test-only: clear all session high-water state. */
-export function __resetMintStateForTests(): void {
+/**
+ * Clear all session high-water state, so the next mint for every kind starts
+ * fresh from its list max. Used when BUILDING a brand-new project (its ids
+ * should start at #1 regardless of prior session work in another project) —
+ * the subsequent `applyWorkspace(ws, "reset")` reseeds from the built data.
+ */
+export function resetMintState(): void {
   highWater.clear();
+}
+
+/** Test-only alias for {@link resetMintState}. */
+export function __resetMintStateForTests(): void {
+  resetMintState();
 }
