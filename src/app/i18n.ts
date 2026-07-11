@@ -3224,6 +3224,11 @@ const enUS = {
   planningHideExternal: "Hide external",
   planningCapacityHours: "Capacity (h)",
   versionHighlightUxBatchAldiss: "New: Claude usage-limit notices, configurable AI turn cap and token multiplier, dashboard tile tooltips, day-rate cards, RACI people filter, planning capacity column, and history restore tools.",
+  // Help entries — Aldiss batch
+  helpSecRateCardTitle: "Rate cards: day or hourly rates",
+  helpSecRateCardBody: "In Resources → Manage roles, enter each role's cost either as a day rate (internal/d, external/d) or an hourly rate — whichever you enter is the source of truth, and the other is calculated automatically from your workday hours (Settings → General). Only one unit is editable per role at a time; clear the filled field to switch. All budget and margin figures use the resulting hourly rate.",
+  helpSecUsageLimitsTitle: "AI usage limits and controls",
+  helpSecUsageLimitsBody: "The assistant shows a clear notice when Claude's own weekly or rate limit is reached, and when you hit a token limit you set yourself — these are advisory and never block your work; in chat the notice is added to the conversation without clearing it. In Settings → AI you can set your own session and weekly token limits, a token-counting multiplier (default 5), and the maximum number of assistant steps per message (default 12).",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

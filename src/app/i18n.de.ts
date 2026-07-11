@@ -3204,4 +3204,9 @@ export const de: Record<TranslationKey, string> = {
   planningHideExternal: "Externe ausblenden",
   planningCapacityHours: "Kapazität (Std.)",
   versionHighlightUxBatchAldiss: "Neu: Claude-Nutzungslimit-Hinweise, konfigurierbare KI-Schrittzahl und Token-Zählfaktor, Dashboard-Kachel-Tooltips, Tagessatz-Karten, RACI-Personenfilter, Planungs-Kapazitätsspalte und History-Wiederherstellungswerkzeuge.",
+  // Help entries — Aldiss batch
+  helpSecRateCardTitle: "Kostensätze: Tages- oder Stundensätze",
+  helpSecRateCardBody: "Unter Ressourcen → Rollen verwalten geben Sie die Kosten je Rolle entweder als Tagessatz (intern/Tag, extern/Tag) oder als Stundensatz ein — der eingegebene Wert ist maßgeblich, der andere wird automatisch aus Ihren Arbeitsstunden pro Tag (Einstellungen → Allgemein) berechnet. Pro Rolle ist jeweils nur eine Einheit bearbeitbar; leeren Sie das ausgefüllte Feld, um zu wechseln. Alle Budget- und Margenzahlen verwenden den resultierenden Stundensatz.",
+  helpSecUsageLimitsTitle: "KI-Nutzungslimits und Steuerung",
+  helpSecUsageLimitsBody: "Der Assistent zeigt einen deutlichen Hinweis, wenn das wöchentliche Limit oder das Ratenlimit von Claude erreicht ist und wenn Sie ein selbst gesetztes Token-Limit erreichen — diese Hinweise sind rein informativ und blockieren Ihre Arbeit nie; im Chat wird der Hinweis zur Unterhaltung hinzugefügt, ohne sie zu löschen. Unter Einstellungen → KI legen Sie eigene Sitzungs- und Wochen-Token-Limits, einen Token-Zählfaktor (Standard 5) und die maximale Anzahl an Assistenzschritten pro Nachricht (Standard 12) fest.",
 };

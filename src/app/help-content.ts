@@ -54,6 +54,8 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "workflow-stakeholders", group: "workflows", titleKey: "helpWorkflowStakeholdersTitle", bodyKey: "helpWorkflowStakeholdersBody", relatedViews: ["stakeholders", "raci", "steering-committee"], relatedConcepts: ["concept-stakeholder", "concept-raci"] },
 
   // ── Features (migrated from help-sections.ts) ──
+  { id: "feature-rate-card", group: "features", titleKey: "helpSecRateCardTitle", bodyKey: "helpSecRateCardBody", relatedViews: ["resources", "planning"], relatedConcepts: ["concept-resource", "concept-budget"] },
+  { id: "feature-usage-limits", group: "features", titleKey: "helpSecUsageLimitsTitle", bodyKey: "helpSecUsageLimitsBody", relatedViews: ["settings", "chat"] },
   { id: "feature-layout", group: "features", titleKey: "helpSecLayoutTitle", bodyKey: "helpSecLayoutBody" },
   { id: "feature-add", group: "features", titleKey: "helpSecAddTitle", bodyKey: "helpSecAddBody" },
   { id: "feature-field-visibility", group: "features", titleKey: "helpSecFieldVisibilityTitle", bodyKey: "helpSecFieldVisibilityBody" },
