@@ -211,6 +211,10 @@ export function WorkspaceSection({
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee } = useWorkspace();
   const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
+  // Directory map for resolving a linked owner/assignee's LIVE name in the
+  // panels routed here (e.g. the standalone RAID By-Owner report) — the stored
+  // owner/assignee string is only a stale-able cache.
+  const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
   // Inline "Ask Claude" per-row edit glue (SP2). One instance per entity pane;
   // each yields the row handlers threaded into the panel + its active-edit
   // popover element. Called unconditionally (hook rules); the popover only
@@ -561,7 +565,7 @@ export function WorkspaceSection({
 
         {activeTab === "raid-report" && (
           <div id="panel-raid-report" role="tabpanel" className={panelScrollClass}>
-            <RaidReportPanel lang={lang} items={raid} today={today} />
+            <RaidReportPanel lang={lang} items={raid} today={today} resourcesById={resourcesById} />
           </div>
         )}
 
