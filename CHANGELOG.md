@@ -8,6 +8,20 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.178.0] - 2026-07-11 "Bester"
+
+### Redo for the local undo stack
+
+- **Redo:** the local undo system (added in 0.173.0/0.174.0) now supports **redo** — reverse an
+  undo with **Ctrl/⌘+Shift+Z** (or **Ctrl+Y**), or the new redo button beside Undo in the top bar
+  (with a depth badge). Redo reinstates the last undone operation — single/bulk deletes, bulk edits,
+  clear-all, and cascade (composite) deletes — on every storage backend (file / IndexedDB / Turso),
+  and round-trips indefinitely (undo → redo → undo …). A fresh destructive op clears the redo stack.
+- **Retention:** the undo/redo history depth was raised from 10 to **25** operations.
+- **Engine:** new pure `applyUndoForward` / `buildForwardImages` + `applyUndoRestoreWithRemap`; redo
+  removes a re-minted recovered row by its actual post-restore id (never the unrelated live row that
+  reused the original id). Session-scoped/in-memory by design (a reload starts fresh).
+
 ## [0.177.0] - 2026-07-11 "Aldiss"
 
 ### UX batch (14 improvements)
