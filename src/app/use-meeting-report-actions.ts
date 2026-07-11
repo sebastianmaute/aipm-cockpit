@@ -171,7 +171,7 @@ export function useMeetingReportActions(deps: MeetingReportActionsDeps): Meeting
     if (!deps.tursoConfig) return [];
     try {
       const records = await loadVersions(deps.tursoConfig, deps.projectId, meetingId);
-      return records.map((v) => ({ id: v.id, capturedAt: v.capturedAt, isAuto: v.isAuto }));
+      return records.map((v) => ({ id: v.id, capturedAt: v.capturedAt, isAuto: v.isAuto, html: v.html }));
     } catch {
       return [];
     }

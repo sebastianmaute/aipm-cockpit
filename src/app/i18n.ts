@@ -2465,6 +2465,8 @@ const enUS = {
   reportVersionAuto: "auto",
   reportVersionManual: "saved",
   reportDiff: "Compare",
+  reportDiffCurrent: "Current",
+  reportDiffVersion: "This version",
   committeePushError: "Could not push reminders to Outlook.",
   committeePushResult: "Synced {0} meeting(s), {1} reminder(s) to Outlook.",
   committeePushPartial: "{0} event(s) could not be synced.",

@@ -9,6 +9,9 @@ import dynamic from "next/dynamic";
 import { t, type Lang } from "./i18n";
 import type { MeetingReport } from "./types";
 import { sanitizeTemplateHtml } from "./sanitize-html";
+import { htmlToPlainText } from "./html-to-text";
+import { diffLines } from "./text-diff";
+import { CommTemplateDiffView } from "./comm-template-diff-view";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 const RichTextEditor = dynamic(() => import("./rich-text-editor").then((m) => m.RichTextEditor), {
@@ -41,6 +44,8 @@ export interface MeetingReportVersionUi {
   id: string;
   capturedAt: string;
   isAuto: boolean;
+  /** Snapshot body — used to render a diff against the current report. */
+  html: string;
 }
 
 export interface MeetingReportPanelProps {
@@ -109,6 +114,10 @@ export function MeetingReportPanel({
   const parsedRecipients = parseRecipients(toList);
   const noRecipients = parsedRecipients.length === 0;
 
+  // Version-diff: compare the CURRENT draft against a selected version's snapshot.
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
+  const compareVersion = versions?.find((v) => v.id === compareVersionId) ?? null;
+
   return (
     <div className="flex flex-col gap-3">
       {aiConfigured && onGenerate && !readOnly && (
@@ -152,18 +161,41 @@ export function MeetingReportPanel({
                 <span>
                   {v.capturedAt} · {t(lang, v.isAuto ? "reportVersionAuto" : "reportVersionManual")}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => onRestore(v.id)}
-                  disabled={restoreBusyId === v.id}
-                  className={`${BTN_SECONDARY} ${INTERACTIVE}`}
-                  aria-label={`${t(lang, "reportRestore")} – ${v.capturedAt}`}
-                >
-                  {t(lang, "reportRestore")}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCompareVersionId((cur) => (cur === v.id ? null : v.id))}
+                    className={`${BTN_SECONDARY} ${INTERACTIVE}`}
+                    aria-label={`${t(lang, "reportDiff")} – ${v.capturedAt}`}
+                  >
+                    {t(lang, "reportDiff")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRestore(v.id)}
+                    disabled={restoreBusyId === v.id}
+                    className={`${BTN_SECONDARY} ${INTERACTIVE}`}
+                    aria-label={`${t(lang, "reportRestore")} – ${v.capturedAt}`}
+                  >
+                    {t(lang, "reportRestore")}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
+          {compareVersion && (
+            <div className="border-t border-line px-3 py-2">
+              <CommTemplateDiffView
+                lines={diffLines(
+                  htmlToPlainText(compareVersion.html).split("\n"),
+                  htmlToPlainText(draft).split("\n"),
+                )}
+                addedLabel={t(lang, "reportDiffCurrent")}
+                removedLabel={t(lang, "reportDiffVersion")}
+                summary={`${t(lang, "reportDiff")} – ${compareVersion.capturedAt}`}
+              />
+            </div>
+          )}
         </details>
       )}
 

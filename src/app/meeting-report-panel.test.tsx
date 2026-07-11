@@ -83,10 +83,23 @@ describe("MeetingReportPanel", () => {
   it("lists versions with a restore button when provided", () => {
     const onRestore = vi.fn();
     renderPanel({
-      versions: [{ id: "v1", capturedAt: "2026-05-29T09:00:00.000Z", isAuto: true }],
+      versions: [{ id: "v1", capturedAt: "2026-05-29T09:00:00.000Z", isAuto: true, html: "<p>old</p>" }],
       onRestore,
     });
     fireEvent.click(screen.getByRole("button", { name: /Restore/ }));
     expect(onRestore).toHaveBeenCalledWith("v1");
+  });
+
+  it("Compare renders a diff of the current draft vs the selected version", () => {
+    renderPanel({
+      report: { html: "<p>current text</p>", updatedAt: "t1" },
+      versions: [{ id: "v1", capturedAt: "t0", isAuto: true, html: "<p>old text</p>" }],
+      onRestore: vi.fn(),
+    });
+    expect(screen.queryByLabelText(/This version: old text/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Compare/ }));
+    // diff shows the version's line as removed and the current draft's as added
+    expect(screen.getByLabelText("This version: old text")).toBeInTheDocument();
+    expect(screen.getByLabelText("Current: current text")).toBeInTheDocument();
   });
 });
