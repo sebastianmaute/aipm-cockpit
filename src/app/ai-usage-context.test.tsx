@@ -11,9 +11,12 @@ beforeEach(() => {
 });
 
 function makeWrapper(showToast: (kind: "info" | "error", text: string) => void) {
+  // Pin the multiplier to 1 so these raw-count assertions are unaffected by the
+  // default 5× multiplier (that behaviour is covered by its own tests below).
+  const ai = { ...defaultAiConfig, tokenMultiplier: 1 };
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
-      <AiUsageProvider lang="en-US" ai={defaultAiConfig} showToast={showToast}>
+      <AiUsageProvider lang="en-US" ai={ai} showToast={showToast}>
         {children}
       </AiUsageProvider>
     );
@@ -43,6 +46,40 @@ describe("AiUsageProvider", () => {
 
     expect(result.current.sessionTotal).toBe(150);
     expect(result.current.weekTotal).toBe(150);
+  });
+
+  it("multiplies counted tokens by tokenMultiplier (5) toward sessionTotal", async () => {
+    const ai = { ...defaultAiConfig, tokenMultiplier: 5 };
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={vi.fn()}>
+          {children}
+        </AiUsageProvider>
+      );
+    }
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    act(() => { result.current.record({ input: 100, output: 100 }); });
+
+    expect(result.current.sessionTotal).toBe(1000);
+  });
+
+  it("accumulates raw tokens when tokenMultiplier is 1", async () => {
+    const ai = { ...defaultAiConfig, tokenMultiplier: 1 };
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <AiUsageProvider lang="en-US" ai={ai} showToast={vi.fn()}>
+          {children}
+        </AiUsageProvider>
+      );
+    }
+    const { result } = renderHook(() => useAiUsageContext(), { wrapper: Wrapper });
+    await act(async () => {});
+
+    act(() => { result.current.record({ input: 100, output: 100 }); });
+
+    expect(result.current.sessionTotal).toBe(200);
   });
 
   it("fires showToast once when session usage crosses 80 % of sessionTokenCap", async () => {

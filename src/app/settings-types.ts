@@ -42,7 +42,12 @@ export type AiConfig = {
   actionSuggestions?: boolean; // Action Center "Analyze with AI" button. Default ON (undefined = on).
   scheduledJobs?: boolean; // Scheduled Claude jobs (SP5). Default OFF (opt-in) — recurring billed calls.
   suggestAllNextActionThresholds?: boolean; // AI weight suggestions (SP-C). Default OFF (opt-in).
+  maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
+  tokenMultiplier?: number; // Multiplier applied to counted tokens before caps (>0, decimals ok). Default 5.
 };
+
+export const DEFAULT_MAX_CHAT_TURNS = 12;
+export const DEFAULT_TOKEN_MULTIPLIER = 5;
 
 export const defaultAiConfig: AiConfig = {
   apiKey: "",
@@ -51,6 +56,8 @@ export const defaultAiConfig: AiConfig = {
   sessionTokenCap: DEFAULT_SESSION_TOKEN_CAP,
   weeklyTokenCap: DEFAULT_WEEKLY_TOKEN_CAP,
   groundInGuides: true,
+  maxChatTurns: DEFAULT_MAX_CHAT_TURNS,
+  tokenMultiplier: DEFAULT_TOKEN_MULTIPLIER,
 };
 
 export function sanitizeAiConfig(raw: unknown): AiConfig {
@@ -58,6 +65,16 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
   const coerceCap = (v: unknown, def: number): number => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? Math.round(n) : def;
+  };
+  // Chat-turn cap: integer in [1, 50]; anything invalid or out of range → default.
+  const coerceTurns = (v: unknown): number => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= 1 && n <= 50 ? n : DEFAULT_MAX_CHAT_TURNS;
+  };
+  // Token multiplier: any finite value > 0 (decimals allowed); else default.
+  const coerceMultiplier = (v: unknown): number => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_TOKEN_MULTIPLIER;
   };
   // Pattern (not allowlist): sanitize runs at load, BEFORE the async live-model
   // fetch, so a previously-selected live model must survive the round-trip.
@@ -76,6 +93,8 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     groundInGuides: obj.groundInGuides !== false,
     scheduledJobs: obj.scheduledJobs === true,
     suggestAllNextActionThresholds: obj.suggestAllNextActionThresholds === true,
+    maxChatTurns: coerceTurns(obj.maxChatTurns),
+    tokenMultiplier: coerceMultiplier(obj.tokenMultiplier),
   };
 }
 

@@ -22,7 +22,7 @@ import { crossed80 } from "./usage-warning";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { AiConfig } from "./settings-types";
-import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
+import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_TOKEN_MULTIPLIER } from "./settings-types";
 
 export const AI_USAGE_KEY = "lop-app:ai-usage";
 
@@ -86,10 +86,11 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
 
   const sessionCap = ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
+  const multiplier = ai.tokenMultiplier ?? DEFAULT_TOKEN_MULTIPLIER;
 
   const record = useCallback(
     (u: Usage): void => {
-      const tokens = u.input + u.output;
+      const tokens = (u.input + u.output) * multiplier;
 
       // Read previous values from refs — no state reads inside updaters.
       const prevSession = sessionTotalRef.current;
@@ -123,7 +124,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
         showToast("error", t(lang, "usage80Toast"));
       }
     },
-    [lang, sessionCap, weeklyCap, showToast],
+    [lang, sessionCap, weeklyCap, multiplier, showToast],
   );
 
   const now = new Date();

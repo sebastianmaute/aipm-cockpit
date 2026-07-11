@@ -323,7 +323,8 @@ function ChatPanelInner({
       // Round-trip loop: keep going until the model finishes (end_turn). Two
       // reasons to continue — a tool call to run, or a length-cap truncation to
       // resume — both share the turn budget (a runaway guard).
-      for (let turn = 0; turn < MAX_CHAT_TURNS; turn++) {
+      const maxTurns = ai.maxChatTurns ?? MAX_CHAT_TURNS;
+      for (let turn = 0; turn < maxTurns; turn++) {
         if (stale()) break;
         const response = await callClaude(
           effectiveApiKey,

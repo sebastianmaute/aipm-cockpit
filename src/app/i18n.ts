@@ -2862,6 +2862,12 @@ const enUS = {
   aiUsageResetAt: "Resets {0}",
   aiSessionCap: "Session token cap",
   aiWeeklyCap: "Weekly token cap",
+  aiSessionCapHint: "Your own advisory per-session token limit. You'll see a notice near and at the limit; calls are never blocked. Resets each session.",
+  aiWeeklyCapHint: "Your own advisory weekly token limit. Advisory only — you'll be notified, not blocked. Resets weekly.",
+  aiMaxTurns: "Max assistant turns per message",
+  aiMaxTurnsHint: "How many tool/continuation round-trips the assistant may take to answer one message (1–50). Higher allows more complex multi-step work but costs more tokens.",
+  aiTokenMultiplier: "Token counting multiplier",
+  aiTokenMultiplierHint: "Each call's counted tokens are multiplied by this before counting toward your caps (default 5).",
 
   settingsSectionExport: "Export",
   exportSectionHint: "Choose which sections to include in document exports (XLSX, DOCX, PDF, PPTX, Markdown). Default: Tasks and RAID.",

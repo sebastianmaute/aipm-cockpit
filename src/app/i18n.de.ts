@@ -2842,6 +2842,12 @@ export const de: Record<TranslationKey, string> = {
   aiUsageResetAt: "Zurückgesetzt {0}",
   aiSessionCap: "Sitzungs-Token-Limit",
   aiWeeklyCap: "Wöchentliches Token-Limit",
+  aiSessionCapHint: "Ihr eigenes empfohlenes Token-Limit pro Sitzung. Sie erhalten einen Hinweis in der Nähe des Limits und bei Erreichen; Anfragen werden nie blockiert. Wird pro Sitzung zurückgesetzt.",
+  aiWeeklyCapHint: "Ihr eigenes empfohlenes wöchentliches Token-Limit. Nur ein Richtwert — Sie werden benachrichtigt, nicht blockiert. Wird wöchentlich zurückgesetzt.",
+  aiMaxTurns: "Maximale Assistenzschritte pro Nachricht",
+  aiMaxTurnsHint: "Wie viele Tool-/Fortsetzungsdurchläufe der Assistent nutzen darf, um eine Nachricht zu beantworten (1–50). Höhere Werte ermöglichen komplexere mehrstufige Arbeit, kosten aber mehr Token.",
+  aiTokenMultiplier: "Token-Zählfaktor",
+  aiTokenMultiplierHint: "Die gezählten Token jeder Anfrage werden hiermit multipliziert, bevor sie auf Ihre Limits angerechnet werden (Standard 5).",
 
   settingsSectionExport: "Export",
   exportSectionHint: "Legen Sie fest, welche Abschnitte in Dokumentexporte (XLSX, DOCX, PDF, PPTX, Markdown) einbezogen werden. Standard: Aufgaben und RAID.",
