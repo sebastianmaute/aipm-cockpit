@@ -28,7 +28,7 @@ import { addProject, loadRegistry, saveRegistry, setCurrentProject as setCurrent
 import { getHandle } from "./project-file-handles";
 import { localKindForFormat, deriveRegistryEntry } from "./use-project-switch";
 import { buildNewProjectWorkspace, type NewProjectOpts } from "./new-project-workspace";
-import { resetMintState } from "./id-mint-session";
+import { resetMintState, snapshotMintState, restoreMintState } from "./id-mint-session";
 import type { ProjectMeta } from "./types";
 import { loadPortfolioMode, savePortfolioMode } from "./portfolio-mode";
 import { writeSettings } from "./use-settings";
@@ -122,7 +122,10 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
     // A brand-new project starts a fresh id space — clear the session minter so
     // any template/AI seed ids start at #1 rather than continuing a previously
     // open project's high-water. applyWorkspace(ws) below reseeds from the
-    // built data.
+    // built data. Snapshot first: if the create fails (e.g. the user cancels
+    // the save-file picker) before applyWorkspace reseeds, the STILL-ACTIVE old
+    // project must keep its marks — restored in catch.
+    const mintSnapshot = snapshotMintState();
     resetMintState();
     // Empty workspace by default; with a template/features opts it applies the
     // template's field-visibility + optional seed and sets per-project features.
@@ -147,6 +150,10 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.setStorageConfig(storageConfig);
       deps.showToast("info", t(deps.langRef.current, "projectCreatedToast", meta.name));
     } catch (err) {
+      // Create aborted before applyWorkspace reseeded — roll the minter back so
+      // the still-active old project doesn't lose its high-water marks (which
+      // would re-arm freed-id reuse).
+      restoreMintState(mintSnapshot);
       deps.reportProjectError(err);
     }
   }

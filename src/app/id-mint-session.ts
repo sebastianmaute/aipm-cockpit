@@ -136,9 +136,27 @@ export function seedMintFromWorkspace(
  * fresh from its list max. Used when BUILDING a brand-new project (its ids
  * should start at #1 regardless of prior session work in another project) —
  * the subsequent `applyWorkspace(ws, "reset")` reseeds from the built data.
+ *
+ * ★ A new-project build can FAIL after this reset but before applyWorkspace
+ * reseeds (e.g. the user cancels the save-file picker, or a Turso save throws),
+ * leaving the STILL-ACTIVE old project with wiped marks. Callers that reset for
+ * a build MUST `snapshotMintState()` first and `restoreMintState(snap)` in
+ * their failure path so the old project's marks survive an aborted create.
  */
 export function resetMintState(): void {
   highWater.clear();
+}
+
+/** Copy the current per-kind high-water state — restore point for a reset that
+ *  may be rolled back (see {@link resetMintState}). */
+export function snapshotMintState(): Map<MintKind, number> {
+  return new Map(highWater);
+}
+
+/** Replace the high-water state with a snapshot (from {@link snapshotMintState}). */
+export function restoreMintState(snap: ReadonlyMap<MintKind, number>): void {
+  highWater.clear();
+  for (const [kind, mark] of snap) highWater.set(kind, mark);
 }
 
 /** Test-only alias for {@link resetMintState}. */

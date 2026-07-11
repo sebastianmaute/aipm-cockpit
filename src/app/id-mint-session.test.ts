@@ -5,8 +5,10 @@ import {
   mintIds,
   peekMintId,
   resetMintState,
+  restoreMintState,
   seedMintFromWorkspace,
   seedMintKind,
+  snapshotMintState,
   type MintKind,
 } from "./id-mint-session";
 
@@ -193,6 +195,30 @@ describe("resetMintState", () => {
     resetMintState();
     // A brand-new (empty) project seed starts at 1.
     expect(mintIds("task", [], 2)).toEqual([1, 2]);
+  });
+});
+
+describe("snapshotMintState / restoreMintState", () => {
+  it("restores an aborted new-project reset so the old project keeps its marks", () => {
+    // Old project: task 5 minted, then task 5 DELETED (mark stays at 6).
+    mintId("task", [{ id: 4 }]); // mark -> 5
+    mintId("task", [{ id: 4 }]); // mark -> 6 (a delete freed 5; mark held)
+    const snap = snapshotMintState();
+
+    // A new-project create clears everything, then FAILS before applyWorkspace.
+    resetMintState();
+    restoreMintState(snap);
+
+    // Back in the old project (live max 4): the freed id 5 must NOT be reused.
+    expect(mintId("task", [{ id: 4 }])).toBe(7);
+  });
+
+  it("snapshot is an independent copy (later mints don't mutate it)", () => {
+    mintId("raid", [{ id: 2 }]); // mark -> 3
+    const snap = snapshotMintState();
+    mintId("raid", [{ id: 2 }]); // mark -> 4 (must not touch snap)
+    restoreMintState(snap);
+    expect(mintId("raid", [{ id: 2 }])).toBe(4); // restored mark was 3 -> 4
   });
 });
 
