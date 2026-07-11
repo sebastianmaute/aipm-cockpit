@@ -1,0 +1,113 @@
+// Deps-object hook (render-scope UI glue, coverage-excluded) that builds the
+// steering-committee "report" bag: save a meeting's status report into the
+// committee blob, and email it to the committee members via Graph. Non-memoized
+// handlers read live deps each call. Returns undefined in popouts (read-only).
+import { useState } from "react";
+import { t, type Lang } from "./i18n";
+import type { SteeringCommittee, Resource } from "./types";
+import type { Settings } from "./settings-types";
+import { isAiEnabled } from "./settings-types";
+import { committeeMemberEmails } from "./committee-report/report-recipients";
+import { sendMail, buildGraphMessage, MAIL_SEND_SCOPE } from "./graph-mail";
+import { sanitizeTemplateHtml } from "./sanitize-html";
+import type { TursoConfig } from "./turso-config";
+
+export interface MeetingReportActionsDeps {
+  lang: Lang;
+  isPopout: boolean;
+  settings: Settings;
+  committee: SteeringCommittee | undefined;
+  resources: readonly Resource[];
+  setSteeringCommittee: (
+    updater: (c: SteeringCommittee | undefined) => SteeringCommittee | undefined,
+  ) => void;
+  tursoConfig: TursoConfig | null;
+  m365Configured: boolean;
+  acquireToken: (scopes: readonly string[], options?: { interactive?: boolean }) => Promise<string | null>;
+  showToast: (kind: "info" | "error", text: string) => void;
+}
+
+export interface MeetingReportBag {
+  m365Configured: boolean;
+  aiConfigured: boolean;
+  tursoActive: boolean;
+  onSaveReport: (meetingId: number, html: string) => void;
+  onSendReport: (meetingId: number) => void;
+  sendBusyMeetingId: number | null;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+export function useMeetingReportActions(deps: MeetingReportActionsDeps): MeetingReportBag | undefined {
+  const [sendBusyMeetingId, setSendBusyMeetingId] = useState<number | null>(null);
+  if (deps.isPopout) return undefined;
+
+  // Functional committee setter — writes the report onto the meeting; the prior
+  // sentAt survives (a re-save doesn't clear the last-sent stamp).
+  function onSaveReport(meetingId: number, html: string): void {
+    deps.setSteeringCommittee((c) =>
+      c
+        ? {
+            ...c,
+            meetings: c.meetings.map((m) =>
+              m.id === meetingId
+                ? { ...m, report: { html, updatedAt: nowIso(), ...(m.report?.sentAt ? { sentAt: m.report.sentAt } : {}) } }
+                : m,
+            ),
+          }
+        : c,
+    );
+  }
+
+  async function onSendReport(meetingId: number): Promise<void> {
+    const committee = deps.committee;
+    if (!committee || !deps.m365Configured) return;
+    const meeting = committee.meetings.find((m) => m.id === meetingId);
+    if (!meeting?.report) return;
+    const emails = committeeMemberEmails(committee, deps.resources);
+    if (emails.length === 0) {
+      deps.showToast("info", t(deps.lang, "reportNoRecipients"));
+      return;
+    }
+    setSendBusyMeetingId(meetingId);
+    try {
+      const token = await deps.acquireToken(MAIL_SEND_SCOPE, { interactive: true });
+      if (!token) {
+        deps.showToast("error", t(deps.lang, "reportSendFailed"));
+        return;
+      }
+      const subject = `${t(deps.lang, "reportStatusReport")}: ${meeting.title || meeting.date}`;
+      const html = sanitizeTemplateHtml(meeting.report.html);
+      await sendMail(token, buildGraphMessage(emails, subject, html));
+      deps.setSteeringCommittee((c) =>
+        c
+          ? {
+              ...c,
+              meetings: c.meetings.map((m) =>
+                m.id === meetingId && m.report ? { ...m, report: { ...m.report, sentAt: nowIso() } } : m,
+              ),
+            }
+          : c,
+      );
+      deps.showToast("info", t(deps.lang, "reportSentToast", emails.length));
+    } catch {
+      // Never surface the Graph error body — status-only.
+      deps.showToast("error", t(deps.lang, "reportSendFailed"));
+    } finally {
+      setSendBusyMeetingId(null);
+    }
+  }
+
+  return {
+    m365Configured: deps.m365Configured,
+    aiConfigured: isAiEnabled(deps.settings.ai),
+    tursoActive: deps.tursoConfig !== null,
+    onSaveReport,
+    onSendReport: (meetingId: number) => {
+      void onSendReport(meetingId);
+    },
+    sendBusyMeetingId,
+  };
+}

@@ -104,6 +104,7 @@ import { ReadOnlyMirrorBanner } from "./read-only-mirror-banner";
 import { VoiceCommandProvider } from "./voice-command-context";
 import { AiUsageProvider } from "./ai-usage-context";
 import { useMsAuth } from "./use-ms-auth";
+import { useMeetingReportActions } from "./use-meeting-report-actions";
 import { useCommSend } from "./use-comm-send";
 import { CommSendPreviewModal } from "./comm-send-preview-modal";
 import { SidebarFooter } from "./sidebar-footer";
@@ -1260,6 +1261,18 @@ function TaskManagerInner() {
   const commTemplatesActive = tursoConfig !== null && !isPopout;
   const commTemplates = useCommTemplates({ active: commTemplatesActive, config: tursoConfig });
   const operatingGuides = useOperatingGuides({ config: tursoConfig });
+  const meetingReportActions = useMeetingReportActions({
+    lang,
+    isPopout,
+    settings,
+    committee: steeringCommittee,
+    resources,
+    setSteeringCommittee,
+    tursoConfig,
+    m365Configured: m365Enabled,
+    acquireToken: msAuth.acquireToken,
+    showToast,
+  });
   // Stable callback (its own useCallback) — depend on this, not the whole hook
   // object, so consumers don't re-create on every render.
   const resolveCommBody = commTemplates.resolveTemplateBody;
@@ -1905,6 +1918,7 @@ function TaskManagerInner() {
       calendarPushEnabled && !isPopout
         ? { onPush: committeePush.pushToOutlook, busy: committeePush.busy }
         : undefined,
+    committeeReport: meetingReportActions,
     guides: operatingGuides.guides,
     guidesReady: operatingGuides.ready,
   };

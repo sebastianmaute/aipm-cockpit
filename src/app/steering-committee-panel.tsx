@@ -17,6 +17,10 @@ import { useColumnResize } from "./use-column-resize";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { CommitteeMeeting, InfoSchedule, Resource, SteeringCommittee } from "./types";
+import { Modal } from "./modal";
+import { MeetingReportPanel } from "./meeting-report-panel";
+import { committeeMemberEmails } from "./committee-report/report-recipients";
+import type { MeetingReportBag } from "./use-meeting-report-actions";
 
 const MEETING_COL_WIDTHS = { date: 150, title: 240, location: 200 } as const;
 type MeetingCol = keyof typeof MEETING_COL_WIDTHS;
@@ -71,6 +75,9 @@ export interface SteeringCommitteePanelProps {
   /** Supplied by Task 7 (Outlook push). When absent the button is hidden.
    *  Errors surface via toast (not inline), so no `error` field is threaded. */
   outlookPush?: { onPush: () => void; busy: boolean };
+  /** Per-meeting status-report actions (save/email + AI/versions). When absent
+   *  the per-meeting "Status report" button is hidden. */
+  report?: MeetingReportBag;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -83,11 +90,13 @@ export function SteeringCommitteePanel({
   resources,
   today,
   outlookPush,
+  report,
   showHints,
   isPopout,
   onLearnMore,
 }: SteeringCommitteePanelProps) {
   const c = committee ?? EMPTY_COMMITTEE;
+  const [reportMeetingId, setReportMeetingId] = useState<number | null>(null);
   const { ref: paneRef, reset: resetSize } = useResizable("lop-app:steering-size");
   const meetingCols = useColumnResize<MeetingCol>("committeeMeetings", MEETING_COL_WIDTHS);
   const scheduleCols = useColumnResize<ScheduleCol>("committeeSchedules", SCHEDULE_COL_WIDTHS);
@@ -275,6 +284,7 @@ export function SteeringCommitteePanel({
                     {t(lang, "committeeMeetingLocation")}
                     <ColumnResizeHandle col="location" onMouseDown={startMeetingResize} />
                   </th>
+                  {report && !isPopout && <th className="px-3 py-2" />}
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -310,6 +320,18 @@ export function SteeringCommitteePanel({
                         className={`${INPUT_CLASS} w-full`}
                       />
                     </td>
+                    {report && !isPopout && (
+                      <td className="text-right">
+                        <button
+                          type="button"
+                          onClick={() => setReportMeetingId(m.id)}
+                          className={BTN_SECONDARY}
+                          aria-label={`${t(lang, "reportStatusReport")} – ${m.title || m.date}`}
+                        >
+                          {t(lang, "reportStatusReport")}
+                        </button>
+                      </td>
+                    )}
                     <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={m.title || m.date} />
                   </tr>
                 ))}
@@ -466,6 +488,33 @@ export function SteeringCommitteePanel({
         ) : null}
         </div>
       </div>
+
+      {report && reportMeetingId !== null
+        ? (() => {
+            const m = c.meetings.find((mm) => mm.id === reportMeetingId);
+            if (!m) return null;
+            const title = `${t(lang, "reportStatusReport")} – ${m.title || m.date}`;
+            return (
+              <Modal open onClose={() => setReportMeetingId(null)} ariaLabel={title} align="center">
+                <div className="w-[min(90vw,720px)] rounded-lg border border-line bg-surface p-4">
+                  <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
+                  <MeetingReportPanel
+                    lang={lang}
+                    meeting={m}
+                    report={m.report}
+                    recipients={committeeMemberEmails(c, resources)}
+                    onSave={(html) => report.onSaveReport(m.id, html)}
+                    onSend={() => report.onSendReport(m.id)}
+                    m365Configured={report.m365Configured}
+                    sendBusy={report.sendBusyMeetingId === m.id}
+                    isPopout={isPopout}
+                    aiConfigured={report.aiConfigured}
+                  />
+                </div>
+              </Modal>
+            );
+          })()
+        : null}
     </div>
   );
 }

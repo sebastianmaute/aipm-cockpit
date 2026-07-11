@@ -192,6 +192,7 @@ export function WorkspaceSection({
   onPullMilestonesFromOutlook,
   calendarPullBusy,
   committeeOutlookPush,
+  committeeReport,
   m365Configured,
   raidCalendar,
   changeCalendar,
@@ -734,6 +735,7 @@ export function WorkspaceSection({
               resources={resources}
               today={today}
               outlookPush={committeeOutlookPush}
+              report={committeeReport}
               showHints={settings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}

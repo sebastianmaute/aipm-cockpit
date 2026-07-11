@@ -60,6 +60,7 @@ export default defineConfig({
         "src/app/use-action-center-handlers.ts",
         "src/app/use-ai-orchestration.ts",
         "src/app/use-digest.ts",
+        "src/app/use-meeting-report-actions.ts",
         // External-format serializers, binary packing, speech & network clients
         // (integration/E2E-tested, not unit-coverage-gated):
         "src/app/export-ooxml.ts",
