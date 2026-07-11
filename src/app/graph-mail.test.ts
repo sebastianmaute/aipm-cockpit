@@ -9,6 +9,26 @@ describe("buildGraphMessage", () => {
       toRecipients: [{ emailAddress: { address: "a@b.com" } }],
     });
   });
+
+  it("builds one recipient from a single string (back-compat)", () => {
+    expect(buildGraphMessage("a@x.com", "S", "<p>b</p>").toRecipients).toEqual([
+      { emailAddress: { address: "a@x.com" } },
+    ]);
+  });
+
+  it("builds multiple recipients from an array", () => {
+    expect(buildGraphMessage(["a@x.com", "b@x.com"], "S", "<p>b</p>").toRecipients).toEqual([
+      { emailAddress: { address: "a@x.com" } },
+      { emailAddress: { address: "b@x.com" } },
+    ]);
+  });
+
+  it("filters blank recipients out of an array", () => {
+    expect(buildGraphMessage(["a@x.com", "", "  ", "b@x.com"], "S", "<p>b</p>").toRecipients).toEqual([
+      { emailAddress: { address: "a@x.com" } },
+      { emailAddress: { address: "b@x.com" } },
+    ]);
+  });
 });
 
 describe("graph mail calls", () => {

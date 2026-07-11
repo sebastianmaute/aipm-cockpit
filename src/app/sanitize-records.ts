@@ -34,6 +34,7 @@ import {
   type SteeringCommittee,
   type CommitteeMeeting,
   type InfoSchedule,
+  type MeetingReport,
 } from "./types";
 import {
   IDENTITY_TYPE_SET,
@@ -471,6 +472,21 @@ export function sanitizeProjectMeta(
   return meta;
 }
 
+const REPORT_HTML_MAX = 100_000;
+
+/** Defensive decode for a per-meeting status report. Returns undefined unless a
+ *  non-empty `html` string and a string `updatedAt` are present. Pure/SSR-safe:
+ *  it does NOT sanitize the HTML (that happens at write time), only caps size. */
+function sanitizeMeetingReport(raw: unknown): MeetingReport | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const rr = raw as Record<string, unknown>;
+  if (typeof rr.html !== "string" || rr.html.length === 0) return undefined;
+  if (typeof rr.updatedAt !== "string") return undefined;
+  const out: MeetingReport = { html: rr.html.slice(0, REPORT_HTML_MAX), updatedAt: rr.updatedAt };
+  if (typeof rr.sentAt === "string") out.sentAt = rr.sentAt;
+  return out;
+}
+
 /** Defensive decode for the optional Workspace.steeringCommittee field. Never
  *  throws: bad dates / non-number ids / negative leadDays are dropped or
  *  clamped, strings are capped, and absent/garbage input returns undefined. */
@@ -491,6 +507,8 @@ export function sanitizeSteeringCommittee(raw: unknown): SteeringCommittee | und
         if (typeof mm.agenda === "string") out.agenda = mm.agenda.slice(0, 2000);
         if (typeof mm.location === "string") out.location = mm.location.slice(0, 300);
         if (typeof mm.outlookEventId === "string") out.outlookEventId = mm.outlookEventId.slice(0, 1024);
+        const report = sanitizeMeetingReport(mm.report);
+        if (report) out.report = report;
         return [out];
       })
     : [];

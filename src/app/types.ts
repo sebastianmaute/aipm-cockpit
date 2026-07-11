@@ -227,6 +227,14 @@ export type Milestone = {
 // Steering committee — board membership, scheduled meetings, and the cadence
 // of information packs sent ahead of meetings. Optional nested Workspace field.
 
+/** A per-meeting status report (current version). Rides the steeringCommittee
+ *  JSON blob — no new write path. `html` is sanitized rich text. */
+export interface MeetingReport {
+  html: string;
+  updatedAt: string;
+  sentAt?: string;
+}
+
 export interface CommitteeMeeting {
   id: number;
   date: string;
@@ -234,6 +242,7 @@ export interface CommitteeMeeting {
   agenda?: string;
   location?: string;
   outlookEventId?: string;
+  report?: MeetingReport;
 }
 
 export interface InfoSchedule {
