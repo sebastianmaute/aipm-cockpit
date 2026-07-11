@@ -48,6 +48,20 @@ export function applyUndoRestore<T extends { id: number }>(
   current: readonly T[],
   before: readonly BeforeImage<T>[],
 ): T[] {
+  return applyUndoRestoreWithRemap(current, before).result;
+}
+
+/**
+ * Same as `applyUndoRestore` but also returns the id `remap` it performed: for
+ * every delete-image whose original id was reused by a live row (so the row was
+ * recovered under a FRESH id), `remap[originalId] = mintedId`. Redo needs this
+ * so it removes the id the row ACTUALLY holds post-restore, not the stale
+ * original (which now belongs to the unrelated live row). Pure.
+ */
+export function applyUndoRestoreWithRemap<T extends { id: number }>(
+  current: readonly T[],
+  before: readonly BeforeImage<T>[],
+): { result: T[]; remap: Map<number, number> } {
   const present = new Set(current.map((r) => r.id));
   // Fresh-id source covers current ids AND every captured id, so a re-mint can
   // never collide with a to-be-reinserted delete-image.
@@ -55,6 +69,7 @@ export function applyUndoRestore<T extends { id: number }>(
   for (const b of before) maxId = Math.max(maxId, b.item.id);
 
   const out = current.slice();
+  const remap = new Map<number, number>();
 
   // An id claimed by a delete-image is owned by the delete branch below — never
   // let an edit-image for the same id revert (would overwrite a live reused-id
@@ -80,13 +95,15 @@ export function applyUndoRestore<T extends { id: number }>(
       out.splice(Math.min(index, out.length), 0, item);
       present.add(item.id);
     } else {
-      // id reused by a live row → recover the deleted row under a fresh id.
+      // id reused by a live row → recover the deleted row under a fresh id, and
+      // record the remap so redo removes THIS row (not the live reused-id one).
       maxId += 1;
       out.splice(Math.min(index, out.length), 0, { ...item, id: maxId });
       present.add(maxId);
+      remap.set(item.id, maxId);
     }
   }
-  return out;
+  return { result: out, remap };
 }
 
 /**
@@ -125,19 +142,24 @@ export function applyUndoForward<T extends { id: number }>(
  * - **edit** before-image (id X): forward carries the AFTER value —
  *   `afterArray.find(id === X)`. If the row was deleted since the undo-capture,
  *   fall back to the before-image's own item (best available).
- * - **delete** before-image (id X): forward carries the before-image item
- *   unchanged (only its id is used, to REMOVE it on redo).
+ * - **delete** before-image (id X): forward removes the row on redo — but by the
+ *   id the restored row ACTUALLY holds. If undo re-minted it (id X was reused by
+ *   a live row), `remap` maps X → the minted id, so redo removes the recovered
+ *   row and NEVER the unrelated live row that now owns X.
  */
 export function buildForwardImages<T extends { id: number }>(
   before: readonly BeforeImage<T>[],
   afterArray: readonly T[],
+  remap?: ReadonlyMap<number, number>,
 ): BeforeImage<T>[] {
   return before.map((b) => {
     if (b.op === "edit") {
       const after = afterArray.find((r) => r.id === b.item.id);
       return { index: b.index, item: after ?? b.item, op: "edit" as const };
     }
-    return { index: b.index, item: b.item, op: "delete" as const };
+    const mintedId = remap?.get(b.item.id);
+    const item = mintedId === undefined ? b.item : { ...b.item, id: mintedId };
+    return { index: b.index, item, op: "delete" as const };
   });
 }
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   applyUndoRestore,
+  applyUndoRestoreWithRemap,
   applyUndoForward,
   buildBeforeImages,
   buildForwardImages,
@@ -197,6 +198,35 @@ describe("buildForwardImages", () => {
     expect(restored).toEqual(preOp); // undo restored
     const forward = buildForwardImages(before, restored);
     expect(applyUndoForward(restored, forward)).toEqual([{ id: 1, name: "a" }]); // redo re-deletes
+  });
+});
+
+describe("redo after id re-mint (data-loss regression)", () => {
+  // delete id1 → create a new row that reuses id1 → undo re-mints the recovered
+  // row to id2 → redo must remove id2 (the recovered row), NEVER id1 (the live
+  // new row). Guards the CRITICAL bug where redo destroyed the unrelated row.
+  it("removes the re-minted recovered row on redo, not the live reused-id row", () => {
+    const before = buildBeforeImages<Row>([{ id: 1, name: "Solo" }], [], [{ id: 1, name: "Solo" }]);
+    const afterArray: Row[] = [{ id: 1, name: "NewRow" }]; // id1 reused by a new row
+
+    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before);
+    // Solo recovered under a fresh id (2); NewRow (id1) untouched.
+    expect(restored).toEqual([{ id: 2, name: "Solo" }, { id: 1, name: "NewRow" }]);
+    expect(remap.get(1)).toBe(2);
+
+    const forward = buildForwardImages(before, afterArray, remap);
+    const redone = applyUndoForward(restored, forward);
+    // NewRow SURVIVES; only the recovered Solo is removed again.
+    expect(redone).toEqual([{ id: 1, name: "NewRow" }]);
+  });
+
+  it("without a remap, a plain delete round-trips normally", () => {
+    const before = buildBeforeImages<Row>([{ id: 5, name: "X" }], [], [{ id: 5, name: "X" }]);
+    const after: Row[] = [];
+    const { result: restored, remap } = applyUndoRestoreWithRemap(after, before);
+    expect(restored).toEqual([{ id: 5, name: "X" }]);
+    expect(remap.size).toBe(0);
+    expect(applyUndoForward(restored, buildForwardImages(before, after, remap))).toEqual([]);
   });
 });
 

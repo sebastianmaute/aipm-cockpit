@@ -6,7 +6,7 @@ import { t, type Lang } from "../i18n";
 import type { ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import {
-  applyUndoRestore,
+  applyUndoRestoreWithRemap,
   applyUndoForward,
   buildBeforeImages,
   buildForwardImages,
@@ -71,8 +71,11 @@ function fragmentUndoRunner<T extends { id: number }>(
   const runUndo: Runner = () => {
     let forward: BeforeImage<T>[] = [];
     setter((prev) => {
-      forward = buildForwardImages(before, prev);
-      return applyUndoRestore(prev, before);
+      const { result, remap } = applyUndoRestoreWithRemap(prev, before);
+      // Build the redo images from the SAME prev + the remap, so a re-minted
+      // delete removes the recovered row on redo, not the live reused-id row.
+      forward = buildForwardImages(before, prev, remap);
+      return result;
     });
     const runRedo: Runner = () => {
       setter((prev) => applyUndoForward(prev, forward));
