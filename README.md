@@ -115,6 +115,7 @@ No environment variables are required to run the app — every integration is co
 | `npm run dev` | Start Next.js dev server with hot reload on http://localhost:3000 |
 | `npm run build` | Production build — runs TypeScript type-check, then emits `.next/` |
 | `npm run start` | Serve the production build (run `npm run build` first) |
+| `npm run stop` | Stop the dev server bound to the app port (default 3000; set PORT to override). Port-scoped — does not touch unrelated node processes |
 | `npm run lint` | Run ESLint (`eslint-config-next` preset) |
 | `npm run test` | Vitest unit/component tests in watch mode |
 | `npm run test:run` | Vitest, single run (CI-friendly) |

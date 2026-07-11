@@ -57,4 +57,15 @@ describe("GanttMilestoneRow ghost baseline", () => {
     );
     expect(countDiamonds(container)).toBe(2);
   });
+
+  it("shows the milestone date FORMATTED in its hover title (as task bars do), not raw ISO", () => {
+    const { container } = render(<GanttMilestoneRow m={m} {...base} />);
+    const titles = [...container.querySelectorAll("[title]")].map((el) =>
+      el.getAttribute("title"),
+    );
+    // The chart-area wrapper title uses fmtFull → e.g. "M1 · Jun 20, 2026".
+    expect(titles.some((tl) => /M1 · \w{3}.*2026/.test(tl ?? ""))).toBe(true);
+    // No title exposes the raw ISO date any more.
+    expect(titles.some((tl) => tl?.includes("2026-06-20"))).toBe(false);
+  });
 });
