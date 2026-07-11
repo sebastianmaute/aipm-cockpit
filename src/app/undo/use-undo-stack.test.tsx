@@ -198,6 +198,99 @@ describe("useUndoStack", () => {
     expect(roles).toEqual([{ id: 7, name: "NEW-ROLE" }]);
   });
 
+  it("composite cascade FK FOLLOWS the primary re-mint (fkRemapField)", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    // role #7 exists; resource #1 points at it via roleId.
+    let roles: readonly Row[] = [{ id: 7, name: "Dev/Sr" }];
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }];
+    const rolesBefore = roles;
+    const refsBefore = refs;
+    const affected = refs.filter((r) => r.roleId === 7);
+    const setRoles = (u: SetStateAction<readonly Row[]>) => { roles = typeof u === "function" ? u(roles) : u; };
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    // Delete role 7: remove it, cascade-null the FK.
+    roles = [];
+    refs = refs.map((r) => (r.roleId === 7 ? { ...r, roleId: null } : r));
+    act(() => {
+      result.current.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRefs, edited: affected, fromArray: refsBefore, fkRemapField: "roleId" }),
+        ],
+      });
+    });
+    // A brand-new role reuses the freed id 7 before undo.
+    roles = [{ id: 7, name: "NEW-ROLE" }];
+    act(() => result.current.undo());
+    // Dev/Sr recovered under a FRESH id (8); the cascade FK follows to 8, and the
+    // live NEW-ROLE (id 7) is untouched — no silent wrong-FK corruption.
+    expect(roles).toEqual([{ id: 8, name: "Dev/Sr" }, { id: 7, name: "NEW-ROLE" }]);
+    expect(refs).toEqual([{ id: 1, roleId: 8 }]);
+  });
+
+  it("composite cascade FK restores to the ORIGINAL id when no re-mint happens", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let roles: readonly Row[] = [{ id: 7, name: "Dev/Sr" }];
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }];
+    const rolesBefore = roles;
+    const refsBefore = refs;
+    const affected = refs.filter((r) => r.roleId === 7);
+    const setRoles = (u: SetStateAction<readonly Row[]>) => { roles = typeof u === "function" ? u(roles) : u; };
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    roles = [];
+    refs = refs.map((r) => (r.roleId === 7 ? { ...r, roleId: null } : r));
+    act(() => {
+      result.current.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRefs, edited: affected, fromArray: refsBefore, fkRemapField: "roleId" }),
+        ],
+      });
+    });
+    // No id reuse — role 7 is free at undo time.
+    act(() => result.current.undo());
+    expect(roles).toEqual([{ id: 7, name: "Dev/Sr" }]);
+    expect(refs).toEqual([{ id: 1, roleId: 7 }]); // FK back to the original 7
+  });
+
+  it("redo after a re-minted cascade undo re-applies (FK back to null, role removed)", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let roles: readonly Row[] = [{ id: 7, name: "Dev/Sr" }];
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }];
+    const rolesBefore = roles;
+    const refsBefore = refs;
+    const affected = refs.filter((r) => r.roleId === 7);
+    const setRoles = (u: SetStateAction<readonly Row[]>) => { roles = typeof u === "function" ? u(roles) : u; };
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    roles = [];
+    refs = refs.map((r) => (r.roleId === 7 ? { ...r, roleId: null } : r));
+    act(() => {
+      result.current.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRefs, edited: affected, fromArray: refsBefore, fkRemapField: "roleId" }),
+        ],
+      });
+    });
+    roles = [{ id: 7, name: "NEW-ROLE" }];
+    act(() => result.current.undo());
+    expect(refs).toEqual([{ id: 1, roleId: 8 }]);
+    act(() => result.current.redo());
+    // Redo removes the RE-MINTED recovered role (id 8), never the live NEW-ROLE,
+    // and re-applies the cascade (FK back to null).
+    expect(roles).toEqual([{ id: 7, name: "NEW-ROLE" }]);
+    expect(refs).toEqual([{ id: 1, roleId: null }]);
+  });
+
   it("a NEW capture after an undo CLEARS the redo stack", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));

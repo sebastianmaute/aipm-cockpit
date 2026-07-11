@@ -516,8 +516,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           primaryCount: 1,
           parts: [
             capturePart({ setter: setResources, removed: [removed], fromArray: resources }),
-            capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences }),
-            capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts }),
+            capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
+            capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
         });
         const name = `${removed.firstName} ${removed.lastName}`.trim();
@@ -568,8 +568,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           primaryCount: removed.length,
           parts: [
             capturePart({ setter: setResources, removed, fromArray: resources }),
-            capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences }),
-            capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts }),
+            capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
+            capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
         });
       }
@@ -642,7 +642,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           primaryCount: 1,
           parts: [
             capturePart({ setter: setRoles, removed: [removed], fromArray: roles }),
-            capturePart({ setter: setResources, edited: affected, fromArray: resources }),
+            capturePart({ setter: setResources, edited: affected, fromArray: resources, fkRemapField: "roleId" }),
           ],
         });
         logActivityRef.current("role.deleted", id, `${removed.disciplineId}/${removed.gradeId}`);
@@ -757,7 +757,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         primaryCount: 1,
         parts: [
           capturePart({ setter: setDisciplines, removed: [removed], fromArray: disciplines }),
-          capturePart({ setter: setRoles, edited: affected, fromArray: roles }),
+          capturePart({ setter: setRoles, edited: affected, fromArray: roles, fkRemapField: "disciplineId" }),
         ],
       });
       logActivityRef.current("discipline.deleted", id, removed.name);
@@ -777,7 +777,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         primaryCount: 1,
         parts: [
           capturePart({ setter: setGrades, removed: [removed], fromArray: grades }),
-          capturePart({ setter: setRoles, edited: affected, fromArray: roles }),
+          capturePart({ setter: setRoles, edited: affected, fromArray: roles, fkRemapField: "gradeId" }),
         ],
       });
       logActivityRef.current("grade.deleted", id, removed.name);

@@ -167,6 +167,34 @@ export function buildForwardImages<T extends { id: number }>(
 }
 
 /**
+ * Remap ONE foreign-key field across a set of before-images through a PRIMARY
+ * delete's id-remap, for a composite undo. When the primary fragment re-minted a
+ * recovered row under a fresh id (its original id was reused by a live row), a
+ * sibling cascade fragment that references it must follow the re-mint rather than
+ * restore the STALE original id — which now belongs to an unrelated live row.
+ *
+ * Works for BOTH image ops: an edit-image whose restored FK value points at the
+ * primary (role/discipline/grade cascade re-setting an FK), and a delete-image
+ * that carries the FK (resource delete re-inserting absences/shifts). Rows whose
+ * `field` value isn't a remapped number (null/undefined/unchanged) pass through
+ * untouched. An empty remap is a no-op (returns a shallow copy). Pure.
+ */
+export function remapImageField<T extends { id: number }>(
+  before: readonly BeforeImage<T>[],
+  field: keyof T & string,
+  remap: ReadonlyMap<number, number>,
+): BeforeImage<T>[] {
+  if (remap.size === 0) return before.slice();
+  return before.map((b) => {
+    const value = b.item[field];
+    if (typeof value !== "number") return b;
+    const mapped = remap.get(value);
+    if (mapped === undefined || mapped === value) return b;
+    return { ...b, item: { ...b.item, [field]: mapped } as T };
+  });
+}
+
+/**
  * Build the before-images for ONE array from the rows an op removed and/or
  * edited, resolving each row's original index against the pre-op array. Shared
  * by the single-array `capture` and the multi-array `capturePart` (composite)

@@ -10,6 +10,7 @@ import {
   applyUndoForward,
   buildBeforeImages,
   buildForwardImages,
+  remapImageField,
   pushUndo,
   popUndo,
   dropEntry,
@@ -40,6 +41,14 @@ export interface CapturePart<T extends { id: number }> {
   removed?: readonly T[];
   edited?: readonly T[];
   fromArray: readonly T[];
+  /** The field on THIS fragment's rows that references the PRIMARY-deleted entity
+   *  (the composite's FIRST fragment). When set, on undo each of this fragment's
+   *  before-images has `item[fkRemapField]` remapped through the primary delete's
+   *  id-remap BEFORE restore — so a cascade FK follows the primary's re-mint
+   *  instead of pointing at the stale original id (now a live unrelated row).
+   *  Applies to edit-images (a re-set FK) AND delete-images (a re-inserted row
+   *  carrying the FK). Omit on the primary fragment (it has no self-FK). */
+  fkRemapField?: keyof T & string;
 }
 
 /**
@@ -86,48 +95,107 @@ function fragmentUndoRunner<T extends { id: number }>(
   return runUndo;
 }
 
-/** Compose N fragment runners into ONE runner: applying it runs every fragment
- *  (undo or redo) and returns a composed runner of their inverses. Pure structural. */
-function composeRunners(runners: readonly Runner[]): Runner {
-  const run: Runner = () => {
-    const inverses = runners.map((r) => r());
-    return composeRunners(inverses);
-  };
-  return run;
+/** A shared, empty primary-remap so the box starts with no re-mint until the
+ *  primary fragment's updater publishes one. */
+const EMPTY_REMAP: ReadonlyMap<number, number> = new Map();
+
+/**
+ * A type-erased composite fragment (one affected array). `restore` reverts THIS
+ * array and returns its redo thunk. The shared `primaryRemap` box carries the
+ * PRIMARY delete's id-remap: the PRIMARY fragment (`isPrimary`) publishes its own
+ * remap into it inside its updater; a fragment with an `fkRemapField` reads it to
+ * follow the primary's re-mint. Heterogeneous arrays compose because the generic
+ * `T` is captured inside `capturePart`'s closure and erased at this boundary.
+ */
+export interface CompositeFragment {
+  restore: (primaryRemap: { current: ReadonlyMap<number, number> }, isPrimary: boolean) => () => void;
 }
 
 /**
- * Build an undo↔redo runner fragment for ONE array of a composite undo. Computes
- * the before-images eagerly from the PRE-op snapshots (so it's safe to build
- * after the mutating setter — `fromArray`/`removed`/`edited` are pre-mutation
- * values) and closes over the setter. Returns `null` when the array contributed
- * nothing so `captureComposite` can skip a no-op fragment. Generic per-call, so
- * each array's `T` stays precise; the returned runner is type-erased, letting a
- * composite mix heterogeneous arrays (roles + resources).
+ * Build a REUSABLE undo↔redo runner for a composite (multi-array) op, threading
+ * the PRIMARY delete's id-remap to every cascade fragment so a re-minted primary
+ * row's FK references follow it (see `remapImageField`). The FIRST fragment is
+ * the primary delete (holds at every call site); it publishes its remap into a
+ * fresh per-invocation box, then the cascades restore reading it.
+ *
+ * REDO needs no cross-fragment remap: each fragment's redo re-applies its own op
+ * from FORWARD images captured at undo time (the primary redo already removes the
+ * re-minted row by its correct id via `buildForwardImages`). Re-undo re-runs
+ * `runUndo`, re-orchestrating from the fixed before-images — fully reusable.
  */
-export function capturePart<T extends { id: number }>(part: CapturePart<T>): Runner | null {
-  const { setter, removed = [], edited = [], fromArray } = part;
+function compositeUndoRunner(fragments: readonly CompositeFragment[]): Runner {
+  const runUndo: Runner = () => {
+    // Fresh box each undo so a re-undo (after redo) re-derives the remap from
+    // live state rather than a stale one.
+    const primaryRemap = { current: EMPTY_REMAP };
+    const redos = fragments.map((f, i) => f.restore(primaryRemap, i === 0));
+    const runRedo: Runner = () => {
+      for (const redo of redos) redo();
+      return runUndo;
+    };
+    return runRedo;
+  };
+  return runUndo;
+}
+
+/**
+ * Build one composite fragment for ONE array. Computes the before-images eagerly
+ * from the PRE-op snapshots (so it's safe to build after the mutating setter —
+ * `fromArray`/`removed`/`edited` are pre-mutation values) and closes over the
+ * setter. Returns `null` when the array contributed nothing so `captureComposite`
+ * can skip a no-op fragment. Generic per-call so each array's `T` stays precise;
+ * the returned fragment is type-erased, letting a composite mix heterogeneous
+ * arrays (e.g. roles + resources).
+ *
+ * ★ The forward-images AND (for the primary) the published remap are stashed out
+ * of the setter updater — idempotent under strict-mode double-invoke (same `prev`
+ * ⇒ same result), exactly like the single-array `fragmentUndoRunner`.
+ */
+export function capturePart<T extends { id: number }>(part: CapturePart<T>): CompositeFragment | null {
+  const { setter, removed = [], edited = [], fromArray, fkRemapField } = part;
   const images = buildBeforeImages(removed, edited, fromArray);
   if (images.length === 0) return null;
-  return fragmentUndoRunner(setter, images);
+  const restore = (
+    primaryRemap: { current: ReadonlyMap<number, number> },
+    isPrimary: boolean,
+  ): (() => void) => {
+    let forward: BeforeImage<T>[] = [];
+    setter((prev) => {
+      // Follow the primary re-mint for this fragment's FK (no-op when the box is
+      // still empty or the field is unset). The primary itself has no self-FK.
+      const restoreImages = fkRemapField
+        ? remapImageField(images, fkRemapField, primaryRemap.current)
+        : images;
+      const { result, remap } = applyUndoRestoreWithRemap(prev, restoreImages);
+      if (isPrimary) primaryRemap.current = remap; // publish for cascades (idempotent)
+      // Redo images from the SAME prev + this fragment's own remap, so a re-minted
+      // delete removes the recovered row on redo, not a live reused-id row.
+      forward = buildForwardImages(restoreImages, prev, remap);
+      return result;
+    });
+    return () => { setter((prev) => applyUndoForward(prev, forward)); };
+  };
+  return { restore };
 }
 
 /** A multi-array undo: one entry whose restore reverts a primary removal AND
  *  every cascade edit across N arrays (e.g. deleting a role also cleared
  *  resources' roleId → both are reverted by a single undo, and re-applied by a
  *  single redo).
- *  ★ Fragments do NOT coordinate re-mint across arrays: in the rare window where
- *  a removed row's id was reused by a new row before undo, the removal fragment
- *  re-mints the recovered row under a fresh id while an edit fragment reverts the
- *  FK to the original (now-reused) id — same single-array semantics, accepted. */
+ *  ★ Fragments DO coordinate re-mint across arrays: if a removed primary row's id
+ *  was reused by a new row before undo, the primary fragment re-mints the
+ *  recovered row under a fresh id and publishes that remap; each cascade fragment
+ *  declaring an `fkRemapField` follows it so its FK points at the recovered row,
+ *  never the unrelated live reused-id row. */
 export interface CaptureCompositeOpts {
   kind: ActivityKind;
   /** User-facing count for the toast/badge — the PRIMARY rows the user acted
    *  on, never the incidental cascade dependents. */
   primaryCount: number;
   /** One fragment per affected array (build via `capturePart`); nulls (arrays
-   *  that contributed nothing) are ignored. */
-  parts: readonly (Runner | null)[];
+   *  that contributed nothing) are ignored. The FIRST non-null fragment is the
+   *  PRIMARY delete — its id-remap drives every cascade's `fkRemapField`. */
+  parts: readonly (CompositeFragment | null)[];
 }
 
 export interface UndoStackApi {
@@ -235,9 +303,9 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   }, [pushEntry]);
 
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
-    const fragments = opts.parts.filter((f): f is Runner => f !== null);
+    const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, composeRunners(fragments));
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments));
   }, [pushEntry]);
 
   const metas = useMemo(() => stack.map((e) => e.meta), [stack]);

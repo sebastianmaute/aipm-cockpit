@@ -5,6 +5,7 @@ import {
   applyUndoForward,
   buildBeforeImages,
   buildForwardImages,
+  remapImageField,
   pushUndo,
   popUndo,
   dropEntry,
@@ -12,6 +13,7 @@ import {
 } from "./undo-stack";
 
 type Row = { id: number; name: string };
+type Ref = { id: number; roleId: number | null };
 
 const del = (index: number, item: Row) => ({ index, item, op: "delete" as const });
 const edit = (index: number, item: Row) => ({ index, item, op: "edit" as const });
@@ -249,6 +251,38 @@ describe("redo after id re-mint (data-loss regression)", () => {
     const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before);
     const redone = applyUndoForward(restored, buildForwardImages(before, afterArray, remap));
     expect(redone).toEqual([{ id: 10, name: "NEW-REUSED" }]);
+  });
+});
+
+describe("remapImageField", () => {
+  const refEdit = (index: number, item: Ref) => ({ index, item, op: "edit" as const });
+  const refDel = (index: number, item: Ref) => ({ index, item, op: "delete" as const });
+
+  it("empty remap is a no-op copy (different array, equal contents)", () => {
+    const before = [refEdit(0, { id: 1, roleId: 7 })];
+    const out = remapImageField(before, "roleId", new Map());
+    expect(out).toEqual(before);
+    expect(out).not.toBe(before);
+  });
+
+  it("remaps an edit-image FK through the primary re-mint", () => {
+    const before = [refEdit(0, { id: 1, roleId: 7 })];
+    const out = remapImageField(before, "roleId", new Map([[7, 8]]));
+    expect(out[0].item).toEqual({ id: 1, roleId: 8 });
+  });
+
+  it("remaps a delete-image FK the same way (re-inserted row follows)", () => {
+    const before = [refDel(2, { id: 30, roleId: 7 })];
+    const out = remapImageField(before, "roleId", new Map([[7, 8]]));
+    expect(out[0]).toEqual({ index: 2, item: { id: 30, roleId: 8 }, op: "delete" });
+  });
+
+  it("leaves rows whose FK is null/unmapped untouched (no new objects)", () => {
+    const b1 = refEdit(0, { id: 1, roleId: null }); // not a number → skip
+    const b2 = refEdit(1, { id: 2, roleId: 9 });     // number, absent from remap → skip
+    const out = remapImageField([b1, b2], "roleId", new Map([[7, 8]]));
+    expect(out[0]).toBe(b1);
+    expect(out[1]).toBe(b2);
   });
 });
 

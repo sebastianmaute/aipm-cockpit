@@ -9,6 +9,16 @@ import {
   useResourcePlanner,
   type UseResourcePlannerArgs,
 } from "./use-resource-planner";
+import type { CompositeFragment } from "./undo/use-undo-stack";
+
+/** Replay a captured composite's fragments the way `compositeUndoRunner` does:
+ *  fragment 0 is the primary (publishes its id-remap into the shared box), the
+ *  rest follow it. Mirrors the engine so mocked-capture tests exercise the real
+ *  primary→cascade FK-remap wiring. */
+function replayCompositeUndo(parts: readonly (CompositeFragment | null)[]): void {
+  const primaryRemap = { current: new Map<number, number>() as ReadonlyMap<number, number> };
+  parts.forEach((f, i) => f?.restore(primaryRemap, i === 0));
+}
 
 function makeArgs(
   overrides?: Partial<UseResourcePlannerArgs>,
@@ -312,11 +322,11 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.planner.handleDeleteResource(5); });
       expect(result.current.workspace.resources).toHaveLength(0);
       expect(captureComposite).toHaveBeenCalledTimes(1);
-      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (null | (() => void))[] };
+      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (CompositeFragment | null)[] };
       expect(opts.kind).toBe("resource.deleted");
       expect(opts.primaryCount).toBe(1);
       // No absences/shifts → those parts are null (skipped); only the resource restores.
-      act(() => { for (const f of opts.parts) f?.(); });
+      act(() => replayCompositeUndo(opts.parts));
       expect(result.current.workspace.resources.map((r) => r.id)).toEqual([5]);
     });
 
@@ -336,9 +346,9 @@ describe("useResourcePlanner", () => {
       // Delete purged the calendar rows too.
       expect(result.current.workspace.absences).toHaveLength(0);
       expect(result.current.workspace.shifts).toHaveLength(0);
-      const opts = captureComposite.mock.calls[0][0] as { parts: (null | (() => void))[] };
+      const opts = captureComposite.mock.calls[0][0] as { parts: (CompositeFragment | null)[] };
       // Undo restores all three arrays.
-      act(() => { for (const f of opts.parts) f?.(); });
+      act(() => replayCompositeUndo(opts.parts));
       expect(result.current.workspace.resources.map((r) => r.id)).toEqual([5]);
       expect(result.current.workspace.absences.map((a) => a.id)).toEqual([11]);
       expect(result.current.workspace.shifts.map((s) => s.id)).toEqual([21]);
@@ -350,10 +360,10 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.workspace.setResources([withRole(5, null), withRole(6, null), withRole(7, null)]); });
       act(() => { result.current.planner.handleBulkDeleteResources([5, 6]); });
       expect(result.current.workspace.resources.map((r) => r.id)).toEqual([7]);
-      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (null | (() => void))[] };
+      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (CompositeFragment | null)[] };
       expect(opts.kind).toBe("resource.deleted");
       expect(opts.primaryCount).toBe(2);
-      act(() => { for (const f of opts.parts) f?.(); });
+      act(() => replayCompositeUndo(opts.parts));
       expect(result.current.workspace.resources.map((r) => r.id).sort()).toEqual([5, 6, 7]);
     });
 
@@ -370,11 +380,11 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.resources.map((r) => r.roleId)).toEqual([null, null]);
       // Captured as ONE composite, count = the primary op (1 role).
       expect(captureComposite).toHaveBeenCalledTimes(1);
-      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (null | (() => void))[] };
+      const opts = captureComposite.mock.calls[0][0] as { kind: string; primaryCount: number; parts: (CompositeFragment | null)[] };
       expect(opts.kind).toBe("role.deleted");
       expect(opts.primaryCount).toBe(1);
       // Running the captured fragments restores BOTH arrays.
-      act(() => { for (const f of opts.parts) f?.(); });
+      act(() => replayCompositeUndo(opts.parts));
       expect(result.current.workspace.roles.map((r) => r.id)).toEqual([7]);
       expect(result.current.workspace.resources.map((r) => r.roleId)).toEqual([7, 7]);
     });
@@ -389,9 +399,9 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.planner.onDeleteDiscipline(3); });
       expect(result.current.workspace.disciplines).toHaveLength(0);
       expect(result.current.workspace.roles[0]).toMatchObject({ disciplineId: 0, internalRate: 0, externalRate: 0 });
-      const opts = captureComposite.mock.calls[0][0] as { kind: string; parts: (null | (() => void))[] };
+      const opts = captureComposite.mock.calls[0][0] as { kind: string; parts: (CompositeFragment | null)[] };
       expect(opts.kind).toBe("discipline.deleted");
-      act(() => { for (const f of opts.parts) f?.(); });
+      act(() => replayCompositeUndo(opts.parts));
       expect(result.current.workspace.disciplines.map((d) => d.id)).toEqual([3]);
       expect(result.current.workspace.roles[0]).toMatchObject({ disciplineId: 3, internalRate: 100, externalRate: 150 });
     });
