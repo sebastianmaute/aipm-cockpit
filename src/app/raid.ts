@@ -3,7 +3,9 @@
 // storage layer (for parsing severity on load).
 
 import type { Health } from "./health";
+import type { Resource } from "./types";
 import { mintId } from "./id-mint-session";
+import { effectivePersonName } from "./resource-foundation";
 import {
   ASSUMPTION_STATUSES,
   DEPENDENCY_STATUSES,
@@ -204,7 +206,11 @@ const SEVERITY_RANK: Record<RaidSeverity, number> = {
   Critical: 4,
 };
 
-function raidSortValue(item: RaidItem, key: RaidSortKey): string | number {
+function raidSortValue(
+  item: RaidItem,
+  key: RaidSortKey,
+  resourcesById: ReadonlyMap<number, Resource>,
+): string | number {
   switch (key) {
     case "id":
       return item.id;
@@ -217,7 +223,8 @@ function raidSortValue(item: RaidItem, key: RaidSortKey): string | number {
     case "title":
       return item.title.toLowerCase();
     case "owner":
-      return (item.owner ?? "").toLowerCase();
+      // Sort by the linked owner's LIVE name, not the stale cached string.
+      return effectivePersonName(item.owner ?? "", item.ownerResourceId, resourcesById).toLowerCase();
     case "targetDate":
       return item.targetDate ?? "";
   }
@@ -232,6 +239,7 @@ export function compareRaid(
   b: RaidItem,
   key: RaidSortKey,
   dir: "asc" | "desc",
+  resourcesById: ReadonlyMap<number, Resource> = new Map(),
 ): number {
   if (key === "targetDate") {
     const av = a.targetDate ?? "";
@@ -241,8 +249,8 @@ export function compareRaid(
       return av === "" ? 1 : -1;
     }
   }
-  const av = raidSortValue(a, key);
-  const bv = raidSortValue(b, key);
+  const av = raidSortValue(a, key, resourcesById);
+  const bv = raidSortValue(b, key, resourcesById);
   const cmp =
     typeof av === "number" && typeof bv === "number"
       ? av - bv

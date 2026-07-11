@@ -65,6 +65,25 @@ describe("WorkspaceProvider", () => {
     expect(result.current.taskSearchIndex.get(1)).toContain("bob");
   });
 
+  test("assignee options + search resolve a linked task's LIVE resource name, not the stale cache", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    act(() =>
+      result.current.setResources([
+        { id: 7, firstName: "Live", lastName: "Person", roleId: null, utilizationMode: "percent", utilization: {} },
+      ]),
+    );
+    act(() =>
+      result.current.setTasks([
+        makeTask({ id: 1, taskName: "Alpha", assignee: "Old Cache", resourceId: 7 }),
+      ]),
+    );
+    // Dropdown option is the live name, not the stale cached "Old Cache".
+    expect(result.current.uniqueAssignees).toEqual(["Live Person"]);
+    // Search matches the live name, not the cache.
+    expect(result.current.taskSearchIndex.get(1)).toContain("live person");
+    expect(result.current.taskSearchIndex.get(1)).not.toContain("old cache");
+  });
+
   test("filteredSortedTasks narrows when priority filter changes", () => {
     const { result } = renderHook(
       () => ({ ws: useWorkspace(), filters: useFilters() }),

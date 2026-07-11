@@ -44,7 +44,7 @@ import { useResizable } from "./use-resizable";
 import { useRowSelection } from "./use-row-selection";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { selectField, dateField, type BulkField } from "./bulk-edit-panel";
-import { resourceDisplayName } from "./resource-foundation";
+import { resourceDisplayName, effectivePersonName } from "./resource-foundation";
 import { RaidToolbar } from "./raid-panel-toolbar";
 import { RaidTable } from "./raid-panel-rows";
 import { RAID_COL_WIDTHS, type RaidCol } from "./raid-panel-columns";
@@ -216,7 +216,9 @@ function RaidPanelBody({
           r.title,
           r.description ?? "",
           r.mitigation ?? "",
-          r.owner ?? "",
+          // Resolve the linked owner's live name so search matches the current
+          // name, not the stale cached `owner` string.
+          effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById),
           r.ownerEmail ?? "",
         ]
           .join(" ")
@@ -227,7 +229,7 @@ function RaidPanelBody({
     });
 
     const ordered = sort
-      ? [...filtered].sort((a, b) => compareRaid(a, b, sort.key as RaidSortKey, sort.dir as "asc" | "desc"))
+      ? [...filtered].sort((a, b) => compareRaid(a, b, sort.key as RaidSortKey, sort.dir as "asc" | "desc", resourcesById))
       : filtered.slice().sort((a, b) => {
           const aClosed = isTerminalStatus(a.status, a.category);
           const bClosed = isTerminalStatus(b.status, b.category);
@@ -241,7 +243,7 @@ function RaidPanelBody({
           return a.id - b.id;
         });
     return ordered;
-  }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, search, sort]);
+  }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, search, sort, resourcesById]);
 
   const visibleIds = useMemo(() => visible.map((r) => r.id), [visible]);
 
