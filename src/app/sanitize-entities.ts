@@ -358,7 +358,19 @@ export function sanitizeRole(input: unknown): Role | null {
     gradeId,
     internalRate: sanitizeRate(input.internalRate),
     externalRate: sanitizeRate(input.externalRate),
+    // Which unit the user edits — absent/unknown ⇒ "hour" (legacy roles keep
+    // their exact hourly as authoritative). No cross-derive here: workdayHours
+    // is not available at load; the editor materializes on edit.
+    rateBasis: input.rateBasis === "day" ? "day" : "hour",
   };
+  // Sparse-emit day rates only when present so blobs stay minimal for legacy
+  // (hour-basis) roles. The CSV/MD named columns always exist regardless.
+  if (input.internalRateDay !== undefined && input.internalRateDay !== null && input.internalRateDay !== "") {
+    role.internalRateDay = sanitizeRate(input.internalRateDay);
+  }
+  if (input.externalRateDay !== undefined && input.externalRateDay !== null && input.externalRateDay !== "") {
+    role.externalRateDay = sanitizeRate(input.externalRateDay);
+  }
   if (input.order !== undefined && input.order !== null && input.order !== "") {
     const orderNum = toNumber(input.order);
     if (Number.isFinite(orderNum) && orderNum >= 0) role.order = orderNum;

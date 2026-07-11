@@ -145,7 +145,7 @@ export const RESOURCES_CSV_COLUMNS = [
   "roleId", "utilizationMode", "utilization", "absenceOverride", "active", "localModifiedAt",
   "emails", "isExternal",
 ] as const;
-export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "localModifiedAt", "order"] as const;
+export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate", "externalRate", "internalRateDay", "externalRateDay", "rateBasis", "localModifiedAt", "order"] as const;
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
 export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [

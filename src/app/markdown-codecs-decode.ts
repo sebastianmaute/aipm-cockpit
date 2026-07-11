@@ -186,6 +186,8 @@ function markdownToResources(md: string, diag?: ImportDiag): Resource[] {
 const ROLE_ALIASES: Record<string, string> = {
   id: "id", disciplineid: "disciplineId", gradeid: "gradeId",
   internalrate: "internalRate", externalrate: "externalRate",
+  internalrateday: "internalRateDay", externalrateday: "externalRateDay",
+  ratebasis: "rateBasis",
   order: "order",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
 };

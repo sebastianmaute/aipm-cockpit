@@ -141,6 +141,9 @@ const ROLES_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "gradeId", label: "GradeId" },
   { col: "internalRate", label: "InternalRate" },
   { col: "externalRate", label: "ExternalRate" },
+  { col: "internalRateDay", label: "InternalRateDay" },
+  { col: "externalRateDay", label: "ExternalRateDay" },
+  { col: "rateBasis", label: "RateBasis" },
   { col: "localModifiedAt", label: "LocalModified" },
   { col: "order", label: "Order" },
 ];

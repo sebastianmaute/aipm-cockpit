@@ -919,42 +919,60 @@
       "disciplineId": 1,
       "gradeId": 4,
       "internalRate": 95,
-      "externalRate": 145
+      "externalRate": 145,
+      "rateBasis": "day",
+      "internalRateDay": 760,
+      "externalRateDay": 1160
     },
     {
       "id": 2,
       "disciplineId": 1,
       "gradeId": 5,
       "internalRate": 110,
-      "externalRate": 165
+      "externalRate": 165,
+      "rateBasis": "day",
+      "internalRateDay": 880,
+      "externalRateDay": 1320
     },
     {
       "id": 3,
       "disciplineId": 2,
       "gradeId": 3,
       "internalRate": 80,
-      "externalRate": 120
+      "externalRate": 120,
+      "rateBasis": "day",
+      "internalRateDay": 640,
+      "externalRateDay": 960
     },
     {
       "id": 4,
       "disciplineId": 4,
       "gradeId": 4,
       "internalRate": 100,
-      "externalRate": 150
+      "externalRate": 150,
+      "rateBasis": "day",
+      "internalRateDay": 800,
+      "externalRateDay": 1200
     },
     {
       "id": 5,
       "disciplineId": 1,
       "gradeId": 3,
       "internalRate": 75,
-      "externalRate": 110
+      "externalRate": 110,
+      "rateBasis": "day",
+      "internalRateDay": 600,
+      "externalRateDay": 880
     },
     {
       "id": 6,
       "disciplineId": 3,
       "gradeId": 5,
       "internalRate": 115,
-      "externalRate": 170
+      "externalRate": 170,
+      "rateBasis": "day",
+      "internalRateDay": 920,
+      "externalRateDay": 1360
     }
   ],
   "disciplines": [

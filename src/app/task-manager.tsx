@@ -1739,6 +1739,7 @@ function TaskManagerInner() {
       <RolesPanel
         lang={lang}
         currency={plan.currency || "EUR"}
+        workdayHours={settings.resources.workdayHours}
         roles={roles}
         disciplines={disciplines}
         grades={grades}

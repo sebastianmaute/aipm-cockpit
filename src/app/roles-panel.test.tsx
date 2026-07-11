@@ -11,6 +11,7 @@ function renderPanel() {
     <RolesPanel
       lang="en-US"
       currency="EUR"
+      workdayHours={8}
       roles={[]}
       disciplines={[]}
       grades={[]}
