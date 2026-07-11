@@ -124,12 +124,15 @@ export function applyUndoForward<T extends { id: number }>(
   forward: readonly BeforeImage<T>[],
 ): T[] {
   let out = current.slice();
+  // An id owned by a delete-image is removed below — never let an edit-image for
+  // the same id apply first (it would be overwritten anyway; skipping mirrors
+  // `applyUndoRestore`'s edit/delete ownership rule for symmetry/robustness).
+  const removeIds = new Set(forward.filter((f) => f.op === "delete").map((f) => f.item.id));
   for (const { item, op } of forward) {
-    if (op !== "edit") continue;
+    if (op !== "edit" || removeIds.has(item.id)) continue;
     const idx = out.findIndex((r) => r.id === item.id);
     if (idx !== -1) out[idx] = item; // absent edit → skip
   }
-  const removeIds = new Set(forward.filter((f) => f.op === "delete").map((f) => f.item.id));
   if (removeIds.size > 0) out = out.filter((r) => !removeIds.has(r.id));
   return out;
 }

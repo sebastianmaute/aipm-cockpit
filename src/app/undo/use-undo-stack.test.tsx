@@ -167,6 +167,37 @@ describe("useUndoStack", () => {
     expect(result.current.canUndo).toBe(true);
   });
 
+  it("composite delete whose id is reused → redo removes the re-minted row, NOT the live one", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let roles: readonly Row[] = [{ id: 7, name: "Dev/Sr" }];
+    let refs: readonly Ref[] = [{ id: 1, roleId: 7 }];
+    const rolesBefore = roles;
+    const refsBefore = refs;
+    const setRoles = (u: SetStateAction<readonly Row[]>) => { roles = typeof u === "function" ? u(roles) : u; };
+    const setRefs = (u: SetStateAction<readonly Ref[]>) => { refs = typeof u === "function" ? u(refs) : u; };
+    roles = [];
+    refs = refs.map((r) => ({ ...r, roleId: null }));
+    act(() => {
+      result.current.captureComposite({
+        kind: "role.deleted",
+        primaryCount: 1,
+        parts: [
+          capturePart({ setter: setRoles, removed: [{ id: 7, name: "Dev/Sr" }], fromArray: rolesBefore }),
+          capturePart({ setter: setRefs, edited: refsBefore, fromArray: refsBefore }),
+        ],
+      });
+    });
+    // A brand-new role reuses the freed id 7 before undo.
+    roles = [{ id: 7, name: "NEW-ROLE" }];
+    act(() => result.current.undo());
+    // Dev/Sr recovered under a fresh id (8); the live NEW-ROLE (id 7) untouched.
+    expect(roles).toEqual([{ id: 8, name: "Dev/Sr" }, { id: 7, name: "NEW-ROLE" }]);
+    act(() => result.current.redo());
+    // Redo removes the RE-MINTED recovered row (id 8), never the live NEW-ROLE.
+    expect(roles).toEqual([{ id: 7, name: "NEW-ROLE" }]);
+  });
+
   it("a NEW capture after an undo CLEARS the redo stack", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));

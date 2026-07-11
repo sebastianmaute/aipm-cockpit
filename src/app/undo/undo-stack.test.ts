@@ -228,6 +228,28 @@ describe("redo after id re-mint (data-loss regression)", () => {
     expect(remap.size).toBe(0);
     expect(applyUndoForward(restored, buildForwardImages(before, after, remap))).toEqual([]);
   });
+
+  it("MULTIPLE simultaneous re-mints (clear-all): redo removes all recovered rows, keeps all live ones", () => {
+    const orig: Row[] = [{ id: 1, name: "A" }, { id: 2, name: "B" }, { id: 3, name: "C" }];
+    const before = buildBeforeImages<Row>(orig, [], orig);
+    // all three ids reused by new rows before undo
+    const afterArray: Row[] = [{ id: 1, name: "X" }, { id: 2, name: "Y" }, { id: 3, name: "Z" }];
+    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before);
+    expect([...remap.entries()].sort()).toEqual([[1, 4], [2, 5], [3, 6]]);
+    const redone = applyUndoForward(restored, buildForwardImages(before, afterArray, remap));
+    expect(redone).toEqual(afterArray); // the 3 live reused-id rows survive; recovered ones removed
+  });
+
+  it("edit-image whose id was reused: redo re-applies the LIVE after-value (no redo clobber)", () => {
+    // Pre-existing undo-side limitation: reverting an edit by id can overwrite a
+    // reused-id row. But REDO builds its forward image from the live pre-undo
+    // state, so redo restores the reused row's CURRENT value rather than clobbering.
+    const before = buildBeforeImages<Row>([], [{ id: 10, name: "OLD" }], [{ id: 10, name: "OLD" }]);
+    const afterArray: Row[] = [{ id: 10, name: "NEW-REUSED" }];
+    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before);
+    const redone = applyUndoForward(restored, buildForwardImages(before, afterArray, remap));
+    expect(redone).toEqual([{ id: 10, name: "NEW-REUSED" }]);
+  });
 });
 
 describe("buildBeforeImages", () => {
