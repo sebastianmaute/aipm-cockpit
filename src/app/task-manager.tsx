@@ -73,7 +73,7 @@ import { useUndoStack } from "./undo/use-undo-stack";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { UndoControl } from "./undo/undo-control";
 import { RolesPanel } from "./roles-panel";
-import { materializeRoleRates } from "./role-rates";
+import { rematerializeDayBasisRoles } from "./role-rates";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
@@ -624,11 +624,7 @@ function TaskManagerInner() {
   // (NaN !== NaN is always true → infinite render); Object.is(NaN,NaN)===true.
   if (!Object.is(workdayHoursNow, wdhForRoles)) {
     setWdhForRoles(workdayHoursNow);
-    setRoles((prev) =>
-      prev.some((r) => r.rateBasis === "day")
-        ? prev.map((r) => (r.rateBasis === "day" ? materializeRoleRates(r, workdayHoursNow) : r))
-        : prev,
-    );
+    setRoles((prev) => rematerializeDayBasisRoles(prev, workdayHoursNow));
   }
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.

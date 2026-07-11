@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { materializeRoleRates, DEFAULT_WORKDAY_HOURS } from "./role-rates";
+import { materializeRoleRates, rematerializeDayBasisRoles, DEFAULT_WORKDAY_HOURS } from "./role-rates";
 import type { Role } from "./types";
 
 const base: Role = { id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 };
@@ -65,5 +65,29 @@ describe("materializeRoleRates", () => {
     // 100 / 3 = 33.333... → 33.33
     expect(r.internalRate).toBe(33.33);
     expect(r.externalRate).toBe(33.33);
+  });
+});
+
+describe("rematerializeDayBasisRoles (workday-hours change reconcile)", () => {
+  const dayRole: Role = { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150, internalRateDay: 800, externalRateDay: 1200, rateBasis: "day" };
+  const hourRole: Role = { id: 2, disciplineId: 1, gradeId: 1, internalRate: 90, externalRate: 120, rateBasis: "hour" };
+
+  it("re-derives the hourly rate on day-basis roles when workday hours change", () => {
+    const out = rematerializeDayBasisRoles([dayRole], 10); // 800/d ÷ 10 = 80/h
+    expect(out[0].internalRate).toBe(80);
+    expect(out[0].externalRate).toBe(120);
+    expect(out[0].internalRateDay).toBe(800); // day rate stays authoritative
+  });
+
+  it("leaves hour-basis roles untouched (their hourly is authoritative)", () => {
+    const out = rematerializeDayBasisRoles([dayRole, hourRole], 10);
+    const hour = out.find((r) => r.id === 2)!;
+    expect(hour.internalRate).toBe(90);
+    expect(hour).toBe(hourRole); // same object reference, not re-materialized
+  });
+
+  it("returns the SAME array reference when there are no day-basis roles (no needless re-render)", () => {
+    const roles = [hourRole];
+    expect(rematerializeDayBasisRoles(roles, 10)).toBe(roles);
   });
 });
