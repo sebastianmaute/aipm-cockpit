@@ -43,6 +43,17 @@ npm run build
 `next build` runs the TypeScript check and emits `.next/`. The build artifact
 is portable — any Node 20+ host with `npm start` will serve it.
 
+### Stopping the dev server
+
+```bash
+npm run stop
+```
+
+`npm run stop` stops the dev server bound to the app port (default 3000; set
+`PORT` to override, e.g. `PORT=4000 npm run stop`). It is **port-scoped** — it
+frees only the process listening on that port and does not kill unrelated Node
+processes. Use it to reclaim a stuck port before restarting `npm run dev`.
+
 ### Pre-deploy testing (recommended)
 
 Since v0.7.1 the repo carries a test suite. Recommended pre-ship sequence:
@@ -113,7 +124,7 @@ that no longer matches the per-request CSP header.
 3. Add a task; refresh; confirm it persists.
 4. Open the Version popover (info icon in header). `APP_VERSION` and
    `APP_BUILD_DATE` should match the build you just shipped (current release:
-   **v0.167.0 "Rajaniemi"**).
+   **v0.177.0 "Aldiss"**).
 5. If Jira is in use: open Settings → Jira, enter test creds, hit Test —
    the route handler at `/api/jira/test` should respond.
 

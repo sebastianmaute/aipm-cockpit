@@ -20,6 +20,7 @@ const PROMPT_CHIPS: PromptChip[] = [
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
 import type { AiConfig, Settings } from "./settings-types";
+import { clampMaxChatTurns } from "./settings-types";
 import type { ChatConversation } from "./workspace-tab-context";
 import { useAiUsageContext } from "./ai-usage-context";
 import { useResizable } from "./use-resizable";
@@ -53,17 +54,13 @@ import {
   type ApiMessage,
   type DisplayItem,
 } from "./chat-api";
+import { AiHttpError, classifyAiError } from "./ai-errors";
 
 /** A staged upload: the Anthropic content block plus display metadata. */
 type StagedAttachment = { id: string; name: string; block: AttachmentBlock };
 
 // Full-width, drag-to-resize pane (same chrome as the primary views).
 const CHAT_PANE_CLASS = VIEW_PANE_RESIZABLE_CLASS;
-
-// Max callClaude round-trips per user send (runaway guard). Shared by tool-use
-// round-trips AND max_tokens continuations, so 12 (up from 8) gives headroom
-// now that a truncated answer resumes within the same send.
-const MAX_CHAT_TURNS = 12;
 
 function ChatPanelImpl({
   lang,
@@ -323,7 +320,11 @@ function ChatPanelInner({
       // Round-trip loop: keep going until the model finishes (end_turn). Two
       // reasons to continue — a tool call to run, or a length-cap truncation to
       // resume — both share the turn budget (a runaway guard).
-      for (let turn = 0; turn < MAX_CHAT_TURNS; turn++) {
+      // Clamp at the read site too (defence in depth): a directly-typed
+      // out-of-range value that bypassed the input clamp can never drive an
+      // unbounded number of billed API calls.
+      const maxTurns = clampMaxChatTurns(ai.maxChatTurns);
+      for (let turn = 0; turn < maxTurns; turn++) {
         if (stale()) break;
         const response = await callClaude(
           effectiveApiKey,
@@ -473,6 +474,16 @@ function ChatPanelInner({
           setDisplay((prev) => [
             ...prev,
             { kind: "assistant", text: t(lang, "chatStopped") },
+          ]);
+        } else if (
+          err instanceof AiHttpError &&
+          classifyAiError(err.status, err.errorType) === "limit"
+        ) {
+          // Anthropic's own rate/usage limit. ADVISORY — APPEND a notice to the
+          // transcript (do NOT setError-replace or clear prior messages).
+          setDisplay((prev) => [
+            ...prev,
+            { kind: "notice", text: t(lang, "aiUsageLimitReached") },
           ]);
         } else {
           const msg = err instanceof Error ? err.message : String(err);
@@ -705,6 +716,14 @@ function ChatPanelInner({
                     <div className="max-w-[85%] rounded-lg bg-surface px-3 py-2 text-sm text-foreground">
                       <Markdown text={item.text} />
                     </div>
+                  </div>
+                )}
+                {item.kind === "notice" && (
+                  <div
+                    role="status"
+                    className="rounded-md border border-AIPM-dark-blue/30 bg-AIPM-dark-blue/5 px-3 py-2 text-sm text-foreground"
+                  >
+                    {item.text}
                   </div>
                 )}
                 {item.kind === "tool" && (

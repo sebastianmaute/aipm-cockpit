@@ -299,7 +299,9 @@ describe("DashboardPanel budget-burn CPI stat", () => {
   // coverage; its CPI tile sits beside the SPI tile.
   function evmCpiTile(): HTMLElement {
     const spiTile = screen.getByText("SPI").closest("div.rounded-lg") as HTMLElement;
-    const evmRow = spiTile.parentElement as HTMLElement;
+    // Each hinted tile is wrapped in a `div.relative` (tooltip sibling), so the
+    // shared EVM row is the wrapper's parent, not the tile's direct parent.
+    const evmRow = spiTile.parentElement?.parentElement as HTMLElement;
     return within(evmRow).getByText("CPI").closest("div.rounded-lg") as HTMLElement;
   }
 

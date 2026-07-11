@@ -18,11 +18,11 @@ import {
   type Usage,
   type UsageBuckets,
 } from "./ai-usage";
-import { crossed80 } from "./usage-warning";
+import { crossed80, crossed100 } from "./usage-warning";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { AiConfig } from "./settings-types";
-import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "./settings-types";
+import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_TOKEN_MULTIPLIER } from "./settings-types";
 
 export const AI_USAGE_KEY = "lop-app:ai-usage";
 
@@ -83,13 +83,21 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
   // never trigger re-renders and are never reset within the provider lifetime
   // (session resets on page reload; week flag is accurate enough as a simple bool).
   const warnedRef = useRef({ session: false, week: false });
+  // Separate per-scope flags for the 100 % (own-cap-reached) notice, so it fires
+  // once independently of the 80 % warning.
+  const warned100Ref = useRef({ session: false, week: false });
 
   const sessionCap = ai.sessionTokenCap ?? DEFAULT_SESSION_TOKEN_CAP;
   const weeklyCap = ai.weeklyTokenCap ?? DEFAULT_WEEKLY_TOKEN_CAP;
+  const multiplier = ai.tokenMultiplier ?? DEFAULT_TOKEN_MULTIPLIER;
 
   const record = useCallback(
     (u: Usage): void => {
-      const tokens = u.input + u.output;
+      // Apply the counting multiplier ONCE, up front, so BOTH the session
+      // total and the weekly buckets count in the same (multiplied) units —
+      // otherwise the two caps would be compared against different scales.
+      const scaled: Usage = { input: u.input * multiplier, output: u.output * multiplier };
+      const tokens = scaled.input + scaled.output;
 
       // Read previous values from refs — no state reads inside updaters.
       const prevSession = sessionTotalRef.current;
@@ -99,7 +107,7 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
       // Compute next values purely.
       const nextSession = prevSession + tokens;
       const prevWeek = weekToDate(prevBuckets, now);
-      const nextBuckets = addToBuckets(prevBuckets, now, u);
+      const nextBuckets = addToBuckets(prevBuckets, now, scaled);
       const nextWeek = weekToDate(nextBuckets, now);
 
       // Advance refs before setState so back-to-back record() calls in the
@@ -122,8 +130,18 @@ export function AiUsageProvider({ lang, ai, showToast, children }: AiUsageProvid
         warnedRef.current.week = true;
         showToast("error", t(lang, "usage80Toast"));
       }
+      // Crossing 100 % of a self-imposed cap: ADVISORY notice only — nothing is
+      // blocked, the assistant keeps working.
+      if (!warned100Ref.current.session && crossed100(prevSession, nextSession, sessionCap)) {
+        warned100Ref.current.session = true;
+        showToast("error", t(lang, "aiSelfLimitReached"));
+      }
+      if (!warned100Ref.current.week && crossed100(prevWeek, nextWeek, weeklyCap)) {
+        warned100Ref.current.week = true;
+        showToast("error", t(lang, "aiSelfLimitReached"));
+      }
     },
-    [lang, sessionCap, weeklyCap, showToast],
+    [lang, sessionCap, weeklyCap, multiplier, showToast],
   );
 
   const now = new Date();

@@ -48,8 +48,12 @@ import {
 import { TABLE_NAMES } from "../src/app/turso-schema";
 import { tenantWorkspaceToStatements, upsertProjectStatement, PROJECTS_TABLE } from "../src/app/turso-tenant-schema";
 import { scaleWorkspace } from "../src/app/scale-workspace";
+import { materializeRoleRates } from "../src/app/role-rates";
 import type { Workspace } from "../src/app/workspace";
 import type { ChangeItem, RaidItem, ProjectMeta, ProjectStatus, SteeringCommittee } from "../src/app/types";
+
+/** Sample workday hours (matches defaultSettings.resources.workdayHours). */
+const SAMPLE_WORKDAY_HOURS = 8;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -235,9 +239,20 @@ const sampleSteeringCommittee: SteeringCommittee = {
 };
 
 // Assemble the enriched workspace (immutable spread)
+// Synthesize day rates on the rate card (basis "day", day = hourly * workday
+// hours) so the sample exercises the day-authoritative path — mirrors how the
+// project meta/status below are synthesized rather than carried in the .md.
+const enrichedRoles = ws.roles.map((r) =>
+  materializeRoleRates(
+    { ...r, rateBasis: "day", internalRateDay: r.internalRate * SAMPLE_WORKDAY_HOURS, externalRateDay: r.externalRate * SAMPLE_WORKDAY_HOURS },
+    SAMPLE_WORKDAY_HOURS,
+  ),
+);
+
 const enrichedWs = {
   ...ws,
   raid: enrichedRaid,
+  roles: enrichedRoles,
   changes,
   project: sampleProjectMeta,
   status: sampleStatus,

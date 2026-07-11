@@ -1536,6 +1536,8 @@ const enUS = {
   rolesGrade: "Grade",
   rolesInternalRate: "Internal /h",
   rolesExternalRate: "External /h",
+  rolesInternalRateDay: "Internal /d",
+  rolesExternalRateDay: "External /d",
   rolesAddCombo: "Add role",
   rolesAddDiscipline: "Add discipline",
   rolesAddGrade: "Add grade",
@@ -2568,6 +2570,7 @@ const enUS = {
   rolesGradeHint: "Seniority level used to derive the blended rate.",
   rolesInternalRateHint: "Hourly internal cost rate (EUR).",
   rolesExternalRateHint: "Hourly external/billing rate (EUR).",
+  rolesRateBasisHint: "Enter either the daily rate or the hourly rate — the other is calculated from your workday hours and locked. Clear the filled field to switch which one you enter.",
   // Edit Resource tooltips
   resourceFirstNameHint: "Given name of the person.",
   resourceLastNameHint: "Family name of the person.",
@@ -2857,11 +2860,21 @@ const enUS = {
   fieldsAdjusted: "Saved — {0} field(s) adjusted to fit limits",
 
   usage80Toast: "You've used 80% of your token budget",
+  aiUsageLimitReached:
+    "Claude usage limit reached — this is Anthropic's own rate/usage limit. Please wait and try again after it resets.",
+  aiSelfLimitReached:
+    "You've reached your own token limit. This is only a notice — the assistant keeps working. You can adjust the limit in Settings.",
   aiUsageSession: "Current session",
   aiUsageWeek: "Current week (all models)",
   aiUsageResetAt: "Resets {0}",
   aiSessionCap: "Session token cap",
   aiWeeklyCap: "Weekly token cap",
+  aiSessionCapHint: "Your own advisory per-session token limit. You'll see a notice near and at the limit; calls are never blocked. Resets each session.",
+  aiWeeklyCapHint: "Your own advisory weekly token limit. Advisory only — you'll be notified, not blocked. Resets weekly.",
+  aiMaxTurns: "Max assistant turns per message",
+  aiMaxTurnsHint: "How many tool/continuation round-trips the assistant may take to answer one message (1–50). Higher allows more complex multi-step work but costs more tokens.",
+  aiTokenMultiplier: "Token counting multiplier",
+  aiTokenMultiplierHint: "Each call's counted tokens are multiplied by this before counting toward your caps (default 5).",
 
   settingsSectionExport: "Export",
   exportSectionHint: "Choose which sections to include in document exports (XLSX, DOCX, PDF, PPTX, Markdown). Default: Tasks and RAID.",
@@ -3195,6 +3208,27 @@ const enUS = {
   infoMore: "More information",
   contactPersonsTip:
     "How to add a contact: in “Add manually” pick a team member or saved contact to link them, or type a new name for someone outside your directory; use the email field to record an address for a typed-in (external) contact; click Add to put them on the list. At least one contact is required.",
+  // UX batch "Aldiss" (0.177.0)
+  dashboardKpiCompleteHint: "Share of tasks marked Done out of all tasks. Trending up is good; a flat line signals stalled delivery.",
+  dashboardKpiOverdueHint: "Tasks past their due date and not yet done. Drive this toward zero.",
+  dashboardKpiOpenRaidHint: "Open risks, assumptions, issues and dependencies that still need attention.",
+  dashboardRagHint: "Red / Amber / Green health counts across your project areas — how many are off track, at risk, or healthy.",
+  dashboardBudgetHint: "Actual spend against planned budget. Above 100% means you have exceeded the plan.",
+  dashboardHoursHint: "Hours booked against the budgeted hours for this period.",
+  raciFilterAdd: "Filter people…",
+  raciFilterRemove: "Remove {0} from filter",
+  raciFilterClear: "Clear filter",
+  historyCompareIdentical: "This version is identical to the current workspace — there is nothing to compare or restore.",
+  historySelectAll: "Select all",
+  historyDeselectAll: "Deselect all",
+  planningHideExternal: "Hide external",
+  planningCapacityHours: "Capacity (h)",
+  versionHighlightUxBatchAldiss: "New: Claude usage-limit notices, configurable AI turn cap and token multiplier, dashboard tile tooltips, day-rate cards, RACI people filter, planning capacity column, and history restore tools.",
+  // Help entries — Aldiss batch
+  helpSecRateCardTitle: "Rate cards: day or hourly rates",
+  helpSecRateCardBody: "In Resources → Manage roles, enter each role's cost either as a day rate (internal/d, external/d) or an hourly rate — whichever you enter is the source of truth, and the other is calculated automatically from your workday hours (Settings → General). Only one unit is editable per role at a time; clear the filled field to switch. All budget and margin figures use the resulting hourly rate.",
+  helpSecUsageLimitsTitle: "AI usage limits and controls",
+  helpSecUsageLimitsBody: "The assistant shows a clear notice when Claude's own weekly or rate limit is reached, and when you hit a token limit you set yourself — these are advisory and never block your work; in chat the notice is added to the conversation without clearing it. In Settings → AI you can set your own session and weekly token limits, a token-counting multiplier (default 5), and the maximum number of assistant steps per message (default 12).",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

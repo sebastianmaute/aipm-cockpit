@@ -293,6 +293,38 @@ describe("ResourcesPanel", () => {
     expect(screen.getAllByText(/^[RAG]$/).length).toBeGreaterThan(0);
   });
 
+  test("T14: capacity-hours column renders a per-row total and a footer sum", () => {
+    // Feb 2026 monthly = 20 workdays × 8h = 160h at 100% utilization.
+    const resources = [{ id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: { "2026-02": 100 } }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan}
+      workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // Column header present.
+    expect(screen.getByText(t("en-US", "planningCapacityHours"))).toBeInTheDocument();
+    // 160.0 appears once in the data row and once in the footer total (capacity
+    // days shows 20.0, so no collision on 160.0).
+    expect(screen.getAllByText("160.0").length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("T4: toggling 'Hide external' removes external resources from the planning rows", () => {
+    const resources = [
+      { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} },
+      { id: 2, firstName: "Bob", lastName: "Ext", roleId: null, isExternal: true, utilizationMode: "percent" as const, utilization: {} },
+    ];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={resources} plan={plan}
+      workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    // Both resources render initially.
+    expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
+    expect(screen.getByText(/Bob Ext/)).toBeInTheDocument();
+    // Toggle "Hide external": the external resource disappears, the internal stays.
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
+  });
+
   test("A2: absence override input uses text-sm (not text-[10px])", () => {
     const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "USD" };

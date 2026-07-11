@@ -63,13 +63,13 @@ id,name,localModifiedAt
 6,Principal,
 
 # ROLES
-id,disciplineId,gradeId,internalRate,externalRate,localModifiedAt,order
-1,1,4,95,145,,
-2,1,5,110,165,,
-3,2,3,80,120,,
-4,4,4,100,150,,
-5,1,3,75,110,,
-6,3,5,115,170,,
+id,disciplineId,gradeId,internalRate,externalRate,internalRateDay,externalRateDay,rateBasis,localModifiedAt,order
+1,1,4,95,145,760,1160,day,,
+2,1,5,110,165,880,1320,day,,
+3,2,3,80,120,640,960,day,,
+4,4,4,100,150,800,1200,day,,
+5,1,3,75,110,600,880,day,,
+6,3,5,115,170,920,1360,day,,
 
 # RESOURCES
 id,firstName,lastName,title,businessPhone,location,department,email,company,birthday,notes,roleId,utilizationMode,utilization,absenceOverride,active,localModifiedAt,emails,isExternal

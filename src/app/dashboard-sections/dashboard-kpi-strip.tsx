@@ -24,6 +24,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
       <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
         <Tile
           label={t(lang, "dashboardKpiComplete")}
+          hint={t(lang, "dashboardKpiCompleteHint")}
           value={`${model.progress.percent}%`}
           bar={<KpiGradientBar percent={model.progress.percent} label={t(lang, "dashboardKpiComplete")} />}
           trend={<TrendArrow trend={trends.complete} metricLabel={t(lang, "dashboardKpiComplete")} unit="%" lang={lang} />}
@@ -32,6 +33,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
         />
         <Tile
           label={t(lang, "dashboardKpiOverdue")}
+          hint={t(lang, "dashboardKpiOverdueHint")}
           value={String(model.overdue.length)}
           trend={<TrendArrow trend={trends.overdue} metricLabel={t(lang, "dashboardKpiOverdue")} lang={lang} />}
           onActivate={onNavigate ? () => onNavigate("open-points") : undefined}
@@ -39,6 +41,7 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
         />
         <Tile
           label={t(lang, "dashboardKpiOpenRaid")}
+          hint={t(lang, "dashboardKpiOpenRaidHint")}
           value={String(model.openRaidCount)}
           trend={<TrendArrow trend={trends.openRaid} metricLabel={t(lang, "dashboardKpiOpenRaid")} lang={lang} />}
           onActivate={onNavigate ? () => onNavigate("raid") : undefined}

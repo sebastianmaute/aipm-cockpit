@@ -48,21 +48,62 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
     return m;
   }, [stakeholders]);
 
-  // Person (column) filter — `excluded` holds hidden stakeholder ids (empty = all shown).
-  const [excluded, setExcluded] = useState<ReadonlySet<number>>(new Set());
+  // Count each (case-folded) display name so shared names can be disambiguated
+  // in the picker — otherwise two stakeholders called "Sam" collapse to the
+  // first match and the second is unreachable.
+  const nameCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of stakeholders) {
+      const k = s.name.trim().toLowerCase();
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return m;
+  }, [stakeholders]);
+  // Picker label: bare name when unique, else `Name (#id)` so it's unambiguous.
+  const labelFor = (s: Stakeholder): string =>
+    (nameCounts.get(s.name.trim().toLowerCase()) ?? 0) > 1 ? `${s.name} (#${s.id})` : s.name;
+
+  // Person (column) filter — additive: `filtered` holds the ids to SHOW (empty = all shown).
+  const [filtered, setFiltered] = useState<ReadonlySet<number>>(new Set());
+  const [filterInput, setFilterInput] = useState("");
   const visibleStakeholders = useMemo(
-    () => stakeholders.filter((s) => !excluded.has(s.id)),
-    [stakeholders, excluded],
+    () => (filtered.size === 0 ? stakeholders : stakeholders.filter((s) => filtered.has(s.id))),
+    [stakeholders, filtered],
   );
   const visibleIds = useMemo(
     () => new Set(visibleStakeholders.map((s) => s.id)),
     [visibleStakeholders],
   );
-  function togglePerson(id: number) {
-    setExcluded((prev) => {
+
+  function addPerson(rawName: string) {
+    const trimmed = rawName.trim();
+    if (trimmed === "") return;
+    // Prefer a real label/name match (so a stakeholder literally named "Foo (#5)"
+    // resolves to itself); only fall back to parsing a `(#id)` suffix when the
+    // text isn't a valid name/label (i.e. a disambiguated duplicate-name pick).
+    const needle = trimmed.toLowerCase();
+    let match: Stakeholder | undefined =
+      stakeholders.find((s) => labelFor(s).toLowerCase() === needle) ??
+      stakeholders.find((s) => s.name.trim().toLowerCase() === needle);
+    if (!match) {
+      const idm = trimmed.match(/\(#(\d+)\)\s*$/);
+      if (idm) match = stakeholderMap.get(Number(idm[1]));
+    }
+    if (!match) return;
+    setFiltered((prev) => {
+      if (prev.has(match.id)) return prev;
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.add(match.id);
+      return next;
+    });
+    setFilterInput("");
+  }
+
+  function removePerson(id: number) {
+    setFiltered((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
       return next;
     });
   }
@@ -91,24 +132,70 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
       {onLearnMore && (
         <ViewCallout view="raci" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
-      {/* Person (column) filter + actions on one row — uncheck a person to hide
-          their column. The persons wrap onto further rows when space runs out;
+      {/* Person (column) filter + actions on one row — type a name to add a person
+          to the filter (empty filter shows everyone); added persons appear as
+          removable chips. The chips wrap onto further rows when space runs out;
           Print/Reset stay top-right. */}
       <div className="mb-2 flex shrink-0 flex-wrap items-start gap-2 print:hidden">
         <div className="flex flex-1 flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">{t(lang, "raciFilterPersons")}:</span>
-          {stakeholders.map((s) => (
-            <label key={s.id} className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-foreground">
-              <input
-                type="checkbox"
-                checked={!excluded.has(s.id)}
-                onChange={() => togglePerson(s.id)}
-                aria-label={`${t(lang, "raciFilterPersons")} – ${s.name}`}
-                className={`h-3.5 w-3.5 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-              />
-              <span>{s.name}</span>
-            </label>
-          ))}
+          <input
+            type="text"
+            value={filterInput}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFilterInput(v);
+              // Picking a datalist option fires change with the full (possibly
+              // disambiguated) label → add it.
+              const needle = v.trim().toLowerCase();
+              if (stakeholders.some((s) => labelFor(s).toLowerCase() === needle || s.name.trim().toLowerCase() === needle)) {
+                addPerson(v);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addPerson(filterInput);
+              }
+            }}
+            list="raci-filter-people"
+            aria-label={t(lang, "raciFilterAdd")}
+            placeholder={t(lang, "raciFilterAdd")}
+            className={`w-48 rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+          />
+          <datalist id="raci-filter-people">
+            {stakeholders
+              .filter((s) => !filtered.has(s.id))
+              .map((s) => (
+                <option key={s.id} value={labelFor(s)} />
+              ))}
+          </datalist>
+          {visibleStakeholders
+            .filter((s) => filtered.has(s.id))
+            .map((s) => (
+              <span
+                key={s.id}
+                className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-foreground"
+              >
+                <span>{s.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removePerson(s.id)}
+                  aria-label={t(lang, "raciFilterRemove", s.name)}
+                  className={`inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
+          {filtered.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setFiltered(new Set())}
+              className={`rounded border border-line px-1.5 py-0.5 text-xs text-foreground hover:text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+            >
+              {t(lang, "raciFilterClear")}
+            </button>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <PrintButton lang={lang} />

@@ -7,6 +7,7 @@
 import { useCallback, useState } from "react";
 import { parseProposal, PROPOSAL_TOOL, buildProposalSystemPrompt, type ProjectProposal } from "./ai-project-proposal";
 import { type AttachmentBlock } from "./chat-attachments";
+import { AiHttpError, classifyAiError, safeAiErrorType } from "./ai-errors";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 
@@ -58,8 +59,11 @@ export function useProjectProposal(ai: AiCreds) {
           }),
         });
         if (!res.ok) {
-          // Surface only the status code — never echo the key or response body.
-          throw new Error(String(res.status));
+          // Surface only the status + safe error.type token — never echo the key
+          // or the response body's message text.
+          let errorType: string | undefined;
+          try { errorType = safeAiErrorType(await res.json()); } catch { /* non-JSON body */ }
+          throw new AiHttpError(res.status, errorType);
         }
         const json = (await res.json()) as { content?: ToolUseBlock[] };
         const toolUse = (json.content ?? []).find(
@@ -70,6 +74,10 @@ export function useProjectProposal(ai: AiCreds) {
         return parsed;
       } catch (e) {
         if (signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) return null;
+        if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
+          setError("limit");
+          return null;
+        }
         setError(e instanceof Error ? e.message : "error");
         return null;
       } finally {

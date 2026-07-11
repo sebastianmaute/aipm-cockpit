@@ -3,25 +3,29 @@
 import { useMemo, useRef, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { currencySymbol } from "./resource-cost";
-import { roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Role } from "./types";
 import { ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
+import { materializeRoleRates } from "./role-rates";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
   grade: 120,
   internal: 120,
   external: 120,
+  internalDay: 120,
+  externalDay: 120,
 } as const;
 
 export interface RolesEditorProps {
   lang: Lang;
   /** Project base currency (ISO 4217, e.g. plan.currency) — drives the rate-field symbol. */
   currency: string;
+  /** Conversion factor (settings.resources.workdayHours) between day and hour rates. */
+  workdayHours: number;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
@@ -48,8 +52,12 @@ function clampRate(raw: string): number {
   return Math.round(n * 100) / 100;
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export function RolesEditor({
-  lang, currency, roles, disciplines, grades,
+  lang, currency, workdayHours, roles, disciplines, grades,
   onSaveRole, onDeleteRole, onResolveOrCreateRole, onReorderRoles,
   onAddDiscipline, onRenameDiscipline, onDeleteDiscipline, onReorderDisciplines,
   onAddGrade, onRenameGrade, onDeleteGrade, onReorderGrades,
@@ -94,6 +102,59 @@ export function RolesEditor({
       return sort.dir === "asc" ? cmp : -cmp;
     });
   }, [roles, disciplines, grades, sort]);
+
+  // Render one rate cell. Per role, only the unit matching `rateBasis` (default
+  // "hour") is editable; the sibling unit is read-only + auto-derived. Editing a
+  // cell materializes BOTH units (and the hourly cost source) via
+  // materializeRoleRates; clearing the editable cell flips which unit is entered.
+  const editInputClass = "w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted";
+  const readInputClass = "w-24 rounded-md border border-transparent px-2 py-1 text-right text-sm tabular-nums bg-transparent text-muted-foreground";
+  function rateCell(r: Role, rowCtx: string, unit: "hour" | "day", field: "internal" | "external") {
+    const dayBasis = (r.rateBasis ?? "hour") === "day";
+    const editable = unit === "day" ? dayBasis : !dayBasis;
+    // Day-basis: the stored day rate is authoritative (editable). Hour-basis: the
+    // day figure is display-only and ALWAYS recomputed live from the current
+    // workday hours (never a frozen `internalRateDay`), so two hour-basis roles
+    // with the same hourly always show the same day rate regardless of edit history.
+    const internalDay = dayBasis ? round2(r.internalRateDay ?? 0) : round2(r.internalRate * workdayHours);
+    const externalDay = dayBasis ? round2(r.externalRateDay ?? 0) : round2(r.externalRate * workdayHours);
+    const value =
+      field === "internal"
+        ? unit === "day" ? internalDay : r.internalRate
+        : unit === "day" ? externalDay : r.externalRate;
+    const labelKey =
+      field === "internal"
+        ? unit === "day" ? "rolesInternalRateDay" : "rolesInternalRate"
+        : unit === "day" ? "rolesExternalRateDay" : "rolesExternalRate";
+    const onChange = (raw: string) => {
+      if (raw.trim() === "") {
+        // Clear-to-switch: flip which unit the whole row is entered in.
+        const flipped: Role =
+          unit === "day"
+            ? { ...r, rateBasis: "hour" }
+            : { ...r, rateBasis: "day", internalRateDay: internalDay, externalRateDay: externalDay };
+        onSaveRole(materializeRoleRates(flipped, workdayHours));
+        return;
+      }
+      const v = clampRate(raw);
+      const patched: Role =
+        unit === "day"
+          ? field === "internal" ? { ...r, internalRateDay: v } : { ...r, externalRateDay: v }
+          : field === "internal" ? { ...r, internalRate: v } : { ...r, externalRate: v };
+      onSaveRole(materializeRoleRates(patched, workdayHours));
+    };
+    return (
+      <td className="px-3 py-2 text-right">
+        <span className="inline-flex items-center justify-end gap-1">
+          <span aria-hidden className="text-muted-foreground">{curSymbol}</span>
+          <input type="number" min={0} step={1} value={value} readOnly={!editable}
+            aria-label={`${rowCtx} — ${t(lang, labelKey)}`}
+            onChange={editable ? (e) => onChange(e.target.value) : undefined}
+            className={editable ? editInputClass : readInputClass} />
+        </span>
+      </td>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -145,6 +206,18 @@ export function RolesEditor({
                     <InfoTooltip text={t(lang, "rolesExternalRateHint")} />
                   </span>
                 </th>
+                <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.internalDay, minWidth: ROLES_COL_WIDTHS.internalDay }}>
+                  <span className="inline-flex items-center justify-end gap-1">
+                    {t(lang, "rolesInternalRateDay")}
+                    <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
+                  </span>
+                </th>
+                <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.externalDay, minWidth: ROLES_COL_WIDTHS.externalDay }}>
+                  <span className="inline-flex items-center justify-end gap-1">
+                    {t(lang, "rolesExternalRateDay")}
+                    <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
+                  </span>
+                </th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
@@ -183,24 +256,10 @@ export function RolesEditor({
                     {disciplineName}
                   </td>
                   <td className="px-3 py-2">{gradeName}</td>
-                  <td className="px-3 py-2 text-right">
-                    <span className="inline-flex items-center justify-end gap-1">
-                      <span aria-hidden className="text-muted-foreground">{curSymbol}</span>
-                      <input type="number" min={0} step={1} value={r.internalRate}
-                        aria-label={`${rowCtx} — ${t(lang, "rolesInternalRate")}`}
-                        onChange={(e) => onSaveRole({ ...r, internalRate: clampRate(e.target.value) })}
-                        className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <span className="inline-flex items-center justify-end gap-1">
-                      <span aria-hidden className="text-muted-foreground">{curSymbol}</span>
-                      <input type="number" min={0} step={1} value={r.externalRate}
-                        aria-label={`${rowCtx} — ${t(lang, "rolesExternalRate")}`}
-                        onChange={(e) => onSaveRole({ ...r, externalRate: clampRate(e.target.value) })}
-                        className="w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted" />
-                    </span>
-                  </td>
+                  {rateCell(r, rowCtx, "hour", "internal")}
+                  {rateCell(r, rowCtx, "hour", "external")}
+                  {rateCell(r, rowCtx, "day", "internal")}
+                  {rateCell(r, rowCtx, "day", "external")}
                   <td className="px-3 py-2 text-right print:hidden">
                     <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={t(lang, "delete")}
                       className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink">×</button>

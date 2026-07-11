@@ -1,6 +1,6 @@
 {
   "name": "lop-app",
-  "version": "0.173.0",
+  "version": "0.177.0",
   "private": true,
   "license": "EUPL-1.2",
   "scripts": {
@@ -8,6 +8,7 @@
     "prebuild": "node scripts/sync-script-docs.mjs --check && node scripts/gen-operating-guide.mjs",
     "build": "next build",
     "start": "next start",
+    "stop": "node scripts/stop-dev.mjs",
     "lint": "eslint",
     "test": "vitest",
     "test:run": "vitest run",
@@ -27,6 +28,7 @@
     "dev": "Start Next.js dev server with hot reload on http://localhost:3000",
     "build": "Production build — runs TypeScript type-check, then emits `.next/`",
     "start": "Serve the production build (run `npm run build` first)",
+    "stop": "Stop the dev server bound to the app port (default 3000; set PORT to override). Port-scoped — does not touch unrelated node processes",
     "lint": "Run ESLint (`eslint-config-next` preset)",
     "test": "Vitest unit/component tests in watch mode",
     "test:run": "Vitest, single run (CI-friendly)",

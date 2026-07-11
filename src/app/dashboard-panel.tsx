@@ -293,7 +293,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                   activateLabel={`${t(lang, "dashboardPercentComplete", String(model.progress.percent))} – ${t(lang, "dashboardOpenTasksView")}`}
                 />
                 <Tile
-                  label="R / A / G"
+                  label="R / A / G" hint={t(lang, "dashboardRagHint")}
                   value={
                     <span>
                       <span className={healthText.R}>{model.progress.counts.R}</span>
@@ -349,14 +349,14 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 {model.burn ? (
                   <div className="flex flex-wrap gap-2">
                     <Tile
-                      label={t(lang, "dashboardSubBudget")}
+                      label={t(lang, "dashboardSubBudget")} hint={t(lang, "dashboardBudgetHint")}
                       value={`${money(model.burn.consumedValue)} / ${money(model.burn.budgetValue)}`}
                       rag={<RagBadge value={ratioHealth(model.burn.consumedValue, model.burn.budgetValue)} lang={lang} title={t(lang, "dashboardSubBudget")} />}
                       onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
                       activateLabel={`${t(lang, "dashboardSubBudget")} – ${t(lang, "dashboardOpenBudgetView")}`}
                     />
                     <Tile
-                      label="h"
+                      label="h" hint={t(lang, "dashboardHoursHint")}
                       value={`${Math.round(model.burn.actualHours)} / ${Math.round(model.burn.budgetHours)}`}
                       rag={<RagBadge value={ratioHealth(model.burn.actualHours, model.burn.budgetHours)} lang={lang} title="h" />}
                       onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
@@ -369,13 +369,13 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 {model.evm.coverage.withEstimate > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Tile
-                      label={t(lang, "evmSpi")}
+                      label={t(lang, "evmSpi")} hint={t(lang, "evmSpiHint")}
                       value={model.evm.spi != null ? model.evm.spi.toFixed(2) : "—"}
                       onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
                       activateLabel={`${t(lang, "evmSpi")} – ${t(lang, "dashboardOpenBudgetView")}`}
                     />
                     <Tile
-                      label={t(lang, "evmCpi")}
+                      label={t(lang, "evmCpi")} hint={t(lang, "evmCpiHint")}
                       value={model.evm.cpi != null ? model.evm.cpi.toFixed(2) : "—"}
                       onActivate={props.onNavigate ? () => props.onNavigate!("budget") : undefined}
                       activateLabel={`${t(lang, "evmCpi")} – ${t(lang, "dashboardOpenBudgetView")}`}

@@ -55,13 +55,14 @@ import { ViewCallout } from "./view-callout";
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
   period: 100,
+  capacityHours: 110,
   capacityDays: 110,
   internalCost: 120,
   externalCost: 120,
   margin: 100,
 } as const;
 type PlanningCol = keyof typeof PLANNING_COL_WIDTHS;
-type PlanSortKey = "assignee" | "capacityDays" | "internalCost" | "externalCost" | "margin";
+type PlanSortKey = "assignee" | "capacityHours" | "capacityDays" | "internalCost" | "externalCost" | "margin";
 
 const ROLLUP_COL_WIDTHS = {
   assignee: 160,
@@ -190,6 +191,8 @@ function ResourcesPanelInner({
   const { ref: resRef, reset: resetResSize } = useResizable(`lop-app:${view}-size`);
 
   const [showRollup, setShowRollup] = useState(false);
+  // Planning-only: hide external resources from the grid + rollup (view-local).
+  const [hideExternal, setHideExternal] = useState(false);
   // View granularity controls how the planning grid is sliced for display.
   // It is independent of the plan's CANONICAL (entry) granularity, where
   // utilization is actually stored. Finer views derive from canonical data.
@@ -302,10 +305,15 @@ function ResourcesPanelInner({
   // the hook order stable across views.
   const [planFilter, setPlanFilter] = useState("");
   const [planSort, setPlanSort] = useState<{ key: PlanSortKey; dir: SortDir }>({ key: "assignee", dir: "asc" });
+  // Planning grid + rollup share a single external-filtered resource list.
+  const visiblePlanResources = useMemo(
+    () => (hideExternal ? resources.filter((r) => !r.isExternal) : resources),
+    [resources, hideExternal],
+  );
   const planRows = useMemo(() => {
     const canonicalPeriods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
     const periods = generatePeriods(plan.startDate, plan.endDate, viewGranularity);
-    return resources.map((r) => {
+    return visiblePlanResources.map((r) => {
       const resAbs = absencesForResource(absences, r);
       const totalHours = periods.reduce((sum, p) =>
         sum + displayCapacityHours(p, canonicalPeriods, r, resAbs, workdayHours, holidaySet, plan.granularity, viewGranularity), 0);
@@ -313,7 +321,7 @@ function ResourcesPanelInner({
       const cost = periodCost(totalHours, r.isExternal ? undefined : role);
       return { resource: r, name: resourceDisplayName(r), totalHours, cost, capacityDays: totalHours / workdayHours, internalCost: cost.internal, externalCost: cost.external, margin: cost.margin };
     });
-  }, [resources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
+  }, [visiblePlanResources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
   // Near-term (period[0]) utilization for the workload over-allocation editor —
   // MIRRORS next-actions-workload.ts (same canonical-granularity slice[0] + the
   // convert-to-percent), so the inline editor targets the SAME period the
@@ -335,6 +343,7 @@ function ResourcesPanelInner({
   const getPlanValue = useCallback((row: typeof planRows[number], k: PlanSortKey): string | number => {
     const values: Record<PlanSortKey, string | number> = {
       assignee: row.name,
+      capacityHours: row.totalHours,
       capacityDays: row.capacityDays,
       internalCost: row.internalCost,
       externalCost: row.externalCost,
@@ -463,6 +472,16 @@ function ResourcesPanelInner({
                 ]}
                 onChange={onSetAllUtilizationMode}
               />
+              <label className="flex items-center gap-1.5 text-foreground">
+                <input
+                  type="checkbox"
+                  checked={hideExternal}
+                  aria-label={t(lang, "planningHideExternal")}
+                  onChange={(e) => setHideExternal(e.target.checked)}
+                  className={`align-middle ${FOCUS_RING}`}
+                />
+                <span>{t(lang, "planningHideExternal")}</span>
+              </label>
               <div className="ml-auto">{headerActions}</div>
             </div>
             <div className="print:hidden">
@@ -489,6 +508,13 @@ function ResourcesPanelInner({
                       <ColumnResizeHandle col="period" onMouseDown={planningStartResize} />
                     </th>
                   ))}
+                  <th
+                    className="relative px-3 py-2 text-right font-medium"
+                    style={{ width: planning.colWidths.capacityHours, minWidth: planning.colWidths.capacityHours }}
+                  >
+                    <SortHeaderButton label={t(lang, "planningCapacityHours")} active={planSort.key === "capacityHours" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("capacityHours")} />
+                    <ColumnResizeHandle col="capacityHours" onMouseDown={planningStartResize} />
+                  </th>
                   <th
                     className="relative px-3 py-2 text-right font-medium"
                     style={{ width: planning.colWidths.capacityDays, minWidth: planning.colWidths.capacityDays }}
@@ -526,11 +552,12 @@ function ResourcesPanelInner({
               {(() => {
                 const loc = localeFor(lang);
                 const totals = planSorted.reduce((acc, row) => ({
+                  hours: acc.hours + row.totalHours,
                   days: acc.days + row.capacityDays,
                   internal: acc.internal + row.internalCost,
                   external: acc.external + row.externalCost,
                   margin: acc.margin + row.margin,
-                }), { days: 0, internal: 0, external: 0, margin: 0 });
+                }), { hours: 0, days: 0, internal: 0, external: 0, margin: 0 });
                 const rowsJsx = planSorted.map((row) => {
                   const r = row.resource;
                   const cost = row.cost;
@@ -585,6 +612,7 @@ function ResourcesPanelInner({
                         </td>
                         );
                       })}
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{totalHours.toFixed(1)}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{(totalHours / workdayHours).toFixed(1)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.internal, plan.currency, loc)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(cost.external, plan.currency, loc)}</td>
@@ -604,6 +632,7 @@ function ResourcesPanelInner({
                       <tr className="font-semibold">
                         <td className="px-3 py-2">{t(lang, "resourcesTotal")}</td>
                         <td className="px-3 py-2" colSpan={periods.length} />
+                        <td className="px-3 py-2 text-right tabular-nums">{totals.hours.toFixed(1)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{totals.days.toFixed(1)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.internal, plan.currency, loc)}</td>
                         <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(totals.external, plan.currency, loc)}</td>
@@ -655,7 +684,7 @@ function ResourcesPanelInner({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-line">
-                        {resources.map((r) => {
+                        {visiblePlanResources.map((r) => {
                           const resAbs2 = absencesForResource(absences, r);
                           return (
                             <tr key={r.id}>

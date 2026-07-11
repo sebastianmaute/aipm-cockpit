@@ -43,6 +43,10 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
 npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
 npm run dup:check           # jscpd duplication GATE (--threshold set in package.json dup:check, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
+npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
+                            # via scripts/stop-dev.mjs — port-scoped (netstat/taskkill on win, lsof/kill on
+                            # posix); NEVER a blanket `taskkill /IM node.exe`. New script → also add a
+                            # scriptsDescriptions entry or docs:scripts:check fails.
 ```
 
 ## Hard constraints (CI-enforced — these gate merges)
@@ -510,6 +514,15 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (`dashboard-activity-nav.ts`) maps an activity `kind`→`AppView`; KPI/progress/burn tiles + the completion
   sparkline launch their view via `onNavigate`, Top Changes rows + RAID register rows + horizon chips
   deep-link the item.
+- **`Tile` `hint` tooltip (★★):** `Tile` (`report-table.tsx`) has an optional `hint?: string` that renders an
+  `InfoTooltip` as a DOM **SIBLING** of the tile (`<div className="relative h-full w-full">{tile}<span absolute>
+  InfoTooltip</span></div>`), NOT inside the `label`. Embedding an `InfoTooltip` (role=button) inside a CLICKABLE
+  tile's label (Tile `onActivate` → `<button>`) is a **nested-interactive axe FAIL** — Dashboard is axe-scanned, so
+  the dashboard cockpit tiles (which are click-through) MUST use `hint`, never a label-embedded tooltip. The wrapper
+  needs `w-full` or hinted tiles shrink-to-content in flex rows (grid rows stretch regardless; flex rows don't). A
+  NON-clickable tile can still embed a tooltip in its label node (budget-report pattern), but `hint` is the safe
+  default. ★ tests that walk `getByText(...).closest("div.rounded-lg").parentElement` to reach a tile's row need one
+  extra `.parentElement` hop when `hint` adds the wrapper.
 
 - **Deep-link row flash:** shared `use-deeplink-row-flash.ts` — `useDeepLinkRowFlash(view)` (render-time
   reconcile sets `flashId` + a monotonic `flashSeq` nonce; an effect keyed on `[flashId, flashSeq]` does the
@@ -1326,6 +1339,8 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 ### AI master switch + integration disclaimer
 
 - **AI master switch:** `settings.ai.enabled` (default OFF, even for existing users) gates ALL AI features. Use `isAiEnabled(settings.ai)` (enabled && key present) / `aiKeyIfEnabled(settings.ai)` — NOT a raw `apiKey` read — at every AI activation site (chat, action analysis, scheduled jobs, weight suggestions, create-wizard). `sanitizeAiConfig` sets `enabled: obj.enabled === true`. AiSection collapses its config body until enabled.
+- **Usage-limit notices + counting knobs (★★ security):** pure `ai-errors.ts` — `classifyAiError(status, errorType)` → `"limit"|"auth"|"network"|"parse"|"generic"` (429 or Anthropic `error.type` `rate_limit_error`/`overloaded_error` ⇒ limit), the `AiHttpError(status, errorType?)` class (message is STATUS-ONLY), and `safeAiErrorType(body)` (reads ONLY `error.type`, never the body message; can't throw). `callClaude` throws `AiHttpError` on `!ok` (the old body-slice leak is GONE); all 6 AI call sites classify + surface a distinct translated `aiUsageLimitReached` for `"limit"`. ★★ NEVER log/echo the key or response body anywhere. Behaviour is ADVISORY — never blocks: the 100%-of-self-cap notice (`crossed100` in `usage-warning.ts` → `aiSelfLimitReached` toast) and the 429 notice both just inform. Chat APPENDS a `notice` DisplayItem (`setDisplay(prev=>[...prev,…])`) — never clears history. `AiConfig` gained `maxChatTurns` (default 12; ★ clamp via the SINGLE `clampMaxChatTurns` in `settings-types.ts`, used by `sanitizeAiConfig` + the `CapInput` onChange + the `chat-panel` loop read site — a directly-typed out-of-range value must never drive unbounded billed calls) and `tokenMultiplier` (default 5). ★★ the multiplier is applied ONCE up-front in `ai-usage-context.record()` to a `scaled` usage fed to BOTH the session total AND `addToBuckets` (weekly) — scaling only one puts the two caps on different scales.
+- **Rate card = DAY rates are the source of truth (★★):** `Role` has `internalRateDay?`/`externalRateDay?`/`rateBasis?:"day"|"hour"`; `internalRate`/`externalRate` stay HOURLY and remain the cost-math source every consumer reads (`resource-cost`/`budget-report`/EVM/reports UNCHANGED) — they are DERIVED. Pure `role-rates.ts` `materializeRoleRates(role, workdayHours)`: basis `"day"` → hourly = round2(day/wdh); basis `"hour"` → day = round2(hourly·wdh); guards `wdh<=0 → 8`. `roles-editor.tsx` edits materialize on change; "clear the filled cell to switch" flips `rateBasis`; the hour-basis day cell ALWAYS live-recomputes (never a frozen `internalRateDay`). ★★ `sanitizeRole` SPARSE-emits `rateBasis` (only `"day"`; absent⇒`"hour"`) + sparse day fields, so legacy roles stay byte-identical (an always-emit broke round-trip); consumers read `role.rateBasis ?? "hour"` / `=== "day"`. New columns ride `ROLES_CSV_COLUMNS` (auto CSV + Turso single/tenant + turso-migrate self-heal — roles ∈ ENTITY_SPECS, NO special migrate edit) + `ROLES_MD_COLUMNS`; golden regen roles-only; sample `rateBasis:"day"` synthesized in the gen script. ★★ `task-manager.tsx` re-materializes day-basis roles when `settings.resources.workdayHours` changes (guarded RENDER-TIME reconcile, NOT an effect) so the derived hourly can't go stale.
 - **Integration disclaimer:** `integration-disclaimer.tsx` — a one-time security note shown the FIRST time any enable checkbox is ticked (AI/Jira/M365/Turso/Timelog). Context provider (no-op default) so the five checkboxes fire `useIntegrationDisclaimer().notifyEnable()` without prop-threading; gated by per-device `settings.integrationDisclaimerSeen`. Mounted at SettingsView + backend-setup-wizard + backend-config-modal. ★ memoize the context value (`useCallback`+`useMemo`) — an unstable value re-fires. NOT shown in popouts.
 - **Jira lives INSIDE Integrations:** `IntegrationsSection` renders `JiraSettingsSection` (below Timelog) gated on `!hideJira`; the wizard passes `hideJira` (it has a dedicated Jira step). `settings.jira` stays TOP-LEVEL.
 - **Multi-project Jira sync (per-project read-only):** `settings.jira` keeps a single PRIMARY `projectKey` (two-way,

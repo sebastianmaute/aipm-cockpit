@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
-import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
+import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, DEFAULT_TOKEN_MULTIPLIER } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
 import { AiUsagePanel } from "./ai-usage-panel";
@@ -37,28 +37,49 @@ function CapInput({
   value,
   defaultValue,
   onChange,
+  hint,
+  min = 1,
+  max,
+  step = 1,
+  decimal = false,
 }: {
   label: string;
   value: number | undefined;
   defaultValue: number;
   onChange: (n: number) => void;
+  hint?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  decimal?: boolean;
 }) {
   const displayed = value != null && value > 0 ? value : defaultValue;
   return (
-    <label className="mt-2 block">
-      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
+    <div className="mt-2 block">
+      <span className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {hint ? <InfoTooltip text={hint} /> : null}
+      </span>
       <input
         type="number"
-        min={1}
-        step={1}
+        aria-label={label}
+        min={min}
+        max={max}
+        step={step}
         value={displayed}
         onChange={(e) => {
-          const n = parseInt(e.target.value, 10);
-          onChange(Number.isFinite(n) && n > 0 ? n : defaultValue);
+          const n = decimal ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+          if (!Number.isFinite(n) || n <= 0) {
+            onChange(defaultValue);
+            return;
+          }
+          // Clamp a directly-typed value to [min, max] (the max/min attrs are only
+          // spinner hints; a typed value ignores them).
+          onChange(Math.min(max ?? Infinity, Math.max(min, n)));
         }}
         className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />
-    </label>
+    </div>
   );
 }
 
@@ -524,6 +545,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
       {/* Token cap inputs */}
       <CapInput
         label={t(lang, "aiSessionCap")}
+        hint={t(lang, "aiSessionCapHint")}
         value={settings.ai.sessionTokenCap}
         defaultValue={DEFAULT_SESSION_TOKEN_CAP}
         onChange={(n) =>
@@ -532,10 +554,35 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
       />
       <CapInput
         label={t(lang, "aiWeeklyCap")}
+        hint={t(lang, "aiWeeklyCapHint")}
         value={settings.ai.weeklyTokenCap}
         defaultValue={DEFAULT_WEEKLY_TOKEN_CAP}
         onChange={(n) =>
           onChange({ ...settings, ai: { ...settings.ai, weeklyTokenCap: n } })
+        }
+      />
+      <CapInput
+        label={t(lang, "aiTokenMultiplier")}
+        hint={t(lang, "aiTokenMultiplierHint")}
+        value={settings.ai.tokenMultiplier}
+        defaultValue={DEFAULT_TOKEN_MULTIPLIER}
+        min={0.1}
+        step={0.5}
+        decimal
+        onChange={(n) =>
+          onChange({ ...settings, ai: { ...settings.ai, tokenMultiplier: n } })
+        }
+      />
+      <CapInput
+        label={t(lang, "aiMaxTurns")}
+        hint={t(lang, "aiMaxTurnsHint")}
+        value={settings.ai.maxChatTurns}
+        defaultValue={DEFAULT_MAX_CHAT_TURNS}
+        min={1}
+        max={50}
+        step={1}
+        onChange={(n) =>
+          onChange({ ...settings, ai: { ...settings.ai, maxChatTurns: n } })
         }
       />
 

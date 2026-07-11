@@ -32,4 +32,50 @@ describe("RaciPanel", () => {
     render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
     expect(screen.getByRole("button", { name: /reset back to the default size/i })).toBeInTheDocument();
   });
+
+  it("additive person filter: add narrows columns, remove and clear restore all", () => {
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+
+    // (a) initially all stakeholder columns show
+    expect(screen.getByRole("columnheader", { name: "Sam" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Lee" })).toBeInTheDocument();
+
+    // (b) adding one person narrows visibleStakeholders to just them
+    const input = screen.getByRole("combobox", { name: /filter people/i });
+    fireEvent.change(input, { target: { value: "Sam" } });
+    expect(screen.getByRole("columnheader", { name: "Sam" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Lee" })).not.toBeInTheDocument();
+
+    // (c) removing the chip restores all columns
+    fireEvent.click(screen.getByRole("button", { name: /remove sam from filter/i }));
+    expect(screen.getByRole("columnheader", { name: "Sam" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Lee" })).toBeInTheDocument();
+
+    // (d) Clear empties the set → all shown again
+    fireEvent.change(input, { target: { value: "Lee" } });
+    expect(screen.queryByRole("columnheader", { name: "Sam" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /clear filter/i }));
+    expect(screen.getByRole("columnheader", { name: "Sam" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Lee" })).toBeInTheDocument();
+  });
+
+  it("disambiguates duplicate stakeholder names with (#id) so the second is selectable", () => {
+    const dup: Stakeholder[] = [
+      { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: { "10": "A" } },
+      { id: 2, name: "Lee", category: "Internal", influence: "Medium", interest: "High", raci: { "10": "R" } },
+      { id: 3, name: "Sam", category: "Internal", influence: "Low", interest: "Low", raci: { "10": "C" } },
+    ];
+    render(<RaciPanel lang="en-US" stakeholders={dup} milestones={milestones} onSave={vi.fn()} />);
+
+    // The shared name is disambiguated in the picker; the unique one stays bare.
+    expect(document.querySelector('option[value="Sam (#1)"]')).not.toBeNull();
+    expect(document.querySelector('option[value="Sam (#3)"]')).not.toBeNull();
+    expect(document.querySelector('option[value="Lee"]')).not.toBeNull();
+
+    // Selecting the SECOND Sam filters to exactly that one column (was unreachable).
+    const input = screen.getByRole("combobox", { name: /filter people/i });
+    fireEvent.change(input, { target: { value: "Sam (#3)" } });
+    expect(screen.getAllByRole("columnheader", { name: "Sam" })).toHaveLength(1);
+    expect(screen.queryByRole("columnheader", { name: "Lee" })).not.toBeInTheDocument();
+  });
 });

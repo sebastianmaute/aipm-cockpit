@@ -1,5 +1,5 @@
 import { expect, test, describe } from "vitest";
-import { crossed80 } from "./usage-warning";
+import { crossed80, crossed100 } from "./usage-warning";
 
 describe("crossed80", () => {
   test("returns true when prev < 80% threshold and next >= threshold", () => {
@@ -31,5 +31,27 @@ describe("crossed80", () => {
 
   test("returns false when next is just below threshold", () => {
     expect(crossed80(0, 79_999, 100_000)).toBe(false);
+  });
+});
+
+describe("crossed100", () => {
+  test("returns true when prev < cap and next >= cap", () => {
+    expect(crossed100(0, 200_000, 200_000)).toBe(true);
+    expect(crossed100(199_999, 200_000, 200_000)).toBe(true);
+    expect(crossed100(150_000, 250_000, 200_000)).toBe(true);
+  });
+
+  test("returns false when both prev and next are below cap", () => {
+    expect(crossed100(0, 199_999, 200_000)).toBe(false);
+  });
+
+  test("returns false when prev is already at or above cap", () => {
+    expect(crossed100(200_000, 250_000, 200_000)).toBe(false);
+    expect(crossed100(250_000, 300_000, 200_000)).toBe(false);
+  });
+
+  test("returns false when cap is zero or negative", () => {
+    expect(crossed100(0, 999_999, 0)).toBe(false);
+    expect(crossed100(0, 999_999, -1)).toBe(false);
   });
 });

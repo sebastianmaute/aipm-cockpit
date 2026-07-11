@@ -15,6 +15,7 @@ function renderEditor(currency = "EUR") {
     <RolesEditor
       lang="en-US"
       currency={currency}
+      workdayHours={8}
       roles={roles}
       disciplines={disciplines}
       grades={grades}
@@ -44,7 +45,7 @@ describe("RolesEditor rate-card table", () => {
     const onReorderRoles = vi.fn();
     render(
       <RolesEditor
-        lang="en-US" currency="EUR"
+        lang="en-US" currency="EUR" workdayHours={8}
         roles={orderedRoles}
         disciplines={[{ id: 1, name: "Eng" }, { id: 2, name: "Ops" }]}
         grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
@@ -105,7 +106,61 @@ describe("RolesEditor rate-card table", () => {
   it("A3: renders a € prefix symbol next to each rate input", () => {
     renderEditor();
     const euros = screen.getAllByText("€");
-    // One € for internal rate, one for external rate (aria-hidden, so use getAllByText)
-    expect(euros.length).toBeGreaterThanOrEqual(2);
+    // Now four rate inputs (internal/external × hour/day), each with a € prefix.
+    expect(euros.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("T13: default hour basis — /h editable, /d read-only, editing /h materializes both units", () => {
+    const onSaveRole = vi.fn();
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8}
+        roles={[{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }]}
+        disciplines={disciplines} grades={grades}
+        onSaveRole={onSaveRole} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    const hourInput = screen.getByRole("spinbutton", { name: /Engineering \/ Senior — Internal \/h/ });
+    const dayInput = screen.getByRole("spinbutton", { name: /Engineering \/ Senior — Internal \/d/ });
+    expect(hourInput).not.toHaveAttribute("readonly");
+    expect(dayInput).toHaveAttribute("readonly");
+    // Read-only /d shows derived value 100 * 8 = 800.
+    expect((dayInput as HTMLInputElement).value).toBe("800");
+    fireEvent.change(hourInput, { target: { value: "120" } });
+    expect(onSaveRole).toHaveBeenCalledTimes(1);
+    const saved = onSaveRole.mock.calls[0][0] as Role;
+    expect(saved.internalRate).toBe(120);
+    expect(saved.internalRateDay).toBe(960); // 120 * 8
+    expect(saved.rateBasis).toBe("hour");
+  });
+
+  it("T13: day basis — /d editable, /h read-only & derived; clearing /d flips to hour", () => {
+    const onSaveRole = vi.fn();
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8}
+        roles={[{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200, internalRateDay: 800, externalRateDay: 1600, rateBasis: "day" }]}
+        disciplines={disciplines} grades={grades}
+        onSaveRole={onSaveRole} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    const hourInput = screen.getByRole("spinbutton", { name: /Engineering \/ Senior — Internal \/h/ });
+    const dayInput = screen.getByRole("spinbutton", { name: /Engineering \/ Senior — Internal \/d/ });
+    expect(dayInput).not.toHaveAttribute("readonly");
+    expect(hourInput).toHaveAttribute("readonly");
+    // Editing /d re-derives /h.
+    fireEvent.change(dayInput, { target: { value: "400" } });
+    let saved = onSaveRole.mock.calls[0][0] as Role;
+    expect(saved.internalRateDay).toBe(400);
+    expect(saved.internalRate).toBe(50); // 400 / 8
+    expect(saved.rateBasis).toBe("day");
+    // Clearing the editable /d flips the row back to hour basis.
+    fireEvent.change(dayInput, { target: { value: "" } });
+    saved = onSaveRole.mock.calls[1][0] as Role;
+    expect(saved.rateBasis).toBe("hour");
   });
 });

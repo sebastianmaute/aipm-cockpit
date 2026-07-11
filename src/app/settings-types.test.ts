@@ -44,6 +44,37 @@ describe("sanitizeAiConfig groundInGuides", () => {
   });
 });
 
+describe("sanitizeAiConfig maxChatTurns", () => {
+  it("defaults to 12", () => {
+    expect(defaultAiConfig.maxChatTurns).toBe(12);
+    expect(sanitizeAiConfig({}).maxChatTurns).toBe(12);
+  });
+  it("rejects invalid / out-of-range values → 12", () => {
+    expect(sanitizeAiConfig({ maxChatTurns: NaN }).maxChatTurns).toBe(12);
+    expect(sanitizeAiConfig({ maxChatTurns: 0 }).maxChatTurns).toBe(12);
+    expect(sanitizeAiConfig({ maxChatTurns: 999 }).maxChatTurns).toBe(12);
+  });
+  it("keeps an in-range integer", () => {
+    expect(sanitizeAiConfig({ maxChatTurns: 20 }).maxChatTurns).toBe(20);
+  });
+});
+
+describe("sanitizeAiConfig tokenMultiplier", () => {
+  it("defaults to 5", () => {
+    expect(defaultAiConfig.tokenMultiplier).toBe(5);
+    expect(sanitizeAiConfig({}).tokenMultiplier).toBe(5);
+  });
+  it("rejects 0 / negative / NaN → 5", () => {
+    expect(sanitizeAiConfig({ tokenMultiplier: 0 }).tokenMultiplier).toBe(5);
+    expect(sanitizeAiConfig({ tokenMultiplier: -3 }).tokenMultiplier).toBe(5);
+    expect(sanitizeAiConfig({ tokenMultiplier: NaN }).tokenMultiplier).toBe(5);
+  });
+  it("keeps a positive integer and a positive decimal", () => {
+    expect(sanitizeAiConfig({ tokenMultiplier: 3 }).tokenMultiplier).toBe(3);
+    expect(sanitizeAiConfig({ tokenMultiplier: 2.5 }).tokenMultiplier).toBe(2.5);
+  });
+});
+
 describe("sanitizeAiConfig suggestAllNextActionThresholds", () => {
   it("defaults to false (opt-in)", () => {
     expect(defaultAiConfig.suggestAllNextActionThresholds).toBeUndefined();

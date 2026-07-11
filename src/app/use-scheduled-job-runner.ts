@@ -8,6 +8,7 @@
 import { useEffect, useRef } from "react";
 import { dueJobs } from "./scheduled-jobs/schedule";
 import { runJobAnalysis } from "./scheduled-job-analysis";
+import { AiHttpError, classifyAiError } from "./ai-errors";
 import type { ScheduledJob, ScheduledJobRun } from "./scheduled-jobs/types";
 
 const TICK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -81,7 +82,12 @@ export function useScheduledJobRunner(args: ScheduledJobRunnerArgs): void {
               summary: "",
               actionCount: 0,
               ok: false,
-              error: e instanceof Error ? e.message : "error",
+              error:
+                e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit"
+                  ? "limit"
+                  : e instanceof Error
+                    ? e.message
+                    : "error",
             });
           }
         }

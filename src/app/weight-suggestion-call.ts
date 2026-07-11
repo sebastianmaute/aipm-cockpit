@@ -4,6 +4,7 @@
 import { type NextActionsConfig } from "./settings-types";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { SUGGEST_TOOL, buildSuggestionSystemPrompt, parseSuggestionResponse, type SuggestionResult } from "./weight-suggestion-ai";
+import { AiHttpError, safeAiErrorType } from "./ai-errors";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 interface AiCreds { apiKey: string; model: string }
@@ -27,7 +28,12 @@ export async function runWeightSuggestion(context: string, ai: AiCreds, current:
       tool_choice: { type: "tool", name: "suggest_weights" },
     }),
   });
-  if (!res.ok) throw new Error(String(res.status));
+  if (!res.ok) {
+    // status + safe `error.type` token only — never echo key/body message.
+    let errorType: string | undefined;
+    try { errorType = safeAiErrorType(await res.json()); } catch { /* non-JSON body */ }
+    throw new AiHttpError(res.status, errorType);
+  }
   const json = (await res.json()) as { content?: ToolUseBlock[] };
   const toolUse = (json.content ?? []).find((b) => b.type === "tool_use" && b.name === "suggest_weights");
   if (!toolUse) throw new Error("parse");

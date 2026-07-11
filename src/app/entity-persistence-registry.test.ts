@@ -31,6 +31,7 @@ import {
   MILESTONES_CSV_COLUMNS,
   CHANGES_CSV_COLUMNS,
   ABSENCES_CSV_COLUMNS,
+  ROLES_CSV_COLUMNS,
 } from "./csv-codecs-core";
 import type { Workspace } from "./workspace";
 
@@ -120,4 +121,36 @@ describe("entity persistence registry — outlookEventId survives every text bac
       expect(read(back)).toBe(EVT);
     });
   }
+});
+
+// Rate-card day-rate columns (T13): internalRateDay/externalRateDay/rateBasis
+// ride the same CSV+MD columns (CSV also drives Turso single/tenant).
+describe("entity persistence registry — role day rates survive every text backend", () => {
+  const seedRoles = (): Workspace => ({
+    ...emptyWorkspace(),
+    roles: [{
+      id: 1, disciplineId: 2, gradeId: 3, internalRate: 100, externalRate: 150,
+      internalRateDay: 800, externalRateDay: 1200, rateBasis: "day",
+    }],
+  });
+
+  it("role day columns are in the CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(ROLES_CSV_COLUMNS as readonly string[]).toContain("internalRateDay");
+    expect(ROLES_CSV_COLUMNS as readonly string[]).toContain("externalRateDay");
+    expect(ROLES_CSV_COLUMNS as readonly string[]).toContain("rateBasis");
+  });
+
+  it("role day rates + basis survive the CSV round-trip", () => {
+    const r = csvToWorkspace(workspaceToCsv(seedRoles())).roles[0];
+    expect(r?.internalRateDay).toBe(800);
+    expect(r?.externalRateDay).toBe(1200);
+    expect(r?.rateBasis).toBe("day");
+  });
+
+  it("role day rates + basis survive the Markdown round-trip", () => {
+    const r = markdownToWorkspace(workspaceToMarkdown(seedRoles())).roles[0];
+    expect(r?.internalRateDay).toBe(800);
+    expect(r?.externalRateDay).toBe(1200);
+    expect(r?.rateBasis).toBe("day");
+  });
 });

@@ -174,3 +174,86 @@ it("restores ticked changes from a vs-now comparison", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Restore selected" }));
   expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all" }, "Baseline");
 });
+
+// ── T7: identical-vs-broken feedback + scroll to the compare output ──────────
+
+it("shows the 'identical' message when a vs-now compare yields no changes", async () => {
+  // loadDiff resolves [] = a SUCCESSFUL compare with no differences (identical).
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
+  const loadDiff = vi.fn().mockResolvedValue([]);
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={vi.fn().mockResolvedValue(undefined)} />);
+  fireEvent.click(screen.getByText(/Compared with current/i));
+  // The clear "identical" message replaces the generic "no differences" text.
+  expect(await screen.findByText(/identical to the current workspace/i)).toBeInTheDocument();
+  // No restore controls render for an identical snapshot (nothing to restore).
+  expect(screen.queryByRole("button", { name: "Restore selected" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Select all" })).toBeNull();
+});
+
+it("scrolls the compare output into view after a compare resolves", async () => {
+  const scrollSpy = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+  // Capture the scheduled rAF callback and fire it MANUALLY after the diff has
+  // committed, so the assertion doesn't depend on real frame timing (jsdom's rAF
+  // isn't reliably flushed under CI load → the old waitFor was flaky).
+  let rafCb: FrameRequestCallback | undefined;
+  const rafSpy = vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation((cb) => { rafCb = cb; return 1; });
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "auto", label: null, summary: null }];
+  const loadDiff = vi.fn().mockResolvedValue([
+    { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "T1",
+      type: "modified", fields: [{ field: "title", label: "Title", before: "A", after: "B" }] },
+  ]);
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={vi.fn().mockResolvedValue(undefined)} />);
+  fireEvent.click(screen.getByText(/Compared with current/i));
+  await screen.findByText("T1"); // diff committed → compareRef is populated
+  rafCb?.(0); // fire the scheduled rAF now that the compare output is in the DOM
+  expect(scrollSpy).toHaveBeenCalled();
+  rafSpy.mockRestore();
+  scrollSpy.mockRestore();
+});
+
+// ── T8: compare-header restore controls (Select all / Deselect all / state) ──
+
+it("select-all ticks every record and enables restore-selected; deselect-all clears it", async () => {
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
+  const loadDiff = vi.fn().mockResolvedValue([
+    { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "T1",
+      type: "modified", fields: [{ field: "title", label: "Title", before: "Old", after: "New" }] },
+    { collection: "raid", collectionLabel: "RAID", kind: "list", recordId: 5, recordLabel: "R5",
+      type: "added", fields: [] },
+  ]);
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={vi.fn().mockResolvedValue(undefined)} />);
+  fireEvent.click(screen.getByText(/Compared with current/i));
+  await screen.findByText("T1");
+  // Restore-selected starts disabled (no ticks yet).
+  const restoreSelected = screen.getByRole("button", { name: "Restore selected" });
+  expect(restoreSelected).toBeDisabled();
+  // Select all → every record checkbox ticked + restore-selected enabled.
+  fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+  expect((screen.getByLabelText("T1") as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByLabelText("R5") as HTMLInputElement).checked).toBe(true);
+  expect(restoreSelected).toBeEnabled();
+  // Deselect all → cleared + restore-selected disabled again.
+  fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
+  expect((screen.getByLabelText("T1") as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByLabelText("R5") as HTMLInputElement).checked).toBe(false);
+  expect(restoreSelected).toBeDisabled();
+});
+
+it("restore-this-state (compare header) restores the whole snapshot with an all-'all' selection", async () => {
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
+  const loadDiff = vi.fn().mockResolvedValue([
+    { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "T1",
+      type: "modified", fields: [{ field: "title", label: "Title", before: "Old", after: "New" }] },
+    { collection: "raid", collectionLabel: "RAID", kind: "list", recordId: 5, recordLabel: "R5",
+      type: "added", fields: [] },
+  ]);
+  const restore = vi.fn().mockResolvedValue(undefined);
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={restore} />);
+  fireEvent.click(screen.getByText(/Compared with current/i));
+  await screen.findByText("T1");
+  // Two "Restore this state" buttons exist while comparing: the version row's and
+  // the compare header's. The header one renders last in document order.
+  const stateButtons = screen.getAllByRole("button", { name: "Restore this state" });
+  fireEvent.click(stateButtons[stateButtons.length - 1]);
+  expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all", "raid:5": "all" }, "Baseline");
+});

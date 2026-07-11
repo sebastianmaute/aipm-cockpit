@@ -437,7 +437,7 @@ export function GanttMilestoneRow({
       <div
         className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 truncate border-r border-line bg-surface pr-3 text-xs"
         style={{ width: nameColWidth }}
-        title={`${m.name} · ${m.date}`}
+        title={`${m.name} · ${fmtFull(md, lang)}`}
       >
         {/* Gutter diamond icon — intentionally fixed 16-viewBox size,
             independent of chart scale (icon, not a chart element). */}
@@ -459,7 +459,7 @@ export function GanttMilestoneRow({
           <button
             type="button"
             onClick={() => onEditMilestone(m)}
-            title={`${m.name} · ${m.date} — ${t(lang, "clickToEdit")}`}
+            title={`${m.name} · ${fmtFull(md, lang)} — ${t(lang, "clickToEdit")}`}
             className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
               achieved
                 ? "text-muted-foreground line-through"
@@ -485,8 +485,8 @@ export function GanttMilestoneRow({
         style={{ width: timelineWidthPx, height: ROW_HEIGHT_PX }}
         title={
           showGhost
-            ? `${m.name} · ${m.date} · baseline ${baselineDate} (${slipLabel})`
-            : `${m.name} · ${m.date}`
+            ? `${m.name} · ${fmtFull(md, lang)} · baseline ${bd ? fmtFull(bd, lang) : baselineDate} (${slipLabel})`
+            : `${m.name} · ${fmtFull(md, lang)}`
         }
       >
         <svg

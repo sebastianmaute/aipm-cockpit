@@ -458,10 +458,23 @@ export type Role = {
   id: number;
   disciplineId: number;
   gradeId: number;
-  /** Cost per hour in the plan currency. */
+  /**
+   * Cost per hour in the plan currency. Remains the cost-math source consumed
+   * everywhere (periodCost/budget/EVM/reports); when `rateBasis === "day"` it is
+   * a DERIVED value materialized from `internalRateDay`.
+   */
   internalRate: number;
-  /** Customer-billable per hour. */
+  /** Customer-billable per hour. Same derived/authoritative rule as internalRate. */
   externalRate: number;
+  /** Internal day rate (plan currency). Authoritative when `rateBasis === "day"`. */
+  internalRateDay?: number;
+  /** External/billing day rate. Authoritative when `rateBasis === "day"`. */
+  externalRateDay?: number;
+  /**
+   * Which unit the user edits — the other is auto-derived and locked.
+   * Absent ⇒ "hour" (legacy roles keep their exact hourly as authoritative).
+   */
+  rateBasis?: "day" | "hour";
   /** Manual rate-card row order (ascending); absent ⇒ fall back to array index. */
   order?: number;
   localModifiedAt?: string;

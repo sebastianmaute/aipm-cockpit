@@ -371,7 +371,15 @@ export function Step0ImportPanel({
 
         {(aiError || importError) && (
           <p role="alert" className="text-sm text-AIPM-red">
-            {importError ?? t(lang, aiError === "no-key" ? "aiCreateNeedsKey" : "aiCreateError")}
+            {importError ??
+              t(
+                lang,
+                aiError === "no-key"
+                  ? "aiCreateNeedsKey"
+                  : aiError === "limit"
+                    ? "aiUsageLimitReached"
+                    : "aiCreateError",
+              )}
           </p>
         )}
 

@@ -73,6 +73,7 @@ import { useUndoStack } from "./undo/use-undo-stack";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { UndoControl } from "./undo/undo-control";
 import { RolesPanel } from "./roles-panel";
+import { rematerializeDayBasisRoles } from "./role-rates";
 import { getUpcomingBirthdays } from "./birthdays";
 import { useBirthdayAlerts } from "./use-birthday-alerts";
 import { useReminderSnooze } from "./use-reminder-snooze";
@@ -611,6 +612,20 @@ function TaskManagerInner() {
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
   } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite });
+
+  // Day rates are the rate card's source of truth; the hourly cost rate every
+  // budget/EVM consumer reads is DERIVED from workday hours. When that setting
+  // changes, each day-basis role's materialized hourly goes stale — re-derive it
+  // here via a guarded render-time reconcile (NOT an effect; set-state-in-effect
+  // is banned) so cost figures stay correct without waiting for a manual re-edit.
+  const workdayHoursNow = settings.resources.workdayHours;
+  const [wdhForRoles, setWdhForRoles] = useState(workdayHoursNow);
+  // Object.is (not !==) so a corrupted NaN workdayHours can't loop forever
+  // (NaN !== NaN is always true → infinite render); Object.is(NaN,NaN)===true.
+  if (!Object.is(workdayHoursNow, wdhForRoles)) {
+    setWdhForRoles(workdayHoursNow);
+    setRoles((prev) => rematerializeDayBasisRoles(prev, workdayHoursNow));
+  }
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
   const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture });
@@ -1739,6 +1754,7 @@ function TaskManagerInner() {
       <RolesPanel
         lang={lang}
         currency={plan.currency || "EUR"}
+        workdayHours={settings.resources.workdayHours}
         roles={roles}
         disciplines={disciplines}
         grades={grades}
