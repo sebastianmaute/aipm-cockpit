@@ -21,6 +21,12 @@ longer carries its own changelog comment.
 - **Engine:** new pure `applyUndoForward` / `buildForwardImages` + `applyUndoRestoreWithRemap`; redo
   removes a re-minted recovered row by its actual post-restore id (never the unrelated live row that
   reused the original id). Session-scoped/in-memory by design (a reload starts fresh).
+- **Composite FK re-mint fix:** when undoing a cascade delete (role/discipline/grade, or a resource
+  with its absences/shifts) whose freed id had been reused by a new row, the recovered row is re-minted
+  under a fresh id and each cascade fragment's foreign key (`roleId`/`disciplineId`/`gradeId`/
+  `resourceId`) now follows that re-mint — so the restored link points at the recovered row, never the
+  unrelated live row that reused the id. The primary fragment flushes synchronously so its id-remap is
+  available to the cascade fragments regardless of React batching order.
 
 ## [0.177.0] - 2026-07-11 "Aldiss"
 

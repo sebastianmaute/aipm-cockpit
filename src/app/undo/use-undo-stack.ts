@@ -2,6 +2,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { flushSync } from "react-dom";
 import { t, type Lang } from "../i18n";
 import type { ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
@@ -128,7 +129,20 @@ function compositeUndoRunner(fragments: readonly CompositeFragment[]): Runner {
     // Fresh box each undo so a re-undo (after redo) re-derives the remap from
     // live state rather than a stale one.
     const primaryRemap = { current: EMPTY_REMAP };
-    const redos = fragments.map((f, i) => f.restore(primaryRemap, i === 0));
+    const redos: (() => void)[] = [];
+    fragments.forEach((f, i) => {
+      if (i === 0) {
+        // ★★ Flush the PRIMARY fragment synchronously so its published remap is
+        // populated BEFORE the cascade updaters run. `undo()` fires from an event
+        // handler, so under React-18 auto-batching the separate setters would
+        // otherwise flush in fiber (hook-declaration) order, not call order — a
+        // cascade could read the still-empty box and its FK wouldn't follow the
+        // re-mint. flushSync is transparent to synchronous (test) setters.
+        flushSync(() => { redos.push(f.restore(primaryRemap, true)); });
+      } else {
+        redos.push(f.restore(primaryRemap, false));
+      }
+    });
     const runRedo: Runner = () => {
       for (const redo of redos) redo();
       return runUndo;
