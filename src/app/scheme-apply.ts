@@ -76,23 +76,6 @@ export function writeActiveSchemeStructural(map: SchemeStructuralMap | null): vo
   }
 }
 
-/** Read the active structural token map (boot key). Drops non-token keys and
- *  unsafe values. Returns null when missing/garbage. */
-export function readActiveSchemeStructural(): SchemeStructuralMap | null {
-  try {
-    const raw = localStorage.getItem(ACTIVE_SCHEME_STRUCTURAL_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-    const out: SchemeStructuralMap = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>))
-      if (typeof v === "string" && BOOT_TOKEN_RE.test(k) && isSafeRawCssValue(v)) out[k] = v;
-    return out;
-  } catch {
-    return null;
-  }
-}
-
 /** Persist the active scheme's resolved color map for the pre-paint boot script. */
 export function writeActiveSchemeColors(colors: SchemeColorMap | null): void {
   try {

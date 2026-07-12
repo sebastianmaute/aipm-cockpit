@@ -5,11 +5,6 @@ export type CiStyle = "AIPM" | "mockup" | "custom";
 
 export const STYLE_STORAGE_KEY = "lop-style";
 
-/** Validate a raw stored string into a CiStyle, defaulting to "AIPM". */
-export function readStoredStyle(raw: string | null): CiStyle {
-  return raw === "AIPM" || raw === "mockup" || raw === "custom" ? raw : "AIPM";
-}
-
 /** Whether dark mode is active: the resolved theme is dark AND the active
  *  scheme is dark-capable. (Light-only schemes — Mockup and light-only user
  *  schemes — pin light.)

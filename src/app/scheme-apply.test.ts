@@ -5,7 +5,6 @@ import {
   applySchemeColors,
   isSafeRawCssValue,
   readActiveSchemeColors,
-  readActiveSchemeStructural,
   readSchemeSupportsDark,
   writeActiveSchemeColors,
   writeSchemeSupportsDark,
@@ -96,13 +95,5 @@ describe("scheme-apply", () => {
 
   it("isSafeRawCssValue rejects url with whitespace before the paren (denylist parity)", () => {
     for (const v of ["url ( x )", "url  (evil)", "URL\t(evil)"]) expect(isSafeRawCssValue(v)).toBe(false);
-  });
-
-  it("readActiveSchemeStructural drops unsafe values", () => {
-    localStorage.setItem(
-      "lop-active-scheme-structural",
-      JSON.stringify({ "--shadow-card": "none", "--x": "url(bad)", notatoken: "none" }),
-    );
-    expect(readActiveSchemeStructural()).toEqual({ "--shadow-card": "none" });
   });
 });

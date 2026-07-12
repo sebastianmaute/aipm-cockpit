@@ -1,6 +1,7 @@
 // Editable-token registry for custom color schemes + AA-variant derivation.
-// Pure (no DOM). Hex values mirror globals.css :root (AIPM) and
-// :root[data-style="mockup"] (Mockup).
+// Pure (no DOM). The AIPM hex values mirror globals.css :root; the Mockup values
+// are the code-owned seed for the built-in Mockup scheme (the old
+// :root[data-style="mockup"] CSS block was removed — Mockup is now a scheme).
 import type { SchemeColorMap, SchemeStructuralMap } from "./scheme-apply";
 
 export interface TokenSpec {
@@ -59,8 +60,8 @@ export const ICC_SEED: SchemeColorMap = {
   "--segment-active-fg": "#ffffff",
 };
 
-// Mockup overrides over the AIPM base (from :root[data-style="mockup"]). Tokens
-// the mockup block does not override keep their AIPM value.
+// Mockup overrides over the AIPM base — the code-owned seed for the built-in
+// Mockup scheme. Tokens it does not override keep their AIPM value.
 export const MOCKUP_SEED: SchemeColorMap = {
   ...ICC_SEED,
   "--rag-red": "#d64545",
@@ -77,16 +78,6 @@ export const MOCKUP_SEED: SchemeColorMap = {
 // Structural (non-color) tokens: shadows, the KPI gradient, delta-chip padding,
 // and the opaque RAG chip fills. AIPM reproduces the flat look (no shadow/gradient);
 // Mockup adds depth + the red→amber→green gauge gradient.
-export const STRUCTURAL_TOKENS: readonly TokenSpec[] = [
-  { token: "--shadow-card", labelKey: "schemeTokenShadowCard" },
-  { token: "--shadow-control", labelKey: "schemeTokenShadowControl" },
-  { token: "--shadow-card-hover", labelKey: "schemeTokenShadowCardHover" },
-  { token: "--gradient-kpi", labelKey: "schemeTokenGradientKpi" },
-  { token: "--delta-chip-pad", labelKey: "schemeTokenDeltaChipPad" },
-  { token: "--rag-green-chip", labelKey: "schemeTokenRagGreenChip" },
-  { token: "--rag-red-chip", labelKey: "schemeTokenRagRedChip" },
-] as const;
-
 export const ICC_STRUCTURAL: SchemeStructuralMap = {
   "--shadow-card": "none", "--shadow-control": "none", "--shadow-card-hover": "none",
   "--gradient-kpi": "var(--AIPM-green)", "--delta-chip-pad": "0",

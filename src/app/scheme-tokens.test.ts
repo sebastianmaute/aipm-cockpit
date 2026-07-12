@@ -3,7 +3,6 @@ import {
   CORE_TOKENS,
   ADVANCED_TOKENS,
   ICC_SEED,
-  STRUCTURAL_TOKENS,
   ICC_STRUCTURAL,
   MOCKUP_STRUCTURAL,
   deriveAaVariants,
@@ -107,8 +106,7 @@ describe("scheme-tokens", () => {
   });
 
   test("structural seeds cover the 7 structural tokens", () => {
-    const keys = STRUCTURAL_TOKENS.map((t) => t.token);
-    expect(keys).toEqual(["--shadow-card","--shadow-control","--shadow-card-hover","--gradient-kpi","--delta-chip-pad","--rag-green-chip","--rag-red-chip"]);
+    const keys = ["--shadow-card","--shadow-control","--shadow-card-hover","--gradient-kpi","--delta-chip-pad","--rag-green-chip","--rag-red-chip"];
     for (const k of keys) { expect(ICC_STRUCTURAL[k]).toBeDefined(); expect(MOCKUP_STRUCTURAL[k]).toBeDefined(); }
     expect(ICC_STRUCTURAL["--shadow-card"]).toBe("none");
     expect(MOCKUP_STRUCTURAL["--gradient-kpi"]).toContain("linear-gradient");
