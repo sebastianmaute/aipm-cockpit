@@ -39,8 +39,9 @@
      AIPM-purple stays for fills/borders and text on dark surfaces. */
   --AIPM-purple-strong: #7a2d72;
 
-  /* ---- CI-style role tokens (dual-ci). AIPM values reproduce the current look;
-     the :root[data-style="mockup"] block overrides them. ---- */
+  /* ---- CI-style role tokens. These AIPM-light values are the static no-JS /
+     pre-boot FALLBACK; at runtime the active scheme (AIPM / Mockup / Harbor /
+     user) overrides them inline via setProperty (see scheme-apply.ts). ---- */
   --rag-red: #ef4444;
   --rag-amber: #f59e0b;
   --rag-green: #10b981;
