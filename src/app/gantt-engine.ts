@@ -42,7 +42,7 @@ export type GanttPrefs = {
   showBaseline: boolean;
 };
 
-const PREFS_KEY = "lop-app:gantt-prefs";
+const PREFS_KEY = "aipm-cockpit:gantt-prefs";
 
 export const DEFAULT_PREFS: GanttPrefs = {
   sort: "auto",

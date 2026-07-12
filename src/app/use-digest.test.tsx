@@ -39,7 +39,7 @@ describe("useDigest", () => {
     const { result } = renderHook(() => useDigest(deps({ config: { enabled: false, cadenceDays: 7 } })));
     await act(async () => { await result.current.generateNow(); });
     expect(result.current.digest?.rag).toBe("A");
-    const raw = JSON.parse(localStorage.getItem("lop-app:digest-state") || "{}");
+    const raw = JSON.parse(localStorage.getItem("aipm-cockpit:digest-state") || "{}");
     expect(raw.p1?.nextDueAt).toBe("2026-07-17T09:00:00.000Z");
   });
 
@@ -60,7 +60,7 @@ describe("useDigest", () => {
 
   it("renders a display-only digest on remount when enabled but NOT due (no advance, no notify)", async () => {
     advanceDigestState("p1", { now: "2026-07-10T09:00:00.000Z", cadenceDays: 7, rag: "G", metrics: { overdue: 0, openRaid: 0 } });
-    const before = JSON.parse(localStorage.getItem("lop-app:digest-state")!).p1.nextDueAt;
+    const before = JSON.parse(localStorage.getItem("aipm-cockpit:digest-state")!).p1.nextDueAt;
     const fire = vi.fn();
     let hook: ReturnType<typeof renderHook> | undefined;
     await act(async () => {
@@ -72,7 +72,7 @@ describe("useDigest", () => {
     expect((hook!.result.current as { digest: unknown }).digest).not.toBeNull();
     // …but the cadence is NOT advanced and no notification fires.
     expect(fire).not.toHaveBeenCalled();
-    const after = JSON.parse(localStorage.getItem("lop-app:digest-state")!).p1.nextDueAt;
+    const after = JSON.parse(localStorage.getItem("aipm-cockpit:digest-state")!).p1.nextDueAt;
     expect(after).toBe(before);
   });
 
@@ -81,7 +81,7 @@ describe("useDigest", () => {
     const { result } = renderHook(() => useDigest(deps({ isPopout: true, fireNotification: fire })));
     await act(async () => { await result.current.generateNow(); });
     expect(fire).not.toHaveBeenCalled();
-    expect(localStorage.getItem("lop-app:digest-state")).toBeNull();
+    expect(localStorage.getItem("aipm-cockpit:digest-state")).toBeNull();
   });
 
   it("emailDigest sends via Graph when m365 configured", async () => {

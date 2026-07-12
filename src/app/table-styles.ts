@@ -7,7 +7,7 @@
  * permitted AIPM brand colors; button/sort hovers inside the header use the
  * Green accent (see SortableTh / per-table header buttons).
  *
- * The `lop-thead` marker drives the rounded-header treatment in globals.css:
+ * The `aipm-cockpit-thead` marker drives the rounded-header treatment in globals.css:
  * the Dark-Blue fill lives on the `<th>` cells (not the `<thead>`) and the
  * first/last header cells get rounded top corners, so the header bar reads as
  * an enclosed pill with rounded corners on BOTH ends — regardless of how the
@@ -15,4 +15,4 @@
  * rounded `<th>` can only clip a fill it actually paints.
  */
 export const TABLE_HEAD_CLASS =
-  "lop-thead sticky top-0 z-10 text-xs uppercase tracking-wide text-[var(--table-head-fg)]";
+  "aipm-cockpit-thead sticky top-0 z-10 text-xs uppercase tracking-wide text-[var(--table-head-fg)]";

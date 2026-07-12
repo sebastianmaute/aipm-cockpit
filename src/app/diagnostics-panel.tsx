@@ -49,7 +49,7 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "lop-app-diagnostics.json";
+    a.download = "aipm-cockpit-diagnostics.json";
     a.click();
     URL.revokeObjectURL(url);
   };

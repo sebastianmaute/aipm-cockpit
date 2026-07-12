@@ -83,7 +83,7 @@ const enc = new TextEncoder();
 const dec = new TextDecoder();
 
 async function idbOpen(): Promise<IDBDatabase> {
-  await ensureStorageMigrated(); // rename legacy lop-app* storage before first open
+  await ensureStorageMigrated(); // migrate legacy storage namespace before first open
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(STORE);

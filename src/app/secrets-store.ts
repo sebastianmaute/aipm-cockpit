@@ -1,13 +1,13 @@
 // src/app/secrets-store.ts
 //
 // Persistence + accessors for sealed secrets. Ciphertext lives in
-// localStorage["lop-app:secrets"], keyed by SecretId; the device key lives in
-// IndexedDB (see secrets.ts). Kept OUT of lop-app:settings and out of Turso.
+// localStorage["aipm-cockpit:secrets"], keyed by SecretId; the device key lives in
+// IndexedDB (see secrets.ts). Kept OUT of aipm-cockpit:settings and out of Turso.
 
 import { type SealedSecret, type SecretId, openDevice, sealDevice, isSealedSecret } from "./secrets";
 import { logDiag } from "./diagnostics";
 
-export const SECRETS_KEY = "lop-app:secrets";
+export const SECRETS_KEY = "aipm-cockpit:secrets";
 type Store = Partial<Record<SecretId, SealedSecret>>;
 
 function readStore(): Store {

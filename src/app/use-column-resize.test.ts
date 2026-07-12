@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useColumnResize } from "./use-column-resize";
 
-const KEY = (id: string) => `lop-app:col-widths:${id}`;
+const KEY = (id: string) => `aipm-cockpit:col-widths:${id}`;
 
 const DEFAULTS = { a: 100, b: 200 } as const;
 

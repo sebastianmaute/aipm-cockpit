@@ -49,7 +49,7 @@ const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "
 export function DocumentsPanel() {
   const { settings } = useSettings();
   const lang = settings.language;
-  const { ref, reset } = useResizable("lop-app:documents-size-full");
+  const { ref, reset } = useResizable("aipm-cockpit:documents-size-full");
   const canAddDocument = isSharePointEnabled(settings.integrations);
   const ws = useWorkspace();
   const { requestOpen, isPopout, requestHelpConcept } = useWorkspaceTab();

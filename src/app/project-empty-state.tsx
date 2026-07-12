@@ -99,7 +99,7 @@ export function ProjectEmptyState({
   const [wizardOpen, setWizardOpen] = useState(false);
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
+  const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:create-modal-size");
 
   const handleOpenCreate = () => setView("create");
 

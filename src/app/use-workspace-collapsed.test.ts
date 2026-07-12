@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useWorkspaceCollapsed } from "./use-workspace-collapsed";
 
-const WORKSPACE_COLLAPSED_KEY = "lop-app:workspace-collapsed";
+const WORKSPACE_COLLAPSED_KEY = "aipm-cockpit:workspace-collapsed";
 
 describe("useWorkspaceCollapsed", () => {
   it("workspaceCollapsed is false initially", () => {

@@ -5,7 +5,7 @@
 
 export type Theme = "light" | "dark" | "system";
 
-export const THEME_STORAGE_KEY = "lop-theme";
+export const THEME_STORAGE_KEY = "aipm-cockpit-theme";
 
 /** Resolve the chosen theme to the concrete mode to apply. */
 export function resolveTheme(theme: Theme, systemPrefersDark: boolean): "light" | "dark" {

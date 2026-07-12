@@ -1,12 +1,12 @@
 // Per-device, per-project Timelog actuals cache. Mirrors landing-state.ts:
 // a single localStorage key, defensive parse, SSR guard, bounded size.
 // NOT a Workspace field — never exported, never in Turso, cleared by
-// app-reset's `lop-app:*` sweep.
+// app-reset's `aipm-cockpit:*` sweep.
 import type { ActualsAggregate } from "./timelog-actuals";
 import type { TimelogProjectRef } from "./timelog-match";
 import type { TimelogUser } from "./timelog-types";
 
-export const TIMELOG_ACTUALS_KEY = "lop-app:timelog-actuals";
+export const TIMELOG_ACTUALS_KEY = "aipm-cockpit:timelog-actuals";
 const MAX_PROJECTS = 50;
 
 // The matching-UI inputs (`users`/`projectRefs`) are cached ALONGSIDE the

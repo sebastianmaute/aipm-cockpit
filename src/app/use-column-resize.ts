@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const KEY_PREFIX = "lop-app:col-widths";
+const KEY_PREFIX = "aipm-cockpit:col-widths";
 
 export function useColumnResize<TId extends string>(
   tableId: string,

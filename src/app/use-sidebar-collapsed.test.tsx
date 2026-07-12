@@ -39,11 +39,11 @@ describe("useSidebarCollapsed", () => {
     const { result } = renderHook(() => useSidebarCollapsed());
     act(() => result.current.toggle());
     expect(result.current.collapsed).toBe(true);
-    expect(window.localStorage.getItem("lop-app:sidebar-collapsed")).toBe("1");
+    expect(window.localStorage.getItem("aipm-cockpit:sidebar-collapsed")).toBe("1");
   });
 
   it("hydrates a persisted preference on mount", () => {
-    window.localStorage.setItem("lop-app:sidebar-collapsed", "0");
+    window.localStorage.setItem("aipm-cockpit:sidebar-collapsed", "0");
     narrow = true; // viewport says collapse, but the stored pref says expanded
     const { result } = renderHook(() => useSidebarCollapsed());
     expect(result.current.collapsed).toBe(false);

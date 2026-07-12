@@ -132,7 +132,7 @@ export function RaidReportPanel({ lang, items, today, resourcesById, embedded = 
   const [view, setView] = useState<View>("summary");
 
   // Resizable card
-  const { ref, reset } = useResizable("lop-app:raid-report-size");
+  const { ref, reset } = useResizable("aipm-cockpit:raid-report-size");
 
   // Column-resize hooks — always called (hooks must not be conditional)
   const severity = useColumnResize<SeverityCol>("raidReportSeverity", SEVERITY_COL_WIDTHS);

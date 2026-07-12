@@ -87,8 +87,8 @@ import {
 export class BrowserBackend implements StorageBackend {
   readonly kind = "browser" as const;
   // Old key names — only read during the one-time migration on first load.
-  private static LEGACY_TASKS_KEY = "lop-app:tasks";
-  private static LEGACY_RAID_KEY = "lop-app:raid";
+  private static LEGACY_TASKS_KEY = "aipm-cockpit:tasks";
+  private static LEGACY_RAID_KEY = "aipm-cockpit:raid";
 
   // Baseline of what IDB currently holds, indexed by id. Populated by
   // `load()` and refreshed at the end of each successful `save()`. Used by

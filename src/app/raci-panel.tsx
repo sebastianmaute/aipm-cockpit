@@ -108,7 +108,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
     });
   }
 
-  const { ref: paneRef, reset: resetPaneSize } = useResizable("lop-app:raci-size");
+  const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:raci-size");
 
   // Empty states — no resize affordance needed
   if (milestones.length === 0) {

@@ -218,7 +218,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
-  const { ref: budgetRef, reset: resetBudgetSize } = useResizable("lop-app:budget-size");
+  const { ref: budgetRef, reset: resetBudgetSize } = useResizable("aipm-cockpit:budget-size");
 
   const [dragId, setDragId] = useState<number | null>(null);
   const [editingBucketId, setEditingBucketId] = useState<number | null>(null);

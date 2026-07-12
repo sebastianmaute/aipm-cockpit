@@ -10,7 +10,7 @@ import { saveSealed } from "./secrets-store";
 afterEach(() => localStorage.clear());
 
 describe("writeSettings secret blanking", () => {
-  it("never persists apiKey, turso authToken, or jira apiToken into lop-app:settings", () => {
+  it("never persists apiKey, turso authToken, or jira apiToken into aipm-cockpit:settings", () => {
     writeSettings({
       ...defaultSettings,
       ai: { ...defaultSettings.ai, apiKey: "sk-secret" },
@@ -32,7 +32,7 @@ describe("writeSettings secret blanking", () => {
 });
 
 describe("persist effect secret blanking", () => {
-  it("persist effect never writes plaintext secrets to lop-app:settings", async () => {
+  it("persist effect never writes plaintext secrets to aipm-cockpit:settings", async () => {
     const { result } = renderHook(() => useSettings());
 
     // Wait for the mount-load hydration gate to lift; the persist effect only

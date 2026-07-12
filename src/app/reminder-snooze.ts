@@ -3,7 +3,7 @@ export type ReminderKind = "birthday" | "jiraToken";
 export const SNOOZE_1H = 60 * 60 * 1000;
 export const SNOOZE_1D = 24 * 60 * 60 * 1000;
 
-const KEY = (k: ReminderKind) => `lop-app:reminder-snooze:${k}`;
+const KEY = (k: ReminderKind) => `aipm-cockpit:reminder-snooze:${k}`;
 
 /**
  * Epoch ms the reminder is snoozed until, or null when not snoozed/invalid.

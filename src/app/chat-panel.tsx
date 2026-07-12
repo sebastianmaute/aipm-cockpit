@@ -187,7 +187,7 @@ function ChatPanelInner({
   // Latest committed projectId, read by the in-flight send to detect a mid-send
   // project switch (so its trailing writes can't land on the new project).
   const projectIdRef = useRef(projectId);
-  const { ref: chatRef, reset: resetChatSize } = useResizable("lop-app:chat-size-v2");
+  const { ref: chatRef, reset: resetChatSize } = useResizable("aipm-cockpit:chat-size-v2");
   const { record: recordUsage } = useAiUsageContext();
   // Model picker options (live /v1/models when the key is valid, else registry).
   // Uses the session-unlocked key when the saved key is passphrase-wrapped.

@@ -11,7 +11,7 @@ import {
   JOB_HISTORY_CAP, type JobCadence, type ScheduledJob, type ScheduledJobRun,
 } from "./scheduled-jobs/types";
 
-export const LOCAL_KEY = "lop-app:scheduled-jobs";
+export const LOCAL_KEY = "aipm-cockpit:scheduled-jobs";
 export const SCHEDULED_JOBS_TABLE = "scheduled_jobs";
 
 // One row per job; the whole job (history inline) is stored as a JSON blob in

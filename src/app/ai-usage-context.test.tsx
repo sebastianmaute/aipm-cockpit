@@ -208,7 +208,7 @@ describe("AiUsageProvider", () => {
 
     act(() => { result.current.record({ input: 300, output: 100 }); });
 
-    const raw = localStorage.getItem("lop-app:ai-usage");
+    const raw = localStorage.getItem("aipm-cockpit:ai-usage");
     expect(raw).not.toBeNull();
     const buckets = JSON.parse(raw!) as Record<string, { input: number; output: number }>;
     const values = Object.values(buckets);

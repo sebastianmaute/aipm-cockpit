@@ -216,7 +216,7 @@ describe("color-schemes store", () => {
 
   it("setActive accepts a built-in id (not present in the raw store) and persists it", () => {
     // Regression: a built-in id must be valid even though built-ins are merged
-    // in only by reconcileBuiltins, never persisted to lop-app:color-schemes.
+    // in only by reconcileBuiltins, never persisted to aipm-cockpit:color-schemes.
     expect(setActive("meridian").activeId).toBe("meridian");
     expect(loadSchemes().activeId).toBe("meridian");
     expect(setActive("umber").activeId).toBe("umber");

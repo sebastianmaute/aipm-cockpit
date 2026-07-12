@@ -7,8 +7,8 @@ import { HelpContentPane } from "./help-content-pane";
 import { useResizable } from "./use-resizable";
 import { APP_LICENSE_URL } from "./version";
 
-const STORAGE_KEY_POS = "lop-app:help-pos";
-const STORAGE_KEY_SIZE = "lop-app:help-size-v3";
+const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
+const STORAGE_KEY_SIZE = "aipm-cockpit:help-size-v3";
 
 // Minimum gap (px) between the help panel and the top/bottom viewport edges
 // when the panel opens. The panel can still be dragged anywhere afterwards;

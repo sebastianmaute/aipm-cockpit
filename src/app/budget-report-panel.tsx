@@ -74,7 +74,7 @@ export function BudgetReportPanel({
     () => computeBurndownSeries(buckets, plan, roles, today),
     [buckets, plan, roles, today],
   );
-  const { ref, reset } = useResizable("lop-app:budget-report-size");
+  const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);
 
   if (buckets.length === 0) {

@@ -98,7 +98,7 @@ export function SteeringCommitteePanel({
   const c = committee ?? EMPTY_COMMITTEE;
   const [reportMeetingId, setReportMeetingId] = useState<number | null>(null);
   const [reportVersions, setReportVersions] = useState<readonly MeetingReportVersionUi[]>([]);
-  const { ref: paneRef, reset: resetSize } = useResizable("lop-app:steering-size");
+  const { ref: paneRef, reset: resetSize } = useResizable("aipm-cockpit:steering-size");
   const meetingCols = useColumnResize<MeetingCol>("committeeMeetings", MEETING_COL_WIDTHS);
   const scheduleCols = useColumnResize<ScheduleCol>("committeeSchedules", SCHEDULE_COL_WIDTHS);
   const startMeetingResize = meetingCols.startColResize as (col: string, e: React.MouseEvent) => void;

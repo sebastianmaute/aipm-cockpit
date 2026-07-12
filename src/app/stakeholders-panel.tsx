@@ -258,7 +258,7 @@ function StakeholdersPanelBody({
     STAKEHOLDER_COL_WIDTHS,
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
-  const { ref: paneRef, reset: resetPaneSize } = useResizable("lop-app:stakeholder-size");
+  const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:stakeholder-size");
 
   const sortArrow = (key: StakeholderSortKey) =>
     sort?.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "";

@@ -24,7 +24,7 @@ function idbAvailable(): boolean {
 }
 
 async function openHandlesDb(): Promise<IDBDatabase> {
-  await ensureStorageMigrated(); // rename legacy lop-app* storage before first open
+  await ensureStorageMigrated(); // migrate legacy storage namespace before first open
   return new Promise((resolve, reject) => {
     const req = window.indexedDB.open(HANDLES_DB_NAME, HANDLES_DB_VERSION);
     req.onupgradeneeded = () => {

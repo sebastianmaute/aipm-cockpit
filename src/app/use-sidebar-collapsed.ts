@@ -2,7 +2,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { useMediaQuery } from "./use-media-query";
 
-const SIDEBAR_COLLAPSED_KEY = "lop-app:sidebar-collapsed";
+const SIDEBAR_COLLAPSED_KEY = "aipm-cockpit:sidebar-collapsed";
 /** Below this width the sidebar defaults to its collapsed icon rail (Tailwind < lg). */
 export const SIDEBAR_NARROW_QUERY = "(max-width: 1023px)";
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { loadDismissed, dismissView } from "./view-hints-store";
 
-const KEY = "lop-app:view-hints";
+const KEY = "aipm-cockpit:view-hints";
 
 describe("view-hints-store", () => {
   beforeEach(() => localStorage.clear());

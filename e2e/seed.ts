@@ -15,7 +15,7 @@ const SAMPLE_WORKSPACE = JSON.parse(
 // stubbed in-memory for any flow that still reaches them.
 function seedRegistryAndFsa(): void {
   localStorage.setItem(
-    "lop-app:projects",
+    "aipm-cockpit:projects",
     JSON.stringify({
       projects: [{ id: "e2e-1", name: "E2E Project", code: "E2E-001", storageConfig: { kind: "browser" } }],
       currentProjectId: "e2e-1",
@@ -48,7 +48,7 @@ function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
     milestones: "milestones", changes: "changes", stakeholders: "stakeholders", project: "project",
   };
   return new Promise((resolve, reject) => {
-    const open = indexedDB.open("lop-app", 6);
+    const open = indexedDB.open("aipm-cockpit", 6);
     open.onupgradeneeded = () => {
       const db = open.result;
       if (!db.objectStoreNames.contains("kv")) db.createObjectStore("kv");

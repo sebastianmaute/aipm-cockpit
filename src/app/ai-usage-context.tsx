@@ -24,7 +24,7 @@ import { t } from "./i18n";
 import type { AiConfig } from "./settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_TOKEN_MULTIPLIER } from "./settings-types";
 
-export const AI_USAGE_KEY = "lop-app:ai-usage";
+export const AI_USAGE_KEY = "aipm-cockpit:ai-usage";
 
 export type AiUsageContextValue = {
   sessionTotal: number;

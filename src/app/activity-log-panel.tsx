@@ -99,7 +99,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
-  const { ref: actRef, reset: resetActSize } = useResizable("lop-app:activity-size");
+  const { ref: actRef, reset: resetActSize } = useResizable("aipm-cockpit:activity-size");
 
   // Precompute the rendered message and the group once per entries/lang
   // change so the filter+sort passes below don't redo i18n interpolation

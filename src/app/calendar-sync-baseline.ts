@@ -1,8 +1,8 @@
 // Per-device sync baseline for two-way calendar pull: the last-agreed date for
 // each pushed event, so the pull engine can tell whether the ENTITY changed
 // locally since the last sync (app-wins conflict rule). Per-BROWSER, per-project;
-// NOT workspace data — out of exports/Turso, cleared by clearAppConfig's lop-app:* sweep.
-const KEY = "lop-app:calendar-sync-baseline";
+// NOT workspace data — out of exports/Turso, cleared by clearAppConfig's aipm-cockpit:* sweep.
+const KEY = "aipm-cockpit:calendar-sync-baseline";
 
 function loadMap(): Record<string, string> {
   if (typeof window === "undefined") return {};

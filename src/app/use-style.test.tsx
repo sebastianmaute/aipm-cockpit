@@ -48,7 +48,7 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     // A raw scheme switch (light-only mockup) must not change data-style.
     act(() => {
       setActive("mockup");
-      window.dispatchEvent(new Event("lop-scheme-change"));
+      window.dispatchEvent(new Event("aipm-cockpit-scheme-change"));
     });
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
   });
@@ -65,7 +65,7 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     // Switch to a dark-capable scheme (Harbor) → .dark restored.
     act(() => {
       setActive("harbor");
-      window.dispatchEvent(new Event("lop-scheme-change"));
+      window.dispatchEvent(new Event("aipm-cockpit-scheme-change"));
     });
     expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("1");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
@@ -115,10 +115,10 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("1");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
 
-    // Activate a light-only scheme + fire a RAW lop-scheme-change (mirrors selectScheme).
+    // Activate a light-only scheme + fire a RAW aipm-cockpit-scheme-change (mirrors selectScheme).
     act(() => {
       setActive("u-1");
-      window.dispatchEvent(new Event("lop-scheme-change"));
+      window.dispatchEvent(new Event("aipm-cockpit-scheme-change"));
     });
     expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("0");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
@@ -128,7 +128,7 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     // Regression (restores the dropped Task-7 guard, adapted to Phase 2): under a
     // DARK theme, hop light-only → dark-capable AFTER a prior switch. This ends
     // coherent ONLY because syncScheme stamps data-scheme-dark BEFORE re-dispatching
-    // lop-style-change, so ThemeProvider (which reacts to lop-style-change only)
+    // aipm-cockpit-style-change, so ThemeProvider (which reacts to aipm-cockpit-style-change only)
     // reads the FRESH capability. Inverting that order would leave .dark reading the
     // STALE data-scheme-dark → the final .dark would be wrong.
     localStorage.setItem(THEME_STORAGE_KEY, "dark");
@@ -141,7 +141,7 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     // Prior switch → a light-only scheme (mockup) pins light under the dark theme.
     act(() => {
       setActive("mockup");
-      window.dispatchEvent(new Event("lop-scheme-change"));
+      window.dispatchEvent(new Event("aipm-cockpit-scheme-change"));
     });
     expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("0");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
@@ -151,13 +151,13 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     // inverted — apply() would read the stale "0" and keep .dark off).
     act(() => {
       setActive("meridian");
-      window.dispatchEvent(new Event("lop-scheme-change"));
+      window.dispatchEvent(new Event("aipm-cockpit-scheme-change"));
     });
     expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("1");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
-  it("migrates a legacy lop-style='mockup' to the mockup scheme + custom", () => {
+  it("migrates a legacy aipm-cockpit-style='mockup' to the mockup scheme + custom", () => {
     localStorage.setItem(STYLE_STORAGE_KEY, "mockup");
     render(tree());
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
@@ -165,7 +165,7 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     expect(loadSchemes().activeId).toBe("mockup");
   });
 
-  it("migrates a legacy lop-style='AIPM' to the AIPM scheme + custom", () => {
+  it("migrates a legacy aipm-cockpit-style='AIPM' to the AIPM scheme + custom", () => {
     localStorage.setItem(STYLE_STORAGE_KEY, "AIPM");
     render(tree());
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
@@ -173,7 +173,7 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     expect(loadSchemes().activeId).toBe("AIPM");
   });
 
-  it("leaves an existing lop-style='custom' + activeId untouched (idempotent)", () => {
+  it("leaves an existing aipm-cockpit-style='custom' + activeId untouched (idempotent)", () => {
     localStorage.setItem(STYLE_STORAGE_KEY, "custom");
     setActive("meridian");
     render(tree());

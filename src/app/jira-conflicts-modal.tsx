@@ -131,7 +131,7 @@ export function JiraConflictsModal({
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
   const { offset, handleProps } = useDraggable(conflicts.length > 0);
-  const { ref: panelRef } = useResizable("lop-app:conflicts-modal-size");
+  const { ref: panelRef } = useResizable("aipm-cockpit:conflicts-modal-size");
 
   return (
     <Modal open onClose={onClose} ariaLabel={t(lang, "jiraConflictTitle")}>

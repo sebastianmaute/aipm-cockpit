@@ -346,7 +346,7 @@ function ChangePanelBody({
     CHANGE_COL_WIDTHS,
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
-  const { ref: paneRef, reset: resetPaneSize } = useResizable("lop-app:change-size");
+  const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:change-size");
 
   const filtersActive =
     search.trim() !== "" || typeFilter !== "All" || statusFilter !== "All";

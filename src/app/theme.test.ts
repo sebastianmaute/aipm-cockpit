@@ -26,5 +26,5 @@ describe("readStoredTheme", () => {
 });
 
 test("storage key is the documented constant", () => {
-  expect(THEME_STORAGE_KEY).toBe("lop-theme");
+  expect(THEME_STORAGE_KEY).toBe("aipm-cockpit-theme");
 });

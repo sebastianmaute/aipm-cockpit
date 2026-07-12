@@ -95,7 +95,7 @@ export function ResourcesReportPanel({
   const money = (n: number) => formatCurrency(n, plan.currency, loc);
   const days = (h: number) => (h / workdayHours).toFixed(1);
 
-  const { ref, reset } = useResizable("lop-app:resources-size");
+  const { ref, reset } = useResizable("aipm-cockpit:resources-size");
 
   const byPeriod = useColumnResize<ResReportByPeriodCol>("resReportByPeriod", RES_REPORT_BY_PERIOD_WIDTHS);
   const byDiscipline = useColumnResize<ResReportByDisciplineCol>("resReportByDiscipline", RES_REPORT_BY_DISCIPLINE_WIDTHS);

@@ -6,7 +6,7 @@ import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
 import { buildNotificationPlan, newUrgentActions, nextSeenIds } from "./action-notifications";
 
-const SEEN_KEY = "lop-app:notified-urgent";
+const SEEN_KEY = "aipm-cockpit:notified-urgent";
 const SUMMARY_TAG = "urgent-summary";
 
 interface UseActionNotificationsArgs {

@@ -314,12 +314,12 @@ function TaskManagerInner() {
   // Resizable surfaces. See `use-resizable.ts` — each has its own
   // localStorage key, only deliberate corner-drag gestures are persisted.
   const { ref: tableRef, reset: resetTableSize } = useResizable(
-    "lop-app:task-table-size",
+    "aipm-cockpit:task-table-size",
   );
   const { ref: workspaceRef, reset: resetWorkspaceSize } = useResizable(
-    "lop-app:workspace-size",
+    "aipm-cockpit:workspace-size",
   );
-  const { ref: modalRef } = useResizable("lop-app:task-modal-size");
+  const { ref: modalRef } = useResizable("aipm-cockpit:task-modal-size");
 
   const effectiveTz = resolveTimezone(settings.timezone, project?.operatingTimezone);
   const today = effectiveToday(effectiveTz);
@@ -380,8 +380,8 @@ function TaskManagerInner() {
   // disabled). Surface it once so the user knows their settings won't stick.
   useEffect(() => {
     const onSettingsWriteFailed = () => showToast("error", t(lang, "settingsWriteFailed"));
-    window.addEventListener("lop-settings-write-failed", onSettingsWriteFailed);
-    return () => window.removeEventListener("lop-settings-write-failed", onSettingsWriteFailed);
+    window.addEventListener("aipm-cockpit-settings-write-failed", onSettingsWriteFailed);
+    return () => window.removeEventListener("aipm-cockpit-settings-write-failed", onSettingsWriteFailed);
   }, [showToast, lang]);
 
   // A device-sealed credential exists but couldn't be decrypted on load (corrupt
@@ -389,8 +389,8 @@ function TaskManagerInner() {
   // user once so they re-enter it rather than silently seeing it as unconfigured.
   useEffect(() => {
     const onSecretUnreadable = () => showToast("error", t(lang, "secretUnreadable"));
-    window.addEventListener("lop-secret-unreadable", onSecretUnreadable);
-    return () => window.removeEventListener("lop-secret-unreadable", onSecretUnreadable);
+    window.addEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
+    return () => window.removeEventListener("aipm-cockpit-secret-unreadable", onSecretUnreadable);
   }, [showToast, lang]);
 
   // Observable copy of the portfolio registry. The storage hook persists the

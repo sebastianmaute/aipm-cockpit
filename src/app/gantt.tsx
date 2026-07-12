@@ -92,10 +92,10 @@ export function GanttPanel({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const didInitialScroll = useRef(false);
-  const { ref: ganttRef, reset: resetGanttSize } = useResizable("lop-app:gantt-size");
+  const { ref: ganttRef, reset: resetGanttSize } = useResizable("aipm-cockpit:gantt-size");
 
   // --- resizable task-name (left gutter) column, persisted per-device -------
-  const NAME_COL_KEY = "lop-app:gantt-namecol";
+  const NAME_COL_KEY = "aipm-cockpit:gantt-namecol";
   const [nameColWidth, setNameColWidth] = useState<number>(() => {
     try {
       const raw = window.localStorage.getItem(NAME_COL_KEY);

@@ -1,5 +1,5 @@
 // Per-device custom color-scheme library (mirrors saved-views.ts). Out of
-// exports/Turso; auto-cleared by clearAppConfig's lop-app:* sweep. Untrusted
+// exports/Turso; auto-cleared by clearAppConfig's aipm-cockpit:* sweep. Untrusted
 // input (localStorage + imported JSON) is validated: colors must be hex, the
 // logo/favicon re-run through sanitizeBranding, unknown token keys are dropped.
 import { type BrandingConfig, sanitizeBranding } from "./settings-types";
@@ -23,7 +23,7 @@ export interface SchemeStore {
   activeId: string | null;
 }
 
-const KEY = "lop-app:color-schemes";
+const KEY = "aipm-cockpit:color-schemes";
 const MAX_SCHEMES = 30;
 const NAME_MAX = 60;
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;

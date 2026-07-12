@@ -110,7 +110,7 @@ export function ChangeReportPanel({ lang, items, embedded = false }: Props) {
   const pending = useMemo(() => items.filter((c) => isPendingChange(c.status)).length, [items]);
 
   // Resizable card
-  const { ref, reset } = useResizable("lop-app:change-report-size");
+  const { ref, reset } = useResizable("aipm-cockpit:change-report-size");
 
   // Column-resize hooks — always called (hooks must not be conditional)
   const typeCols = useColumnResize<TypeCol>("changeReportType", TYPE_COL_WIDTHS);

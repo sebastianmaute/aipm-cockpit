@@ -76,7 +76,7 @@ export function PortfolioHealthPanel({
     holidaySet,
     workdayHours,
   );
-  const { ref: paneRef, reset: resetSize } = useResizable("lop-app:portfolio-health-size");
+  const { ref: paneRef, reset: resetSize } = useResizable("aipm-cockpit:portfolio-health-size");
 
   if (!tursoConfig) {
     return (

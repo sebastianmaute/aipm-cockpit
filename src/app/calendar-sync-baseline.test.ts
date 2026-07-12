@@ -23,7 +23,7 @@ describe("calendar-sync-baseline", () => {
     expect(loadBaseline("p1", "milestone")).toEqual({ e1: "2026-03-01", e2: "2026-03-05" });
   });
   it("tolerates malformed storage (returns empty)", () => {
-    window.localStorage.setItem("lop-app:calendar-sync-baseline", "{not json");
+    window.localStorage.setItem("aipm-cockpit:calendar-sync-baseline", "{not json");
     expect(readBaselineDate("p1", "milestone", "e1")).toBeUndefined();
   });
 });

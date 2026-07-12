@@ -34,7 +34,7 @@ export function greetingName(assignee: string): string {
   return trimmed.split(/\s+/)[0];
 }
 
-const CONTACTS_KEY = "lop-app:contacts";
+const CONTACTS_KEY = "aipm-cockpit:contacts";
 const CONTACTS_MAX = 500;
 
 export type Contact = {

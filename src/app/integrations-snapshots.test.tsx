@@ -73,7 +73,7 @@ describe("IntegrationsSection snapshot controls", () => {
       select.dispatchEvent(new Event("change", { bubbles: true }));
       fireEvent.click(getByText("Save & switch portfolio"));
 
-      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      const persisted = JSON.parse(window.localStorage.getItem("aipm-cockpit:settings") ?? "{}");
       expect(persisted.storageConfig?.kind).toBe("turso");
       expect(reloadSpy).toHaveBeenCalledTimes(1);
     } finally {
@@ -111,7 +111,7 @@ describe("IntegrationsSection snapshot controls", () => {
       select.dispatchEvent(new Event("change", { bubbles: true }));
       fireEvent.click(getByText("Save & switch portfolio"));
 
-      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      const persisted = JSON.parse(window.localStorage.getItem("aipm-cockpit:settings") ?? "{}");
       expect(persisted.storageConfig?.kind).toBe("local-json");
       expect(reloadSpy).toHaveBeenCalledTimes(1);
     } finally {

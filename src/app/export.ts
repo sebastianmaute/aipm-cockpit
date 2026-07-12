@@ -47,7 +47,7 @@ const MIME: Record<Exclude<ExportFormat, "pdf">, string> = {
 
 function defaultFilename(format: ExportFormat): string {
   const today = new Date().toISOString().slice(0, 10);
-  return `lop-tasks-${today}.${EXT[format]}`;
+  return `aipm-cockpit-tasks-${today}.${EXT[format]}`;
 }
 
 /**

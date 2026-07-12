@@ -38,7 +38,7 @@ export const KV_STAKEHOLDERS_KEY = "stakeholders";
 export const KV_PROJECT_KEY = "project";
 
 async function openIdb(): Promise<IDBDatabase> {
-  await ensureStorageMigrated(); // rename legacy lop-app* storage before first open
+  await ensureStorageMigrated(); // migrate legacy storage namespace before first open
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === "undefined") {
       reject(new Error("IndexedDB unavailable"));

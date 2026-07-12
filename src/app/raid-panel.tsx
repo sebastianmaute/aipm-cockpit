@@ -396,7 +396,7 @@ function RaidPanelBody({
     RAID_COL_WIDTHS,
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
-  const { ref: raidRef, reset: resetRaidSize } = useResizable("lop-app:raid-size");
+  const { ref: raidRef, reset: resetRaidSize } = useResizable("aipm-cockpit:raid-size");
 
   const filtersActive =
     search.trim() !== "" ||

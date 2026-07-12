@@ -10,7 +10,7 @@ import { loadSchemesAsync } from "./color-schemes-store";
 import { activeSchemeOf, reconcileBuiltins } from "./builtin-schemes";
 import type { TursoConfig } from "./turso-config";
 
-const SCHEME_CHANGE_EVENT = "lop-scheme-change";
+const SCHEME_CHANGE_EVENT = "aipm-cockpit-scheme-change";
 
 export interface UseColorSchemesArgs {
   config: TursoConfig | null;

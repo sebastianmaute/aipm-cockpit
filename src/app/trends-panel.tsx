@@ -80,7 +80,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
   const { displayTz } = useDisplayTimezone();
   const confirm = useConfirm();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  const { ref, reset } = useResizable("lop-app:trends-size");
+  const { ref, reset } = useResizable("aipm-cockpit:trends-size");
   const varianceResize = useColumnResize<VarianceCol>("trends-variance", VARIANCE_COL_WIDTHS);
   const snapshotResize = useColumnResize<SnapshotCol>("trends-snapshots", SNAPSHOT_COL_WIDTHS);
   const varianceStartResize = varianceResize.startColResize as (col: string, e: React.MouseEvent) => void;

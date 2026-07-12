@@ -22,7 +22,7 @@ describe("reminder-snooze store", () => {
     expect(getSnoozedUntil("jiraToken")).toBeNull();
   });
   it("returns null for invalid stored values", () => {
-    window.localStorage.setItem("lop-app:reminder-snooze:jiraToken", "nope");
+    window.localStorage.setItem("aipm-cockpit:reminder-snooze:jiraToken", "nope");
     expect(getSnoozedUntil("jiraToken")).toBeNull();
   });
   it("exposes hour + day durations", () => {

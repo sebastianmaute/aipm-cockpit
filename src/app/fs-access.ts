@@ -35,17 +35,17 @@ const PICK_OPTS: Record<
 > = {
   json: {
     id: "lopfile_json",
-    suggestedName: "lop-app-tasks.json",
+    suggestedName: "aipm-cockpit-tasks.json",
     types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
   },
   csv: {
     id: "lopfile_csv",
-    suggestedName: "lop-app-tasks.csv",
+    suggestedName: "aipm-cockpit-tasks.csv",
     types: [{ description: "CSV", accept: { "text/csv": [".csv"] } }],
   },
   md: {
     id: "lopfile_md",
-    suggestedName: "lop-app-tasks.md",
+    suggestedName: "aipm-cockpit-tasks.md",
     types: [
       {
         description: "Markdown",

@@ -137,7 +137,7 @@ describe("openPopoutWindow", () => {
     expect(mockOpen).toHaveBeenCalledOnce();
     expect(mockOpen).toHaveBeenCalledWith(
       expect.stringContaining("?popout=gantt"),
-      "lop-popout-gantt",
+      "aipm-cockpit-popout-gantt",
       "popup=yes,width=1200,height=800",
     );
     mockOpen.mockRestore();

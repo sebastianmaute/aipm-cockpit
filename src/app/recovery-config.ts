@@ -11,14 +11,14 @@ import { type Lang, migrateLang } from "./i18n";
 // Literal copies of the real key names (asserted equal to the source consts in
 // recovery-config.test.ts, so they can't drift). Kept literal so this pure
 // module doesn't import the React-bearing use-settings/portfolio-mode modules.
-const SETTINGS_KEY = "lop-app:settings";
-const MODE_KEY = "lop-app:portfolio-mode";
-const CURRENT_TURSO_PROJECT_KEY = "lop-app:turso-current-project";
+const SETTINGS_KEY = "aipm-cockpit:settings";
+const MODE_KEY = "aipm-cockpit:portfolio-mode";
+const CURRENT_TURSO_PROJECT_KEY = "aipm-cockpit:turso-current-project";
 
 export const CONFIG_KEYS = [SETTINGS_KEY, MODE_KEY, CURRENT_TURSO_PROJECT_KEY] as const;
 
-const BACKUP_PREFIX = "lop-app:recovery-backup:";
-const INDEX_KEY = "lop-app:recovery-backups";
+const BACKUP_PREFIX = "aipm-cockpit:recovery-backup:";
+const INDEX_KEY = "aipm-cockpit:recovery-backups";
 const REDACTED = "***REDACTED***";
 
 export interface BackupMeta {
