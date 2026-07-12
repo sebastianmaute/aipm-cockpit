@@ -2441,6 +2441,8 @@ export const de: Record<TranslationKey, string> = {
   reportVersionAuto: "automatisch",
   reportVersionManual: "gespeichert",
   reportDiff: "Vergleichen",
+  reportDiffCurrent: "Aktuell",
+  reportDiffVersion: "Diese Version",
   committeePushError: "Erinnerungen konnten nicht an Outlook gesendet werden.",
   // --- Guided tour (SP-F) ---
   tourLaunch: "Tour starten",

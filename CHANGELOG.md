@@ -8,6 +8,14 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.181.1] - 2026-07-12 "Anderson"
+
+### Compare report versions
+
+- **Diff view:** in a meeting's status-report editor, each version now has a **Compare** button that
+  shows a line-by-line diff of the current report against that version's snapshot (added lines marked
+  "Current", removed lines "This version"). Turso-only, alongside the existing restore.
+
 ## [0.181.0] - 2026-07-11 "Anderson"
 
 ### AI status reports for steering-committee meetings
