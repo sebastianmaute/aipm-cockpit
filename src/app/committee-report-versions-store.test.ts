@@ -19,6 +19,10 @@ describe("committee-report-versions-store", () => {
     const insert = stmts.find((s: { sql: string }) => /INSERT INTO committee_report_versions/i.test(s.sql));
     expect(insert).toBeTruthy();
     expect(insert.args.map((a: { value: string }) => a.value)).toEqual(["r-v-1", "p", "3", "<p>b</p>", "0", "t"]);
+    // ...and prunes older snapshots beyond the per-meeting cap (25) in the same pipeline.
+    const prune = stmts.find((s: { sql: string }) => /DELETE FROM committee_report_versions WHERE project_id = \? AND meeting_id = \? AND id NOT IN/i.test(s.sql));
+    expect(prune).toBeTruthy();
+    expect(prune.args.map((a: { value: string }) => a.value)).toEqual(["p", "3", "p", "3", "25"]);
   });
   it("deleteVersion prepends DDL and deletes by id", async () => {
     await deleteVersion(cfg, "r-v-1");

@@ -35,6 +35,19 @@ export function deleteVersionStatements(id: string): SqlStmt[] {
   return [{ sql: `DELETE FROM committee_report_versions WHERE id = ?`, args: [txt(id)] }];
 }
 
+/** Retention cap: keep at most this many report snapshots per meeting (oldest
+ *  pruned on each new save). Reports rarely see many edits, so a fixed cap is
+ *  enough — no user-facing knob (unlike the workspace version history). */
+export const MEETING_REPORT_VERSION_CAP = 25;
+
+/** Delete all but the newest `keep` snapshots for one meeting (by captured_at). */
+export function pruneVersionsStatements(projectId: string, meetingId: number, keep: number): SqlStmt[] {
+  return [{
+    sql: `DELETE FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? AND id NOT IN (SELECT id FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? ORDER BY captured_at DESC LIMIT ?)`,
+    args: [txt(projectId), int(meetingId), txt(projectId), int(meetingId), int(keep)],
+  }];
+}
+
 function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
   const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
   const rows = res?.response?.result?.rows ?? [];
