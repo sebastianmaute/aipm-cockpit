@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, MOCKUP_SEED, resolveSchemeColors } from "./scheme-tokens";
@@ -10,11 +10,17 @@ import {
   loadSchemes, addScheme, updateScheme, removeScheme,
   exportScheme, importScheme, type SchemeStore,
 } from "./color-schemes";
+import { loadSchemesAsync, saveSchemesAsync } from "./color-schemes-store";
 import { reconcileBuiltins } from "./builtin-schemes";
+import { BrandingImageInput } from "./branding-image-input";
 import type { BrandingConfig } from "./settings-types";
+import type { TursoConfig } from "./turso-config";
 
 interface ColorSchemeEditorProps {
   lang: Lang;
+  /** Turso config → persist the user library to the cross-device DB (else the
+   *  localStorage cache only). */
+  config: TursoConfig | null;
   /** Live-preview the edited colors (transient; persisted schemes go through the
    *  store + onSchemeChange). */
   onApply: (resolved: SchemeColorMap) => void;
@@ -30,11 +36,35 @@ interface ColorSchemeEditorProps {
 // scheme's `light` map. Built-in schemes are read-only here (Save as new to
 // customise). The parent (Appearance) owns SELECTION; this component is keyed on
 // the active id so it re-seeds when the selection changes.
-export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChange, onClear }: ColorSchemeEditorProps) {
+export function ColorSchemeEditor({ lang, config, onApply, onApplyBranding, onSchemeChange, onClear }: ColorSchemeEditorProps) {
   const [store, setStore] = useState<SchemeStore>(() => reconcileBuiltins(loadSchemes()));
   const active = store.schemes.find((s) => s.id === store.activeId) ?? null;
   const isBuiltin = !!active?.builtIn;
   const [name, setName] = useState(active?.name ?? "");
+
+  // Persist a library mutation: update the in-memory store AND mirror the user
+  // schemes to the backend (Turso DB when configured, else the localStorage cache
+  // — saveSchemesAsync handles both). Built-ins are code-owned, never persisted.
+  function persist(next: SchemeStore) {
+    setStore(next);
+    void saveSchemesAsync(config, next.schemes.filter((s) => !s.builtIn));
+  }
+
+  // DB refresh on mount: when Turso is configured, pull the cross-device user
+  // library so the editor lists what other devices saved.
+  const cfgKey = config ? config.databaseUrl : null;
+  useEffect(() => {
+    if (!config) return;
+    let cancelled = false;
+    void loadSchemesAsync(config).then((userSchemes) => {
+      if (cancelled) return;
+      setStore((prev) => reconcileBuiltins({ schemes: userSchemes, activeId: prev.activeId }));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfgKey]);
   // Seed the draft from the active scheme's light map; if none, from the
   // last-applied boot key (so an applied-but-unsaved scheme survives reload).
   const [colors, setColors] = useState<SchemeColorMap>(() => ({
@@ -51,7 +81,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
     // "clear this scheme's branding" and MUST propagate. saveNew()/import() can run
     // while a built-in is active → an empty value must NOT wipe the global
     // settings.branding (the original review HIGH), so they stay guarded.
-    if (forceBranding || b.slogan?.trim() || b.footerSlogan?.trim()) onApplyBranding?.(b);
+    if (forceBranding || b.slogan?.trim() || b.footerSlogan?.trim() || b.logo || b.favicon) onApplyBranding?.(b);
   }
   function seed(map: SchemeColorMap) {
     setColors({ ...ICC_SEED, ...map });
@@ -60,27 +90,27 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
     applyResolved(colors, branding, true);
     // Persist applied edits to the active USER scheme (built-ins are read-only).
     if (active && !isBuiltin) {
-      setStore(updateScheme(active.id, { light: colors, branding }));
+      persist(updateScheme(active.id, { light: colors, branding }));
       onSchemeChange?.();
     }
   }
   function saveNew() {
     const next = addScheme(name || t(lang, "schemeNamePlaceholder"), colors, branding);
-    setStore(next);
+    persist(next);
     setName(next.schemes[next.schemes.length - 1].name);
     applyResolved(colors, branding); // saving applies the new scheme
     onSchemeChange?.();
   }
   function rename() {
     if (!active || isBuiltin) return;
-    setStore(updateScheme(active.id, { name, light: colors, branding }));
+    persist(updateScheme(active.id, { name, light: colors, branding }));
     applyResolved(colors, branding, true);
     onSchemeChange?.();
   }
   function del() {
     if (!active || isBuiltin) return;
     const next = removeScheme(active.id);
-    setStore(next);
+    persist(next);
     setName("");
     setColors({ ...ICC_SEED });
     setBranding({});
@@ -107,7 +137,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
       if (!parsed) { setImportError(t(lang, "schemeImportError")); return; }
       setImportError(null);
       const next = addScheme(parsed.name, parsed.light, parsed.branding);
-      setStore(next);
+      persist(next);
       const s = next.schemes[next.schemes.length - 1];
       const full = { ...ICC_SEED, ...s.light };
       setName(s.name); setColors(full); setBranding(s.branding);
@@ -177,29 +207,55 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
       {/* Per-scheme branding is editable only for USER schemes; a read-only
           built-in uses the global app-name/footer inputs in AppearanceSection
           (avoids a duplicate app-name field when a built-in is active). */}
-      {!isBuiltin && (
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label className="text-xs text-muted-foreground">
-            {t(lang, "brandingAppName")}
-            <input
-              type="text"
-              maxLength={60}
-              value={branding.slogan ?? ""}
-              onChange={(e) => setBranding((b) => ({ ...b, slogan: e.target.value }))}
-              className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+      {active && !isBuiltin && (
+        <>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="text-xs text-muted-foreground">
+              {t(lang, "brandingAppName")}
+              <input
+                type="text"
+                maxLength={60}
+                value={branding.slogan ?? ""}
+                onChange={(e) => setBranding((b) => ({ ...b, slogan: e.target.value }))}
+                className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+              />
+            </label>
+            <label className="text-xs text-muted-foreground">
+              {t(lang, "brandingFooterSlogan")}
+              <input
+                type="text"
+                maxLength={120}
+                value={branding.footerSlogan ?? ""}
+                onChange={(e) => setBranding((b) => ({ ...b, footerSlogan: e.target.value }))}
+                className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+              />
+            </label>
+          </div>
+          {/* A user scheme OWNS its logo + favicon (applied via mergeAppliedBranding
+              on switch). Built-ins use the global inputs in AppearanceSection. */}
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <BrandingImageInput
+              label={t(lang, "brandingLogo")}
+              removeLabel={t(lang, "remove")}
+              value={branding.logo}
+              onChange={(logo) => setBranding((b) => ({ ...b, logo }))}
+              onRemove={() => setBranding((b) => ({ ...b, logo: undefined }))}
+              error={null}
+              invalidMessage={t(lang, "brandingLogoError")}
+              onError={(m) => setImportError(m)}
             />
-          </label>
-          <label className="text-xs text-muted-foreground">
-            {t(lang, "brandingFooterSlogan")}
-            <input
-              type="text"
-              maxLength={120}
-              value={branding.footerSlogan ?? ""}
-              onChange={(e) => setBranding((b) => ({ ...b, footerSlogan: e.target.value }))}
-              className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            <BrandingImageInput
+              label={t(lang, "brandingFavicon")}
+              removeLabel={t(lang, "remove")}
+              value={branding.favicon}
+              onChange={(favicon) => setBranding((b) => ({ ...b, favicon }))}
+              onRemove={() => setBranding((b) => ({ ...b, favicon: undefined }))}
+              error={null}
+              invalidMessage={t(lang, "brandingLogoError")}
+              onError={(m) => setImportError(m)}
             />
-          </label>
-        </div>
+          </div>
+        </>
       )}
 
       {pairs.length > 0 && (
