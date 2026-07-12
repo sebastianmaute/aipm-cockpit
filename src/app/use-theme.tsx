@@ -32,12 +32,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // This is the SOLE writer of document.documentElement.classList "dark".
   useEffect(() => {
     const apply = () => {
-      const attr = document.documentElement.getAttribute("data-style");
-      // A dark-capable custom scheme (data-scheme-dark="1") honours the theme;
-      // a light-only custom scheme pins light like mockup. Mirrors effectiveDark.
+      // Pin-light rides scheme-capability only: a dark-capable scheme
+      // (data-scheme-dark="1") honours the theme; a light-only scheme pins light.
+      // data-style is always "custom" now, so it plays no part. Mirrors effectiveDark.
       const schemeDark = document.documentElement.getAttribute("data-scheme-dark") === "1";
-      const pinsLight = attr === "mockup" || (attr === "custom" && !schemeDark);
-      const dark = !pinsLight && resolveTheme(theme, prefersDark()) === "dark";
+      const dark = schemeDark && resolveTheme(theme, prefersDark()) === "dark";
       document.documentElement.classList.toggle("dark", dark);
       // Notify the style layer to re-resolve the active scheme's light/dark map.
       window.dispatchEvent(new Event("lop-theme-change"));
