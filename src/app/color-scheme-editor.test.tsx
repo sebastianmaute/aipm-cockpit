@@ -37,6 +37,19 @@ describe("ColorSchemeEditor", () => {
     expect(loadSchemes().schemes.some((s) => s.name === "Acme Blue")).toBe(true);
   });
 
+  it("hides per-scheme branding fields for a read-only built-in (no duplicate app-name)", () => {
+    // Fresh store → Harbor (built-in) active; the global app-name input in
+    // AppearanceSection covers built-ins, so the editor must not also show one.
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
+    expect(screen.queryByLabelText("App name")).not.toBeInTheDocument();
+  });
+
+  it("shows per-scheme branding fields for an editable user scheme", () => {
+    addScheme("Draft", { "--AIPM-green": "#000000" }, {}); // user scheme active
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
+    expect(screen.getByLabelText("App name")).toBeInTheDocument();
+  });
+
   it("marks the active built-in scheme read-only (rename/delete disabled)", () => {
     // Fresh store → Harbor (built-in) is the active scheme.
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);

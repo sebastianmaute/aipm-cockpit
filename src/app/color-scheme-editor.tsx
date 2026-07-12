@@ -170,28 +170,33 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
         </div>
       </details>
 
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label className="text-xs text-muted-foreground">
-          {t(lang, "brandingAppName")}
-          <input
-            type="text"
-            maxLength={60}
-            value={branding.slogan ?? ""}
-            onChange={(e) => setBranding((b) => ({ ...b, slogan: e.target.value }))}
-            className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
-          />
-        </label>
-        <label className="text-xs text-muted-foreground">
-          {t(lang, "brandingFooterSlogan")}
-          <input
-            type="text"
-            maxLength={120}
-            value={branding.footerSlogan ?? ""}
-            onChange={(e) => setBranding((b) => ({ ...b, footerSlogan: e.target.value }))}
-            className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
-          />
-        </label>
-      </div>
+      {/* Per-scheme branding is editable only for USER schemes; a read-only
+          built-in uses the global app-name/footer inputs in AppearanceSection
+          (avoids a duplicate app-name field when a built-in is active). */}
+      {!isBuiltin && (
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="text-xs text-muted-foreground">
+            {t(lang, "brandingAppName")}
+            <input
+              type="text"
+              maxLength={60}
+              value={branding.slogan ?? ""}
+              onChange={(e) => setBranding((b) => ({ ...b, slogan: e.target.value }))}
+              className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            />
+          </label>
+          <label className="text-xs text-muted-foreground">
+            {t(lang, "brandingFooterSlogan")}
+            <input
+              type="text"
+              maxLength={120}
+              value={branding.footerSlogan ?? ""}
+              onChange={(e) => setBranding((b) => ({ ...b, footerSlogan: e.target.value }))}
+              className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            />
+          </label>
+        </div>
+      )}
 
       {pairs.length > 0 && (
         <ul className="mt-3 space-y-1 text-xs">
