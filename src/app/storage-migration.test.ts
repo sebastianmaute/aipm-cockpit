@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, it, expect, beforeEach } from "vitest";
-import { migrateLocalStorage, migrateIndexedDb } from "./storage-migration";
+import { migrateLocalStorage, migrateIndexedDb, legacyDeviceKeyPending } from "./storage-migration";
 
 describe("migrateLocalStorage", () => {
   beforeEach(() => localStorage.clear());
@@ -192,6 +192,16 @@ describe("migrateIndexedDb", () => {
     const nw = await openDb("aipm-cockpit", "kv");
     expect(await get(nw, "kv", "workspace")).toEqual({ hello: "ff" });
     nw.close();
+  });
+
+  it("legacyDeviceKeyPending: true only while the legacy secrets DB still holds a key", async () => {
+    expect(await legacyDeviceKeyPending()).toBe(false); // absent
+    const old = await openDb("lop-app-secrets", "keys");
+    await put(old, "keys", "device", "OLD-KEY");
+    old.close();
+    expect(await legacyDeviceKeyPending()).toBe(true); // legacy key present → block minting
+    await deleteDb("lop-app-secrets");
+    expect(await legacyDeviceKeyPending()).toBe(false); // gone → minting allowed
   });
 
   it("sets the completion flag after a clean run and then short-circuits", async () => {

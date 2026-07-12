@@ -4,13 +4,17 @@
 const LEGACY_LS_PREFIX = "lop-app:";
 const NEW_LS_PREFIX = "aipm-cockpit:";
 
-const NONPREFIXED_LS: Readonly<Record<string, string>> = {
+// Exported so layout-boot-script.test can assert the pre-paint boot IIFE (which
+// duplicates this rename, since it can't import this module) stays in lockstep.
+export const NONPREFIXED_LS: Readonly<Record<string, string>> = {
   "lop-style": "aipm-cockpit-style",
   "lop-theme": "aipm-cockpit-theme",
   "lop-active-scheme-colors": "aipm-cockpit-active-scheme-colors",
   "lop-active-scheme-structural": "aipm-cockpit-active-scheme-structural",
   "lop-scheme-supports-dark": "aipm-cockpit-scheme-supports-dark",
 };
+
+const LEGACY_SECRETS_DB = "lop-app-secrets";
 
 export const IDB_DB_RENAMES: ReadonlyArray<readonly [string, string]> = [
   ["lop-app-secrets", "aipm-cockpit-secrets"],
@@ -213,6 +217,27 @@ export async function migrateIndexedDb(): Promise<void> {
   }
   if (allDone) {
     try { localStorage.setItem(IDB_MIGRATED_FLAG, "1"); } catch { /* storage off */ }
+  }
+}
+
+// True when the legacy device-key DB (`lop-app-secrets`) still holds a key — i.e.
+// its copy-migration has NOT completed. `secrets.ts` consults this before minting
+// a NEW device key: `ensureStorageMigrated()` resolves even on a partial IDB
+// failure, so without this a failed first-boot secrets copy would let secrets.ts
+// mint a fresh key that can't decrypt the (already-renamed) ciphertext, and the
+// next boot's count check would then DELETE the un-copied original key —
+// irreversible. Returning true makes secrets.ts degrade (stay locked, retry on
+// reload) instead. Probing opens the legacy DB; an absent one is auto-created as
+// an empty shell (0 stores), which we delete.
+export async function legacyDeviceKeyPending(): Promise<boolean> {
+  if (typeof indexedDB === "undefined") return false;
+  try {
+    const dump = await dumpDb(LEGACY_SECRETS_DB);
+    if (dump === null) return false;                        // unreadable → don't block minting
+    if (dump.length === 0) { await deleteDb(LEGACY_SECRETS_DB); return false; } // never existed
+    return countRecords(dump) > 0;
+  } catch {
+    return false;
   }
 }
 

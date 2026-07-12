@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
+import { NONPREFIXED_LS } from "./storage-migration";
 import { resolveSchemeColors } from "./scheme-tokens";
 import { HARBOR_DARK, HARBOR_LIGHT } from "./builtin-schemes";
 
@@ -12,7 +13,14 @@ describe("no-flash boot script — source shape (pinned)", () => {
     // mirrors storage-migration.migrateLocalStorage (can't import here — IIFE string)
     expect(src).toContain('indexOf("lop-app:")');
     expect(src).toContain('"aipm-cockpit:"+');
-    expect(src).toContain('mv("lop-style","aipm-cockpit-style")');
+  });
+  it("boot rename covers EVERY NONPREFIXED_LS pair (lockstep with storage-migration)", () => {
+    // a future 6th non-prefixed key must be added to the boot IIFE too, or its
+    // pre-paint value silently fails to migrate. (normalizeRecoveryBackups is
+    // deliberately NOT duplicated here — recovery isn't read pre-paint.)
+    for (const [oldK, newK] of Object.entries(NONPREFIXED_LS)) {
+      expect(src).toContain(`mv("${oldK}","${newK}")`);
+    }
   });
   it("reads aipm-cockpit-style and ALWAYS sets data-style to custom", () => {
     expect(src).toContain('localStorage.getItem("aipm-cockpit-style")');
