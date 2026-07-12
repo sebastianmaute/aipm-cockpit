@@ -191,7 +191,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
             </span>
             <BrandingImageInput
               label={t(lang, "brandingLogoChoose")}
-              removeLabel={t(lang, "brandingLogoRemove")}
+              removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingLogo")}`}
               value={branding?.logo}
               onChange={(logo) => { setLogoError(null); setBranding({ ...branding, logo }); }}
               onRemove={() => { setLogoError(null); setBranding({ ...branding, logo: undefined }); }}
@@ -209,7 +209,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
             </span>
             <BrandingImageInput
               label={t(lang, "brandingFaviconChoose")}
-              removeLabel={t(lang, "brandingLogoRemove")}
+              removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingFavicon")}`}
               value={branding?.favicon}
               onChange={(favicon) => { setFaviconError(null); setBranding({ ...branding, favicon }); }}
               onRemove={() => { setFaviconError(null); setBranding({ ...branding, favicon: undefined }); }}

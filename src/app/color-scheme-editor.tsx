@@ -250,7 +250,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <BrandingImageInput
               label={t(lang, "brandingLogo")}
-              removeLabel={t(lang, "remove")}
+              removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingLogo")}`}
               value={branding.logo}
               onChange={(logo) => setBranding((b) => ({ ...b, logo }))}
               onRemove={() => setBranding((b) => ({ ...b, logo: undefined }))}
@@ -260,7 +260,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
             />
             <BrandingImageInput
               label={t(lang, "brandingFavicon")}
-              removeLabel={t(lang, "remove")}
+              removeLabel={`${t(lang, "remove")} – ${t(lang, "brandingFavicon")}`}
               value={branding.favicon}
               onChange={(favicon) => setBranding((b) => ({ ...b, favicon }))}
               onRemove={() => setBranding((b) => ({ ...b, favicon: undefined }))}
