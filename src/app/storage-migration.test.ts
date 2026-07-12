@@ -38,6 +38,22 @@ describe("migrateLocalStorage", () => {
     migrateLocalStorage();
     expect(localStorage.getItem("aipm-cockpit:settings")).toBe("NEW");
   });
+
+  it("normalizes the NESTED lop-app: in recovery-backup keys and the index blob", () => {
+    // A pre-upgrade recovery backup: leading prefix + a nested config-key prefix.
+    localStorage.setItem('lop-app:recovery-backup:123:lop-app:settings', '{"a":1}');
+    localStorage.setItem(
+      "lop-app:recovery-backups",
+      JSON.stringify([{ id: "123", at: "x", keys: ["lop-app:settings"] }]),
+    );
+    migrateLocalStorage();
+    // value key fully renamed — nested segment too, so restore hits a live key
+    expect(localStorage.getItem("aipm-cockpit:recovery-backup:123:aipm-cockpit:settings")).toBe('{"a":1}');
+    expect(localStorage.getItem("lop-app:recovery-backup:123:lop-app:settings")).toBeNull();
+    // index blob keys[] rewritten to the new namespace
+    const idx = JSON.parse(localStorage.getItem("aipm-cockpit:recovery-backups") ?? "[]");
+    expect(idx[0].keys).toEqual(["aipm-cockpit:settings"]);
+  });
 });
 
 function openDb(name: string, store: string): Promise<IDBDatabase> {

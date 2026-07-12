@@ -29,6 +29,30 @@ function moveKey(oldKey: string, newKey: string): void {
   localStorage.removeItem(oldKey);
 }
 
+// Recovery backups embed a NESTED legacy prefix that the leading-prefix rename
+// misses: the value key is `<newprefix>recovery-backup:<id>:lop-app:settings`
+// and the index blob's `keys[]` still hold `lop-app:*`. Left as-is, a
+// pre-upgrade backup restores into a dead `lop-app:*` key (silent no-op). Fix
+// both by replacing EVERY remaining `lop-app:` occurrence. Idempotent.
+function normalizeRecoveryBackups(): void {
+  const RECOVERY_MARK = ":recovery-backup:";
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k) keys.push(k);
+  }
+  for (const k of keys) {
+    if (k.includes(RECOVERY_MARK) && k.includes(LEGACY_LS_PREFIX)) {
+      moveKey(k, k.split(LEGACY_LS_PREFIX).join(NEW_LS_PREFIX));
+    }
+  }
+  const idxKey = NEW_LS_PREFIX + "recovery-backups";
+  const raw = localStorage.getItem(idxKey);
+  if (raw && raw.includes(LEGACY_LS_PREFIX)) {
+    localStorage.setItem(idxKey, raw.split(LEGACY_LS_PREFIX).join(NEW_LS_PREFIX));
+  }
+}
+
 export function migrateLocalStorage(): void {
   try {
     const keys: string[] = [];
@@ -44,6 +68,7 @@ export function migrateLocalStorage(): void {
     for (const oldKey of Object.keys(NONPREFIXED_LS)) {
       moveKey(oldKey, NONPREFIXED_LS[oldKey]);
     }
+    normalizeRecoveryBackups();
   } catch {
     // private-mode / quota / disabled storage — never throw at boot
   }
