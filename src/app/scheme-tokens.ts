@@ -128,5 +128,7 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
 }
 
 export function resolveSchemeColors(colors: SchemeColorMap): SchemeColorMap {
-  return { ...colors, ...deriveAaVariants(colors) };
+  // base-wins: derivation FILLS the AA variants a scheme omits; an explicitly
+  // pinned -strong/-text/muted-foreground (built-in AIPM/Mockup) is preserved.
+  return { ...deriveAaVariants(colors), ...colors };
 }

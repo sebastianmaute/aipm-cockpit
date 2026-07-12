@@ -37,6 +37,18 @@ describe("scheme-tokens", () => {
     expect(resolved["--AIPM-green-strong"]).toBeDefined();
   });
 
+  it("resolveSchemeColors: an explicit base derived token wins over derivation", () => {
+    // LIGHT surface-muted: #84bd00 fails AA vs white, so derivation WOULD darken
+    // it. Pinning the raw base proves base-wins (else derived darkens it).
+    const out = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface-muted": "#ffffff", "--AIPM-green-strong": "#84bd00" });
+    expect(out["--AIPM-green-strong"]).toBe("#84bd00"); // pinned, NOT re-derived/darkened
+  });
+
+  it("resolveSchemeColors: missing derived tokens are still filled", () => {
+    const out = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface-muted": "#e3e6e6" });
+    expect(out["--AIPM-green-strong"]).toBeDefined();
+  });
+
   it("LIGHT map: derived text variants clear AA vs the light surface AND are darker than the base", () => {
     const light = "#ffffff";
     const colors = {
