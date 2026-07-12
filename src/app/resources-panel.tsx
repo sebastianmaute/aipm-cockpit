@@ -188,7 +188,7 @@ function ResourcesPanelInner({
     rollup.resetColWidths();
   };
 
-  const { ref: resRef, reset: resetResSize } = useResizable(`lop-app:${view}-size`);
+  const { ref: resRef, reset: resetResSize } = useResizable(`aipm-cockpit:${view}-size`);
 
   const [showRollup, setShowRollup] = useState(false);
   // Planning-only: hide external resources from the grid + rollup (view-local).

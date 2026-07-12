@@ -4,7 +4,7 @@
 // vice versa.
 //
 // Design:
-// - One channel per origin (`lop-app:sync`). Each instance generates a
+// - One channel per origin (`aipm-cockpit:sync`). Each instance generates a
 //   `clientId` at first message and tags every outgoing message with it,
 //   so we can ignore our own echoes on read.
 // - Each state slice is identified by a `kind` (`"tasks"`, `"raid"`, ...).
@@ -18,7 +18,7 @@
 import { useEffect, useRef } from "react";
 import type { AppView } from "./nav-config";
 
-const CHANNEL_NAME = "lop-app:sync";
+const CHANNEL_NAME = "aipm-cockpit:sync";
 
 type SyncMessage<T> = {
   clientId: string;
@@ -159,6 +159,6 @@ export function openPopoutWindow(tab: PopoutTab, reuseWindow = false): void {
     return;
   }
   const url = `${window.location.pathname}?popout=${encodeURIComponent(tab)}`;
-  const win = window.open(url, `lop-popout-${tab}`, "popup=yes,width=1200,height=800");
+  const win = window.open(url, `aipm-cockpit-popout-${tab}`, "popup=yes,width=1200,height=800");
   if (win) _popoutWindowRef = win;
 }

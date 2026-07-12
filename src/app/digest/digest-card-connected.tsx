@@ -63,7 +63,7 @@ export function DigestCardConnected({
     fireNotification: (title, body) => {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         try {
-          new Notification(title, { body, tag: "lop-digest" });
+          new Notification(title, { body, tag: "aipm-cockpit-digest" });
         } catch {
           /* notification construction can throw on some platforms — non-fatal */
         }

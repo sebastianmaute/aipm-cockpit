@@ -35,7 +35,7 @@ describe("color-schemes-store", () => {
 
   it("no config → load reads localStorage, upsert/delete no-op, no pipeline", async () => {
     localStorage.setItem(
-      "lop-app:color-schemes",
+      "aipm-cockpit:color-schemes",
       JSON.stringify({ schemes: [scheme("u-1")], activeId: "u-1" }),
     );
     const back = await loadSchemesAsync(null);
@@ -83,7 +83,7 @@ describe("color-schemes-store", () => {
 
   it("migration MERGES local-only schemes into a NON-empty DB (additive, dedupe by id)", async () => {
     localStorage.setItem(
-      "lop-app:color-schemes",
+      "aipm-cockpit:color-schemes",
       JSON.stringify({ schemes: [scheme("u-1"), scheme("u-2")], activeId: "u-1" }),
     );
     runTursoPipeline
@@ -103,7 +103,7 @@ describe("color-schemes-store", () => {
 
   it("no local-only schemes → no migration write, returns the DB set", async () => {
     localStorage.setItem(
-      "lop-app:color-schemes",
+      "aipm-cockpit:color-schemes",
       JSON.stringify({ schemes: [scheme("u-1")], activeId: "u-1" }),
     );
     runTursoPipeline.mockResolvedValueOnce([

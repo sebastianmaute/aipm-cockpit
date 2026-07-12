@@ -1,9 +1,9 @@
 // Per-device dismiss state for the contextual per-view callouts (Help SP2).
 // NOT workspace data: a single localStorage key, out of exports/Turso, cleared
-// by clearAppConfig's `lop-app:*` sweep. Popout windows are read-only and never
+// by clearAppConfig's `aipm-cockpit:*` sweep. Popout windows are read-only and never
 // persist. Pure + defensive: a malformed/absent store yields no dismissals.
 
-const KEY = "lop-app:view-hints";
+const KEY = "aipm-cockpit:view-hints";
 
 type ViewHintsState = { dismissed: Record<string, true> };
 

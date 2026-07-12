@@ -7,18 +7,19 @@
 // redacted). All localStorage access is guarded; nothing throws to callers.
 
 import { type Lang, migrateLang } from "./i18n";
+import { migrateLocalStorage } from "./storage-migration";
 
 // Literal copies of the real key names (asserted equal to the source consts in
 // recovery-config.test.ts, so they can't drift). Kept literal so this pure
 // module doesn't import the React-bearing use-settings/portfolio-mode modules.
-const SETTINGS_KEY = "lop-app:settings";
-const MODE_KEY = "lop-app:portfolio-mode";
-const CURRENT_TURSO_PROJECT_KEY = "lop-app:turso-current-project";
+const SETTINGS_KEY = "aipm-cockpit:settings";
+const MODE_KEY = "aipm-cockpit:portfolio-mode";
+const CURRENT_TURSO_PROJECT_KEY = "aipm-cockpit:turso-current-project";
 
 export const CONFIG_KEYS = [SETTINGS_KEY, MODE_KEY, CURRENT_TURSO_PROJECT_KEY] as const;
 
-const BACKUP_PREFIX = "lop-app:recovery-backup:";
-const INDEX_KEY = "lop-app:recovery-backups";
+const BACKUP_PREFIX = "aipm-cockpit:recovery-backup:";
+const INDEX_KEY = "aipm-cockpit:recovery-backups";
 const REDACTED = "***REDACTED***";
 
 export interface BackupMeta {
@@ -88,6 +89,7 @@ export function restoreConfig(id: string): boolean {
   const store = ls();
   if (!store) return false;
   try {
+    migrateLocalStorage(); // normalize any pre-upgrade lop-app: backup keys first
     const entry = readIndex(store).find((b) => b.id === id);
     if (!entry) return false;
     for (const key of entry.keys) {
@@ -104,6 +106,7 @@ export function restoreConfig(id: string): boolean {
 export function listBackups(): BackupMeta[] {
   const store = ls();
   if (!store) return [];
+  migrateLocalStorage(); // normalize any pre-upgrade lop-app: backup index first
   return readIndex(store);
 }
 

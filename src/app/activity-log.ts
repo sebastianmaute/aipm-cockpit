@@ -151,7 +151,7 @@ function sanitizeChanges(v: unknown): readonly FieldChange[] | undefined {
   return v.slice(0, MAX_FIELD_CHANGES) as FieldChange[];
 }
 
-const ACTIVITY_STORAGE_KEY = "lop-app:activity-log";
+const ACTIVITY_STORAGE_KEY = "aipm-cockpit:activity-log";
 const ACTIVITY_MAX_ENTRIES = 500;
 
 /** Maps each kind to the translation key whose template formats the entry. */

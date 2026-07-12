@@ -83,7 +83,7 @@ prerendered.
 ## Responsive layout (modern mode)
 
 - **Desktop** — Sidebar always visible (w-64), toggle button in top bar
-- **Tablet/mobile** — Sidebar collapse via `useMediaQuery('(max-width: 768px)')` + `useSidebarCollapsed()` hook stores preference in `lop-app:sidebar-collapsed`
+- **Tablet/mobile** — Sidebar collapse via `useMediaQuery('(max-width: 768px)')` + `useSidebarCollapsed()` hook stores preference in `aipm-cockpit:sidebar-collapsed`
 - **Sidebar** — w-64 expanded, w-16 collapsed; animated transition; footer shrinks/expands
 
 ## State (all in TaskManager)
@@ -94,8 +94,8 @@ prerendered.
 | `rolesModalOpen` | Roles & rates manager modal open/close (see `use-resource-planner.ts`) |
 | `tasksRef.current` | Hand-mirrored copy of `tasks` for stable closures in `dispatcher` |
 | `settings: Settings` | Language, holiday countries, Jira, AI, notifications. Persisted to `localStorage` (`SETTINGS_KEY`); **layout** field: `"modern" \| "classic"` |
-| `contacts: ContactsMap` | Assignee↔email address book; persisted to `lop-app:contacts` |
-| `activityLog: ActivityEntry[]` | Up to 500 most recent CRUD events; persisted to `lop-app:activity-log` |
+| `contacts: ContactsMap` | Assignee↔email address book; persisted to `aipm-cockpit:contacts` |
+| `activityLog: ActivityEntry[]` | Up to 500 most recent CRUD events; persisted to `aipm-cockpit:activity-log` |
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
@@ -331,15 +331,15 @@ prerendered.
 | `project-validation.ts` | Pure `ProjectDraft` type + `validateProjectMeta` / `hasProjectErrors` (i18n message keys per field) — single source for submit, display, and Save gating (mirrors task-validation) | Pure; 0.58.0+ |
 | `project-options.ts` | Static option sets: identity types (B2E/B2B/B2C/NHI), deployments, regulatory requirements + lookup sets | Pure; 0.58.0+ |
 | `nace-sections.ts` | Static `NACE_SECTIONS` list (NACE Rev 2.1 industry sections A–U) | Pure; 0.58.0+ |
-| `projects-registry.ts` | Pure registry core (`addProject`/`removeProject`/`setCurrentProject`/… immutable, id-supplied) + guarded localStorage IO (`lop-app:projects`); file-mode source of truth | Pure + IO; 0.58.0+ |
-| `project-file-handles.ts` | Dedicated IndexedDB DB (`lop-app-project-handles`) storing per-project `FileSystemFileHandle`s out-of-line, keyed by projectId; avoids touching storage.ts's IDB schema | 0.58.0+ |
+| `projects-registry.ts` | Pure registry core (`addProject`/`removeProject`/`setCurrentProject`/… immutable, id-supplied) + guarded localStorage IO (`aipm-cockpit:projects`); file-mode source of truth | Pure + IO; 0.58.0+ |
+| `project-file-handles.ts` | Dedicated IndexedDB DB (`aipm-cockpit-project-handles`) storing per-project `FileSystemFileHandle`s out-of-line, keyed by projectId; avoids touching storage.ts's IDB schema | 0.58.0+ |
 | `use-project-switch.ts` | Pure switch/create/load helpers (format→local-kind map, name-from-filename, registry-entry builder); stateful flows live in `use-storage-backend.ts` (persistence core; project flows extracted to `use-storage-file-ops` / `use-storage-turso-ops` hook factories) | Pure; 0.58.0+ |
 | `portfolio-mode.ts` | Global portfolio mode (`"file" \| "turso"`) + last-selected Turso project id in localStorage; guarded IO | Pure + IO; 0.59.0+ |
 | `turso-portfolio.ts` | Turso project CRUD over the shared DB's `projects` table (list/listArchived/create/updateMeta/archive/restore/hardDelete); ensures schema on every call | 0.59.0+ |
 | `type-to-confirm-dialog.tsx` | `TypeToConfirmDialog` — reusable destructive confirm modal; confirm button stays disabled until the exact value (e.g. project name) is typed; used for hard-delete | Component; 0.59.0+ |
 | **Theme & UI Tokens** | | |
 | `theme.ts` | Pure helpers: `resolveTheme`, `readStoredTheme` | 0.15.0+; no React |
-| `use-theme.tsx` | `ThemeProvider` + `useTheme() → { theme, setTheme }` | 0.15.0+; reads `lop-theme` from localStorage |
+| `use-theme.tsx` | `ThemeProvider` + `useTheme() → { theme, setTheme }` | 0.15.0+; reads `aipm-cockpit-theme` from localStorage |
 | `globals.css` | AIPM 9-color palette tokens + Tailwind / print rules | Dark-blue sidebar, light/dark theme, `.print-root` scoping |
 | `table-styles.ts` | `TABLE_HEAD_CLASS` Dark-Blue headers + LOP zebra | Shared constant (0.31.0+) |
 | `view-styles.ts` | `VIEW_PANE_CLASS`, `INNER_TABLE_CLASS` pane chrome | Shared constants |

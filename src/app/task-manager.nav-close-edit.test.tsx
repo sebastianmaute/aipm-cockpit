@@ -11,7 +11,7 @@ import type { Task } from "./types";
 // task-manager.shell.test.tsx). Default layout is modern.
 function seedRegistry() {
   window.localStorage.setItem(
-    "lop-app:projects",
+    "aipm-cockpit:projects",
     JSON.stringify({
       projects: [{ id: "p1", name: "Seed", code: "SEED", storageConfig: { kind: "browser" } }],
       currentProjectId: "p1",

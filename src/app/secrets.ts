@@ -4,6 +4,8 @@
 // auth token). Pure WebCrypto: AES-256-GCM with either a non-extractable
 // device-bound key (default) or a PBKDF2-derived passphrase key. i18n-free.
 
+import { ensureStorageMigrated, legacyDeviceKeyPending } from "./storage-migration";
+
 export type WrapMode = "device" | "passphrase";
 export type SecretId =
   | "anthropicApiKey"
@@ -53,7 +55,7 @@ export class SecretUnlockError extends Error {
 }
 
 const PBKDF2_ITERS = 600_000;
-const DB_NAME = "lop-app-secrets";
+const DB_NAME = "aipm-cockpit-secrets";
 const STORE = "keys";
 const DEVICE_KEY_ID = "device-key";
 
@@ -80,10 +82,14 @@ function randomBytes(n: number): Uint8Array<ArrayBuffer> {
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-function idbOpen(): Promise<IDBDatabase> {
+async function idbOpen(): Promise<IDBDatabase> {
+  await ensureStorageMigrated(); // migrate legacy storage namespace before first open
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE);
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
     req.onblocked = () => reject(new Error("idb-blocked"));
@@ -119,6 +125,14 @@ async function loadOrCreateDeviceKey(): Promise<CryptoKey> {
   try {
     const existing = (await idbGet(db, DEVICE_KEY_ID)) as CryptoKey | undefined;
     if (existing) return existing;
+    // Don't mint a new device key while the legacy key is still pending migration:
+    // a failed first-boot secrets copy leaves the old key in `lop-app-secrets` and
+    // this DB empty; minting here would orphan the key that decrypts existing
+    // ciphertext, and the copy-migration would later DELETE it (count check).
+    // Degrade — throw so the caller keeps secrets locked and retries on reload.
+    if (await legacyDeviceKeyPending()) {
+      throw new Error("secrets-migration-pending");
+    }
     const key = await subtle().generateKey({ name: "AES-GCM", length: 256 }, false, [
       "encrypt",
       "decrypt",

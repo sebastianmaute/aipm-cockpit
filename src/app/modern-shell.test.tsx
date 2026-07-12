@@ -87,7 +87,7 @@ describe("ModernShell", () => {
 
   it("forwards collapsed to the sidebar (brand subtitle hidden, expand button shown)", () => {
     setup({ collapsed: true });
-    expect(screen.queryByText("List of Open Points")).toBeNull();
+    expect(screen.queryByText("PROJECT MANAGEMENT TRACKER")).toBeNull();
     expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeTruthy();
   });
 

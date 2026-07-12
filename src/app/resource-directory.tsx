@@ -119,7 +119,7 @@ function ResourceDirectoryInner({
       showToast("error", t(lang, "resourceEmailCopyFailed"));
     }
   };
-  const { ref: dirRef, reset: resetDirSize } = useResizable("lop-app:directory-size");
+  const { ref: dirRef, reset: resetDirSize } = useResizable("aipm-cockpit:directory-size");
   const { colWidths, startColResize: _startColResize, resetColWidths } = useColumnResize<DirectoryCol>(
     "directory",
     DIRECTORY_COL_WIDTHS,

@@ -3,7 +3,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import TaskManager from "./task-manager";
 
 function setLayout(layout: "modern" | "classic") {
-  window.localStorage.setItem("lop-app:settings", JSON.stringify({ layout }));
+  window.localStorage.setItem("aipm-cockpit:settings", JSON.stringify({ layout }));
 }
 
 // Seed one registered project so the multi-project empty-state gate (shown when
@@ -12,7 +12,7 @@ function setLayout(layout: "modern" | "classic") {
 // backend, matching the app's default.
 function seedRegistry() {
   window.localStorage.setItem(
-    "lop-app:projects",
+    "aipm-cockpit:projects",
     JSON.stringify({
       projects: [{ id: "p1", name: "Seed", code: "SEED", storageConfig: { kind: "browser" } }],
       currentProjectId: "p1",

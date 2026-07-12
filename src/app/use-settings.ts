@@ -17,7 +17,7 @@ import { migratePlaintextSecrets, readDeviceSecret, probeDeviceSecretReadable } 
 import { sanitizeJiraExtraProjects } from "./jira-projects";
 import { logDiag } from "./diagnostics";
 
-export const SETTINGS_KEY = "lop-app:settings";
+export const SETTINGS_KEY = "aipm-cockpit:settings";
 
 /** Synchronously write settings to localStorage WITH the at-rest secrets
  *  blanked. Secret ciphertext is persisted separately (secrets-store) on change;
@@ -418,7 +418,7 @@ export function useSettings(): {
                 const ids = ["anthropicApiKey", "tursoAuthToken", "jiraApiToken", "timelogApiToken", "sttApiKey"] as const;
                 const states = await Promise.all(ids.map((id) => probeDeviceSecretReadable(id)));
                 if (states.some((s) => s === "unreadable")) {
-                  window.dispatchEvent(new CustomEvent("lop-secret-unreadable"));
+                  window.dispatchEvent(new CustomEvent("aipm-cockpit-secret-unreadable"));
                 }
               } catch { /* probe is best-effort; never block hydration */ }
             }
@@ -463,7 +463,7 @@ export function useSettings(): {
     // already logged the diagnostic.
     if (!ok && !settingsWriteFailingRef.current) {
       settingsWriteFailingRef.current = true;
-      window.dispatchEvent(new CustomEvent("lop-settings-write-failed"));
+      window.dispatchEvent(new CustomEvent("aipm-cockpit-settings-write-failed"));
     } else if (ok) {
       settingsWriteFailingRef.current = false;
     }

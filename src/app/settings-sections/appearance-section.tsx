@@ -89,7 +89,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           config={config}
           onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
           onApplyBranding={(b) => setBranding(mergeAppliedBranding(branding, b))}
-          onSchemeChange={() => { refresh(); window.dispatchEvent(new Event("lop-scheme-change")); }}
+          onSchemeChange={() => { refresh(); window.dispatchEvent(new Event("aipm-cockpit-scheme-change")); }}
           onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
         />
         {config ? (

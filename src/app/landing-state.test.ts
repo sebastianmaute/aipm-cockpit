@@ -35,17 +35,17 @@ describe("landing-state", () => {
   });
 
   test("rejects a state whose metrics is not an object", () => {
-    window.localStorage.setItem("lop-app:landing-state", JSON.stringify({ p1: { lastVisitAt: "x", metrics: 5 } }));
+    window.localStorage.setItem("aipm-cockpit:landing-state", JSON.stringify({ p1: { lastVisitAt: "x", metrics: 5 } }));
     expect(loadLandingState("p1")).toEqual({});
   });
 
   test("corrupt JSON → empty object, no throw", () => {
-    window.localStorage.setItem("lop-app:landing-state", "{not json");
+    window.localStorage.setItem("aipm-cockpit:landing-state", "{not json");
     expect(loadLandingState("p1")).toEqual({});
   });
 
   test("non-object stored value → empty object", () => {
-    window.localStorage.setItem("lop-app:landing-state", JSON.stringify([1, 2, 3]));
+    window.localStorage.setItem("aipm-cockpit:landing-state", JSON.stringify([1, 2, 3]));
     expect(loadLandingState("p1")).toEqual({});
   });
 });

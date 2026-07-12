@@ -3,7 +3,7 @@
 // apply it before first paint. Pure helpers only; DOM wiring in use-style.tsx.
 export type CiStyle = "AIPM" | "mockup" | "custom";
 
-export const STYLE_STORAGE_KEY = "lop-style";
+export const STYLE_STORAGE_KEY = "aipm-cockpit-style";
 
 /** Whether dark mode is active: the resolved theme is dark AND the active
  *  scheme is dark-capable. (Light-only schemes — Mockup and light-only user

@@ -1160,7 +1160,7 @@ describe("useStorageBackend — project flows", () => {
       // mode flipped to file, settings persisted the browser storageConfig.
       expect(loadRegistry().projects).toHaveLength(1);
       expect(loadPortfolioMode()).toBe("file");
-      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      const persisted = JSON.parse(window.localStorage.getItem("aipm-cockpit:settings") ?? "{}");
       expect(persisted.storageConfig?.kind).toBe("browser");
       expect(reloadSpy).toHaveBeenCalledTimes(1);
       // In-place apply skipped (reload discards it) — no success toast fired.
@@ -1383,7 +1383,7 @@ describe("useStorageBackend — Turso portfolio flows", () => {
 
       // Settings were persisted synchronously with the Turso backend kind BEFORE
       // the reload, so the post-reload backend memo builds a TursoBackend.
-      const persisted = JSON.parse(window.localStorage.getItem("lop-app:settings") ?? "{}");
+      const persisted = JSON.parse(window.localStorage.getItem("aipm-cockpit:settings") ?? "{}");
       expect(persisted.storageConfig?.kind).toBe("turso");
       expect(reloadSpy).toHaveBeenCalledTimes(1);
     } finally {

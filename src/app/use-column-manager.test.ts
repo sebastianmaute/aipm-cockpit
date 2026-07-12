@@ -3,8 +3,8 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_COL_WIDTHS, useColumnManager } from "./use-column-manager";
 
-const COL_WIDTHS_KEY = "lop-app:col-widths";
-const HIDDEN_COLS_KEY = "lop-app:hidden-cols";
+const COL_WIDTHS_KEY = "aipm-cockpit:col-widths";
+const HIDDEN_COLS_KEY = "aipm-cockpit:hidden-cols";
 
 describe("useColumnManager", () => {
   describe("initial state", () => {

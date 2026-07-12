@@ -15,9 +15,9 @@ const titillium = Titillium_Web({
 });
 
 export const metadata: Metadata = {
-  title: "List of Open Points Tracker",
+  title: "AIPM Cockpit",
   description:
-    "Draft status-inquiry emails for delayed items in a project's List of Open Points.",
+    "AI-assisted project cockpit — task, RAID, budget and milestone tracking that plugs into M365, Jira and Timelog. Local-first, no backend.",
   manifest: "/manifest.webmanifest",
 };
 

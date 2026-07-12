@@ -24,7 +24,7 @@ export interface PanelView {
   state: PanelFiltersState;
 }
 
-export const PANEL_VIEWS_KEY = "lop-app:panel-views";
+export const PANEL_VIEWS_KEY = "aipm-cockpit:panel-views";
 export const MAX_PANEL_VIEWS = 30;
 
 function isStringRecord(value: unknown): value is Record<string, string> {

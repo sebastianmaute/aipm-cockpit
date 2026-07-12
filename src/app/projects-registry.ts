@@ -133,7 +133,7 @@ export function getCurrentEntry(
 // IO — localStorage
 // ---------------------------------------------------------------------------
 
-const REGISTRY_KEY = "lop-app:projects";
+const REGISTRY_KEY = "aipm-cockpit:projects";
 
 /**
  * Validate a single raw entry from the parsed JSON.

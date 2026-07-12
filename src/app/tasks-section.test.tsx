@@ -341,10 +341,10 @@ describe("TasksSection", () => {
     const { container } = render(<TasksSection {...makeProps()} />);
     const thead = container.querySelector("thead");
     expect(thead).not.toBeNull();
-    // The Dark-Blue fill moved to the <th> cells (via the `lop-thead` marker +
+    // The Dark-Blue fill moved to the <th> cells (via the `aipm-cockpit-thead` marker +
     // globals.css) so rounded header corners can clip it; the thead carries the
     // marker class instead of `bg-AIPM-dark-blue`.
-    expect(thead!.className).toContain("lop-thead");
+    expect(thead!.className).toContain("aipm-cockpit-thead");
     expect(thead!.className).not.toContain("bg-surface-muted");
   });
 

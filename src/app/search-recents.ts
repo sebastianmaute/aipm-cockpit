@@ -1,6 +1,6 @@
 import type { SearchResult, SearchResultType } from "./global-search";
 
-export const RECENTS_KEY = "lop-app:search-recents";
+export const RECENTS_KEY = "aipm-cockpit:search-recents";
 export const MAX_RECENTS = 8;
 
 const TYPES: readonly SearchResultType[] = [

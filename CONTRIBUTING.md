@@ -102,7 +102,7 @@ APIs (routing, headers, server actions, etc.), check
 
 ### Lazy loading
 Heavy dependencies are dynamically `import()`'d to keep the cold heap small.
-Established pattern (used 3× — see `lop-app-memory-optimization` memory):
+Established pattern (used 3× — see `aipm-cockpit-memory-optimization` memory):
 
 | Module | Triggered by |
 |---|---|
@@ -117,7 +117,7 @@ than top-level importing.
 ### CSS
 Tailwind v4 with `@tailwindcss/postcss`. Do **not** introduce
 `mini-css-extract-plugin` or `style-loader` — Next handles CSS internally and
-the `lop-app-css-hmr-investigation` memory documents a previous false trail.
+the `aipm-cockpit-css-hmr-investigation` memory documents a previous false trail.
 
 Colours, shadows, and gradients are restricted to the sanctioned AIPM brand
 tokens in `globals.css` — no off-palette colours, and no raw `shadow`/gradient

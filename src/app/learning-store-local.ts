@@ -1,6 +1,6 @@
 import { EMPTY_SNAPSHOT, type LearningSnapshot, type LearningStore } from "./learning-store";
 
-const KEY = "lop-app:action-learning";
+const KEY = "aipm-cockpit:action-learning";
 
 export function localLearningStore(): LearningStore {
   return {

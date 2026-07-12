@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, fireEvent, cleanup } from "@testing-library/react";
 import { useResizable } from "./use-resizable";
 
-const KEY = "lop-app:test-resizable";
+const KEY = "aipm-cockpit:test-resizable";
 
 function Harness() {
   const { ref, reset } = useResizable(KEY);

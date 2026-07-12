@@ -108,7 +108,7 @@ export function RecoveryPanel() {
   };
 
   const onDownload = () => {
-    if (!downloadJson("lop-config.json", exportConfig())) {
+    if (!downloadJson("aipm-cockpit-config.json", exportConfig())) {
       logDiag("error", "recovery.backupDownloadFailed", {});
       setMessage(t(lang, "guardRecoveryBackupDownloadFailed"));
     }

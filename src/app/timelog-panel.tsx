@@ -124,7 +124,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
 
   // Resizable content pane + per-device People-table column widths (mirrors the
   // Resource Directory), with reset buttons in the header.
-  const { ref: paneRef, reset: resetPaneSize } = useResizable("lop-app:timelog-size");
+  const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:timelog-size");
   const { colWidths, startColResize: startColResizeTyped, resetColWidths } = useColumnResize<PeopleCol>(
     "timelog-people",
     PEOPLE_COL_WIDTHS,

@@ -138,8 +138,8 @@ export function ProjectsPanel({
     settings.integrations?.turso?.databaseUrl,
     settings.integrations?.turso?.authToken,
   );
-  const { ref: paneSizeRef, reset: resetPaneSize } = useResizable("lop-app:projects-pane-size");
-  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:create-modal-size");
+  const { ref: paneSizeRef, reset: resetPaneSize } = useResizable("aipm-cockpit:projects-pane-size");
+  const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:create-modal-size");
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [hardDeleteTarget, setHardDeleteTarget] =

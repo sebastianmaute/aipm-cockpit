@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { Task } from "./types";
 import { useContacts } from "./use-contacts";
 
-const CONTACTS_KEY = "lop-app:contacts";
+const CONTACTS_KEY = "aipm-cockpit:contacts";
 const NO_TASKS: Task[] = [];
 
 describe("useContacts", () => {

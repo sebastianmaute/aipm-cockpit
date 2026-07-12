@@ -6,11 +6,11 @@
 
 export type SchemeColorMap = Record<string, string>;
 
-export const ACTIVE_SCHEME_COLORS_KEY = "lop-active-scheme-colors";
+export const ACTIVE_SCHEME_COLORS_KEY = "aipm-cockpit-active-scheme-colors";
 // Boot-readable flag: does the active custom scheme support a dark map? The
 // pre-paint boot script reads this to decide whether `custom` may go dark
 // (data-scheme-dark is a runtime attr, not persisted). Written on every apply.
-export const SCHEME_SUPPORTS_DARK_KEY = "lop-scheme-supports-dark";
+export const SCHEME_SUPPORTS_DARK_KEY = "aipm-cockpit-scheme-supports-dark";
 
 // Shape guard for boot keys: keys must be CSS custom-property names. Declared
 // here (above all consumers) so both the color and structural helpers share it.
@@ -34,7 +34,7 @@ export function applySchemeColors(colors: SchemeColorMap | null): void {
 }
 
 export type SchemeStructuralMap = Record<string, string>;
-export const ACTIVE_SCHEME_STRUCTURAL_KEY = "lop-active-scheme-structural";
+export const ACTIVE_SCHEME_STRUCTURAL_KEY = "aipm-cockpit-active-scheme-structural";
 
 // Raw (non-hex) CSS VALUE guard for structural tokens (shadows/gradient/length/
 // keyword). setProperty applies a property VALUE only — it cannot inject a rule/

@@ -2,11 +2,11 @@
 // snapshot) backing the Dashboard "since you last looked" strip. Mirrors
 // activity-log.ts: a single localStorage key, defensive parse, SSR guard,
 // bounded size. NOT a Workspace field — never exported, never in Turso, cleared
-// by app-reset's `lop-app:*` sweep.
+// by app-reset's `aipm-cockpit:*` sweep.
 
 import type { LandingState } from "./dashboard-delta";
 
-const LANDING_STATE_KEY = "lop-app:landing-state";
+const LANDING_STATE_KEY = "aipm-cockpit:landing-state";
 export const LANDING_STATE_MAX_PROJECTS = 50;
 
 type StateMap = Record<string, LandingState>;

@@ -1,7 +1,7 @@
 "use client";
 
 // Full factory reset ("clean slate"). Wipes all browser-local CONFIG so the app
-// reboots as if freshly installed: every `lop-app:*` localStorage key (settings,
+// reboots as if freshly installed: every `aipm-cockpit:*` localStorage key (settings,
 // encrypted secrets, project registry, portfolio mode, UI/layout state) plus the
 // non-extractable secrets device key in IndexedDB.
 //
@@ -10,15 +10,15 @@
 // Projects are *detached* (the registry pointer is cleared) — not deleted — so
 // the user can re-open them later via Load / Create.
 
-const LOP_APP_PREFIX = "lop-app:";
+const LOP_APP_PREFIX = "aipm-cockpit:";
 /** IndexedDB databases a full reset removes. These hold CONFIG, not project
  *  data: the non-extractable secrets device key, and saved File-System-Access
  *  handles (mere pointers/permissions to detached project files — clearing them
  *  "detaches completely" without deleting any file). The browser-backend
  *  WORKSPACE database (project data) has a different name and is NOT touched. */
-const CONFIG_DBS = ["lop-app-secrets", "lop-app-project-handles"] as const;
+const CONFIG_DBS = ["aipm-cockpit-secrets", "aipm-cockpit-project-handles"] as const;
 
-/** Clear every `lop-app:*` localStorage key and forget the secrets device key.
+/** Clear every `aipm-cockpit:*` localStorage key and forget the secrets device key.
  *  Leaves all workspace data stores (files / Turso / browser-backend IndexedDB)
  *  intact — those hold project data and are only detached, never deleted. */
 export function clearAppConfig(): void {

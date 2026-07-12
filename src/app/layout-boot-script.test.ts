@@ -2,27 +2,41 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
+import { NONPREFIXED_LS } from "./storage-migration";
 import { resolveSchemeColors } from "./scheme-tokens";
 import { HARBOR_DARK, HARBOR_LIGHT } from "./builtin-schemes";
 
 const src = readFileSync(join(process.cwd(), "src/app/boot-theme-script.ts"), "utf8");
 
 describe("no-flash boot script — source shape (pinned)", () => {
-  it("reads lop-style and ALWAYS sets data-style to custom", () => {
-    expect(src).toContain('localStorage.getItem("lop-style")');
+  it("migrates the legacy lop-app storage namespace before reading", () => {
+    // mirrors storage-migration.migrateLocalStorage (can't import here — IIFE string)
+    expect(src).toContain('indexOf("lop-app:")');
+    expect(src).toContain('"aipm-cockpit:"+');
+  });
+  it("boot rename covers EVERY NONPREFIXED_LS pair (lockstep with storage-migration)", () => {
+    // a future 6th non-prefixed key must be added to the boot IIFE too, or its
+    // pre-paint value silently fails to migrate. (normalizeRecoveryBackups is
+    // deliberately NOT duplicated here — recovery isn't read pre-paint.)
+    for (const [oldK, newK] of Object.entries(NONPREFIXED_LS)) {
+      expect(src).toContain(`mv("${oldK}","${newK}")`);
+    }
+  });
+  it("reads aipm-cockpit-style and ALWAYS sets data-style to custom", () => {
+    expect(src).toContain('localStorage.getItem("aipm-cockpit-style")');
     expect(src).toContain('setAttribute("data-style","custom")');
   });
   it("reads + stamps the dark-capable signal", () => {
-    expect(src).toContain('localStorage.getItem("lop-scheme-supports-dark")');
+    expect(src).toContain('localStorage.getItem("aipm-cockpit-scheme-supports-dark")');
     expect(src).toContain('setAttribute("data-scheme-dark"');
   });
-  it("still applies the dark class from lop-theme", () => {
+  it("still applies the dark class from aipm-cockpit-theme", () => {
     expect(src).toContain('classList.toggle("dark"');
-    expect(src).toContain('localStorage.getItem("lop-theme")');
+    expect(src).toContain('localStorage.getItem("aipm-cockpit-theme")');
   });
   it("applies the active scheme's colors + structural tokens pre-paint", () => {
-    expect(src).toContain('localStorage.getItem("lop-active-scheme-colors")');
-    expect(src).toContain('localStorage.getItem("lop-active-scheme-structural")');
+    expect(src).toContain('localStorage.getItem("aipm-cockpit-active-scheme-colors")');
+    expect(src).toContain('localStorage.getItem("aipm-cockpit-active-scheme-structural")');
     expect(src).toContain("setProperty");
   });
 });
@@ -169,5 +183,19 @@ describe("no-flash boot script — runtime behaviour", () => {
     expect(root().getAttribute("data-scheme-dark")).toBe("1");
     expect(root().classList.contains("dark")).toBe(true);
     expect(root().style.getPropertyValue("--surface")).toBe("#16212e");
+  });
+
+  it("migrates legacy lop-app:* and lop-* keys to the aipm-cockpit namespace pre-paint", () => {
+    localStorage.setItem("lop-app:settings", "{}");
+    localStorage.setItem("lop-style", "custom");
+    localStorage.setItem("lop-scheme-supports-dark", "1");
+    localStorage.setItem("lop-active-scheme-colors", JSON.stringify({ "--surface": "#abcdef" }));
+    runBoot();
+    expect(localStorage.getItem("aipm-cockpit:settings")).toBe("{}");
+    expect(localStorage.getItem("lop-app:settings")).toBeNull();
+    expect(localStorage.getItem("aipm-cockpit-style")).toBe("custom");
+    expect(localStorage.getItem("lop-style")).toBeNull();
+    // the migrated scheme keys still drive the pre-paint colour
+    expect(root().style.getPropertyValue("--surface")).toBe("#abcdef");
   });
 });

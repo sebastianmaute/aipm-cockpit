@@ -34,7 +34,7 @@ const step = (m) => console.log("•", m);
 // Seed an IndexedDB-backed project so the app boots straight into the main UI.
 await page.addInitScript(() => {
   localStorage.setItem(
-    "lop-app:projects",
+    "aipm-cockpit:projects",
     JSON.stringify({
       projects: [{ id: "e2e-1", name: "E2E Project", code: "E2E-001", storageConfig: { kind: "browser" } }],
       currentProjectId: "e2e-1",

@@ -58,7 +58,7 @@ interface ActionsPanelProps {
 
 export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, assignOwner, onDraftMessage, escalate, rebaseline, reschedule, onMarkDone, onClearBlocker, learningEnabled, expertMode, onOpenLearningSettings, aiAnalysis }: ActionsPanelProps) {
   const [monitorOpen, setMonitorOpen] = useState(false);
-  const { ref, reset } = useResizable("lop-app:actions-size");
+  const { ref, reset } = useResizable("aipm-cockpit:actions-size");
   const groups = useMemo(() => groupNextActions(actions), [actions]);
   const [expanded, setExpanded] = useState<Record<"now" | "soon", boolean>>({ now: false, soon: false });
   // Shared handler/config props threaded identically to ActionRow and ActionHeroCard.

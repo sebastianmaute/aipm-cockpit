@@ -11,8 +11,8 @@ import {
   useState,
 } from "react";
 
-const COL_WIDTHS_KEY = "lop-app:col-widths";
-const HIDDEN_COLS_KEY = "lop-app:hidden-cols";
+const COL_WIDTHS_KEY = "aipm-cockpit:col-widths";
+const HIDDEN_COLS_KEY = "aipm-cockpit:hidden-cols";
 
 export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   sel: 36,

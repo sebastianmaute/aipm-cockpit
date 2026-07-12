@@ -3,7 +3,7 @@
 
 import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 
-const WORKSPACE_COLLAPSED_KEY = "lop-app:workspace-collapsed";
+const WORKSPACE_COLLAPSED_KEY = "aipm-cockpit:workspace-collapsed";
 
 export function useWorkspaceCollapsed(): {
   workspaceCollapsed: boolean;

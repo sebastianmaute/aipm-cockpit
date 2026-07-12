@@ -48,7 +48,7 @@ export function HelpView({
 }) {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<HelpTab>("help");
-  const { ref, reset } = useResizable("lop-app:help-view-size");
+  const { ref, reset } = useResizable("aipm-cockpit:help-view-size");
   const graph = useMemo(() => buildRelationsGraph(HELP_ENTRIES), []);
 
   const tabs: { key: HelpTab; labelKey: TranslationKey }[] = [

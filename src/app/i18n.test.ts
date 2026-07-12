@@ -50,10 +50,10 @@ describe("tabChat rename", () => {
 });
 
 describe("brand name", () => {
-  it("uses the Project Management Tracker brand name", () => {
-    expect(t("en-US", "appTitle")).toBe("Project Management Tracker");
+  it("uses the AIPM Cockpit brand name", () => {
+    expect(t("en-US", "appTitle")).toBe("AIPM Cockpit");
     expect(t("en-US", "sidebarBrandSubtitle")).toBe("PROJECT MANAGEMENT TRACKER");
-    expect(t("de", "appTitle")).toBe("Project Management Tracker");
+    expect(t("de", "appTitle")).toBe("AIPM Cockpit");
     expect(t("de", "sidebarBrandSubtitle")).toBe("PROJECT MANAGEMENT TRACKER");
   });
 

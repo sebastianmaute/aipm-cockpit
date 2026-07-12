@@ -19,7 +19,7 @@ vi.mock("./turso-portfolio", () => ({
 // A valid Turso config so getTursoConfig() returns non-null and the refresh runs.
 function seedTursoSettings() {
   window.localStorage.setItem(
-    "lop-app:settings",
+    "aipm-cockpit:settings",
     JSON.stringify({
       integrations: {
         turso: {
@@ -34,7 +34,7 @@ function seedTursoSettings() {
 
 function seedFileRegistry() {
   window.localStorage.setItem(
-    "lop-app:projects",
+    "aipm-cockpit:projects",
     JSON.stringify({
       projects: [
         { id: "p1", name: "Seed", code: "SEED", storageConfig: { kind: "browser" } },
@@ -52,7 +52,7 @@ describe("TaskManager portfolio mode (Turso)", () => {
   });
 
   it("shows the empty-state in turso mode once the (empty) project list loads", async () => {
-    window.localStorage.setItem("lop-app:portfolio-mode", "turso");
+    window.localStorage.setItem("aipm-cockpit:portfolio-mode", "turso");
     seedTursoSettings();
     // A file registry IS seeded; turso mode must IGNORE it and use the DB list.
     seedFileRegistry();

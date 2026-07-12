@@ -22,7 +22,7 @@ export interface ReportsSavedView {
   state: ReportsViewState;
 }
 
-export const REPORTS_VIEWS_KEY = "lop-app:reports-views";
+export const REPORTS_VIEWS_KEY = "aipm-cockpit:reports-views";
 export const MAX_REPORTS_VIEWS = 30;
 
 function isValidSort(value: unknown): value is ReportsTableState["sort"] {

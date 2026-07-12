@@ -14,7 +14,7 @@ describe("useGanttPrefs — showBaseline", () => {
     const { result } = renderHook(() => useGanttPrefs());
     act(() => result.current.toggleBaseline());
     expect(result.current.prefs.showBaseline).toBe(false);
-    const saved = JSON.parse(window.localStorage.getItem("lop-app:gantt-prefs")!);
+    const saved = JSON.parse(window.localStorage.getItem("aipm-cockpit:gantt-prefs")!);
     expect(saved.showBaseline).toBe(false);
   });
 });

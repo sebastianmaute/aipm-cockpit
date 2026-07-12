@@ -9,7 +9,7 @@ import type { SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 import type { OperatingGuide } from "./operating-guide";
 
-export const LOCAL_KEY = "lop-app:operating-guides";
+export const LOCAL_KEY = "aipm-cockpit:operating-guides";
 
 const ddl = (): SqlStmt[] => OPERATING_GUIDE_DDL.map((sql) => ({ sql }));
 

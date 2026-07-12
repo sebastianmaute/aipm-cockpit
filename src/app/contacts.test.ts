@@ -141,26 +141,26 @@ describe("loadContacts", () => {
   });
 
   it("returns empty object when stored value is not valid JSON", () => {
-    localStorage.setItem("lop-app:contacts", "not valid json");
+    localStorage.setItem("aipm-cockpit:contacts", "not valid json");
     expect(loadContacts()).toEqual({});
   });
 
   it("returns empty object when stored value is not an object", () => {
-    localStorage.setItem("lop-app:contacts", '"string value"');
+    localStorage.setItem("aipm-cockpit:contacts", '"string value"');
     expect(loadContacts()).toEqual({});
     localStorage.clear();
 
-    localStorage.setItem("lop-app:contacts", "123");
+    localStorage.setItem("aipm-cockpit:contacts", "123");
     expect(loadContacts()).toEqual({});
     localStorage.clear();
 
-    localStorage.setItem("lop-app:contacts", "[]");
+    localStorage.setItem("aipm-cockpit:contacts", "[]");
     expect(loadContacts()).toEqual({});
   });
 
   it("loads single contact with name and email", () => {
     const data = { "alice": { name: "Alice", email: "alice@example.com" } };
-    localStorage.setItem("lop-app:contacts", JSON.stringify(data));
+    localStorage.setItem("aipm-cockpit:contacts", JSON.stringify(data));
     const result = loadContacts();
     expect(result).toEqual({
       alice: { name: "Alice", email: "alice@example.com" },
@@ -172,7 +172,7 @@ describe("loadContacts", () => {
       alice: { name: "Alice", email: "alice@example.com" },
       bob: { name: "Bob", email: "bob@example.com" },
     };
-    localStorage.setItem("lop-app:contacts", JSON.stringify(data));
+    localStorage.setItem("aipm-cockpit:contacts", JSON.stringify(data));
     const result = loadContacts();
     expect(result).toEqual(data);
   });
@@ -182,7 +182,7 @@ describe("loadContacts", () => {
       alice: { name: "Alice", email: "alice@example.com" },
       invalid1: { name: "", email: "invalid@example.com" },
     };
-    localStorage.setItem("lop-app:contacts", JSON.stringify(data));
+    localStorage.setItem("aipm-cockpit:contacts", JSON.stringify(data));
     const result = loadContacts();
     expect(result).toEqual({
       alice: { name: "Alice", email: "alice@example.com" },
@@ -194,7 +194,7 @@ describe("loadContacts", () => {
       alice: { name: "Alice", email: "alice@example.com" },
       invalid2: { name: 123, email: "invalid@example.com" },
     };
-    localStorage.setItem("lop-app:contacts", JSON.stringify(data));
+    localStorage.setItem("aipm-cockpit:contacts", JSON.stringify(data));
     const result = loadContacts();
     expect(result).toEqual({
       alice: { name: "Alice", email: "alice@example.com" },
@@ -206,7 +206,7 @@ describe("loadContacts", () => {
       alice: { name: "Alice", email: "alice@example.com" },
       invalid: "not an object",
     };
-    localStorage.setItem("lop-app:contacts", JSON.stringify(data));
+    localStorage.setItem("aipm-cockpit:contacts", JSON.stringify(data));
     const result = loadContacts();
     expect(result).toEqual({
       alice: { name: "Alice", email: "alice@example.com" },
@@ -217,7 +217,7 @@ describe("loadContacts", () => {
     const data = {
       "alice bob": { name: "  Alice Bob  ", email: "  alice@example.com  " },
     };
-    localStorage.setItem("lop-app:contacts", JSON.stringify(data));
+    localStorage.setItem("aipm-cockpit:contacts", JSON.stringify(data));
     const result = loadContacts();
     expect(result).toEqual({
       "alice bob": { name: "Alice Bob", email: "alice@example.com" },
@@ -229,7 +229,7 @@ describe("loadContacts", () => {
       "alice": { name: "Alice", email: "" },
       "bob": { name: "Bob", email: null },
     };
-    localStorage.setItem("lop-app:contacts", JSON.stringify(data));
+    localStorage.setItem("aipm-cockpit:contacts", JSON.stringify(data));
     const result = loadContacts();
     expect(result).toEqual({
       alice: { name: "Alice", email: "" },
@@ -241,7 +241,7 @@ describe("loadContacts", () => {
     const data = {
       alice: { name: "Alice" },
     };
-    localStorage.setItem("lop-app:contacts", JSON.stringify(data));
+    localStorage.setItem("aipm-cockpit:contacts", JSON.stringify(data));
     const result = loadContacts();
     expect(result).toEqual({
       alice: { name: "Alice", email: "" },
@@ -283,13 +283,13 @@ describe("saveContacts", () => {
       alice: { name: "Alice", email: "alice@example.com" },
     };
     saveContacts(contacts);
-    const stored = localStorage.getItem("lop-app:contacts");
+    const stored = localStorage.getItem("aipm-cockpit:contacts");
     expect(stored).toBe(JSON.stringify(contacts));
   });
 
   it("saves empty contacts map", () => {
     saveContacts({});
-    const stored = localStorage.getItem("lop-app:contacts");
+    const stored = localStorage.getItem("aipm-cockpit:contacts");
     expect(stored).toBe("{}");
   });
 
@@ -299,7 +299,7 @@ describe("saveContacts", () => {
       bob: { name: "Bob", email: "bob@example.com" },
     };
     saveContacts(contacts);
-    const stored = localStorage.getItem("lop-app:contacts");
+    const stored = localStorage.getItem("aipm-cockpit:contacts");
     expect(JSON.parse(stored!)).toEqual(contacts);
   });
 

@@ -132,7 +132,7 @@ function MilestonesPanelBody({
   // `-full` suffix: the view changed from a centered half-width pane to full
   // width, so use a fresh key — a stale half-width size persisted under the old
   // key would otherwise override `w-full` and leave a gap on the right.
-  const { ref, reset: resetSize } = useResizable("lop-app:milestones-size-full");
+  const { ref, reset: resetSize } = useResizable("aipm-cockpit:milestones-size-full");
   const [editing, setEditing] = useState<Milestone | null>(null);
   const [isNew, setIsNew] = useState(false);
   const showToast = useToastContext();

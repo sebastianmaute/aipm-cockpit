@@ -255,7 +255,7 @@ describe("buildDocx", () => {
     const files = await unzipBlob(blob);
 
     const doc = files.get("word/document.xml")!;
-    expect(doc).toContain("List of Open Points");
+    expect(doc).toContain("AIPM Cockpit");
     expect(doc).not.toContain("<w:tbl>");
   });
 
@@ -459,7 +459,7 @@ describe("buildPptx", () => {
       .map(([, v]) => v)
       .join("\n");
 
-    expect(allSlides).toContain("List of Open Points"); // title slide
+    expect(allSlides).toContain("AIPM Cockpit"); // title slide
     expect(allSlides).toContain("Task 1");
     expect(allSlides).toContain("Risk 10");
     expect(allSlides).not.toContain("Milestone 1");
@@ -520,7 +520,7 @@ describe("buildPptx", () => {
     const files = await unzipBlob(blob);
 
     const slide1 = files.get("ppt/slides/slide1.xml")!;
-    expect(slide1).toContain("List of Open Points");
+    expect(slide1).toContain("AIPM Cockpit");
   });
 
   it("divider slide appears before item slides for each section", async () => {
@@ -573,6 +573,6 @@ describe("buildPptx", () => {
     expect(slideFiles).toHaveLength(1);
 
     const slide1 = files.get("ppt/slides/slide1.xml")!;
-    expect(slide1).toContain("List of Open Points");
+    expect(slide1).toContain("AIPM Cockpit");
   });
 });

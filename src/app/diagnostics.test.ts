@@ -34,7 +34,7 @@ describe("diagnostics ring", () => {
   });
 
   it("never throws on malformed storage", () => {
-    window.localStorage.setItem("lop-app:diag-log", "{not json");
+    window.localStorage.setItem("aipm-cockpit:diag-log", "{not json");
     expect(readDiagLog()).toEqual([]);
   });
 
@@ -60,15 +60,15 @@ describe("diagnostics ring", () => {
     expect(log.some((e) => e.code === "dataloss.refused")).toBe(true);
   });
 
-  it("migrates the legacy lop-app:dataloss-log into the ring once", () => {
+  it("migrates the legacy aipm-cockpit:dataloss-log into the ring once", () => {
     window.localStorage.setItem(
-      "lop-app:dataloss-log",
+      "aipm-cockpit:dataloss-log",
       JSON.stringify([{ at: "2026-07-01T00:00:00.000Z", path: "save-effect", prevCollections: 2, nextCollections: 0, refused: true, stack: "at x" }]),
     );
     migrateLegacyDataLossLog();
     const log = readDiagLog();
     expect(log.some((e) => e.code === "dataloss.refused" && e.fields?.path === "save-effect")).toBe(true);
-    expect(window.localStorage.getItem("lop-app:dataloss-log")).toBeNull(); // consumed
+    expect(window.localStorage.getItem("aipm-cockpit:dataloss-log")).toBeNull(); // consumed
     // idempotent: a second call does not re-add
     migrateLegacyDataLossLog();
     expect(readDiagLog().filter((e) => e.code === "dataloss.refused")).toHaveLength(1);

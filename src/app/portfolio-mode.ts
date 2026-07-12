@@ -8,8 +8,8 @@ import { isSafeMode } from "./safe-mode";
 
 export type PortfolioMode = "file" | "turso";
 
-export const MODE_KEY = "lop-app:portfolio-mode";
-export const CURRENT_TURSO_PROJECT_KEY = "lop-app:turso-current-project";
+export const MODE_KEY = "aipm-cockpit:portfolio-mode";
+export const CURRENT_TURSO_PROJECT_KEY = "aipm-cockpit:turso-current-project";
 
 export function loadPortfolioMode(): PortfolioMode {
   if (isSafeMode()) return "file";

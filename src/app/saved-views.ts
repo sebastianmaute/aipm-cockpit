@@ -18,7 +18,7 @@ export interface SavedView {
   payload: SavedViewPayload;
 }
 
-export const SAVED_VIEWS_KEY = "lop-app:saved-views";
+export const SAVED_VIEWS_KEY = "aipm-cockpit:saved-views";
 export const MAX_SAVED_VIEWS = 30;
 
 function isStringArray(value: unknown): value is string[] {

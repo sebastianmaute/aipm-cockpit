@@ -78,7 +78,7 @@ const QUADRANTS: QuadrantConfig[] = [
 // --- Component --------------------------------------------------------------
 
 export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onSaveStakeholder }: StakeholderMapPanelProps) {
-  const { ref, reset } = useResizable("lop-app:stakeholder-map-size");
+  const { ref, reset } = useResizable("aipm-cockpit:stakeholder-map-size");
 
   // Group stakeholders by quadrant once.
   const byQuadrant = useMemo(() => {

@@ -110,24 +110,24 @@ body {
   font-family: var(--font-titillium), "Segoe UI", Arial, sans-serif;
 }
 
-/* Data-table header chrome (see TABLE_HEAD_CLASS / `lop-thead`). The Dark-Blue
+/* Data-table header chrome (see TABLE_HEAD_CLASS / `aipm-cockpit-thead`). The Dark-Blue
    header bar gets rounded top corners on BOTH ends so it reads as an enclosed
    pill regardless of how deeply the table is inset in its card. The fill lives
    on the <th> cells (not the <thead>) so the rounded corners actually clip it;
    border-spacing is zeroed so the per-cell fills tile seamlessly into one bar.
    Centralised here because ~25 tables share the marker via TABLE_HEAD_CLASS. */
-table:has(> .lop-thead) {
+table:has(> .aipm-cockpit-thead) {
   border-collapse: separate;
   border-spacing: 0;
 }
-.lop-thead > tr > th {
+.aipm-cockpit-thead > tr > th {
   background-color: var(--table-head-bg);
   color: var(--table-head-fg);
 }
-.lop-thead > tr:first-child > th:first-child {
+.aipm-cockpit-thead > tr:first-child > th:first-child {
   border-top-left-radius: 0.75rem;
 }
-.lop-thead > tr:first-child > th:last-child {
+.aipm-cockpit-thead > tr:first-child > th:last-child {
   border-top-right-radius: 0.75rem;
 }
 

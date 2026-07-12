@@ -167,7 +167,7 @@ export function ReportsPanel({
     assignee.resetColWidths();
     byX.resetColWidths();
   };
-  const { ref: reportsRef, reset: resetReportsSize } = useResizable("lop-app:reports-size");
+  const { ref: reportsRef, reset: resetReportsSize } = useResizable("aipm-cockpit:reports-size");
 
   const reportsViewState: ReportsViewState = {
     assignee: { filter: assigneeFilter, sort: assigneeSort },

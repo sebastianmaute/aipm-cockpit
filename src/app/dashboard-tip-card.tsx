@@ -7,7 +7,7 @@ import type { DensityClasses } from "./dashboard-density";
 import { INTERACTIVE } from "./interaction-styles";
 
 // Per-device tip state (NOT workspace data): which tip + whether dismissed today.
-const KEY = "lop-app:tip-state";
+const KEY = "aipm-cockpit:tip-state";
 type TipState = { index?: number; dismissedDay?: number };
 
 function loadTipState(): TipState {

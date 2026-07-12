@@ -63,7 +63,7 @@ const comboLabel = (combo: (typeof COMBOS)[number]): string =>
 // use-style read: the constant style, the theme, the boot-readable dark-capable
 // flag, the resolved color map, the structural map, AND the scheme store's
 // activeId — the latter is essential because post-mount use-style.syncScheme
-// re-resolves from lop-app:color-schemes and would otherwise snap back to the
+// re-resolves from aipm-cockpit:color-schemes and would otherwise snap back to the
 // Harbor default, repainting the AIPM/Mockup scans. Built-in schemes come from
 // reconcileBuiltins, so an empty schemes[] + the activeId selects them.
 function seedScript(combo: (typeof COMBOS)[number]): string {
@@ -72,12 +72,12 @@ function seedScript(combo: (typeof COMBOS)[number]): string {
   const map = resolveSchemeColors(useDark && spec.dark ? spec.dark : spec.light);
   const store = { schemes: [], activeId: combo.scheme };
   return [
-    `localStorage.setItem("lop-style", "custom");`,
-    `localStorage.setItem("lop-theme", ${JSON.stringify(combo.dark ? "dark" : "light")});`,
-    `localStorage.setItem("lop-scheme-supports-dark", ${JSON.stringify(spec.supportsDark ? "1" : "0")});`,
-    `localStorage.setItem("lop-active-scheme-colors", ${JSON.stringify(JSON.stringify(map))});`,
-    `localStorage.setItem("lop-active-scheme-structural", ${JSON.stringify(JSON.stringify(spec.structural))});`,
-    `localStorage.setItem("lop-app:color-schemes", ${JSON.stringify(JSON.stringify(store))});`,
+    `localStorage.setItem("aipm-cockpit-style", "custom");`,
+    `localStorage.setItem("aipm-cockpit-theme", ${JSON.stringify(combo.dark ? "dark" : "light")});`,
+    `localStorage.setItem("aipm-cockpit-scheme-supports-dark", ${JSON.stringify(spec.supportsDark ? "1" : "0")});`,
+    `localStorage.setItem("aipm-cockpit-active-scheme-colors", ${JSON.stringify(JSON.stringify(map))});`,
+    `localStorage.setItem("aipm-cockpit-active-scheme-structural", ${JSON.stringify(JSON.stringify(spec.structural))});`,
+    `localStorage.setItem("aipm-cockpit:color-schemes", ${JSON.stringify(JSON.stringify(store))});`,
   ].join("\n");
 }
 

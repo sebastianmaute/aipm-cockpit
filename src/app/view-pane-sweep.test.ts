@@ -106,6 +106,6 @@ describe("view-pane sweep", () => {
   it("resource-directory is resizable", () => {
     const src = readFileSync(join(__dirname, "resource-directory.tsx"), "utf8");
     expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
-    expect(src).toMatch(/lop-app:directory-size/);
+    expect(src).toMatch(/aipm-cockpit:directory-size/);
   });
 });

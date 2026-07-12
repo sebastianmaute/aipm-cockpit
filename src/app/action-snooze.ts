@@ -3,7 +3,7 @@
 // Per-action snooze store: actionId -> snoozed-until epoch ms. Feeds the
 // next-actions engine's `dismissed` set so snoozed actions drop out of the
 // queue until their timer expires. localStorage-backed, fully guarded.
-export const ACTION_SNOOZE_KEY = "lop-app:action-snooze";
+export const ACTION_SNOOZE_KEY = "aipm-cockpit:action-snooze";
 
 function read(): Record<string, number> {
   if (typeof window === "undefined") return {};

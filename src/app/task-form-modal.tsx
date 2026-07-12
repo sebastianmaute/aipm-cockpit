@@ -83,9 +83,9 @@ export function TaskFormModal({
   const isEditing = editingId !== null;
   const { offset, reset: dragReset, handleProps } = useDraggable(
     taskModalOpen,
-    "lop-app:modal-pos:task-form",
+    "aipm-cockpit:modal-pos:task-form",
   );
-  const { ref: sizeRef, reset: sizeReset } = useResizable("lop-app:modal-size:task-form");
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:task-form");
   if (!taskModalOpen) return null;
 
   return (

@@ -1,7 +1,7 @@
 # AIPM Project Management Tracker
 
-[![Pipeline Status](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
-[![coverage](https://gitlab.example.com/example-group/public-collab/lop-app/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/lop-app/-/commits/main)
+[![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
+[![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![version](https://img.shields.io/badge/version-v0.177.0_%22Aldiss%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
@@ -79,7 +79,7 @@ Each row keeps a one-line summary. Expand **Details** for the full description.
 | Printing | Scoped print — printing a report prints just that view (sidebar, banners, and other panes are hidden). |
 | SharePoint document links | Attach SharePoint files and folders to tasks, RAID items, changes, stakeholders, milestones, and projects via a built-in browser.<br><details><summary>Details</summary>A custom Microsoft Graph browser (search sites, navigate libraries/folders, pick a file or folder) replaces blind URL paste. Links open in a new tab and round-trip losslessly across all storage backends. Requires M365 sign-in; the "Browse…" button also appears in the SharePoint storage-backend config.</details> |
 | Documents tab | A single view that aggregates every linked document across the project.<br><details><summary>Details</summary>Lists every link carried by tasks, RAID items, changes, milestones, stakeholders, and the project header in one table: open a link in a new tab, jump to its source item's editor, remove it, or attach a new one to any item via the same SharePoint picker / paste-URL field. Links stay on their source items (no separate store), so removing a link here is identical to removing it from that item's editor.</details> |
-| Encrypted secrets at rest | The Anthropic API key, Turso auth token, and the Jira and Timelog API tokens are encrypted in the browser with AES-256-GCM rather than stored in plain text.<br><details><summary>Details</summary>Ciphertext lives in `localStorage["lop-app:secrets"]` and each field is blanked from the settings blob before it is persisted. The wrapping key is a non-extractable WebCrypto **device key** kept in IndexedDB by default; the Anthropic key and Turso token can optionally take a **passphrase** (PBKDF2, 600k iterations) so the value stays sealed until you unlock it (the Jira and Timelog tokens are device-wrapped only). The ciphertext is excluded from workspace exports and never written to Turso. See [Security Model](#security-model).</details> |
+| Encrypted secrets at rest | The Anthropic API key, Turso auth token, and the Jira and Timelog API tokens are encrypted in the browser with AES-256-GCM rather than stored in plain text.<br><details><summary>Details</summary>Ciphertext lives in `localStorage["aipm-cockpit:secrets"]` and each field is blanked from the settings blob before it is persisted. The wrapping key is a non-extractable WebCrypto **device key** kept in IndexedDB by default; the Anthropic key and Turso token can optionally take a **passphrase** (PBKDF2, 600k iterations) so the value stays sealed until you unlock it (the Jira and Timelog tokens are device-wrapped only). The ciphertext is excluded from workspace exports and never written to Turso. See [Security Model](#security-model).</details> |
 
 ## Quick Start
 
@@ -287,9 +287,9 @@ This is a **local-first, bring-your-own-key** application. There is no applicati
 
 | Data | Location |
 |------|----------|
-| **Anthropic API key, Turso auth token, Jira & Timelog API tokens** | **Encrypted at rest** — AES-256-GCM ciphertext in `localStorage["lop-app:secrets"]`; these fields are blanked from the settings blob before it is written. The wrapping key is a non-extractable WebCrypto **device key** in IndexedDB by default. The Anthropic key and Turso token additionally support a **per-secret passphrase** (PBKDF2, 600k iterations) that keeps the value sealed until you unlock it; the Jira and Timelog tokens are device-wrapped only |
-| Jira site URL + email, Turso database URL, all other settings | `localStorage["lop-app:settings"]`, **unencrypted** (the Jira site URL and email are identifying, not secret) |
-| Device key (wraps the secrets above) | IndexedDB DB `lop-app-secrets`, non-extractable |
+| **Anthropic API key, Turso auth token, Jira & Timelog API tokens** | **Encrypted at rest** — AES-256-GCM ciphertext in `localStorage["aipm-cockpit:secrets"]`; these fields are blanked from the settings blob before it is written. The wrapping key is a non-extractable WebCrypto **device key** in IndexedDB by default. The Anthropic key and Turso token additionally support a **per-secret passphrase** (PBKDF2, 600k iterations) that keeps the value sealed until you unlock it; the Jira and Timelog tokens are device-wrapped only |
+| Jira site URL + email, Turso database URL, all other settings | `localStorage["aipm-cockpit:settings"]`, **unencrypted** (the Jira site URL and email are identifying, not secret) |
+| Device key (wraps the secrets above) | IndexedDB DB `aipm-cockpit-secrets`, non-extractable |
 | Workspace data (tasks, RAID, changes, milestones, stakeholders, …) | `IndexedDB` on the default Browser backend, or whichever storage backend you configure |
 
 If WebCrypto / IndexedDB is unavailable the app degrades to holding the secrets in memory rather than crashing. Credentials are deliberately excluded from workspace exports (JSON/CSV/Markdown), the activity log, and console output; the secrets ciphertext is likewise excluded from exports and never written to Turso.

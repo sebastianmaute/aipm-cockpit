@@ -262,7 +262,7 @@ test("gantt root pane has print-root and print-landscape classes", () => {
 // ---------- resizable task-name column (Task 1) ----------------------------
 
 describe("GanttPanel task-name column resize", () => {
-  const KEY = "lop-app:gantt-namecol";
+  const KEY = "aipm-cockpit:gantt-namecol";
 
   it("persists a resize drag and clears it on reset", () => {
     window.localStorage.removeItem(KEY);

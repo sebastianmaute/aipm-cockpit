@@ -17,7 +17,7 @@ import { t } from "./i18n";
 
 // Mirrors the module-private constants. Kept here so the raw-localStorage
 // injection tests (invalid-entry filtering) can target the real key.
-const STORAGE_KEY = "lop-app:activity-log";
+const STORAGE_KEY = "aipm-cockpit:activity-log";
 const MAX = 500;
 
 function entry(id: number, kind: ActivityKind = "task.created"): ActivityEntry {

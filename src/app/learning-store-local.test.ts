@@ -11,7 +11,7 @@ describe("localLearningStore", () => {
   });
   it("returns empty on missing/malformed data", async () => {
     expect(await localLearningStore().load()).toEqual({ state: {}, overrides: {} });
-    localStorage.setItem("lop-app:action-learning", "{not json");
+    localStorage.setItem("aipm-cockpit:action-learning", "{not json");
     expect(await localLearningStore().load()).toEqual({ state: {}, overrides: {} });
   });
 });

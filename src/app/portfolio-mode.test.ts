@@ -22,7 +22,7 @@ describe("portfolio-mode", () => {
   });
 
   it("coerces an unknown stored value to 'file'", () => {
-    window.localStorage.setItem("lop-app:portfolio-mode", "nonsense");
+    window.localStorage.setItem("aipm-cockpit:portfolio-mode", "nonsense");
     expect(loadPortfolioMode()).toBe("file");
   });
 

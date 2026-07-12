@@ -90,7 +90,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
   const { status, setStatus } = useWorkspace();
-  const { ref: sizeRef, reset: resetSize } = useResizable("lop-app:dashboard-size");
+  const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
 
   const locale = localeFor(lang);
   const money = (n: number) => formatCurrency(n, props.plan.currency || "EUR", locale);

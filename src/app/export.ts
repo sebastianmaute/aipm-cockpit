@@ -47,7 +47,7 @@ const MIME: Record<Exclude<ExportFormat, "pdf">, string> = {
 
 function defaultFilename(format: ExportFormat): string {
   const today = new Date().toISOString().slice(0, 10);
-  return `lop-tasks-${today}.${EXT[format]}`;
+  return `aipm-cockpit-tasks-${today}.${EXT[format]}`;
 }
 
 /**
@@ -157,17 +157,17 @@ export function buildPdfHtml(ws: Workspace, cfg: ExportConfig, lang: Lang): stri
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>List of Open Points — ${htmlEscape(today)}</title>
+  <title>AIPM Cockpit — ${htmlEscape(today)}</title>
   <style>${PRINT_STYLES}
   </style>
 </head>
 <body>
   <header>
-    <h1>List of Open Points</h1>
+    <h1>AIPM Cockpit</h1>
     <div class="subtitle">Exported ${htmlEscape(today)}</div>
   </header>
   ${sectionsHtml}
-  <footer>Acme — List of Open Points Tracker</footer>
+  <footer>Acme — AIPM Cockpit</footer>
   <script>
     // Wait one paint so the browser has rendered the table before
     // opening the print dialog; otherwise some browsers print blank.

@@ -1,10 +1,10 @@
 // Per-device, per-project cadence + prior-snapshot store for the weekly digest.
 // Mirrors landing-state.ts: single localStorage key, capped, validated load,
-// OUT of exports/Turso, swept by clearAppConfig's `lop-app:*` sweep. NOT a
+// OUT of exports/Turso, swept by clearAppConfig's `aipm-cockpit:*` sweep. NOT a
 // Workspace field (zero backend write paths).
 import type { Health } from "../health";
 
-export const DIGEST_STATE_KEY = "lop-app:digest-state";
+export const DIGEST_STATE_KEY = "aipm-cockpit:digest-state";
 export const DIGEST_STATE_MAX_PROJECTS = 50;
 
 export interface DigestMetrics {

@@ -38,7 +38,7 @@ describe("ViewCallout", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "viewHintDismiss") }));
     expect(container).toBeEmptyDOMElement();
-    expect(localStorage.getItem("lop-app:view-hints")).toContain("raid");
+    expect(localStorage.getItem("aipm-cockpit:view-hints")).toContain("raid");
   });
 
   it("renders nothing in a popout", () => {

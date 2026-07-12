@@ -69,7 +69,7 @@ describe("secrets-store", () => {
   });
 
   it("ignores a corrupt/garbage secrets record in localStorage", async () => {
-    localStorage.setItem("lop-app:secrets", JSON.stringify({ anthropicApiKey: { junk: true } }));
+    localStorage.setItem("aipm-cockpit:secrets", JSON.stringify({ anthropicApiKey: { junk: true } }));
     expect(loadSealed("anthropicApiKey")).toBeNull();
   });
 

@@ -427,7 +427,7 @@ page reload.
 ## IndexedDB layout (`storage.ts`)
 
 ```
-Database: lop-app  (version 6)
+Database: aipm-cockpit  (version 6)
 ├── object store "kv"           (v1)  — FsHandle + "resource-plan" singleton
 │                                       + "budgets" array + "fxRates" object (v6)
 │                                       + "status" object (0.43.0+) + "milestones" array (0.44.0+)
@@ -449,9 +449,9 @@ data and gain the new stores additively. The `plan` singleton is stored in
 the existing `kv` store under key `"resource-plan"`.
 
 **Per-project file handles** (v0.58 Phase 1) live in a **separate** IndexedDB
-database `lop-app-project-handles` (version 1, single out-of-line store
+database `aipm-cockpit-project-handles` (version 1, single out-of-line store
 `handles`; `project-file-handles.ts`) so storing `FileSystemFileHandle`s per
-project never touches the main `lop-app` DB's schema version. Records are keyed
+project never touches the main `aipm-cockpit` DB's schema version. Records are keyed
 by the project id via `put(handle, projectId)`; all ops are no-ops when
 IndexedDB is unavailable (SSR).
 
@@ -470,33 +470,33 @@ transaction per store, short-circuited when there is no work. Baseline is
 refreshed after each successful save.
 
 One-time migration: on first load with empty IDB stores and present legacy
-keys (`lop-app:tasks`, `lop-app:raid`), records are copied into IDB and
+keys (`aipm-cockpit:tasks`, `aipm-cockpit:raid`), records are copied into IDB and
 legacy keys are removed.
 
 ## localStorage keys
 
 | Key | Shape |
 |---|---|
-| `lop-theme` | `"light"` \| `"dark"` \| `"system"` — persisted theme preference. Default `"system"` (absent = system). Read by the no-flash inline script in `layout.tsx` before hydration and by `use-theme.tsx` at runtime. Separate from the workspace `Settings` object. |
-| `lop-app:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations?, layout?, reports?, popout?, resources?, snapshots?, features?, export? }`. The `layout` field: `"modern" \| "classic"` (default modern). The `jira` sub-object includes `projectKey` (primary two-way project), `extraProjects?` (array of `{ key, name, readOnly }` extra projects to sync read-only), `tokenExpiresAt`, and `tokenInvalidAt`. **0.156.0+** `extraProjects` is per-device only (Settings field, not workspace data) — excluded from exports/Turso. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. **0.54.0+** `features`: `FeatureModuleId[]` (the enabled feature modules — `dashboard`, `trends`, `gantt`, `milestones`, `resources`, `budget`, `raid`, `changes`, `stakeholders`, `history` (0.66.0+, Turso version history); `feature-modules.ts`). `sanitizeFeatures(undefined) ⇒ all modules` (legacy migration); `[] ⇒ Simple`, all ⇒ Advanced, partial ⇒ Modular (`deriveMode`). Gates nav / automation / dashboard / reports. **0.97.0+** `ai` sub-object grew master `groundInGuides` (default ON) + `actionSuggestions?` (Action-Center "Analyze with AI", default ON) + `scheduledJobs?` (recurring billed analysis, default OFF/opt-in) + `suggestAllNextActionThresholds?` (AI weight suggestions, default OFF) + **0.177.0** `maxChatTurns?` (max assistant round-trips per user message, `clampMaxChatTurns` → integer 1–50, default 12 — bounds billed API calls) + `tokenMultiplier?` (multiplier applied to counted tokens before the session/weekly caps, >0, default 5). **0.108.0+** `tasksViewMode: "table" \| "board"` (per-device Kanban toggle). **0.112.0+** `tourSeen?: boolean` (guided-tour seen flag). **0.113.0+** `timezone?: string` (per-device display/operating tz override; undefined = follow project/browser) + `additionalTimezones?: string[]` (extra zones for the display switcher + calendar clock strip). |
-| `lop-app:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
-| `lop-app:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |
-| `lop-app:reminder-snooze:jiraToken` | Epoch-ms timestamp until which the Jira token expiry banner is snoozed; absent or elapsed = not snoozed |
-| `lop-app:contacts` | `Record<normalizedName, { name, email }>`, capped at 500 entries |
-| `lop-app:activity-log` | `ActivityEntry[]`, capped at 500 (oldest dropped on overflow) |
-| `lop-app:workspace-collapsed` | `"1"` or absent |
-| `lop-app:sidebar-collapsed` | `"1"` or absent (modern mode only; v0.29.0+) |
-| `lop-app:col-widths` | `Record<string, number>` (debounced 250 ms) |
-| `lop-app:hidden-cols` | `string[]` |
-| `lop-app:task-table-size`, `lop-app:workspace-size`, `lop-app:task-modal-size`, `lop-app:gantt-size`, `lop-app:conflicts-modal-size`, `lop-app:due-modal-size`, `lop-app:help-size`, `lop-app:help-pos` | Resizable element sizes / positions |
-| `lop-app:gantt-prefs` | Gantt zoom/scale prefs |
-| `lop-app:portfolio-mode` | `"file" \| "turso"` — global portfolio storage mode (v0.58/0.59; `portfolio-mode.ts`). Absent / anything but `"turso"` ⇒ `"file"`. |
-| `lop-app:turso-current-project` | Turso-mode last-selected project id (string); absent = none. The Turso `projects` table is the source of truth — this only caches the selection (`portfolio-mode.ts`). |
-| `lop-app:projects` | File-mode project registry (v0.58 Phase 1; `projects-registry.ts`): `{ projects: ProjectRegistryEntry[], currentProjectId: string \| null }` where `ProjectRegistryEntry = { id, name, code, storageConfig }`. Malformed entries dropped on load; dangling `currentProjectId` coerced to `null`. |
-| `lop-app:action-learning` | **0.95.0+** Action Center learning store (local backend): per-kind outcome stats (`acted` / `snoozed` / `dismissed` / `last_at`) + explicit overrides. Opt-in; absent until the learning layer records its first outcome. Manual reset = delete this key. The alternative backend is the global Turso `action_learning` table (see below). |
-| `lop-app:scheduled-jobs` | **0.97.0+ (SP5)** AI scheduled-jobs store (local backend): `ScheduledJob[]` (`{ id, cadence, lastRunAt?, runs: ScheduledJobRun[] }`, history capped at `JOB_HISTORY_CAP = 10`). Opt-in (`ai.scheduledJobs`); used when `tursoConfig === null`. The cross-device backend is the global Turso `scheduled_jobs` table (see below). |
-| `lop-app:timelog-actuals` | **0.144.0+** Timelog per-device cache (`timelog-actuals-store.ts`): the fetched Timelog people + project refs (so the matching tables survive a view switch) alongside the optional aggregated actuals. Per-device only — **not** a `Workspace` field (no new persisted Workspace field this release), excluded from exports/Turso, cleared by `clearAppConfig`. |
-| `lop-app:tasks`, `lop-app:raid` | **Legacy** — removed after first successful IDB save |
+| `aipm-cockpit-theme` | `"light"` \| `"dark"` \| `"system"` — persisted theme preference. Default `"system"` (absent = system). Read by the no-flash inline script in `layout.tsx` before hydration and by `use-theme.tsx` at runtime. Separate from the workspace `Settings` object. |
+| `aipm-cockpit:settings` | JSON envelope: `{ language, holidayCountries, ai, jira, notifications, storage, integrations?, layout?, reports?, popout?, resources?, snapshots?, features?, export? }`. The `layout` field: `"modern" \| "classic"` (default modern). The `jira` sub-object includes `projectKey` (primary two-way project), `extraProjects?` (array of `{ key, name, readOnly }` extra projects to sync read-only), `tokenExpiresAt`, and `tokenInvalidAt`. **0.156.0+** `extraProjects` is per-device only (Settings field, not workspace data) — excluded from exports/Turso. **0.21.0+** `integrations` sub-object: `{ m365Enabled: boolean, m365ClientId?: string, m365TenantId?: string, tursoEnabled: boolean, tursoDbUrl?: string, tursoAuthToken?: string }` (Settings → Integrations inputs); overridden by `NEXT_PUBLIC_*` env vars. The `notifications` sub-object: `{ reminderLeadDays, banner: {enabled}, toast: {enabled}, popup: {enabled}, birthday: {enabled} }`. **0.54.0+** `features`: `FeatureModuleId[]` (the enabled feature modules — `dashboard`, `trends`, `gantt`, `milestones`, `resources`, `budget`, `raid`, `changes`, `stakeholders`, `history` (0.66.0+, Turso version history); `feature-modules.ts`). `sanitizeFeatures(undefined) ⇒ all modules` (legacy migration); `[] ⇒ Simple`, all ⇒ Advanced, partial ⇒ Modular (`deriveMode`). Gates nav / automation / dashboard / reports. **0.97.0+** `ai` sub-object grew master `groundInGuides` (default ON) + `actionSuggestions?` (Action-Center "Analyze with AI", default ON) + `scheduledJobs?` (recurring billed analysis, default OFF/opt-in) + `suggestAllNextActionThresholds?` (AI weight suggestions, default OFF) + **0.177.0** `maxChatTurns?` (max assistant round-trips per user message, `clampMaxChatTurns` → integer 1–50, default 12 — bounds billed API calls) + `tokenMultiplier?` (multiplier applied to counted tokens before the session/weekly caps, >0, default 5). **0.108.0+** `tasksViewMode: "table" \| "board"` (per-device Kanban toggle). **0.112.0+** `tourSeen?: boolean` (guided-tour seen flag). **0.113.0+** `timezone?: string` (per-device display/operating tz override; undefined = follow project/browser) + `additionalTimezones?: string[]` (extra zones for the display switcher + calendar clock strip). |
+| `aipm-cockpit:reminder-snooze:due` | Epoch-ms timestamp (stored as decimal string) until which the due-date reminder banner is snoozed; absent or elapsed = not snoozed |
+| `aipm-cockpit:reminder-snooze:birthday` | Epoch-ms timestamp until which the birthday reminder banner is snoozed; absent or elapsed = not snoozed |
+| `aipm-cockpit:reminder-snooze:jiraToken` | Epoch-ms timestamp until which the Jira token expiry banner is snoozed; absent or elapsed = not snoozed |
+| `aipm-cockpit:contacts` | `Record<normalizedName, { name, email }>`, capped at 500 entries |
+| `aipm-cockpit:activity-log` | `ActivityEntry[]`, capped at 500 (oldest dropped on overflow) |
+| `aipm-cockpit:workspace-collapsed` | `"1"` or absent |
+| `aipm-cockpit:sidebar-collapsed` | `"1"` or absent (modern mode only; v0.29.0+) |
+| `aipm-cockpit:col-widths` | `Record<string, number>` (debounced 250 ms) |
+| `aipm-cockpit:hidden-cols` | `string[]` |
+| `aipm-cockpit:task-table-size`, `aipm-cockpit:workspace-size`, `aipm-cockpit:task-modal-size`, `aipm-cockpit:gantt-size`, `aipm-cockpit:conflicts-modal-size`, `aipm-cockpit:due-modal-size`, `aipm-cockpit:help-size`, `aipm-cockpit:help-pos` | Resizable element sizes / positions |
+| `aipm-cockpit:gantt-prefs` | Gantt zoom/scale prefs |
+| `aipm-cockpit:portfolio-mode` | `"file" \| "turso"` — global portfolio storage mode (v0.58/0.59; `portfolio-mode.ts`). Absent / anything but `"turso"` ⇒ `"file"`. |
+| `aipm-cockpit:turso-current-project` | Turso-mode last-selected project id (string); absent = none. The Turso `projects` table is the source of truth — this only caches the selection (`portfolio-mode.ts`). |
+| `aipm-cockpit:projects` | File-mode project registry (v0.58 Phase 1; `projects-registry.ts`): `{ projects: ProjectRegistryEntry[], currentProjectId: string \| null }` where `ProjectRegistryEntry = { id, name, code, storageConfig }`. Malformed entries dropped on load; dangling `currentProjectId` coerced to `null`. |
+| `aipm-cockpit:action-learning` | **0.95.0+** Action Center learning store (local backend): per-kind outcome stats (`acted` / `snoozed` / `dismissed` / `last_at`) + explicit overrides. Opt-in; absent until the learning layer records its first outcome. Manual reset = delete this key. The alternative backend is the global Turso `action_learning` table (see below). |
+| `aipm-cockpit:scheduled-jobs` | **0.97.0+ (SP5)** AI scheduled-jobs store (local backend): `ScheduledJob[]` (`{ id, cadence, lastRunAt?, runs: ScheduledJobRun[] }`, history capped at `JOB_HISTORY_CAP = 10`). Opt-in (`ai.scheduledJobs`); used when `tursoConfig === null`. The cross-device backend is the global Turso `scheduled_jobs` table (see below). |
+| `aipm-cockpit:timelog-actuals` | **0.144.0+** Timelog per-device cache (`timelog-actuals-store.ts`): the fetched Timelog people + project refs (so the matching tables survive a view switch) alongside the optional aggregated actuals. Per-device only — **not** a `Workspace` field (no new persisted Workspace field this release), excluded from exports/Turso, cleared by `clearAppConfig`. |
+| `aipm-cockpit:tasks`, `aipm-cockpit:raid` | **Legacy** — removed after first successful IDB save |
 
 ## File-backend formats
 
@@ -584,7 +584,7 @@ exempt.
 opt-in, 0.95.0+): a **global** (cross-project, NOT project-scoped) `action_learning`
 table — `(kind TEXT PRIMARY KEY, acted, snoozed, dismissed, last_at, override)` —
 holds the per-kind learning state for the Turso store backend (the local backend
-uses the `lop-app:action-learning` localStorage key instead). Like the snapshot
+uses the `aipm-cockpit:action-learning` localStorage key instead). Like the snapshot
 and version tables it is kept **out of** the workspace `TABLE_NAMES`, so a
 workspace save's clear-all never touches it; a manual reset is
 `DELETE FROM action_learning`. Writes are a full rewrite (DELETE then re-insert)
@@ -596,7 +596,7 @@ blob row. Like the snapshot / version / learning tables it is kept **out of**
 the workspace `TABLE_NAMES` (guard test), so a workspace save's clear-all never
 wipes it; writes are a full rewrite (DELETE then re-insert, no per-id diffing).
 Selected only when `tursoConfig !== null`; otherwise the local
-`lop-app:scheduled-jobs` key is the backend.
+`aipm-cockpit:scheduled-jobs` key is the backend.
 
 ## Sanitization (`sanitize.ts`)
 
@@ -654,14 +654,14 @@ so projects saved before 0.74 (no contacts) still decode.
 
 `ActivityEntry { id, timestamp, kind, args }` with 21 `ActivityKind` values
 covering task / raid / bulk / jira / absence / shift CRUD. Persisted to
-`lop-app:activity-log` only — explicitly excluded from any export path
+`aipm-cockpit:activity-log` only — explicitly excluded from any export path
 ("non-persistent, not written to file, just local storage"). Capped at
 `ACTIVITY_MAX_ENTRIES = 500`; oldest entries dropped on overflow. Render-time
 templating goes through `ACTIVITY_KIND_TO_KEY` → i18n. **0.167.0:** an entry may
 carry an optional `changes?: readonly FieldChange[]` — a per-field before→after
 diff produced by `diffFields(before, after, fields)` (capped at `MAX_FIELD_CHANGES`,
 `sanitizeChanges` validated on load). Like the rest of the log this rides
-`lop-app:activity-log` only — **not** a `Workspace` field, never written to any
+`aipm-cockpit:activity-log` only — **not** a `Workspace` field, never written to any
 export.
 
 ## Duration helper (`duration.ts`)
@@ -699,7 +699,7 @@ RAID review banner / modal / toast nudge.
 ## Contacts (`contacts.ts`)
 
 `Contact { name, email }` keyed by `normalizedName` (trimmed lowercase) in a
-`ContactsMap`. Capped at `CONTACTS_MAX = 500`. Persisted to `lop-app:contacts`
+`ContactsMap`. Capped at `CONTACTS_MAX = 500`. Persisted to `aipm-cockpit:contacts`
 independently of the tasks list so suggestions survive task deletion, Clear
 All, and Jira sync churn.
 

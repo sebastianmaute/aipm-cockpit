@@ -1,11 +1,11 @@
 // Structured, secrets-free diagnostic ring. Per-device (localStorage
-// `lop-app:diag-log`), capped, out of workspace exports/Turso, swept by
-// clearAppConfig's `lop-app:*` removal. Never throws into the app.
+// `aipm-cockpit:diag-log`), capped, out of workspace exports/Turso, swept by
+// clearAppConfig's `aipm-cockpit:*` removal. Never throws into the app.
 // Inspect in devtools: `window.__lopDiag()`.
 import { APP_VERSION } from "./version";
 import { redactFields } from "./diagnostics-redact";
 
-const KEY = "lop-app:diag-log";
+const KEY = "aipm-cockpit:diag-log";
 const DIAG_MAX = 200;
 
 export type DiagLevel = "error" | "warn" | "info";
@@ -44,9 +44,9 @@ function capRing(events: DiagEvent[]): DiagEvent[] {
   return result;
 }
 
-const LEGACY_DATALOSS_KEY = "lop-app:dataloss-log";
+const LEGACY_DATALOSS_KEY = "aipm-cockpit:dataloss-log";
 
-/** One-time migration of the pre-fold `lop-app:dataloss-log` ring into the unified
+/** One-time migration of the pre-fold `aipm-cockpit:dataloss-log` ring into the unified
  *  ring. Consumes (removes) the legacy key even if parsing fails, so it runs once. */
 export function migrateLegacyDataLossLog(): void {
   try {

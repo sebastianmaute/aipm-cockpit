@@ -36,8 +36,8 @@ describe("recovery-config", () => {
     expect(id).toBeTruthy();
     expect(window.localStorage.getItem(SETTINGS_KEY)).toBeNull();
     expect(window.localStorage.getItem(MODE_KEY)).toBeNull();
-    expect(window.localStorage.getItem(`lop-app:recovery-backup:${id}:${SETTINGS_KEY}`)).toBe('{"a":1}');
-    expect(window.localStorage.getItem(`lop-app:recovery-backup:${id}:${MODE_KEY}`)).toBe("turso");
+    expect(window.localStorage.getItem(`aipm-cockpit:recovery-backup:${id}:${SETTINGS_KEY}`)).toBe('{"a":1}');
+    expect(window.localStorage.getItem(`aipm-cockpit:recovery-backup:${id}:${MODE_KEY}`)).toBe("turso");
   });
 
   it("restore writes the backed-up values back to the live keys", () => {
@@ -61,7 +61,7 @@ describe("recovery-config", () => {
     const ids = listBackups().map((x) => x.id);
     expect(ids[0]).toBe(b);
     expect(ids).toContain(a);
-    window.localStorage.setItem("lop-app:recovery-backups", "{not json");
+    window.localStorage.setItem("aipm-cockpit:recovery-backups", "{not json");
     expect(listBackups()).toEqual([]);
   });
 
@@ -99,7 +99,7 @@ describe("recovery-config", () => {
     const spy = vi
       .spyOn(Storage.prototype, "setItem")
       .mockImplementation(function (this: Storage, k: string, v: string) {
-        if (k.startsWith("lop-app:recovery-backup:") && k.endsWith(`:${MODE_KEY}`)) {
+        if (k.startsWith("aipm-cockpit:recovery-backup:") && k.endsWith(`:${MODE_KEY}`)) {
           throw new Error("quota");
         }
         return realSet.call(this, k, v);

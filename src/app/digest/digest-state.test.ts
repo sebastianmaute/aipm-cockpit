@@ -41,18 +41,18 @@ describe("digest-state", () => {
       });
     }
     expect(loadDigestState(`p${DIGEST_STATE_MAX_PROJECTS + 4}`)).not.toBeNull();
-    const raw = JSON.parse(localStorage.getItem("lop-app:digest-state") || "{}");
+    const raw = JSON.parse(localStorage.getItem("aipm-cockpit:digest-state") || "{}");
     expect(Object.keys(raw).length).toBeLessThanOrEqual(DIGEST_STATE_MAX_PROJECTS);
   });
 
   it("treats malformed storage as absent (no crash)", () => {
-    localStorage.setItem("lop-app:digest-state", "not json");
+    localStorage.setItem("aipm-cockpit:digest-state", "not json");
     expect(loadDigestState("p1")).toBeNull();
   });
 
   it("rejects a record with an unparseable date (avoids a silently-stuck cadence)", () => {
     localStorage.setItem(
-      "lop-app:digest-state",
+      "aipm-cockpit:digest-state",
       JSON.stringify({ p1: { lastRunAt: "x", nextDueAt: "garbage", priorRag: "A", priorMetrics: { overdue: 0, openRaid: 0 } } }),
     );
     expect(loadDigestState("p1")).toBeNull();
@@ -61,6 +61,6 @@ describe("digest-state", () => {
   it("clearDigestState wipes the key", () => {
     advanceDigestState("p1", { now: "2026-07-10T09:00:00.000Z", cadenceDays: 7, rag: "A", metrics: { overdue: 0, openRaid: 0 } });
     clearDigestState();
-    expect(localStorage.getItem("lop-app:digest-state")).toBeNull();
+    expect(localStorage.getItem("aipm-cockpit:digest-state")).toBeNull();
   });
 });

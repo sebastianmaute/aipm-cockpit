@@ -29,7 +29,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Apply the resolved theme as a `.dark` class on <html>, and keep it in sync
-  // with OS changes (system mode) and CI-style changes (lop-style-change event).
+  // with OS changes (system mode) and CI-style changes (aipm-cockpit-style-change event).
   // This is the SOLE writer of document.documentElement.classList "dark".
   useEffect(() => {
     const apply = () => {
@@ -40,21 +40,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       const dark = effectiveDark(resolveTheme(theme, prefersDark()) === "dark", schemeDark);
       document.documentElement.classList.toggle("dark", dark);
       // Notify the style layer to re-resolve the active scheme's light/dark map.
-      window.dispatchEvent(new Event("lop-theme-change"));
+      window.dispatchEvent(new Event("aipm-cockpit-theme-change"));
     };
     apply();
-    // ThemeProvider recomputes .dark on lop-style-change ONLY. A scheme switch that
+    // ThemeProvider recomputes .dark on aipm-cockpit-style-change ONLY. A scheme switch that
     // changes dark-capability re-runs syncScheme (which stamps data-scheme-dark) and
-    // THEN re-dispatches lop-style-change (see use-style), so apply() always reads a
+    // THEN re-dispatches aipm-cockpit-style-change (see use-style), so apply() always reads a
     // fresh data-scheme-dark — no reliance on cross-component listener ordering.
-    window.addEventListener("lop-style-change", apply);
+    window.addEventListener("aipm-cockpit-style-change", apply);
     let mql: MediaQueryList | undefined;
     if (theme === "system") {
       mql = window.matchMedia("(prefers-color-scheme: dark)");
       mql.addEventListener("change", apply);
     }
     return () => {
-      window.removeEventListener("lop-style-change", apply);
+      window.removeEventListener("aipm-cockpit-style-change", apply);
       mql?.removeEventListener("change", apply);
     };
   }, [theme]);

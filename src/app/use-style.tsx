@@ -17,7 +17,7 @@ import {
 } from "./builtin-schemes";
 import { resolveSchemeColors } from "./scheme-tokens";
 
-// Runtime signal (mirrors the boot-readable lop-scheme-supports-dark key): does
+// Runtime signal (mirrors the boot-readable aipm-cockpit-scheme-supports-dark key): does
 // the active custom scheme have a dark map? ThemeProvider reads it to decide
 // whether `custom` may honour the theme.
 const SCHEME_DARK_ATTR = "data-scheme-dark";
@@ -68,8 +68,8 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
     // Phase 2: AIPM + Mockup are now built-in SCHEMES (ids "AIPM"/"mockup"), and the
     // style axis collapses to the constant "custom". Migrate a legacy device style
     // ONCE — activate the matching built-in scheme (so it survives reload) — and
-    // for ANY non-"custom" value (legacy OR absent/fresh) persist lop-style="custom".
-    // A fresh user MUST get lop-style written so the boot script and the dead
+    // for ANY non-"custom" value (legacy OR absent/fresh) persist aipm-cockpit-style="custom".
+    // A fresh user MUST get aipm-cockpit-style written so the boot script and the dead
     // selectScheme fallback stay consistent; a legacy user also activates the scheme
     // first. Idempotent: an already-"custom" user keeps their existing activeId and
     // the write is a harmless no-op. This runs in the lazy initializer (before the
@@ -92,27 +92,27 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute("data-style", "custom");
     // Apply the active scheme for the current theme (custom) or clear it (else).
     syncScheme(style);
-    // lop-theme-change: ThemeProvider flipped .dark → re-resolve the light/dark map.
+    // aipm-cockpit-theme-change: ThemeProvider flipped .dark → re-resolve the light/dark map.
     const onThemeChange = () => syncScheme(style);
-    // lop-scheme-change: the active scheme switched → refresh data-scheme-dark +
+    // aipm-cockpit-scheme-change: the active scheme switched → refresh data-scheme-dark +
     // colors FIRST, THEN ask ThemeProvider to recompute .dark by dispatching
-    // lop-style-change. ★★ This ordering is what makes correctness independent of
+    // aipm-cockpit-style-change. ★★ This ordering is what makes correctness independent of
     // cross-component listener registration order: ThemeProvider reacts only to
-    // lop-style-change, which we dispatch AFTER syncScheme has already stamped the
+    // aipm-cockpit-style-change, which we dispatch AFTER syncScheme has already stamped the
     // fresh data-scheme-dark, so apply() can never read a stale value. (A prior fix
-    // had both providers listen to lop-scheme-change and relied on child-before-parent
+    // had both providers listen to aipm-cockpit-scheme-change and relied on child-before-parent
     // registration order, which inverts once CiStyleProvider re-runs its effect.)
     const onSchemeChange = () => {
       syncScheme(style);
-      window.dispatchEvent(new Event("lop-style-change"));
+      window.dispatchEvent(new Event("aipm-cockpit-style-change"));
     };
-    window.addEventListener("lop-theme-change", onThemeChange);
-    window.addEventListener("lop-scheme-change", onSchemeChange);
+    window.addEventListener("aipm-cockpit-theme-change", onThemeChange);
+    window.addEventListener("aipm-cockpit-scheme-change", onSchemeChange);
     // .dark is owned solely by ThemeProvider; notify it to re-apply for the new style.
-    window.dispatchEvent(new Event("lop-style-change"));
+    window.dispatchEvent(new Event("aipm-cockpit-style-change"));
     return () => {
-      window.removeEventListener("lop-theme-change", onThemeChange);
-      window.removeEventListener("lop-scheme-change", onSchemeChange);
+      window.removeEventListener("aipm-cockpit-theme-change", onThemeChange);
+      window.removeEventListener("aipm-cockpit-scheme-change", onSchemeChange);
     };
   }, [style]);
 
