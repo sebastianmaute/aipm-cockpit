@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { type Theme, THEME_STORAGE_KEY, readStoredTheme, resolveTheme } from "./theme";
+import { effectiveDark } from "./style-ci";
 
 interface ThemeContextValue {
   theme: Theme;
@@ -36,7 +37,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       // (data-scheme-dark="1") honours the theme; a light-only scheme pins light.
       // data-style is always "custom" now, so it plays no part. Mirrors effectiveDark.
       const schemeDark = document.documentElement.getAttribute("data-scheme-dark") === "1";
-      const dark = schemeDark && resolveTheme(theme, prefersDark()) === "dark";
+      const dark = effectiveDark(resolveTheme(theme, prefersDark()) === "dark", schemeDark);
       document.documentElement.classList.toggle("dark", dark);
       // Notify the style layer to re-resolve the active scheme's light/dark map.
       window.dispatchEvent(new Event("lop-theme-change"));

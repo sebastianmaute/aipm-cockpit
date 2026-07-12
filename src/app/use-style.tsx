@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { type CiStyle, STYLE_STORAGE_KEY } from "./style-ci";
+import { type CiStyle, STYLE_STORAGE_KEY, effectiveDark } from "./style-ci";
 import {
   applySchemeColors,
   applySchemeStructural,
@@ -46,7 +46,7 @@ function syncScheme(style: CiStyle): void {
   const supportsDark = activeSchemeOf(store).supportsDark;
   root.setAttribute(SCHEME_DARK_ATTR, supportsDark ? "1" : "0");
   writeSchemeSupportsDark(supportsDark);
-  const resolved = resolveSchemeColors(resolveActiveScheme(store, supportsDark && currentDark()));
+  const resolved = resolveSchemeColors(resolveActiveScheme(store, effectiveDark(currentDark(), supportsDark)));
   writeActiveSchemeColors(resolved);
   applySchemeColors(resolved);
   // Structural (non-color) tokens ride the same apply+mirror path. Always pass the
