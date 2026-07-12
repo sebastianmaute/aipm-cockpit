@@ -899,11 +899,17 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   fresh-install DEFAULT: `CiStyleProvider` inits an absent `lop-style`→`"custom"` and the boot script defaults
   fresh→custom+Harbor (embedded resolved maps, no flash). ★★ Reactivity: `use-style.syncScheme` is the SOLE
   apply path — it resolves the active scheme for the CURRENT theme, applies inline, mirrors the resolved map +
-  `lop-scheme-supports-dark`, and stamps `data-scheme-dark`; it re-runs on `lop-theme-change` (theme flip) AND
-  `lop-scheme-change` (scheme switch). `use-theme` ALSO listens to `lop-scheme-change` (dark-capability can
-  change). Selection UI = a UNIFIED `<select>` in `AppearanceSection` (built-ins + AIPM + Mockup + user schemes,
-  hook `use-color-schemes.ts`, coverage-excluded); `setActive` accepts built-in ids (they aren't in the raw
-  store). A scheme = per-device CSS-var overrides + branding, applied via INLINE `documentElement.style.setProperty`
+  `lop-scheme-supports-dark`, and stamps `data-scheme-dark`. ★★ EVENT WIRING (order-independent): `use-theme`
+  (sole `.dark` writer) recomputes `.dark` on `lop-style-change` ONLY. On a theme flip it dispatches
+  `lop-theme-change` → `use-style` re-resolves colors. On a SCHEME switch (`lop-scheme-change`, from
+  `selectScheme`/editor `onSchemeChange`) `use-style` runs `syncScheme` FIRST (stamps the fresh
+  `data-scheme-dark`) THEN re-dispatches `lop-style-change` so `apply()` reads the fresh attr — do NOT make
+  `use-theme` listen to `lop-scheme-change` (relying on cross-component listener registration order is the race
+  we fixed: it inverts once `CiStyleProvider` re-runs its effect). Selection UI = a UNIFIED `<select>` in
+  `AppearanceSection` (built-ins + AIPM + Mockup + user schemes, hook `use-color-schemes.ts`, coverage-excluded).
+  ★★ `reconcileBuiltins` is the SOLE `activeId` validator — `loadSchemes` preserves the persisted id as-is +
+  `setActive` persists any non-empty id (built-ins are NOT in the raw store; validating there strips every
+  built-in selection → silent revert to Harbor). A scheme = per-device CSS-var overrides + branding, applied via INLINE `documentElement.style.setProperty`
   (the legal runtime mechanism — NEVER a Tailwind class, so palette-sweep is untouched). Pure modules:
   `scheme-tokens.ts` (CORE/ADVANCED token registry, AIPM/MOCKUP seed maps, `deriveAaVariants` mode-aware
   nudge-to-AA against `--surface-muted`, `resolveSchemeColors`), `scheme-contrast.ts` (WCAG warn-only),

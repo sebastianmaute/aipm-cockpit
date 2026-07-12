@@ -56,20 +56,27 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute("data-style", style);
     // Apply the active scheme for the current theme (custom) or clear it (else).
     syncScheme(style);
-    // Re-resolve the active scheme's light/dark sub-map when ThemeProvider flips
-    // .dark (lop-theme-change) OR the active scheme changes (lop-scheme-change).
-    // ★ Register BEFORE dispatching lop-style-change below: that dispatch makes
-    // ThemeProvider re-toggle .dark and fire lop-theme-change synchronously, so
-    // the listener must already be attached or the color re-resolve is dropped
-    // (leaving .dark and the applied light/dark map desynced).
-    const onSync = () => syncScheme(style);
-    window.addEventListener("lop-theme-change", onSync);
-    window.addEventListener("lop-scheme-change", onSync);
+    // lop-theme-change: ThemeProvider flipped .dark → re-resolve the light/dark map.
+    const onThemeChange = () => syncScheme(style);
+    // lop-scheme-change: the active scheme switched → refresh data-scheme-dark +
+    // colors FIRST, THEN ask ThemeProvider to recompute .dark by dispatching
+    // lop-style-change. ★★ This ordering is what makes correctness independent of
+    // cross-component listener registration order: ThemeProvider reacts only to
+    // lop-style-change, which we dispatch AFTER syncScheme has already stamped the
+    // fresh data-scheme-dark, so apply() can never read a stale value. (A prior fix
+    // had both providers listen to lop-scheme-change and relied on child-before-parent
+    // registration order, which inverts once CiStyleProvider re-runs its effect.)
+    const onSchemeChange = () => {
+      syncScheme(style);
+      window.dispatchEvent(new Event("lop-style-change"));
+    };
+    window.addEventListener("lop-theme-change", onThemeChange);
+    window.addEventListener("lop-scheme-change", onSchemeChange);
     // .dark is owned solely by ThemeProvider; notify it to re-apply for the new style.
     window.dispatchEvent(new Event("lop-style-change"));
     return () => {
-      window.removeEventListener("lop-theme-change", onSync);
-      window.removeEventListener("lop-scheme-change", onSync);
+      window.removeEventListener("lop-theme-change", onThemeChange);
+      window.removeEventListener("lop-scheme-change", onSchemeChange);
     };
   }, [style]);
 

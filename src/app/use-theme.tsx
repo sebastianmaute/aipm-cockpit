@@ -43,13 +43,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       window.dispatchEvent(new Event("lop-theme-change"));
     };
     apply();
+    // ThemeProvider recomputes .dark on lop-style-change ONLY. A scheme switch that
+    // changes dark-capability re-runs syncScheme (which stamps data-scheme-dark) and
+    // THEN re-dispatches lop-style-change (see use-style), so apply() always reads a
+    // fresh data-scheme-dark — no reliance on cross-component listener ordering.
     window.addEventListener("lop-style-change", apply);
-    // A scheme switch (lop-scheme-change) can change the active scheme's
-    // dark-capability, so .dark must be recomputed too — not just on style change.
-    // CiStyleProvider (inner) registers its own lop-scheme-change listener FIRST
-    // (child effects run before parent), so data-scheme-dark is already refreshed
-    // by its syncScheme when this apply() reads it.
-    window.addEventListener("lop-scheme-change", apply);
     let mql: MediaQueryList | undefined;
     if (theme === "system") {
       mql = window.matchMedia("(prefers-color-scheme: dark)");
@@ -57,7 +55,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
     return () => {
       window.removeEventListener("lop-style-change", apply);
-      window.removeEventListener("lop-scheme-change", apply);
       mql?.removeEventListener("change", apply);
     };
   }, [theme]);

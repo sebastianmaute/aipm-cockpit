@@ -57,9 +57,11 @@ export function readSchemeSupportsDark(): boolean {
   }
 }
 
-// A CSS token name + hex value the boot key is allowed to carry. Mirrors the
-// cleanColors invariant so this sink can't apply a non-hex (CSS-injection) value
-// even if the localStorage entry is tampered with.
+// Shape guard for the boot key: keys must be CSS custom-property names and values
+// hex, so this sink can't apply a non-hex (CSS-injection) value even if the
+// localStorage entry is tampered with. This is a SHAPE check, not the exact
+// VALID_TOKENS allowlist cleanColors uses (which lives in color-schemes.ts) —
+// scheme-apply is a lower-level leaf and stays dependency-light on purpose.
 const BOOT_TOKEN_RE = /^--[\w-]+$/;
 const BOOT_HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
 

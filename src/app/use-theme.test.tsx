@@ -53,17 +53,18 @@ describe("ThemeProvider", () => {
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
   });
 
-  test("recomputes .dark on lop-scheme-change when the active scheme's dark-capability flips", () => {
+  test("recomputes .dark on lop-style-change against the current data-scheme-dark", () => {
     // custom style, dark theme, but a light-only active scheme (data-scheme-dark=0) → pinned light.
     localStorage.setItem(THEME_STORAGE_KEY, "dark");
     document.documentElement.setAttribute("data-style", "custom");
     document.documentElement.setAttribute("data-scheme-dark", "0");
     render(<ThemeProvider><Probe /></ThemeProvider>);
     expect(document.documentElement.classList.contains("dark")).toBe(false);
-    // Switch to a dark-capable scheme (data-scheme-dark=1) + fire lop-scheme-change → .dark on.
+    // A scheme switch stamps data-scheme-dark=1 then re-dispatches lop-style-change
+    // (done by use-style); ThemeProvider recomputes .dark against the fresh attr.
     act(() => {
       document.documentElement.setAttribute("data-scheme-dark", "1");
-      window.dispatchEvent(new Event("lop-scheme-change"));
+      window.dispatchEvent(new Event("lop-style-change"));
     });
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
