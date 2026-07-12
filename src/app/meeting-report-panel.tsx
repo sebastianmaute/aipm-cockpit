@@ -165,6 +165,7 @@ export function MeetingReportPanel({
                   <button
                     type="button"
                     onClick={() => setCompareVersionId((cur) => (cur === v.id ? null : v.id))}
+                    aria-expanded={compareVersionId === v.id}
                     className={`${BTN_SECONDARY} ${INTERACTIVE}`}
                     aria-label={`${t(lang, "reportDiff")} – ${v.capturedAt}`}
                   >
