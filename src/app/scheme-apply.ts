@@ -7,6 +7,10 @@
 export type SchemeColorMap = Record<string, string>;
 
 export const ACTIVE_SCHEME_COLORS_KEY = "lop-active-scheme-colors";
+// Boot-readable flag: does the active custom scheme support a dark map? The
+// pre-paint boot script reads this to decide whether `custom` may go dark
+// (data-scheme-dark is a runtime attr, not persisted). Written on every apply.
+export const SCHEME_SUPPORTS_DARK_KEY = "lop-scheme-supports-dark";
 
 // Tracks which tokens we set last time so a re-apply can clear stale ones.
 let lastApplied: string[] = [];
@@ -34,7 +38,35 @@ export function writeActiveSchemeColors(colors: SchemeColorMap | null): void {
   }
 }
 
-/** Read the active color map (boot key). Returns null when missing/garbage. */
+/** Persist whether the active custom scheme is dark-capable (boot-readable). */
+export function writeSchemeSupportsDark(supports: boolean): void {
+  try {
+    if (supports) localStorage.setItem(SCHEME_SUPPORTS_DARK_KEY, "1");
+    else localStorage.removeItem(SCHEME_SUPPORTS_DARK_KEY);
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+/** Read the dark-capable flag for the active custom scheme. */
+export function readSchemeSupportsDark(): boolean {
+  try {
+    return localStorage.getItem(SCHEME_SUPPORTS_DARK_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+// Shape guard for the boot key: keys must be CSS custom-property names and values
+// hex, so this sink can't apply a non-hex (CSS-injection) value even if the
+// localStorage entry is tampered with. This is a SHAPE check, not the exact
+// VALID_TOKENS allowlist cleanColors uses (which lives in color-schemes.ts) —
+// scheme-apply is a lower-level leaf and stays dependency-light on purpose.
+const BOOT_TOKEN_RE = /^--[\w-]+$/;
+const BOOT_HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
+
+/** Read the active color map (boot key). Returns null when missing/garbage.
+ *  Values are hex-validated + keys must be CSS custom-property names. */
 export function readActiveSchemeColors(): SchemeColorMap | null {
   try {
     const raw = localStorage.getItem(ACTIVE_SCHEME_COLORS_KEY);
@@ -43,7 +75,7 @@ export function readActiveSchemeColors(): SchemeColorMap | null {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const out: SchemeColorMap = {};
     for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof v === "string") out[k] = v;
+      if (typeof v === "string" && BOOT_TOKEN_RE.test(k) && BOOT_HEX_RE.test(v)) out[k] = v;
     }
     return out;
   } catch {

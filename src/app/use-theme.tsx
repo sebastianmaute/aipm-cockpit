@@ -33,11 +33,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const apply = () => {
       const attr = document.documentElement.getAttribute("data-style");
-      const pinsLight = attr === "mockup" || attr === "custom";
+      // A dark-capable custom scheme (data-scheme-dark="1") honours the theme;
+      // a light-only custom scheme pins light like mockup. Mirrors effectiveDark.
+      const schemeDark = document.documentElement.getAttribute("data-scheme-dark") === "1";
+      const pinsLight = attr === "mockup" || (attr === "custom" && !schemeDark);
       const dark = !pinsLight && resolveTheme(theme, prefersDark()) === "dark";
       document.documentElement.classList.toggle("dark", dark);
+      // Notify the style layer to re-resolve the active scheme's light/dark map.
+      window.dispatchEvent(new Event("lop-theme-change"));
     };
     apply();
+    // ThemeProvider recomputes .dark on lop-style-change ONLY. A scheme switch that
+    // changes dark-capability re-runs syncScheme (which stamps data-scheme-dark) and
+    // THEN re-dispatches lop-style-change (see use-style), so apply() always reads a
+    // fresh data-scheme-dark — no reliance on cross-component listener ordering.
     window.addEventListener("lop-style-change", apply);
     let mql: MediaQueryList | undefined;
     if (theme === "system") {

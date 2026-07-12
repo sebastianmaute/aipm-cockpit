@@ -1,5 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
+import { HARBOR_DARK, HARBOR_LIGHT } from "../src/app/builtin-schemes";
+import { resolveSchemeColors } from "../src/app/scheme-tokens";
 
 // Accessibility gate: scan the critical views (with a DATA-SEEDED project, so
 // colour-coded RAG/status states actually render) for WCAG 2.0/2.1 A & AA
@@ -16,12 +18,31 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
   "Next actions": "#actions",
 };
 
-// Every shipped style/theme combo is scanned. Mockup is light-only.
+// Every shipped style/theme combo is scanned. Mockup is light-only; Harbor (the
+// default scheme, data-style="custom") is dark-capable so both themes run.
 const COMBOS = [
   { style: "AIPM",    theme: "light" },
   { style: "AIPM",    theme: "dark"  },
   { style: "mockup", theme: "light" },
+  { style: "custom", theme: "light" },
+  { style: "custom", theme: "dark"  },
 ] as const;
+
+// Build the pre-navigation localStorage seed for a combo. A custom combo must
+// also seed the boot-readable dark-capable flag + the resolved Harbor map so the
+// no-flash boot script applies the right sub-map (mirrors what the app writes).
+function seedScript(combo: (typeof COMBOS)[number]): string {
+  const lines = [
+    `localStorage.setItem("lop-style", ${JSON.stringify(combo.style)});`,
+    `localStorage.setItem("lop-theme", ${JSON.stringify(combo.theme)});`,
+  ];
+  if (combo.style === "custom") {
+    const map = resolveSchemeColors(combo.theme === "dark" ? HARBOR_DARK : HARBOR_LIGHT);
+    lines.push(`localStorage.setItem("lop-scheme-supports-dark", "1");`);
+    lines.push(`localStorage.setItem("lop-active-scheme-colors", ${JSON.stringify(JSON.stringify(map))});`);
+  }
+  return lines.join("\n");
+}
 
 for (const combo of COMBOS) {
   for (const name of A11Y_VIEWS) {
@@ -30,10 +51,7 @@ for (const combo of COMBOS) {
       // in layout.tsx reads the right style/theme and sets data-style/.dark.
       // addInitScript runs before every navigation, so this fires on the
       // page.goto("/") inside gotoApp — after the page fixture's favicon seed.
-      await page.addInitScript(`
-        localStorage.setItem("lop-style", ${JSON.stringify(combo.style)});
-        localStorage.setItem("lop-theme", ${JSON.stringify(combo.theme)});
-      `);
+      await page.addInitScript(seedScript(combo));
 
       await gotoApp(page);
       const hash = HASH_VIEW[name];
@@ -63,10 +81,7 @@ for (const combo of COMBOS) {
 // its own scan: open Open Points, switch to Board, then analyze.
 for (const combo of COMBOS) {
   test(`a11y: ${combo.style}/${combo.theme} — Open Points (Kanban board)`, async ({ page }) => {
-    await page.addInitScript(`
-      localStorage.setItem("lop-style", ${JSON.stringify(combo.style)});
-      localStorage.setItem("lop-theme", ${JSON.stringify(combo.theme)});
-    `);
+    await page.addInitScript(seedScript(combo));
 
     await gotoApp(page);
     await openView(page, "Open Points");

@@ -13,6 +13,7 @@ describe("ColorSchemeEditor", () => {
   });
 
   it("calls onApply with the resolved color map including a changed token", () => {
+    addScheme("Draft", { "--AIPM-green": "#000000" }, {}); // editable USER scheme active (Apply enabled)
     const onApply = vi.fn();
     render(<ColorSchemeEditor lang="en-US" onApply={onApply} />);
     fireEvent.input(screen.getByLabelText("Accent"), { target: { value: "#123456" } });
@@ -33,24 +34,24 @@ describe("ColorSchemeEditor", () => {
     render(<ColorSchemeEditor lang="en-US" onApply={() => {}} />);
     fireEvent.change(screen.getByLabelText("Scheme name"), { target: { value: "Acme Blue" } });
     fireEvent.click(screen.getByRole("button", { name: /^new scheme$/i }));
-    expect(screen.getByRole("option", { name: "Acme Blue" })).toBeInTheDocument();
+    expect(loadSchemes().schemes.some((s) => s.name === "Acme Blue")).toBe(true);
+  });
+
+  it("marks the active built-in scheme read-only (rename/delete disabled)", () => {
+    // Fresh store → Harbor (built-in) is the active scheme.
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
+    expect(screen.getByText(/save as new to customise/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^rename$/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^delete$/i })).toBeDisabled();
+    // Apply is disabled too, so a live edit can't write the boot key while the
+    // store still points at the untouched built-in (coherence: no silent revert).
+    expect(screen.getByRole("button", { name: /^apply$/i })).toBeDisabled();
   });
 });
 
-// Coherence: the active library scheme must always == what is applied (rendered).
+// Coherence: the active USER scheme must always == what is applied (rendered).
 describe("ColorSchemeEditor coherence", () => {
   beforeEach(() => localStorage.clear());
-
-  it("applies a scheme when it is selected from the dropdown", () => {
-    addScheme("Red", { "--AIPM-green": "#ff0000" }, {});
-    addScheme("Blue", { "--AIPM-green": "#0000ff" }, {}); // active = Blue (id 2)
-    const onApply = vi.fn();
-    render(<ColorSchemeEditor lang="en-US" onApply={onApply} />);
-    onApply.mockClear();
-    fireEvent.change(screen.getByLabelText("Saved schemes"), { target: { value: "1" } }); // Red
-    expect(onApply).toHaveBeenCalled();
-    expect(onApply.mock.calls.at(-1)![0]["--AIPM-green"]).toBe("#ff0000");
-  });
 
   it("applies a newly saved scheme", () => {
     const onApply = vi.fn();
@@ -63,20 +64,20 @@ describe("ColorSchemeEditor coherence", () => {
     expect(onApply.mock.calls.at(-1)![0]["--AIPM-green"]).toBe("#123456");
   });
 
-  it("clears the applied colors when the active scheme is deleted", () => {
-    addScheme("Red", { "--AIPM-green": "#ff0000" }, {});
+  it("clears the applied colors when the active USER scheme is deleted", () => {
+    addScheme("Red", { "--AIPM-green": "#ff0000" }, {}); // active = Red (user)
     const onClear = vi.fn();
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onClear={onClear} />);
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
     expect(onClear).toHaveBeenCalledTimes(1);
   });
 
-  it("persists applied edits to the active scheme (survives reload)", () => {
+  it("persists applied edits to the active USER scheme (survives reload)", () => {
     addScheme("Red", { "--AIPM-green": "#ff0000" }, {});
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
     fireEvent.input(screen.getByLabelText("Accent"), { target: { value: "#00ff00" } });
     fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
     const red = loadSchemes().schemes.find((s) => s.name === "Red");
-    expect(red!.colors["--AIPM-green"]).toBe("#00ff00");
+    expect(red!.light["--AIPM-green"]).toBe("#00ff00");
   });
 });

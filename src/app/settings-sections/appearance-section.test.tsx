@@ -4,12 +4,13 @@ import { AppearanceSection } from "./appearance-section";
 import { CiStyleProvider } from "../use-style";
 import { STYLE_STORAGE_KEY } from "../style-ci";
 import { defaultSettings, type Settings } from "../settings-types";
+import { loadSchemes } from "../color-schemes";
 import { t } from "../i18n";
 
-function renderSection(overrides: Partial<Settings> = {}, initialStyle: "AIPM" | "mockup" = "AIPM") {
-  if (initialStyle === "mockup") {
-    localStorage.setItem(STYLE_STORAGE_KEY, "mockup");
-  }
+function renderSection(overrides: Partial<Settings> = {}, initialStyle: "AIPM" | "mockup" | "custom" = "AIPM") {
+  // A fresh provider defaults to "custom" (Harbor); set the key explicitly so
+  // each case starts from a known style.
+  localStorage.setItem(STYLE_STORAGE_KEY, initialStyle);
   const settings = { ...defaultSettings, ...overrides };
   const onChange = vi.fn();
   render(
@@ -51,61 +52,54 @@ describe("AppearanceSection density control", () => {
   });
 });
 
-describe("AppearanceSection style control", () => {
-  it("renders the Style radiogroup with the accessible name and both options", () => {
+describe("AppearanceSection scheme control", () => {
+  it("renders the scheme selector with the built-ins + AIPM + Mockup", () => {
     renderSection();
-    const group = screen.getByRole("radiogroup", { name: t("en-US", "styleLabel") });
-    expect(group).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: t("en-US", "styleIcc") })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: t("en-US", "styleMockup") })).toBeInTheDocument();
+    expect(screen.getByLabelText(t("en-US", "schemeAppearanceLabel"))).toBeInTheDocument();
+    for (const name of ["Harbor", "Meridian", "Umber"]) {
+      expect(screen.getByRole("option", { name })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("option", { name: t("en-US", "styleIcc") })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: t("en-US", "styleMockup") })).toBeInTheDocument();
   });
 
-  it("marks Acme selected by default", () => {
+  it("selecting a built-in scheme switches the style to custom", () => {
+    renderSection(); // starts on AIPM
+    fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "harbor" } });
+    expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
+  });
+
+  it("selecting Meridian actually activates Meridian (not the Harbor default)", () => {
+    // Regression: setActive must accept built-in ids, else the selection reverts to Harbor.
     renderSection();
-    expect(screen.getByRole("radio", { name: t("en-US", "styleIcc") })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("radio", { name: t("en-US", "styleMockup") })).toHaveAttribute("aria-checked", "false");
+    fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "meridian" } });
+    expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
+    expect(loadSchemes().activeId).toBe("meridian");
   });
 
   it("selecting Dashboard persists mockup to localStorage", () => {
     renderSection();
-    fireEvent.click(screen.getByRole("radio", { name: t("en-US", "styleMockup") }));
+    fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "mockup" } });
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("mockup");
   });
 
-  it("when style is mockup, the Theme radiogroup is disabled", () => {
+  it("mockup disables the Theme control and shows the light-only note", () => {
     renderSection({}, "mockup");
-    const themeGroup = screen.getByRole("radiogroup", { name: t("en-US", "theme") });
-    expect(themeGroup).toHaveAttribute("aria-disabled", "true");
-  });
-
-  it("when style is mockup, individual theme buttons are disabled", () => {
-    renderSection({}, "mockup");
+    expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: t("en-US", "themeDark") })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).toBeDisabled();
+    expect(screen.getByText(t("en-US", "styleMockupLightOnly"))).toBeInTheDocument();
   });
 
-  it("when style is mockup, renders the light-only note", () => {
-    renderSection({}, "mockup");
-    expect(screen.getByText(t("en-US", "styleMockupLightOnly"))).toBeInTheDocument();
+  it("a dark-capable built-in (Harbor) keeps the Theme control enabled with no light-only note", () => {
+    renderSection({}, "custom"); // fresh store → Harbor active (dark-capable)
+    expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).not.toBeDisabled();
+    expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "styleCustomLightOnly"))).not.toBeInTheDocument();
   });
 
   it("when style is AIPM, the light-only note is absent", () => {
     renderSection();
-    expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
-  });
-
-  it("switching back from mockup to Acme re-enables the theme control and removes the note", () => {
-    renderSection({}, "mockup");
-    // Starts disabled in mockup.
-    expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByText(t("en-US", "styleMockupLightOnly"))).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("radio", { name: t("en-US", "styleIcc") }));
-
-    expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).not.toBeDisabled();
-    expect(screen.getByRole("radio", { name: t("en-US", "themeDark") })).not.toBeDisabled();
-    expect(screen.getByRole("radio", { name: t("en-US", "themeSystem") })).not.toBeDisabled();
     expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
   });
 });

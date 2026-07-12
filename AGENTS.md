@@ -863,7 +863,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `shadow-[var(--…)]` className form is stripped first) — reference the token obliquely in comments.
   `bg`/`border`/`divide-AIPM-light-grey` + `text-AIPM-dark-grey` are BANNED chrome greys (`text-AIPM-light-grey`
   is fine) — use `bg-AIPM-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
-  EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light (3 × A11Y_VIEWS = 39 passes), seeding
+  EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light, Harbor(custom)-light, Harbor(custom)-dark
+  (5 × A11Y_VIEWS), seeding
   `lop-style`/`lop-theme` via `addInitScript`. Appearance Style switch disables the theme control while
   Mockup is active.
   ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
@@ -886,15 +887,38 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
   e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
   "var(--delta-chip-pad)"} : undefined}` — so AIPM is untouched AND a chip-less (flat) trend gets no empty bubble.
-  • **Custom color schemes (3rd style):** `data-style="custom"` beside AIPM/mockup (`style-ci.ts` `CiStyle`;
-  `effectiveDark` pins light for mockup AND custom — keep the 3 sync sites in lockstep: the helper,
-  `use-theme`, and the `layout.tsx` boot string). A scheme = per-device CSS-var overrides + branding,
-  applied via INLINE `documentElement.style.setProperty` (the legal runtime mechanism — NEVER a Tailwind
-  class, so palette-sweep is untouched). Pure modules: `scheme-tokens.ts` (CORE/ADVANCED token registry,
-  AIPM/MOCKUP seed maps, `deriveAaVariants` darken-to-AA, `resolveSchemeColors`), `scheme-contrast.ts` (WCAG
-  warn-only), `scheme-apply.ts` (`applySchemeColors`/`writeActiveSchemeColors`/`readActiveSchemeColors`),
-  `color-schemes.ts` (per-device library `lop-app:color-schemes`, hex-validated import, `mergeAppliedBranding`).
-  UI `color-scheme-editor.tsx` mounts in `AppearanceSection` only when `isCustom`. ★★ NO-FLASH: the active
+  • **Scheme-driven color schemes (3rd style + built-in palettes):** `data-style="custom"` beside AIPM/mockup
+  (`style-ci.ts` `CiStyle`). ★★ DARK-CAPABLE: a scheme now carries `{ light, dark?, supportsDark, builtIn? }`
+  (string ids: user `"u-<n>"`, built-in `"harbor"`/`"meridian"`/`"umber"`). `effectiveDark(dark, style,
+  schemeSupportsDark)` — mockup ALWAYS pins light; `custom` pins light ONLY when the ACTIVE scheme is not
+  dark-capable (a light-only USER scheme), and honours the theme for a dark-capable one. Keep the 3 pin-light
+  sites in lockstep: the helper, `use-theme` (reads the `data-scheme-dark` attr), and the boot string (now in
+  `boot-theme-script.ts`, imported by `layout.tsx`). ★★ Built-ins: `builtin-schemes.ts` (Harbor/Meridian/Umber,
+  full light+dark maps, all AA-verified) + `reconcileBuiltins` (re-seeds from code, keeps user schemes +
+  activeId, built-ins undeletable via `BUILTIN_SCHEME_IDS`, else `DEFAULT_SCHEME_ID="harbor"`). ★★ HARBOR is the
+  fresh-install DEFAULT: `CiStyleProvider` inits an absent `lop-style`→`"custom"` and the boot script defaults
+  fresh→custom+Harbor (embedded resolved maps, no flash). ★★ Reactivity: `use-style.syncScheme` is the SOLE
+  apply path — it resolves the active scheme for the CURRENT theme, applies inline, mirrors the resolved map +
+  `lop-scheme-supports-dark`, and stamps `data-scheme-dark`. ★★ EVENT WIRING (order-independent): `use-theme`
+  (sole `.dark` writer) recomputes `.dark` on `lop-style-change` ONLY. On a theme flip it dispatches
+  `lop-theme-change` → `use-style` re-resolves colors. On a SCHEME switch (`lop-scheme-change`, from
+  `selectScheme`/editor `onSchemeChange`) `use-style` runs `syncScheme` FIRST (stamps the fresh
+  `data-scheme-dark`) THEN re-dispatches `lop-style-change` so `apply()` reads the fresh attr — do NOT make
+  `use-theme` listen to `lop-scheme-change` (relying on cross-component listener registration order is the race
+  we fixed: it inverts once `CiStyleProvider` re-runs its effect). Selection UI = a UNIFIED `<select>` in
+  `AppearanceSection` (built-ins + AIPM + Mockup + user schemes, hook `use-color-schemes.ts`, coverage-excluded).
+  ★★ `reconcileBuiltins` is the SOLE `activeId` validator — `loadSchemes` preserves the persisted id as-is +
+  `setActive` persists any non-empty id (built-ins are NOT in the raw store; validating there strips every
+  built-in selection → silent revert to Harbor). A scheme = per-device CSS-var overrides + branding, applied via INLINE `documentElement.style.setProperty`
+  (the legal runtime mechanism — NEVER a Tailwind class, so palette-sweep is untouched). Pure modules:
+  `scheme-tokens.ts` (CORE/ADVANCED token registry, AIPM/MOCKUP seed maps, `deriveAaVariants` mode-aware
+  nudge-to-AA against `--surface-muted`, `resolveSchemeColors`), `scheme-contrast.ts` (WCAG warn-only),
+  `scheme-apply.ts` (`applySchemeColors`/`writeActiveSchemeColors`/`readActiveSchemeColors` [hex-validated]/
+  `writeSchemeSupportsDark`), `color-schemes.ts` (per-device library `lop-app:color-schemes`, hex-validated
+  import, `mergeAppliedBranding`). ★ USER-created custom schemes are still light-only THIS PHASE (editor edits
+  `.light`); built-in schemes carry both maps. `color-scheme-editor.tsx` mounts in `AppearanceSection` only when
+  `isCustom` (built-ins are read-only there: Rename/Delete/Apply disabled — tweak + Save-as-new to customise).
+  ★★ NO-FLASH: the active
   scheme's RESOLVED map mirrors to the boot key `lop-active-scheme-colors` (NOT `lop-app:`-prefixed, so the
   pre-paint boot script reads it like `lop-style`; consequently NOT swept by `clearAppConfig` — intentional,
   mirrors `lop-style`/`lop-theme`). ★★ SINGLE SOURCE OF TRUTH: EVERY editor mutation
@@ -904,9 +928,10 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   slogan/footerSlogan: apply REPLACES them via `mergeAppliedBranding` (clears when absent) and the global
   app-name/footer inputs are HIDDEN under Custom; logo/favicon stay GLOBAL (untouched by scheme apply). ★ the
   derived `-strong`/`-text`/`muted-foreground` tokens are dropped on save (`cleanColors` keeps only editable
-  tokens) — never persisted to the library. ★ Custom is light-only (theme toggle disabled, like Mockup). ★
-  `layout-boot-script.test.ts` PINS the EXACT boot string — editing the `layout.tsx` boot script means
-  updating that guard in lockstep.
+  tokens) — never persisted to the library. ★ The theme toggle is disabled only when the ACTIVE scheme is
+  light-only (mockup, or a light-only user scheme) — dark-capable built-ins keep it enabled. ★
+  `layout-boot-script.test.ts` PINS the EXACT boot string (now in `boot-theme-script.ts`) + runtime-evals it —
+  editing the boot script means updating that guard in lockstep.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.

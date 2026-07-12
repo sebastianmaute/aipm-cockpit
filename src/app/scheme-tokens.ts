@@ -95,23 +95,34 @@ function ratio(a: string, b: string): number {
   const lb = relLuminance(hexToRgb(b));
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
-function darkenToAa(base: string, bg: string): string {
+// Nudge the base toward AA (ratio >= 4.5) against bg. Direction is mode-aware:
+// a DARK surface (relLuminance < 0.5) LIGHTENS the base toward white; a LIGHT
+// surface DARKENS toward black. Dark-on-dark can never reach AA by darkening.
+function nudgeToAa(base: string, bg: string): string {
+  const lighten = relLuminance(hexToRgb(bg)) < 0.5;
+  const factor = lighten ? 1 / 0.85 : 0.85;
   let [r, g, b] = hexToRgb(base);
   for (let i = 0; i < 20 && ratio(rgbToHex(r, g, b), bg) < 4.5; i++) {
-    r *= 0.85; g *= 0.85; b *= 0.85;
+    r = Math.min(255, r * factor);
+    g = Math.min(255, g * factor);
+    b = Math.min(255, b * factor);
   }
   return rgbToHex(r, g, b);
 }
 
 export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
-  const surface = colors["--surface"] ?? ICC_SEED["--surface"];
+  // Derive the -text/-strong variants against --surface-muted when present: it
+  // is the "card" background (bg-surface-muted, e.g. Kanban cards) and is always
+  // the HARDER of the two (darker than --surface in light schemes, lighter in
+  // dark ones), so clearing AA there guarantees AA on the plain --surface too.
+  const surface = colors["--surface-muted"] ?? colors["--surface"] ?? ICC_SEED["--surface"];
   const out: SchemeColorMap = {};
-  if (colors["--AIPM-green"]) out["--AIPM-green-strong"] = darkenToAa(colors["--AIPM-green"], surface);
-  if (colors["--AIPM-pink"]) out["--AIPM-pink-strong"] = darkenToAa(colors["--AIPM-pink"], surface);
-  if (colors["--AIPM-purple"]) out["--AIPM-purple-strong"] = darkenToAa(colors["--AIPM-purple"], surface);
-  if (colors["--rag-red"]) out["--rag-red-text"] = darkenToAa(colors["--rag-red"], surface);
-  if (colors["--rag-amber"]) out["--rag-amber-text"] = darkenToAa(colors["--rag-amber"], surface);
-  if (colors["--rag-green"]) out["--rag-green-text"] = darkenToAa(colors["--rag-green"], surface);
+  if (colors["--AIPM-green"]) out["--AIPM-green-strong"] = nudgeToAa(colors["--AIPM-green"], surface);
+  if (colors["--AIPM-pink"]) out["--AIPM-pink-strong"] = nudgeToAa(colors["--AIPM-pink"], surface);
+  if (colors["--AIPM-purple"]) out["--AIPM-purple-strong"] = nudgeToAa(colors["--AIPM-purple"], surface);
+  if (colors["--rag-red"]) out["--rag-red-text"] = nudgeToAa(colors["--rag-red"], surface);
+  if (colors["--rag-amber"]) out["--rag-amber-text"] = nudgeToAa(colors["--rag-amber"], surface);
+  if (colors["--rag-green"]) out["--rag-green-text"] = nudgeToAa(colors["--rag-green"], surface);
   if (colors["--foreground"]) out["--muted-foreground"] = colors["--foreground"];
   return out;
 }

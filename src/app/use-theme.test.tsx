@@ -11,6 +11,8 @@ beforeEach(() => {
   listeners.clear();
   localStorage.clear();
   document.documentElement.classList.remove("dark");
+  document.documentElement.removeAttribute("data-style");
+  document.documentElement.removeAttribute("data-scheme-dark");
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: systemDark,
     media: query,
@@ -49,6 +51,22 @@ describe("ThemeProvider", () => {
     fireEvent.click(screen.getByText("light"));
     expect(document.documentElement.classList.contains("dark")).toBe(false);
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe("light");
+  });
+
+  test("recomputes .dark on lop-style-change against the current data-scheme-dark", () => {
+    // custom style, dark theme, but a light-only active scheme (data-scheme-dark=0) → pinned light.
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    document.documentElement.setAttribute("data-style", "custom");
+    document.documentElement.setAttribute("data-scheme-dark", "0");
+    render(<ThemeProvider><Probe /></ThemeProvider>);
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    // A scheme switch stamps data-scheme-dark=1 then re-dispatches lop-style-change
+    // (done by use-style); ThemeProvider recomputes .dark against the fresh attr.
+    act(() => {
+      document.documentElement.setAttribute("data-scheme-dark", "1");
+      window.dispatchEvent(new Event("lop-style-change"));
+    });
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   test("system mode follows matchMedia and reacts to OS changes", () => {

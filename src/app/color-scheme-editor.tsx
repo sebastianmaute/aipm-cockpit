@@ -7,34 +7,44 @@ import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, MOCKUP_SEED, resolveSchemeColor
 import { checkSchemePairs } from "./scheme-contrast";
 import { readActiveSchemeColors, type SchemeColorMap } from "./scheme-apply";
 import {
-  loadSchemes, addScheme, updateScheme, removeScheme, setActive,
+  loadSchemes, addScheme, updateScheme, removeScheme,
   exportScheme, importScheme, type SchemeStore,
 } from "./color-schemes";
+import { reconcileBuiltins } from "./builtin-schemes";
 import type { BrandingConfig } from "./settings-types";
 
 interface ColorSchemeEditorProps {
   lang: Lang;
+  /** Live-preview the edited colors (transient; persisted schemes go through the
+   *  store + onSchemeChange). */
   onApply: (resolved: SchemeColorMap) => void;
   onApplyBranding?: (b: BrandingConfig) => void;
+  /** Called after a store mutation (save/rename/delete/import) so the parent can
+   *  refresh its scheme list + re-run the theme-correct apply. */
+  onSchemeChange?: () => void;
   /** Drop the applied colors entirely (e.g. when the active scheme is deleted). */
   onClear?: () => void;
 }
 
-export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onClear }: ColorSchemeEditorProps) {
-  const [store, setStore] = useState<SchemeStore>(() => loadSchemes());
+// The editor authors LIGHT-ONLY user schemes this phase; it edits the active
+// scheme's `light` map. Built-in schemes are read-only here (Save as new to
+// customise). The parent (Appearance) owns SELECTION; this component is keyed on
+// the active id so it re-seeds when the selection changes.
+export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChange, onClear }: ColorSchemeEditorProps) {
+  const [store, setStore] = useState<SchemeStore>(() => reconcileBuiltins(loadSchemes()));
   const active = store.schemes.find((s) => s.id === store.activeId) ?? null;
+  const isBuiltin = !!active?.builtIn;
   const [name, setName] = useState(active?.name ?? "");
-  // Seed the draft from the active library scheme; if none, from the last-applied
-  // boot key (so an applied-but-unsaved scheme survives reload coherently).
+  // Seed the draft from the active scheme's light map; if none, from the
+  // last-applied boot key (so an applied-but-unsaved scheme survives reload).
   const [colors, setColors] = useState<SchemeColorMap>(() => ({
     ...ICC_SEED,
-    ...(active ? active.colors : readActiveSchemeColors() ?? {}),
+    ...(active ? active.light : readActiveSchemeColors() ?? {}),
   }));
   const [branding, setBranding] = useState<BrandingConfig>(active?.branding ?? {});
   const [importError, setImportError] = useState<string | null>(null);
   const pairs = checkSchemePairs(colors);
 
-  // Single sync point: render the given colors + branding (active == applied).
   function applyResolved(full: SchemeColorMap, b: BrandingConfig) {
     onApply(resolveSchemeColors(full));
     onApplyBranding?.(b);
@@ -42,40 +52,36 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onClear }: C
   function seed(map: SchemeColorMap) {
     setColors({ ...ICC_SEED, ...map });
   }
-  function selectScheme(id: number) {
-    const next = setActive(id);
-    setStore(next);
-    const s = next.schemes.find((x) => x.id === id);
-    const full = { ...ICC_SEED, ...s?.colors };
-    setName(s?.name ?? "");
-    setColors(full);
-    setBranding(s?.branding ?? {});
-    applyResolved(full, s?.branding ?? {}); // selecting a scheme applies it
-  }
   function apply() {
     applyResolved(colors, branding);
-    // Persist applied edits to the active scheme so they survive a reload.
-    if (active) setStore(updateScheme(active.id, { colors, branding }));
+    // Persist applied edits to the active USER scheme (built-ins are read-only).
+    if (active && !isBuiltin) {
+      setStore(updateScheme(active.id, { light: colors, branding }));
+      onSchemeChange?.();
+    }
   }
   function saveNew() {
     const next = addScheme(name || t(lang, "schemeNamePlaceholder"), colors, branding);
     setStore(next);
     setName(next.schemes[next.schemes.length - 1].name);
     applyResolved(colors, branding); // saving applies the new scheme
+    onSchemeChange?.();
   }
   function rename() {
-    if (!active) return;
-    setStore(updateScheme(active.id, { name, colors, branding }));
-    applyResolved(colors, branding); // persist + re-apply edits
+    if (!active || isBuiltin) return;
+    setStore(updateScheme(active.id, { name, light: colors, branding }));
+    applyResolved(colors, branding);
+    onSchemeChange?.();
   }
   function del() {
-    if (!active) return;
+    if (!active || isBuiltin) return;
     const next = removeScheme(active.id);
     setStore(next);
     setName("");
     setColors({ ...ICC_SEED });
     setBranding({});
-    onClear?.(); // drop the applied colors (no active scheme remains selected)
+    onClear?.();
+    onSchemeChange?.();
   }
   function doExport() {
     if (!active) return;
@@ -96,12 +102,13 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onClear }: C
       const parsed = importScheme(String(reader.result));
       if (!parsed) { setImportError(t(lang, "schemeImportError")); return; }
       setImportError(null);
-      const next = addScheme(parsed.name, parsed.colors, parsed.branding);
+      const next = addScheme(parsed.name, parsed.light, parsed.branding);
       setStore(next);
       const s = next.schemes[next.schemes.length - 1];
-      const full = { ...ICC_SEED, ...s.colors };
+      const full = { ...ICC_SEED, ...s.light };
       setName(s.name); setColors(full); setBranding(s.branding);
       applyResolved(full, s.branding); // importing applies the imported scheme
+      onSchemeChange?.();
     };
     reader.readAsText(file);
   }
@@ -126,19 +133,10 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onClear }: C
 
   return (
     <div className="mt-3 rounded-md border border-line bg-surface-muted p-3">
+      {isBuiltin && (
+        <p className="mb-2 text-xs text-muted-foreground">{t(lang, "schemeBuiltinReadonly")}</p>
+      )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <select
-          id="scheme-select"
-          aria-label={t(lang, "schemeSelectLabel")}
-          value={active?.id ?? ""}
-          onChange={(e) => e.target.value && selectScheme(Number(e.target.value))}
-          className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
-        >
-          <option value="" disabled>{store.schemes.length ? t(lang, "schemeNamePlaceholder") : t(lang, "schemeNone")}</option>
-          {store.schemes.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
         <input
           type="text"
           aria-label={t(lang, "schemeNamePlaceholder")}
@@ -149,8 +147,8 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onClear }: C
           className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
         />
         <button type="button" className={btn} onClick={saveNew}>{t(lang, "schemeNew")}</button>
-        <button type="button" className={btn} onClick={rename} disabled={!active}>{t(lang, "schemeRename")}</button>
-        <button type="button" className={btn} onClick={del} disabled={!active}>{t(lang, "schemeDelete")}</button>
+        <button type="button" className={btn} onClick={rename} disabled={!active || isBuiltin}>{t(lang, "schemeRename")}</button>
+        <button type="button" className={btn} onClick={del} disabled={!active || isBuiltin}>{t(lang, "schemeDelete")}</button>
         <button type="button" className={btn} onClick={() => seed(ICC_SEED)}>{t(lang, "schemeNewFromIcc")}</button>
         <button type="button" className={btn} onClick={() => seed(MOCKUP_SEED)}>{t(lang, "schemeNewFromMockup")}</button>
         <button type="button" className={btn} onClick={doExport} disabled={!active}>{t(lang, "schemeExport")}</button>
@@ -212,7 +210,9 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onClear }: C
         <button
           type="button"
           onClick={apply}
-          className={`rounded-md border border-line bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-AIPM-white ${INTERACTIVE}`}
+          disabled={isBuiltin}
+          title={isBuiltin ? t(lang, "schemeBuiltinReadonly") : undefined}
+          className={`rounded-md border border-line bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-AIPM-white disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "schemeApply")}
         </button>

@@ -30,10 +30,19 @@ describe("style-ci custom", () => {
     expect(readStoredStyle("bogus")).toBe("AIPM");
   });
 
-  it("pins light for custom (like mockup)", () => {
-    expect(effectiveDark(true, "custom")).toBe(false);
+  it("pins light for a light-only custom scheme (like mockup)", () => {
+    expect(effectiveDark(true, "custom")).toBe(false); // supportsDark defaults false
+    expect(effectiveDark(true, "custom", false)).toBe(false);
     expect(effectiveDark(true, "mockup")).toBe(false);
     expect(effectiveDark(true, "AIPM")).toBe(true);
     expect(effectiveDark(false, "AIPM")).toBe(false);
+  });
+
+  it("a dark-capable custom scheme honours the resolved theme", () => {
+    expect(effectiveDark(true, "custom", true)).toBe(true);
+    expect(effectiveDark(false, "custom", true)).toBe(false);
+    // supportsDark is irrelevant for mockup (always light) and AIPM (always honours theme)
+    expect(effectiveDark(true, "mockup", true)).toBe(false);
+    expect(effectiveDark(true, "AIPM", false)).toBe(true);
   });
 });

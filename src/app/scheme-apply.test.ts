@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   ACTIVE_SCHEME_COLORS_KEY,
+  SCHEME_SUPPORTS_DARK_KEY,
   applySchemeColors,
   readActiveSchemeColors,
+  readSchemeSupportsDark,
   writeActiveSchemeColors,
+  writeSchemeSupportsDark,
 } from "./scheme-apply";
 
 describe("scheme-apply", () => {
@@ -32,6 +35,29 @@ describe("scheme-apply", () => {
     expect(readActiveSchemeColors()).toBeNull();
     localStorage.setItem(ACTIVE_SCHEME_COLORS_KEY, "not json");
     expect(readActiveSchemeColors()).toBeNull();
+  });
+
+  it("readActiveSchemeColors drops non-hex values and non-token keys (CSS-injection guard)", () => {
+    localStorage.setItem(
+      ACTIVE_SCHEME_COLORS_KEY,
+      JSON.stringify({
+        "--AIPM-green": "#123456", // valid → kept
+        "--surface": "url(https://evil/x)", // non-hex → dropped
+        "background:red;--x": "#ffffff", // non-token key → dropped
+        "--line": "not-a-hex", // non-hex → dropped
+      }),
+    );
+    expect(readActiveSchemeColors()).toEqual({ "--AIPM-green": "#123456" });
+  });
+
+  it("round-trips the dark-capable boot flag and clears it when false", () => {
+    expect(readSchemeSupportsDark()).toBe(false);
+    writeSchemeSupportsDark(true);
+    expect(localStorage.getItem(SCHEME_SUPPORTS_DARK_KEY)).toBe("1");
+    expect(readSchemeSupportsDark()).toBe(true);
+    writeSchemeSupportsDark(false);
+    expect(localStorage.getItem(SCHEME_SUPPORTS_DARK_KEY)).toBeNull();
+    expect(readSchemeSupportsDark()).toBe(false);
   });
 
   it("clearing replaces the previous inline override set (no stale tokens)", () => {
