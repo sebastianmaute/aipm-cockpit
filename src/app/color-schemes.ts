@@ -13,6 +13,9 @@ export interface ColorScheme {
   supportsDark: boolean;
   light: SchemeColorMap;
   dark?: SchemeColorMap; // present iff supportsDark
+  // Built-in schemes may carry a code-owned structural map (padding/radius/etc);
+  // user schemes stay color-only and never persist this through the editor.
+  structural?: import("./scheme-apply").SchemeStructuralMap;
   branding: BrandingConfig;
 }
 export interface SchemeStore {

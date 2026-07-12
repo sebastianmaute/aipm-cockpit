@@ -175,6 +175,11 @@ describe("color-schemes store", () => {
     expect(setActive("umber").activeId).toBe("umber");
   });
 
+  it("ColorScheme.structural is optional and user schemes round-trip without it", () => {
+    const st = addScheme("Draft", { "--AIPM-green": "#84bd00" }, {});
+    expect(st.schemes[0].structural).toBeUndefined();
+  });
+
   it("setActive persists a user id or null; an unknown id is left to reconcileBuiltins", () => {
     addScheme("Mine", { "--AIPM-green": "#123456" }, {}); // → u-1
     expect(setActive("u-1").activeId).toBe("u-1");
