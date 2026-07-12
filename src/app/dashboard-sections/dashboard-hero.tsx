@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { type Lang, t } from "../i18n";
 import { healthColorName, healthText, type Health } from "../health";
 import { RagBadge } from "../rag-badge";
+import { InfoTooltip } from "../info-tooltip";
 import { TRANSITION, FOCUS_RING } from "../interaction-styles";
 import type { DashboardModel } from "../dashboard";
 import type { ProjectStatus } from "../types";
@@ -59,6 +60,9 @@ export function DashboardHero(props: DashboardHeroProps) {
           {t(lang, "dashboardOverall")}:{" "}
           <span className={model.overall.effective ? healthText[model.overall.effective] : ""}>
             {healthColorName(model.overall.effective, lang)}
+          </span>
+          <span className="ml-1 text-base font-normal print:hidden">
+            <InfoTooltip text={t(lang, "dashboardHealthHelp")} />
           </span>
         </div>
         <span className="ml-auto text-sm text-muted-foreground">{t(lang, "dashboardReportDate", today)}</span>

@@ -790,6 +790,7 @@ export const de: Record<TranslationKey, string> = {
   dashboardDeltaNewOverdue: "{0} neu überfällig",
   dashboardDeltaFlip: "{0}: {1}→{2}",
   dashboardAdjustHealth: "Statusbewertungen anpassen",
+  dashboardHealthHelp: "So funktionieren die Bewertungen. Gesamt = die schlechteste Bewertung über alle aktiven Aufgaben (rot, wenn eine überfällig oder blockiert ist; gelb, wenn eine heute oder innerhalb von 3 Arbeitstagen fällig ist). Zeitplan = Fälligkeitstermine von Aufgaben und Meilensteinen sowie der Zeitplan-Index SPI. Budget = Ausgaben gegenüber Budget sowie der Kosten-Index CPI – bleibt grau, bis ein Budget festgelegt ist. Umfang = offene Änderungsanträge. Die Indizes SPI/CPI fügen nur Gelb (unter 0,9) oder Rot (unter 0,8) hinzu; ein Index von 0,9 oder höher beeinflusst die Farbe nicht. Grün ist also der Normalzustand: Ein Projekt ist grün, solange nichts überfällig, bald fällig, über Budget oder bei SPI/CPI im Rückstand ist. Jede Bewertung kann unten manuell überschrieben werden.",
   scheduledJobsTitle: "Geplante Jobs",
   scheduledJobsToggle: "Geplante Jobs aktivieren",
   scheduledJobsHelp: "Führen Sie eine wiederkehrende KI-Portfolioanalyse nach Zeitplan aus. Ergebnisse erscheinen hier und als Desktop-Benachrichtigung.",

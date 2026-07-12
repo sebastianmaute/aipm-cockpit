@@ -806,6 +806,7 @@ const enUS = {
   dashboardDeltaNewOverdue: "{0} newly overdue",
   dashboardDeltaFlip: "{0}: {1}→{2}",
   dashboardAdjustHealth: "Adjust health ratings",
+  dashboardHealthHelp: "How the ratings work. Overall = the worst health across active tasks (red if any is overdue or blocked; amber if any is due today or within 3 working days). Schedule = task and milestone due dates, plus the schedule index SPI. Budget = spend vs budget, plus the cost index CPI — it stays grey until a budget is set. Scope = pending change requests. The SPI/CPI indices only add amber (below 0.9) or red (below 0.8); an index of 0.9 or above does not affect the colour. So green is the clean default: a project shows green whenever nothing is overdue, due soon, over budget, or behind on SPI/CPI. Any rating can be manually overridden below.",
   scheduledJobsTitle: "Scheduled jobs",
   scheduledJobsToggle: "Enable scheduled jobs",
   scheduledJobsHelp:
