@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.181.2";
-export const APP_BUILD_DATE = "2026-07-12"; // 0.181.2: steering-committee report internals — cap the Turso report version history at 25 snapshots per meeting (oldest pruned on save), and memoize the version diff so it doesn't recompute on every editor keystroke (Anderson)
+export const APP_VERSION = "0.181.3";
+export const APP_BUILD_DATE = "2026-07-12"; // 0.181.3: dashboard health-rating explainer — an info tooltip on the Overall band explains how the four RAGs compute (tasks/schedule/budget/scope), that SPI/CPI only add amber/red, and that green is the clean default (budget stays grey until a budget is set) (Anderson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.181.x line is "Anderson" (Poul Anderson). */
 export const APP_MILESTONE = "Anderson";

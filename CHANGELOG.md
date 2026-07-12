@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.181.3] - 2026-07-12 "Anderson"
+
+### Dashboard health-rating explainer
+
+- **What the RAGs mean:** the dashboard's Overall health band now has an info tooltip explaining how the
+  four ratings are computed — Overall = worst active-task health; Schedule = task/milestone dates + the
+  SPI index; Budget = spend + the CPI index (grey until a budget is set); Scope = pending changes. It also
+  clarifies that the SPI/CPI indices only ever add amber (below 0.9) or red (below 0.8) — an index of 0.9
+  or above never affects the colour — so **green is the clean default** whenever nothing is overdue, due
+  soon, over budget, or behind on SPI/CPI.
+
 ## [0.181.2] - 2026-07-12 "Anderson"
 
 ### Steering report internals
