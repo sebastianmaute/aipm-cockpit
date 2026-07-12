@@ -57,7 +57,12 @@ export function rowsToSchemes(res: PipelineResultLike | undefined): ColorScheme[
  *  else the localStorage cache. Never throws — a pipeline error falls back to the
  *  cache. Local-only schemes (an id not yet in the DB) are MERGED into the DB
  *  additively (upsert) so connecting Turso never drops a scheme created offline,
- *  and no other device's rows are touched. (User ids are per-device `u-<n>`, so a
+ *  and no other device's rows are touched. NOTE: the `MAX_SCHEMES` (30) cap in
+ *  color-schemes.ts is a per-device CACHE/display cap and is deliberately NOT
+ *  propagated to the DB — evicting the cache's oldest id from the DB would delete
+ *  a row that (after a refresh) may belong to ANOTHER device, reintroducing the
+ *  cross-device wipe this per-row design exists to prevent. The shared DB holds
+ *  the cross-device union and is intentionally uncapped. (User ids are per-device `u-<n>`, so a
  *  cross-device id collision keeps the DB copy and shadows the local one — a known
  *  limitation of incremental ids without a central minter; rare in practice since,
  *  once connected, the cache mirrors the DB and new ids mint past the DB max.) */
