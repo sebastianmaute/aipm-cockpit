@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "./use-theme";
 import { CiStyleProvider } from "./use-style";
 import { ServiceWorkerRegistrar } from "./service-worker-registrar";
+import { NO_FLASH_THEME_SCRIPT } from "./boot-theme-script";
 
 const titillium = Titillium_Web({
   subsets: ["latin"],
@@ -12,8 +13,6 @@ const titillium = Titillium_Web({
   variable: "--font-titillium",
   display: "swap",
 });
-
-const NO_FLASH_THEME_SCRIPT = `(function(){try{var s=localStorage.getItem("lop-style")||"AIPM";if(s!=="AIPM"&&s!=="mockup"&&s!=="custom"){s="AIPM";}document.documentElement.setAttribute("data-style",s);var t=localStorage.getItem("lop-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(s==="mockup"||s==="custom"){d=false;}document.documentElement.classList.toggle("dark",d);if(s==="custom"){var raw=localStorage.getItem("lop-active-scheme-colors");if(raw){var m=JSON.parse(raw);for(var k in m){if(Object.prototype.hasOwnProperty.call(m,k)&&typeof m[k]==="string"){document.documentElement.style.setProperty(k,m[k]);}}}}}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "List of Open Points Tracker",
