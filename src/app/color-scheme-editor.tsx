@@ -10,7 +10,7 @@ import {
   loadSchemes, addScheme, updateScheme, removeScheme,
   exportScheme, importScheme, type SchemeStore,
 } from "./color-schemes";
-import { loadSchemesAsync, saveSchemesAsync } from "./color-schemes-store";
+import { loadSchemesAsync, upsertSchemeAsync, deleteSchemeAsync } from "./color-schemes-store";
 import { reconcileBuiltins } from "./builtin-schemes";
 import { BrandingImageInput } from "./branding-image-input";
 import type { BrandingConfig } from "./settings-types";
@@ -43,17 +43,21 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
   const isBuiltin = !!active?.builtIn;
   const [name, setName] = useState(active?.name ?? "");
 
-  // Persist a library mutation: update the in-memory store AND mirror the user
-  // schemes to the backend (Turso DB when configured, else the localStorage cache
-  // — saveSchemesAsync handles both). Built-ins are code-owned, never persisted.
+  // Persist a library mutation: update the in-memory store. The localStorage cache
+  // is already written synchronously by the mutator (addScheme/updateScheme/
+  // removeScheme). The DB write is PER-ROW (dbUpsert/dbDelete) — never a wipe of
+  // the whole shared library from this device's snapshot (lost-update guard).
   function persist(next: SchemeStore) {
     setStore(next);
-    void saveSchemesAsync(config, next.schemes.filter((s) => !s.builtIn));
+  }
+  function dbUpsert(next: SchemeStore, id: string) {
+    const s = next.schemes.find((x) => x.id === id);
+    if (s && !s.builtIn) void upsertSchemeAsync(config, s);
   }
 
   // DB refresh on mount: when Turso is configured, pull the cross-device user
   // library so the editor lists what other devices saved.
-  const cfgKey = config ? config.httpUrl : null;
+  const cfgKey = config ? `${config.httpUrl}|${config.authToken}` : null;
   useEffect(() => {
     if (!config) return;
     let cancelled = false;
@@ -91,27 +95,35 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
     applyResolved(colors, branding, true);
     // Persist applied edits to the active USER scheme (built-ins are read-only).
     if (active && !isBuiltin) {
-      persist(updateScheme(active.id, { light: colors, branding }));
+      const next = updateScheme(active.id, { light: colors, branding });
+      persist(next);
+      dbUpsert(next, active.id);
       onSchemeChange?.();
     }
   }
   function saveNew() {
     const next = addScheme(name || t(lang, "schemeNamePlaceholder"), colors, branding);
     persist(next);
-    setName(next.schemes[next.schemes.length - 1].name);
+    const created = next.schemes[next.schemes.length - 1];
+    setName(created.name);
+    dbUpsert(next, created.id);
     applyResolved(colors, branding); // saving applies the new scheme
     onSchemeChange?.();
   }
   function rename() {
     if (!active || isBuiltin) return;
-    persist(updateScheme(active.id, { name, light: colors, branding }));
+    const next = updateScheme(active.id, { name, light: colors, branding });
+    persist(next);
+    dbUpsert(next, active.id);
     applyResolved(colors, branding, true);
     onSchemeChange?.();
   }
   function del() {
     if (!active || isBuiltin) return;
-    const next = removeScheme(active.id);
+    const removedId = active.id;
+    const next = removeScheme(removedId);
     persist(next);
+    void deleteSchemeAsync(config, removedId);
     setName("");
     setColors({ ...ICC_SEED });
     setBranding({});
@@ -140,6 +152,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
       const next = addScheme(parsed.name, parsed.light, parsed.branding);
       persist(next);
       const s = next.schemes[next.schemes.length - 1];
+      dbUpsert(next, s.id);
       const full = { ...ICC_SEED, ...s.light };
       setName(s.name); setColors(full); setBranding(s.branding);
       applyResolved(full, s.branding); // importing applies the imported scheme

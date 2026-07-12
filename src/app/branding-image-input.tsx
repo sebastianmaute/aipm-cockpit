@@ -24,10 +24,17 @@ export function BrandingImageInput(props: BrandingImageInputProps) {
     const file = e.target.files?.[0];
     e.target.value = ""; // let the same file be re-picked after a remove
     if (!file) return;
+    // Cap on the RAW file bytes (matches the original appearance-section check) —
+    // NOT the base64 data-URL length, which inflates ~33% and would reject
+    // otherwise-valid ~400 KB logos.
+    if (file.size > MAX_BYTES) {
+      props.onError?.(props.invalidMessage ?? "Invalid image");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const url = String(reader.result);
-      if (!FILE_RE.test(url) || url.length > MAX_BYTES) {
+      if (!FILE_RE.test(url)) {
         props.onError?.(props.invalidMessage ?? "Invalid image");
         return;
       }

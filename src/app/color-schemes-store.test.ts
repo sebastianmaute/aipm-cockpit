@@ -5,14 +5,22 @@ const runTursoPipeline = vi.fn();
 vi.mock("./turso-pipeline", () => ({ runTursoPipeline: (...a: unknown[]) => runTursoPipeline(...a) }));
 
 import {
-  COLOR_SCHEMES_TABLE, loadSchemesAsync, saveSchemesAsync, rowsToSchemes,
+  COLOR_SCHEMES_TABLE,
+  loadSchemesAsync,
+  upsertSchemeAsync,
+  deleteSchemeAsync,
+  rowsToSchemes,
 } from "./color-schemes-store";
 import type { ColorScheme } from "./color-schemes";
 
-const CFG = { databaseUrl: "libsql://x", authToken: "t" } as never;
+const CFG = { httpUrl: "https://x", authToken: "t" } as never;
 const scheme = (id: string): ColorScheme => ({
   id, name: id, supportsDark: false, light: { "--AIPM-green": "#4d7000" }, branding: {},
 });
+type Stmt = { sql: string; args?: { value: string }[] };
+const stmtsOf = (call: number): Stmt[] => runTursoPipeline.mock.calls[call][1] as Stmt[];
+const hasWipe = (stmts: Stmt[]) =>
+  stmts.some((s) => s.sql.trim().startsWith("DELETE FROM color_schemes") && !s.sql.includes("WHERE"));
 
 beforeEach(() => {
   runTursoPipeline.mockReset();
@@ -25,23 +33,40 @@ describe("color-schemes-store", () => {
     expect(TABLE_NAMES).not.toContain("color_schemes");
   });
 
-  it("no config → reads/writes localStorage only, no pipeline", async () => {
-    await saveSchemesAsync(null, [scheme("u-1")]);
-    expect(runTursoPipeline).not.toHaveBeenCalled();
+  it("no config → load reads localStorage, upsert/delete no-op, no pipeline", async () => {
+    localStorage.setItem(
+      "lop-app:color-schemes",
+      JSON.stringify({ schemes: [scheme("u-1")], activeId: "u-1" }),
+    );
     const back = await loadSchemesAsync(null);
+    await upsertSchemeAsync(null, scheme("u-2"));
+    await deleteSchemeAsync(null, "u-1");
     expect(runTursoPipeline).not.toHaveBeenCalled();
     expect(back.map((s) => s.id)).toEqual(["u-1"]);
   });
 
-  it("config → save emits DDL + DELETE + INSERT per scheme with string args", async () => {
+  it("config → upsertSchemeAsync emits INSERT OR REPLACE with string args, no full-table wipe", async () => {
     runTursoPipeline.mockResolvedValue([]);
-    await saveSchemesAsync(CFG, [scheme("u-1"), scheme("u-2")]);
-    const stmts = runTursoPipeline.mock.calls[0][1] as { sql: string; args?: { value: string }[] }[];
+    await upsertSchemeAsync(CFG, scheme("u-1"));
+    const stmts = stmtsOf(0);
     expect(stmts[0].sql).toContain("CREATE TABLE IF NOT EXISTS color_schemes");
-    expect(stmts.some((s) => s.sql.startsWith("DELETE FROM color_schemes"))).toBe(true);
-    const inserts = stmts.filter((s) => s.sql.startsWith("INSERT INTO color_schemes"));
-    expect(inserts).toHaveLength(2);
-    expect(typeof inserts[0].args?.[0].value).toBe("string");
+    const ins = stmts.find((s) => s.sql.includes("INSERT OR REPLACE INTO color_schemes"))!;
+    expect(ins).toBeTruthy();
+    expect(typeof ins.args?.[0].value).toBe("string");
+    expect(hasWipe(stmts)).toBe(false);
+  });
+
+  it("config → deleteSchemeAsync targets one id (WHERE id), never a wipe", async () => {
+    runTursoPipeline.mockResolvedValue([]);
+    await deleteSchemeAsync(CFG, "u-3");
+    const del = stmtsOf(0).find((s) => s.sql.startsWith("DELETE FROM color_schemes"))!;
+    expect(del.sql).toContain("WHERE id = ?");
+    expect(del.args?.[0].value).toBe("u-3");
+  });
+
+  it("built-in scheme is never persisted", async () => {
+    await upsertSchemeAsync(CFG, { ...scheme("harbor"), builtIn: true });
+    expect(runTursoPipeline).not.toHaveBeenCalled();
   });
 
   it("config → load decodes rows, skips unparseable", async () => {
@@ -56,15 +81,40 @@ describe("color-schemes-store", () => {
     expect(out.map((s) => s.id)).toEqual(["u-1"]);
   });
 
-  it("migration: local user schemes pushed to DB only when DB empty", async () => {
-    localStorage.setItem("lop-app:color-schemes", JSON.stringify({ schemes: [scheme("u-1")], activeId: "u-1" }));
-    // first pipeline call = load (empty rows), second = migration save
+  it("migration MERGES local-only schemes into a NON-empty DB (additive, dedupe by id)", async () => {
+    localStorage.setItem(
+      "lop-app:color-schemes",
+      JSON.stringify({ schemes: [scheme("u-1"), scheme("u-2")], activeId: "u-1" }),
+    );
     runTursoPipeline
-      .mockResolvedValueOnce([undefined, { response: { result: { cols: [{ name: "id" }, { name: "data" }], rows: [] } } }])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce([
+        undefined,
+        { response: { result: { cols: [{ name: "id" }, { name: "data" }], rows: [
+          [{ value: "u-1" }, { value: JSON.stringify(scheme("u-1")) }],
+        ] } } },
+      ])
+      .mockResolvedValueOnce([]); // upsert of the local-only u-2
     const out = await loadSchemesAsync(CFG);
-    expect(out.map((s) => s.id)).toEqual(["u-1"]); // returned the migrated local set
-    expect(runTursoPipeline).toHaveBeenCalledTimes(2); // load + migration save
+    expect(out.map((s) => s.id).sort()).toEqual(["u-1", "u-2"]);
+    const migrate = stmtsOf(1);
+    expect(migrate.some((s) => s.sql.includes("INSERT OR REPLACE INTO color_schemes"))).toBe(true);
+    expect(hasWipe(migrate)).toBe(false); // additive, never wipes other devices' rows
+  });
+
+  it("no local-only schemes → no migration write, returns the DB set", async () => {
+    localStorage.setItem(
+      "lop-app:color-schemes",
+      JSON.stringify({ schemes: [scheme("u-1")], activeId: "u-1" }),
+    );
+    runTursoPipeline.mockResolvedValueOnce([
+      undefined,
+      { response: { result: { cols: [{ name: "id" }, { name: "data" }], rows: [
+        [{ value: "u-1" }, { value: JSON.stringify(scheme("u-1")) }],
+      ] } } },
+    ]);
+    const out = await loadSchemesAsync(CFG);
+    expect(out.map((s) => s.id)).toEqual(["u-1"]);
+    expect(runTursoPipeline).toHaveBeenCalledTimes(1); // no migration write
   });
 });
 
@@ -88,23 +138,6 @@ describe("color-schemes-store: shared-tenant DB hardening", () => {
     expect(out.light).not.toHaveProperty("background-image");
     expect(out.light["--AIPM-green"]).toBe("#4d7000");
     expect(out.branding.logo).toBeUndefined(); // SVG rejected by sanitizeBranding
-  });
-
-  it("does NOT migrate/overwrite when rows are present but all fail sanitization", async () => {
-    localStorage.setItem(
-      "lop-app:color-schemes",
-      JSON.stringify({ schemes: [scheme("u-1")], activeId: "u-1" }),
-    );
-    // one row present but nameless → cleanScheme drops it → dbUser empty, rawCount=1
-    runTursoPipeline.mockResolvedValueOnce([
-      undefined,
-      { response: { result: { cols: [{ name: "id" }, { name: "data" }], rows: [
-        [{ value: "u-7" }, { value: JSON.stringify({ id: "u-7" }) }],
-      ] } } },
-    ]);
-    const out = await loadSchemesAsync(CFG);
-    expect(out).toEqual([]); // returns empty — does NOT resurrect local over a populated DB
-    expect(runTursoPipeline).toHaveBeenCalledTimes(1); // NO migration save → DB untouched
   });
 });
 
