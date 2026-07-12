@@ -36,11 +36,13 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   const builtinSchemes = store.schemes.filter((s) => s.builtIn && s.id !== "AIPM" && s.id !== "mockup");
   const userSchemes = store.schemes.filter((s) => !s.builtIn);
   const schemeValue = store.activeId ?? "harbor";
-  // App name + footer are OWNED by a scheme only when that scheme actually carries
-  // branding. Built-ins ship empty branding:{} (read-only in the editor), so keep
-  // the global inputs editable for them; a branded user scheme owns them instead.
-  const active = store.schemes.find((s) => s.id === store.activeId);
-  const schemeOwnsBranding = !!(active?.branding?.slogan?.trim() || active?.branding?.footerSlogan?.trim());
+  // Gate the global app-name/footer inputs on scheme IDENTITY, matching the editor
+  // EXACTLY (which shows its own branding inputs when !isBuiltin). Built-ins are
+  // read-only in the editor, so the global inputs cover them; a USER scheme owns
+  // its branding via the editor, so the global inputs hide → exactly ONE app-name
+  // field in every state. (A content check diverged for a fresh unbranded user
+  // scheme → duplicate inputs AND an empty-branding save wiped settings.branding.)
+  const activeIsBuiltin = !!store.schemes.find((s) => s.id === store.activeId)?.builtIn;
 
   const branding = settings.branding;
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -278,11 +280,11 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           {faviconError && <p className="mt-1 text-xs text-AIPM-pink-strong">{faviconError}</p>}
         </div>
 
-        {/* App name + footer slogan: edited HERE while the active scheme owns no
-            branding (built-ins ship empty branding, read-only in the editor). A
-            branded user scheme OWNS these (its editor edits them; apply replaces
-            via mergeAppliedBranding) — hidden then to avoid a dual editor. */}
-        {!schemeOwnsBranding && (
+        {/* App name + footer slogan: edited HERE only while a BUILT-IN scheme is
+            active (built-ins ship empty branding, read-only in the editor). A USER
+            scheme OWNS these (its editor edits them; apply replaces via
+            mergeAppliedBranding) — hidden then to avoid a dual editor. */}
+        {activeIsBuiltin && (
           <>
             {/* App name (sidebar subtitle under the logo) */}
             <div className="mb-3">

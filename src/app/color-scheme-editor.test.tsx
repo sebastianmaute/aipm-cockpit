@@ -94,3 +94,27 @@ describe("ColorSchemeEditor coherence", () => {
     expect(red!.light["--AIPM-green"]).toBe("#00ff00");
   });
 });
+
+// Review HIGH: a color-only save of an UNBRANDED scheme must NOT call
+// onApplyBranding — otherwise AppearanceSection's mergeAppliedBranding(current, {})
+// silently WIPES a globally-set settings.branding.slogan/footerSlogan.
+describe("ColorSchemeEditor branding-apply guard", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("does not call onApplyBranding when saving a color-only scheme with empty branding", () => {
+    const onApplyBranding = vi.fn();
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onApplyBranding={onApplyBranding} />);
+    fireEvent.change(screen.getByLabelText("Scheme name"), { target: { value: "Colors Only" } });
+    fireEvent.click(screen.getByRole("button", { name: /^new scheme$/i }));
+    expect(onApplyBranding).not.toHaveBeenCalled();
+  });
+
+  it("calls onApplyBranding when the scheme carries branding", () => {
+    addScheme("Branded", { "--AIPM-green": "#000000" }, {}); // user scheme active → branding editable
+    const onApplyBranding = vi.fn();
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onApplyBranding={onApplyBranding} />);
+    fireEvent.change(screen.getByLabelText("App name"), { target: { value: "My Tracker" } });
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
+    expect(onApplyBranding).toHaveBeenCalledWith(expect.objectContaining({ slogan: "My Tracker" }));
+  });
+});

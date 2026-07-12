@@ -4,7 +4,7 @@ import { AppearanceSection } from "./appearance-section";
 import { CiStyleProvider } from "../use-style";
 import { STYLE_STORAGE_KEY } from "../style-ci";
 import { defaultSettings, type Settings } from "../settings-types";
-import { loadSchemes } from "../color-schemes";
+import { addScheme, loadSchemes } from "../color-schemes";
 import { t } from "../i18n";
 
 function renderSection(overrides: Partial<Settings> = {}, initialStyle: "AIPM" | "mockup" | "custom" = "AIPM") {
@@ -124,5 +124,16 @@ describe("AppearanceSection scheme control", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ branding: expect.objectContaining({ slogan: "My Tracker" }) }),
     );
+  });
+
+  it("hides the global app-name/footer inputs when a USER scheme is active (editor owns them)", () => {
+    // Review HIGH: gate on IDENTITY (built-in) to match the editor. A user scheme
+    // (isBuiltin=false) → editor renders its OWN branding inputs, so the global
+    // ones must be HIDDEN → exactly ONE "App name" field in every state.
+    addScheme("Draft", { "--AIPM-green": "#000000" }, {}); // user scheme active
+    renderSection({}, "custom");
+    expect(document.getElementById("branding-appname")).toBeNull();
+    expect(document.getElementById("branding-footer-slogan")).toBeNull();
+    expect(screen.getAllByLabelText(t("en-US", "brandingAppName"))).toHaveLength(1);
   });
 });

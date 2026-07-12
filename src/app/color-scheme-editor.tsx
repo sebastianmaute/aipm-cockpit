@@ -47,7 +47,10 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
 
   function applyResolved(full: SchemeColorMap, b: BrandingConfig) {
     onApply(resolveSchemeColors(full));
-    onApplyBranding?.(b);
+    // Only push branding when the scheme actually carries some — an empty-branding
+    // (color-only) apply must NOT reach mergeAppliedBranding, which would WIPE a
+    // globally-set settings.branding.slogan/footerSlogan (review HIGH data-loss).
+    if (b.slogan?.trim() || b.footerSlogan?.trim()) onApplyBranding?.(b);
   }
   function seed(map: SchemeColorMap) {
     setColors({ ...ICC_SEED, ...map });
