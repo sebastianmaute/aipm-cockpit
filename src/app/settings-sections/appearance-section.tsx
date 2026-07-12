@@ -4,11 +4,10 @@ import { useState, type ChangeEvent } from "react";
 import { type Lang, t } from "../i18n";
 import { SegmentedControl } from "../segmented-control";
 import type { DashboardDensity } from "../dashboard-density";
-import { type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN } from "../settings-types";
+import { type BrandingConfig, type Settings } from "../settings-types";
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
-import { useCiStyle } from "../use-style";
 import { useColorSchemes } from "../use-color-schemes";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { ColorSchemeEditor } from "../color-scheme-editor";
@@ -26,20 +25,17 @@ interface AppearanceSectionProps {
 
 export function AppearanceSection({ lang, settings, onChange }: AppearanceSectionProps) {
   const { theme, setTheme } = useTheme();
-  const { style, setStyle } = useCiStyle();
   const { store, activeSupportsDark, refresh, selectScheme } = useColorSchemes();
-  const isMockup = style === "mockup";
-  const isCustom = style === "custom";
-  // A dark-capable active scheme honours the theme; mockup + a light-only custom
-  // scheme pin light (mirrors effectiveDark).
-  const pinsLight = isMockup || (isCustom && !activeSupportsDark);
-  const builtinSchemes = store.schemes.filter((s) => s.builtIn);
+  // Phase 2: the style axis is the constant "custom" — the ACTIVE SCHEME drives
+  // the look. A dark-capable active scheme honours the theme; mockup + a
+  // light-only user scheme pin light (mirrors effectiveDark → !supportsDark).
+  const pinsLight = !activeSupportsDark;
+  const isMockupActive = store.activeId === "mockup";
+  // AIPM + Mockup are now built-in schemes rendered under friendly labels below,
+  // so exclude them from the generic built-in loop (which would duplicate them).
+  const builtinSchemes = store.schemes.filter((s) => s.builtIn && s.id !== "AIPM" && s.id !== "mockup");
   const userSchemes = store.schemes.filter((s) => !s.builtIn);
-  const schemeValue = isMockup ? "mockup" : style === "AIPM" ? "AIPM" : store.activeId ?? "harbor";
-  function onSelectScheme(v: string) {
-    if (v === "AIPM" || v === "mockup") setStyle(v);
-    else selectScheme(v);
-  }
+  const schemeValue = store.activeId ?? "harbor";
 
   const branding = settings.branding;
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -98,7 +94,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         <select
           id="appearance-scheme"
           value={schemeValue}
-          onChange={(e) => onSelectScheme(e.target.value)}
+          onChange={(e) => selectScheme(e.target.value)}
           className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
         >
           {builtinSchemes.map((s) => (
@@ -116,18 +112,16 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         </select>
       </div>
 
-      {isCustom && (
-        <div className="mb-4">
-          <ColorSchemeEditor
-            key={store.activeId ?? "none"}
-            lang={lang}
-            onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
-            onApplyBranding={(b) => setBranding(mergeAppliedBranding(branding, b))}
-            onSchemeChange={() => { refresh(); window.dispatchEvent(new Event("lop-scheme-change")); }}
-            onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
-          />
-        </div>
-      )}
+      <div className="mb-4">
+        <ColorSchemeEditor
+          key={store.activeId ?? "none"}
+          lang={lang}
+          onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
+          onApplyBranding={(b) => setBranding(mergeAppliedBranding(branding, b))}
+          onSchemeChange={() => { refresh(); window.dispatchEvent(new Event("lop-scheme-change")); }}
+          onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
+        />
+      </div>
 
       <div className="mb-4">
         <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
@@ -148,7 +142,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         />
         {pinsLight && (
           <p className="mt-1 text-xs text-muted-foreground">
-            {t(lang, isMockup ? "styleMockupLightOnly" : "styleCustomLightOnly")}
+            {t(lang, isMockupActive ? "styleMockupLightOnly" : "styleCustomLightOnly")}
           </p>
         )}
       </div>
@@ -279,44 +273,9 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           {faviconError && <p className="mt-1 text-xs text-AIPM-pink-strong">{faviconError}</p>}
         </div>
 
-        {/* App name + footer slogan: edited HERE in AIPM/Mockup, but OWNED by the
-            active scheme under Custom (the scheme editor edits them, apply replaces
-            via mergeAppliedBranding) — so hide these to avoid a dual editor. */}
-        {!isCustom && (
-          <>
-            {/* App name (sidebar subtitle under the logo) */}
-            <div className="mb-3">
-              <label htmlFor="branding-appname" className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t(lang, "brandingAppName")}
-              </label>
-              <input
-                id="branding-appname"
-                type="text"
-                maxLength={60}
-                value={branding?.slogan ?? ""}
-                placeholder={t(lang, "sidebarBrandSubtitle")}
-                onChange={(e) => setBranding({ ...branding, slogan: e.target.value })}
-                className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
-              />
-            </div>
-
-            {/* Slogan (bottom footer-bar tagline) */}
-            <div>
-              <label htmlFor="branding-footer-slogan" className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t(lang, "brandingFooterSlogan")}
-              </label>
-              <input
-                id="branding-footer-slogan"
-                type="text"
-                maxLength={120}
-                value={branding?.footerSlogan ?? ""}
-                placeholder={DEFAULT_FOOTER_SLOGAN}
-                onChange={(e) => setBranding({ ...branding, footerSlogan: e.target.value })}
-                className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
-              />
-            </div>
-          </>
-        )}
+        {/* App name + footer slogan are OWNED by the active scheme (the scheme
+            editor edits them; apply replaces via mergeAppliedBranding), so they
+            are not edited here — Phase 2 is always scheme-driven. */}
       </div>
     </>
   );

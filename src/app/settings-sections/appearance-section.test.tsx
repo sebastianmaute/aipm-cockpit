@@ -77,14 +77,19 @@ describe("AppearanceSection scheme control", () => {
     expect(loadSchemes().activeId).toBe("meridian");
   });
 
-  it("selecting Dashboard persists mockup to localStorage", () => {
+  it("selecting Dashboard activates the mockup scheme (style stays custom)", () => {
+    // Phase 2: Mockup is a built-in scheme; selecting it routes through
+    // selectScheme → activeId "mockup", the style axis stays the constant "custom".
     renderSection();
     fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "mockup" } });
-    expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("mockup");
+    expect(loadSchemes().activeId).toBe("mockup");
+    expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
   });
 
-  it("mockup disables the Theme control and shows the light-only note", () => {
-    renderSection({}, "mockup");
+  it("selecting Mockup disables the Theme control and shows the light-only note", () => {
+    // Fresh store → Harbor active (dark-capable) → theme enabled to start.
+    renderSection({}, "custom");
+    fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "mockup" } });
     expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).toBeDisabled();
     expect(screen.getByText(t("en-US", "styleMockupLightOnly"))).toBeInTheDocument();
@@ -98,8 +103,9 @@ describe("AppearanceSection scheme control", () => {
     expect(screen.queryByText(t("en-US", "styleCustomLightOnly"))).not.toBeInTheDocument();
   });
 
-  it("when style is AIPM, the light-only note is absent", () => {
-    renderSection();
+  it("when the AIPM scheme is active (dark-capable), the light-only note is absent", () => {
+    renderSection(); // starts on AIPM → migrated to activeId "AIPM" (supportsDark)
     expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
+    expect(screen.queryByText(t("en-US", "styleCustomLightOnly"))).not.toBeInTheDocument();
   });
 });

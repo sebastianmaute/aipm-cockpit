@@ -124,6 +124,39 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
+  it("keeps .dark coherent with data-scheme-dark across successive scheme changes (no listener-order desync)", () => {
+    // Regression (restores the dropped Task-7 guard, adapted to Phase 2): under a
+    // DARK theme, hop light-only → dark-capable AFTER a prior switch. This ends
+    // coherent ONLY because syncScheme stamps data-scheme-dark BEFORE re-dispatching
+    // lop-style-change, so ThemeProvider (which reacts to lop-style-change only)
+    // reads the FRESH capability. Inverting that order would leave .dark reading the
+    // STALE data-scheme-dark → the final .dark would be wrong.
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    localStorage.setItem(STYLE_STORAGE_KEY, "custom");
+    setActive("harbor"); // dark-capable start
+    render(tree());
+    expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("1");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+
+    // Prior switch → a light-only scheme (mockup) pins light under the dark theme.
+    act(() => {
+      setActive("mockup");
+      window.dispatchEvent(new Event("lop-scheme-change"));
+    });
+    expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("0");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+
+    // Second switch → back to a dark-capable scheme. .dark must be RESTORED, coherent
+    // with the freshly-stamped data-scheme-dark="1" (fails if the dispatch order were
+    // inverted — apply() would read the stale "0" and keep .dark off).
+    act(() => {
+      setActive("meridian");
+      window.dispatchEvent(new Event("lop-scheme-change"));
+    });
+    expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("1");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
+
   it("migrates a legacy lop-style='mockup' to the mockup scheme + custom", () => {
     localStorage.setItem(STYLE_STORAGE_KEY, "mockup");
     render(tree());
