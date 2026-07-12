@@ -45,18 +45,19 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
   const [importError, setImportError] = useState<string | null>(null);
   const pairs = checkSchemePairs(colors);
 
-  function applyResolved(full: SchemeColorMap, b: BrandingConfig) {
+  function applyResolved(full: SchemeColorMap, b: BrandingConfig, forceBranding = false) {
     onApply(resolveSchemeColors(full));
-    // Only push branding when the scheme actually carries some — an empty-branding
-    // (color-only) apply must NOT reach mergeAppliedBranding, which would WIPE a
-    // globally-set settings.branding.slogan/footerSlogan (review HIGH data-loss).
-    if (b.slogan?.trim() || b.footerSlogan?.trim()) onApplyBranding?.(b);
+    // apply()/rename() act on a USER scheme the user owns → an empty value means
+    // "clear this scheme's branding" and MUST propagate. saveNew()/import() can run
+    // while a built-in is active → an empty value must NOT wipe the global
+    // settings.branding (the original review HIGH), so they stay guarded.
+    if (forceBranding || b.slogan?.trim() || b.footerSlogan?.trim()) onApplyBranding?.(b);
   }
   function seed(map: SchemeColorMap) {
     setColors({ ...ICC_SEED, ...map });
   }
   function apply() {
-    applyResolved(colors, branding);
+    applyResolved(colors, branding, true);
     // Persist applied edits to the active USER scheme (built-ins are read-only).
     if (active && !isBuiltin) {
       setStore(updateScheme(active.id, { light: colors, branding }));
@@ -73,7 +74,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
   function rename() {
     if (!active || isBuiltin) return;
     setStore(updateScheme(active.id, { name, light: colors, branding }));
-    applyResolved(colors, branding);
+    applyResolved(colors, branding, true);
     onSchemeChange?.();
   }
   function del() {
