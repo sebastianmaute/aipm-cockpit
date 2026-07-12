@@ -103,55 +103,6 @@
   --color-table-head-accent: var(--table-head-accent);
 }
 
-.dark {
-  --background: #0b0f12;
-  --foreground: #e3e6e6;
-  --surface: #121619;
-  --surface-muted: #1b2024;
-  --line: #2b3137;
-  /* On the dark surfaces a lighter secondary grey is what meets AA (the light
-     value #767676 would be too dark on #0b0f12). */
-  --muted-foreground: #9ca3a9;
-  /* On dark surfaces the bright brand green already has ample contrast — keep
-     it (the darker on-light variant would read as muddy here). */
-  --AIPM-green-strong: #84bd00;
-  /* Dark mode: slightly brighter than the bright AIPM-pink so pink TEXT clears
-     AA even on the LIGHTER dark surface (bg-surface-muted #1b2024) — e.g. the
-     overdue due-date on a Kanban card; #e5497c was only 4.36:1 there. */
-  --AIPM-pink-strong: #e96089;
-  /* Dark mode: a lighter purple is AA on the dark purple tint (the light
-     #7a2d72 would be too dark there). */
-  --AIPM-purple-strong: #d98cc8;
-}
-
-/* Mockup CI — richer look (docs/patterns/*.png). Light-only this slice. */
-:root[data-style="mockup"] {
-  --rag-red: #d64545;
-  --rag-amber: #f0a020;
-  --rag-green: #5aa700;
-  --rag-red-text: #c0392b;
-  --rag-amber-text: #a96a00;
-  --rag-green-text: #3d7a00;
-  --table-head-bg: #f1f3f4;
-  --table-head-fg: #3f4448;
-  --table-head-accent: #3d7a00;
-  --shadow-card: 0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08);
-  --shadow-control: 0 1px 2px rgba(0, 65, 89, 0.10);
-  --gradient-kpi: linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green));
-  --shadow-card-hover: 0 4px 10px rgba(0, 65, 89, 0.14), 0 2px 4px rgba(0, 65, 89, 0.10);
-  /* Opaque (pre-composited over white), NOT rgba — the chip sits inside the
-     completion Tile which flips to bg-surface-muted on hover; a translucent tint
-     would re-composite over the darker hover bg and drop the green/red chip TEXT
-     below AA (3.7:1). Opaque tints keep --rag-green-text/#3d7a00 + --rag-red-text/
-     #c0392b at >=4.6:1 on every state. */
-  --rag-green-chip: #e6f2d8;
-  --rag-red-chip: #fae9e9;
-  --delta-chip-pad: 0.125rem 0.375rem;
-  --segment-track-bg: #eef1f3;
-  --segment-active-bg: #ffffff;
-  --segment-active-fg: var(--table-head-accent);
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
