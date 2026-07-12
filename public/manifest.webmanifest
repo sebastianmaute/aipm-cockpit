@@ -1,7 +1,7 @@
 {
-  "name": "List of Open Points Tracker",
-  "short_name": "LOP Tracker",
-  "description": "Draft status-inquiry emails for delayed items in a project's List of Open Points.",
+  "name": "AIPM Cockpit",
+  "short_name": "AIPM Cockpit",
+  "description": "AI-assisted project cockpit — task, RAID, budget and milestone tracking that plugs into M365, Jira and Timelog. Local-first, no backend.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

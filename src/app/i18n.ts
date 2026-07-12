@@ -3,7 +3,7 @@ import { type Priority } from "./types";
 export type Lang = "en-US" | "en-GB" | "de";
 
 const enUS = {
-  appTitle: "Project Management Tracker",
+  appTitle: "AIPM Cockpit",
   appSubtitle: "Capture open project items. Stored locally in this browser.",
 
   editingTask: "Editing task #{0}",
