@@ -3,10 +3,10 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.183.0";
-export const APP_BUILD_DATE = "2026-07-12"; // 0.183.0: scheme de-hardcode — AIPM and the Dashboard (Mockup) style are now read-only built-in color schemes joining Harbor/Meridian/Umber; the whole look is scheme-driven (no palette hardcoded into the app), the data-style axis collapsed, and the scheme model carries structural (shadow/gradient) tokens (Banks)
+export const APP_BUILD_DATE = "2026-07-12"; // 0.183.0: scheme de-hardcode — AIPM and the Dashboard (Mockup) style are now read-only built-in color schemes joining Harbor/Meridian/Umber; the whole look is scheme-driven (no palette hardcoded into the app), the data-style axis collapsed, and the scheme model carries structural (shadow/gradient) tokens (Palmer)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.183.x line is "Banks" (Iain M. Banks). */
-export const APP_MILESTONE = "Banks";
+ *  0.183.x line is "Palmer" (Ada Palmer). */
+export const APP_MILESTONE = "Palmer";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
