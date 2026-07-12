@@ -8,7 +8,7 @@
 import { runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
-import { loadSchemes, saveSchemes, type ColorScheme } from "./color-schemes";
+import { loadSchemes, saveSchemes, cleanScheme, type ColorScheme } from "./color-schemes";
 
 export const COLOR_SCHEMES_TABLE = "color_schemes";
 
@@ -31,6 +31,16 @@ function replaceAll(schemes: readonly ColorScheme[]): SqlStmt[] {
   return stmts;
 }
 
+function rawRowCount(res: PipelineResultLike | undefined): number {
+  return res?.response?.result?.rows?.length ?? 0;
+}
+
+/** Decode + SANITIZE DB rows. The Turso `color_schemes` table is a SHARED-TENANT
+ *  surface (any project member can write a row), so every decoded scheme MUST go
+ *  through the same `cleanScheme` gate the localStorage path uses — HEX/token
+ *  allowlist on colors + `sanitizeBranding` (raster-only logo/favicon, no SVG) —
+ *  or unsanitized colors reach `setProperty` (CSS injection) and unsafe branding
+ *  reaches `<img>`/favicon. A row that fails validation is dropped, not trusted. */
 export function rowsToSchemes(res: PipelineResultLike | undefined): ColorScheme[] {
   const cols = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
   const dataIdx = cols.indexOf("data");
@@ -40,8 +50,11 @@ export function rowsToSchemes(res: PipelineResultLike | undefined): ColorScheme[
     const cell = dataIdx >= 0 ? row[dataIdx] : undefined;
     if (cell == null || cell.value == null) continue;
     try {
-      const s = JSON.parse(String(cell.value)) as ColorScheme;
-      if (s && typeof s === "object" && typeof s.id === "string" && !s.builtIn) out.push(s);
+      const parsed = JSON.parse(String(cell.value)) as { id?: unknown };
+      const id = typeof parsed?.id === "string" ? parsed.id : "";
+      if (!id) continue;
+      const clean = cleanScheme(parsed, id);
+      if (clean && !clean.builtIn) out.push(clean);
     } catch {
       /* skip an unparseable row rather than fail the whole load */
     }
@@ -56,8 +69,13 @@ export async function loadSchemesAsync(config: TursoConfig | null): Promise<Colo
   if (!config) return localUser;
   try {
     const results = await runTursoPipeline(config, [...ddl(), ...schemesSelect()]);
-    const dbUser = rowsToSchemes(results[DDL.length]);
-    if (dbUser.length === 0 && localUser.length > 0) {
+    const result = results[DDL.length];
+    const dbUser = rowsToSchemes(result);
+    // Migrate ONLY when the DB is genuinely empty (RAW row count 0) — NOT when
+    // rows are present but all failed sanitization. Gating on `dbUser.length`
+    // would let a populated-but-malformed DB trigger the migration's
+    // `DELETE FROM color_schemes`, overwriting real rows with local data.
+    if (rawRowCount(result) === 0 && localUser.length > 0) {
       // one-time migration: connecting Turso must not make local schemes vanish.
       await saveSchemesAsync(config, localUser);
       return localUser;

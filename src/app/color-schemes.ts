@@ -40,7 +40,7 @@ function cleanColors(raw: unknown): SchemeColorMap {
   return out;
 }
 
-function cleanScheme(raw: unknown, id: string): ColorScheme | null {
+export function cleanScheme(raw: unknown, id: string): ColorScheme | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const name = typeof o.name === "string" ? o.name.trim().slice(0, NAME_MAX) : "";

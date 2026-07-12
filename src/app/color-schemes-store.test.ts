@@ -68,6 +68,46 @@ describe("color-schemes-store", () => {
   });
 });
 
+describe("color-schemes-store: shared-tenant DB hardening", () => {
+  it("sanitizes a DB row — strips injection color tokens + SVG logo", async () => {
+    const rogue = {
+      id: "u-9",
+      name: "Rogue",
+      supportsDark: false,
+      light: { "background-image": "url(https://evil/x.gif)", "--AIPM-green": "#4d7000" },
+      branding: { logo: "data:image/svg+xml;base64,PHN2Zz4=" },
+    };
+    runTursoPipeline.mockResolvedValue([
+      undefined,
+      { response: { result: { cols: [{ name: "id" }, { name: "data" }], rows: [
+        [{ value: "u-9" }, { value: JSON.stringify(rogue) }],
+      ] } } },
+    ]);
+    const [out] = await loadSchemesAsync(CFG);
+    expect(out.id).toBe("u-9");
+    expect(out.light).not.toHaveProperty("background-image");
+    expect(out.light["--AIPM-green"]).toBe("#4d7000");
+    expect(out.branding.logo).toBeUndefined(); // SVG rejected by sanitizeBranding
+  });
+
+  it("does NOT migrate/overwrite when rows are present but all fail sanitization", async () => {
+    localStorage.setItem(
+      "lop-app:color-schemes",
+      JSON.stringify({ schemes: [scheme("u-1")], activeId: "u-1" }),
+    );
+    // one row present but nameless → cleanScheme drops it → dbUser empty, rawCount=1
+    runTursoPipeline.mockResolvedValueOnce([
+      undefined,
+      { response: { result: { cols: [{ name: "id" }, { name: "data" }], rows: [
+        [{ value: "u-7" }, { value: JSON.stringify({ id: "u-7" }) }],
+      ] } } },
+    ]);
+    const out = await loadSchemesAsync(CFG);
+    expect(out).toEqual([]); // returns empty — does NOT resurrect local over a populated DB
+    expect(runTursoPipeline).toHaveBeenCalledTimes(1); // NO migration save → DB untouched
+  });
+});
+
 describe("rowsToSchemes", () => {
   it("returns [] for undefined result", () => {
     expect(rowsToSchemes(undefined)).toEqual([]);
