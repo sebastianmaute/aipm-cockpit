@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  loadSchemes, saveSchemes, addScheme, updateScheme, removeScheme, nextUserId,
+  loadSchemes, saveSchemes, addScheme, updateScheme, removeScheme, nextUserId, setActive,
   exportScheme, importScheme, mergeAppliedBranding, type ColorScheme,
 } from "./color-schemes";
 
@@ -165,5 +165,22 @@ describe("color-schemes store", () => {
   it("import returns null on garbage", () => {
     expect(importScheme("not json")).toBeNull();
     expect(importScheme("[]")).toBeNull();
+  });
+
+  it("setActive accepts a built-in id (not present in the raw store) and persists it", () => {
+    // Regression: a built-in id must be valid even though built-ins are merged
+    // in only by reconcileBuiltins, never persisted to lop-app:color-schemes.
+    expect(setActive("meridian").activeId).toBe("meridian");
+    expect(loadSchemes().activeId).toBe("meridian");
+    expect(setActive("umber").activeId).toBe("umber");
+  });
+
+  it("setActive persists a user id or null; an unknown id is left to reconcileBuiltins", () => {
+    addScheme("Mine", { "--AIPM-green": "#123456" }, {}); // → u-1
+    expect(setActive("u-1").activeId).toBe("u-1");
+    expect(setActive(null).activeId).toBeNull();
+    // An unknown id is persisted as-is here (reconcileBuiltins maps it to Harbor),
+    // not nulled — otherwise a built-in id would be stripped the same way.
+    expect(setActive("nope").activeId).toBe("nope");
   });
 });

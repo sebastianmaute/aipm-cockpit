@@ -13,6 +13,7 @@ describe("ColorSchemeEditor", () => {
   });
 
   it("calls onApply with the resolved color map including a changed token", () => {
+    addScheme("Draft", { "--AIPM-green": "#000000" }, {}); // editable USER scheme active (Apply enabled)
     const onApply = vi.fn();
     render(<ColorSchemeEditor lang="en-US" onApply={onApply} />);
     fireEvent.input(screen.getByLabelText("Accent"), { target: { value: "#123456" } });
@@ -42,6 +43,9 @@ describe("ColorSchemeEditor", () => {
     expect(screen.getByText(/save as new to customise/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^rename$/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /^delete$/i })).toBeDisabled();
+    // Apply is disabled too, so a live edit can't write the boot key while the
+    // store still points at the untouched built-in (coherence: no silent revert).
+    expect(screen.getByRole("button", { name: /^apply$/i })).toBeDisabled();
   });
 });
 

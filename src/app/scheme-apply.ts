@@ -57,7 +57,14 @@ export function readSchemeSupportsDark(): boolean {
   }
 }
 
-/** Read the active color map (boot key). Returns null when missing/garbage. */
+// A CSS token name + hex value the boot key is allowed to carry. Mirrors the
+// cleanColors invariant so this sink can't apply a non-hex (CSS-injection) value
+// even if the localStorage entry is tampered with.
+const BOOT_TOKEN_RE = /^--[\w-]+$/;
+const BOOT_HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
+
+/** Read the active color map (boot key). Returns null when missing/garbage.
+ *  Values are hex-validated + keys must be CSS custom-property names. */
 export function readActiveSchemeColors(): SchemeColorMap | null {
   try {
     const raw = localStorage.getItem(ACTIVE_SCHEME_COLORS_KEY);
@@ -66,7 +73,7 @@ export function readActiveSchemeColors(): SchemeColorMap | null {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const out: SchemeColorMap = {};
     for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof v === "string") out[k] = v;
+      if (typeof v === "string" && BOOT_TOKEN_RE.test(k) && BOOT_HEX_RE.test(v)) out[k] = v;
     }
     return out;
   } catch {

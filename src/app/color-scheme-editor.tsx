@@ -210,7 +210,9 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
         <button
           type="button"
           onClick={apply}
-          className={`rounded-md border border-line bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-AIPM-white ${INTERACTIVE}`}
+          disabled={isBuiltin}
+          title={isBuiltin ? t(lang, "schemeBuiltinReadonly") : undefined}
+          className={`rounded-md border border-line bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-AIPM-white disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "schemeApply")}
         </button>

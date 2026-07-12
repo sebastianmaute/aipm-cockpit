@@ -56,13 +56,17 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute("data-style", style);
     // Apply the active scheme for the current theme (custom) or clear it (else).
     syncScheme(style);
-    // .dark is owned solely by ThemeProvider; notify it to re-apply for the new style.
-    window.dispatchEvent(new Event("lop-style-change"));
     // Re-resolve the active scheme's light/dark sub-map when ThemeProvider flips
     // .dark (lop-theme-change) OR the active scheme changes (lop-scheme-change).
+    // ★ Register BEFORE dispatching lop-style-change below: that dispatch makes
+    // ThemeProvider re-toggle .dark and fire lop-theme-change synchronously, so
+    // the listener must already be attached or the color re-resolve is dropped
+    // (leaving .dark and the applied light/dark map desynced).
     const onSync = () => syncScheme(style);
     window.addEventListener("lop-theme-change", onSync);
     window.addEventListener("lop-scheme-change", onSync);
+    // .dark is owned solely by ThemeProvider; notify it to re-apply for the new style.
+    window.dispatchEvent(new Event("lop-style-change"));
     return () => {
       window.removeEventListener("lop-theme-change", onSync);
       window.removeEventListener("lop-scheme-change", onSync);

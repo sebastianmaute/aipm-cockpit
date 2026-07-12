@@ -37,6 +37,19 @@ describe("scheme-apply", () => {
     expect(readActiveSchemeColors()).toBeNull();
   });
 
+  it("readActiveSchemeColors drops non-hex values and non-token keys (CSS-injection guard)", () => {
+    localStorage.setItem(
+      ACTIVE_SCHEME_COLORS_KEY,
+      JSON.stringify({
+        "--AIPM-green": "#123456", // valid → kept
+        "--surface": "url(https://evil/x)", // non-hex → dropped
+        "background:red;--x": "#ffffff", // non-token key → dropped
+        "--line": "not-a-hex", // non-hex → dropped
+      }),
+    );
+    expect(readActiveSchemeColors()).toEqual({ "--AIPM-green": "#123456" });
+  });
+
   it("round-trips the dark-capable boot flag and clears it when false", () => {
     expect(readSchemeSupportsDark()).toBe(false);
     writeSchemeSupportsDark(true);

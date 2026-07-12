@@ -148,6 +148,30 @@ describe("CI style ↔ theme interaction", () => {
     expect(document.documentElement.style.getPropertyValue("--surface")).toBe(HARBOR_LIGHT["--surface"]);
   });
 
+  it("switching from mockup(dark) into custom applies the DARK sub-map (no .dark↔colors desync)", () => {
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    localStorage.setItem(STYLE_STORAGE_KEY, "mockup");
+    function ToCustom() {
+      const { setStyle } = useCiStyle();
+      return <button onClick={() => setStyle("custom")}>to-custom</button>;
+    }
+    render(
+      <ThemeProvider>
+        <CiStyleProvider>
+          <ToCustom />
+        </CiStyleProvider>
+      </ThemeProvider>,
+    );
+    // Mockup pins light even under a dark theme.
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    // Switch to custom (Harbor default, dark-capable) → .dark on AND the dark map applied.
+    act(() => {
+      fireEvent.click(screen.getByText("to-custom"));
+    });
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(document.documentElement.style.getPropertyValue("--surface")).toBe(HARBOR_DARK["--surface"]);
+  });
+
   it("persists style choice to localStorage", () => {
     render(
       <ThemeProvider>

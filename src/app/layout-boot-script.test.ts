@@ -100,6 +100,18 @@ describe("no-flash boot script — runtime behaviour", () => {
     expect(root().style.getPropertyValue("--surface")).toBe("#abcdef");
   });
 
+  it("ignores a non-hex value in the mirrored map (CSS-injection guard)", () => {
+    localStorage.setItem("lop-style", "custom");
+    localStorage.setItem("lop-scheme-supports-dark", "1");
+    localStorage.setItem(
+      "lop-active-scheme-colors",
+      JSON.stringify({ "--background": "url(https://evil/x)", "--surface": "#123456" }),
+    );
+    runBoot();
+    expect(root().style.getPropertyValue("--background")).toBe("");
+    expect(root().style.getPropertyValue("--surface")).toBe("#123456");
+  });
+
   it("dark-capable custom honours dark theme and applies the mirrored (dark) map", () => {
     localStorage.setItem("lop-style", "custom");
     localStorage.setItem("lop-theme", "dark");

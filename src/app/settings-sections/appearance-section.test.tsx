@@ -4,6 +4,7 @@ import { AppearanceSection } from "./appearance-section";
 import { CiStyleProvider } from "../use-style";
 import { STYLE_STORAGE_KEY } from "../style-ci";
 import { defaultSettings, type Settings } from "../settings-types";
+import { loadSchemes } from "../color-schemes";
 import { t } from "../i18n";
 
 function renderSection(overrides: Partial<Settings> = {}, initialStyle: "AIPM" | "mockup" | "custom" = "AIPM") {
@@ -66,6 +67,14 @@ describe("AppearanceSection scheme control", () => {
     renderSection(); // starts on AIPM
     fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "harbor" } });
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
+  });
+
+  it("selecting Meridian actually activates Meridian (not the Harbor default)", () => {
+    // Regression: setActive must accept built-in ids, else the selection reverts to Harbor.
+    renderSection();
+    fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "meridian" } });
+    expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
+    expect(loadSchemes().activeId).toBe("meridian");
   });
 
   it("selecting Dashboard persists mockup to localStorage", () => {
