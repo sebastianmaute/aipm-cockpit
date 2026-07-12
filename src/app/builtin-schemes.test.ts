@@ -163,6 +163,11 @@ describe("AIPM + Mockup built-ins", () => {
     expect(c["--muted-foreground"]).toBe("#9ca3a9");
     expect(c["--AIPM-pink-strong"]).toBe("#e96089");
   });
+  test("AIPM dark segment track follows the dark surface (AA-safe)", () => {
+    const store = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
+    const c = resolveSchemeColors(resolveActiveScheme(store, true));
+    expect(c["--segment-track-bg"]).toBe("#121619");
+  });
   test("Mockup light pins the shipped -strong values (not re-derived)", () => {
     const store = reconcileBuiltins({ schemes: [], activeId: "mockup" });
     const c = resolveSchemeColors(resolveActiveScheme(store, false));

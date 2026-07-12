@@ -21,6 +21,10 @@ export const ICC_DARK: SchemeColorMap = {
   ...ICC_SEED,
   "--background": "#0b0f12", "--foreground": "#e3e6e6", "--surface": "#121619",
   "--surface-muted": "#1b2024", "--line": "#2b3137", "--muted-foreground": "#9ca3a9",
+  // Reproduce the old globals.css `--segment-track-bg: var(--surface)`: ICC_SEED
+  // flattened it to a concrete #ffffff, which is near-white in dark → --foreground
+  // (#e3e6e6) fails AA (1.25:1). Follow the dark surface (~14:1) instead.
+  "--segment-track-bg": "#121619",
   "--AIPM-green-strong": "#84bd00", "--AIPM-pink-strong": "#e96089", "--AIPM-purple-strong": "#d98cc8",
   "--rag-red-text": "#e96089", "--rag-amber-text": "#aa4899", "--rag-green-text": "#84bd00",
 };
