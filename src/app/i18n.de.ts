@@ -330,6 +330,7 @@ export const de: Record<TranslationKey, string> = {
   schemeAppearanceLabel: "Farbschema",
   schemeUserGroup: "Eigene Schemas",
   schemeBuiltinReadonly: "Integriertes Schema — als neues speichern zum Anpassen.",
+  schemeStoredInDb: "Eigene Farbschemata werden in der Projektdatenbank gespeichert und geräteübergreifend geteilt.",
   styleMockup: "Dashboard",
   styleMockupLightOnly: "Der Dashboard-Stil ist nur hell - das Thema ist deaktiviert, solange er aktiv ist.",
   styleCustomLightOnly: "Benutzerdefinierte Schemata sind nur hell - das Thema ist deaktiviert, solange eines aktiv ist.",

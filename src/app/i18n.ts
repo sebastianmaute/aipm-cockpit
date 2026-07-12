@@ -327,6 +327,7 @@ const enUS = {
   schemeAppearanceLabel: "Colour scheme",
   schemeUserGroup: "Your schemes",
   schemeBuiltinReadonly: "Built-in scheme — save as new to customise.",
+  schemeStoredInDb: "Custom schemes are stored in the project database and shared across your devices.",
   styleMockup: "Dashboard",
   styleMockupLightOnly: "Dashboard style is light-only - theme is disabled while it's active.",
   styleCustomLightOnly: "Custom schemes are light-only - theme is disabled while one is active.",
