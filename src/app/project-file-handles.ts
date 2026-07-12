@@ -1,6 +1,6 @@
 /**
  * Per-project FileSystemFileHandle persistence via a dedicated IndexedDB
- * database. Storing handles in a separate DB (not the main "lop-app" IDB)
+ * database. Storing handles in a separate DB (not the main "aipm-cockpit" IDB)
  * avoids touching storage.ts's schema version / onupgradeneeded.
  *
  * FileSystemFileHandle is structured-cloneable and can be stored directly as
@@ -12,8 +12,9 @@
  */
 
 import type { FsHandle } from "./storage";
+import { ensureStorageMigrated } from "./storage-migration";
 
-const HANDLES_DB_NAME = "lop-app-project-handles";
+const HANDLES_DB_NAME = "aipm-cockpit-project-handles";
 const HANDLES_DB_VERSION = 1;
 const HANDLES_STORE = "handles";
 
@@ -22,7 +23,8 @@ function idbAvailable(): boolean {
   return typeof window !== "undefined" && "indexedDB" in window;
 }
 
-function openHandlesDb(): Promise<IDBDatabase> {
+async function openHandlesDb(): Promise<IDBDatabase> {
+  await ensureStorageMigrated(); // rename legacy lop-app* storage before first open
   return new Promise((resolve, reject) => {
     const req = window.indexedDB.open(HANDLES_DB_NAME, HANDLES_DB_VERSION);
     req.onupgradeneeded = () => {

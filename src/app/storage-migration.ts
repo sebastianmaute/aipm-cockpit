@@ -190,3 +190,19 @@ export async function migrateIndexedDb(): Promise<void> {
     try { localStorage.setItem(IDB_MIGRATED_FLAG, "1"); } catch { /* storage off */ }
   }
 }
+
+// Single memoized migration gate. EVERY IndexedDB-open entry point (idb.ts
+// workspace, secrets.ts device key, project-file-handles.ts) awaits this BEFORE
+// opening a new-name DB, so no consumer can create an empty new DB ahead of the
+// copy (which would shadow the old data). Runs the localStorage rename + the IDB
+// copy-migrate exactly once; concurrent callers share the one promise.
+let migrationPromise: Promise<void> | null = null;
+export function ensureStorageMigrated(): Promise<void> {
+  if (!migrationPromise) {
+    migrationPromise = (async () => {
+      migrateLocalStorage();
+      await migrateIndexedDb();
+    })();
+  }
+  return migrationPromise;
+}

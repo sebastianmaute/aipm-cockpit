@@ -4,6 +4,8 @@
 // auth token). Pure WebCrypto: AES-256-GCM with either a non-extractable
 // device-bound key (default) or a PBKDF2-derived passphrase key. i18n-free.
 
+import { ensureStorageMigrated } from "./storage-migration";
+
 export type WrapMode = "device" | "passphrase";
 export type SecretId =
   | "anthropicApiKey"
@@ -53,7 +55,7 @@ export class SecretUnlockError extends Error {
 }
 
 const PBKDF2_ITERS = 600_000;
-const DB_NAME = "lop-app-secrets";
+const DB_NAME = "aipm-cockpit-secrets";
 const STORE = "keys";
 const DEVICE_KEY_ID = "device-key";
 
@@ -80,7 +82,8 @@ function randomBytes(n: number): Uint8Array<ArrayBuffer> {
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
-function idbOpen(): Promise<IDBDatabase> {
+async function idbOpen(): Promise<IDBDatabase> {
+  await ensureStorageMigrated(); // rename legacy lop-app* storage before first open
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(STORE);

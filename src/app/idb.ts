@@ -15,7 +15,9 @@
 // idempotently — users coming from earlier versions keep their data and gain
 // the new record stores additively.
 
-const IDB_NAME = "lop-app";
+import { ensureStorageMigrated } from "./storage-migration";
+
+const IDB_NAME = "aipm-cockpit";
 const IDB_VERSION = 6;
 const IDB_KV_STORE = "kv";
 export const IDB_TASKS_STORE = "tasks";
@@ -35,7 +37,8 @@ export const KV_CHANGES_KEY = "changes";
 export const KV_STAKEHOLDERS_KEY = "stakeholders";
 export const KV_PROJECT_KEY = "project";
 
-function openIdb(): Promise<IDBDatabase> {
+async function openIdb(): Promise<IDBDatabase> {
+  await ensureStorageMigrated(); // rename legacy lop-app* storage before first open
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === "undefined") {
       reject(new Error("IndexedDB unavailable"));

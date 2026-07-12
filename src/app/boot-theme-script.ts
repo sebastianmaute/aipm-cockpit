@@ -4,15 +4,21 @@
 // token overrides BEFORE first paint. `data-style` is now ALWAYS "custom"
 // (AIPM/Mockup are built-in schemes; the constant style axis is "custom").
 //
+// The IIFE FIRST runs a synchronous storage-namespace rename (legacy `lop-app:`
+// / `lop-*` keys → `aipm-cockpit:` / `aipm-cockpit-*`), mirroring
+// storage-migration.migrateLocalStorage — it can't import that TS module (this
+// is a stringified pre-hydration IIFE), so the rename is duplicated here on
+// purpose and kept in lockstep. It then reads the NEW key names.
+//
 // Two no-flash guarantees:
 //  1. STRUCTURAL replay — a scheme with shadows/gradient (Mockup) is painted
-//     from `lop-active-scheme-structural` (or the embedded map on legacy first
-//     boot) so shadowed chrome doesn't flash unstyled on reload.
-//  2. LEGACY-FIRST-BOOT fallback — users still on the OLD `lop-style="AIPM"`/
-//     "mockup" (pre-scheme-migration) have NOT been migrated by use-style yet
-//     on their first post-upgrade boot (runtime migration runs AFTER paint), so
-//     we embed the resolved AIPM/Mockup maps and paint them directly — no
-//     one-frame Harbor flash before use-style snaps in.
+//     from `aipm-cockpit-active-scheme-structural` (or the embedded map on
+//     legacy first boot) so shadowed chrome doesn't flash unstyled on reload.
+//  2. LEGACY-FIRST-BOOT fallback — users still on the OLD style VALUE
+//     `aipm-cockpit-style="AIPM"`/"mockup" (pre-scheme-migration) have NOT been
+//     migrated by use-style yet on their first post-upgrade boot (runtime
+//     migration runs AFTER paint), so we embed the resolved AIPM/Mockup maps and
+//     paint them directly — no one-frame Harbor flash before use-style snaps in.
 //
 // All embedded maps are COMPUTED FROM SOURCE at module load (no drift).
 //
@@ -34,4 +40,4 @@ const MOCKUP_LIGHT_COLORS = JSON.stringify(resolveSchemeColors(MOCKUP_LIGHT));
 const ICC_STRUCTURAL_JSON = JSON.stringify(ICC_STRUCTURAL);
 const MOCKUP_STRUCTURAL_JSON = JSON.stringify(MOCKUP_STRUCTURAL);
 
-export const NO_FLASH_THEME_SCRIPT = `(function(){try{var st=localStorage.getItem("lop-style");var legacyIcc=st==="AIPM";var legacyMockup=st==="mockup";document.documentElement.setAttribute("data-style","custom");var t=localStorage.getItem("lop-theme")||"system";var themeDark=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var rawC=localStorage.getItem("lop-active-scheme-colors");var rawS=localStorage.getItem("lop-active-scheme-structural");var schemeDark,colors,structural;if(legacyMockup){schemeDark=false;colors=rawC?JSON.parse(rawC):${MOCKUP_LIGHT_COLORS};structural=rawS?JSON.parse(rawS):${MOCKUP_STRUCTURAL_JSON};}else if(legacyIcc){schemeDark=true;colors=rawC?JSON.parse(rawC):(themeDark?${ICC_DARK_COLORS}:${ICC_LIGHT_COLORS});structural=rawS?JSON.parse(rawS):${ICC_STRUCTURAL_JSON};}else{var rawSupports=localStorage.getItem("lop-scheme-supports-dark");schemeDark=rawC?(rawSupports==="1"):true;colors=rawC?JSON.parse(rawC):((themeDark&&schemeDark)?${HARBOR_DARK_COLORS}:${HARBOR_LIGHT_COLORS});structural=rawS?JSON.parse(rawS):{};}var d=themeDark&&schemeDark;document.documentElement.setAttribute("data-scheme-dark",schemeDark?"1":"0");document.documentElement.classList.toggle("dark",d);var el=document.documentElement;for(var k in colors){if(Object.prototype.hasOwnProperty.call(colors,k)&&typeof colors[k]==="string"&&/^--[\\w-]+$/.test(k)&&/^#[0-9a-fA-F]{3,8}$/.test(colors[k])){el.style.setProperty(k,colors[k]);}}for(var j in structural){if(Object.prototype.hasOwnProperty.call(structural,j)&&typeof structural[j]==="string"&&structural[j].length<=256&&/^--[\\w-]+$/.test(j)&&/^[\\w\\s#.,%()/-]+$/.test(structural[j])&&!/url\\s*\\(|expression|image-set|[;{}@<>\\\\]/i.test(structural[j])){el.style.setProperty(j,structural[j]);}}}catch(e){}})();`;
+export const NO_FLASH_THEME_SCRIPT = `(function(){try{var LS=localStorage;var mv=function(o,n){if(LS.getItem(n)!==null){LS.removeItem(o);return;}var v=LS.getItem(o);if(v===null)return;LS.setItem(n,v);LS.removeItem(o);};var mk=[],mi;for(mi=0;mi<LS.length;mi++){var kk=LS.key(mi);if(kk)mk.push(kk);}for(mi=0;mi<mk.length;mi++){if(mk[mi].indexOf("lop-app:")===0)mv(mk[mi],"aipm-cockpit:"+mk[mi].slice(8));}mv("lop-style","aipm-cockpit-style");mv("lop-theme","aipm-cockpit-theme");mv("lop-active-scheme-colors","aipm-cockpit-active-scheme-colors");mv("lop-active-scheme-structural","aipm-cockpit-active-scheme-structural");mv("lop-scheme-supports-dark","aipm-cockpit-scheme-supports-dark");var st=localStorage.getItem("aipm-cockpit-style");var legacyIcc=st==="AIPM";var legacyMockup=st==="mockup";document.documentElement.setAttribute("data-style","custom");var t=localStorage.getItem("aipm-cockpit-theme")||"system";var themeDark=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);var rawC=localStorage.getItem("aipm-cockpit-active-scheme-colors");var rawS=localStorage.getItem("aipm-cockpit-active-scheme-structural");var schemeDark,colors,structural;if(legacyMockup){schemeDark=false;colors=rawC?JSON.parse(rawC):${MOCKUP_LIGHT_COLORS};structural=rawS?JSON.parse(rawS):${MOCKUP_STRUCTURAL_JSON};}else if(legacyIcc){schemeDark=true;colors=rawC?JSON.parse(rawC):(themeDark?${ICC_DARK_COLORS}:${ICC_LIGHT_COLORS});structural=rawS?JSON.parse(rawS):${ICC_STRUCTURAL_JSON};}else{var rawSupports=localStorage.getItem("aipm-cockpit-scheme-supports-dark");schemeDark=rawC?(rawSupports==="1"):true;colors=rawC?JSON.parse(rawC):((themeDark&&schemeDark)?${HARBOR_DARK_COLORS}:${HARBOR_LIGHT_COLORS});structural=rawS?JSON.parse(rawS):{};}var d=themeDark&&schemeDark;document.documentElement.setAttribute("data-scheme-dark",schemeDark?"1":"0");document.documentElement.classList.toggle("dark",d);var el=document.documentElement;for(var k in colors){if(Object.prototype.hasOwnProperty.call(colors,k)&&typeof colors[k]==="string"&&/^--[\\w-]+$/.test(k)&&/^#[0-9a-fA-F]{3,8}$/.test(colors[k])){el.style.setProperty(k,colors[k]);}}for(var j in structural){if(Object.prototype.hasOwnProperty.call(structural,j)&&typeof structural[j]==="string"&&structural[j].length<=256&&/^--[\\w-]+$/.test(j)&&/^[\\w\\s#.,%()/-]+$/.test(structural[j])&&!/url\\s*\\(|expression|image-set|[;{}@<>\\\\]/i.test(structural[j])){el.style.setProperty(j,structural[j]);}}}catch(e){}})();`;
