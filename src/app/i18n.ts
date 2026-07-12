@@ -3258,6 +3258,7 @@ const enUS = {
   versionHighlightLiveNames: "Live names: assignees, RAID owners and absences linked to a directory resource now show, search, filter, sort and email by the resource's current name/email everywhere — no more stale names after a rename or re-link.",
   versionHighlightSteeringReports: "Steering-committee status reports: draft a per-meeting report with Claude from the current project status and the meeting agenda, edit it in a rich-text editor, email it to committee members, and (on Turso) keep a restorable version history.",
   versionHighlightColorSchemesDark: "Scheme-driven color palettes with dark mode: pick from three built-in dark-capable schemes — Harbor (the new default), Meridian, and Umber — in Settings → Appearance, alongside the AIPM and Dashboard styles and your own custom schemes. Harbor is the fresh-install default with full light and dark support.",
+  versionHighlightSchemeDehardcode: "The look is now fully scheme-driven: AIPM and the Dashboard style are read-only built-in color schemes alongside Harbor, Meridian, and Umber — nothing is hardcoded into the app anymore. Pick any of them in Settings → Appearance, and structural touches like card shadows now travel with the scheme.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

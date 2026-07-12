@@ -8,6 +8,36 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.183.0] - 2026-07-12 "Banks"
+
+### Changed
+- **The look is now fully scheme-driven — nothing is hardcoded into the app.**
+  The **AIPM** brand style and the **Dashboard** (Mockup) style are now read-only
+  **built-in color schemes**, joining Harbor, Meridian, and Umber (five built-ins;
+  Harbor stays the fresh-install default). Every style is selected the same way —
+  from the unified scheme picker in **Settings → Appearance** — and the old
+  `data-style` axis has collapsed to a single scheme-driven path. AIPM and the
+  Dashboard style render byte-identical to before.
+- **The scheme model now carries structural (non-color) tokens.** Card shadows,
+  the KPI gradient, delta-chip padding, and chip fills travel with a scheme (not
+  just its colors), so the Dashboard style's richer chrome is applied inline like
+  its palette. Structural values are allowlist-validated before they are applied.
+
+### Fixed
+- Selecting AIPM or the Dashboard style from the Appearance picker now applies it
+  correctly (previously routed through a legacy path).
+- No first-paint flash for existing devices on upgrade: the pre-paint boot script
+  reads the active scheme (and its structural tokens) and paints it before React
+  mounts, with a built-in fallback for legacy devices.
+- Branding: the global app-name/footer inputs and a color scheme's own branding
+  no longer collide — exactly one set is shown per active scheme, and a color-only
+  scheme save can no longer silently clear a globally-set app name.
+
+### Internal
+- `globals.css` drops the hardcoded AIPM-dark and Dashboard token blocks; `:root`
+  remains as the no-JS fallback. Removed dead style/token registries. All five
+  scheme × theme combinations pass the axe accessibility gate.
+
 ## [0.182.0] - 2026-07-12 "Reynolds"
 
 ### Added
