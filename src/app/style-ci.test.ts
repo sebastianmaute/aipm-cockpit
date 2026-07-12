@@ -12,13 +12,12 @@ describe("readStoredStyle", () => {
   });
 });
 
-describe("effectiveDark — mockup pins light", () => {
-  it("mockup is never dark even when the theme resolved dark", () => {
-    expect(effectiveDark(true, "mockup")).toBe(false);
-  });
-  it("AIPM honours the resolved theme", () => {
-    expect(effectiveDark(true, "AIPM")).toBe(true);
-    expect(effectiveDark(false, "AIPM")).toBe(false);
+describe("effectiveDark", () => {
+  it("dark only when theme dark AND scheme dark-capable", () => {
+    expect(effectiveDark(true, true)).toBe(true);
+    expect(effectiveDark(true, false)).toBe(false); // mockup / light-only
+    expect(effectiveDark(false, true)).toBe(false);
+    expect(effectiveDark(false, false)).toBe(false);
   });
 });
 
@@ -28,21 +27,5 @@ describe("style-ci custom", () => {
     expect(readStoredStyle("AIPM")).toBe("AIPM");
     expect(readStoredStyle("mockup")).toBe("mockup");
     expect(readStoredStyle("bogus")).toBe("AIPM");
-  });
-
-  it("pins light for a light-only custom scheme (like mockup)", () => {
-    expect(effectiveDark(true, "custom")).toBe(false); // supportsDark defaults false
-    expect(effectiveDark(true, "custom", false)).toBe(false);
-    expect(effectiveDark(true, "mockup")).toBe(false);
-    expect(effectiveDark(true, "AIPM")).toBe(true);
-    expect(effectiveDark(false, "AIPM")).toBe(false);
-  });
-
-  it("a dark-capable custom scheme honours the resolved theme", () => {
-    expect(effectiveDark(true, "custom", true)).toBe(true);
-    expect(effectiveDark(false, "custom", true)).toBe(false);
-    // supportsDark is irrelevant for mockup (always light) and AIPM (always honours theme)
-    expect(effectiveDark(true, "mockup", true)).toBe(false);
-    expect(effectiveDark(true, "AIPM", false)).toBe(true);
   });
 });
