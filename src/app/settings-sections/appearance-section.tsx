@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent } from "react";
+import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { SegmentedControl } from "../segmented-control";
 import type { DashboardDensity } from "../dashboard-density";
@@ -9,13 +9,12 @@ import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
 import { useColorSchemes } from "../use-color-schemes";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "../interaction-styles";
+import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { ColorSchemeEditor } from "../color-scheme-editor";
+import { BrandingImageInput } from "../branding-image-input";
 import { applySchemeColors, writeActiveSchemeColors } from "../scheme-apply";
 import { mergeAppliedBranding } from "../color-schemes";
-
-const BRANDING_LOGO_MAX_BYTES = 512 * 1024;
-const BRANDING_LOGO_FILE_RE = /^data:image\/(png|jpeg|webp|gif);base64,/i;
+import { getTursoConfig } from "../turso-config";
 
 interface AppearanceSectionProps {
   lang: Lang;
@@ -25,7 +24,11 @@ interface AppearanceSectionProps {
 
 export function AppearanceSection({ lang, settings, onChange }: AppearanceSectionProps) {
   const { theme, setTheme } = useTheme();
-  const { store, activeSupportsDark, refresh, selectScheme } = useColorSchemes();
+  const config = getTursoConfig(
+    settings.integrations?.turso?.databaseUrl,
+    settings.integrations?.turso?.authToken,
+  );
+  const { store, activeSupportsDark, refresh, selectScheme } = useColorSchemes({ config });
   // Phase 2: the style axis is the constant "custom" — the ACTIVE SCHEME drives
   // the look. A dark-capable active scheme honours the theme; mockup + a
   // light-only user scheme pin light (mirrors effectiveDark → !supportsDark).
@@ -51,46 +54,6 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
     const cleaned =
       next.logo || next.slogan?.trim() || next.footerSlogan?.trim() || next.favicon ? next : undefined;
     onChange({ ...settings, branding: cleaned });
-  }
-  function onFaviconFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (file.size > BRANDING_LOGO_MAX_BYTES) {
-      setFaviconError(t(lang, "brandingLogoError"));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result);
-      if (BRANDING_LOGO_FILE_RE.test(url)) {
-        setFaviconError(null);
-        setBranding({ ...branding, favicon: url });
-      } else {
-        setFaviconError(t(lang, "brandingLogoError"));
-      }
-    };
-    reader.readAsDataURL(file);
-  }
-  function onLogoFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // let the same file be re-picked after a remove
-    if (!file) return;
-    if (file.size > BRANDING_LOGO_MAX_BYTES) {
-      setLogoError(t(lang, "brandingLogoError"));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result);
-      if (BRANDING_LOGO_FILE_RE.test(url)) {
-        setLogoError(null);
-        setBranding({ ...branding, logo: url });
-      } else {
-        setLogoError(t(lang, "brandingLogoError"));
-      }
-    };
-    reader.readAsDataURL(file);
   }
   return (
     <>
@@ -123,11 +86,15 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         <ColorSchemeEditor
           key={store.activeId ?? "none"}
           lang={lang}
+          config={config}
           onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
           onApplyBranding={(b) => setBranding(mergeAppliedBranding(branding, b))}
           onSchemeChange={() => { refresh(); window.dispatchEvent(new Event("lop-scheme-change")); }}
           onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
         />
+        {config ? (
+          <p className="mt-2 text-sm text-muted-foreground">{t(lang, "schemeStoredInDb")}</p>
+        ) : null}
       </div>
 
       <div className="mb-4">
@@ -205,121 +172,86 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         />
       </div>
 
-      <div className="mb-4">
-        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-          {t(lang, "brandingTitle")}
-        </span>
-
-        {/* Logo upload */}
-        <div className="mb-3">
-          <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-            {t(lang, "brandingLogo")}
-            <InfoTooltip text={t(lang, "brandingLogoHint")} />
+      {/* GLOBAL branding: logo/favicon/app-name/footer edited HERE only while a
+          BUILT-IN scheme is active (built-ins ship empty branding, read-only in
+          the editor). A USER scheme OWNS all four (its editor edits them; apply
+          replaces via mergeAppliedBranding) — the whole block hides then to avoid
+          a dual editor. */}
+      {activeIsBuiltin && (
+        <div className="mb-4">
+          <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+            {t(lang, "brandingTitle")}
           </span>
-          <div className="flex flex-wrap items-center gap-2">
-            {branding?.logo && (
-              <span className="inline-flex items-center rounded border border-line bg-AIPM-dark-blue px-2 py-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={branding.logo} alt="" className="max-h-6 w-auto max-w-[160px] object-contain" />
-              </span>
-            )}
-            <label className={`cursor-pointer rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}>
-              {t(lang, "brandingLogoChoose")}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="sr-only"
-                onChange={onLogoFile}
-              />
-            </label>
-            {branding?.logo && (
-              <button
-                type="button"
-                onClick={() => { setLogoError(null); setBranding({ ...branding, logo: undefined }); }}
-                className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
-              >
-                {t(lang, "brandingLogoRemove")}
-              </button>
-            )}
+
+          {/* Logo upload */}
+          <div className="mb-3">
+            <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              {t(lang, "brandingLogo")}
+              <InfoTooltip text={t(lang, "brandingLogoHint")} />
+            </span>
+            <BrandingImageInput
+              label={t(lang, "brandingLogoChoose")}
+              removeLabel={t(lang, "brandingLogoRemove")}
+              value={branding?.logo}
+              onChange={(logo) => { setLogoError(null); setBranding({ ...branding, logo }); }}
+              onRemove={() => { setLogoError(null); setBranding({ ...branding, logo: undefined }); }}
+              error={logoError}
+              invalidMessage={t(lang, "brandingLogoError")}
+              onError={(m) => setLogoError(m)}
+            />
           </div>
-          {logoError && <p className="mt-1 text-xs text-AIPM-pink-strong">{logoError}</p>}
-        </div>
 
-        {/* Favicon (browser tab icon) */}
-        <div className="mb-3">
-          <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-            {t(lang, "brandingFavicon")}
-            <InfoTooltip text={t(lang, "brandingFaviconHint")} />
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            {branding?.favicon && (
-              <span className="inline-flex items-center rounded border border-line bg-surface px-2 py-1">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={branding.favicon} alt="" className="h-5 w-5 object-contain" />
-              </span>
-            )}
-            <label className={`cursor-pointer rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}>
-              {t(lang, "brandingFaviconChoose")}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="sr-only"
-                onChange={onFaviconFile}
-              />
-            </label>
-            {branding?.favicon && (
-              <button
-                type="button"
-                onClick={() => { setFaviconError(null); setBranding({ ...branding, favicon: undefined }); }}
-                className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground ${INTERACTIVE}`}
-              >
-                {t(lang, "brandingLogoRemove")}
-              </button>
-            )}
+          {/* Favicon (browser tab icon) */}
+          <div className="mb-3">
+            <span className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              {t(lang, "brandingFavicon")}
+              <InfoTooltip text={t(lang, "brandingFaviconHint")} />
+            </span>
+            <BrandingImageInput
+              label={t(lang, "brandingFaviconChoose")}
+              removeLabel={t(lang, "brandingLogoRemove")}
+              value={branding?.favicon}
+              onChange={(favicon) => { setFaviconError(null); setBranding({ ...branding, favicon }); }}
+              onRemove={() => { setFaviconError(null); setBranding({ ...branding, favicon: undefined }); }}
+              error={faviconError}
+              invalidMessage={t(lang, "brandingLogoError")}
+              onError={(m) => setFaviconError(m)}
+            />
           </div>
-          {faviconError && <p className="mt-1 text-xs text-AIPM-pink-strong">{faviconError}</p>}
+
+          {/* App name (sidebar subtitle under the logo) */}
+          <div className="mb-3">
+            <label htmlFor="branding-appname" className="mb-1 block text-xs font-medium text-muted-foreground">
+              {t(lang, "brandingAppName")}
+            </label>
+            <input
+              id="branding-appname"
+              type="text"
+              maxLength={60}
+              value={branding?.slogan ?? ""}
+              placeholder={t(lang, "sidebarBrandSubtitle")}
+              onChange={(e) => setBranding({ ...branding, slogan: e.target.value })}
+              className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
+            />
+          </div>
+
+          {/* Slogan (bottom footer-bar tagline) */}
+          <div>
+            <label htmlFor="branding-footer-slogan" className="mb-1 block text-xs font-medium text-muted-foreground">
+              {t(lang, "brandingFooterSlogan")}
+            </label>
+            <input
+              id="branding-footer-slogan"
+              type="text"
+              maxLength={120}
+              value={branding?.footerSlogan ?? ""}
+              placeholder={DEFAULT_FOOTER_SLOGAN}
+              onChange={(e) => setBranding({ ...branding, footerSlogan: e.target.value })}
+              className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
+            />
+          </div>
         </div>
-
-        {/* App name + footer slogan: edited HERE only while a BUILT-IN scheme is
-            active (built-ins ship empty branding, read-only in the editor). A USER
-            scheme OWNS these (its editor edits them; apply replaces via
-            mergeAppliedBranding) — hidden then to avoid a dual editor. */}
-        {activeIsBuiltin && (
-          <>
-            {/* App name (sidebar subtitle under the logo) */}
-            <div className="mb-3">
-              <label htmlFor="branding-appname" className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t(lang, "brandingAppName")}
-              </label>
-              <input
-                id="branding-appname"
-                type="text"
-                maxLength={60}
-                value={branding?.slogan ?? ""}
-                placeholder={t(lang, "sidebarBrandSubtitle")}
-                onChange={(e) => setBranding({ ...branding, slogan: e.target.value })}
-                className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
-              />
-            </div>
-
-            {/* Slogan (bottom footer-bar tagline) */}
-            <div>
-              <label htmlFor="branding-footer-slogan" className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t(lang, "brandingFooterSlogan")}
-              </label>
-              <input
-                id="branding-footer-slogan"
-                type="text"
-                maxLength={120}
-                value={branding?.footerSlogan ?? ""}
-                placeholder={DEFAULT_FOOTER_SLOGAN}
-                onChange={(e) => setBranding({ ...branding, footerSlogan: e.target.value })}
-                className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
-              />
-            </div>
-          </>
-        )}
-      </div>
+      )}
     </>
   );
 }
