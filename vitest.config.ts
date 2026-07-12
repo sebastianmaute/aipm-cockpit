@@ -61,6 +61,9 @@ export default defineConfig({
         "src/app/use-ai-orchestration.ts",
         "src/app/use-digest.ts",
         "src/app/use-meeting-report-actions.ts",
+        // Color-scheme selection glue: loads/reconciles the store + fires the
+        // events use-style's syncScheme (the apply source of truth) listens to.
+        "src/app/use-color-schemes.ts",
         // External-format serializers, binary packing, speech & network clients
         // (integration/E2E-tested, not unit-coverage-gated):
         "src/app/export-ooxml.ts",

@@ -44,9 +44,13 @@ const CiStyleContext = createContext<CiStyleContextValue>({ style: "AIPM", setSt
 export function useCiStyle(): CiStyleContextValue { return useContext(CiStyleContext); }
 
 export function CiStyleProvider({ children }: { children: React.ReactNode }) {
-  const [style, setStyleState] = useState<CiStyle>(() =>
-    typeof window === "undefined" ? "AIPM" : readStoredStyle(localStorage.getItem(STYLE_STORAGE_KEY)),
-  );
+  const [style, setStyleState] = useState<CiStyle>(() => {
+    if (typeof window === "undefined") return "AIPM";
+    const stored = localStorage.getItem(STYLE_STORAGE_KEY);
+    // Fresh install (no stored style) → custom, so the default (Harbor) scheme
+    // is active. Matches the boot script's absent→custom default (no flash).
+    return stored === null ? "custom" : readStoredStyle(stored);
+  });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-style", style);
@@ -54,11 +58,15 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
     syncScheme(style);
     // .dark is owned solely by ThemeProvider; notify it to re-apply for the new style.
     window.dispatchEvent(new Event("lop-style-change"));
-    // ThemeProvider re-applies .dark then fires lop-theme-change; re-resolve the
-    // correct light/dark sub-map for a dark-capable scheme (no-op for others).
-    const onThemeChange = () => syncScheme(style);
-    window.addEventListener("lop-theme-change", onThemeChange);
-    return () => window.removeEventListener("lop-theme-change", onThemeChange);
+    // Re-resolve the active scheme's light/dark sub-map when ThemeProvider flips
+    // .dark (lop-theme-change) OR the active scheme changes (lop-scheme-change).
+    const onSync = () => syncScheme(style);
+    window.addEventListener("lop-theme-change", onSync);
+    window.addEventListener("lop-scheme-change", onSync);
+    return () => {
+      window.removeEventListener("lop-theme-change", onSync);
+      window.removeEventListener("lop-scheme-change", onSync);
+    };
   }, [style]);
 
   const setStyle = useCallback((next: CiStyle) => {

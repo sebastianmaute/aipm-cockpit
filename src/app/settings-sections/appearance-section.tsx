@@ -9,7 +9,7 @@ import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
 import { useCiStyle } from "../use-style";
-import type { CiStyle } from "../style-ci";
+import { useColorSchemes } from "../use-color-schemes";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { ColorSchemeEditor } from "../color-scheme-editor";
 import { applySchemeColors, writeActiveSchemeColors } from "../scheme-apply";
@@ -27,9 +27,19 @@ interface AppearanceSectionProps {
 export function AppearanceSection({ lang, settings, onChange }: AppearanceSectionProps) {
   const { theme, setTheme } = useTheme();
   const { style, setStyle } = useCiStyle();
+  const { store, activeSupportsDark, refresh, selectScheme } = useColorSchemes();
   const isMockup = style === "mockup";
   const isCustom = style === "custom";
-  const pinsLight = isMockup || isCustom;
+  // A dark-capable active scheme honours the theme; mockup + a light-only custom
+  // scheme pin light (mirrors effectiveDark).
+  const pinsLight = isMockup || (isCustom && !activeSupportsDark);
+  const builtinSchemes = store.schemes.filter((s) => s.builtIn);
+  const userSchemes = store.schemes.filter((s) => !s.builtIn);
+  const schemeValue = isMockup ? "mockup" : style === "AIPM" ? "AIPM" : store.activeId ?? "harbor";
+  function onSelectScheme(v: string) {
+    if (v === "AIPM" || v === "mockup") setStyle(v);
+    else selectScheme(v);
+  }
 
   const branding = settings.branding;
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -82,28 +92,38 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
   return (
     <>
       <div className="mb-4">
-        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-          {t(lang, "styleLabel")}
-        </span>
-        <SegmentedControl<CiStyle>
-          value={style}
-          ariaLabel={t(lang, "styleLabel")}
-          className="w-full"
-          options={[
-            { value: "AIPM", label: t(lang, "styleIcc") },
-            { value: "mockup", label: t(lang, "styleMockup") },
-            { value: "custom", label: t(lang, "styleCustom") },
-          ]}
-          onChange={setStyle}
-        />
+        <label htmlFor="appearance-scheme" className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "schemeAppearanceLabel")}
+        </label>
+        <select
+          id="appearance-scheme"
+          value={schemeValue}
+          onChange={(e) => onSelectScheme(e.target.value)}
+          className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        >
+          {builtinSchemes.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+          <option value="AIPM">{t(lang, "styleIcc")}</option>
+          <option value="mockup">{t(lang, "styleMockup")}</option>
+          {userSchemes.length > 0 && (
+            <optgroup label={t(lang, "schemeUserGroup")}>
+              {userSchemes.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </optgroup>
+          )}
+        </select>
       </div>
 
       {isCustom && (
         <div className="mb-4">
           <ColorSchemeEditor
+            key={store.activeId ?? "none"}
             lang={lang}
             onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
             onApplyBranding={(b) => setBranding(mergeAppliedBranding(branding, b))}
+            onSchemeChange={() => { refresh(); window.dispatchEvent(new Event("lop-scheme-change")); }}
             onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
           />
         </div>
