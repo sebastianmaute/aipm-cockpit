@@ -137,3 +137,17 @@ describe("AppearanceSection scheme control", () => {
     expect(screen.getAllByLabelText(t("en-US", "brandingAppName"))).toHaveLength(1);
   });
 });
+
+describe("AppearanceSection Phase 3 (DB-stored schemes)", () => {
+  it("shows a 'stored in project database' hint when Turso is configured", () => {
+    renderSection({
+      integrations: { ...defaultSettings.integrations, turso: { enabled: true, databaseUrl: "libsql://x", authToken: "t" } },
+    });
+    expect(screen.getByText(t("en-US", "schemeStoredInDb"))).toBeInTheDocument();
+  });
+
+  it("hides the hint when no Turso config", () => {
+    renderSection();
+    expect(screen.queryByText(t("en-US", "schemeStoredInDb"))).not.toBeInTheDocument();
+  });
+});

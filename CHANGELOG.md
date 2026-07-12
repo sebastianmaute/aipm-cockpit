@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.184.0] - 2026-07-12 "North"
+
+### Added
+- **Database-backed color schemes (cross-device).** Custom color schemes now
+  persist to the project database when Turso is connected, via a global
+  `color_schemes` table (kept out of the workspace table set), so your themes
+  follow you across devices. localStorage remains a synchronous cache/fallback,
+  so the no-flash boot paint is unchanged and file-mode/offline editing still
+  works. Writes are per-row (upsert / targeted delete) and a local-only scheme is
+  merged additively into the DB on connect — one device never wipes another's
+  schemes.
+- **Per-scheme logo & favicon.** A color scheme can now own its logo and favicon
+  (not just slogan/footer), so switching schemes rebrands the whole app. The
+  global Branding inputs show for built-in schemes and the scheme editor owns them
+  for a branded custom scheme.
+
+### Security
+- DB-sourced schemes are sanitized on read through the same gate as imported
+  schemes (HEX/token allowlist on colors, raster-only logo/favicon with SVG
+  excluded), so a row in the shared database cannot inject CSS or unsafe branding.
+
+### Internal
+- Shared `BrandingImageInput` (raster-only file input with unique per-field
+  accessible names) reused by the scheme editor and the Appearance branding block.
+
 ## [0.183.0] - 2026-07-12 "Palmer"
 
 ### Changed

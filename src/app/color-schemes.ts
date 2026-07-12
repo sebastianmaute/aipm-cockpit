@@ -40,7 +40,7 @@ function cleanColors(raw: unknown): SchemeColorMap {
   return out;
 }
 
-function cleanScheme(raw: unknown, id: string): ColorScheme | null {
+export function cleanScheme(raw: unknown, id: string): ColorScheme | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const name = typeof o.name === "string" ? o.name.trim().slice(0, NAME_MAX) : "";
@@ -169,15 +169,19 @@ export function setActive(id: string | null): SchemeStore {
   return next;
 }
 
-/** Branding to write into settings when a custom scheme is applied (Option A:
- *  schemes OWN slogan/footerSlogan — replaced, cleared when the scheme lacks them
- *  — while logo/favicon stay GLOBAL, edited only in the main Branding block. */
+/** Branding to write into settings when a custom scheme is applied: schemes now
+ *  OWN all four branding fields — logo, favicon, slogan and footerSlogan are
+ *  REPLACED from the scheme (and cleared when the scheme lacks them). The global
+ *  Branding block edits logo/favicon/slogan/footerSlogan only for built-in
+ *  schemes (a branded user scheme owns them via the scheme editor). */
 export function mergeAppliedBranding(
   current: BrandingConfig | undefined,
   scheme: BrandingConfig,
 ): BrandingConfig {
   return {
     ...(current ?? {}),
+    logo: scheme.logo,
+    favicon: scheme.favicon,
     slogan: scheme.slogan,
     footerSlogan: scheme.footerSlogan,
   };

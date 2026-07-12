@@ -19,24 +19,71 @@ function scheme(id: string): ColorScheme {
 }
 
 describe("mergeAppliedBranding", () => {
-  it("replaces slogan/footerSlogan (clearing stale) and leaves logo/favicon global", () => {
+  it("clears all four branding fields when the scheme has none", () => {
     const current = { slogan: "Alpha", footerSlogan: "Foot", logo: "data:image/png;base64,AAA" };
     const merged = mergeAppliedBranding(current, {}); // scheme with no branding
     expect(merged.slogan).toBeUndefined();   // stale slogan cleared
     expect(merged.footerSlogan).toBeUndefined();
-    expect(merged.logo).toBe("data:image/png;base64,AAA"); // global logo preserved
+    expect(merged.logo).toBeUndefined();     // scheme owns logo now — cleared
+    expect(merged.favicon).toBeUndefined();
   });
 
-  it("takes the scheme's slogan + footerSlogan and never touches logo/favicon", () => {
+  it("takes the scheme's logo/favicon/slogan/footerSlogan (scheme owns all four)", () => {
     const current = { logo: "data:image/png;base64,AAA" };
     const merged = mergeAppliedBranding(current, { slogan: "Beta", footerSlogan: "Bee", logo: "data:image/png;base64,ZZZ" });
     expect(merged.slogan).toBe("Beta");
     expect(merged.footerSlogan).toBe("Bee");
-    expect(merged.logo).toBe("data:image/png;base64,AAA"); // scheme logo IGNORED (global owns logo)
+    expect(merged.logo).toBe("data:image/png;base64,ZZZ"); // scheme logo now wins (scheme owns logo)
   });
 
   it("handles an undefined current branding", () => {
     expect(mergeAppliedBranding(undefined, { slogan: "X" }).slogan).toBe("X");
+  });
+});
+
+describe("mergeAppliedBranding: logo + favicon (Phase 3)", () => {
+  it("replaces logo/favicon/slogan/footerSlogan from the scheme", () => {
+    const current = { logo: "data:image/png;base64,OLD", slogan: "old" };
+    const scheme = {
+      logo: "data:image/png;base64,NEW",
+      favicon: "data:image/png;base64,FAV",
+      slogan: "new",
+      footerSlogan: "foot",
+    };
+    expect(mergeAppliedBranding(current, scheme)).toEqual({
+      logo: "data:image/png;base64,NEW",
+      favicon: "data:image/png;base64,FAV",
+      slogan: "new",
+      footerSlogan: "foot",
+    });
+  });
+
+  it("clears logo/favicon when the scheme has none (branded scheme owns all four)", () => {
+    const current = { logo: "data:image/png;base64,OLD", favicon: "data:image/png;base64,OLD" };
+    expect(mergeAppliedBranding(current, { slogan: "x" })).toEqual({
+      logo: undefined,
+      favicon: undefined,
+      slogan: "x",
+      footerSlogan: undefined,
+    });
+  });
+});
+
+describe("export/import round-trip: logo + favicon (Phase 3)", () => {
+  it("preserves a raster logo + favicon through export→import", () => {
+    const scheme = {
+      id: "u-1", name: "Mine", supportsDark: false,
+      light: { "--AIPM-green": "#4d7000" },
+      branding: {
+        logo: "data:image/png;base64,AAAA",
+        favicon: "data:image/png;base64,BBBB",
+        slogan: "s",
+      },
+    } as const;
+    const back = importScheme(exportScheme(scheme as never));
+    expect(back?.branding.logo).toBe("data:image/png;base64,AAAA");
+    expect(back?.branding.favicon).toBe("data:image/png;base64,BBBB");
+    expect(back?.branding.slogan).toBe("s");
   });
 });
 
