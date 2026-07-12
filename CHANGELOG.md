@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.181.2] - 2026-07-12 "Anderson"
+
+### Steering report internals
+
+- **Version retention:** the report version history (Turso) is now capped at 25 snapshots per meeting —
+  the oldest is pruned automatically on each save, so the history can't grow without bound.
+- **Performance:** the report version **diff** is now memoized, so it no longer recomputes on every
+  keystroke while a comparison is open.
+
 ## [0.181.1] - 2026-07-12 "Anderson"
 
 ### Compare report versions
