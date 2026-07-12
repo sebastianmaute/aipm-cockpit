@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.182.0] - 2026-07-12 "Reynolds"
+
+### Added
+- **Scheme-driven color palettes with dark mode.** The app's look is now
+  scheme-driven: three built-in, dark-capable color schemes ship out of the
+  box — **Harbor** (the new default), **Meridian**, and **Umber** — each with
+  full light **and** dark maps, all WCAG AA-verified. Pick a scheme from a
+  unified selector in **Settings → Appearance** alongside the AIPM and Dashboard
+  styles and your own custom schemes. Harbor is the fresh-install default and
+  renders with no flash on first load (pre-paint boot script).
+- The theme (light/dark) toggle now works for any dark-capable scheme; it stays
+  pinned to light only for the Dashboard style and light-only user schemes.
+
+### Changed
+- The custom-scheme model carries `{ light, dark?, supportsDark }` per scheme
+  (string ids). Built-in schemes are read-only in the editor — tweak and
+  **Save as new** to customise. User-created custom schemes remain light-only
+  this phase.
+- `ColorScheme` AA text/strong variants are now derived against the card
+  background (`--surface-muted`), so tinted text clears AA on cards as well as
+  plain surfaces.
+
+### Security
+- The pre-paint boot key and the scheme-color reader hex-validate values and
+  require CSS-token keys, so a tampered `localStorage` entry can't inject a
+  non-hex CSS value.
+
 ## [0.181.3] - 2026-07-12 "Anderson"
 
 ### Dashboard health-rating explainer

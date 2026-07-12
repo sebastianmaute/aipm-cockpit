@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.181.3";
-export const APP_BUILD_DATE = "2026-07-12"; // 0.181.3: dashboard health-rating explainer — an info tooltip on the Overall band explains how the four RAGs compute (tasks/schedule/budget/scope), that SPI/CPI only add amber/red, and that green is the clean default (budget stays grey until a budget is set) (Anderson)
+export const APP_VERSION = "0.182.0";
+export const APP_BUILD_DATE = "2026-07-12"; // 0.182.0: scheme-driven color palettes — the look is now scheme-driven with three built-in dark-capable schemes (Harbor [new default], Meridian, Umber) selectable in Settings → Appearance alongside AIPM/Mockup + user custom schemes; Harbor is the fresh-install default with full light+dark support (Reynolds)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.181.x line is "Anderson" (Poul Anderson). */
-export const APP_MILESTONE = "Anderson";
+ *  0.182.x line is "Reynolds" (Alastair Reynolds). */
+export const APP_MILESTONE = "Reynolds";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -200,4 +200,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightIdIntegrity",
   "versionHighlightLiveNames",
   "versionHighlightSteeringReports",
+  "versionHighlightColorSchemesDark",
 ] as const;
