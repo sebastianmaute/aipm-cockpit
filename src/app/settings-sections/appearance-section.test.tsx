@@ -108,4 +108,21 @@ describe("AppearanceSection scheme control", () => {
     expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "styleCustomLightOnly"))).not.toBeInTheDocument();
   });
+
+  it("keeps the global app-name/footer inputs editable under a built-in scheme (empty branding)", () => {
+    // Built-ins (Harbor default) carry branding:{} and are read-only in the editor,
+    // so the global app-name/footer inputs must stay present + editable to set them.
+    // (Query by id — the always-mounted ColorSchemeEditor also has an "App name"
+    // label, so getByLabelText would be ambiguous.)
+    const { onChange } = renderSection({}, "custom"); // fresh → Harbor active
+    const appName = document.getElementById("branding-appname") as HTMLInputElement | null;
+    const footer = document.getElementById("branding-footer-slogan") as HTMLInputElement | null;
+    expect(appName).not.toBeNull();
+    expect(footer).not.toBeNull();
+    expect(appName).not.toBeDisabled();
+    fireEvent.change(appName as HTMLInputElement, { target: { value: "My Tracker" } });
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ branding: expect.objectContaining({ slogan: "My Tracker" }) }),
+    );
+  });
 });
