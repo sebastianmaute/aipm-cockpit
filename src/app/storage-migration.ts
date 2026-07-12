@@ -49,6 +49,11 @@ export function migrateLocalStorage(): void {
   }
 }
 
+// One-time completion marker so post-migration boots do zero IDB work on EVERY
+// browser (avoids the shell-probe churn below). Swept by clearAppConfig's
+// aipm-cockpit:* sweep — harmless to re-run after a reset (old DBs are gone).
+const IDB_MIGRATED_FLAG = "aipm-cockpit:idb-migrated";
+
 interface StoreDump {
   name: string;
   keyPath: IDBObjectStore["keyPath"];
@@ -56,16 +61,23 @@ interface StoreDump {
   records: Array<{ key: IDBValidKey; value: unknown }>;
 }
 
-function idbExists(name: string): Promise<boolean> {
-  if (typeof indexedDB.databases !== "function") return Promise.resolve(false);
-  return indexedDB.databases().then((l) => l.some((d) => d.name === name)).catch(() => false);
+function countRecords(dumps: StoreDump[]): number {
+  return dumps.reduce((n, d) => n + d.records.length, 0);
 }
-function deleteDb(name: string): Promise<void> {
+
+// Resolves true only on a definitive delete; false on blocked/error so the
+// caller can treat the DB as "not settled" and retry on the next boot.
+function deleteDb(name: string): Promise<boolean> {
   return new Promise((res) => {
     const r = indexedDB.deleteDatabase(name);
-    r.onsuccess = r.onerror = r.onblocked = () => res();
+    r.onsuccess = () => res(true);
+    r.onerror = () => res(false);
+    r.onblocked = () => res(false);
   });
 }
+// Opens `name` (IndexedDB auto-creates an empty v1 DB when absent, so a null
+// return means a READ error, and a 0-store result means the DB did not really
+// exist). NEVER used as the migration gate on its own — see migrateOneDb.
 function dumpDb(name: string): Promise<StoreDump[] | null> {
   return new Promise((res) => {
     const open = indexedDB.open(name);
@@ -91,8 +103,12 @@ function dumpDb(name: string): Promise<StoreDump[] | null> {
     };
   });
 }
+// Creates `name` at v1 with the dumped stores and writes every record. On ANY
+// failure it deletes the partial shell it created, so a failed attempt never
+// leaves an empty DB that would shadow the old one on the next boot.
 function writeDb(name: string, dumps: StoreDump[]): Promise<boolean> {
   return new Promise((res) => {
+    const fail = (db?: IDBDatabase) => { if (db) db.close(); deleteDb(name).finally(() => res(false)); };
     const open = indexedDB.open(name, 1);
     open.onupgradeneeded = () => {
       const db = open.result;
@@ -102,7 +118,7 @@ function writeDb(name: string, dumps: StoreDump[]): Promise<boolean> {
         }
       }
     };
-    open.onerror = () => res(false);
+    open.onerror = () => fail();
     open.onsuccess = () => {
       const db = open.result;
       if (dumps.length === 0) { db.close(); res(true); return; }
@@ -115,29 +131,49 @@ function writeDb(name: string, dumps: StoreDump[]): Promise<boolean> {
         }
       }
       tx.oncomplete = () => { db.close(); res(true); };
-      tx.onerror = () => { db.close(); res(false); };
+      tx.onerror = () => fail(db);
     };
   });
 }
 
-async function migrateOneDb(oldName: string, newName: string): Promise<void> {
-  if (await idbExists(newName)) return;
-  if (!(await idbExists(oldName))) return;
-  const dumps = await dumpDb(oldName);
-  if (dumps === null) return;
-  const ok = await writeDb(newName, dumps);
-  if (!ok) return;
+// Migrates one DB by CONTENT (never by indexedDB.databases(), which Firefox and
+// Safari<14 don't implement — a databases()-based gate would silently skip the
+// whole migration there and strand the user's data). Returns true when the DB
+// is fully settled (migrated, or old never existed), false when work remains.
+async function migrateOneDb(oldName: string, newName: string): Promise<boolean> {
+  const oldDump = await dumpDb(oldName);
+  if (oldDump === null) return false;              // read error — retry next boot
+  if (oldDump.length === 0) {                      // old never really existed (fresh shell)
+    return await deleteDb(oldName);                // drop the probe shell; nothing to migrate
+  }
+  const oldCount = countRecords(oldDump);
+
+  const newDump = await dumpDb(newName);
+  if (newDump === null) return false;
+  if (newDump.length > 0 && countRecords(newDump) >= oldCount) {
+    return await deleteDb(oldName);                // already migrated — retire old
+  }
+
+  // new is absent / empty / short → drop the shell so writeDb's onupgradeneeded
+  // fires, then copy. This is the fix for the "empty new DB shadows old" defect.
+  await deleteDb(newName);
+  const ok = await writeDb(newName, oldDump);
+  if (!ok) return false;                           // writeDb cleaned its own shell
   const verify = await dumpDb(newName);
-  if (verify === null) return;
-  const oldCount = dumps.reduce((n, d) => n + d.records.length, 0);
-  const newCount = verify.reduce((n, d) => n + d.records.length, 0);
-  if (newCount < oldCount) return;
-  await deleteDb(oldName);
+  if (verify === null || countRecords(verify) < oldCount) return false;
+  return await deleteDb(oldName);
 }
 
 export async function migrateIndexedDb(): Promise<void> {
   if (typeof indexedDB === "undefined") return;
+  try { if (localStorage.getItem(IDB_MIGRATED_FLAG) === "1") return; } catch { /* storage off */ }
+  let allDone = true;
   for (const [oldName, newName] of IDB_DB_RENAMES) {
-    try { await migrateOneDb(oldName, newName); } catch { /* degrade: keep old */ }
+    let done = false;
+    try { done = await migrateOneDb(oldName, newName); } catch { done = false; }
+    if (!done) allDone = false;
+  }
+  if (allDone) {
+    try { localStorage.setItem(IDB_MIGRATED_FLAG, "1"); } catch { /* storage off */ }
   }
 }

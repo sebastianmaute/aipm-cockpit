@@ -84,6 +84,7 @@ describe("migrateIndexedDb", () => {
     "aipm-cockpit-project-handles",
   ];
   beforeEach(async () => {
+    localStorage.clear(); // also clears the aipm-cockpit:idb-migrated completion flag
     for (const name of DB_NAMES) await deleteDb(name);
   });
 
@@ -111,11 +112,64 @@ describe("migrateIndexedDb", () => {
     nw.close();
   });
 
-  it("skips when the new DB already exists", async () => {
-    await (await openDb("aipm-cockpit", "kv")).close();
+  // Regression: an interrupted / quota-failed prior run can leave an EMPTY new
+  // DB. It must NOT shadow a still-populated old DB — re-copy instead of skip.
+  it("re-copies when the new DB exists but is empty", async () => {
+    await (await openDb("aipm-cockpit-secrets", "keys")).close(); // empty shell
+    const old = await openDb("lop-app-secrets", "keys");
+    await put(old, "keys", "device", "SECRET-KEY");
+    old.close();
+    await migrateIndexedDb();
+    const nw = await openDb("aipm-cockpit-secrets", "keys");
+    expect(await get(nw, "keys", "device")).toBe("SECRET-KEY"); // not lost
+    nw.close();
+    expect(await dbExists("lop-app-secrets")).toBe(false);
+  });
+
+  // A genuinely-migrated (populated) new DB is left untouched; old is retired.
+  it("skips the copy when the new DB is already populated, and retires old", async () => {
+    const nwSeed = await openDb("aipm-cockpit", "kv");
+    await put(nwSeed, "kv", "workspace", { v: "NEW" });
+    nwSeed.close();
+    const old = await openDb("lop-app", "kv");
+    await put(old, "kv", "workspace", { v: "OLD" });
+    old.close();
+    await migrateIndexedDb();
+    const nw = await openDb("aipm-cockpit", "kv");
+    expect(await get(nw, "kv", "workspace")).toEqual({ v: "NEW" }); // not overwritten
+    nw.close();
+    expect(await dbExists("lop-app")).toBe(false); // old retired
+  });
+
+  // Firefox / Safari<14 have no indexedDB.databases(). The migration MUST work
+  // without it (content-based) — a databases()-gated version silently no-ops.
+  it("migrates without indexedDB.databases() (Firefox path)", async () => {
+    const old = await openDb("lop-app", "kv");
+    await put(old, "kv", "workspace", { hello: "ff" });
+    old.close();
+    const orig = indexedDB.databases;
+    // @ts-expect-error — simulate a browser that doesn't implement databases()
+    indexedDB.databases = undefined;
+    try {
+      await migrateIndexedDb();
+    } finally {
+      indexedDB.databases = orig;
+    }
+    const nw = await openDb("aipm-cockpit", "kv");
+    expect(await get(nw, "kv", "workspace")).toEqual({ hello: "ff" });
+    nw.close();
+  });
+
+  it("sets the completion flag after a clean run and then short-circuits", async () => {
     const old = await openDb("lop-app", "kv");
     await put(old, "kv", "x", 1);
     old.close();
+    await migrateIndexedDb();
+    expect(localStorage.getItem("aipm-cockpit:idb-migrated")).toBe("1");
+    // flag set → a fresh old DB is NOT touched (zero-work fast path)
+    const old2 = await openDb("lop-app", "kv");
+    await put(old2, "kv", "y", 2);
+    old2.close();
     await migrateIndexedDb();
     expect(await dbExists("lop-app")).toBe(true);
   });
