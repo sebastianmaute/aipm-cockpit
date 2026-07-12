@@ -121,17 +121,24 @@ function writeDb(name: string, dumps: StoreDump[]): Promise<boolean> {
     open.onerror = () => fail();
     open.onsuccess = () => {
       const db = open.result;
-      if (dumps.length === 0) { db.close(); res(true); return; }
-      const tx = db.transaction(dumps.map((d) => d.name), "readwrite");
-      for (const d of dumps) {
-        const store = tx.objectStore(d.name);
-        const inline = d.keyPath != null;
-        for (const rec of d.records) {
-          if (inline) store.put(rec.value); else store.put(rec.value, rec.key);
+      try {
+        if (dumps.length === 0) { db.close(); res(true); return; }
+        // A pre-existing same-version shell (e.g. a blocked deleteDb left it)
+        // skips onupgradeneeded, so a store may be missing — transaction() then
+        // throws NotFoundError synchronously. Catch it → clean up, don't hang.
+        const tx = db.transaction(dumps.map((d) => d.name), "readwrite");
+        for (const d of dumps) {
+          const store = tx.objectStore(d.name);
+          const inline = d.keyPath != null;
+          for (const rec of d.records) {
+            if (inline) store.put(rec.value); else store.put(rec.value, rec.key);
+          }
         }
+        tx.oncomplete = () => { db.close(); res(true); };
+        tx.onerror = () => fail(db);
+      } catch {
+        fail(db);
       }
-      tx.oncomplete = () => { db.close(); res(true); };
-      tx.onerror = () => fail(db);
     };
   });
 }
@@ -150,12 +157,18 @@ async function migrateOneDb(oldName: string, newName: string): Promise<boolean> 
 
   const newDump = await dumpDb(newName);
   if (newDump === null) return false;
-  if (newDump.length > 0 && countRecords(newDump) >= oldCount) {
-    return await deleteDb(oldName);                // already migrated — retire old
+  const newCount = countRecords(newDump);
+  if (newCount > 0) {
+    // new holds REAL records — only the app writes those (writeDb's tx is
+    // atomic, so a non-empty new never comes from a partial copy). NEVER clobber
+    // it: retire old only when new is at least as complete; otherwise (new is
+    // newer-but-smaller — user deleted rows while old lingered) leave BOTH and
+    // retry, so record-count is never used to overwrite live user data.
+    return newCount >= oldCount ? await deleteDb(oldName) : false;
   }
 
-  // new is absent / empty / short → drop the shell so writeDb's onupgradeneeded
-  // fires, then copy. This is the fix for the "empty new DB shadows old" defect.
+  // new is absent / empty (0 records) → drop the shell so writeDb's
+  // onupgradeneeded fires, then copy. Fixes the "empty new DB shadows old" defect.
   await deleteDb(newName);
   const ok = await writeDb(newName, oldDump);
   if (!ok) return false;                           // writeDb cleaned its own shell

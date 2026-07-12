@@ -141,6 +141,24 @@ describe("migrateIndexedDb", () => {
     expect(await dbExists("lop-app")).toBe(false); // old retired
   });
 
+  // A non-empty new DB is live user data — never overwrite it from a stale,
+  // larger old DB just because old has more records (user deleted rows).
+  it("never clobbers a non-empty new DB even if old has more records", async () => {
+    const nw = await openDb("aipm-cockpit", "kv");
+    await put(nw, "kv", "a", "NEW-A"); // new: 1 record
+    nw.close();
+    const old = await openDb("lop-app", "kv");
+    await put(old, "kv", "a", "OLD-A");
+    await put(old, "kv", "b", "OLD-B"); // old: 2 records (more)
+    old.close();
+    await migrateIndexedDb();
+    const nw2 = await openDb("aipm-cockpit", "kv");
+    expect(await get(nw2, "kv", "a")).toBe("NEW-A"); // not overwritten
+    expect(await get(nw2, "kv", "b")).toBeUndefined(); // stale old row NOT resurrected
+    nw2.close();
+    expect(await dbExists("lop-app")).toBe(true); // ambiguous → old left, not deleted
+  });
+
   // Firefox / Safari<14 have no indexedDB.databases(). The migration MUST work
   // without it (content-based) — a databases()-gated version silently no-ops.
   it("migrates without indexedDB.databases() (Firefox path)", async () => {
