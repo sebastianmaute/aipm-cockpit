@@ -10,12 +10,19 @@ export function readStoredStyle(raw: string | null): CiStyle {
   return raw === "AIPM" || raw === "mockup" || raw === "custom" ? raw : "AIPM";
 }
 
-/** Mockup AND custom ship light-only -> they PIN light regardless of the theme choice.
- *  AIPM honours the resolved theme.
+/** AIPM honours the resolved theme. Mockup is ALWAYS light-only. A `custom`
+ *  style honours the theme ONLY when the active scheme is dark-capable
+ *  (`schemeSupportsDark`) — a light-only custom scheme pins light like mockup.
  *  NOTE: the production "pins light" rule is applied INLINE at two sites that
- *  cannot import this (use-theme.tsx reads the data-style attr; the layout.tsx
- *  boot script is a pre-paint inline string). This helper is the canonical
- *  statement of the rule + is unit-tested; keep the three in sync if it changes. */
-export function effectiveDark(resolvedThemeDark: boolean, style: CiStyle): boolean {
-  return style === "AIPM" ? resolvedThemeDark : false;
+ *  cannot import this (use-theme.tsx reads the data-style / data-scheme-dark
+ *  attrs; the layout.tsx boot script is a pre-paint inline string). This helper
+ *  is the canonical, unit-tested statement of the rule; keep the three in sync. */
+export function effectiveDark(
+  resolvedThemeDark: boolean,
+  style: CiStyle,
+  schemeSupportsDark = false,
+): boolean {
+  if (style === "AIPM") return resolvedThemeDark;
+  if (style === "custom" && schemeSupportsDark) return resolvedThemeDark;
+  return false;
 }

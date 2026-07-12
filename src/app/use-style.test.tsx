@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { ThemeProvider } from "./use-theme";
+import { ThemeProvider, useTheme } from "./use-theme";
 import { CiStyleProvider, useCiStyle } from "./use-style";
 import { THEME_STORAGE_KEY } from "./theme";
 import { STYLE_STORAGE_KEY } from "./style-ci";
+import { HARBOR_DARK, HARBOR_LIGHT } from "./builtin-schemes";
 
 // jsdom has no matchMedia — install a controllable mock (mirrors use-theme.test.tsx).
 beforeAll(() => {
@@ -23,6 +24,8 @@ beforeEach(() => {
   localStorage.clear();
   document.documentElement.className = "";
   document.documentElement.removeAttribute("data-style");
+  document.documentElement.removeAttribute("data-scheme-dark");
+  document.documentElement.removeAttribute("style");
 });
 
 function Toggle() {
@@ -103,6 +106,46 @@ describe("CI style ↔ theme interaction", () => {
       fireEvent.click(screen.getByText("to-AIPM"));
     });
     expect(document.documentElement.getAttribute("data-style")).toBe("AIPM");
+  });
+
+  it("swaps to the DARK sub-map when toggling theme on a dark-capable custom scheme", () => {
+    // Fresh store → Harbor (dark-capable) is the default active scheme.
+    localStorage.setItem(STYLE_STORAGE_KEY, "custom");
+    localStorage.setItem(THEME_STORAGE_KEY, "light");
+    function ThemeToggle() {
+      const { setTheme } = useTheme();
+      return (
+        <>
+          <button onClick={() => setTheme("dark")}>to-dark</button>
+          <button onClick={() => setTheme("light")}>to-light</button>
+        </>
+      );
+    }
+    render(
+      <ThemeProvider>
+        <CiStyleProvider>
+          <ThemeToggle />
+        </CiStyleProvider>
+      </ThemeProvider>,
+    );
+    // Light: Harbor light surface applied, .dark off despite custom being dark-capable.
+    expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("1");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(document.documentElement.style.getPropertyValue("--surface")).toBe(HARBOR_LIGHT["--surface"]);
+
+    // Toggle to dark → .dark on + the DARK sub-map applied.
+    act(() => {
+      fireEvent.click(screen.getByText("to-dark"));
+    });
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(document.documentElement.style.getPropertyValue("--surface")).toBe(HARBOR_DARK["--surface"]);
+
+    // Back to light → light sub-map restored.
+    act(() => {
+      fireEvent.click(screen.getByText("to-light"));
+    });
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(document.documentElement.style.getPropertyValue("--surface")).toBe(HARBOR_LIGHT["--surface"]);
   });
 
   it("persists style choice to localStorage", () => {

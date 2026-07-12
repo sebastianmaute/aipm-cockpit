@@ -7,6 +7,10 @@
 export type SchemeColorMap = Record<string, string>;
 
 export const ACTIVE_SCHEME_COLORS_KEY = "lop-active-scheme-colors";
+// Boot-readable flag: does the active custom scheme support a dark map? The
+// pre-paint boot script reads this to decide whether `custom` may go dark
+// (data-scheme-dark is a runtime attr, not persisted). Written on every apply.
+export const SCHEME_SUPPORTS_DARK_KEY = "lop-scheme-supports-dark";
 
 // Tracks which tokens we set last time so a re-apply can clear stale ones.
 let lastApplied: string[] = [];
@@ -31,6 +35,25 @@ export function writeActiveSchemeColors(colors: SchemeColorMap | null): void {
     else localStorage.removeItem(ACTIVE_SCHEME_COLORS_KEY);
   } catch {
     /* private mode / quota — runtime apply still works in-memory */
+  }
+}
+
+/** Persist whether the active custom scheme is dark-capable (boot-readable). */
+export function writeSchemeSupportsDark(supports: boolean): void {
+  try {
+    if (supports) localStorage.setItem(SCHEME_SUPPORTS_DARK_KEY, "1");
+    else localStorage.removeItem(SCHEME_SUPPORTS_DARK_KEY);
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+/** Read the dark-capable flag for the active custom scheme. */
+export function readSchemeSupportsDark(): boolean {
+  try {
+    return localStorage.getItem(SCHEME_SUPPORTS_DARK_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 
