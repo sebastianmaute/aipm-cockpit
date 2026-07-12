@@ -1,5 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, deriveAaVariants, resolveSchemeColors } from "./scheme-tokens";
+import { describe, it, test, expect } from "vitest";
+import {
+  CORE_TOKENS,
+  ADVANCED_TOKENS,
+  ICC_SEED,
+  STRUCTURAL_TOKENS,
+  ICC_STRUCTURAL,
+  MOCKUP_STRUCTURAL,
+  deriveAaVariants,
+  resolveSchemeColors,
+} from "./scheme-tokens";
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
@@ -95,5 +104,13 @@ describe("scheme-tokens", () => {
     expect(lightDerived["--muted-foreground"]).toBe("#636362");
     const darkDerived = deriveAaVariants({ "--surface": "#16212e", "--foreground": "#e4edf4" });
     expect(darkDerived["--muted-foreground"]).toBe("#e4edf4");
+  });
+
+  test("structural seeds cover the 7 structural tokens", () => {
+    const keys = STRUCTURAL_TOKENS.map((t) => t.token);
+    expect(keys).toEqual(["--shadow-card","--shadow-control","--shadow-card-hover","--gradient-kpi","--delta-chip-pad","--rag-green-chip","--rag-red-chip"]);
+    for (const k of keys) { expect(ICC_STRUCTURAL[k]).toBeDefined(); expect(MOCKUP_STRUCTURAL[k]).toBeDefined(); }
+    expect(ICC_STRUCTURAL["--shadow-card"]).toBe("none");
+    expect(MOCKUP_STRUCTURAL["--gradient-kpi"]).toContain("linear-gradient");
   });
 });

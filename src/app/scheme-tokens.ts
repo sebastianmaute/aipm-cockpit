@@ -1,7 +1,7 @@
 // Editable-token registry for custom color schemes + AA-variant derivation.
 // Pure (no DOM). Hex values mirror globals.css :root (AIPM) and
 // :root[data-style="mockup"] (Mockup).
-import type { SchemeColorMap } from "./scheme-apply";
+import type { SchemeColorMap, SchemeStructuralMap } from "./scheme-apply";
 
 export interface TokenSpec {
   token: string;
@@ -72,6 +72,32 @@ export const MOCKUP_SEED: SchemeColorMap = {
   "--segment-track-bg": "#eef1f3",
   "--segment-active-bg": "#ffffff",
   "--segment-active-fg": "#3d7a00",
+};
+
+// Structural (non-color) tokens: shadows, the KPI gradient, delta-chip padding,
+// and the opaque RAG chip fills. AIPM reproduces the flat look (no shadow/gradient);
+// Mockup adds depth + the red→amber→green gauge gradient.
+export const STRUCTURAL_TOKENS: readonly TokenSpec[] = [
+  { token: "--shadow-card", labelKey: "schemeTokenShadowCard" },
+  { token: "--shadow-control", labelKey: "schemeTokenShadowControl" },
+  { token: "--shadow-card-hover", labelKey: "schemeTokenShadowCardHover" },
+  { token: "--gradient-kpi", labelKey: "schemeTokenGradientKpi" },
+  { token: "--delta-chip-pad", labelKey: "schemeTokenDeltaChipPad" },
+  { token: "--rag-green-chip", labelKey: "schemeTokenRagGreenChip" },
+  { token: "--rag-red-chip", labelKey: "schemeTokenRagRedChip" },
+] as const;
+
+export const ICC_STRUCTURAL: SchemeStructuralMap = {
+  "--shadow-card": "none", "--shadow-control": "none", "--shadow-card-hover": "none",
+  "--gradient-kpi": "var(--AIPM-green)", "--delta-chip-pad": "0",
+  "--rag-green-chip": "transparent", "--rag-red-chip": "transparent",
+};
+export const MOCKUP_STRUCTURAL: SchemeStructuralMap = {
+  "--shadow-card": "0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08)",
+  "--shadow-control": "0 1px 2px rgba(0, 65, 89, 0.10)",
+  "--shadow-card-hover": "0 4px 10px rgba(0, 65, 89, 0.14), 0 2px 4px rgba(0, 65, 89, 0.10)",
+  "--gradient-kpi": "linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green))",
+  "--delta-chip-pad": "0.125rem 0.375rem", "--rag-green-chip": "#e6f2d8", "--rag-red-chip": "#fae9e9",
 };
 
 function hexToRgb(hex: string): [number, number, number] {
