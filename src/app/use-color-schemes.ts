@@ -7,7 +7,6 @@
 import { useCallback, useState } from "react";
 import { loadSchemes, setActive as persistActive, type SchemeStore } from "./color-schemes";
 import { activeSchemeOf, reconcileBuiltins } from "./builtin-schemes";
-import { useCiStyle } from "./use-style";
 
 const SCHEME_CHANGE_EVENT = "lop-scheme-change";
 
@@ -20,24 +19,16 @@ export interface UseColorSchemes {
 }
 
 export function useColorSchemes(): UseColorSchemes {
-  const { style, setStyle } = useCiStyle();
   const [store, setStore] = useState<SchemeStore>(() => reconcileBuiltins(loadSchemes()));
 
   const refresh = useCallback(() => setStore(reconcileBuiltins(loadSchemes())), []);
 
-  const selectScheme = useCallback(
-    (id: string) => {
-      setStore(reconcileBuiltins(persistActive(id)));
-      if (style === "custom") {
-        // Already custom → style effect won't re-fire; nudge syncScheme directly.
-        window.dispatchEvent(new Event(SCHEME_CHANGE_EVENT));
-      } else {
-        // Switch to custom → the style effect resolves + applies the scheme.
-        setStyle("custom");
-      }
-    },
-    [style, setStyle],
-  );
+  const selectScheme = useCallback((id: string) => {
+    setStore(reconcileBuiltins(persistActive(id)));
+    // The style axis is always "custom" (Phase 2), so the style effect never
+    // re-fires on selection — nudge syncScheme directly via the scheme-change event.
+    window.dispatchEvent(new Event(SCHEME_CHANGE_EVENT));
+  }, []);
 
   return { store, activeSupportsDark: activeSchemeOf(store).supportsDark, refresh, selectScheme };
 }

@@ -45,15 +45,19 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
   const [importError, setImportError] = useState<string | null>(null);
   const pairs = checkSchemePairs(colors);
 
-  function applyResolved(full: SchemeColorMap, b: BrandingConfig) {
+  function applyResolved(full: SchemeColorMap, b: BrandingConfig, forceBranding = false) {
     onApply(resolveSchemeColors(full));
-    onApplyBranding?.(b);
+    // apply()/rename() act on a USER scheme the user owns → an empty value means
+    // "clear this scheme's branding" and MUST propagate. saveNew()/import() can run
+    // while a built-in is active → an empty value must NOT wipe the global
+    // settings.branding (the original review HIGH), so they stay guarded.
+    if (forceBranding || b.slogan?.trim() || b.footerSlogan?.trim()) onApplyBranding?.(b);
   }
   function seed(map: SchemeColorMap) {
     setColors({ ...ICC_SEED, ...map });
   }
   function apply() {
-    applyResolved(colors, branding);
+    applyResolved(colors, branding, true);
     // Persist applied edits to the active USER scheme (built-ins are read-only).
     if (active && !isBuiltin) {
       setStore(updateScheme(active.id, { light: colors, branding }));
@@ -70,7 +74,7 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
   function rename() {
     if (!active || isBuiltin) return;
     setStore(updateScheme(active.id, { name, light: colors, branding }));
-    applyResolved(colors, branding);
+    applyResolved(colors, branding, true);
     onSchemeChange?.();
   }
   function del() {
@@ -170,28 +174,33 @@ export function ColorSchemeEditor({ lang, onApply, onApplyBranding, onSchemeChan
         </div>
       </details>
 
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label className="text-xs text-muted-foreground">
-          {t(lang, "brandingAppName")}
-          <input
-            type="text"
-            maxLength={60}
-            value={branding.slogan ?? ""}
-            onChange={(e) => setBranding((b) => ({ ...b, slogan: e.target.value }))}
-            className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
-          />
-        </label>
-        <label className="text-xs text-muted-foreground">
-          {t(lang, "brandingFooterSlogan")}
-          <input
-            type="text"
-            maxLength={120}
-            value={branding.footerSlogan ?? ""}
-            onChange={(e) => setBranding((b) => ({ ...b, footerSlogan: e.target.value }))}
-            className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
-          />
-        </label>
-      </div>
+      {/* Per-scheme branding is editable only for USER schemes; a read-only
+          built-in uses the global app-name/footer inputs in AppearanceSection
+          (avoids a duplicate app-name field when a built-in is active). */}
+      {!isBuiltin && (
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label className="text-xs text-muted-foreground">
+            {t(lang, "brandingAppName")}
+            <input
+              type="text"
+              maxLength={60}
+              value={branding.slogan ?? ""}
+              onChange={(e) => setBranding((b) => ({ ...b, slogan: e.target.value }))}
+              className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            />
+          </label>
+          <label className="text-xs text-muted-foreground">
+            {t(lang, "brandingFooterSlogan")}
+            <input
+              type="text"
+              maxLength={120}
+              value={branding.footerSlogan ?? ""}
+              onChange={(e) => setBranding((b) => ({ ...b, footerSlogan: e.target.value }))}
+              className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            />
+          </label>
+        </div>
+      )}
 
       {pairs.length > 0 && (
         <ul className="mt-3 space-y-1 text-xs">

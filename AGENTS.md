@@ -841,17 +841,21 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (`Node`/`Zone` helpers, `role=img`+`aria-label`+`<title>`/`<desc>`; node text hardcoded EN, legend `<dl>` +
   zone-swatch row use i18n). Rendered in BOTH Settings → Integrations AND the Help-view accordion (same
   component, two mounts).
-  • **Dual-CI / style axis:** `data-style="AIPM"|"mockup"|"custom"` on `<html>` is ORTHOGONAL to `.dark`; set by
-  `use-style.tsx` (`useCiStyle`, `lop-style` localStorage, NOT the settings blob) + the extended no-flash
-  boot script in `layout.tsx` (reads `lop-style`+`lop-theme` pre-paint). Mockup ("Dashboard" style) is
+  • **Dual-CI / style axis:** ★ Phase 2 SUPERSEDES this axis — `data-style` is now the CONSTANT `"custom"` and
+  AIPM/Mockup are read-only BUILT-IN SCHEMES (see the scheme bullet below); the CSS-role-token MECHANISM here
+  still stands, only its source moved (scheme maps, not per-`data-style` CSS blocks). `data-style` (formerly
+  `"AIPM"|"mockup"|"custom"`) on `<html>` is ORTHOGONAL to `.dark`; set by
+  `use-style.tsx` (`useCiStyle`, `lop-style` localStorage, NOT the settings blob) + the no-flash boot script
+  (`boot-theme-script.ts`, reads `lop-style`+`lop-theme`+the scheme boot keys pre-paint). Mockup ("Dashboard" style) is
   LIGHT-ONLY + PINS light: `use-style` fires a `lop-style-change` event; `use-theme` is the SOLE `.dark`
   writer and re-applies on that event (switching back to AIPM restores dark). ALL style difference is CSS
   role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants — ★ but `--rag-amber-text` is AA only on
   LIGHT AIPM; as SMALL text on `bg-surface` it FAILS AA on dark/mockup, see the Next-actions surface bullet), `--table-head-bg/-fg`,
   `--table-head-accent` (sort-button active/hover), `--shadow-card/-control/-card-hover`, `--gradient-kpi`,
   `--rag-green-chip`/`--rag-red-chip` + `--delta-chip-pad` (KPI delta pills), `--segment-track-bg/-active-bg/-active-fg`. AIPM values
-  reproduce the old look (no-op); mockup overrides
-  in `:root[data-style="mockup"]`. RAG flows through `health.ts` (`healthDot`/`healthText` →
+  reproduce the old look; ★ Phase 2: AIPM-dark + Mockup no longer live in a `.dark` /
+  `:root[data-style=mockup]` CSS block (both REMOVED) — they now ride their SCHEME maps, and `globals.css`
+  `:root` is the static AIPM-LIGHT no-JS fallback only. RAG flows through `health.ts` (`healthDot`/`healthText` →
   `--rag-*` / `--rag-*-text` token families (e.g. `bg-[var(--rag-red)]`, `text-[var(--rag-green-text)]`)). `--gradient-kpi` is APPLIED to the completion-% gauge
   (`KpiGradientBar` in `report-table.tsx`, the Tile `bar` slot) — AIPM `var(--AIPM-green)` solid, Mockup the
   red→amber→green gradient (inline `style`, the ONLY legal gradient path). It is the SOLE "more=better"
@@ -865,8 +869,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   is fine) — use `bg-AIPM-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
   EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light, Harbor(custom)-light, Harbor(custom)-dark
   (5 × A11Y_VIEWS), seeding
-  `lop-style`/`lop-theme` via `addInitScript`. Appearance Style switch disables the theme control while
-  Mockup is active.
+  `lop-style`/`lop-theme` via `addInitScript` — ★ Phase 2: it must ALSO seed `lop-app:color-schemes` `activeId`
+  to the scheme under test, else `syncScheme` overwrites the boot paint on mount (scheme landmine 4). Appearance
+  Style switch disables the theme control while Mockup (a light-only scheme) is active.
   ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
   dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-AIPM-green`/`-pink-strong`, or it
   won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
@@ -887,51 +892,72 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
   e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
   "var(--delta-chip-pad)"} : undefined}` — so AIPM is untouched AND a chip-less (flat) trend gets no empty bubble.
-  • **Scheme-driven color schemes (3rd style + built-in palettes):** `data-style="custom"` beside AIPM/mockup
-  (`style-ci.ts` `CiStyle`). ★★ DARK-CAPABLE: a scheme now carries `{ light, dark?, supportsDark, builtIn? }`
-  (string ids: user `"u-<n>"`, built-in `"harbor"`/`"meridian"`/`"umber"`). `effectiveDark(dark, style,
-  schemeSupportsDark)` — mockup ALWAYS pins light; `custom` pins light ONLY when the ACTIVE scheme is not
-  dark-capable (a light-only USER scheme), and honours the theme for a dark-capable one. Keep the 3 pin-light
-  sites in lockstep: the helper, `use-theme` (reads the `data-scheme-dark` attr), and the boot string (now in
-  `boot-theme-script.ts`, imported by `layout.tsx`). ★★ Built-ins: `builtin-schemes.ts` (Harbor/Meridian/Umber,
-  full light+dark maps, all AA-verified) + `reconcileBuiltins` (re-seeds from code, keeps user schemes +
-  activeId, built-ins undeletable via `BUILTIN_SCHEME_IDS`, else `DEFAULT_SCHEME_ID="harbor"`). ★★ HARBOR is the
-  fresh-install DEFAULT: `CiStyleProvider` inits an absent `lop-style`→`"custom"` and the boot script defaults
-  fresh→custom+Harbor (embedded resolved maps, no flash). ★★ Reactivity: `use-style.syncScheme` is the SOLE
-  apply path — it resolves the active scheme for the CURRENT theme, applies inline, mirrors the resolved map +
-  `lop-scheme-supports-dark`, and stamps `data-scheme-dark`. ★★ EVENT WIRING (order-independent): `use-theme`
-  (sole `.dark` writer) recomputes `.dark` on `lop-style-change` ONLY. On a theme flip it dispatches
-  `lop-theme-change` → `use-style` re-resolves colors. On a SCHEME switch (`lop-scheme-change`, from
-  `selectScheme`/editor `onSchemeChange`) `use-style` runs `syncScheme` FIRST (stamps the fresh
-  `data-scheme-dark`) THEN re-dispatches `lop-style-change` so `apply()` reads the fresh attr — do NOT make
-  `use-theme` listen to `lop-scheme-change` (relying on cross-component listener registration order is the race
-  we fixed: it inverts once `CiStyleProvider` re-runs its effect). Selection UI = a UNIFIED `<select>` in
-  `AppearanceSection` (built-ins + AIPM + Mockup + user schemes, hook `use-color-schemes.ts`, coverage-excluded).
-  ★★ `reconcileBuiltins` is the SOLE `activeId` validator — `loadSchemes` preserves the persisted id as-is +
-  `setActive` persists any non-empty id (built-ins are NOT in the raw store; validating there strips every
-  built-in selection → silent revert to Harbor). A scheme = per-device CSS-var overrides + branding, applied via INLINE `documentElement.style.setProperty`
-  (the legal runtime mechanism — NEVER a Tailwind class, so palette-sweep is untouched). Pure modules:
-  `scheme-tokens.ts` (CORE/ADVANCED token registry, AIPM/MOCKUP seed maps, `deriveAaVariants` mode-aware
-  nudge-to-AA against `--surface-muted`, `resolveSchemeColors`), `scheme-contrast.ts` (WCAG warn-only),
-  `scheme-apply.ts` (`applySchemeColors`/`writeActiveSchemeColors`/`readActiveSchemeColors` [hex-validated]/
-  `writeSchemeSupportsDark`), `color-schemes.ts` (per-device library `lop-app:color-schemes`, hex-validated
-  import, `mergeAppliedBranding`). ★ USER-created custom schemes are still light-only THIS PHASE (editor edits
-  `.light`); built-in schemes carry both maps. `color-scheme-editor.tsx` mounts in `AppearanceSection` only when
-  `isCustom` (built-ins are read-only there: Rename/Delete/Apply disabled — tweak + Save-as-new to customise).
-  ★★ NO-FLASH: the active
-  scheme's RESOLVED map mirrors to the boot key `lop-active-scheme-colors` (NOT `lop-app:`-prefixed, so the
-  pre-paint boot script reads it like `lop-style`; consequently NOT swept by `clearAppConfig` — intentional,
-  mirrors `lop-style`/`lop-theme`). ★★ SINGLE SOURCE OF TRUTH: EVERY editor mutation
-  (select/save/import/rename/delete/apply) writes the boot key + applies, so the active library scheme == what
-  renders; the boot key is purely DERIVED. A path that mutates one channel without the other is the coherence
-  bug (selecting did nothing / a deleted scheme's colours lingered) — don't reintroduce it. ★ Schemes OWN
-  slogan/footerSlogan: apply REPLACES them via `mergeAppliedBranding` (clears when absent) and the global
-  app-name/footer inputs are HIDDEN under Custom; logo/favicon stay GLOBAL (untouched by scheme apply). ★ the
-  derived `-strong`/`-text`/`muted-foreground` tokens are dropped on save (`cleanColors` keeps only editable
-  tokens) — never persisted to the library. ★ The theme toggle is disabled only when the ACTIVE scheme is
-  light-only (mockup, or a light-only user scheme) — dark-capable built-ins keep it enabled. ★
-  `layout-boot-script.test.ts` PINS the EXACT boot string (now in `boot-theme-script.ts`) + runtime-evals it —
-  editing the boot script means updating that guard in lockstep.
+  • **Scheme-driven color schemes (Phase 2 — AIPM + Mockup ARE built-in schemes):** the AIPM/mockup/custom
+  `data-style` AXIS COLLAPSED — `data-style` is now the CONSTANT `"custom"` (`use-style` always writes it;
+  `CiStyle.style` is always `"custom"` in normal operation). AIPM + Mockup JOINED Harbor/Meridian/Umber as
+  READ-ONLY BUILT-IN schemes → FIVE built-ins in `BUILTIN_SCHEMES` (`builtin-schemes.ts`; ids
+  `"AIPM"`/`"mockup"`/`"harbor"`/`"meridian"`/`"umber"`, undeletable via `BUILTIN_SCHEME_IDS`). Harbor stays
+  the fresh-install DEFAULT (`DEFAULT_SCHEME_ID`). A scheme carries `{ light, dark?, supportsDark, structural?,
+  builtIn? }` (user ids `"u-<n>"`); apply is INLINE `documentElement.style.setProperty` (the legal runtime
+  mechanism — NEVER a Tailwind class, so palette-sweep is untouched). ★★ STRUCTURAL (NON-color) token group:
+  `ColorScheme.structural?` = 7 tokens (the `--shadow-card/-control/-card-hover` family + `--gradient-kpi`,
+  `--delta-chip-pad`, `--rag-green-chip`, `--rag-red-chip`) defined in `scheme-tokens.ts`
+  (`STRUCTURAL_TOKENS`/`ICC_STRUCTURAL`/`MOCKUP_STRUCTURAL`), applied via `applySchemeStructural`
+  (`scheme-apply.ts`); each raw value is gated by `isSafeRawCssValue` — a charset allowlist plus a denylist
+  blocking `url(` / `expression` / `image-set` / `;` / braces / `@` / angle brackets / backtick. Mirrored to
+  boot key `lop-active-scheme-structural` (NOT `lop-app:`-prefixed → boot reads it pre-paint like
+  `lop-active-scheme-colors`; consequently NOT swept by `clearAppConfig` — intentional, mirrors the colors
+  key). ★★ `globals.css`: `:root` is KEPT as the STATIC no-JS / pre-boot AIPM-LIGHT fallback (colors +
+  structural); the old `.dark` TOKEN block AND the `:root[data-style="mockup"]` block were REMOVED — AIPM-dark +
+  Mockup now ride their SCHEME maps. `.dark` REMAINS a class toggle (Tailwind `dark:` utilities). ★★
+  `resolveSchemeColors` is now BASE-WINS (`{...deriveAaVariants(colors), ...colors}`): derivation only FILLS
+  missing AA variants; an explicitly PINNED `-strong`/`-text`/`muted-foreground` SURVIVES — that is why
+  AIPM/Mockup reproduce the shipping look exactly (landmine 1). ★★ `effectiveDark(themeDark, schemeSupportsDark)`
+  DROPPED the `style` arg; pin-light = `!activeScheme.supportsDark` (Mockup `supportsDark:false`, honours theme
+  for a dark-capable scheme). `use-theme` (sole `.dark` writer) reads `data-scheme-dark` ONLY — the mockup
+  `data-style` branch is GONE. `use-style.syncScheme` stays the SOLE apply path (resolves for the CURRENT theme,
+  applies inline, mirrors both boot keys + `data-scheme-dark`). ★★ EVENT WIRING (order-independent, unchanged):
+  `use-theme` recomputes `.dark` on `lop-style-change` ONLY; a theme flip dispatches `lop-theme-change` →
+  `use-style` re-resolves; a SCHEME switch (`lop-scheme-change`) runs `syncScheme` FIRST then re-dispatches
+  `lop-style-change` — do NOT make `use-theme` listen to `lop-scheme-change` (the fixed race). ★★ Boot script
+  (`boot-theme-script.ts`, imported by `layout.tsx`) ALWAYS writes `data-style="custom"`, paints scheme colors
+  AND structural, and EMBEDS the resolved AIPM/Mockup/Harbor maps so a legacy-first-boot device migrates without
+  a Harbor flash. `use-style` ONE-TIME-migrates a legacy `lop-style="AIPM"/"mockup"` → the scheme activeId (in
+  the lazy `useState` initializer) then writes `lop-style="custom"`. `layout-boot-script.test.ts` PINS the EXACT
+  boot string + runtime-evals it — edit boot ⇒ update that guard in lockstep. ★★ AppearanceSection: the scheme
+  `<select>` routes ALL ids (incl AIPM/mockup) through `selectScheme` (NOT `setStyle`); `pinsLight =
+  !activeSupportsDark`; the editor is ALWAYS mounted (built-ins read-only via `BUILTIN_SCHEME_IDS` —
+  Rename/Delete/Apply disabled, tweak + Save-as-new to customise); global app-name/footer inputs shown when the
+  active scheme owns no branding (built-ins), HIDDEN for a branded user scheme. `reconcileBuiltins` remains the
+  SOLE `activeId` validator (re-seeds built-ins from code, keeps user schemes + activeId; else
+  `DEFAULT_SCHEME_ID`) — `loadSchemes`/`setActive` must NOT validate (built-ins aren't in the raw store).
+  ★★ NO-FLASH SINGLE-SOURCE: EVERY editor mutation (select/save/import/rename/delete/apply) writes the boot
+  key(s) + applies, so the active library scheme == what renders (the boot keys are purely DERIVED); mutating
+  one channel without the other is the coherence bug (selecting did nothing / a deleted scheme's colours
+  lingered). Schemes OWN slogan/footerSlogan (apply REPLACES via `mergeAppliedBranding`); logo/favicon stay
+  GLOBAL. Derived `-strong`/`-text`/`muted-foreground` tokens are dropped on save (`cleanColors`). USER schemes
+  are still light-only THIS PHASE (editor edits `.light`); built-ins carry both maps. Pure modules:
+  `scheme-tokens.ts` (registry + AIPM/MOCKUP seed+structural maps, `deriveAaVariants`, `resolveSchemeColors`),
+  `scheme-contrast.ts` (WCAG warn-only), `scheme-apply.ts` (colors + structural apply/read/write helpers),
+  `color-schemes.ts` (per-device `lop-app:color-schemes`, hex-validated). Selection hook
+  `use-color-schemes.ts` (coverage-excluded).
+  ★★ FIVE Phase-2 landmines (do NOT reintroduce):
+  (1) `resolveSchemeColors` is BASE-WINS — a built-in that must reproduce an exact hand-tuned value PINS it in
+  its light/dark map; derivation only fills gaps. Flipping back to derived-wins silently OVERWRITES AIPM/Mockup
+  pinned `-strong`/`-text`/`muted-foreground`.
+  (2) Mockup's `-strong` tokens were NOT overridden by the (now-removed) `:root[data-style=mockup]` CSS — they
+  cascaded from `:root` (AIPM). So `MOCKUP_LIGHT` MUST PIN `AIPM-green/pink/purple-strong` to
+  `#4d7000`/`#c41e5a`/`#7a2d72`, else `nudgeToAa` re-derives WRONG values (review-caught regression).
+  (3) AIPM scheme maps FLATTEN tokens that were `var(--surface)` in globals (e.g. `--segment-track-bg`) —
+  `ICC_SEED` hardcodes `#ffffff`; `ICC_DARK` MUST re-override `--segment-track-bg: #121619` (dark surface) or
+  the segmented control is white-on-near-white in dark (axe AA fail). Audit any seed-flattened chrome token
+  when adding a dark map.
+  (4) e2e axe seed: seeding the boot keys is NOT enough — `syncScheme` re-resolves from `lop-app:color-schemes`
+  on mount and OVERWRITES the boot paint. The axe seed MUST also set `lop-app:color-schemes` `activeId` to the
+  scheme under test (empty `schemes:[]` is fine — `reconcileBuiltins` injects built-ins).
+  (5) The palette guards do NOT scan the `.ts` scheme data files (`shell-palette-guard` = fixed shell-file
+  list; `palette-chrome-sweep` = `.tsx` only), so structural shadow/gradient STRINGS in
+  `builtin-schemes.ts`/`scheme-tokens.ts` don't trip them — no allowlist needed.
 - **Scrollbar gap:** per-view inner scrollers (`min-h-0 flex-1 overflow-auto`) need `pr-2` for the
   content↔scrollbar gap. Shared `INNER_TABLE_CLASS`/report-table/actions-panel already include it; bare
   per-panel scrollers do NOT — add `pr-2` or content jams the scrollbar.

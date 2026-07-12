@@ -8,7 +8,37 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.182.0] - 2026-07-12 "Reynolds"
+## [0.183.0] - 2026-07-12 "Palmer"
+
+### Changed
+- **The look is now fully scheme-driven — nothing is hardcoded into the app.**
+  The **AIPM** brand style and the **Dashboard** (Mockup) style are now read-only
+  **built-in color schemes**, joining Harbor, Meridian, and Umber (five built-ins;
+  Harbor stays the fresh-install default). Every style is selected the same way —
+  from the unified scheme picker in **Settings → Appearance** — and the old
+  `data-style` axis has collapsed to a single scheme-driven path. AIPM and the
+  Dashboard style render byte-identical to before.
+- **The scheme model now carries structural (non-color) tokens.** Card shadows,
+  the KPI gradient, delta-chip padding, and chip fills travel with a scheme (not
+  just its colors), so the Dashboard style's richer chrome is applied inline like
+  its palette. Structural values are allowlist-validated before they are applied.
+
+### Fixed
+- Selecting AIPM or the Dashboard style from the Appearance picker now applies it
+  correctly (previously routed through a legacy path).
+- No first-paint flash for existing devices on upgrade: the pre-paint boot script
+  reads the active scheme (and its structural tokens) and paints it before React
+  mounts, with a built-in fallback for legacy devices.
+- Branding: the global app-name/footer inputs and a color scheme's own branding
+  no longer collide — exactly one set is shown per active scheme, and a color-only
+  scheme save can no longer silently clear a globally-set app name.
+
+### Internal
+- `globals.css` drops the hardcoded AIPM-dark and Dashboard token blocks; `:root`
+  remains as the no-JS fallback. Removed dead style/token registries. All five
+  scheme × theme combinations pass the axe accessibility gate.
+
+## [0.182.0] - 2026-07-12 "Older"
 
 ### Added
 - **Scheme-driven color palettes with dark mode.** The app's look is now
@@ -117,7 +147,7 @@ longer carries its own changelog comment.
   so its ids start at #1 rather than continuing a previously open project's numbering.
 - Internal robustness only — no change to stored data, file formats, or any backend write path.
 
-## [0.178.0] - 2026-07-11 "Zelazny"
+## [0.178.0] - 2026-07-11 "Roanhorse"
 
 ### Redo for the local undo stack
 
@@ -137,7 +167,7 @@ longer carries its own changelog comment.
   unrelated live row that reused the id. The primary fragment flushes synchronously so its id-remap is
   available to the cascade fragments regardless of React batching order.
 
-## [0.177.0] - 2026-07-11 "Aldiss"
+## [0.177.0] - 2026-07-11 "Harrow"
 
 ### UX batch (14 improvements)
 
@@ -167,7 +197,7 @@ longer carries its own changelog comment.
 - **Tooling:** `npm run stop` stops the dev server on the app port (port-scoped; leaves
   unrelated node processes alone).
 
-## [0.176.0] - 2026-07-11 "Tchaikovsky"
+## [0.176.0] - 2026-07-11 "Tesh"
 
 ### Planning / budget batch
 
@@ -186,7 +216,7 @@ longer carries its own changelog comment.
 - **Budget:** a bucket-name search box beside the existing role filter (the two compose);
   a "no matches" line when a search filters out every bucket.
 
-## [0.175.0] - 2026-07-10 "Bear"
+## [0.175.0] - 2026-07-10 "Polk"
 
 ### Added
 
@@ -211,7 +241,7 @@ longer carries its own changelog comment.
 - **Ask-Claude icon moved to a leading, hover-revealed cell.** The inline "Ask Claude"
   edit trigger now sits at the start of each row and appears on hover or keyboard focus.
 
-## [0.174.0] - 2026-07-10 "Egan"
+## [0.174.0] - 2026-07-10 "Gailey"
 
 ### Added
 
@@ -293,7 +323,7 @@ longer carries its own changelog comment.
   `digest-config`) + a render-scope hook (`use-digest`) + a self-hiding card; no new persisted Workspace
   field (the cadence state and config are per-device, swept by the app-reset config wipe).
 
-## [0.171.0] - 2026-07-10 "Gibson"
+## [0.171.0] - 2026-07-10 "Clark"
 
 ### Added
 
@@ -342,7 +372,7 @@ TimeLog integration: the booking fetch can now be scoped to the customer a proje
 - Fetched registrations are clamped to the requested date window client-side (defensive — the v2 endpoint is passed the dates but isn't relied on to honour them), so a scoped fetch can never silently ingest a project's full history.
 - A customer that resolves to zero visible projects no longer clobbers previously-fetched totals with an empty result; an info notice explains the empty customer / no-access case.
 
-## [0.169.4] - 2026-07-08 "Sterling"
+## [0.169.4] - 2026-07-08 "Onyebuchi"
 
 Bugfix for the Budget bucket editor. No storage format change, no new fields.
 
@@ -351,21 +381,21 @@ Bugfix for the Budget bucket editor. No storage format change, no new fields.
 - **Empty rate card is no longer a dead end**: when a project has no roles or disciplines defined yet (e.g. a freshly AI- or TimeLog-created project), the allocation picker showed a misleading "All roles are already allocated" message. It now reads "No roles/disciplines defined" and shows a hint pointing to Resources → Manage roles, where reference data is defined.
 - Note: if a project's Budget field visibility was manually customized before this release, the stored setting may still hide the controls — open the ⚙ field controls in the Budget editor and enable "Detailed budget planning" (or reset to default).
 
-## [0.169.3] - 2026-07-08 "Sterling"
+## [0.169.3] - 2026-07-08 "Onyebuchi"
 
 Bugfix for the Time bookings (TimeLog) "Apply to budget" action. No storage format change, no new fields.
 
 ### Fixed
 - **"Apply to budget" no longer silently does nothing for a bucket with no role line**: linking a TimeLog project to a budget bucket that had booked hours but no role/discipline allocation left the Apply button enabled and the confirm dialog showing a count, yet clicking Apply wrote nothing — actual hours are stored on a bucket's role line, and a bucket with zero allocations had nowhere to put them. `planApply` now skips buckets that `applyActualsToBuckets` cannot write, so the affordance no longer lies, and a notice explains that such buckets need a role added in the Budget view first. Blended-mode buckets now correctly apply into their `disciplineAllocations` (previously only detailed buckets' `allocations` were written, so blended buckets were a second silent no-op).
 
-## [0.169.2] - 2026-07-08 "Sterling"
+## [0.169.2] - 2026-07-08 "Onyebuchi"
 
 Bugfix for AI project creation. No storage format change, no new fields.
 
 ### Fixed
 - **AI-created projects now populate the Resources directory**: describing/importing a project with the AI assistant created the tasks (with the named people as free-text assignees) but left the Resources directory empty, and the Time-bookings People picker had no resources to link a TimeLog user to. `parseProposal` was silently dropping the model's `seed.resources` while narrowing the proposal, so nothing downstream ever received the seeded people. The narrowing now passes `resources` through, so the directory is seeded and task/RAID/stakeholder owners link to those entries by name (or email).
 
-## [0.169.1] - 2026-07-08 "Sterling"
+## [0.169.1] - 2026-07-08 "Onyebuchi"
 
 Bugfix for the Time bookings (TimeLog) integration. No storage format change, no
 new fields.
@@ -373,7 +403,7 @@ new fields.
 ### Fixed
 - **Synced hours now populate the budget**: a person or project that was *auto*-matched in the People/Projects tables (shown with an "Auto" badge) attributed no hours — every booking fell into "Unattributed" and Booked stayed 0h, because aggregation resolved only the explicitly-pinned (manual) links while the tables displayed the effective auto+manual matches. Aggregation now resolves the same effective links the matching UI shows, so auto-matched bookings reach the budget. (Project refs are also derived before aggregation, so project-by-name auto-matching works on the first fetch.)
 
-## [0.169.0] - 2026-07-08 "Sterling"
+## [0.169.0] - 2026-07-08 "Onyebuchi"
 
 Resources & Time bookings follow-up — a batch of UX fixes and an AI-import gap
 closed. No new persisted fields (the two new preferences are per-device
@@ -391,7 +421,7 @@ unchanged and no storage format changed.
 ### Fixed
 - **Planning-grid inputs stay visible on hover**: the per-period utilization and absence-override inputs no longer dissolve into the row hover colour (they now carry an opaque fill in both light and dark modes).
 
-## [0.168.0] - 2026-07-07 "Gibson"
+## [0.168.0] - 2026-07-07 "Solomon"
 
 Resources & rate-card enhancement — a batch of directory, rate-card, and
 AI-assistant improvements. New persisted fields (`Resource.isExternal`,
@@ -439,7 +469,7 @@ breaking changes.
 - Removed a false "drag the handles to draw a dependency" claim from the Gantt help; corrected several stale help strings.
 - A dead `rate === 0` currency branch and other small correctness nits from the audit.
 
-## [0.166.0] - 2026-07-05 "Egan"
+## [0.166.0] - 2026-07-05 "Mohamed"
 
 ### Added
 - **Inline "Ask Claude" per-item edit on RAID, changes, milestones, and stakeholders** (SP2): the ✨ hover popover that shipped for tasks now works on every register row. Describe a change in plain language; Claude proposes it in **one bounded call**, and the popover shows a **preview diff** — field changes plus any related items it would create — before anything is written. Confirm applies through the existing AI CRUD tools, so every write runs through its entity sanitizer. Built on one generic engine driven by a per-entity descriptor (tasks refactored onto it), so the preview never diverges from what Apply persists — including surfacing a sanitizer-induced RAID status reset when a category change invalidates the current status. Gated behind the AI master switch; disabled in pop-out windows.
@@ -450,7 +480,7 @@ breaking changes.
 ### Fixed
 - **A left-open inline edit auto-closes when its pane stops being the active view**, so it can't reappear (and steal focus) after navigating away via search, a deep-link, or browser back/forward.
 
-## [0.165.0] - 2026-07-03 "Chiang"
+## [0.165.0] - 2026-07-03 "Kritzer"
 
 ### Added
 - **Inline "Ask Claude" per-item task edit**: a ✨ hover icon on a task's table row / Kanban card (also available from the row menu) opens a popover where you describe a change in plain language; Claude proposes the edit in **one bounded call** (no agentic loop), and the popover shows a **preview diff** — field changes plus any related items it would create (RAID / change / milestone / stakeholder) — before anything is written. Confirm applies the changes via the existing AI CRUD tools, so every write still runs through its entity sanitizer. Gated behind the AI master switch; disabled in pop-out windows and on Jira-synced tasks (Jira owns those fields); a stale response from an earlier request is discarded. No chat window needed for a quick one-off edit.
@@ -540,7 +570,7 @@ breaking changes.
 ### Notes
 - `Task.outlookEventId` and `RaidItem.outlookEventId` persist across all backends (JSON, CSV, Markdown, Turso single + multi-tenant, IndexedDB); existing databases self-heal the new column. The per-device calendar-sync toggles live in `settings.outlookCalendar` and are excluded from exports and Turso.
 
-## [0.156.0] - 2026-07-01 "Bear"
+## [0.156.0] - 2026-07-01 "Kingfisher"
 
 ### Added
 - **Multi-project Jira sync**: the Jira integration now syncs more than one project. A single **primary project** stays fully two-way and remains the target for creating new Jira issues and for the issue-type / assignee pickers, while Settings → Integrations → Jira → **"Also sync from other projects"** lets you add extra projects to sync — each with a per-project **read-only** toggle (default on). Read-only projects are pull-only: their issues sync into the app but your local edits never push back (Jira-managed fields revert on the next sync), whereas two-way extras behave like the primary. The sync JQL queries all selected projects at once; a single-project setup is unchanged. Configured extras remain manageable (read-only toggle + remove) even before a fresh connection test reloads the project list.
@@ -549,7 +579,7 @@ breaking changes.
 ### Notes
 - The extra-projects list is per-device Jira settings (`settings.jira.extraProjects`), not workspace/project data: it is excluded from exports and never written to Turso, CSV, or Markdown. Existing single-project configurations load and sync unchanged.
 
-## [0.155.0] - 2026-07-01 "Egan"
+## [0.155.0] - 2026-07-01 "Valente"
 
 ### Changed
 - **Next actions redesign**: the Action Center now opens with a focus **"Do this first"** card for the single most-urgent action (with its full call-to-action set), above the kept Now / Soon / Monitor tiers. Compact rows are **action-first** — each leads with its real next step (assign owner, reschedule, clear blocker, re-baseline, draft, mark done, or open) with the rest folded into a "⋮" overflow; the source label moved into the reason line and the numeric score now shows only in expert mode. Tier urgency reads from a coloured dot + left stripe. The hero's primary button is prominent (filled) for every action type, including the popover actions (assign / escalate / re-baseline / reschedule).
@@ -562,7 +592,7 @@ breaking changes.
 ### Changed
 - **Clearer resize anchors**: every data-table column-resize handle now shows an always-visible vertical "⋮" grip (instead of an invisible strip), dim at rest and brightening to the table-head accent on hover and throughout a drag. The native pane/window and resize-textarea corner grips are accent-tinted so they're easy to spot. Palette-safe (token-driven, no off-palette colour) and hidden in print.
 
-## [0.153.0] - 2026-06-30 "Gibson"
+## [0.153.0] - 2026-06-30 "Slatter"
 
 ### Added
 - **Custom color schemes**: Settings → Appearance gained a third "Custom" visual style alongside Acme and Dashboard. A scheme is your own palette (brand primary, accent, background, surface, text and the RAG status colours, plus an Advanced disclosure for the remaining role tokens) bundled with the app name and footer slogan. Build, name, save, rename, delete, and import/export schemes as JSON; the AA-safe text variants are derived automatically and a live WCAG contrast panel warns (non-blocking) about low-contrast pairs. Custom is light-only (it pins light like the Dashboard style) and applies pre-paint with no flash on reload. Schemes are per-device (never exported with project data) and imported colours are validated to hex.
@@ -594,7 +624,7 @@ breaking changes.
 - **/recovery hydration**: the recovery page and the safe-mode home banner are now rendered client-only, fixing a server/client hydration mismatch.
 - **Version history**: automatic checkpoints no longer save a redundant version when nothing changed, and each version now shows how many records changed per entity (e.g. "RAID (3), Changes (1)") next to its timestamp.
 
-## [0.150.0] - 2026-06-30 "Gibson"
+## [0.150.0] - 2026-06-30 "Robson"
 
 ### Changed
 - **"How it all connects" is now a 2D map**: the Help relations view renders concepts as boxed nodes on a grid with connector lines, matching the Information-flows diagram's look. Hovering or focusing a concept highlights its links and neighbours; clicking still jumps to the concept.
@@ -629,7 +659,7 @@ breaking changes.
 - **Unified Help layout**: the floating Help window and the in-pane Help view now share one grouped two-pane component (Concepts · Workflows · Features · What's automated) — a wider table of contents, clearer hierarchy, a smaller default floating-panel size, and a container-query responsive stack. The Acme AI-usage-policy link was removed from the Help footer.
 - **View tips inside the card**: every view's contextual Help tip now renders inside its own rounded card (like Open Points) instead of floating above it; the shared above-card callout was removed.
 
-## [0.146.0] - 2026-06-29 "Gibson"
+## [0.146.0] - 2026-06-29 "Wecker"
 
 ### Added
 - **AI model picker — live models + key validation**: the Settings → AI model dropdown lists live models fetched from your Anthropic account (`/v1/models`), with the curated registry as the offline fallback. The API key is validated for format on entry; a malformed key is discarded with a toast.
@@ -642,7 +672,7 @@ breaking changes.
 ### Changed
 - `ChatModel` is now an open string (any live `claude-*` id), validated by pattern on load so a live-selected model survives a reload.
 
-## [0.145.0] - 2026-06-28 "Sterling"
+## [0.145.0] - 2026-06-28 "Arden"
 
 ### Added
 - **Dashboard masonry cockpit**: the dashboard is now a single masonry of cards (CSS multicolumn) that packs tightly on wide screens instead of leaving large empty gaps under the short cards. Cards never split across a column; reading order is column-major, priority-first.
@@ -661,7 +691,7 @@ breaking changes.
 - Milestones: a search/filter with no matches now shows a "no matches" message instead of the add-first-item box.
 - The Trends sub-entry no longer appears in the classic sub-tab row on a file backend (it is Turso-only).
 
-## [0.144.0] - 2026-06-28 "Egan"
+## [0.144.0] - 2026-06-28 "Nevala-Lee"
 
 ### Added
 - **Timelog two-step fetch**: "Load people" now pulls the Timelog directory only (cheap); a filter box narrows it and you tick the people you want, then "Fetch bookings" pulls timesheets for the ticked employees only (org scope) — keeping request volume under the rate limit. Inactive/nameless directory rows are filtered out, rows can be removed individually (✕) or in bulk, the list is scrollable, and the fetched people + project matches persist per-device so they survive a view switch.
@@ -688,7 +718,7 @@ breaking changes.
 ### Fixed
 - WCAG AA contrast on the AI-consent block (new darker purple) and on overdue due-dates on Kanban cards in dark mode.
 
-## [0.142.0] - 2026-06-26 "Herbert"
+## [0.142.0] - 2026-06-26 "Kloos"
 
 ### Added
 - **Guided backend setup wizard**: a stepped wizard (Settings → Integrations, and the new-project window) walks through storage & connections (IndexedDB / file / Turso single / Turso multi-tenant + Microsoft 365), the AI assistant key, Jira, and Timelog, ending with a review summary. Integration steps are skippable; the existing flat Settings → Integrations panel remains as the advanced/edit surface. The wizard never appears in pop-out windows.
@@ -701,12 +731,12 @@ breaking changes.
 - Delete button hover state now meets WCAG AA contrast in dark mode.
 - Setup wizard: the review step reports Turso storage as configured only when a database URL **and** token are present (not merely the kind), and now includes Microsoft 365; the Timelog form is no longer duplicated across two steps; and the portfolio-mode "Save & switch" (which reloads the page) is hidden inside the wizard so it can't discard an in-progress create-project draft. Nested modals (the wizard opened from the create-project window) now handle Escape/Tab independently — closing the wizard no longer dismisses the create dialog underneath.
 
-## [0.141.0] - 2026-06-26 "Gibson"
+## [0.141.0] - 2026-06-26 "Asher"
 
 ### Added
 - **Mockup-style polish**: the "Dashboard" visual style moves closer to its design reference — a completion-% gauge bar under the completion KPI (red→amber→green gradient; the Acme style shows a solid brand-green bar), trend deltas as tinted pill chips, a lighter active look for segmented controls (white pill + green text on a grey track), and a subtle hover-lift on clickable tiles. All differences flow through CSS role tokens, so the Acme style is unchanged. Chip tints are opaque pre-composited colors so the delta text stays WCAG AA even on tile hover.
 
-## [0.140.0] - 2026-06-26 "Egan"
+## [0.140.0] - 2026-06-26 "MacLeod"
 
 ### Added
 - **Dual-CI visual style switch**: a new "Dashboard" visual style (soft shadows, gradient-ready bars, conventional red/amber/green status, light table header) selectable in Settings - Appearance, alongside the flat Acme style. Orthogonal to light/dark (the Dashboard style is light-only and pins light while active). All styling is CSS-token-driven; the palette-sweep + axe gates now scan every shipped combo (AIPM-light, AIPM-dark, Dashboard-light).
@@ -719,7 +749,7 @@ breaking changes.
 ### Added
 - **Timelog integration**: connect a Timelog timekeeping account (Settings → Integrations) to pull actual time bookings via a server-side SSRF-guarded `/api/timelog` proxy. Match Timelog users→resources and projects→budget buckets (auto-match by email/name/PO, manual override always wins). New "Time bookings" view surfaces booked-vs-budget win/loss and time KPIs (booked hours, billable %, unattributed) with a non-destructive "Apply to budget" action. Per-device device-sealed token; per-project link mappings persist across all backends.
 
-## [0.138.0] - 2026-06-23 "Brunner"
+## [0.138.0] - 2026-06-23 "Ryman"
 
 ### Changed
 
@@ -730,7 +760,7 @@ breaking changes.
 
 - The Documents panel's per-row remove buttons now carry a row-unique accessible name (e.g. "Remove – Spec.docx") instead of an identical "Remove" on every row, so screen-reader users can tell which document a button deletes (WCAG 2.4.6). The Documents view is outside the axe CI gate, so this was previously undetected.
 
-## [0.137.0] - 2026-06-23 "Bear"
+## [0.137.0] - 2026-06-23 "Hand"
 
 ### Changed
 
@@ -773,7 +803,7 @@ breaking changes.
 ### Added
 - Column resizing, with a Reset-columns button, on the Documents panel and on the Steering Committee meetings and information-schedule tables.
 
-## [0.133.0] - 2026-06-22 "Tiptree"
+## [0.133.0] - 2026-06-22 "Link"
 
 ### Added
 - Saved views now extend to the Reports panel. Each of the three report tables (By assignee, By group, By label) persists its sort and filter as named per-device presets, completing the saved-views roadmap (tasks 0.130.0, cross-view 0.132.0, Reports 0.133.0).
@@ -783,12 +813,12 @@ breaking changes.
 ### Added
 - Saved views now extend beyond the tasks list to the RAID, Milestones, Changes, and Stakeholders panels. Each panel gains the same Save / apply / delete preset control, capturing its search, filters, and sort. Presets are per-device and scoped to their own panel; column widths and pane sizes continue to persist independently.
 
-## [0.131.1] - 2026-06-22 "Aldiss"
+## [0.131.1] - 2026-06-22 "Fowler"
 
 ### Fixed
 - Hiding the top-bar timezone switcher now also clears any active display-timezone override, so timestamps no longer stay stuck in a previously chosen zone with no visible control to reset it.
 
-## [0.131.0] - 2026-06-22 "Aldiss"
+## [0.131.0] - 2026-06-22 "Fowler"
 
 ### Changed
 - The app now opens on the Dashboard instead of the AI Assistant.
@@ -837,7 +867,7 @@ breaking changes.
 - Every Dashboard surface is now clickable: KPI tiles, Progress/Budget tiles and the completion sparkline jump to their view; Top Changes rows, RAID register rows and milestone horizon chips open the specific item; recent-activity rows jump to the relevant view by kind.
 - Resolves the prior asymmetry where RAID/milestone/change navigation dropped the item id — now they deep-link via the shared `requestOpen` channel (the same one the Action Center uses).
 
-## [0.123.0] - 2026-06-21 "Atwood"
+## [0.123.0] - 2026-06-21 "Weir"
 
 ### Added
 - **Dashboard density toggle.** A per-device Comfortable/Compact preference for
@@ -846,7 +876,7 @@ breaking changes.
   Toggle it from the on-panel button beside the Trends toggle or from
   Settings → Appearance; the choice is remembered per device.
 
-## [0.122.0] - 2026-06-21 "Herbert"
+## [0.122.0] - 2026-06-21 "Cline"
 
 ### Added
 - **Dashboard completion-trend sparkline.** A compact line under the at-a-glance
@@ -854,7 +884,7 @@ breaking changes.
   back to a reconstruction from the local activity log when snapshots aren't
   available. Self-hides until there are at least two data points.
 
-## [0.121.0] - 2026-06-21 "Stephenson"
+## [0.121.0] - 2026-06-21 "Yoon"
 
 ### Added
 - **Dashboard KPI trend arrows.** The "at a glance" headline numbers —
@@ -873,7 +903,7 @@ breaking changes.
   view. The card self-hides once the project has any task, so it never nags an
   active project.
 
-## [0.119.0] - 2026-06-21 "Gibson"
+## [0.119.0] - 2026-06-21 "Bardugo"
 
 ### Changed
 - **Dashboard milestone horizon.** The Dashboard's milestone list is now a
@@ -881,7 +911,7 @@ breaking changes.
   with at-risk milestones flagged, replacing the flat near-term list. Pure
   date-bucketing; works on every storage backend.
 
-## [0.118.0] - 2026-06-21 "Atwood"
+## [0.118.0] - 2026-06-21 "Harkaway"
 
 ### Added
 - **Dashboard landing cockpit.** The Dashboard now opens with a greeting and a
@@ -893,7 +923,7 @@ breaking changes.
   an "Adjust health ratings" disclosure to reduce clutter. Per-device,
   per-project state is stored locally (never exported).
 
-## [0.117.0] - 2026-06-21 "Bradbury"
+## [0.117.0] - 2026-06-21 "Addison"
 
 ### Security
 - The Jira API token is now **encrypted at rest** (AES-256-GCM, device-wrapped in the browser) instead of being stored in plain text in `localStorage` — matching the existing handling of the Anthropic API key and the Turso auth token. The token is blanked from the persisted settings blob and held as ciphertext in `localStorage["lop-app:secrets"]`, wrapped by a non-extractable WebCrypto device key; an existing plaintext token migrates to the sealed store on next load. The Jira site URL and email remain stored unencrypted (identifying, not secret). Microsoft 365 needs no change — only the public client/tenant IDs are stored, and MSAL owns its own token cache.
@@ -913,32 +943,32 @@ breaking changes.
 ### Added
 - Timezone display: timestamps in the activity log, version history, and trends now render in a display timezone you choose from a top-bar switcher (Default / UTC / your additional zones), with the zone shown next to each time. The choice applies for the session and resets on reload; the underlying data is unchanged.
 
-## [0.113.0] - 2026-06-20 "Kowal"
+## [0.113.0] - 2026-06-20 "Nix"
 
 ### Added
 - Timezones (foundation): set a per-project operating timezone and a per-device default (plus a list of additional zones). The app's day-boundary logic - what counts as overdue, due today, or due soon - now follows the resolved timezone instead of UTC. (Display of timestamps and the calendar's multi-timezone view follow in later updates.)
 
-## [0.112.0] - 2026-06-20 "Okorafor"
+## [0.112.0] - 2026-06-20 "Grossman"
 
 ### Added
 - Guided tour + demo showcase: first-run users get a short walkthrough of the main areas in the modern layout, a one-click "Explore a demo project" that loads sample data, and a "Take the tour" entry in the Help menu to replay it anytime. Per-device; the tour does not run in the classic layout or popouts.
 
-## [0.111.0] - 2026-06-20 "Chambers"
+## [0.111.0] - 2026-06-20 "Wexler"
 
 ### Added
 - Steering committee: a new view to record the committee name, its members (linked to your resources), the meeting schedule (date, title, agenda, location), and "information schedule" rules - how many working days before each meeting a pack should circulate. The resulting pack reminders appear in the Action Center, and the committee's meetings plus the reminder due-dates can be pushed to your Outlook calendar (re-pushing never duplicates).
 
-## [0.110.0] - 2026-06-20 "Reynolds"
+## [0.110.0] - 2026-06-20 "Islington"
 
 ### Added
 - Create a project from a source: in the new-project wizard you can now upload a file (PDF, image, or text), pick a SharePoint document, or paste a Confluence page URL - the AI reads the content and pre-fills the project details. Confluence is fetched through a same-origin proxy reusing your Atlassian (Jira) credentials; SharePoint via Microsoft Graph.
 
-## [0.109.0] - 2026-06-20 "Leckie"
+## [0.109.0] - 2026-06-20 "Barnes"
 
 ### Added
 - AI-suggested next-actions weight adjustments: a "Suggest with AI" button in the next-actions settings proposes new values for the confidence weights (and, optionally, all firing thresholds) from your project, snapshot trends, and your act/snooze/dismiss history. Review the per-row rationale and Accept the ones you want; values are always clamped to safe bounds.
 
-## [0.108.0] - 2026-06-19 "Banks"
+## [0.108.0] - 2026-06-19 "Wurts"
 
 Kanban board (SP-B).
 
@@ -949,7 +979,7 @@ Kanban board (SP-B).
 ### Changed
 - Jira-synced tasks now derive their status from the Jira status category and are read-only in the board and the table status dropdown — change them in Jira and the next sync reflects it.
 
-## [0.107.0] - 2026-06-19 "LeGuin"
+## [0.107.0] - 2026-06-19 "Lynch"
 
 Task workflow status (SP-A).
 
@@ -1289,7 +1319,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
 - Foundation for later slices: SP2 will add a rich-text (Outlook-like) editor, and
   SP3 named template versions with compare/restore.
 
-## [0.87.0] - 2026-06-15 "Wells"
+## [0.87.0] - 2026-06-15 "Zahn"
 
 ### Added / Changed
 - **Draft message from Action Center**: task-due and stakeholder-comms inbox rows
@@ -1381,7 +1411,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
 - The inbox now has a collapsible **"monitor"** group, separating
   keep-an-eye-on items from the ones that need action now.
 
-## [0.82.0] - 2026-06-14 "Jemisin"
+## [0.82.0] - 2026-06-14 "Kurtz"
 
 ### Added / Changed
 - The empty-state (no project yet) "Load from file" now accepts any supported
@@ -1498,7 +1528,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   border was removed. A new guard test prevents the chrome greys from drifting
   back.
 
-## [0.79.0] - 2026-06-14 "Willis"
+## [0.79.0] - 2026-06-14 "McDevitt"
 
 ### Added
 - **Inline action chips:** the most urgent next action(s) for a view now appear
@@ -1506,7 +1536,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   each Reports section. Click a chip to jump straight to the item; `+N more` opens
   the Action Center. Completes the "suggested next actions" feature.
 
-## [0.78.0] - 2026-06-13 "Hopkinson"
+## [0.78.0] - 2026-06-13 "Bova"
 
 ### Changed
 - The due-dates, RAID-review, and stakeholder-comms **reminder banners and
@@ -1515,7 +1545,7 @@ UI/UX consistency batch across many views, plus deeper version-history controls.
   or 1 day; it returns when the timer lapses. (Birthday, Jira-token, storage, and
   safe-mode banners are unchanged.)
 
-## [0.77.0] - 2026-06-13 "Russ"
+## [0.77.0] - 2026-06-13 "Effinger"
 
 ### Added
 - **Action Center.** A new "Next actions" view turns the project's signals
@@ -1667,7 +1697,7 @@ Project templates — reusable project setups (mode + field visibility + optiona
 - Upcoming: applying the feature mode at project creation and template
   suggestions are planned for a future release.
 
-## [0.70.0] - 2026-06-12 "Heinlein"
+## [0.70.0] - 2026-06-12 "Anthony"
 
 Per-modal field visibility — Simple / Advanced / Full views with a configurable cog.
 
@@ -1746,7 +1776,7 @@ Data version history — capture & timeline (Turso only; first slice).
   to existing tables and no migration. The feature is hidden and inert on the
   file/IndexedDB backends.
 
-## [0.65.0] - 2026-06-11 "Cherryh"
+## [0.65.0] - 2026-06-11 "Eddings"
 
 Resource-linked project contacts — the final slice of the person-identity
 normalization (SP4).
@@ -1772,7 +1802,7 @@ Per-resource RAID ownership rollup (identity normalization SP3).
 ### Added
 - The workload/people view now shows an "Open RAID" count per resource — how many non-terminal RAID items each person owns, resolved by the owner link set in 0.63.0 (falling back to the owner name into the unlinked bucket). The first view to consume the resource-ownership links.
 
-## [0.63.0] - 2026-06-11 "Bujold"
+## [0.63.0] - 2026-06-11 "Feist"
 
 Resource-aware people pickers across RAID, shifts, and stakeholders (identity normalization SP2).
 
@@ -1784,7 +1814,7 @@ Resource-aware people pickers across RAID, shifts, and stakeholders (identity no
 - `ResourcePicker` gains an optional `onCreateResource`; omitting it yields the link-only variant used by stakeholders.
 - Removed the now-dead shift assignee datalist (`shiftKnownAssignees`) — superseded by the picker.
 
-## [0.62.0] - 2026-06-11 "Liu"
+## [0.62.0] - 2026-06-11 "Williams"
 
 Resource-aware people picker (identity normalization SP1).
 
@@ -1794,7 +1824,7 @@ Resource-aware people picker (identity normalization SP1).
 ### Changed
 - `ContactInput` is replaced by the new shared `ResourcePicker` component.
 
-## [0.61.0] - 2026-06-11 "Robinson"
+## [0.61.0] - 2026-06-11 "Kay"
 
 Resource-identity normalization for RAID owners and shift assignees.
 
@@ -1918,7 +1948,7 @@ Reliability + security hardening (refactor Batch A — no new features).
 - File-based projects only in this phase; Turso multi-project support follows in 0.59.0.
 - The storage round-trip stays byte-identical for a workspace without a project header (project emission is gated and appended last).
 
-## [0.57.0] — 2026-06-09 "Butler"
+## [0.57.0] — 2026-06-09 "Cook"
 
 ### Added
 - **Configurable document export:** choose which sections to include in XLSX / DOCX / PDF / PPTX / Markdown exports (default Tasks + RAID). The PDF export renders all enabled sections.
@@ -1930,7 +1960,7 @@ Reliability + security hardening (refactor Batch A — no new features).
 - **Views:** the Trends view matches the Dashboard layout (print-safe, resizable); the Gantt gains a Print button; the Calendar and Milestones views are sized like the assistant; the activity-log print hides controls.
 - The **activity log** now records change, stakeholder, resource, and role changes plus a coarse settings event, and adds a "general" activity group.
 
-## [0.56.0] — 2026-06-09 "Bradbury"
+## [0.56.0] — 2026-06-09 "Beagle"
 
 ### Added
 - **Input sanitization feedback** so silent input transformations are now visible:
@@ -1946,7 +1976,7 @@ Reliability + security hardening (refactor Batch A — no new features).
 - `BUDGET_NAME_MAX`, `PO_NUMBER_MAX`, `AMOUNT_MAX` are now exported from `sanitize.ts`.
 - The hand-curated `sample-workspace.md` is the sample's source of truth; the generator derives the complete `.json` + `.sqlite3` exports from it (it does not re-emit the `.md`/`.csv`, since `workspaceToMarkdown` does not escape the pipe-delimited blended-budget cell).
 
-## [0.55.0] — 2026-06-08 "Clarke"
+## [0.55.0] — 2026-06-08 "Crowley"
 
 ### Added
 - **Stakeholder communication reminders:** a new pure `stakeholder-comms.ts` engine derives "reach out" nudges from a quadrant engagement policy — manage-closely (High influence / High interest) stakeholders are flagged ahead of due-soon milestones, open RAID items, and pending changes they are linked to.
@@ -1979,7 +2009,7 @@ Reliability + security hardening (refactor Batch A — no new features).
 - Default mode is **Advanced** (all modules on); legacy settings migrate automatically to all-on.
 - New pure module `feature-modules.ts` (module registry + helpers) and `settings-sections/mode-section.tsx` (Mode settings UI).
 
-## [0.53.0] — 2026-06-04 "Asimov"
+## [0.53.0] — 2026-06-04 "Peake"
 
 ### Added
 - Addable **Stakeholder report** in the Reports view (summary tiles, influence/interest quadrant grid, RACI coverage with missing/multiple-Accountable warnings, register table).
@@ -2041,13 +2071,13 @@ edit modal, printable Change Report, and a Changes nav entry. New Workspace.chan
 entity round-trips through every backend (schema v7). The dashboard gains its first
 computed Scope RAG (from the pending-change backlog) plus a Changes subsection.
 
-## [0.49.1] — 2026-06-03 "Le Guin"
+## [0.49.1] — 2026-06-03 "Dunsany"
 
 Trends polish: the trend-chart gap-count caption is now localized (EN/DE), and
 the Turso integration settings warn when snapshot recording is enabled but no
 Turso database URL is configured.
 
-## [0.49.0] — 2026-06-03 "Le Guin"
+## [0.49.0] — 2026-06-03 "Dunsany"
 
 Baseline + variance / burn-down trends. Turso-only periodic KPI snapshots
 captured into append-only tables (separate from the workspace save cycle) power a
@@ -2057,7 +2087,7 @@ manual capture button; re-baselineable. Switching away from Turso warns that
 recording stops (data retained, resumes on return); recording gaps are
 highlighted.
 
-## [0.48.0] — 2026-06-03 "Tchaikovsky"
+## [0.48.0] — 2026-06-03 "Weeks"
 
 ### Added
 - Burn-down charts: currency symbol and axis tick labels (hours / EUR scale).
@@ -2092,7 +2122,7 @@ highlighted.
   & Overdue / Milestones / Recent activity sections are boxed; clickable links
   use the resources-directory hover affordance.
 
-## [0.46.0] — 2026-06-02 "Banks"
+## [0.46.0] — 2026-06-02 "Sullivan"
 
 ### Changed
 - **EVM folded into the dashboard RAGs:** the Schedule RAG now folds in SPI and the Budget RAG folds in CPI, worst-of with the existing task / milestone / budget signals. An index below 0.8 is Red, below 0.9 Amber; a manual override still wins. CPI can surface a Budget RAG even when no budget buckets are configured. (Completes the EVM follow-up deferred in 0.45.0.)
@@ -2107,12 +2137,12 @@ highlighted.
 ### Added
 - **Earned Value (EVM):** task-effort SPI/CPI plus PV/EV/AC and schedule/cost variances, derived from task estimates, completion, and time spent. PV = estimate of tasks due by today, EV = estimate of completed tasks, AC = time spent; shown in hours with an optional EUR overlay (mean role internal rate). SPI/CPI tiles on the dashboard budget-burn band; the full table in the Budget Report. Informational only; no new persisted state.
 
-## [0.44.0] — 2026-06-02 "Bujold"
+## [0.44.0] — 2026-06-02 "Lawrence"
 
 ### Added
 - **Milestones:** zero-duration key dates distinct from tasks — name, date, optional description, manual achieved sign-off, and linked tasks. Diamond rows on the Gantt with linked-task connector edges and an at-risk ring; a dedicated Milestones view; a dashboard Milestones subsection that folds overdue/at-risk/due-soon into the computed Schedule RAG. Round-trips through JSON/CSV/Markdown/Turso.
 
-## [0.43.0] — 2026-06-02 "Cherryh"
+## [0.43.0] — 2026-06-02 "Lewis"
 
 ### Added
 - **Project-Health Dashboard:** a consolidated view — first in the Overview nav — that works as both a live cockpit and a printable status report. Shows overall RAG plus Schedule / Budget / Scope sub-status (computed, with inline manual override), a PM status narrative, % complete + R/A/G task-health counts, budget burn, top open RAID items, upcoming/overdue dates, and recent activity, all inside the shared report/print card. RAID rows link to the RAID register; task rows open the editor.
@@ -2144,7 +2174,7 @@ highlighted.
 ### Fixed
 - Budget panel: the empty-state "+ Add bucket…" prompt (shown when no buckets exist) is now a real button — clicking it creates a bucket and opens the editor modal. Previously it was inert text.
 
-## [0.41.0] — 2026-06-01 "Okorafor"
+## [0.41.0] — 2026-06-01 "Tolkien"
 
 ### Added
 - **Budget Report:** a dedicated, read-only report under Budget -> Budget Report. Shows the project-level CCI rollup (contribution margin, cost performance, consumption) and a sortable per-bucket detail table (mode, type, status, currency/FX, budget/plan/actual hours, budget/consumed EUR, margin, win/loss) across all buckets. Printable via the report card.
@@ -2152,7 +2182,7 @@ highlighted.
 ### Changed
 - Budget reporting moved out of the task Reports view (added in 0.40.0) into the dedicated Budget Report.
 
-## [0.40.0] — 2026-06-01 "Leckie"
+## [0.40.0] — 2026-06-01 "Barker"
 
 ### Added
 - **Budget planning modes:** each bucket has a "Detailed budget planning" toggle. On = plan per role (discipline x grade); off = plan per discipline using the blended average rate of that discipline's grades.
@@ -2216,7 +2246,7 @@ highlighted.
 ### Changed
 - **Classic layout:** the primary tab strip now exposes a secondary sub-tab row (Resources sub-views: Directory, Workload, Calendar, Planning, Manage Roles; and RAID Report), matching modern sidebar navigation.
 
-## [0.38.0] — 2026-06-01 "Chambers"
+## [0.38.0] — 2026-06-01 "Kiernan"
 
 ### Added
 - **Resizable panes:** every primary view (Open Points, Chat, Gantt, RAID, Resources views, Budget, Activity, Reports, and the RAID/Resource reports) is now drag-resizable — views fill the available height by default, a corner handle lets you drag to any size, and a Reset-size button restores the default. Backed by a shared `VIEW_PANE_RESIZABLE_CLASS` + `useResizable` hook. Chat is presented as a centred half-size card.
@@ -2281,7 +2311,7 @@ _No runtime/behavior changes._
 ### Internal
 - Extracted the shared header action cluster (Voice, Export, Help, Version) into a single `ActionMenus` component used by both the Classic header and the modern top bar, with a sweep test that guards against the two drifting apart. In the Classic header the Voice button now sits alongside Export/Help/Version (a minor reorder); behavior is unchanged.
 
-## [0.33.0] — 2026-05-30 "Wells"
+## [0.33.0] — 2026-05-30 "McKinley"
 
 ### Added
 - Full-page Settings view in the modern layout, with a left section rail (Appearance, Language & Holidays, General, Notifications, AI Assistant, Jira, Storage, Integrations).
@@ -2305,7 +2335,7 @@ _No runtime/behavior changes._
 ### Internal
 - The shell palette guard now also rejects off-palette gradient color-stop utilities (`from-`/`to-`/`via-[#hex]`), and gained self-tests for its detection patterns.
 
-## [0.32.0] — 2026-05-30 "Jemisin"
+## [0.32.0] — 2026-05-30 "Pierce"
 
 ### Added
 - Responsive sidebar: a collapsible **icon rail** that auto-collapses on narrow screens, a top-bar menu button, and a persisted collapse preference.
@@ -2315,7 +2345,7 @@ _No runtime/behavior changes._
 ### Fixed
 - The sidebar collapse button is no longer a no-op — it is now wired through the modern shell.
 
-## [0.31.0] — 2026-05-30 "Leckie"
+## [0.31.0] — 2026-05-30 "Collins"
 
 ### Changed
 - **Table restyle (Dark-Blue headers).** Every primary data table — Open Points, RAID and the RAID Report, the Activity log, the Resource Directory / Workload / Planning / Rollup grids, and the Resources Report — now has a Dark-Blue header row with white, uppercase labels, sourced from one shared style so the look stays consistent. Header sort buttons highlight in green on hover.
@@ -2326,7 +2356,7 @@ _No runtime/behavior changes._
 ### Added
 - **Full-page task editor (modern layout).** Opening a task — or clicking **New task** — now opens a full-viewport edit view instead of the overlay dialog: a Dark-Blue section heading, a two-column field grid in the AIPM palette, and **Save** (green) / **Cancel** in the top bar. The editor reuses the same fields, state, and validation as before, and returns you to the view you came from on save or cancel. **Classic mode** and all pop-out windows keep the dialog. This is Phase 2 of the sidebar-layout redesign (a table restyle follows).
 
-## [0.29.0] — 2026-05-29 "Okorafor"
+## [0.29.0] — 2026-05-29 "Wilhelm"
 
 ### Added
 - **Modern left-sidebar layout — now the default.** A new app shell with a Dark-Blue left sidebar carrying grouped, nested navigation (Open Points, Chat, Gantt, Resources + Address Book/Resource Report, Budget, RAID + RAID Report, Reports, Activity, Settings), a top bar showing the active view title and actions, and a full-viewport content area that shows one view at a time. URL-hash deep-linking (`#gantt`, `#raid`, …) and browser back/forward navigation are supported. This is Phase 1 of the redesign (chrome only; a full-page edit view and table restyle follow).
@@ -2595,7 +2625,7 @@ Effort progress bar and task-form/UI polish within the Bradbury milestone.
   "Close" and "Remove" bucket buttons use the same highlight-hover style as
   resource-assignee controls.
 
-## [0.13.0] "Bradbury" — 2026-05-27
+## [0.13.0] "Chakraborty" — 2026-05-27
 
 UI polish batch: draggable modals with in-modal voice, task effort tracking,
 removable/reorderable budget buckets, resource-planning fixes, sortable roles

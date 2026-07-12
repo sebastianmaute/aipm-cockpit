@@ -37,6 +37,19 @@ describe("ColorSchemeEditor", () => {
     expect(loadSchemes().schemes.some((s) => s.name === "Acme Blue")).toBe(true);
   });
 
+  it("hides per-scheme branding fields for a read-only built-in (no duplicate app-name)", () => {
+    // Fresh store → Harbor (built-in) active; the global app-name input in
+    // AppearanceSection covers built-ins, so the editor must not also show one.
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
+    expect(screen.queryByLabelText("App name")).not.toBeInTheDocument();
+  });
+
+  it("shows per-scheme branding fields for an editable user scheme", () => {
+    addScheme("Draft", { "--AIPM-green": "#000000" }, {}); // user scheme active
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
+    expect(screen.getByLabelText("App name")).toBeInTheDocument();
+  });
+
   it("marks the active built-in scheme read-only (rename/delete disabled)", () => {
     // Fresh store → Harbor (built-in) is the active scheme.
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
@@ -79,5 +92,42 @@ describe("ColorSchemeEditor coherence", () => {
     fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
     const red = loadSchemes().schemes.find((s) => s.name === "Red");
     expect(red!.light["--AIPM-green"]).toBe("#00ff00");
+  });
+});
+
+// Review HIGH: a color-only save of an UNBRANDED scheme must NOT call
+// onApplyBranding — otherwise AppearanceSection's mergeAppliedBranding(current, {})
+// silently WIPES a globally-set settings.branding.slogan/footerSlogan.
+describe("ColorSchemeEditor branding-apply guard", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("does not call onApplyBranding when saving a color-only scheme with empty branding", () => {
+    const onApplyBranding = vi.fn();
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onApplyBranding={onApplyBranding} />);
+    fireEvent.change(screen.getByLabelText("Scheme name"), { target: { value: "Colors Only" } });
+    fireEvent.click(screen.getByRole("button", { name: /^new scheme$/i }));
+    expect(onApplyBranding).not.toHaveBeenCalled();
+  });
+
+  it("calls onApplyBranding when the scheme carries branding", () => {
+    addScheme("Branded", { "--AIPM-green": "#000000" }, {}); // user scheme active → branding editable
+    const onApplyBranding = vi.fn();
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onApplyBranding={onApplyBranding} />);
+    fireEvent.change(screen.getByLabelText("App name"), { target: { value: "My Tracker" } });
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
+    expect(onApplyBranding).toHaveBeenCalledWith(expect.objectContaining({ slogan: "My Tracker" }));
+  });
+
+  // Review MEDIUM: a USER scheme is owned by the user (Apply/rename are only
+  // reachable for user schemes), so CLEARING its app-name via Apply must
+  // PROPAGATE the empty value — the empty-guard is scoped to saveNew/import,
+  // which can originate while a built-in is active.
+  it("clearing a user scheme's branding via Apply propagates the clear", () => {
+    addScheme("Branded", { "--AIPM-green": "#000000" }, { slogan: "Acme PMO" }); // branded user scheme active
+    const onApplyBranding = vi.fn();
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onApplyBranding={onApplyBranding} />);
+    fireEvent.change(screen.getByLabelText("App name"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
+    expect(onApplyBranding).toHaveBeenCalledWith(expect.objectContaining({ slogan: "" }));
   });
 });

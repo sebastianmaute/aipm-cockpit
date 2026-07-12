@@ -1,9 +1,20 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { type CiStyle, STYLE_STORAGE_KEY, readStoredStyle } from "./style-ci";
-import { applySchemeColors, writeActiveSchemeColors, writeSchemeSupportsDark } from "./scheme-apply";
-import { loadSchemes } from "./color-schemes";
-import { activeSchemeOf, reconcileBuiltins, resolveActiveScheme } from "./builtin-schemes";
+import { type CiStyle, STYLE_STORAGE_KEY, effectiveDark } from "./style-ci";
+import {
+  applySchemeColors,
+  applySchemeStructural,
+  writeActiveSchemeColors,
+  writeActiveSchemeStructural,
+  writeSchemeSupportsDark,
+} from "./scheme-apply";
+import { loadSchemes, setActive } from "./color-schemes";
+import {
+  activeSchemeOf,
+  reconcileBuiltins,
+  resolveActiveScheme,
+  resolveActiveStructural,
+} from "./builtin-schemes";
 import { resolveSchemeColors } from "./scheme-tokens";
 
 // Runtime signal (mirrors the boot-readable lop-scheme-supports-dark key): does
@@ -24,7 +35,9 @@ function syncScheme(style: CiStyle): void {
   const root = document.documentElement;
   if (style !== "custom") {
     applySchemeColors(null);
+    applySchemeStructural(null);
     writeActiveSchemeColors(null);
+    writeActiveSchemeStructural(null);
     writeSchemeSupportsDark(false);
     root.setAttribute(SCHEME_DARK_ATTR, "0");
     return;
@@ -33,9 +46,15 @@ function syncScheme(style: CiStyle): void {
   const supportsDark = activeSchemeOf(store).supportsDark;
   root.setAttribute(SCHEME_DARK_ATTR, supportsDark ? "1" : "0");
   writeSchemeSupportsDark(supportsDark);
-  const resolved = resolveSchemeColors(resolveActiveScheme(store, supportsDark && currentDark()));
+  const resolved = resolveSchemeColors(resolveActiveScheme(store, effectiveDark(currentDark(), supportsDark)));
   writeActiveSchemeColors(resolved);
   applySchemeColors(resolved);
+  // Structural (non-color) tokens ride the same apply+mirror path. Always pass the
+  // resolved map — an empty {} (e.g. Harbor) still clears any prior inline structural,
+  // and AIPM's all-"none" map correctly overwrites Mockup's shadows on a scheme switch.
+  const structural = resolveActiveStructural(store);
+  writeActiveSchemeStructural(structural);
+  applySchemeStructural(structural);
 }
 
 interface CiStyleContextValue { style: CiStyle; setStyle: (s: CiStyle) => void; }
@@ -45,15 +64,32 @@ export function useCiStyle(): CiStyleContextValue { return useContext(CiStyleCon
 
 export function CiStyleProvider({ children }: { children: React.ReactNode }) {
   const [style, setStyleState] = useState<CiStyle>(() => {
-    if (typeof window === "undefined") return "AIPM";
+    if (typeof window === "undefined") return "custom";
+    // Phase 2: AIPM + Mockup are now built-in SCHEMES (ids "AIPM"/"mockup"), and the
+    // style axis collapses to the constant "custom". Migrate a legacy device style
+    // ONCE — activate the matching built-in scheme (so it survives reload) — and
+    // for ANY non-"custom" value (legacy OR absent/fresh) persist lop-style="custom".
+    // A fresh user MUST get lop-style written so the boot script and the dead
+    // selectScheme fallback stay consistent; a legacy user also activates the scheme
+    // first. Idempotent: an already-"custom" user keeps their existing activeId and
+    // the write is a harmless no-op. This runs in the lazy initializer (before the
+    // first syncScheme) so the migrated scheme paints immediately, without a
+    // set-state-in-effect.
     const stored = localStorage.getItem(STYLE_STORAGE_KEY);
-    // Fresh install (no stored style) → custom, so the default (Harbor) scheme
-    // is active. Matches the boot script's absent→custom default (no flash).
-    return stored === null ? "custom" : readStoredStyle(stored);
+    if (stored === "AIPM" || stored === "mockup") setActive(stored);
+    if (stored !== "custom") {
+      try {
+        localStorage.setItem(STYLE_STORAGE_KEY, "custom");
+      } catch {
+        /* private mode / quota */
+      }
+    }
+    return "custom";
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-style", style);
+    // Phase 2: the style axis is always "custom"; the active SCHEME drives the look.
+    document.documentElement.setAttribute("data-style", "custom");
     // Apply the active scheme for the current theme (custom) or clear it (else).
     syncScheme(style);
     // lop-theme-change: ThemeProvider flipped .dark → re-resolve the light/dark map.

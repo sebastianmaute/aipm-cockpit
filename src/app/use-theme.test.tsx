@@ -40,6 +40,8 @@ function Probe() {
 describe("ThemeProvider", () => {
   test("applies .dark when the stored theme is dark", () => {
     localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    // Phase 2: a dark-capable scheme is always active (Harbor default).
+    document.documentElement.setAttribute("data-scheme-dark", "1");
     render(<ThemeProvider><Probe /></ThemeProvider>);
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(screen.getByTestId("theme").textContent).toBe("dark");
@@ -69,9 +71,28 @@ describe("ThemeProvider", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
+  test("pin-light rides scheme-capability, not the data-style value", () => {
+    // Phase 2: data-style is always "custom" — pin-light comes from the active
+    // scheme's capability (data-scheme-dark), never a "mockup" style branch.
+    localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    document.documentElement.setAttribute("data-style", "custom");
+    // Light-only scheme (data-scheme-dark=0) pins light despite a dark stored theme.
+    document.documentElement.setAttribute("data-scheme-dark", "0");
+    const { unmount } = render(<ThemeProvider><Probe /></ThemeProvider>);
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    unmount();
+
+    // Dark-capable scheme (data-scheme-dark=1) honours the dark theme.
+    document.documentElement.setAttribute("data-scheme-dark", "1");
+    render(<ThemeProvider><Probe /></ThemeProvider>);
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+  });
+
   test("system mode follows matchMedia and reacts to OS changes", () => {
     systemDark = true;
     localStorage.setItem(THEME_STORAGE_KEY, "system");
+    // Phase 2: a dark-capable scheme is always active (Harbor default).
+    document.documentElement.setAttribute("data-scheme-dark", "1");
     render(<ThemeProvider><Probe /></ThemeProvider>);
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     // Simulate the OS switching to light.

@@ -8,7 +8,6 @@ import { type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN } from "../se
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
-import { useCiStyle } from "../use-style";
 import { useColorSchemes } from "../use-color-schemes";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { ColorSchemeEditor } from "../color-scheme-editor";
@@ -26,20 +25,24 @@ interface AppearanceSectionProps {
 
 export function AppearanceSection({ lang, settings, onChange }: AppearanceSectionProps) {
   const { theme, setTheme } = useTheme();
-  const { style, setStyle } = useCiStyle();
   const { store, activeSupportsDark, refresh, selectScheme } = useColorSchemes();
-  const isMockup = style === "mockup";
-  const isCustom = style === "custom";
-  // A dark-capable active scheme honours the theme; mockup + a light-only custom
-  // scheme pin light (mirrors effectiveDark).
-  const pinsLight = isMockup || (isCustom && !activeSupportsDark);
-  const builtinSchemes = store.schemes.filter((s) => s.builtIn);
+  // Phase 2: the style axis is the constant "custom" — the ACTIVE SCHEME drives
+  // the look. A dark-capable active scheme honours the theme; mockup + a
+  // light-only user scheme pin light (mirrors effectiveDark → !supportsDark).
+  const pinsLight = !activeSupportsDark;
+  const isMockupActive = store.activeId === "mockup";
+  // AIPM + Mockup are now built-in schemes rendered under friendly labels below,
+  // so exclude them from the generic built-in loop (which would duplicate them).
+  const builtinSchemes = store.schemes.filter((s) => s.builtIn && s.id !== "AIPM" && s.id !== "mockup");
   const userSchemes = store.schemes.filter((s) => !s.builtIn);
-  const schemeValue = isMockup ? "mockup" : style === "AIPM" ? "AIPM" : store.activeId ?? "harbor";
-  function onSelectScheme(v: string) {
-    if (v === "AIPM" || v === "mockup") setStyle(v);
-    else selectScheme(v);
-  }
+  const schemeValue = store.activeId ?? "harbor";
+  // Gate the global app-name/footer inputs on scheme IDENTITY, matching the editor
+  // EXACTLY (which shows its own branding inputs when !isBuiltin). Built-ins are
+  // read-only in the editor, so the global inputs cover them; a USER scheme owns
+  // its branding via the editor, so the global inputs hide → exactly ONE app-name
+  // field in every state. (A content check diverged for a fresh unbranded user
+  // scheme → duplicate inputs AND an empty-branding save wiped settings.branding.)
+  const activeIsBuiltin = !!store.schemes.find((s) => s.id === store.activeId)?.builtIn;
 
   const branding = settings.branding;
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -98,7 +101,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         <select
           id="appearance-scheme"
           value={schemeValue}
-          onChange={(e) => onSelectScheme(e.target.value)}
+          onChange={(e) => selectScheme(e.target.value)}
           className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
         >
           {builtinSchemes.map((s) => (
@@ -116,18 +119,16 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         </select>
       </div>
 
-      {isCustom && (
-        <div className="mb-4">
-          <ColorSchemeEditor
-            key={store.activeId ?? "none"}
-            lang={lang}
-            onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
-            onApplyBranding={(b) => setBranding(mergeAppliedBranding(branding, b))}
-            onSchemeChange={() => { refresh(); window.dispatchEvent(new Event("lop-scheme-change")); }}
-            onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
-          />
-        </div>
-      )}
+      <div className="mb-4">
+        <ColorSchemeEditor
+          key={store.activeId ?? "none"}
+          lang={lang}
+          onApply={(resolved) => { writeActiveSchemeColors(resolved); applySchemeColors(resolved); }}
+          onApplyBranding={(b) => setBranding(mergeAppliedBranding(branding, b))}
+          onSchemeChange={() => { refresh(); window.dispatchEvent(new Event("lop-scheme-change")); }}
+          onClear={() => { writeActiveSchemeColors(null); applySchemeColors(null); }}
+        />
+      </div>
 
       <div className="mb-4">
         <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
@@ -148,7 +149,7 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         />
         {pinsLight && (
           <p className="mt-1 text-xs text-muted-foreground">
-            {t(lang, isMockup ? "styleMockupLightOnly" : "styleCustomLightOnly")}
+            {t(lang, isMockupActive ? "styleMockupLightOnly" : "styleCustomLightOnly")}
           </p>
         )}
       </div>
@@ -279,10 +280,11 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
           {faviconError && <p className="mt-1 text-xs text-AIPM-pink-strong">{faviconError}</p>}
         </div>
 
-        {/* App name + footer slogan: edited HERE in AIPM/Mockup, but OWNED by the
-            active scheme under Custom (the scheme editor edits them, apply replaces
-            via mergeAppliedBranding) — so hide these to avoid a dual editor. */}
-        {!isCustom && (
+        {/* App name + footer slogan: edited HERE only while a BUILT-IN scheme is
+            active (built-ins ship empty branding, read-only in the editor). A USER
+            scheme OWNS these (its editor edits them; apply replaces via
+            mergeAppliedBranding) — hidden then to avoid a dual editor. */}
+        {activeIsBuiltin && (
           <>
             {/* App name (sidebar subtitle under the logo) */}
             <div className="mb-3">

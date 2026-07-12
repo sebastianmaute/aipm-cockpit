@@ -1,5 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, deriveAaVariants, resolveSchemeColors } from "./scheme-tokens";
+import { describe, it, test, expect } from "vitest";
+import {
+  CORE_TOKENS,
+  ADVANCED_TOKENS,
+  ICC_SEED,
+  ICC_STRUCTURAL,
+  MOCKUP_STRUCTURAL,
+  deriveAaVariants,
+  resolveSchemeColors,
+} from "./scheme-tokens";
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
@@ -35,6 +43,18 @@ describe("scheme-tokens", () => {
     const resolved = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface": "#ffffff" });
     expect(resolved["--AIPM-green"]).toBe("#84bd00");
     expect(resolved["--AIPM-green-strong"]).toBeDefined();
+  });
+
+  it("resolveSchemeColors: an explicit base derived token wins over derivation", () => {
+    // LIGHT surface-muted: #84bd00 fails AA vs white, so derivation WOULD darken
+    // it. Pinning the raw base proves base-wins (else derived darkens it).
+    const out = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface-muted": "#ffffff", "--AIPM-green-strong": "#84bd00" });
+    expect(out["--AIPM-green-strong"]).toBe("#84bd00"); // pinned, NOT re-derived/darkened
+  });
+
+  it("resolveSchemeColors: missing derived tokens are still filled", () => {
+    const out = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface-muted": "#e3e6e6" });
+    expect(out["--AIPM-green-strong"]).toBeDefined();
   });
 
   it("LIGHT map: derived text variants clear AA vs the light surface AND are darker than the base", () => {
@@ -83,5 +103,12 @@ describe("scheme-tokens", () => {
     expect(lightDerived["--muted-foreground"]).toBe("#636362");
     const darkDerived = deriveAaVariants({ "--surface": "#16212e", "--foreground": "#e4edf4" });
     expect(darkDerived["--muted-foreground"]).toBe("#e4edf4");
+  });
+
+  test("structural seeds cover the 7 structural tokens", () => {
+    const keys = ["--shadow-card","--shadow-control","--shadow-card-hover","--gradient-kpi","--delta-chip-pad","--rag-green-chip","--rag-red-chip"];
+    for (const k of keys) { expect(ICC_STRUCTURAL[k]).toBeDefined(); expect(MOCKUP_STRUCTURAL[k]).toBeDefined(); }
+    expect(ICC_STRUCTURAL["--shadow-card"]).toBe("none");
+    expect(MOCKUP_STRUCTURAL["--gradient-kpi"]).toContain("linear-gradient");
   });
 });

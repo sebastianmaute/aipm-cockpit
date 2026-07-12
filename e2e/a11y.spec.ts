@@ -1,7 +1,18 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
-import { HARBOR_DARK, HARBOR_LIGHT } from "../src/app/builtin-schemes";
-import { resolveSchemeColors } from "../src/app/scheme-tokens";
+import {
+  ICC_LIGHT,
+  ICC_DARK,
+  MOCKUP_LIGHT,
+  HARBOR_DARK,
+  HARBOR_LIGHT,
+} from "../src/app/builtin-schemes";
+import {
+  ICC_STRUCTURAL,
+  MOCKUP_STRUCTURAL,
+  resolveSchemeColors,
+} from "../src/app/scheme-tokens";
+import type { SchemeColorMap, SchemeStructuralMap } from "../src/app/scheme-apply";
 
 // Accessibility gate: scan the critical views (with a DATA-SEEDED project, so
 // colour-coded RAG/status states actually render) for WCAG 2.0/2.1 A & AA
@@ -18,35 +29,61 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
   "Next actions": "#actions",
 };
 
-// Every shipped style/theme combo is scanned. Mockup is light-only; Harbor (the
-// default scheme, data-style="custom") is dark-capable so both themes run.
+// Phase 2: AIPM + Mockup are now built-in SCHEMES (ids "AIPM"/"mockup"); the style
+// axis collapses to the constant data-style="custom" and the active SCHEME drives
+// the look. Every shipped scheme/theme combo is scanned for the SAME visual
+// coverage as before: AIPM (light+dark), Mockup (light-only), Harbor (light+dark,
+// the fresh-install default). Represented as a scheme id + dark flag.
 const COMBOS = [
-  { style: "AIPM",    theme: "light" },
-  { style: "AIPM",    theme: "dark"  },
-  { style: "mockup", theme: "light" },
-  { style: "custom", theme: "light" },
-  { style: "custom", theme: "dark"  },
+  { scheme: "AIPM",    dark: false },
+  { scheme: "AIPM",    dark: true  },
+  { scheme: "mockup", dark: false },
+  { scheme: "harbor", dark: false },
+  { scheme: "harbor", dark: true  },
 ] as const;
 
-// Build the pre-navigation localStorage seed for a combo. A custom combo must
-// also seed the boot-readable dark-capable flag + the resolved Harbor map so the
-// no-flash boot script applies the right sub-map (mirrors what the app writes).
+// Per-scheme resolved maps (imported + resolved node-side, at seed time — mirrors
+// how the app persists them). Mockup is light-only (no dark map, supportsDark=0);
+// AIPM/Harbor are dark-capable. Structural: AIPM reproduces the flat look, Mockup
+// adds shadows/gradient, Harbor carries none ({}).
+const SCHEME_SEED: Record<
+  (typeof COMBOS)[number]["scheme"],
+  { light: SchemeColorMap; dark?: SchemeColorMap; structural: SchemeStructuralMap; supportsDark: boolean }
+> = {
+  AIPM:    { light: ICC_LIGHT,    dark: ICC_DARK,    structural: ICC_STRUCTURAL,    supportsDark: true },
+  mockup: { light: MOCKUP_LIGHT,                    structural: MOCKUP_STRUCTURAL, supportsDark: false },
+  harbor: { light: HARBOR_LIGHT, dark: HARBOR_DARK, structural: {},                supportsDark: true },
+};
+
+const comboLabel = (combo: (typeof COMBOS)[number]): string =>
+  `${combo.scheme}-${combo.dark ? "dark" : "light"}`;
+
+// Build the pre-navigation localStorage seed for a combo. Every combo is now a
+// scheme-driven "custom" style, so we seed the SAME keys the real boot script +
+// use-style read: the constant style, the theme, the boot-readable dark-capable
+// flag, the resolved color map, the structural map, AND the scheme store's
+// activeId — the latter is essential because post-mount use-style.syncScheme
+// re-resolves from lop-app:color-schemes and would otherwise snap back to the
+// Harbor default, repainting the AIPM/Mockup scans. Built-in schemes come from
+// reconcileBuiltins, so an empty schemes[] + the activeId selects them.
 function seedScript(combo: (typeof COMBOS)[number]): string {
-  const lines = [
-    `localStorage.setItem("lop-style", ${JSON.stringify(combo.style)});`,
-    `localStorage.setItem("lop-theme", ${JSON.stringify(combo.theme)});`,
-  ];
-  if (combo.style === "custom") {
-    const map = resolveSchemeColors(combo.theme === "dark" ? HARBOR_DARK : HARBOR_LIGHT);
-    lines.push(`localStorage.setItem("lop-scheme-supports-dark", "1");`);
-    lines.push(`localStorage.setItem("lop-active-scheme-colors", ${JSON.stringify(JSON.stringify(map))});`);
-  }
-  return lines.join("\n");
+  const spec = SCHEME_SEED[combo.scheme];
+  const useDark = combo.dark && spec.supportsDark;
+  const map = resolveSchemeColors(useDark && spec.dark ? spec.dark : spec.light);
+  const store = { schemes: [], activeId: combo.scheme };
+  return [
+    `localStorage.setItem("lop-style", "custom");`,
+    `localStorage.setItem("lop-theme", ${JSON.stringify(combo.dark ? "dark" : "light")});`,
+    `localStorage.setItem("lop-scheme-supports-dark", ${JSON.stringify(spec.supportsDark ? "1" : "0")});`,
+    `localStorage.setItem("lop-active-scheme-colors", ${JSON.stringify(JSON.stringify(map))});`,
+    `localStorage.setItem("lop-active-scheme-structural", ${JSON.stringify(JSON.stringify(spec.structural))});`,
+    `localStorage.setItem("lop-app:color-schemes", ${JSON.stringify(JSON.stringify(store))});`,
+  ].join("\n");
 }
 
 for (const combo of COMBOS) {
   for (const name of A11Y_VIEWS) {
-    test(`a11y: ${combo.style}/${combo.theme} — ${name}`, async ({ page }) => {
+    test(`a11y: ${comboLabel(combo)} — ${name}`, async ({ page }) => {
       // Seed localStorage BEFORE the app navigates so the no-flash boot script
       // in layout.tsx reads the right style/theme and sets data-style/.dark.
       // addInitScript runs before every navigation, so this fires on the
@@ -80,7 +117,7 @@ for (const combo of COMBOS) {
 // Kanban board is a MODE toggle inside Open Points (not a nav view), so it needs
 // its own scan: open Open Points, switch to Board, then analyze.
 for (const combo of COMBOS) {
-  test(`a11y: ${combo.style}/${combo.theme} — Open Points (Kanban board)`, async ({ page }) => {
+  test(`a11y: ${comboLabel(combo)} — Open Points (Kanban board)`, async ({ page }) => {
     await page.addInitScript(seedScript(combo));
 
     await gotoApp(page);

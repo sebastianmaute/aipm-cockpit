@@ -1,7 +1,8 @@
 // Editable-token registry for custom color schemes + AA-variant derivation.
-// Pure (no DOM). Hex values mirror globals.css :root (AIPM) and
-// :root[data-style="mockup"] (Mockup).
-import type { SchemeColorMap } from "./scheme-apply";
+// Pure (no DOM). The AIPM hex values mirror globals.css :root; the Mockup values
+// are the code-owned seed for the built-in Mockup scheme (the old
+// :root[data-style="mockup"] CSS block was removed — Mockup is now a scheme).
+import type { SchemeColorMap, SchemeStructuralMap } from "./scheme-apply";
 
 export interface TokenSpec {
   token: string;
@@ -59,8 +60,8 @@ export const ICC_SEED: SchemeColorMap = {
   "--segment-active-fg": "#ffffff",
 };
 
-// Mockup overrides over the AIPM base (from :root[data-style="mockup"]). Tokens
-// the mockup block does not override keep their AIPM value.
+// Mockup overrides over the AIPM base — the code-owned seed for the built-in
+// Mockup scheme. Tokens it does not override keep their AIPM value.
 export const MOCKUP_SEED: SchemeColorMap = {
   ...ICC_SEED,
   "--rag-red": "#d64545",
@@ -72,6 +73,22 @@ export const MOCKUP_SEED: SchemeColorMap = {
   "--segment-track-bg": "#eef1f3",
   "--segment-active-bg": "#ffffff",
   "--segment-active-fg": "#3d7a00",
+};
+
+// Structural (non-color) tokens: shadows, the KPI gradient, delta-chip padding,
+// and the opaque RAG chip fills. AIPM reproduces the flat look (no shadow/gradient);
+// Mockup adds depth + the red→amber→green gauge gradient.
+export const ICC_STRUCTURAL: SchemeStructuralMap = {
+  "--shadow-card": "none", "--shadow-control": "none", "--shadow-card-hover": "none",
+  "--gradient-kpi": "var(--AIPM-green)", "--delta-chip-pad": "0",
+  "--rag-green-chip": "transparent", "--rag-red-chip": "transparent",
+};
+export const MOCKUP_STRUCTURAL: SchemeStructuralMap = {
+  "--shadow-card": "0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08)",
+  "--shadow-control": "0 1px 2px rgba(0, 65, 89, 0.10)",
+  "--shadow-card-hover": "0 4px 10px rgba(0, 65, 89, 0.14), 0 2px 4px rgba(0, 65, 89, 0.10)",
+  "--gradient-kpi": "linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green))",
+  "--delta-chip-pad": "0.125rem 0.375rem", "--rag-green-chip": "#e6f2d8", "--rag-red-chip": "#fae9e9",
 };
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -128,5 +145,7 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
 }
 
 export function resolveSchemeColors(colors: SchemeColorMap): SchemeColorMap {
-  return { ...colors, ...deriveAaVariants(colors) };
+  // base-wins: derivation FILLS the AA variants a scheme omits; an explicitly
+  // pinned -strong/-text/muted-foreground (built-in AIPM/Mockup) is preserved.
+  return { ...deriveAaVariants(colors), ...colors };
 }

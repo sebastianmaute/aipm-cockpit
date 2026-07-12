@@ -3,6 +3,7 @@ import {
   ACTIVE_SCHEME_COLORS_KEY,
   SCHEME_SUPPORTS_DARK_KEY,
   applySchemeColors,
+  isSafeRawCssValue,
   readActiveSchemeColors,
   readSchemeSupportsDark,
   writeActiveSchemeColors,
@@ -65,5 +66,34 @@ describe("scheme-apply", () => {
     applySchemeColors({ "--AIPM-green": "#333333" });
     expect(document.documentElement.style.getPropertyValue("--AIPM-green")).toBe("#333333");
     expect(document.documentElement.style.getPropertyValue("--line")).toBe("");
+  });
+
+  it("isSafeRawCssValue accepts shadows/gradients/lengths/keywords", () => {
+    for (const v of [
+      "none",
+      "transparent",
+      "0",
+      "0.125rem 0.375rem",
+      "var(--AIPM-green)",
+      "linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green))",
+      "0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08)",
+      "#e6f2d8",
+    ])
+      expect(isSafeRawCssValue(v)).toBe(true);
+  });
+
+  it("isSafeRawCssValue rejects injection vectors", () => {
+    for (const v of ["url(evil)", "red; }", "a{b}", "expression(alert(1))", "x@import", "<script>"])
+      expect(isSafeRawCssValue(v)).toBe(false);
+  });
+
+  it("isSafeRawCssValue rejects an over-length value (>256 chars)", () => {
+    expect(isSafeRawCssValue("a".repeat(300))).toBe(false);
+    // Exactly at the cap is still allowed.
+    expect(isSafeRawCssValue("a".repeat(256))).toBe(true);
+  });
+
+  it("isSafeRawCssValue rejects url with whitespace before the paren (denylist parity)", () => {
+    for (const v of ["url ( x )", "url  (evil)", "URL\t(evil)"]) expect(isSafeRawCssValue(v)).toBe(false);
   });
 });
