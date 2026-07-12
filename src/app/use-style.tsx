@@ -67,14 +67,17 @@ export function CiStyleProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === "undefined") return "custom";
     // Phase 2: AIPM + Mockup are now built-in SCHEMES (ids "AIPM"/"mockup"), and the
     // style axis collapses to the constant "custom". Migrate a legacy device style
-    // ONCE — activate the matching built-in scheme (so it survives reload) and
-    // rewrite the style key to "custom". Idempotent: an already-"custom"/absent
-    // style is left alone, and a "custom" user keeps their existing activeId. This
-    // runs in the lazy initializer (before the first syncScheme) so the migrated
-    // scheme paints immediately, without a set-state-in-effect.
+    // ONCE — activate the matching built-in scheme (so it survives reload) — and
+    // for ANY non-"custom" value (legacy OR absent/fresh) persist lop-style="custom".
+    // A fresh user MUST get lop-style written so the boot script and the dead
+    // selectScheme fallback stay consistent; a legacy user also activates the scheme
+    // first. Idempotent: an already-"custom" user keeps their existing activeId and
+    // the write is a harmless no-op. This runs in the lazy initializer (before the
+    // first syncScheme) so the migrated scheme paints immediately, without a
+    // set-state-in-effect.
     const stored = localStorage.getItem(STYLE_STORAGE_KEY);
-    if (stored === "AIPM" || stored === "mockup") {
-      setActive(stored);
+    if (stored === "AIPM" || stored === "mockup") setActive(stored);
+    if (stored !== "custom") {
       try {
         localStorage.setItem(STYLE_STORAGE_KEY, "custom");
       } catch {

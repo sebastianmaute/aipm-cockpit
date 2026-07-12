@@ -88,6 +88,16 @@ describe("scheme-apply", () => {
       expect(isSafeRawCssValue(v)).toBe(false);
   });
 
+  it("isSafeRawCssValue rejects an over-length value (>256 chars)", () => {
+    expect(isSafeRawCssValue("a".repeat(300))).toBe(false);
+    // Exactly at the cap is still allowed.
+    expect(isSafeRawCssValue("a".repeat(256))).toBe(true);
+  });
+
+  it("isSafeRawCssValue rejects url with whitespace before the paren (denylist parity)", () => {
+    for (const v of ["url ( x )", "url  (evil)", "URL\t(evil)"]) expect(isSafeRawCssValue(v)).toBe(false);
+  });
+
   it("readActiveSchemeStructural drops unsafe values", () => {
     localStorage.setItem(
       "lop-active-scheme-structural",

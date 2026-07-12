@@ -131,6 +131,34 @@ describe("no-flash boot script — runtime behaviour", () => {
     expect(root().style.getPropertyValue("--surface")).toBe("#123456");
   });
 
+  it("fresh user (lop-style ABSENT) with a mirrored non-Harbor color map paints THAT map, not Harbor", () => {
+    // A fresh Meridian user never had lop-style written by the legacy migration;
+    // the boot script must still read lop-active-scheme-colors, not hardcode Harbor.
+    // Meridian is a dark-capable built-in, so its apply mirrors supports-dark="1".
+    localStorage.setItem("lop-scheme-supports-dark", "1");
+    localStorage.setItem("lop-active-scheme-colors", JSON.stringify({ "--AIPM-dark-blue": "#3730a3" }));
+    runBoot();
+    expect(root().getAttribute("data-style")).toBe("custom");
+    expect(root().getAttribute("data-scheme-dark")).toBe("1"); // mirrored dark-capable flag honoured
+    expect(root().style.getPropertyValue("--AIPM-dark-blue")).toBe("#3730a3");
+    // NOT Harbor's dark-blue.
+    expect(root().style.getPropertyValue("--AIPM-dark-blue")).not.toBe("#153a5c");
+  });
+
+  it("skips an over-length structural value in the boot key (length guard)", () => {
+    localStorage.setItem("lop-style", "custom");
+    localStorage.setItem("lop-scheme-supports-dark", "1");
+    localStorage.setItem("lop-active-scheme-colors", JSON.stringify({ "--surface": "#123456" }));
+    localStorage.setItem(
+      "lop-active-scheme-structural",
+      JSON.stringify({ "--long-token": "a".repeat(300), "--shadow-card": "0 1px 2px rgba(0,0,0,0.1)" }),
+    );
+    runBoot();
+    expect(root().style.getPropertyValue("--long-token")).toBe("");
+    // A safe (short) structural value still applies.
+    expect(root().style.getPropertyValue("--shadow-card")).toContain("rgba");
+  });
+
   it("dark-capable custom honours dark theme and applies the mirrored (dark) map", () => {
     localStorage.setItem("lop-style", "custom");
     localStorage.setItem("lop-theme", "dark");

@@ -41,12 +41,13 @@ export const ACTIVE_SCHEME_STRUCTURAL_KEY = "lop-active-scheme-structural";
 // selector — so this is defense-in-depth + boot-key tamper hygiene. Allowlist
 // charset then denylist dangerous substrings.
 const RAW_VALUE_RE = /^[\w\s#.,%()/-]+$/;
-const RAW_DENY = ["url(", "expression", "image-set", ";", "{", "}", "@", "<", ">", "\\"];
+// Denylist dangerous substrings. `url` may be followed by whitespace before the
+// paren (`url (…)`) — match that too, not just the contiguous `url(`.
+const RAW_DENY_RE = /url\s*\(|expression|image-set|[;{}@<>\\]/i;
 export function isSafeRawCssValue(v: string): boolean {
   if (typeof v !== "string" || v.length === 0 || v.length > 256) return false;
   if (!RAW_VALUE_RE.test(v)) return false;
-  const low = v.toLowerCase();
-  return !RAW_DENY.some((d) => low.includes(d));
+  return !RAW_DENY_RE.test(v);
 }
 
 let lastStructural: string[] = [];
