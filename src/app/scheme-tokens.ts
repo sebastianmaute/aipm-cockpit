@@ -111,7 +111,11 @@ function nudgeToAa(base: string, bg: string): string {
 }
 
 export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
-  const surface = colors["--surface"] ?? ICC_SEED["--surface"];
+  // Derive the -text/-strong variants against --surface-muted when present: it
+  // is the "card" background (bg-surface-muted, e.g. Kanban cards) and is always
+  // the HARDER of the two (darker than --surface in light schemes, lighter in
+  // dark ones), so clearing AA there guarantees AA on the plain --surface too.
+  const surface = colors["--surface-muted"] ?? colors["--surface"] ?? ICC_SEED["--surface"];
   const out: SchemeColorMap = {};
   if (colors["--AIPM-green"]) out["--AIPM-green-strong"] = nudgeToAa(colors["--AIPM-green"], surface);
   if (colors["--AIPM-pink"]) out["--AIPM-pink-strong"] = nudgeToAa(colors["--AIPM-pink"], surface);

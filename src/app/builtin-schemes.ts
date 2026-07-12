@@ -7,54 +7,54 @@ import type { SchemeColorMap } from "./scheme-apply";
 
 // ── Harbor ───────────────────────────────────────────────────────────────
 export const HARBOR_LIGHT: SchemeColorMap = {
-  "--AIPM-dark-blue": "#153a5c", "--AIPM-green": "#0e8f86", "--background": "#f6f8fa", "--surface": "#ffffff",
+  "--AIPM-dark-blue": "#153a5c", "--AIPM-green": "#2bc4b6", "--background": "#f6f8fa", "--surface": "#ffffff",
   "--foreground": "#15212e", "--rag-red": "#d24a4a", "--rag-amber": "#cf8a1c", "--rag-green": "#2f9d70",
   "--AIPM-pink": "#c24a76", "--AIPM-purple": "#5f57a8", "--AIPM-blue": "#2f6f9e", "--AIPM-medium-grey": "#7d8a97",
   "--AIPM-light-grey": "#c9d3dc", "--surface-muted": "#eef2f6", "--line": "#dbe2ea", "--table-head-bg": "#153a5c",
-  "--table-head-fg": "#ffffff", "--table-head-accent": "#0e8f86", "--segment-track-bg": "#eef2f6",
+  "--table-head-fg": "#ffffff", "--table-head-accent": "#2bc4b6", "--segment-track-bg": "#eef2f6",
   "--segment-active-bg": "#153a5c", "--segment-active-fg": "#ffffff",
 };
 export const HARBOR_DARK: SchemeColorMap = {
-  "--AIPM-dark-blue": "#2b6493", "--AIPM-green": "#22b3a7", "--background": "#0e1620", "--surface": "#16212e",
+  "--AIPM-dark-blue": "#14293d", "--AIPM-green": "#2bc4b6", "--background": "#0e1620", "--surface": "#16212e",
   "--foreground": "#e4edf4", "--rag-red": "#ef7676", "--rag-amber": "#e8b25a", "--rag-green": "#4bc394",
-  "--AIPM-pink": "#e88bb0", "--AIPM-purple": "#a596d8", "--AIPM-blue": "#5aa6d8", "--AIPM-medium-grey": "#8493a1",
-  "--AIPM-light-grey": "#3a4a58", "--surface-muted": "#1b2836", "--line": "#273746", "--table-head-bg": "#1c3550",
+  "--AIPM-pink": "#e88bb0", "--AIPM-purple": "#7a68bd", "--AIPM-blue": "#5aa6d8", "--AIPM-medium-grey": "#8493a1",
+  "--AIPM-light-grey": "#aebccb", "--surface-muted": "#1b2836", "--line": "#273746", "--table-head-bg": "#1c3550",
   "--table-head-fg": "#dce8f2", "--table-head-accent": "#5fd0c6", "--segment-track-bg": "#1b2836",
   "--segment-active-bg": "#2b6493", "--segment-active-fg": "#f2f8fc",
 };
 
 // ── Meridian ─────────────────────────────────────────────────────────────
 export const MERIDIAN_LIGHT: SchemeColorMap = {
-  "--AIPM-dark-blue": "#3730a3", "--AIPM-green": "#0f9d6b", "--background": "#f7f8fc", "--surface": "#ffffff",
+  "--AIPM-dark-blue": "#3730a3", "--AIPM-green": "#26d197", "--background": "#f7f8fc", "--surface": "#ffffff",
   "--foreground": "#191a2b", "--rag-red": "#d83a3a", "--rag-amber": "#d18309", "--rag-green": "#16a34a",
   "--AIPM-pink": "#c93a86", "--AIPM-purple": "#7c3aed", "--AIPM-blue": "#4f6bd8", "--AIPM-medium-grey": "#7d8098",
   "--AIPM-light-grey": "#cbcede", "--surface-muted": "#eef0f8", "--line": "#e0e2f0", "--table-head-bg": "#3730a3",
-  "--table-head-fg": "#ffffff", "--table-head-accent": "#0f9d6b", "--segment-track-bg": "#eef0f8",
+  "--table-head-fg": "#ffffff", "--table-head-accent": "#26d197", "--segment-track-bg": "#eef0f8",
   "--segment-active-bg": "#3730a3", "--segment-active-fg": "#ffffff",
 };
 export const MERIDIAN_DARK: SchemeColorMap = {
-  "--AIPM-dark-blue": "#6366f1", "--AIPM-green": "#10b981", "--background": "#111120", "--surface": "#1a1a2c",
+  "--AIPM-dark-blue": "#241f5e", "--AIPM-green": "#10b981", "--background": "#111120", "--surface": "#1a1a2c",
   "--foreground": "#e8e8f5", "--rag-red": "#f27171", "--rag-amber": "#f0b64f", "--rag-green": "#37c46f",
-  "--AIPM-pink": "#e87ab8", "--AIPM-purple": "#a78bfa", "--AIPM-blue": "#818cf8", "--AIPM-medium-grey": "#82849e",
-  "--AIPM-light-grey": "#43435a", "--surface-muted": "#23233a", "--line": "#31314a", "--table-head-bg": "#2c2b6e",
+  "--AIPM-pink": "#e87ab8", "--AIPM-purple": "#7d5fd6", "--AIPM-blue": "#818cf8", "--AIPM-medium-grey": "#82849e",
+  "--AIPM-light-grey": "#b4b8da", "--surface-muted": "#23233a", "--line": "#31314a", "--table-head-bg": "#2c2b6e",
   "--table-head-fg": "#e2e2f5", "--table-head-accent": "#a5b4fc", "--segment-track-bg": "#23233a",
   "--segment-active-bg": "#6366f1", "--segment-active-fg": "#f5f5ff",
 };
 
 // ── Umber ────────────────────────────────────────────────────────────────
 export const UMBER_LIGHT: SchemeColorMap = {
-  "--AIPM-dark-blue": "#3b332a", "--AIPM-green": "#b5771a", "--background": "#faf8f4", "--surface": "#ffffff",
+  "--AIPM-dark-blue": "#3b332a", "--AIPM-green": "#d19b3c", "--background": "#faf8f4", "--surface": "#ffffff",
   "--foreground": "#2a241d", "--rag-red": "#bd4a30", "--rag-amber": "#c88f17", "--rag-green": "#6c8a35",
   "--AIPM-pink": "#b34a5a", "--AIPM-purple": "#7a5a8a", "--AIPM-blue": "#4a6a8a", "--AIPM-medium-grey": "#9a8f7e",
   "--AIPM-light-grey": "#d8cfc0", "--surface-muted": "#f1ece3", "--line": "#e6ded2", "--table-head-bg": "#3b332a",
-  "--table-head-fg": "#f2ebe0", "--table-head-accent": "#b5771a", "--segment-track-bg": "#f1ece3",
+  "--table-head-fg": "#f2ebe0", "--table-head-accent": "#d19b3c", "--segment-track-bg": "#f1ece3",
   "--segment-active-bg": "#3b332a", "--segment-active-fg": "#f2ebe0",
 };
 export const UMBER_DARK: SchemeColorMap = {
-  "--AIPM-dark-blue": "#6a5a45", "--AIPM-green": "#d99b3a", "--background": "#181410", "--surface": "#221d16",
+  "--AIPM-dark-blue": "#3a3122", "--AIPM-green": "#e6b45c", "--background": "#181410", "--surface": "#221d16",
   "--foreground": "#efe7db", "--rag-red": "#e07a5f", "--rag-amber": "#e0b34a", "--rag-green": "#9cb85e",
-  "--AIPM-pink": "#d98a9a", "--AIPM-purple": "#b394c8", "--AIPM-blue": "#7a9ab8", "--AIPM-medium-grey": "#8a7f6e",
-  "--AIPM-light-grey": "#4a4030", "--surface-muted": "#2c261e", "--line": "#382f25", "--table-head-bg": "#33291e",
+  "--AIPM-pink": "#d98a9a", "--AIPM-purple": "#84619e", "--AIPM-blue": "#7a9ab8", "--AIPM-medium-grey": "#8a7f6e",
+  "--AIPM-light-grey": "#d5cab6", "--surface-muted": "#2c261e", "--line": "#382f25", "--table-head-bg": "#33291e",
   "--table-head-fg": "#efe4d3", "--table-head-accent": "#e0a94a", "--segment-track-bg": "#2c261e",
   "--segment-active-bg": "#6a5a45", "--segment-active-fg": "#f6efe4",
 };

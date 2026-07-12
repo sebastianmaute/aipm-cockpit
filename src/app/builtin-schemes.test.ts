@@ -105,7 +105,7 @@ describe("reconcileBuiltins", () => {
     const out = reconcileBuiltins({ schemes: [], activeId: null });
     const harbor = out.schemes.find((s) => s.id === "harbor")!;
     harbor.light["--AIPM-green"] = "#deadbe";
-    expect(HARBOR_LIGHT["--AIPM-green"]).toBe("#0e8f86");
+    expect(HARBOR_LIGHT["--AIPM-green"]).toBe("#2bc4b6");
   });
 });
 
