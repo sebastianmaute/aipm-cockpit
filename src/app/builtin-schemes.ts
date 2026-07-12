@@ -28,6 +28,9 @@ export const ICC_DARK: SchemeColorMap = {
 // ── Mockup ("Dashboard") — light-only, with structural shadows + gradient ──
 export const MOCKUP_LIGHT: SchemeColorMap = {
   ...MOCKUP_SEED,
+  // Mockup does NOT override the -strong pins in globals.css — they cascade
+  // from :root (AIPM). Pin them so base-wins doesn't re-derive wrong values.
+  "--AIPM-green-strong": "#4d7000", "--AIPM-pink-strong": "#c41e5a", "--AIPM-purple-strong": "#7a2d72",
   "--rag-red-text": "#c0392b", "--rag-amber-text": "#a96a00", "--rag-green-text": "#3d7a00",
 };
 

@@ -163,6 +163,13 @@ describe("AIPM + Mockup built-ins", () => {
     expect(c["--muted-foreground"]).toBe("#9ca3a9");
     expect(c["--AIPM-pink-strong"]).toBe("#e96089");
   });
+  test("Mockup light pins the shipped -strong values (not re-derived)", () => {
+    const store = reconcileBuiltins({ schemes: [], activeId: "mockup" });
+    const c = resolveSchemeColors(resolveActiveScheme(store, false));
+    expect(c["--AIPM-green-strong"]).toBe("#4d7000");
+    expect(c["--AIPM-pink-strong"]).toBe("#c41e5a");
+    expect(c["--AIPM-purple-strong"]).toBe("#7a2d72");
+  });
   test("Mockup is light-only with structural shadows + gradient", () => {
     const m = BUILTIN_SCHEMES.find((s) => s.id === "mockup")!;
     expect(m.supportsDark).toBe(false);
