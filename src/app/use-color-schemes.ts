@@ -31,7 +31,7 @@ export function useColorSchemes({ config }: UseColorSchemesArgs): UseColorScheme
   // DB refresh: when Turso is configured, pull the cross-device user library,
   // mirror it into the sync cache (preserving activeId), and re-render. Migration
   // (local→DB when DB empty) is handled inside loadSchemesAsync.
-  const dbKey = config ? `${config.databaseUrl}` : null;
+  const dbKey = config ? config.httpUrl : null;
   useEffect(() => {
     if (!config) return;
     let cancelled = false;

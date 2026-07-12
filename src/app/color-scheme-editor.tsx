@@ -19,8 +19,9 @@ import type { TursoConfig } from "./turso-config";
 interface ColorSchemeEditorProps {
   lang: Lang;
   /** Turso config → persist the user library to the cross-device DB (else the
-   *  localStorage cache only). */
-  config: TursoConfig | null;
+   *  localStorage cache only). Optional (defaults null) so pre-existing render
+   *  sites / tests keep the cache-only behavior. */
+  config?: TursoConfig | null;
   /** Live-preview the edited colors (transient; persisted schemes go through the
    *  store + onSchemeChange). */
   onApply: (resolved: SchemeColorMap) => void;
@@ -36,7 +37,7 @@ interface ColorSchemeEditorProps {
 // scheme's `light` map. Built-in schemes are read-only here (Save as new to
 // customise). The parent (Appearance) owns SELECTION; this component is keyed on
 // the active id so it re-seeds when the selection changes.
-export function ColorSchemeEditor({ lang, config, onApply, onApplyBranding, onSchemeChange, onClear }: ColorSchemeEditorProps) {
+export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBranding, onSchemeChange, onClear }: ColorSchemeEditorProps) {
   const [store, setStore] = useState<SchemeStore>(() => reconcileBuiltins(loadSchemes()));
   const active = store.schemes.find((s) => s.id === store.activeId) ?? null;
   const isBuiltin = !!active?.builtIn;
@@ -52,7 +53,7 @@ export function ColorSchemeEditor({ lang, config, onApply, onApplyBranding, onSc
 
   // DB refresh on mount: when Turso is configured, pull the cross-device user
   // library so the editor lists what other devices saved.
-  const cfgKey = config ? config.databaseUrl : null;
+  const cfgKey = config ? config.httpUrl : null;
   useEffect(() => {
     if (!config) return;
     let cancelled = false;
