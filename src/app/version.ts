@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.181.0";
-export const APP_BUILD_DATE = "2026-07-11"; // 0.181.0: per-steering-committee-meeting AI status reports — draft a report with Claude (project status snapshot woven with the meeting agenda), edit it in a rich-text editor, email it to committee members, and (on Turso) keep a version history with restore (Anderson)
+export const APP_VERSION = "0.181.1";
+export const APP_BUILD_DATE = "2026-07-12"; // 0.181.1: steering-committee report version DIFF — a Compare button on each report version shows a line-by-line diff of the current draft vs that version's snapshot (Turso-only) (Anderson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.181.x line is "Anderson" (Poul Anderson). */
 export const APP_MILESTONE = "Anderson";
