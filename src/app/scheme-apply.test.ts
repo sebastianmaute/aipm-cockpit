@@ -3,7 +3,9 @@ import {
   ACTIVE_SCHEME_COLORS_KEY,
   SCHEME_SUPPORTS_DARK_KEY,
   applySchemeColors,
+  isSafeRawCssValue,
   readActiveSchemeColors,
+  readActiveSchemeStructural,
   readSchemeSupportsDark,
   writeActiveSchemeColors,
   writeSchemeSupportsDark,
@@ -65,5 +67,32 @@ describe("scheme-apply", () => {
     applySchemeColors({ "--AIPM-green": "#333333" });
     expect(document.documentElement.style.getPropertyValue("--AIPM-green")).toBe("#333333");
     expect(document.documentElement.style.getPropertyValue("--line")).toBe("");
+  });
+
+  it("isSafeRawCssValue accepts shadows/gradients/lengths/keywords", () => {
+    for (const v of [
+      "none",
+      "transparent",
+      "0",
+      "0.125rem 0.375rem",
+      "var(--AIPM-green)",
+      "linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green))",
+      "0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08)",
+      "#e6f2d8",
+    ])
+      expect(isSafeRawCssValue(v)).toBe(true);
+  });
+
+  it("isSafeRawCssValue rejects injection vectors", () => {
+    for (const v of ["url(evil)", "red; }", "a{b}", "expression(alert(1))", "x@import", "<script>"])
+      expect(isSafeRawCssValue(v)).toBe(false);
+  });
+
+  it("readActiveSchemeStructural drops unsafe values", () => {
+    localStorage.setItem(
+      "lop-active-scheme-structural",
+      JSON.stringify({ "--shadow-card": "none", "--x": "url(bad)", notatoken: "none" }),
+    );
+    expect(readActiveSchemeStructural()).toEqual({ "--shadow-card": "none" });
   });
 });
