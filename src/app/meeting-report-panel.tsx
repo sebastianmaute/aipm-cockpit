@@ -4,7 +4,7 @@
 // and this renders inside a shared Modal (see steering-committee-panel). The rich
 // editor loads via next/dynamic (Tiptap is browser-only). Save/send/generate/
 // restore are all no-ops in popouts (read-only).
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { t, type Lang } from "./i18n";
 import type { MeetingReport } from "./types";
@@ -117,6 +117,16 @@ export function MeetingReportPanel({
   // Version-diff: compare the CURRENT draft against a selected version's snapshot.
   const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
   const compareVersion = versions?.find((v) => v.id === compareVersionId) ?? null;
+  // Hoist the member out of the dep array (exhaustive-deps bans obj.member) and
+  // memoize the diff so it doesn't recompute on every editor keystroke.
+  const compareHtml = compareVersion?.html;
+  const diffResult = useMemo(
+    () =>
+      compareHtml == null
+        ? null
+        : diffLines(htmlToPlainText(compareHtml).split("\n"), htmlToPlainText(draft).split("\n")),
+    [compareHtml, draft],
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -184,13 +194,10 @@ export function MeetingReportPanel({
               </li>
             ))}
           </ul>
-          {compareVersion && (
+          {compareVersion && diffResult && (
             <div className="border-t border-line px-3 py-2">
               <CommTemplateDiffView
-                lines={diffLines(
-                  htmlToPlainText(compareVersion.html).split("\n"),
-                  htmlToPlainText(draft).split("\n"),
-                )}
+                lines={diffResult}
                 addedLabel={t(lang, "reportDiffCurrent")}
                 removedLabel={t(lang, "reportDiffVersion")}
                 summary={`${t(lang, "reportDiff")} – ${compareVersion.capturedAt}`}
