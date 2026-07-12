@@ -43,7 +43,7 @@ export const MEETING_REPORT_VERSION_CAP = 25;
 /** Delete all but the newest `keep` snapshots for one meeting (by captured_at). */
 export function pruneVersionsStatements(projectId: string, meetingId: number, keep: number): SqlStmt[] {
   return [{
-    sql: `DELETE FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? AND id NOT IN (SELECT id FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? ORDER BY captured_at DESC LIMIT ?)`,
+    sql: `DELETE FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? AND id NOT IN (SELECT id FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? ORDER BY captured_at DESC, id DESC LIMIT ?)`,
     args: [txt(projectId), int(meetingId), txt(projectId), int(meetingId), int(keep)],
   }];
 }
