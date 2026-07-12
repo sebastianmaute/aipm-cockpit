@@ -144,20 +144,32 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   the load-effect migrate/hydrate/re-merge block, and a seal-on-edit call in the field's settings
   section (`saveSecretValue(id,…,"device")`). ★ `jira` lives at TOP-LEVEL `settings.jira` (NOT under
   `settings.integrations`); `email`/`siteUrl` stay plaintext (identifying, and `email` is needed for
-  the Basic-auth header). `writeSettings` is ONLY writer of `localStorage["lop-app:settings"]` and
+  the Basic-auth header). `writeSettings` is ONLY writer of `localStorage["aipm-cockpit:settings"]` and
   BLANKS those fields — settings persist EFFECT must call `writeSettings`, NEVER raw `setItem` (raw
   write dumps decrypted in-memory key/token to disk on every settings change — real CRITICAL
   we shipped and caught). M365 stores NO secret (clientId/tenantId are public; MSAL owns its token
   cache) — nothing to encrypt there. Secrets hydrated into memory on load (`hydrateSecretsInto`);
   passphrase-wrapped ones stay empty until unlock. Anything reading a secret uses live in-memory
   value; if IndexedDB/WebCrypto unavailable load path degrades to in-memory plaintext (never
-  crash). `lop-app:secrets` ciphertext stays OUT of exports, Turso, recovery `CONFIG_KEYS`.
+  crash). `aipm-cockpit:secrets` ciphertext stays OUT of exports, Turso, recovery `CONFIG_KEYS`.
 - **App config vs project data (reset/clear boundary):** `app-reset.ts` `clearAppConfig()` wipes
-  ALL `lop-app:*` localStorage (snapshot keys BEFORE the remove loop — index-shift) + deletes the
-  CONFIG IndexedDB DBs `lop-app-secrets` (device key) and `lop-app-project-handles` (FS-access
-  pointers). It must NEVER delete the WORKSPACE IndexedDB DB `lop-app` (project data) — reset is
+  ALL `aipm-cockpit:*` localStorage (snapshot keys BEFORE the remove loop — index-shift) + deletes the
+  CONFIG IndexedDB DBs `aipm-cockpit-secrets` (device key) and `aipm-cockpit-project-handles` (FS-access
+  pointers). It must NEVER delete the WORKSPACE IndexedDB DB `aipm-cockpit` (project data) — reset is
   detach-only ("no file/DB deletion"). Any new clear/reset path obeys the same split. IDB deletes
   are fire-and-forget (awaiting can hang on `onblocked` across tabs).
+- **Storage namespace = `aipm-cockpit`** (renamed from legacy `lop-app`; MR rename-aipm-cockpit).
+  `storage-migration.ts` runs a ONE-TIME idempotent migration: `migrateLocalStorage()` renames every
+  `lop-app:*` key + the 5 non-prefixed boot keys (`lop-style`/`-theme`/`-active-scheme-colors`/
+  `-active-scheme-structural`/`-scheme-supports-dark`) → `aipm-cockpit*`; `migrateIndexedDb()`
+  copy-migrates the 3 IDB DBs (workspace `aipm-cockpit`, device-key `aipm-cockpit-secrets`, FS-handles
+  `aipm-cockpit-project-handles`) by CONTENT (never `indexedDB.databases()` — Firefox lacks it),
+  read-back-verifying before deleting the old, and NEVER clobbering a non-empty new DB. `ensureStorageMigrated()`
+  (memoized) is awaited at all 3 IDB-open entry points (`idb.ts`/`secrets.ts`/`project-file-handles.ts`)
+  BEFORE opening, and the boot IIFE (`boot-theme-script.ts`) duplicates the localStorage rename pre-paint
+  (it can't import the TS module). A `aipm-cockpit:idb-migrated` flag makes post-migration boots zero-work.
+  ★ storage-migration.ts / its test / boot-theme-script.ts / layout-boot-script.test.ts intentionally hold
+  BOTH legacy + new literals — do NOT "clean up" the `lop-app`/`lop-*` strings there.
 
 ## Architecture pointers
 
@@ -370,7 +382,7 @@ order is column-major (top→bottom per column); cards are ordered priority-firs
 card placed directly after Progress and is itself a click-through button → navigates to the Trends view
 (`onNavigate("trends")`); the footer holds only the status-summary + recent-activity
 `<details>`. ★ Tip-of-the-day (`DashboardTipCard`, `dashboard-tip-card.tsx` + pure English-only `tips.ts`)
-is a dismissable headline card that rotates one tip per day; per-device `lop-app:tip-state` (next/dismiss),
+is a dismissable headline card that rotates one tip per day; per-device `aipm-cockpit:tip-state` (next/dismiss),
 popout read-only, day captured via lazy `useState` (purity — no `Date.now()` in render). The presentational slices:
 - `dashboard-sections/dashboard-hero.tsx` (`DashboardHero`) — now ONLY the compact Overall RAG band +
   Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
@@ -400,8 +412,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `timestamp > lastVisitAt` + a prior RAG snapshot → `DeltaResult`; `buildGreeting`); per-project
   localStorage store `landing-state.ts`; hook `use-landing-delta.ts`; presentational
   `dashboard-delta-strip.tsx`. ★★ `landing-state.ts` is a per-BROWSER, per-PROJECT store (single key
-  `lop-app:landing-state` → `{[projectId]: LandingState}` map, capped 50 most-recent) — NOT a Workspace
-  field (zero backend write paths), OUT of exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep.
+  `aipm-cockpit:landing-state` → `{[projectId]: LandingState}` map, capped 50 most-recent) — NOT a Workspace
+  field (zero backend write paths), OUT of exports/Turso, cleared by `clearAppConfig`'s `aipm-cockpit:*` sweep.
   Keyed off workspace-section's `currentProjectId ?? "default"`. ★★ `use-landing-delta` captures the delta
   ONCE at mount via a LAZY `useState(() => computeDelta(loadPrior, …))` (reads the PRIOR snapshot before
   advancing) and advances the stored snapshot in a DEBOUNCED (4s) `useEffect` that ONLY writes localStorage
@@ -466,7 +478,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   Presentational `trend-arrow.tsx` returns `null` when `improved===null || delta===null`; glyph + signed
   delta are `aria-hidden`, the WRAPPER carries the full `aria-label` (label-bleed class — never let the glyph
   become the accessible name). ★★ REUSES the per-project `landing-state` snapshot — `LandingState.metrics?:
-  MetricSnapshot` rides the SAME `lop-app:landing-state` map (zero new backend paths); guard accepts an
+  MetricSnapshot` rides the SAME `aipm-cockpit:landing-state` map (zero new backend paths); guard accepts an
   optional metrics object. `use-landing-delta` returns `{delta, trends}` — trends mount-captured in the SAME
   lazy `useState` (reads `prior.metrics` before advancing), `metrics` written in the SAME debounced 4s
   advance (popout read-only). ★ The KPI tile VALUE reads LIVE `model`
@@ -564,7 +576,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   Escape blurs). Pure `search-highlight.ts` `splitHighlight(text,query)` (indexOf-based, NOT a RegExp from
   input → no metachar/`/s`-flag traps) renders matched segments as `<mark class="bg-AIPM-green/20
   text-inherit">` in result title+subtitle, query-mode only. Pure `search-recents.ts` (per-device
-  `lop-app:search-recents`, `MAX_RECENTS=8`, validated load, pure `pushRecent` dedupe+cap) — recents shown
+  `aipm-cockpit:search-recents`, `MAX_RECENTS=8`, validated load, pure `pushRecent` dedupe+cap) — recents shown
   when the box is focused with an EMPTY query, FILTERED to items still present in the live workspace; OUT of
   exports/Turso, cleared by `clearAppConfig`. Unified `items` list (recents on empty, results otherwise)
   drives the combobox; "Recent" header is a non-option `<div>` outside the `<ul>`. ★ PERF: `buildSearchIndex(ws)`
@@ -663,7 +675,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   no enable toggle).
 - **Portfolio health (Turso-only cross-project rollup):** view `portfolio-health` (`portfolio-health-panel.tsx`,
   lazy). Uses the STANDARD resizable content-pane shell (`VIEW_PANE_RESIZABLE_CLASS` +
-  `useResizable("lop-app:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
+  `useResizable("aipm-cockpit:portfolio-health-size")` + `ResetSizeButton`; header OUTSIDE the bordered scroller,
   `print-root print-landscape`) — the empty/loading/error states stay full-fill (`VIEW_PANE_FILL_CLASS`).
   Pure `portfolio-rollup.ts` (`aggregatePortfolio`/`deriveMilestoneHealthBucket`) + hook
   `use-portfolio-health.ts`: for each portfolio project it does `new TursoBackend(cfg, projectId).load()` then
@@ -697,10 +709,10 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   click → `goToConcept` switches to Help + bumps a nonce; a nonce-keyed effect `scrollIntoView`s (no
   `set-state-in-effect` — `scrollTarget` never cleared). The catalog props (`catalogTours`/`completedTours`/
   `onStartTour`) thread `task-manager → WorkspaceSectionProps → workspace-section → HelpView`, REPLACING the dead
-  `onTakeTour`. In-pane view is resizable (`useResizable` key `lop-app:help-view-size`) + carries Print/Reset-size
+  `onTakeTour`. In-pane view is resizable (`useResizable` key `aipm-cockpit:help-view-size`) + carries Print/Reset-size
   buttons. ★★ FLOATING panel (`help-menu.tsx`) is CONTENT-PANE ONLY (`HelpContentPane` + its own search box; props
   `{lang}` only — NO tabs, NO tour catalog); the `helpIntro` slogan + footer "Take a tour" button are GONE (footer =
-  license link only). Floating `useResizable` key `lop-app:help-size-v3`.
+  license link only). Floating `useResizable` key `aipm-cockpit:help-size-v3`.
   `InformationFlowsSection` has an optional `maxWidth` (default 480 keeps Settings byte-identical; the in-pane flows
   tab passes 720). jsdom
   lacks `IntersectionObserver`/`scrollIntoView` → global no-op stubs in `vitest.setup.ts`. ★ Adding `help` to `AppView` forced FOUR edits (tsc/runtime): `CORE_VIEWS` (`feature-modules.ts`
@@ -710,8 +722,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   • **Contextual per-view callouts (Help SP2):** a slim dismissable banner atop each WORKING view — a novice
   one-liner + "Learn more →" deep-linking the matching Help concept. Pure `view-callouts.ts`
   (`VIEW_CALLOUTS: Partial<Record<AppView, {textKey, conceptId}>>`, ~14 views; `conceptId` in `HELP_ENTRIES`
-  concepts — guard test) + per-device dismiss store `view-hints-store.ts` (`lop-app:view-hints`, out of
-  exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep). Presentational `view-callout.tsx` is
+  concepts — guard test) + per-device dismiss store `view-hints-store.ts` (`aipm-cockpit:view-hints`, out of
+  exports/Turso, cleared by `clearAppConfig`'s `aipm-cockpit:*` sweep). Presentational `view-callout.tsx` is
   PROPS-only (`view`/`lang`/`showHints`/`isPopout`/`onLearnMore`) — NOT context-consuming, because the
   TasksSection/Kanban unit tests render outside `WorkspaceTabProvider` (a `useWorkspaceTab()` there THROWS).
   Self-hides when: no `VIEW_CALLOUTS[view]` / `!showHints` / `isPopout` / dismissed. Mounted in
@@ -755,7 +767,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `activeTourTitleKey`; `done()` appends the active id to `settings.completedTours` (functional
   `setSettings`), `skip()` sets `tourSeen` only. Per-device `settings.completedTours?: readonly
   string[]` rides the `writeSettings` spread (no allowlist edit, sanitized on load, capped 50), OUT of
-  exports/Turso, cleared by `clearAppConfig`'s `lop-app:*` sweep; `tourSeen` STILL gates first-run
+  exports/Turso, cleared by `clearAppConfig`'s `aipm-cockpit:*` sweep; `tourSeen` STILL gates first-run
   auto-launch separately. Presentational `tour-catalog.tsx` (props-only, no context — standalone
   unit-tested) renders a card grid as the "Guided tours" TAB of the Help-view accordion (was a `<details>`),
   gated on `onStartTour` presence (mirrors the `onTakeTour` gate) so standalone tests / classic / popout don't
@@ -793,7 +805,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `[data-cell]` so the assignee row-header keeps its own arrow keys; `default: return` before `preventDefault`
   so Tab still escapes). Calendar sub-tab is NOT axe-scanned (Resources default sub-tab = directory).
   • Steering committee panel uses the STANDARD resizable content-pane shell
-  (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("lop-app:steering-size")` + `ResetSizeButton`, header OUTSIDE
+  (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("aipm-cockpit:steering-size")` + `ResetSizeButton`, header OUTSIDE
   the bordered scroller).
   • Dashboard has NO on-panel density or Trends toggle (both removed + unwired). Density is set ONLY via
   Settings → Appearance (`settings.dashboardDensity`); the dashboard Trends card is Turso-gated
@@ -845,9 +857,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   AIPM/Mockup are read-only BUILT-IN SCHEMES (see the scheme bullet below); the CSS-role-token MECHANISM here
   still stands, only its source moved (scheme maps, not per-`data-style` CSS blocks). `data-style` (formerly
   `"AIPM"|"mockup"|"custom"`) on `<html>` is ORTHOGONAL to `.dark`; set by
-  `use-style.tsx` (`useCiStyle`, `lop-style` localStorage, NOT the settings blob) + the no-flash boot script
-  (`boot-theme-script.ts`, reads `lop-style`+`lop-theme`+the scheme boot keys pre-paint). Mockup ("Dashboard" style) is
-  LIGHT-ONLY + PINS light: `use-style` fires a `lop-style-change` event; `use-theme` is the SOLE `.dark`
+  `use-style.tsx` (`useCiStyle`, `aipm-cockpit-style` localStorage, NOT the settings blob) + the no-flash boot script
+  (`boot-theme-script.ts`, reads `aipm-cockpit-style`+`aipm-cockpit-theme`+the scheme boot keys pre-paint). Mockup ("Dashboard" style) is
+  LIGHT-ONLY + PINS light: `use-style` fires a `aipm-cockpit-style-change` event; `use-theme` is the SOLE `.dark`
   writer and re-applies on that event (switching back to AIPM restores dark). ALL style difference is CSS
   role tokens in `globals.css`: `--rag-red/amber/green` (+ `-text` AA variants — ★ but `--rag-amber-text` is AA only on
   LIGHT AIPM; as SMALL text on `bg-surface` it FAILS AA on dark/mockup, see the Next-actions surface bullet), `--table-head-bg/-fg`,
@@ -869,7 +881,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   is fine) — use `bg-AIPM-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
   EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light, Harbor(custom)-light, Harbor(custom)-dark
   (5 × A11Y_VIEWS), seeding
-  `lop-style`/`lop-theme` via `addInitScript` — ★ Phase 2: it must ALSO seed `lop-app:color-schemes` `activeId`
+  `aipm-cockpit-style`/`aipm-cockpit-theme` via `addInitScript` — ★ Phase 2: it must ALSO seed `aipm-cockpit:color-schemes` `activeId`
   to the scheme under test, else `syncScheme` overwrites the boot paint on mount (scheme landmine 4). Appearance
   Style switch disables the theme control while Mockup (a light-only scheme) is active.
   ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
@@ -877,7 +889,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
   ★★ Data-table header sort buttons (`report-table` SortHeaderButton AND `task-manager-ui` SortableTh)
   use `text-[var(--table-head-accent)]` for active/hover — raw `text-AIPM-green` is sub-AA (2.03:1) on the
-  Mockup light header AND a blanket `.lop-thead button{color}` rule silently kills the sort affordance.
+  Mockup light header AND a blanket `.aipm-cockpit-thead button{color}` rule silently kills the sort affordance.
   ★★ A TRANSLUCENT role-token tint (`rgba(...)`) over a parent whose bg CHANGES on hover (e.g. a `Tile`
   button's `hover:bg-surface-muted`) RE-composites darker → its TEXT can drop below AA on hover. The axe
   gate scans RESTING state only, so it PASSES. Use OPAQUE pre-composited tints — `--rag-green-chip`/
@@ -905,8 +917,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (`STRUCTURAL_TOKENS`/`ICC_STRUCTURAL`/`MOCKUP_STRUCTURAL`), applied via `applySchemeStructural`
   (`scheme-apply.ts`); each raw value is gated by `isSafeRawCssValue` — a charset allowlist plus a denylist
   blocking `url(` / `expression` / `image-set` / `;` / braces / `@` / angle brackets / backtick. Mirrored to
-  boot key `lop-active-scheme-structural` (NOT `lop-app:`-prefixed → boot reads it pre-paint like
-  `lop-active-scheme-colors`; consequently NOT swept by `clearAppConfig` — intentional, mirrors the colors
+  boot key `aipm-cockpit-active-scheme-structural` (NOT `aipm-cockpit:`-prefixed → boot reads it pre-paint like
+  `aipm-cockpit-active-scheme-colors`; consequently NOT swept by `clearAppConfig` — intentional, mirrors the colors
   key). ★★ `globals.css`: `:root` is KEPT as the STATIC no-JS / pre-boot AIPM-LIGHT fallback (colors +
   structural); the old `.dark` TOKEN block AND the `:root[data-style="mockup"]` block were REMOVED — AIPM-dark +
   Mockup now ride their SCHEME maps. `.dark` REMAINS a class toggle (Tailwind `dark:` utilities). ★★
@@ -917,13 +929,13 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   for a dark-capable scheme). `use-theme` (sole `.dark` writer) reads `data-scheme-dark` ONLY — the mockup
   `data-style` branch is GONE. `use-style.syncScheme` stays the SOLE apply path (resolves for the CURRENT theme,
   applies inline, mirrors both boot keys + `data-scheme-dark`). ★★ EVENT WIRING (order-independent, unchanged):
-  `use-theme` recomputes `.dark` on `lop-style-change` ONLY; a theme flip dispatches `lop-theme-change` →
-  `use-style` re-resolves; a SCHEME switch (`lop-scheme-change`) runs `syncScheme` FIRST then re-dispatches
-  `lop-style-change` — do NOT make `use-theme` listen to `lop-scheme-change` (the fixed race). ★★ Boot script
+  `use-theme` recomputes `.dark` on `aipm-cockpit-style-change` ONLY; a theme flip dispatches `aipm-cockpit-theme-change` →
+  `use-style` re-resolves; a SCHEME switch (`aipm-cockpit-scheme-change`) runs `syncScheme` FIRST then re-dispatches
+  `aipm-cockpit-style-change` — do NOT make `use-theme` listen to `aipm-cockpit-scheme-change` (the fixed race). ★★ Boot script
   (`boot-theme-script.ts`, imported by `layout.tsx`) ALWAYS writes `data-style="custom"`, paints scheme colors
   AND structural, and EMBEDS the resolved AIPM/Mockup/Harbor maps so a legacy-first-boot device migrates without
-  a Harbor flash. `use-style` ONE-TIME-migrates a legacy `lop-style="AIPM"/"mockup"` → the scheme activeId (in
-  the lazy `useState` initializer) then writes `lop-style="custom"`. `layout-boot-script.test.ts` PINS the EXACT
+  a Harbor flash. `use-style` ONE-TIME-migrates a legacy `aipm-cockpit-style="AIPM"/"mockup"` → the scheme activeId (in
+  the lazy `useState` initializer) then writes `aipm-cockpit-style="custom"`. `layout-boot-script.test.ts` PINS the EXACT
   boot string + runtime-evals it — edit boot ⇒ update that guard in lockstep. ★★ AppearanceSection: the scheme
   `<select>` routes ALL ids (incl AIPM/mockup) through `selectScheme` (NOT `setStyle`); `pinsLight =
   !activeSupportsDark`; the editor is ALWAYS mounted (built-ins read-only via `BUILTIN_SCHEME_IDS` —
@@ -939,7 +951,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   are still light-only THIS PHASE (editor edits `.light`); built-ins carry both maps. Pure modules:
   `scheme-tokens.ts` (registry + AIPM/MOCKUP seed+structural maps, `deriveAaVariants`, `resolveSchemeColors`),
   `scheme-contrast.ts` (WCAG warn-only), `scheme-apply.ts` (colors + structural apply/read/write helpers),
-  `color-schemes.ts` (per-device `lop-app:color-schemes`, hex-validated). Selection hook
+  `color-schemes.ts` (per-device `aipm-cockpit:color-schemes`, hex-validated). Selection hook
   `use-color-schemes.ts` (coverage-excluded).
   ★★ FIVE Phase-2 landmines (do NOT reintroduce):
   (1) `resolveSchemeColors` is BASE-WINS — a built-in that must reproduce an exact hand-tuned value PINS it in
@@ -952,8 +964,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `ICC_SEED` hardcodes `#ffffff`; `ICC_DARK` MUST re-override `--segment-track-bg: #121619` (dark surface) or
   the segmented control is white-on-near-white in dark (axe AA fail). Audit any seed-flattened chrome token
   when adding a dark map.
-  (4) e2e axe seed: seeding the boot keys is NOT enough — `syncScheme` re-resolves from `lop-app:color-schemes`
-  on mount and OVERWRITES the boot paint. The axe seed MUST also set `lop-app:color-schemes` `activeId` to the
+  (4) e2e axe seed: seeding the boot keys is NOT enough — `syncScheme` re-resolves from `aipm-cockpit:color-schemes`
+  on mount and OVERWRITES the boot paint. The axe seed MUST also set `aipm-cockpit:color-schemes` `activeId` to the
   scheme under test (empty `schemes:[]` is fine — `reconcileBuiltins` injects built-ins).
   (5) The palette guards do NOT scan the `.ts` scheme data files (`shell-palette-guard` = fixed shell-file
   list; `palette-chrome-sweep` = `.tsx` only), so structural shadow/gradient STRINGS in
@@ -1077,7 +1089,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable pane's DEFAULT size silently
   no-ops for anyone with a persisted size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale
   size is discarded (pane stays resizable from the new baseline). Bit Milestones/Documents going full-width.
-- **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.lop-thead` marker; the Dark-Blue fill lives on
+- **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.aipm-cockpit-thead` marker; the Dark-Blue fill lives on
   `<th>` (NOT `<thead>`) via `globals.css` so rounded first/last corners clip it, with `border-spacing:0`.
   Don't move bg back to `<thead>` — a rounded `th` only clips a fill it paints.
 - **Heavy browser-only deps** (rich-text editor, etc.) load via `next/dynamic({ ssr: false })` to stay off
@@ -1328,7 +1340,7 @@ it); a SECONDARY category = `absence.type` rides alongside the reconcile categor
 "absence"), a.type]` — reconcile cat stays FIRST; `listEntityEvents`' `any(c: c eq …)` match is unaffected); and
 `absenceAutoSyncKey` now INCLUDES `note` (a note-only edit re-pushes the body). True multi-calendar routing (vs the
 single `/me/events` + category-filter engine) remains OUT of scope — a separate future slice.
-- **Two-way calendar sync (SP1, v0.160+):** the FIRST pull-direction slice — reschedules made in Outlook flow BACK into the app. Shared low-level Graph leaf `outlook-graph.ts` (`GRAPH`/`MAX_PAGES`/`graphGet`/`GraphCalendarError` — extracted from `outlook-calendar-write.ts`, which re-exports `GraphCalendarError`). Read helper `outlook-calendar-read.ts` `fetchProjectEventDates(token, projectId)` (bare `categoryFor(projectId)` filter, paging, `$select=id,start,isCancelled` → `PulledEvent`). Pure i18n-free engine `calendar-pull.ts` `planCalendarPull({entities,events,baseline})` → `{applies,conflicts,deletions}`: APP-WINS — an Outlook move auto-applies ONLY when the milestone is unchanged since the last agreed baseline; NO baseline for a moved event ⇒ CONFLICT (never a silent overwrite); missing/cancelled/null-date event ⇒ deletion notice. Per-device baseline store `calendar-sync-baseline.ts` (single key `lop-app:calendar-sync-baseline`, key `${projectId}:${entityType}:${eventId}` → last-agreed date; per-BROWSER, NOT workspace data — out of exports/Turso, swept by clearAppConfig; written on PULL only — apply/conflict-resolve/self-heal, NOT on push). Hook `use-milestone-calendar-pull.ts` (mirrors `use-outlook-calendar-push.ts`: internal `useMsAuth`+`useToastContext`, reuses `CALENDAR_READWRITE_SCOPE` so no second consent; auto-applies safe moves, self-heals in-sync baselines, opens the summary modal only when rows exist else a `calendarPullInSync` toast). `calendar-pull-summary-modal.tsx` (applied / conflicts-with-Keep-app-vs-Take-Outlook / deletions; rendered in the shared non-popout `modalsBlock` so it shows in BOTH classic + modern, hook early-returns on isPopout so no popout leak). Manual "Pull from Outlook" button in the Milestones toolbar (next to Push; gated `calendarPushEnabled`). MILESTONES ONLY; SP2 tasks / SP3 raid+change / SP4 absences(range) / SP5 auto-pull+deletion-semantics remain.
+- **Two-way calendar sync (SP1, v0.160+):** the FIRST pull-direction slice — reschedules made in Outlook flow BACK into the app. Shared low-level Graph leaf `outlook-graph.ts` (`GRAPH`/`MAX_PAGES`/`graphGet`/`GraphCalendarError` — extracted from `outlook-calendar-write.ts`, which re-exports `GraphCalendarError`). Read helper `outlook-calendar-read.ts` `fetchProjectEventDates(token, projectId)` (bare `categoryFor(projectId)` filter, paging, `$select=id,start,isCancelled` → `PulledEvent`). Pure i18n-free engine `calendar-pull.ts` `planCalendarPull({entities,events,baseline})` → `{applies,conflicts,deletions}`: APP-WINS — an Outlook move auto-applies ONLY when the milestone is unchanged since the last agreed baseline; NO baseline for a moved event ⇒ CONFLICT (never a silent overwrite); missing/cancelled/null-date event ⇒ deletion notice. Per-device baseline store `calendar-sync-baseline.ts` (single key `aipm-cockpit:calendar-sync-baseline`, key `${projectId}:${entityType}:${eventId}` → last-agreed date; per-BROWSER, NOT workspace data — out of exports/Turso, swept by clearAppConfig; written on PULL only — apply/conflict-resolve/self-heal, NOT on push). Hook `use-milestone-calendar-pull.ts` (mirrors `use-outlook-calendar-push.ts`: internal `useMsAuth`+`useToastContext`, reuses `CALENDAR_READWRITE_SCOPE` so no second consent; auto-applies safe moves, self-heals in-sync baselines, opens the summary modal only when rows exist else a `calendarPullInSync` toast). `calendar-pull-summary-modal.tsx` (applied / conflicts-with-Keep-app-vs-Take-Outlook / deletions; rendered in the shared non-popout `modalsBlock` so it shows in BOTH classic + modern, hook early-returns on isPopout so no popout leak). Manual "Pull from Outlook" button in the Milestones toolbar (next to Push; gated `calendarPushEnabled`). MILESTONES ONLY; SP2 tasks / SP3 raid+change / SP4 absences(range) / SP5 auto-pull+deletion-semantics remain.
 - **Two-way calendar sync SP2 (tasks, v0.161+):** task due-date pull. `fetchProjectEventDates` gained an optional `entityType` (type-scoped `categoryFor(pid,"task")` category); generic hook `use-entity-calendar-pull.ts` (parameterized over entity via `getDate`/`withDate`/`toGraphEvent`/`isPullable`; same app-wins + keep-app-convergence semantics as the milestone hook, which is left as-is). Wired ENTIRELY inside the fat `tasks-section.tsx` (which already owns the manual push): a Pull button beside Push + the shared `CalendarPullSummaryModal`, no task-manager/workspace-section threading. ★★ Jira-synced tasks (`!!task.jiraKey`) are EXCLUDED via `isPullable: t=>!t.jiraKey` (Jira owns their dates). No new persisted field (`Task.outlookEventId` exists), no new i18n keys beyond the release highlight, no golden fixtures. SP3 raid+change / SP4 absences(range) / SP5 auto-pull+deletion-semantics remain.
 - **Two-way calendar sync SP3 (RAID + Change, v0.162+):** RAID `targetDate` + Change `decisionDate` pull, reusing the generic `use-entity-calendar-pull`. UNLIKE tasks (fat pane), RAID/Change are THIN panes → both pull hooks + summary modals live in `task-manager.tsx`, threaded via `workspace-section-types` → `workspace-section` → the pane (`onPullCalendar`/`calendarPullBusy`, mirroring the write-back push props). No `isPullable` (neither is Jira-linked). RAID axe-scanned; Change eye-verified. (SP4 absences + SP5 auto-pull shipped — roadmap complete.)
 - **Two-way calendar sync SP4 (Absence, v0.163+):** the FINAL pull entity — completes the roadmap (milestones·tasks·RAID·changes·absences). Absence is the ONLY MULTI-DAY entity (`startDate..endDate`), so the pull is **faithful start+end** (user-chosen): reads BOTH the event's start AND end and maps them back, reflecting an Outlook move OR resize. ★★ The shared single-date engine/read/hook/modal gained an OPTIONAL end date, so the four single-date entities stay BYTE-IDENTICAL — `planCalendarPull` adds range keys only via `...(hasEnd ? {...} : {})`, `entKey` collapses to bare `ent.date` (baseline `"D"`, not `"D|…"`), the modal suffixes with `{x ? ` – ${x}` : ""}`. `PulledEvent.endDate`/`PullEntity.endDate?`/`applies[].newEndDate?`/`conflicts[].appEndDate?`+`outlookEndDate?` all OPTIONAL. Read helper `$select`s `end` + `prevDay` converts Graph's EXCLUSIVE all-day end → INCLUSIVE (`prevDay(nextDay(d))===d`). Generic hook `use-entity-calendar-pull` gained `getEndDate?` + 3-arg `withDate(item,start,end?)` + range-aware `applyMove(id,eventId,newDate,newEndDate?)`/`keepApp({…,appEndDate?})`/self-heal; all three baseline-write sites emit `"start|end"` so absences converge (no perpetual re-conflict). THIN pane → hook + 4th summary modal in `task-manager.tsx` (absence has no title → row name `${assignee} (${type}) – ${startDate}` for row-UNIQUE a11y), threaded `workspace-section-types` → `workspace-section` → `resources-panel` pull button (Resources axe-scanned). No new persisted field (`Absence.outlookEventId` exists), no new i18n keys beyond the highlight, no golden fixtures.
@@ -1341,7 +1353,7 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 - **TAF envelope:** Timelog Web API v1 wraps responses as `{Entities:[{Properties}]}` (lists) or `{Properties}` (single) — `unwrapTaf` in `timelog-api.ts` normalises both. Time reads are self-scoped (token owner); org-wide needs the `approval/timesheets/...with-rejected-time-tracking-items?employeeUserId` endpoint, gated by `RegistrationAllTasks` privilege probe (`scopeMode` auto/self/org).
 - **Secret:** `timelogApiToken` is the 4th `SecretId` (device-sealed only; the 6-edit lockstep applies — `SecretId` union, `isSealedSecret` allowlist, `readStore` allowlist loop, `migratePlaintextSecrets`, `writeSettings` blank, `hydrateSecretsInto`, + `saveSecretValue` seal-on-edit in `timelog-settings.tsx`). `settings.timelog` is TOP-LEVEL (mirrors `settings.jira`, NOT under `integrations`).
 - **`Workspace.timelogLinks`** persists as a JSON meta-blob (same pattern as `steeringCommittee`): 6 write paths (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB). NOT a `TABLE_NAMES` entry, NOT a column; excluded from exports; absent workspace stays byte-stable.
-- **Actuals cache:** fetched actuals are per-device (`lop-app:timelog-actuals`, mirrors `landing-state`; out of exports/Turso; cleared by `clearAppConfig`) — NOT workspace data. Pure `timelog-actuals.ts` aggregation routes unmapped user/project/null-bucket hours to an `unattributed` total (never dropped).
+- **Actuals cache:** fetched actuals are per-device (`aipm-cockpit:timelog-actuals`, mirrors `landing-state`; out of exports/Turso; cleared by `clearAppConfig`) — NOT workspace data. Pure `timelog-actuals.ts` aggregation routes unmapped user/project/null-bucket hours to an `unattributed` total (never dropped).
 - **Apply to budget:** `timelog-apply.ts` is the ONLY write into the persisted budget — writes each bucket's period total into its FIRST allocation's `actualHours` via a FUNCTIONAL `setBudgets(prev=>…)` updater. Everything else is read-only overlay. ★★ The actuals period KEY MUST match the plan granularity: `computeBucketReport` sums `actualHours` ONLY over the plan's period keys (`bucketActivePeriods`→`generatePeriods`, `PlanGranularity` "week"→`"YYYY-Www"` / "month"→`"YYYY-MM"`). `aggregateActuals(items, links, granularity)` keys via the SHARED `periodKeyForDate` (in `resource-capacity.ts`, the single source `generatePeriods` itself uses — don't re-derive ISO weeks). Pass `plan.granularity` panel→`useTimelogSync`→engine; ★ `granularity` is a REQUIRED arg (no default — a silent "month" fallback was removed; a monthly key on a weekly plan silently drops hours from win/loss). ★ `aggregateActuals` builds project refs from items but SKIPS `projectId <= 0` (absence/non-project time → would render a blank Projects row). ★ Apply uses a `pendingApply` SNAPSHOT taken at confirm-open (not live aggregates) so the shown diff == the diff applied; Fetch is disabled while confirming. Matching `<select>`s/Clear are `isPopout`-disabled + handlers early-return (popout = read-only).
 - **`timelog` view IS in axe `A11Y_VIEWS`** ("Time bookings"); project-row discovery comes from `useTimelogSync().projectRefs` (distinct projects in fetched items) merged with already-linked projects.
 - **Paging (★):** all TimeLog list endpoints page at 10 by default but honour OData `$page`/`$pagesize` (uncapped — `callPaged` uses 500/page, `MAX_PAGES=100`). WITHOUT a paging loop the app silently ingests only the first 10 rows of any list (e.g. 10 of 77 bookings). The proxy `encodeURIComponent`s the `$` (`%24page`) — upstream decodes it. `callRaw` transparently RETRIES a 429 honouring `Retry-After` (else exp backoff, abortable via the same signal), bounded at `MAX_429_RETRIES`.
@@ -1352,8 +1364,8 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 ### Diagnostics log · guard transparency · dictation
 
 - **Diagnostic log (`diagnostics.ts`):** `logDiag(level, code, fields?)` → a capped (200) per-device ring
-  `lop-app:diag-log` — OUT of workspace exports/Turso/recovery `CONFIG_KEYS`, swept by `clearAppConfig`'s
-  `lop-app:*` sweep, NEVER holds secrets. ★★ Level-aware eviction (drops oldest `info` first so rare
+  `aipm-cockpit:diag-log` — OUT of workspace exports/Turso/recovery `CONFIG_KEYS`, swept by `clearAppConfig`'s
+  `aipm-cockpit:*` sweep, NEVER holds secrets. ★★ Level-aware eviction (drops oldest `info` first so rare
   `warn`/`error` survive an info/error storm). ★★ Redaction (`diagnostics-redact.ts`) is TWO-layer: a
   secret-KEY denylist (key normalized before match) AND a secret-VALUE scrub (`sk-ant-*`/`Bearer`/JWT/
   `ATATT…`/`Basic <base64>`/`key=value`) — the EXPORTED bundle (`buildDiagnosticBundle`) must never carry a
@@ -1501,7 +1513,7 @@ a valid zone).
 
 ### Saved views
 
-- **Tasks:** pure i18n-free `saved-views.ts` (per-device `lop-app:saved-views`, `MAX_SAVED_VIEWS=30`,
+- **Tasks:** pure i18n-free `saved-views.ts` (per-device `aipm-cockpit:saved-views`, `MAX_SAVED_VIEWS=30`,
   `id=max+1`, validated load, oldest dropped at cap; `SavedViewPayload` = useFilters fields + sortKey/sortDir +
   `hiddenCols[]`, EXCLUDES colWidths/hideFinishedTasks/tasksViewMode/raidFilterTaskId). Hook `use-saved-views.ts`
   (functional-updater mutators + a `useEffect([views])` persist — no stale closure). `saved-views-control.tsx`
@@ -1513,7 +1525,7 @@ a valid zone).
   hiddenCols are dormant in board and take visible effect on return to table).
 - **Cross-view (RAID/Milestones/Changes/Stakeholders):** a SEPARATE generic stack — tasks' bespoke
   `saved-views.ts`/`filters-context`/`saved-views-control.tsx` path is UNCHANGED. Pure i18n-free
-  `panel-views.ts` (per-device `lop-app:panel-views` — a DIFFERENT key from tasks' `lop-app:saved-views`;
+  `panel-views.ts` (per-device `aipm-cockpit:panel-views` — a DIFFERENT key from tasks' `aipm-cockpit:saved-views`;
   view-tagged entries `{id,name,view,state}`, `MAX_PANEL_VIEWS=30` PER view, `id=max+1` across the whole list,
   validated load). Generic `panel-filters-context.tsx` (`PanelFiltersProvider`/`usePanelFilters`) holds
   `{search, filters:Record<string,string>, sort:{key,dir}|null}` + setters/`applyState`/`reset`; seeded
@@ -1530,7 +1542,7 @@ a valid zone).
   `SortDir` includes `"off"`, which the setter never emits). Column widths/pane size still persist separately
   (`useColumnResize`/`useResizable`). RAID + Milestones ARE axe-scanned; Changes/Stakeholders eye-verified. OUT
   of exports/Turso, cleared by `clearAppConfig`.
-- **Reports:** dedicated bespoke store `reports-views.ts` (per-device `lop-app:reports-views`,
+- **Reports:** dedicated bespoke store `reports-views.ts` (per-device `aipm-cockpit:reports-views`,
   `MAX_REPORTS_VIEWS=30`, `id=max+1`, validated load, oldest dropped at cap) — Reports' 3 tables
   (byAssignee/byGroup/byLabel) each carry `{filter, sort:{key,dir}|null}`, which the generic
   `PanelFiltersState` ({search,filters,sort}) can't hold, so this is SEPARATE from BOTH the tasks bespoke path

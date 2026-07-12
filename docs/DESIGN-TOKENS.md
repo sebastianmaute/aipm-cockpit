@@ -1,6 +1,6 @@
 # AIPM Design Tokens & Color Rules
 
-The single source of truth for color in lop-app. Every component uses ONLY the
+The single source of truth for color in aipm-cockpit. Every component uses ONLY the
 semantic tokens and `--AIPM-*` brand utilities below — never raw `zinc-*` or hex.
 Defined in `src/app/globals.css`.
 

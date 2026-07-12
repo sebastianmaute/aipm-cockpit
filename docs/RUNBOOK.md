@@ -315,7 +315,7 @@ Next 16 + React 19 have moved fast. Pin the patch version and check
 The Action Center learning layer (0.95.0+) is **opt-in and off by default**. To
 turn it off or wipe what it has learned: Settings → Next actions → toggle
 learning off, or use **"Reset learned data"** in the same section. A manual reset
-is also possible: for the **local store**, clear the `lop-app:action-learning`
+is also possible: for the **local store**, clear the `aipm-cockpit:action-learning`
 localStorage key; for the **Turso store**, run `DELETE FROM action_learning`
 (a global, cross-project table kept out of the workspace save cycle). Learning
 **never blocks boot** — a load failure is swallowed and the engine falls back to

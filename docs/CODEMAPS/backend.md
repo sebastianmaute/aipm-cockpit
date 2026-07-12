@@ -163,7 +163,7 @@ All backends implement the `StorageBackend` interface (`load(): Promise<Workspac
 
 ### AI scheduled-jobs store (Turso-or-localStorage, SP5)
 
-- `scheduled-jobs-store.ts` — persistence for opt-in AI scheduled jobs (`ai.scheduledJobs`). `tursoConfig === null` → the `lop-app:scheduled-jobs` localStorage key; `tursoConfig !== null` → a **global** `scheduled_jobs` Turso table (cross-device, JSON-blob row). Kept **out of** the workspace `TABLE_NAMES` (guard test) so a workspace save's clear-all never wipes it. The pure schedule engine is `scheduled-jobs/` (`isDue` / `nextRunAt` / `dueJobs` / `appendRun`; `now` always passed in). The runner is the client hook `use-scheduled-job-runner.ts`; the billed analysis call is the non-hook `scheduled-job-analysis.ts`.
+- `scheduled-jobs-store.ts` — persistence for opt-in AI scheduled jobs (`ai.scheduledJobs`). `tursoConfig === null` → the `aipm-cockpit:scheduled-jobs` localStorage key; `tursoConfig !== null` → a **global** `scheduled_jobs` Turso table (cross-device, JSON-blob row). Kept **out of** the workspace `TABLE_NAMES` (guard test) so a workspace save's clear-all never wipes it. The pure schedule engine is `scheduled-jobs/` (`isDue` / `nextRunAt` / `dueJobs` / `appendRun`; `now` always passed in). The runner is the client hook `use-scheduled-job-runner.ts`; the billed analysis call is the non-hook `scheduled-job-analysis.ts`.
 
 ### Portfolio mode (multi-project, client-side, 0.58.0–0.59.0)
 

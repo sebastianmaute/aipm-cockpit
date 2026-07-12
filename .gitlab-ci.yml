@@ -212,9 +212,9 @@ dast-zap:
   script:
     # Build + run the app, then scan it from a sibling ZAP container on a shared
     # docker network (so ZAP reaches the app at http://app:3000).
-    - docker build -t lop-app-dast -f Dockerfile.dast .
+    - docker build -t aipm-cockpit-dast -f Dockerfile.dast .
     - docker network create dastnet
-    - docker run -d --name app --network dastnet lop-app-dast
+    - docker run -d --name app --network dastnet aipm-cockpit-dast
     - |
       echo "waiting for app to accept connections…"
       for i in $(seq 1 60); do

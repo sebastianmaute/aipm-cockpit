@@ -1,4 +1,4 @@
-# lop-app Threat Model (STRIDE)
+# aipm-cockpit Threat Model (STRIDE)
 
 **Date:** 2026-07-02 · **Scope:** v0.164 "Cixin" · **Author role:** Senior software architect
 **Review cadence:** re-run this STRIDE pass on every new trust boundary — a new external host in the CSP `connect-src`/`frame-src` allowlist (`src/proxy.ts`), a new `SecretId` (`src/app/secrets.ts:8`), or a new `/api/*` route. Owner: security-lead; enforced in MR review via the CSP + SecretId lockstep lists.
@@ -11,11 +11,11 @@
 
 | Asset | At rest | In transit | Notes |
 |---|---|---|---|
-| Anthropic API key | `lop-app:secrets` — AES-256-GCM, non-extractable device key in IndexedDB `lop-app-secrets` (`secrets.ts:47-49,113-117`) | browser → `api.anthropic.com` (CSP `connect-src`, `proxy.ts:63`) | `SecretId="anthropicApiKey"` |
+| Anthropic API key | `aipm-cockpit:secrets` — AES-256-GCM, non-extractable device key in IndexedDB `aipm-cockpit-secrets` (`secrets.ts:47-49,113-117`) | browser → `api.anthropic.com` (CSP `connect-src`, `proxy.ts:63`) | `SecretId="anthropicApiKey"` |
 | Turso authToken | same | browser → `*.turso.io` (`proxy.ts:63`) | `SecretId="tursoAuthToken"` |
 | Jira apiToken | same | browser → `/api/jira/*` → `*.atlassian.net` (Basic auth built server-side, `jira/_helpers.ts:140-142`) | `SecretId="jiraApiToken"`; per-request in body, never persisted server-side (`jira/_helpers.ts:1-4`) |
 | Timelog apiToken | same | browser → `/api/timelog/*` → `*.timelog.com` (Bearer, `timelog/_helpers.ts:173`) | `SecretId="timelogApiToken"` |
-| Workspace / project data | file (JSON/CSV/MD) · IndexedDB `lop-app` · Turso | per backend | not a secret; user's own data |
+| Workspace / project data | file (JSON/CSV/MD) · IndexedDB `aipm-cockpit` · Turso | per backend | not a secret; user's own data |
 | M365 tokens | MSAL-owned cache (NOT app-managed) | browser → `graph.microsoft.com` / `login.microsoftonline.com` | app stores only public clientId/tenantId |
 
 **Optional passphrase wrap:** any `SecretId` may be PBKDF2-wrapped (`secrets.ts:170-187`) — **600,000 iterations, SHA-256** (`secrets.ts:46`), meets OWASP ASVS 2023 (≥ 600k for PBKDF2-HMAC-SHA256). Device wrap is the default; passphrase-wrapped secrets stay `""` in memory until unlock.
@@ -65,8 +65,8 @@ The strongest surface — this is where the server makes outbound calls on the u
 
 | STRIDE | Threat | Existing mitigation | Residual | Action |
 |---|---|---|---|---|
-| I | Decrypted secret written to disk | `writeSettings` is the SOLE writer of `lop-app:settings` and BLANKS every `SecretId` field before write (AGENTS.md secrets lockstep; guarded by Phase 1 Task 7 test) | a raw `setItem` bypass would leak — prevented by convention + test | Phase 1 Task 7 pins it |
-| I | Secret exported / synced to Turso | `lop-app:secrets` ciphertext excluded from exports, Turso, and recovery `CONFIG_KEYS` (`recovery-config.ts`) | — | Phase 1 Task 7 pins it |
+| I | Decrypted secret written to disk | `writeSettings` is the SOLE writer of `aipm-cockpit:settings` and BLANKS every `SecretId` field before write (AGENTS.md secrets lockstep; guarded by Phase 1 Task 7 test) | a raw `setItem` bypass would leak — prevented by convention + test | Phase 1 Task 7 pins it |
+| I | Secret exported / synced to Turso | `aipm-cockpit:secrets` ciphertext excluded from exports, Turso, and recovery `CONFIG_KEYS` (`recovery-config.ts`) | — | Phase 1 Task 7 pins it |
 | T | Tampered ciphertext | AES-GCM auth tag → `SecretUnlockError` on tamper (`secrets.ts:137-148`); `isSealedSecret` validates shape from untrusted storage (`secrets.ts:23-36`) | — | none |
 | I | XSS reads localStorage | No `dangerouslySetInnerHTML` anywhere (CSP comment `proxy.ts:22-24`); branding logo/favicon raster-only, SVG excluded; rich text via `sanitize-html.ts`; strict nonce-based CSP, no `unsafe-inline` script | `style-src-attr 'unsafe-inline'` required for React inline styles (documented low-risk, `proxy.ts:20-24`) | none |
 
