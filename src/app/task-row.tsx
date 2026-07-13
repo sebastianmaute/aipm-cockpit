@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, memo, useContext, useEffect, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
@@ -13,7 +13,11 @@ import { TaskStatusSelect } from "./task-status-select";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
-import { effectiveAssignee, isResourceLinked } from "./resource-foundation";
+import { effectiveAssignee } from "./resource-foundation";
+import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
+import { DependenciesEditor } from "./dependencies-editor";
+import { usePopoverDismiss } from "./use-popover-dismiss";
+import type { Contact } from "./contacts";
 import { PRIORITIES, type ChangeItem, type Priority, type Resource, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
 export interface RowContextValue {
@@ -34,7 +38,6 @@ export interface RowContextValue {
   onToggleSelect: (id: number) => void;
   onToggleNoteExpanded: (id: number) => void;
   onJumpToRaid: (id: number) => void;
-  onToggleComplete: (task: Task) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
@@ -53,6 +56,10 @@ export interface RowContextValue {
   // after a resource rename/re-link, so linked rows render the resource's
   // current name instead. Built once (useMemo) on the pane side.
   resourcesById: ReadonlyMap<number, Resource>;
+  // Full directory list for the inline assignee ResourcePicker (dropdown of
+  // resources + free-text). Reference-stable from the pane; contacts are NOT
+  // threaded (inline picker suggests directory resources only).
+  resources: readonly Resource[];
 }
 
 const RowContext = createContext<RowContextValue | undefined>(undefined);
@@ -66,6 +73,14 @@ const RowLookupContext = createContext<Map<number, Task> | undefined>(undefined)
 
 /** Stable shared empty lookup for callers that render no dependency chips. */
 const EMPTY_TASK_LOOKUP: Map<number, Task> = new Map();
+
+/** Inline assignee picker suggests directory resources + free text only — no
+ *  contacts are threaded into the row, so a stable empty list is passed. */
+const EMPTY_CONTACTS: Contact[] = [];
+
+/** Stable empty task list for a closed relations popover (the predecessor list
+ *  is only materialised while the popover is open). */
+const EMPTY_TASKS: readonly Task[] = [];
 
 export function RowContextProvider({
   value,
@@ -206,6 +221,7 @@ function TaskRowImpl({
     aiEditEnabled,
     onInlinePatch,
     resourcesById,
+    resources,
   } = useTaskRowContext();
 
   // Single-active-cell inline editor for this row. A committed field routes
@@ -215,6 +231,31 @@ function TaskRowImpl({
     onInlinePatch(task.id, { [field]: value } as Partial<Task>),
   );
   const inlineEditable = !task.jiraKey;
+  // Inline assignee editing uses the shared ResourcePicker (directory dropdown +
+  // free text). The picked value is held locally while the cell is open and
+  // committed on blur — listbox rows select via onMouseDown+preventDefault so the
+  // input never blurs mid-selection, making commit-on-blur safe. Contacts are not
+  // threaded inline (directory + free text only).
+  const [assigneeDraft, setAssigneeDraft] = useState<ResourcePickerValue | null>(null);
+  const beginAssigneeEdit = () => {
+    setAssigneeDraft({ name: task.assignee, email: task.assigneeEmail, resourceId: task.resourceId ?? null });
+    inline.begin("assignee", task.assignee);
+  };
+  const commitAssignee = () => {
+    const d = assigneeDraft;
+    setAssigneeDraft(null);
+    inline.cancel();
+    if (!d) return;
+    const resourceId = d.resourceId ?? undefined;
+    // Skip a redundant write (opening + blurring without changing anything would
+    // otherwise re-persist the fields and bump localModifiedAt).
+    const unchanged =
+      d.name === task.assignee &&
+      d.email === task.assigneeEmail &&
+      resourceId === (task.resourceId ?? undefined);
+    if (unchanged) return;
+    onInlinePatch(task.id, { assignee: d.name, assigneeEmail: d.email, resourceId });
+  };
   const onInlineKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -276,6 +317,50 @@ function TaskRowImpl({
       >
         {display}
       </button>
+    );
+  };
+
+  // Multiline inline cells (notes/blockers): double-click the cell to open a
+  // textarea (mirrors the task-name double-click), commit on blur, cancel on
+  // Escape, Ctrl/Cmd+Enter also commits (Enter alone inserts a newline). Keeps
+  // the read display (incl. the notes show-more toggle) untouched when idle.
+  const onTextareaKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      inline.cancel();
+    } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      inline.commit();
+    }
+  };
+  const renderInlineTextarea = (
+    field: Extract<InlineField, "notes" | "blockers">,
+    current: string,
+    display: ReactNode,
+  ): ReactNode => {
+    if (inlineEditable && inline.editing === field) {
+      return (
+        <textarea
+          autoFocus
+          rows={3}
+          value={inline.draft}
+          onChange={(e) => inline.setDraft(e.target.value)}
+          onBlur={inline.commit}
+          onKeyDown={onTextareaKeyDown}
+          aria-label={`${t(lang, field)} – ${task.taskName}`}
+          className={`w-full resize-y rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        />
+      );
+    }
+    if (!inlineEditable) return display;
+    return (
+      <div
+        onDoubleClick={() => inline.begin(field, current)}
+        title={t(lang, "doubleClickToEdit")}
+        className="cursor-text rounded-md border border-transparent px-1 hover:border-AIPM-dark-blue"
+      >
+        {display}
+      </div>
     );
   };
 
@@ -422,17 +507,35 @@ function TaskRowImpl({
         )}
       </Td>
       {!hiddenCols.has("assignee") && (() => {
-        // Linked → the resource's LIVE name wins over the stale cache and is
-        // read-only (a linked assignee isn't free-text editable). Unlinked →
-        // keep inline editing, seeded from the (cached) effective name.
+        // Inline edit via the ResourcePicker: pick a directory resource (sets the
+        // FK) or type a free-text name (clears it). Linked rows render the
+        // resource's LIVE name over the stale cache. Jira-synced rows are
+        // read-only (no picker).
         const displayName = effectiveAssignee(task, resourcesById);
-        const linked = isResourceLinked(task.resourceId, resourcesById);
         return (
           <Td title={`${t(lang, "assignee")}: ${displayName || "—"}`}>
-            {linked ? (
-              <span className="px-2 py-0.5">{displayName || "—"}</span>
+            {inlineEditable && inline.editing === "assignee" ? (
+              <ResourcePicker
+                lang={lang}
+                value={assigneeDraft ?? { name: task.assignee, email: task.assigneeEmail, resourceId: task.resourceId ?? null }}
+                resources={resources}
+                contacts={EMPTY_CONTACTS}
+                onChange={setAssigneeDraft}
+                onBlur={commitAssignee}
+                placeholder={t(lang, "assignee")}
+                aria-label={`${t(lang, "assignee")} – ${task.taskName}`}
+              />
+            ) : inlineEditable ? (
+              <button
+                type="button"
+                onClick={beginAssigneeEdit}
+                aria-label={`${t(lang, "assignee")} – ${task.taskName}`}
+                className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+              >
+                {displayName || "—"}
+              </button>
             ) : (
-              renderInlineField("assignee", "text", displayName, displayName || "—")
+              <span className="px-2 py-0.5">{displayName || "—"}</span>
             )}
           </Td>
         );
@@ -497,17 +600,21 @@ function TaskRowImpl({
       )}
       {!hiddenCols.has("blockers") && (
         <Td className="max-w-xs whitespace-pre-wrap text-muted-foreground">
-          {task.blockers || "—"}
+          {renderInlineTextarea("blockers", task.blockers, task.blockers || "—")}
         </Td>
       )}
       {!hiddenCols.has("notes") && (
         <Td className="max-w-xs text-muted-foreground">
-          <NotesCell notes={task.notes ?? ""} isExpanded={isExpanded} taskId={task.id} />
+          {renderInlineTextarea(
+            "notes",
+            task.notes ?? "",
+            <NotesCell notes={task.notes ?? ""} isExpanded={isExpanded} taskId={task.id} />,
+          )}
         </Td>
       )}
       {!hiddenCols.has("depRelations") && (
         <Td className="text-muted-foreground">
-          <DependencyChips deps={task.dependencies ?? []} />
+          <DepRelationsCell task={task} editable={inlineEditable} />
         </Td>
       )}
       {!hiddenCols.has("estimate") && (
@@ -573,7 +680,6 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
     lang,
     jiraEnabled,
     jiraProjectKey,
-    onToggleComplete,
     onSendInquiry,
     onPushToJira,
     onEdit,
@@ -582,13 +688,6 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
   return (
     <div className="flex flex-col gap-1 whitespace-nowrap">
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => onToggleComplete(task)}
-          className={`text-xs font-medium text-AIPM-green-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
-        >
-          {task.completedDate ? t(lang, "reopenTask") : t(lang, "markComplete")}
-        </button>
         {!task.completedDate && (
           <button
             type="button"
@@ -662,4 +761,65 @@ function DependencyChipsImpl({ deps }: DependencyChipsProps) {
 }
 
 const DependencyChips = memo(DependencyChipsImpl);
+
+interface DepRelationsCellProps {
+  task: Task;
+  editable: boolean;
+}
+
+/** Dependency (relations) cell: read-only chips plus, for non-Jira rows, an edit
+ *  button opening a popover that reuses the modal's DependenciesEditor. Edits
+ *  route through the pane's sanitizing `onInlinePatch` (re-validates cycles /
+ *  dangling refs). Reads the task lookup for the predecessor dropdown — same
+ *  single-cell re-render scope as the chips it wraps. */
+function DepRelationsCellImpl({ task, editable }: DepRelationsCellProps) {
+  const { lang, onInlinePatch } = useTaskRowContext();
+  const tasksById = useTaskLookup();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss(open, wrapRef, () => setOpen(false));
+  const deps = task.dependencies ?? [];
+  // Only materialise the predecessor list while the popover is open — otherwise
+  // every mounted row would re-spread the whole task Map on any edit (the cell
+  // is a lookup-context consumer). One popover open at a time ⇒ O(n), not O(rows·n).
+  const allTasks = useMemo(() => (open ? [...tasksById.values()] : EMPTY_TASKS), [open, tasksById]);
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="flex items-start gap-1">
+        <DependencyChips deps={deps} />
+        {editable && (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-label={`${t(lang, "depEditRelations")} – ${task.taskName}`}
+            title={t(lang, "depEditRelations")}
+            aria-expanded={open}
+            className={`shrink-0 rounded-md p-1 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5">
+              <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a1 1 0 01-.464.263l-3 .857a.5.5 0 01-.618-.618l.857-3a1 1 0 01.263-.464l8.5-8.5z" />
+            </svg>
+          </button>
+        )}
+      </div>
+      {open && editable && (
+        <div
+          role="dialog"
+          aria-label={t(lang, "depEditRelations")}
+          className="absolute left-0 top-full z-40 mt-1 w-80 rounded-lg border border-line bg-surface p-3"
+        >
+          <DependenciesEditor
+            lang={lang}
+            value={deps}
+            allTasks={allTasks}
+            ownTaskId={task.id}
+            onChange={(next) => onInlinePatch(task.id, { dependencies: next })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DepRelationsCell = memo(DepRelationsCellImpl);
 

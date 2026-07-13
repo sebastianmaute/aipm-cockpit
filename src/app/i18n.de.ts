@@ -910,8 +910,6 @@ export const de: Record<TranslationKey, string> = {
   exportPptxHint:
     "Titelfolie + eine Folie pro Aufgabe (max. 100 Aufgaben).",
 
-  markComplete: "Erledigt",
-  reopenTask: "Wieder öffnen",
   completedOn: "Erledigt am {0}",
 
   tabReports: "Berichte",
@@ -1215,6 +1213,7 @@ export const de: Record<TranslationKey, string> = {
 
   depDependencies: "Abhängigkeiten",
   depRelations: "Beziehungen",
+  depEditRelations: "Beziehungen bearbeiten",
   depDependsOn: "Abhängig von",
   depAdd: "Hinzufügen",
   depRemove: "Entfernen",
@@ -1285,8 +1284,6 @@ export const de: Record<TranslationKey, string> = {
     "{0} Konflikt(e) – Jira hat Vorrang; bitte prüfen.",
   jiraSyncFailed: "Jira-Synchronisierung fehlgeschlagen: {0}",
   jiraPushFailed: "{0} konnte nicht hochgeladen werden: {1}",
-  jiraReopenForbidden:
-    "Diese Aufgabe ist mit {0} verknüpft. Das Wiedereröffnen muss in Jira erfolgen – der Workflow-Übergang ist aus dieser App nicht verfügbar.",
   jiraAssigneeForbidden:
     "Der Bearbeiter für {0} wird in Jira verwaltet. Bitte in Jira ändern und neu synchronisieren.",
   jiraManagedHint: "Wird von Jira verwaltet – Änderung nur in Jira",
@@ -1626,6 +1623,7 @@ export const de: Record<TranslationKey, string> = {
   directorySearchPlaceholder: "Nach Name, Titel, Abteilung, E-Mail filtern…",
   sortBy: "Sortieren nach {0}",
   clickToEdit: "zum Bearbeiten klicken",
+  doubleClickToEdit: "zum Bearbeiten doppelklicken",
   popoutReadOnly: "Bearbeiten ist in der abgedockten Ansicht deaktiviert – Änderungen bitte im Hauptfenster vornehmen.",
   popoutReadOnlyBanner: "Schreibgeschützte Ansicht – Änderungen bitte im Hauptfenster vornehmen.",
   priorityFilterHint: "Zeigt nur Aufgaben mit der gewählten Priorität.",

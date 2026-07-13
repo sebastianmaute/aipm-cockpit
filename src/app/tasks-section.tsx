@@ -2,7 +2,7 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
-import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
+import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { useSettings } from "./use-settings";
@@ -18,7 +18,7 @@ import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
-import { sanitizeAssignee, sanitizeIsoDate, sanitizePriority, sanitizeTaskName } from "./sanitize";
+import { sanitizeInlinePatch } from "./task-inline-patch";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
@@ -40,6 +40,10 @@ import {
   SortableTh,
   Th,
 } from "./task-manager-ui";
+
+/** Stable empty directory so a resource-less workspace keeps the row-context memo
+ *  reference-stable (a fresh `[]` each render would bust it). */
+const EMPTY_RESOURCES: readonly Resource[] = [];
 
 const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","notes","depRelations","estimate","spent","actions"] as const;
 
@@ -82,7 +86,6 @@ export interface TasksSectionProps {
   onToggleSelect: (id: number) => void;
   onToggleNoteExpanded: (id: number) => void;
   onJumpToRaid: (id: number) => void;
-  onToggleComplete: (task: Task) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
@@ -158,7 +161,6 @@ export function TasksSection({
   onToggleSelect,
   onToggleNoteExpanded,
   onJumpToRaid,
-  onToggleComplete,
   onSendInquiry,
   onPushToJira,
   onStatusChange,
@@ -295,23 +297,20 @@ export function TasksSection({
   // sanitizers (use-task-submit); Jira-synced rows are read-only and skipped.
   const onInlinePatch = useCallback(
     (taskId: number, patch: Partial<Task>) => {
-      setTasks((prev) =>
-        prev.map((row) => {
+      setTasks((prev) => {
+        const knownTaskIds = new Set(prev.map((tk) => tk.id));
+        return prev.map((row) => {
           if (row.id !== taskId || row.jiraKey) return row;
-          const clean: Partial<Task> = {};
-          if ("taskName" in patch) {
-            const name = sanitizeTaskName(patch.taskName);
-            if (name) clean.taskName = name; // never blank out the task's identity
-          }
-          if ("assignee" in patch) clean.assignee = sanitizeAssignee(patch.assignee);
-          if ("startDate" in patch) clean.startDate = sanitizeIsoDate(patch.startDate);
-          if ("dueDate" in patch) clean.dueDate = sanitizeIsoDate(patch.dueDate);
-          if ("priority" in patch) clean.priority = sanitizePriority(patch.priority);
+          const clean = sanitizeInlinePatch(patch, {
+            hasResource: (id) => resourcesById.has(id),
+            knownTaskIds,
+            ownTaskId: taskId,
+          });
           return { ...row, ...clean, localModifiedAt: new Date().toISOString() };
-        }),
-      );
+        });
+      });
     },
-    [setTasks],
+    [setTasks, resourcesById],
   );
 
   const rowContextValue = useMemo<RowContextValue>(
@@ -327,7 +326,6 @@ export function TasksSection({
       onToggleSelect,
       onToggleNoteExpanded,
       onJumpToRaid,
-      onToggleComplete,
       onSendInquiry,
       onPushToJira,
       onStatusChange,
@@ -337,6 +335,7 @@ export function TasksSection({
       aiEditEnabled,
       onInlinePatch,
       resourcesById,
+      resources: resources ?? EMPTY_RESOURCES,
     }),
     [
       lang,
@@ -350,7 +349,6 @@ export function TasksSection({
       onToggleSelect,
       onToggleNoteExpanded,
       onJumpToRaid,
-      onToggleComplete,
       onSendInquiry,
       onPushToJira,
       onStatusChange,
@@ -360,6 +358,7 @@ export function TasksSection({
       aiEditEnabled,
       onInlinePatch,
       resourcesById,
+      resources,
     ],
   );
 

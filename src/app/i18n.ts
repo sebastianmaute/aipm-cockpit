@@ -920,8 +920,6 @@ const enUS = {
   exportPptx: "PowerPoint (.pptx)",
   exportPptxHint: "Title slide + one slide per task (capped at 100).",
 
-  markComplete: "Mark complete",
-  reopenTask: "Reopen",
   completedOn: "Completed on {0}",
 
   tabReports: "Reports",
@@ -1224,6 +1222,7 @@ const enUS = {
 
   depDependencies: "Dependencies",
   depRelations: "Relations",
+  depEditRelations: "Edit relations",
   depDependsOn: "Depends on",
   depAdd: "Add",
   depRemove: "Remove",
@@ -1293,8 +1292,6 @@ const enUS = {
     "{0} conflict(s) — remote won; check those tasks.",
   jiraSyncFailed: "Jira sync failed: {0}",
   jiraPushFailed: "Could not push {0}: {1}",
-  jiraReopenForbidden:
-    "This task is linked to {0}. Reopening must be done in Jira — the workflow transition isn't available from this app.",
   jiraAssigneeForbidden:
     "Assignee for {0} is managed in Jira. Change it in Jira and re-sync to update locally.",
   jiraManagedHint: "Managed by Jira — change in Jira",
@@ -1632,6 +1629,7 @@ const enUS = {
   directorySearchPlaceholder: "Filter by name, title, department, email…",
   sortBy: "Sort by {0}",
   clickToEdit: "click to edit",
+  doubleClickToEdit: "double-click to edit",
   popoutReadOnly: "Editing is disabled in the pop-out view — make changes in the main window.",
   popoutReadOnlyBanner: "Read-only mirror — make changes in the main window.",
   priorityFilterHint: "Show only tasks of the selected priority.",

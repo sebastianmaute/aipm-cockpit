@@ -103,34 +103,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     [setRaidFilterTaskId, setActiveTab, setWorkspaceCollapsed],
   );
 
-  const onToggleComplete = useCallback(
-    (task: Task) => {
-      if (task.completedDate && task.jiraKey) {
-        window.alert(t(lang, "jiraReopenForbidden", task.jiraKey));
-        return;
-      }
-      const wasComplete = !!task.completedDate;
-      const stamp = new Date().toISOString();
-      setTasks((prev) =>
-        prev.map((row) => {
-          if (row.id !== task.id) return row;
-          // Route through applyStatusChange so `status` stays in sync with
-          // `completedDate` (the Done ⟺ completedDate invariant). Reopening
-          // resets status to "To Do"; completing sets it to "Done".
-          const next: TaskStatus = row.completedDate ? "To Do" : "Done";
-          return { ...applyStatusChange(row, next, today), localModifiedAt: stamp };
-        }),
-      );
-      if (editingId === task.id) handleCancelEditRef.current();
-      logActivityRef.current(
-        wasComplete ? "task.reopened" : "task.completed",
-        task.id,
-        task.taskName,
-      );
-    },
-    [lang, today, editingId, setTasks],
-  );
-
   const onSendInquiry = useCallback(
     (task: Task) => {
       // Prefer the linked resource's CURRENT email; the cached assigneeEmail
@@ -333,7 +305,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     setPushingIds,
     onToggleNoteExpanded,
     onJumpToRaid,
-    onToggleComplete,
     onSendInquiry,
     onPushToJira,
     onStatusChange,

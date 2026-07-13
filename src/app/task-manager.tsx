@@ -1290,7 +1290,6 @@ function TaskManagerInner() {
     pushingIds,
     onToggleNoteExpanded,
     onJumpToRaid,
-    onToggleComplete,
     onSendInquiry,
     onPushToJira,
     onStatusChange,
@@ -1950,7 +1949,6 @@ function TaskManagerInner() {
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}
       onJumpToRaid={onJumpToRaid}
-      onToggleComplete={onToggleComplete}
       onSendInquiry={onSendInquiry}
       onPushToJira={onPushToJira}
       onStatusChange={onStatusChange}

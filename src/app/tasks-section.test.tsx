@@ -149,7 +149,6 @@ function makeProps(): TasksSectionProps {
     onToggleSelect: vi.fn(),
     onToggleNoteExpanded: vi.fn(),
     onJumpToRaid: vi.fn(),
-    onToggleComplete: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
     onStatusChange: vi.fn(),
