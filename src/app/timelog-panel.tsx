@@ -391,6 +391,22 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     );
   }
 
+  // Refresh re-fetches the LAST-FETCHED (persisted) scope from
+  // `links.customerId`/`links.projectIds`, independent of the live picker — so
+  // it truly reloads what the user already fetched even if they've since changed
+  // the customer/project selection without re-fetching. Distinct from Fetch,
+  // which pulls the CURRENT picker selection. Scope is unchanged so nothing is
+  // re-persisted.
+  const refreshCustomerId = links.customerId;
+  const refreshProjectIds = links.projectIds ?? [];
+  const canRefresh =
+    refreshCustomerId !== undefined && refreshProjectIds.length > 0;
+  async function handleRefreshBookings() {
+    if (isPopout || sync.busy || confirming || !canRefresh) return;
+    const { start, end } = fetchWindow();
+    await sync.fetchBookingsForProjects([...refreshProjectIds], start, end);
+  }
+
   // Fetch is gated on a customer + ≥1 picked project (button disabled otherwise).
   // Loads ONLY the selected projects' registrations; the People table is then
   // derived from who booked on them. Persists customer + project scope so the
@@ -470,14 +486,15 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
               ? t(lang, "loadingTimelog")
               : `${t(lang, "timelogSync")}${selectedProjectIds.size > 0 ? ` (${selectedProjectIds.size})` : ""}`}
           </button>
-          {/* Refresh — appears once bookings have been read; re-fetches the same
-              (persisted) customer + project scope from Timelog so the user can
-              pull the latest bookings without re-picking. */}
+          {/* Refresh — appears once bookings have been read; re-fetches the
+              LAST-FETCHED (persisted) customer + project scope so the user can
+              pull the latest bookings without re-picking, even if the picker was
+              since changed. Distinct from Fetch (current selection). */}
           {sync.fetchedAt && (
             <button
               type="button"
-              disabled={sync.busy || isPopout || isMisconfigured || confirming || projectCustomerId === "" || selectedProjectIds.size === 0}
-              onClick={() => void handleFetchBookings()}
+              disabled={sync.busy || isPopout || isMisconfigured || confirming || !canRefresh}
+              onClick={() => void handleRefreshBookings()}
               title={t(lang, "timelogRefreshHint")}
               className={`inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
             >

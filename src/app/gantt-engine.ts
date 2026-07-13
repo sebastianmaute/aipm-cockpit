@@ -22,10 +22,8 @@ const GANTT_SORTS = [
 ] as const;
 export type GanttSort = (typeof GANTT_SORTS)[number];
 
-export type GanttStatusFilter = "all" | "open" | "completed" | "overdue";
-
-/** Concrete (non-"all") status buckets a task can be filtered to. An empty
- *  `statuses` array means "no status filter" (i.e. the old "all"). */
+/** Concrete status buckets a task can be filtered to. An empty `statuses`
+ *  array means "no status filter" (show all). */
 export const GANTT_STATUS_VALUES = ["open", "completed", "overdue"] as const;
 export type GanttStatus = (typeof GANTT_STATUS_VALUES)[number];
 

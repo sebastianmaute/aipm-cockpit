@@ -934,7 +934,6 @@ const enUS = {
   ganttToday: "Today",
   ganttRange: "Showing {0} — {1}",
   ganttFilterStatus: "Status",
-  ganttStatusAll: "All status",
   ganttStatusOpen: "Open",
   ganttStatusCompleted: "Completed",
   ganttStatusOverdue: "Overdue",

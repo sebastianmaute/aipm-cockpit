@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, test, expect, vi } from "vitest";
+import { describe, it, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, act, fireEvent } from "@testing-library/react";
@@ -352,6 +352,42 @@ describe("GanttPanel effective assignee names (stale resource-link)", () => {
     // Both rows remain visible because each task's EFFECTIVE assignee is "Live".
     expect(getByRole("button", { name: "A" })).toBeTruthy();
     expect(getByRole("button", { name: "B" })).toBeTruthy();
+  });
+});
+
+describe("GanttPanel multi-select filter semantics", () => {
+  // Gantt prefs persist in localStorage; clear so selections don't bleed.
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  const TASKS: Task[] = [
+    { id: 1, taskName: "HighTask", assignee: "Alice", priority: "High", startDate: dayPlus(-10), dueDate: dayPlus(10) } as unknown as Task,
+    { id: 2, taskName: "LowTask", assignee: "Bob", priority: "Low", startDate: dayPlus(-10), dueDate: dayPlus(10) } as unknown as Task,
+  ];
+
+  it("ORs within the priority filter — selecting two priorities shows the union", () => {
+    const { getByRole, queryByRole } = render(<GanttPanel {...BASE_PROPS} tasks={TASKS} onEditTask={() => {}} />);
+    fireEvent.click(getByRole("button", { name: /Priority/ }));
+    // Select High only → only HighTask shows.
+    fireEvent.click(getByRole("checkbox", { name: "High" }));
+    expect(getByRole("button", { name: "HighTask" })).toBeTruthy();
+    expect(queryByRole("button", { name: "LowTask" })).toBeNull();
+    // Add Low → both show (OR within the filter).
+    fireEvent.click(getByRole("checkbox", { name: "Low" }));
+    expect(getByRole("button", { name: "HighTask" })).toBeTruthy();
+    expect(getByRole("button", { name: "LowTask" })).toBeTruthy();
+  });
+
+  it("ANDs across filters — priority AND assignee both must match", () => {
+    const { getByRole, queryByRole } = render(<GanttPanel {...BASE_PROPS} tasks={TASKS} onEditTask={() => {}} />);
+    // Priority = High.
+    fireEvent.click(getByRole("button", { name: /Priority/ }));
+    fireEvent.click(getByRole("checkbox", { name: "High" }));
+    // Assignee = Bob (Bob's task is Low, so the AND yields nothing).
+    fireEvent.click(getByRole("button", { name: /Assignee/ }));
+    fireEvent.click(getByRole("checkbox", { name: "Bob" }));
+    expect(queryByRole("button", { name: "HighTask" })).toBeNull();
+    expect(queryByRole("button", { name: "LowTask" })).toBeNull();
   });
 });
 

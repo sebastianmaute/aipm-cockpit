@@ -104,23 +104,26 @@ export function GanttToolbar({
       <FilterMultiSelect
         lang={lang}
         label={t(lang, "ganttFilterStatus")}
+        hint={t(lang, "ganttStatusFilterHint")}
         options={GANTT_STATUS_VALUES.map(
-          (s): FilterOption => ({ value: s, label: t(lang, STATUS_LABEL_KEY[s]) }),
+          (s): FilterOption<GanttStatus> => ({ value: s, label: t(lang, STATUS_LABEL_KEY[s]) }),
         )}
         selected={prefs.statuses}
-        onToggle={(v) => toggleStatus(v as GanttStatus)}
+        onToggle={toggleStatus}
       />
       <FilterMultiSelect
         lang={lang}
         label={t(lang, "priority")}
-        options={PRIORITIES.map((p): FilterOption => ({ value: p, label: p }))}
+        hint={t(lang, "priorityFilterHint")}
+        options={PRIORITIES.map((p): FilterOption<Priority> => ({ value: p, label: p }))}
         selected={prefs.priorities}
-        onToggle={(v) => togglePriority(v as Priority)}
+        onToggle={togglePriority}
       />
       <FilterMultiSelect
         lang={lang}
         label={t(lang, "assignee")}
-        options={assigneeOptions.map((a): FilterOption => ({ value: a, label: a }))}
+        hint={t(lang, "assigneeFilterHint")}
+        options={assigneeOptions.map((a): FilterOption<string> => ({ value: a, label: a }))}
         selected={prefs.assignees}
         onToggle={toggleAssignee}
       />

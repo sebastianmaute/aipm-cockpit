@@ -249,7 +249,11 @@ describe("TimelogPanel", () => {
       );
       const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
       fireEvent.click(btn);
-      await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalled());
+      // Re-fetches the PERSISTED scope (links.projectIds = [9]), not the live
+      // picker — so the exact id list must be forwarded to the fetch.
+      await waitFor(() =>
+        expect(fetchBookingsForProjects).toHaveBeenCalledWith([9], expect.any(String), expect.any(String)),
+      );
     });
 
     it("hides the Refresh button before any bookings are read", async () => {

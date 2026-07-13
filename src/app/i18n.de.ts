@@ -924,7 +924,6 @@ export const de: Record<TranslationKey, string> = {
   ganttToday: "Heute",
   ganttRange: "Zeitraum {0} – {1}",
   ganttFilterStatus: "Status",
-  ganttStatusAll: "Alle Status",
   ganttStatusOpen: "Offen",
   ganttStatusCompleted: "Erledigt",
   ganttStatusOverdue: "Überfällig",

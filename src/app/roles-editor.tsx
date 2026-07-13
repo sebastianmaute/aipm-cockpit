@@ -9,7 +9,7 @@ import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
-import { materializeRoleRates } from "./role-rates";
+import { dayFromHour, materializeRoleRates } from "./role-rates";
 import { SegmentedControl } from "./segmented-control";
 
 export const ROLES_COL_WIDTHS = {
@@ -122,8 +122,8 @@ export function RolesEditor({
         ? {
             ...r,
             rateBasis: "day",
-            internalRateDay: round2(r.internalRate * workdayHours),
-            externalRateDay: round2(r.externalRate * workdayHours),
+            internalRateDay: dayFromHour(r.internalRate, workdayHours),
+            externalRateDay: dayFromHour(r.externalRate, workdayHours),
           }
         : { ...r, rateBasis: "hour" };
     onSaveRole(materializeRoleRates(flipped, workdayHours));
@@ -135,8 +135,8 @@ export function RolesEditor({
     // day figure is display-only and ALWAYS recomputed live from the current
     // workday hours (never a frozen `internalRateDay`), so two hour-basis roles
     // with the same hourly always show the same day rate regardless of edit history.
-    const internalDay = dayBasis ? round2(r.internalRateDay ?? 0) : round2(r.internalRate * workdayHours);
-    const externalDay = dayBasis ? round2(r.externalRateDay ?? 0) : round2(r.externalRate * workdayHours);
+    const internalDay = dayBasis ? round2(r.internalRateDay ?? 0) : dayFromHour(r.internalRate, workdayHours);
+    const externalDay = dayBasis ? round2(r.externalRateDay ?? 0) : dayFromHour(r.externalRate, workdayHours);
     const value =
       field === "internal"
         ? unit === "day" ? internalDay : r.internalRate
@@ -291,6 +291,7 @@ export function RolesEditor({
                       ]}
                       onChange={(next) => flipBasis(r, next)}
                       ariaLabel={`${rowCtx} — ${t(lang, "rolesRateBasisSwitch")}`}
+                      optionAriaLabel={(v) => `${rowCtx} — ${t(lang, v === "day" ? "rolesBasisDays" : "rolesBasisHours")}`}
                       title={t(lang, "rolesRateBasisHint")}
                     />
                   </td>
