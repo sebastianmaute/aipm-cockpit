@@ -15,14 +15,16 @@ import {
   sanitizeVoiceTranscript,
 } from "./sanitize";
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
+import { applyStatusChange } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
 // them on a `jiraKey` row would be silently reverted by the next read-only pull
 // (or unexpectedly pushed), so they are skipped on synced rows. Local-only
-// fields (group/blockers/notes/labels/…) still apply. (Status is not a
-// bulk-editable field.)
+// fields (group/blockers/notes/labels/…) still apply. `status` is ALSO
+// Jira-managed (Jira's statusCategory drives it) but is applied separately via
+// applyStatusChange — see the `statusEnabled` handling in applyBulkEdit.
 const JIRA_MANAGED_BULK_FIELDS = ["assignee", "priority", "dueDate"] as const;
 
 export interface BulkRowHandlers {
@@ -170,18 +172,26 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       return;
     }
     const updates = built.updates;
-    // Jira-managed fields are skipped on synced rows (silently reverted / pushed
-    // otherwise); local-only fields still apply. Non-synced rows get everything.
-    const managedEnabled = JIRA_MANAGED_BULK_FIELDS.some((f) => f in updates);
+    // `status` isn't in `updates` (it must route through applyStatusChange to keep
+    // the Done ⟺ completedDate invariant), so track its enablement separately.
+    const statusEnabled = fields.status;
+    const newStatus = bulkEdit.status;
+    // Jira-managed fields (incl. status) are skipped on synced rows (silently
+    // reverted / pushed otherwise); local-only fields still apply. Non-synced rows
+    // get everything.
+    const managedEnabled = statusEnabled || JIRA_MANAGED_BULK_FIELDS.some((f) => f in updates);
     const jiraSafeUpdates: Partial<Task> = { ...updates };
     for (const f of JIRA_MANAGED_BULK_FIELDS) delete jiraSafeUpdates[f];
+    // Local changes a synced row still receives (status never is — it's applied
+    // via applyStatusChange only on non-synced rows below).
+    const noLocalForSynced = Object.keys(jiraSafeUpdates).length === 0;
     const skippedSynced = managedEnabled
       ? tasks.reduce((n, row) => (selectedIds.has(row.id) && row.jiraKey ? n + 1 : n), 0)
       : 0;
     // Synced rows are left fully untouched only when the edit was managed-fields-
     // only (nothing local to apply); subtract those so the count reflects rows
     // actually changed.
-    const untouchedSynced = managedEnabled && Object.keys(jiraSafeUpdates).length === 0 ? skippedSynced : 0;
+    const untouchedSynced = managedEnabled && noLocalForSynced ? skippedSynced : 0;
     const count = selectedIds.size - untouchedSynced;
     const stamp = new Date().toISOString();
     const beforeRows = tasks.filter((r) => selectedIds.has(r.id));
@@ -193,12 +203,17 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
         if (!selectedIds.has(row.id)) return row;
         if (row.jiraKey) {
           if (!managedEnabled) return { ...row, ...updates, localModifiedAt: stamp };
-          // Only managed fields were enabled → nothing local to change; leave the
-          // row untouched (no spurious localModifiedAt that a pull would revert).
-          if (Object.keys(jiraSafeUpdates).length === 0) return row;
+          // Only managed fields (incl. status) were enabled → nothing local to
+          // change; leave the row untouched (no spurious localModifiedAt that a
+          // pull would revert).
+          if (noLocalForSynced) return row;
           return { ...row, ...jiraSafeUpdates, localModifiedAt: stamp };
         }
-        return { ...row, ...updates, localModifiedAt: stamp };
+        // Non-synced: apply the flat field patch, then the status transition (via
+        // applyStatusChange so status + completedDate stay in sync).
+        const next = { ...row, ...updates };
+        const withStatus = statusEnabled ? applyStatusChange(next, newStatus, today) : next;
+        return { ...withStatus, localModifiedAt: stamp };
       }),
     );
     if (skippedSynced > 0) {
