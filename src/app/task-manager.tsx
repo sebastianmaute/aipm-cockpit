@@ -1739,6 +1739,7 @@ function TaskManagerInner() {
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
     onCaptureRaidBulk: captureRaidBulkUndo,
     onCaptureUndo: undoApi.capture,
+    onCaptureFieldEdit: undoApi.captureFieldEdit,
     m365Configured: m365Enabled,
     raidCalendar: {
       enabled: calendarRaidEnabled,

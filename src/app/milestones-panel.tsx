@@ -45,6 +45,8 @@ import { BulkEditPanel, dateField, type BulkField } from "./bulk-edit-panel";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import type { Milestone } from "./types";
+import { captureFieldChanges } from "./undo/capture-field-changes";
+import { MILESTONE_UNDO_GROUPS } from "./undo/field-groups";
 
 const MILESTONE_COL_WIDTHS = { name: 220, date: 130, status: 140, achieved: 130 } as const;
 type MilestoneCol = keyof typeof MILESTONE_COL_WIDTHS;
@@ -83,6 +85,8 @@ type MilestonesPanelProps = {
   ) => void;
   /** Capture a pre-op snapshot for undo (delete / bulk-edit). */
   capture?: import("./undo/use-undo-stack").UndoStackApi["capture"];
+  /** Capture a per-field undo entry for a save-triggered edit. */
+  captureFieldEdit?: import("./undo/use-undo-stack").UndoStackApi["captureFieldEdit"];
   openCreateNonce?: number;
   /** Called after an `openCreateNonce` create-request has been honoured so the
    *  parent can reset the nonce. Without it a stale nonce re-opens the create
@@ -112,6 +116,7 @@ export function MilestonesPanel(props: MilestonesPanelProps) {
 function MilestonesPanelBody({
   lang,
   capture,
+  captureFieldEdit,
   today,
   holidaySet,
   logActivity,
@@ -264,6 +269,13 @@ function MilestonesPanelBody({
     setMilestones((prev) =>
       create ? [...prev, finalItem] : prev.map((m) => (m.id === id ? finalItem : m)),
     );
+    if (!create && previous) {
+      captureFieldChanges(captureFieldEdit, {
+        setter: setMilestones, kind: "milestone.updated", id,
+        prev: previous, next: finalItem, groups: MILESTONE_UNDO_GROUPS,
+        stampField: "localModifiedAt",
+      });
+    }
     if (create) {
       logActivity?.("milestone.created", id, finalItem.name);
     } else if (previous && logActivityChanges) {

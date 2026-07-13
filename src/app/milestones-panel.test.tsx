@@ -343,6 +343,34 @@ describe("MilestonesPanel", () => {
       screen.queryByRole("button", { name: /ask claude/i }),
     ).not.toBeInTheDocument();
   });
+
+  it("captures a per-field undo entry when a milestone's name is edited and saved", () => {
+    const captureFieldEdit = vi.fn();
+    const seeded = m("Original", "2026-06-10", { id: 1 });
+    render(
+      <>
+        <Seed milestones={[seeded]} />
+        <MilestonesPanel {...baseProps} captureFieldEdit={captureFieldEdit} />
+      </>,
+      { wrapper },
+    );
+    // Open the milestone's editor (isNew=false).
+    fireEvent.click(screen.getByRole("button", { name: "Original" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getAllByRole("textbox")[0], {
+      target: { value: "Renamed" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+
+    expect(captureFieldEdit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "milestone.updated",
+        id: 1,
+        before: { name: "Original" },
+        after: { name: "Renamed" },
+      }),
+    );
+  });
 });
 
 describe("Milestones bulk edit", () => {
