@@ -244,8 +244,9 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
             : row,
         ),
       );
-      // Jira-synced tasks are read-only — no undo entry for a no-op.
-      if (prevRow && !prevRow.jiraKey) {
+      // Jira-synced tasks are read-only — no undo entry for a no-op, nor when
+      // the status didn't actually change (e.g. re-selecting the same value).
+      if (prevRow && !prevRow.jiraKey && prevRow.status !== next) {
         const after = applyStatusChange(prevRow, next, today);
         captureFieldEdit?.({
           setter: setTasks,

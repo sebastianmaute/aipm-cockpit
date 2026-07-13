@@ -30,6 +30,12 @@ function differs(a: unknown, b: unknown): boolean {
   return true;
 }
 
+/** Public alias of `differs` for callers outside this module that need to
+ *  gate a capture on a real value change (e.g. skip a no-op undo entry). */
+export function valuesDiffer(a: unknown, b: unknown): boolean {
+  return differs(a, b);
+}
+
 /**
  * Diff prev→next and return one {before, after} patch per CHANGED logical field.
  * A changed key that belongs to a multi-key group emits a single entry carrying

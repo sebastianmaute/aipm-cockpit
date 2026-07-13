@@ -689,4 +689,37 @@ describe("TasksSection", () => {
 
     expect(captureFieldEdit).not.toHaveBeenCalled();
   });
+
+  it("does not capture an undo entry when the inline patch value is unchanged (no-op)", () => {
+    const task = { id: 1, taskName: "T1", notes: "same note" };
+    let currentTasks: unknown[] = [task];
+    const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
+      currentTasks = updater(currentTasks);
+    });
+    mockUseWorkspace.mockReturnValue({
+      tasks: currentTasks,
+      setTasks,
+      filteredSortedTasks: currentTasks,
+      uniqueAssignees: [],
+      uniqueGroups: [],
+      uniqueLabels: [],
+      tasksById: new Map(),
+      taskSearchIndex: new Map(),
+      resources: [],
+      raid: [], setRaid: vi.fn(),
+      absences: [], setAbsences: vi.fn(),
+      shifts: [], setShifts: vi.fn(),
+    });
+    const captureFieldEdit = vi.fn();
+    render(<TasksSection {...makeProps()} captureFieldEdit={captureFieldEdit} />);
+
+    const ctx = capturedRowContext.current as {
+      onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
+    };
+    act(() => {
+      ctx.onInlinePatch(1, { notes: "same note" });
+    });
+
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
 });

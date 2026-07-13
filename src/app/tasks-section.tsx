@@ -20,6 +20,7 @@ import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
 import { sanitizeInlinePatch } from "./task-inline-patch";
 import type { UndoStackApi } from "./undo/use-undo-stack";
+import { valuesDiffer } from "./undo/field-groups";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
@@ -317,9 +318,11 @@ export function TasksSection({
             : row,
         ),
       );
-      if (Object.keys(clean).length > 0) {
+      const cleanKeys = Object.keys(clean) as (keyof Task)[];
+      const anyChanged = cleanKeys.some((k) => valuesDiffer(beforeRow[k], clean[k]));
+      if (cleanKeys.length > 0 && anyChanged) {
         const before: Partial<Task> = {};
-        for (const k of Object.keys(clean) as (keyof Task)[]) {
+        for (const k of cleanKeys) {
           (before as Record<string, unknown>)[k] = beforeRow[k];
         }
         captureFieldEdit?.({

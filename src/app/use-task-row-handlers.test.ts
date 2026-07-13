@@ -173,6 +173,17 @@ describe("useTaskRowHandlers", () => {
     expect(captureFieldEdit).not.toHaveBeenCalled();
   });
 
+  it("does not capture a field-edit undo entry when the status is unchanged (no-op)", () => {
+    const captureFieldEdit = vi.fn();
+    const setTasks = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "To Do" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() => result.current.onStatusChange(1, "To Do"));
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
   it("handleClearRaidTaskFilter calls setRaidFilterTaskId with null", () => {
     const setRaidFilterTaskId = vi.fn();
     const { result } = renderHook(() =>
