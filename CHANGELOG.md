@@ -8,6 +8,26 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.188.0] - 2026-07-13 "Blish"
+
+### Added
+- **Field-level edit undo.** Field edits are now undoable on the existing undo stack, at
+  per-changed-field granularity, across all six edited registers (tasks, RAID, changes, milestones,
+  stakeholders, resources). Inline cell edits, the task status dropdown, and modal / full-page saves
+  each push an undo entry per changed field; a save that changed three fields undoes them one at a
+  time. Correlated fields revert together — a task's status and its auto-managed completion date, the
+  assignee/email/resource identity, and a change's status and decision date. Undo/redo, the Undo
+  toast, and the Ctrl/Cmd+Z shortcut are shared with the existing delete-undo. Jira-synced tasks stay
+  read-only (no undo entry), creates are unchanged, and bulk edit keeps its existing single whole-row
+  undo (no duplicate entries). No-op edits (re-selecting the current value) push nothing.
+
+### Also in this release
+- **Open Points row cleanup.** Removed the redundant "Mark complete / Reopen" button (the status
+  dropdown already covers Done) and added inline editing to Open Points rows — assignee via a picker
+  combo, notes and blockers via in-cell textareas (double-click), and task relations via a popover.
+- **Bulk status change.** The Open Points bulk-edit panel can now set Status across the selected rows,
+  applied so the Done⟺completion-date invariant holds and skipped for Jira-synced rows.
+
 ## [0.187.0] - 2026-07-13 "Simak"
 
 ### Added

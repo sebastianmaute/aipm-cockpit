@@ -3279,6 +3279,7 @@ const enUS = {
   versionHighlightModalResize: "Every editor and popup dialog is now draggable and resizable — drag it by its header, resize it from the corner, and reset it to the default size and position from the header button. Your preferred size and position persist per dialog.",
   versionHighlightFeatureGuidance: "Settings → Functions now explains each feature: a short line under every toggle tells you what it does and when to enable it, so choosing what your project uses no longer means guessing.",
   versionHighlightUiBatch0187: "Quality-of-life batch: multi-select Gantt filters, an explicit Hours/Days rate-unit switch in manage roles, a Refresh button in Time bookings, and a Cancel button in the Documents add-link form.",
+  versionHighlightFieldUndo: "Field-level edit undo: inline cell edits, the status dropdown, and modal saves are now undoable one field at a time across tasks, RAID, changes, milestones, stakeholders, and resources. Correlated fields (status and completion date, the assignee identity) revert together; bulk edit keeps its single whole-row undo.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
