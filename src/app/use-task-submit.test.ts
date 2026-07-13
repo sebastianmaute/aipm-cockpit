@@ -425,6 +425,31 @@ describe("useTaskSubmit — status on save", () => {
   });
 });
 
+describe("useTaskSubmit — field-level edit undo", () => {
+  it("captures a per-group field edit for both name and status changes", () => {
+    const setTasks = vi.fn();
+    const captureFieldEdit = vi.fn();
+    const existing = makeTask({ id: 1, taskName: "Old Name", assignee: "Bob", status: "To Do", completedDate: "" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing],
+        tasksRef: { current: [existing] },
+        captureFieldEdit,
+        form: { ...validForm(), taskName: "New Name", assignee: "Bob", status: "Done" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+
+    const nameCall = captureFieldEdit.mock.calls.find(
+      (c) => "name" in (c[0].before ?? {}) || "taskName" in (c[0].before ?? {}),
+    );
+    const statusCall = captureFieldEdit.mock.calls.find((c) => "status" in (c[0].before ?? {}));
+    expect(nameCall).toBeTruthy();
+    expect(statusCall).toBeTruthy();
+    expect(statusCall![0].after).toHaveProperty("completedDate");
+  });
+});
+
 describe("useTaskSubmit — RAID back-link on task create", () => {
   function makeRaidItem(overrides: Partial<RaidItem> = {}): RaidItem {
     return {

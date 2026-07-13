@@ -1222,6 +1222,7 @@ function TaskManagerInner() {
     pendingLinkRaidIdRef,
     onTaskCreated: flushEditorBuffer,
     onEditorDiscard: discardEditorBuffer,
+    captureFieldEdit: undoApi.captureFieldEdit,
   });
 
   // taskModalOpen<->activeTab sync for the full-page editor. editArmedRef tells OPEN apart from NAV-AWAY (any setActiveTab while editing — sidebar/search/alerts/top-bar — used to look like an open and get silently reverted); nav-away skips setActiveTab since the target view's already set.
