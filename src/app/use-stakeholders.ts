@@ -7,6 +7,8 @@ import { reportSilentFailure } from "./guard-feedback";
 import { nextStakeholderId } from "./stakeholders";
 import type { Lang } from "./i18n";
 import type { Stakeholder } from "./types";
+import { captureFieldChanges } from "./undo/capture-field-changes";
+import { STAKEHOLDER_UNDO_GROUPS } from "./undo/field-groups";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 
 export interface UseStakeholdersArgs {
@@ -21,6 +23,8 @@ export interface UseStakeholdersArgs {
   ) => void;
   /** Capture a pre-op snapshot for undo (delete removes the row). */
   capture?: UndoStackApi["capture"];
+  /** Capture per-field edits for undo (modal save). */
+  captureFieldEdit?: UndoStackApi["captureFieldEdit"];
 }
 
 export function useStakeholders(args: UseStakeholdersArgs) {
@@ -50,10 +54,17 @@ export function useStakeholders(args: UseStakeholdersArgs) {
     );
     if (create) {
       args.logActivity?.("stakeholder.created", id, item.name);
-    } else if (previous && args.logActivityChanges) {
-      args.logActivityChanges("stakeholder.updated", diffFields(previous, withStamp), id, item.name);
-    } else {
-      args.logActivity?.("stakeholder.updated", id, item.name);
+    } else if (previous) {
+      captureFieldChanges(args.captureFieldEdit, {
+        setter: setStakeholders, kind: "stakeholder.updated", id,
+        prev: previous, next: withStamp, groups: STAKEHOLDER_UNDO_GROUPS,
+        stampField: "localModifiedAt",
+      });
+      if (args.logActivityChanges) {
+        args.logActivityChanges("stakeholder.updated", diffFields(previous, withStamp), id, item.name);
+      } else {
+        args.logActivity?.("stakeholder.updated", id, item.name);
+      }
     }
   }, [stakeholders, setStakeholders, args]);
 
