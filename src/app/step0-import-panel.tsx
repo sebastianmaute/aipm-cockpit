@@ -333,7 +333,7 @@ export function Step0ImportPanel({
               type="file"
               multiple
               aria-label={t(lang, "wizardImportFileLabel")}
-              accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv,.docx,.xlsx,.xlsm,.pptx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               disabled={reading || aiBusy}
               onChange={onFile}
               className="text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-surface-muted disabled:opacity-50"

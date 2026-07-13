@@ -798,7 +798,7 @@ function ChatPanelInner({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.markdown,.csv,application/pdf,image/*,text/plain,text/markdown,text/csv"
+          accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.markdown,.csv,.docx,.xlsx,.xlsm,.pptx,application/pdf,image/*,text/plain,text/markdown,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
           onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
           tabIndex={-1}
