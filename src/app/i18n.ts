@@ -194,6 +194,7 @@ const enUS = {
   searchPlaceholder: "Search task name, assignee, blockers, notes…",
   allPriorities: "All priorities",
   allAssignees: "All assignees",
+  filterSelectedCount: "{0} selected",
   noTasks: "No tasks yet. Add one above.",
   noTasksFiltered: "No tasks match the current filters.",
 

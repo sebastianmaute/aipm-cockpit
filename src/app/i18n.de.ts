@@ -197,6 +197,7 @@ export const de: Record<TranslationKey, string> = {
   searchPlaceholder: "Suche Aufgabenname, Zugewiesen, Blocker, Notizen…",
   allPriorities: "Alle Prioritäten",
   allAssignees: "Alle Zugewiesenen",
+  filterSelectedCount: "{0} ausgewählt",
   noTasks: "Noch keine Aufgaben. Fügen Sie oben eine hinzu.",
   noTasksFiltered: "Keine Aufgaben entsprechen den aktuellen Filtern.",
 

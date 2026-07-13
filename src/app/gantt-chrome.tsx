@@ -3,6 +3,7 @@
 // dependency/connector arrow overlay. All pure (no local state); GanttPanel
 // owns the data + handlers and passes them in.
 import { type Lang, t } from "./i18n";
+import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { PrintButton, ResetSizeButton, ResetSizeIcon } from "./task-manager-ui";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
@@ -13,14 +14,22 @@ import {
   EDGE_STROKE_MUTED,
   edgeKey,
   fmtDay,
+  GANTT_STATUS_VALUES,
   type GanttPrefs,
   type GanttSort,
-  type GanttStatusFilter,
+  type GanttStatus,
   HEADER_HEIGHT_PX,
   HEADER_ROW_HEIGHT_PX,
   parseISO,
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
+
+/** i18n key for each status bucket's label. */
+const STATUS_LABEL_KEY: Record<GanttStatus, "ganttStatusOpen" | "ganttStatusCompleted" | "ganttStatusOverdue"> = {
+  open: "ganttStatusOpen",
+  completed: "ganttStatusCompleted",
+  overdue: "ganttStatusOverdue",
+};
 
 export function GanttToolbar({
   lang,
@@ -32,9 +41,9 @@ export function GanttToolbar({
   resetGanttSize,
   resetNameColWidth,
   setSearch,
-  setStatusFilter,
-  setPriorityFilter,
-  setAssigneeFilter,
+  toggleStatus,
+  togglePriority,
+  toggleAssignee,
   setSort,
   resetFilters,
   toggleCriticalPath,
@@ -50,9 +59,9 @@ export function GanttToolbar({
   resetGanttSize: () => void;
   resetNameColWidth: () => void;
   setSearch: (search: string) => void;
-  setStatusFilter: (status: GanttStatusFilter) => void;
-  setPriorityFilter: (priority: Priority | "All") => void;
-  setAssigneeFilter: (assignee: string) => void;
+  toggleStatus: (status: GanttStatus) => void;
+  togglePriority: (priority: Priority) => void;
+  toggleAssignee: (assignee: string) => void;
   setSort: (sort: GanttSort) => void;
   resetFilters: () => void;
   toggleCriticalPath: () => void;
@@ -92,50 +101,29 @@ export function GanttToolbar({
         title={t(lang, "ganttSearchHint")}
         className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
       />
-      <select
-        value={prefs.status}
-        onChange={(e) =>
-          setStatusFilter(e.target.value as GanttStatusFilter)
-        }
-        aria-label={t(lang, "ganttFilterStatus")}
-        title={t(lang, "ganttStatusFilterHint")}
-        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-      >
-        <option value="all">{t(lang, "ganttStatusAll")}</option>
-        <option value="open">{t(lang, "ganttStatusOpen")}</option>
-        <option value="completed">{t(lang, "ganttStatusCompleted")}</option>
-        <option value="overdue">{t(lang, "ganttStatusOverdue")}</option>
-      </select>
-      <select
-        value={prefs.priority}
-        onChange={(e) =>
-          setPriorityFilter(e.target.value as Priority | "All")
-        }
-        aria-label={t(lang, "allPriorities")}
-        title={t(lang, "priorityFilterHint")}
-        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-      >
-        <option value="All">{t(lang, "allPriorities")}</option>
-        {PRIORITIES.map((p) => (
-          <option key={p} value={p}>
-            {p}
-          </option>
-        ))}
-      </select>
-      <select
-        value={prefs.assignee}
-        onChange={(e) => setAssigneeFilter(e.target.value)}
-        aria-label={t(lang, "allAssignees")}
-        title={t(lang, "assigneeFilterHint")}
-        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-      >
-        <option value="All">{t(lang, "allAssignees")}</option>
-        {assigneeOptions.map((a) => (
-          <option key={a} value={a}>
-            {a}
-          </option>
-        ))}
-      </select>
+      <FilterMultiSelect
+        lang={lang}
+        label={t(lang, "ganttFilterStatus")}
+        options={GANTT_STATUS_VALUES.map(
+          (s): FilterOption => ({ value: s, label: t(lang, STATUS_LABEL_KEY[s]) }),
+        )}
+        selected={prefs.statuses}
+        onToggle={(v) => toggleStatus(v as GanttStatus)}
+      />
+      <FilterMultiSelect
+        lang={lang}
+        label={t(lang, "priority")}
+        options={PRIORITIES.map((p): FilterOption => ({ value: p, label: p }))}
+        selected={prefs.priorities}
+        onToggle={(v) => togglePriority(v as Priority)}
+      />
+      <FilterMultiSelect
+        lang={lang}
+        label={t(lang, "assignee")}
+        options={assigneeOptions.map((a): FilterOption => ({ value: a, label: a }))}
+        selected={prefs.assignees}
+        onToggle={toggleAssignee}
+      />
       <label className="flex items-center gap-1 text-xs text-muted-foreground">
         <span className="hidden sm:inline">{t(lang, "ganttSortLabel")}</span>
         <select

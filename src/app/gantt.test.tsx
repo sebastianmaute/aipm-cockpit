@@ -326,16 +326,14 @@ describe("GanttPanel effective assignee names (stale resource-link)", () => {
   ];
 
   it("lists the live resource name in the assignee filter, collapsing the stale caches", () => {
-    const { getByRole } = render(
+    const { getByRole, queryByRole } = render(
       <GanttPanel {...BASE_PROPS} tasks={STALE_TASKS} resources={RESOURCES} />,
     );
-    const select = getByRole("combobox", { name: "All assignees" });
-    const optionTexts = Array.from(select.querySelectorAll("option")).map(
-      (o) => o.textContent,
-    );
-    expect(optionTexts).toContain("Live");
-    expect(optionTexts).not.toContain("Old A");
-    expect(optionTexts).not.toContain("Old B");
+    // Open the multi-select Assignee popover and read its checkbox options.
+    fireEvent.click(getByRole("button", { name: "Assignee" }));
+    expect(getByRole("checkbox", { name: "Live" })).toBeTruthy();
+    expect(queryByRole("checkbox", { name: "Old A" })).toBeNull();
+    expect(queryByRole("checkbox", { name: "Old B" })).toBeNull();
   });
 
   it("filters both stale-named tasks under the single live resource name", () => {
@@ -347,11 +345,9 @@ describe("GanttPanel effective assignee names (stale resource-link)", () => {
         onEditTask={() => {}}
       />,
     );
-    const select = getByRole("combobox", {
-      name: "All assignees",
-    }) as HTMLSelectElement;
+    fireEvent.click(getByRole("button", { name: "Assignee" }));
     act(() => {
-      fireEvent.change(select, { target: { value: "Live" } });
+      fireEvent.click(getByRole("checkbox", { name: "Live" }));
     });
     // Both rows remain visible because each task's EFFECTIVE assignee is "Live".
     expect(getByRole("button", { name: "A" })).toBeTruthy();

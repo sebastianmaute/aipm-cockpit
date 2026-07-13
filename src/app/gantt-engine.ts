@@ -24,12 +24,20 @@ export type GanttSort = (typeof GANTT_SORTS)[number];
 
 export type GanttStatusFilter = "all" | "open" | "completed" | "overdue";
 
+/** Concrete (non-"all") status buckets a task can be filtered to. An empty
+ *  `statuses` array means "no status filter" (i.e. the old "all"). */
+export const GANTT_STATUS_VALUES = ["open", "completed", "overdue"] as const;
+export type GanttStatus = (typeof GANTT_STATUS_VALUES)[number];
+
 export type GanttPrefs = {
   sort: GanttSort;
   search: string;
-  status: GanttStatusFilter;
-  priority: Priority | "All";
-  assignee: string;
+  /** Selected status buckets; empty = all. OR within the filter. */
+  statuses: GanttStatus[];
+  /** Selected priorities; empty = all. OR within the filter. */
+  priorities: Priority[];
+  /** Selected (resolved) assignee names; empty = all. OR within the filter. */
+  assignees: string[];
   /** Task ids in user-defined order (drag-and-drop). Ignored unless
    *  `sort === "custom"`. */
   customOrder: number[];
@@ -47,13 +55,64 @@ const PREFS_KEY = "aipm-cockpit:gantt-prefs";
 export const DEFAULT_PREFS: GanttPrefs = {
   sort: "auto",
   search: "",
-  status: "all",
-  priority: "All",
-  assignee: "All",
+  statuses: [],
+  priorities: [],
+  assignees: [],
   customOrder: [],
   showCriticalPath: true,
   showBaseline: true,
 };
+
+/** De-duplicate while preserving first-seen order. */
+function uniq<T>(xs: T[]): T[] {
+  return [...new Set(xs)];
+}
+
+/** Parse the status filter, migrating the legacy scalar `status` key. */
+function parseStatusFilters(parsed: Record<string, unknown>): GanttStatus[] {
+  const allowed = GANTT_STATUS_VALUES as readonly string[];
+  if (Array.isArray(parsed.statuses)) {
+    return uniq(
+      parsed.statuses.filter((s): s is GanttStatus =>
+        allowed.includes(s as string),
+      ),
+    );
+  }
+  return typeof parsed.status === "string" && allowed.includes(parsed.status)
+    ? [parsed.status as GanttStatus]
+    : [];
+}
+
+/** Parse the priority filter, migrating the legacy scalar `priority` key. */
+function parsePriorityFilters(parsed: Record<string, unknown>): Priority[] {
+  const allowed = PRIORITIES as readonly string[];
+  if (Array.isArray(parsed.priorities)) {
+    return uniq(
+      parsed.priorities.filter((p): p is Priority =>
+        allowed.includes(p as string),
+      ),
+    );
+  }
+  return typeof parsed.priority === "string" && allowed.includes(parsed.priority)
+    ? [parsed.priority as Priority]
+    : [];
+}
+
+/** Parse the assignee filter, migrating the legacy scalar `assignee` key. */
+function parseAssigneeFilters(parsed: Record<string, unknown>): string[] {
+  if (Array.isArray(parsed.assignees)) {
+    return uniq(
+      parsed.assignees.filter(
+        (a): a is string => typeof a === "string" && a.trim() !== "",
+      ),
+    );
+  }
+  return typeof parsed.assignee === "string" &&
+    parsed.assignee !== "All" &&
+    parsed.assignee.trim() !== ""
+    ? [parsed.assignee]
+    : [];
+}
 
 export function loadPrefs(): GanttPrefs {
   if (typeof window === "undefined") return DEFAULT_PREFS;
@@ -67,27 +126,18 @@ export function loadPrefs(): GanttPrefs {
     )
       ? (parsed.sort as GanttSort)
       : DEFAULT_PREFS.sort;
-    const status =
-      parsed.status === "open" ||
-      parsed.status === "completed" ||
-      parsed.status === "overdue" ||
-      parsed.status === "all"
-        ? (parsed.status as GanttStatusFilter)
-        : DEFAULT_PREFS.status;
-    const priority =
-      parsed.priority === "All" ||
-      (PRIORITIES as readonly string[]).includes(parsed.priority as string)
-        ? (parsed.priority as Priority | "All")
-        : DEFAULT_PREFS.priority;
+    // Status/priority/assignee are multi-select arrays (empty = all). Migrate
+    // from the legacy scalar keys (status/priority/assignee, with "all"/"All"
+    // sentinels) when a saved prefs blob predates the multi-select change.
+    const statuses = parseStatusFilters(parsed);
+    const priorities = parsePriorityFilters(parsed);
+    const assignees = parseAssigneeFilters(parsed);
     return {
       sort,
       search: typeof parsed.search === "string" ? parsed.search : "",
-      status,
-      priority,
-      assignee:
-        typeof parsed.assignee === "string"
-          ? parsed.assignee
-          : DEFAULT_PREFS.assignee,
+      statuses,
+      priorities,
+      assignees,
       customOrder: Array.isArray(parsed.customOrder)
         ? parsed.customOrder.filter((n): n is number => typeof n === "number")
         : [],
