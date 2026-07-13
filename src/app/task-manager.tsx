@@ -634,7 +634,7 @@ function TaskManagerInner() {
   }
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
-  const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture });
+  const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
