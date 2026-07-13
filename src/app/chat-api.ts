@@ -7,6 +7,7 @@ import { AiHttpError, safeAiErrorType } from "./ai-errors";
 import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
 import type { AttachmentBlock } from "./chat-attachments";
+import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
@@ -65,8 +66,13 @@ export const CONTINUE_NUDGE =
  *  data: prefix) for pdf/image, decoded UTF-8 text for text. */
 export function readAttachmentData(
   file: File,
-  kind: "pdf" | "image" | "text",
+  kind: "pdf" | "image" | "text" | "office",
 ): Promise<string> {
+  if (kind === "office") {
+    const fmt = officeKindOf(file.type, file.name);
+    if (!fmt) return Promise.reject(new Error("unknown office format"));
+    return file.arrayBuffer().then((buf) => extractOfficeMarkdown(buf, fmt));
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(reader.error ?? new Error("read failed"));

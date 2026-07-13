@@ -111,8 +111,33 @@ describe("classifyAttachment — extension fallback", () => {
     expect(classifyAttachment(GENERIC, "setup.exe")).toBeNull();
   });
 
-  it("returns null for unknown extension .docx", () => {
-    expect(classifyAttachment(GENERIC, "report.docx")).toBeNull();
+  it("classifies .docx extension as office (Office ingestion)", () => {
+    expect(classifyAttachment(GENERIC, "report.docx")).toBe("office");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Office (OOXML) support
+// ---------------------------------------------------------------------------
+describe("chat-attachments office support", () => {
+  it("classifies the four Office formats as 'office'", () => {
+    expect(
+      classifyAttachment(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "a.docx",
+      ),
+    ).toBe("office");
+    expect(classifyAttachment("application/octet-stream", "b.xlsx")).toBe("office");
+    expect(classifyAttachment("", "c.xlsm")).toBe("office");
+    expect(classifyAttachment("", "d.pptx")).toBe("office");
+  });
+
+  it("builds a text document block for an office attachment (data = extracted Markdown)", () => {
+    const block = buildAttachmentBlock("office", "application/octet-stream", "## Sheet: A\n\n| x |");
+    expect(block).toEqual({
+      type: "document",
+      source: { type: "text", media_type: "text/plain", data: "## Sheet: A\n\n| x |" },
+    });
   });
 });
 

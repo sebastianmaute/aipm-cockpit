@@ -23,6 +23,7 @@ import {
   type AttachmentKind,
 } from "./chat-attachments";
 import { isSharePointEnabled, fetchSharePointFileContent } from "./m365-sharepoint";
+import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { fetchConfluencePage } from "./confluence-api";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
@@ -52,6 +53,11 @@ function mimeForKind(kind: AttachmentKind): string {
 /** Read a File into the shape buildAttachmentBlock expects: base64 (no data:
  *  prefix) for pdf/image, decoded UTF-8 string for text. */
 function readFileData(file: File, kind: AttachmentKind): Promise<string> {
+  if (kind === "office") {
+    const fmt = officeKindOf(file.type, file.name);
+    if (!fmt) return Promise.reject(new Error("read"));
+    return file.arrayBuffer().then((buf) => extractOfficeMarkdown(buf, fmt));
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("read"));
@@ -219,7 +225,12 @@ export function Step0ImportPanel({
         setImportError(t(lang, "wizardImportErrorUnsupported"));
         return;
       }
-      const data = kind === "text" ? new TextDecoder().decode(bytes) : arrayBufferToBase64(bytes);
+      const data =
+        kind === "text"
+          ? new TextDecoder().decode(bytes)
+          : kind === "office"
+            ? await extractOfficeMarkdown(bytes, officeKindOf(mime, name)!)
+            : arrayBufferToBase64(bytes);
       content = [
         { type: "text", text: t(lang, "wizardImportFilePrompt") },
         buildAttachmentBlock(kind, mime, data),
@@ -322,7 +333,7 @@ export function Step0ImportPanel({
               type="file"
               multiple
               aria-label={t(lang, "wizardImportFileLabel")}
-              accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv,.docx,.xlsx,.xlsm,.pptx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               disabled={reading || aiBusy}
               onChange={onFile}
               className="text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-surface-muted disabled:opacity-50"
