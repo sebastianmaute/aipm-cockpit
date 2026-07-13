@@ -7,6 +7,9 @@ import { useVoiceCommand } from "./voice-command-context";
 import { VoiceCommandButton } from "./voice-button";
 
 interface DragHandleProps {
+  /** Captures the header element so useDraggable can reach the panel for a
+   *  post-layout viewport re-clamp. */
+  ref?: (el: HTMLElement | null) => void;
   onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
   onPointerMove: (e: React.PointerEvent<HTMLElement>) => void;
   onPointerUp: (e: React.PointerEvent<HTMLElement>) => void;
