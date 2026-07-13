@@ -23,7 +23,7 @@ export function unescapeXml(input: string): string {
         body[1] === "x" || body[1] === "X"
           ? parseInt(body.slice(2), 16)
           : parseInt(body.slice(1), 10);
-      return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
+      return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
     }
     return NAMED[body] ?? whole;
   });

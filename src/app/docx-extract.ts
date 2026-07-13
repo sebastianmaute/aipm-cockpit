@@ -1,5 +1,7 @@
 // src/app/docx-extract.ts — WordprocessingML (word/document.xml) → Markdown.
 // Paragraphs, heading levels (w:pStyle "HeadingN"), and tables (w:tbl). Pure.
+// LIMITATION: nested tables (a w:tbl inside a table cell) are not supported —
+// the lazy w:tbl match closes on the inner table; such docs extract partially.
 
 import { decodeUtf8, extractRuns } from "./office-xml";
 

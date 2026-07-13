@@ -7,6 +7,10 @@
 const EOCD_SIG = 0x06054b50;
 const CDH_SIG = 0x02014b50;
 
+/** Safety ceiling on a single entry's decompressed size (zip-bomb guard). The
+ *  20 MB upstream attachment cap bounds INPUT, not DEFLATE output. */
+const MAX_INFLATED_BYTES = 100 * 1024 * 1024;
+
 async function inflateRaw(input: Uint8Array): Promise<Uint8Array> {
   const ds = new DecompressionStream("deflate-raw");
   const writer = ds.writable.getWriter();
@@ -20,6 +24,10 @@ async function inflateRaw(input: Uint8Array): Promise<Uint8Array> {
     if (done) break;
     chunks.push(value);
     total += value.length;
+    if (total > MAX_INFLATED_BYTES) {
+      await reader.cancel();
+      throw new Error("decompressed size exceeds limit");
+    }
   }
   const out = new Uint8Array(total);
   let off = 0;

@@ -35,6 +35,30 @@ describe("extractXlsx", () => {
     expect(extractXlsx(entries)).toContain("| 1 |  | 3 |");
   });
 
+  it("maps sheet names to content via workbook rels (reordered workbook)", () => {
+    const workbook = `<workbook><sheets>
+      <sheet name="Summary" sheetId="1" r:id="rId1"/>
+      <sheet name="Details" sheetId="2" r:id="rId2"/>
+    </sheets></workbook>`;
+    const rels = `<Relationships>
+      <Relationship Id="rId1" Target="worksheets/sheet2.xml"/>
+      <Relationship Id="rId2" Target="worksheets/sheet1.xml"/>
+    </Relationships>`;
+    const sheet1 = `<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>fromFile1</t></is></c></row></sheetData></worksheet>`;
+    const sheet2 = `<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>fromFile2</t></is></c></row></sheetData></worksheet>`;
+    const entries = new Map<string, Uint8Array>([
+      ["xl/workbook.xml", enc(workbook)],
+      ["xl/_rels/workbook.xml.rels", enc(rels)],
+      ["xl/worksheets/sheet1.xml", enc(sheet1)],
+      ["xl/worksheets/sheet2.xml", enc(sheet2)],
+    ]);
+    const out = extractXlsx(entries);
+    // Summary → rId1 → sheet2.xml (fromFile2); Details → rId2 → sheet1.xml (fromFile1)
+    expect(out).toBe(
+      "## Sheet: Summary\n\n| fromFile2 |\n| --- |\n\n## Sheet: Details\n\n| fromFile1 |\n| --- |",
+    );
+  });
+
   it("returns empty string when there are no worksheets", () => {
     expect(extractXlsx(new Map())).toBe("");
   });

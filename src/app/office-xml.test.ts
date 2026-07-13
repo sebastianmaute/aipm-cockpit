@@ -17,6 +17,11 @@ describe("office-xml", () => {
     expect(unescapeXml("100&percnt;")).toBe("100&percnt;");
   });
 
+  it("leaves an out-of-range numeric entity untouched instead of throwing", () => {
+    expect(unescapeXml("x&#xFFFFFF;y")).toBe("x&#xFFFFFF;y");
+    expect(unescapeXml("x&#99999999;y")).toBe("x&#99999999;y");
+  });
+
   it("extracts ordered text runs for a tag, unescaping entities", () => {
     const xml = `<w:t>Hello</w:t><w:tab/><w:t xml:space="preserve"> world &amp; more</w:t>`;
     expect(extractRuns(xml, "w:t")).toEqual(["Hello", " world & more"]);

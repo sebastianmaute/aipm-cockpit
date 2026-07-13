@@ -38,6 +38,48 @@ function sheetIndex(path: string): number {
   return m ? parseInt(m[1], 10) : 0;
 }
 
+function resolveTarget(target: string): string {
+  // rels Target is relative to xl/ (e.g. "worksheets/sheet1.xml") or absolute
+  // from the package root (e.g. "/xl/worksheets/sheet1.xml").
+  return target.startsWith("/") ? target.slice(1) : `xl/${target}`;
+}
+
+/** Ordered {name, path} per sheet. Prefers the workbook→rels mapping (correct
+ *  even when sheets were reordered/deleted); falls back to positional pairing of
+ *  declaration order with numerically-sorted sheet files when rels are absent. */
+function sheetEntries(entries: Map<string, Uint8Array>): { name: string; path: string }[] {
+  const paths = worksheetPaths(entries);
+  const wb = entries.get("xl/workbook.xml");
+  const rels = entries.get("xl/_rels/workbook.xml.rels");
+  if (wb && rels) {
+    const relMap = new Map<string, string>();
+    const relRe = /<Relationship\b[^>]*\/?>/g;
+    const relXml = decodeUtf8(rels);
+    let rm: RegExpExecArray | null;
+    while ((rm = relRe.exec(relXml)) !== null) {
+      const id = /\bId="([^"]*)"/.exec(rm[0]);
+      const target = /\bTarget="([^"]*)"/.exec(rm[0]);
+      if (id && target) relMap.set(id[1], target[1]);
+    }
+    const wbXml = decodeUtf8(wb);
+    const sRe = /<sheet\b[^>]*\/?>/g;
+    const mapped: { name: string; path: string }[] = [];
+    let sm: RegExpExecArray | null;
+    while ((sm = sRe.exec(wbXml)) !== null) {
+      const nameM = /\bname="([^"]*)"/.exec(sm[0]);
+      const ridM = /\br:id="([^"]*)"/.exec(sm[0]);
+      if (!nameM || !ridM) continue;
+      const target = relMap.get(ridM[1]);
+      if (!target) continue;
+      const path = resolveTarget(target);
+      if (entries.has(path)) mapped.push({ name: unescapeXml(nameM[1]), path });
+    }
+    if (mapped.length > 0) return mapped;
+  }
+  const names = sheetNames(entries);
+  return paths.map((path, i) => ({ name: names[i] ?? `Sheet${i + 1}`, path }));
+}
+
 function colIndex(ref: string): number {
   const m = /^([A-Z]+)/.exec(ref);
   if (!m) return 0;
@@ -101,14 +143,11 @@ function renderRows(rows: string[][]): string {
 /** Extract Markdown from an xlsx/xlsm entry map (one section per sheet). */
 export function extractXlsx(entries: Map<string, Uint8Array>): string {
   const shared = sharedStrings(entries);
-  const names = sheetNames(entries);
-  const paths = worksheetPaths(entries);
   const sections: string[] = [];
-  paths.forEach((path, i) => {
+  for (const { name, path } of sheetEntries(entries)) {
     const table = renderRows(sheetRows(decodeUtf8(entries.get(path)!), shared));
-    if (table === "") return;
-    const name = names[i] ?? `Sheet${i + 1}`;
+    if (table === "") continue;
     sections.push(`## Sheet: ${name}\n\n${table}`);
-  });
+  }
   return sections.join("\n\n");
 }
