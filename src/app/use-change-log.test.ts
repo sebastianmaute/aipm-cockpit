@@ -27,3 +27,15 @@ test("editing one field pushes a captureFieldEdit for that field", async () => {
     kind: "change.updated", id: 1, before: { description: "old" }, after: { description: "new" },
   });
 });
+
+test("suppressFieldUndo skips the per-field capture (bulk edit path)", async () => {
+  const mod = (await import("./workspace-context")) as unknown as { __seed: (r: readonly ChangeItem[]) => void };
+  const existing = { id: 1, title: "C", description: "old" } as ChangeItem;
+  mod.__seed([existing]);
+  const captureFieldEdit = vi.fn();
+  const { result } = renderHook(() => useChangeLog({ today: "2026-01-01", captureFieldEdit }));
+  act(() =>
+    result.current.handleSaveChange({ ...existing, description: "new" }, false, { suppressFieldUndo: true }),
+  );
+  expect(captureFieldEdit).not.toHaveBeenCalled();
+});

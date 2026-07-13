@@ -89,7 +89,7 @@ export type ChangePanelProps = {
   changes: readonly ChangeItem[];
   /** YYYY-MM-DD; default `raisedDate` for new drafts + decisionDate autofill. */
   today: string;
-  onSave: (item: ChangeItem, isNew?: boolean) => void;
+  onSave: (item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number, title: string) => void;
   /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
   onCaptureBulk?: (ids: readonly number[]) => void;
@@ -276,7 +276,7 @@ function ChangePanelBody({
         patched = { ...patched, impact: patch.impact ? (patch.impact as ChangeImpact) : undefined };
       if (patch.requestedBy !== undefined)
         patched = { ...patched, requestedBy: patch.requestedBy || undefined };
-      onSave(patched);
+      onSave(patched, undefined, { suppressFieldUndo: true });
     }
     setBulkOpen(false);
     sel.clear();

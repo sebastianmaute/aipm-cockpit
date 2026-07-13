@@ -177,7 +177,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   // an update and clobber a row committed since the modal opened (id-mint race).
   // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
   const handleSaveRaidItem = useCallback(
-    (item: RaidItem, isNew?: boolean) => {
+    (item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => {
       const stamp = new Date().toISOString();
       const { create, id } = resolveEntitySave(raid, item.id, isNew, () => nextRaidId(raid));
       const withStamp: RaidItem = { ...item, id, localModifiedAt: stamp };
@@ -237,7 +237,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         );
       }
 
-      if (!create && previous) {
+      if (!create && previous && !opts?.suppressFieldUndo) {
         captureFieldChanges(captureFieldEditRef.current, {
           setter: setRaid, kind: "raid.updated", id,
           prev: previous, next: withStamp, groups: RAID_UNDO_GROUPS,

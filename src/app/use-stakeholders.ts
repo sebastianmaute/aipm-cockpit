@@ -33,7 +33,7 @@ export function useStakeholders(args: UseStakeholdersArgs) {
   // isNew carries the modal's create/edit intent so a create can't be misread as
   // an update and clobber a row committed since the modal opened (id-mint race).
   // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
-  const handleSaveStakeholder = useCallback((item: Stakeholder, isNew?: boolean) => {
+  const handleSaveStakeholder = useCallback((item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => {
     const { create, id } = resolveEntitySave(stakeholders, item.id, isNew, () =>
       nextStakeholderId(stakeholders),
     );
@@ -55,11 +55,13 @@ export function useStakeholders(args: UseStakeholdersArgs) {
     if (create) {
       args.logActivity?.("stakeholder.created", id, item.name);
     } else if (previous) {
-      captureFieldChanges(args.captureFieldEdit, {
-        setter: setStakeholders, kind: "stakeholder.updated", id,
-        prev: previous, next: withStamp, groups: STAKEHOLDER_UNDO_GROUPS,
-        stampField: "localModifiedAt",
-      });
+      if (!opts?.suppressFieldUndo) {
+        captureFieldChanges(args.captureFieldEdit, {
+          setter: setStakeholders, kind: "stakeholder.updated", id,
+          prev: previous, next: withStamp, groups: STAKEHOLDER_UNDO_GROUPS,
+          stampField: "localModifiedAt",
+        });
+      }
       if (args.logActivityChanges) {
         args.logActivityChanges("stakeholder.updated", diffFields(previous, withStamp), id, item.name);
       } else {

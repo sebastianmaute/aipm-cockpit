@@ -207,7 +207,7 @@ function MilestonesPanelBody({
       if (changes.date !== undefined && changes.date) patched.date = changes.date;
       if (changes.achievedDate !== undefined)
         patched.achievedDate = changes.achievedDate || undefined;
-      save(patched);
+      save(patched, undefined, { suppressFieldUndo: true });
     }
     setBulkOpen(false);
     sel.clear();
@@ -255,7 +255,7 @@ function MilestonesPanelBody({
   // isNewIntent carries the modal's create/edit intent so a create can't be
   // misread as an update and clobber a row committed since the modal opened
   // (id-mint race). Bulk edit omits it → id-existence fallback (unchanged).
-  function save(next: Milestone, isNewIntent?: boolean) {
+  function save(next: Milestone, isNewIntent?: boolean, opts?: { suppressFieldUndo?: boolean }) {
     const { create, id } = resolveEntitySave(milestones, next.id, isNewIntent, () => mintId("milestone", milestones));
     const finalItem: Milestone = { ...next, id };
     const previous = create ? undefined : milestones.find((m) => m.id === id);
@@ -269,7 +269,7 @@ function MilestonesPanelBody({
     setMilestones((prev) =>
       create ? [...prev, finalItem] : prev.map((m) => (m.id === id ? finalItem : m)),
     );
-    if (!create && previous) {
+    if (!create && previous && !opts?.suppressFieldUndo) {
       captureFieldChanges(captureFieldEdit, {
         setter: setMilestones, kind: "milestone.updated", id,
         prev: previous, next: finalItem, groups: MILESTONE_UNDO_GROUPS,
