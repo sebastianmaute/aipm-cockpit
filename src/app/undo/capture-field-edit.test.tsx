@@ -86,3 +86,55 @@ describe("captureFieldEdit", () => {
     expect(result.current.rows[0].name).toBe("t");
   });
 });
+
+import { captureFieldChanges } from "./capture-field-changes";
+import type { FieldGroup } from "./field-groups";
+
+describe("captureFieldChanges", () => {
+  const GROUPS: readonly FieldGroup<Row>[] = [["status", "done"]];
+
+  test("pushes one entry per changed group; undo reverts all in LIFO order", () => {
+    const { result } = harness([{ id: 1, name: "old", status: "To Do", done: "" }]);
+    const next: Row = { id: 1, name: "new", status: "Done", done: "2026-01-01" };
+    act(() => {
+      result.current.setRows(() => [next]);
+      captureFieldChanges(result.current.undo.captureFieldEdit, {
+        setter: result.current.setRows,
+        kind: "task.updated",
+        id: 1,
+        prev: { id: 1, name: "old", status: "To Do", done: "" },
+        next,
+        groups: GROUPS,
+        stampField: "localModifiedAt",
+      });
+    });
+    expect(result.current.undo.canUndo).toBe(true);
+    act(() => result.current.undo.undo());
+    act(() => result.current.undo.undo());
+    expect(result.current.rows[0]).toMatchObject({ name: "old", status: "To Do", done: "" });
+  });
+
+  test("no changes → no entries pushed", () => {
+    const { result } = harness([{ id: 1, name: "x", status: "s", done: "" }]);
+    act(() => {
+      captureFieldChanges(result.current.undo.captureFieldEdit, {
+        setter: result.current.setRows,
+        kind: "task.updated",
+        id: 1,
+        prev: { id: 1, name: "x", status: "s", done: "" },
+        next: { id: 1, name: "x", status: "s", done: "" },
+        groups: [],
+      });
+    });
+    expect(result.current.undo.canUndo).toBe(false);
+  });
+
+  test("undefined captureFieldEdit is a safe no-op", () => {
+    const prev: Row = { id: 1, name: "x", status: "s", done: "" };
+    expect(() =>
+      captureFieldChanges(undefined, {
+        setter: () => {}, kind: "task.updated", id: 1, prev, next: { ...prev, name: "y" }, groups: [],
+      }),
+    ).not.toThrow();
+  });
+});
