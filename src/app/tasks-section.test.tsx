@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { t } from "./i18n";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
@@ -9,8 +9,20 @@ vi.mock("./task-form-context", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./task-form-context")>();
   return { ...actual, useTaskForm: vi.fn() };
 });
+// Captures the `value` prop RowContextProvider is rendered with, so tests can
+// invoke row-context callbacks (e.g. onInlinePatch) directly — TaskRow itself
+// is stubbed out below (renders no interactive cells), so this is the closest
+// reliable seam for driving an inline cell edit without a brittle DOM path.
+const { capturedRowContext } = vi.hoisted(() => ({
+  capturedRowContext: { current: null as unknown },
+}));
 vi.mock("./task-row", () => ({
-  RowContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  RowContextProvider: (
+    { children, value }: { children: React.ReactNode; value: unknown },
+  ) => {
+    capturedRowContext.current = value;
+    return <>{children}</>;
+  },
   TaskRow: ({ task }: { task: { id: number; taskName: string } }) => (
     <tr data-deeplink-row={task.id}><td>{task.taskName}</td></tr>
   ),
@@ -599,5 +611,82 @@ describe("TasksSection", () => {
     expect(
       screen.queryByRole("checkbox", { name: t("en-US", "calendarSyncEnable") }),
     ).not.toBeInTheDocument();
+  });
+
+  it("captures a field-level undo entry for an inline cell edit (notes)", () => {
+    const task = { id: 1, taskName: "T1", notes: "old note" };
+    let currentTasks: unknown[] = [task];
+    const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
+      currentTasks = updater(currentTasks);
+    });
+    mockUseWorkspace.mockReturnValue({
+      tasks: currentTasks,
+      setTasks,
+      filteredSortedTasks: currentTasks,
+      uniqueAssignees: [],
+      uniqueGroups: [],
+      uniqueLabels: [],
+      tasksById: new Map(),
+      taskSearchIndex: new Map(),
+      resources: [],
+      raid: [], setRaid: vi.fn(),
+      absences: [], setAbsences: vi.fn(),
+      shifts: [], setShifts: vi.fn(),
+    });
+    const captureFieldEdit = vi.fn();
+    render(<TasksSection {...makeProps()} captureFieldEdit={captureFieldEdit} />);
+
+    // TaskRow is stubbed (renders no interactive cells) — invoke the pane's
+    // onInlinePatch directly via the captured RowContextProvider `value`,
+    // the closest reliable seam to the real double-click-cell → blur flow
+    // covered end-to-end by task-row.test.tsx.
+    const ctx = capturedRowContext.current as {
+      onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
+    };
+    act(() => {
+      ctx.onInlinePatch(1, { notes: "new note" });
+    });
+
+    expect(captureFieldEdit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "task.updated",
+        id: 1,
+        before: { notes: "old note" },
+        after: { notes: "new note" },
+      }),
+    );
+  });
+
+  it("does not capture an undo entry for a Jira-synced task's inline edit (no-op)", () => {
+    const task = { id: 1, taskName: "T1", notes: "old note", jiraKey: "LOP-1" };
+    let currentTasks: unknown[] = [task];
+    const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
+      currentTasks = updater(currentTasks);
+    });
+    mockUseWorkspace.mockReturnValue({
+      tasks: currentTasks,
+      setTasks,
+      filteredSortedTasks: currentTasks,
+      uniqueAssignees: [],
+      uniqueGroups: [],
+      uniqueLabels: [],
+      tasksById: new Map(),
+      taskSearchIndex: new Map(),
+      resources: [],
+      raid: [], setRaid: vi.fn(),
+      absences: [], setAbsences: vi.fn(),
+      shifts: [], setShifts: vi.fn(),
+    });
+    const captureFieldEdit = vi.fn();
+    render(<TasksSection {...makeProps()} captureFieldEdit={captureFieldEdit} />);
+
+    const ctx = capturedRowContext.current as {
+      onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
+    };
+    act(() => {
+      ctx.onInlinePatch(1, { notes: "new note" });
+    });
+
+    expect(captureFieldEdit).not.toHaveBeenCalled();
   });
 });

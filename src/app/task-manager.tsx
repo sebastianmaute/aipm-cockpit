@@ -1314,6 +1314,7 @@ function TaskManagerInner() {
     handleCancelEdit,
     logActivity,
     capture: undoApi.capture,
+    captureFieldEdit: undoApi.captureFieldEdit,
     resolveTemplateBody: resolveCommBody,
     sendCommTemplate: commSend.send,
   });
@@ -1946,6 +1947,7 @@ function TaskManagerInner() {
       m365Configured={m365Enabled}
       dispatcher={dispatcher}
       logActivity={logActivity}
+      captureFieldEdit={undoApi.captureFieldEdit}
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}

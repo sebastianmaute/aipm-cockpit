@@ -19,6 +19,7 @@ import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
 import { sanitizeInlinePatch } from "./task-inline-patch";
+import type { UndoStackApi } from "./undo/use-undo-stack";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
@@ -150,6 +151,8 @@ export interface TasksSectionProps {
   // both threaded from task-manager.
   dispatcher: ToolDispatcher;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** Capture a field-level undo entry for an inline cell edit. */
+  captureFieldEdit?: UndoStackApi["captureFieldEdit"];
 }
 
 export function TasksSection({
@@ -207,6 +210,7 @@ export function TasksSection({
   m365Configured,
   dispatcher,
   logActivity,
+  captureFieldEdit,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -297,6 +301,8 @@ export function TasksSection({
   // sanitizers (use-task-submit); Jira-synced rows are read-only and skipped.
   const onInlinePatch = useCallback(
     (taskId: number, patch: Partial<Task>) => {
+      let beforeRow: Task | undefined;
+      let cleanApplied: Partial<Task> | undefined;
       setTasks((prev) => {
         const knownTaskIds = new Set(prev.map((tk) => tk.id));
         return prev.map((row) => {
@@ -306,11 +312,27 @@ export function TasksSection({
             knownTaskIds,
             ownTaskId: taskId,
           });
+          beforeRow = row;
+          cleanApplied = clean;
           return { ...row, ...clean, localModifiedAt: new Date().toISOString() };
         });
       });
+      if (beforeRow && cleanApplied && Object.keys(cleanApplied).length > 0) {
+        const before: Partial<Task> = {};
+        for (const k of Object.keys(cleanApplied) as (keyof Task)[]) {
+          (before as Record<string, unknown>)[k] = beforeRow[k];
+        }
+        captureFieldEdit?.({
+          setter: setTasks,
+          kind: "task.updated",
+          id: taskId,
+          before,
+          after: cleanApplied,
+          stampField: "localModifiedAt",
+        });
+      }
     },
-    [setTasks, resourcesById],
+    [setTasks, resourcesById, captureFieldEdit],
   );
 
   const rowContextValue = useMemo<RowContextValue>(

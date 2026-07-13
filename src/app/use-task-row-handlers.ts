@@ -40,6 +40,8 @@ export interface UseTaskRowHandlersArgs {
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   /** Capture a pre-op snapshot for undo (a delete removes rows). */
   capture: UndoStackApi["capture"];
+  /** Capture a single field-level undo entry (the inline status dropdown). */
+  captureFieldEdit?: UndoStackApi["captureFieldEdit"];
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
   sendCommTemplate?: (req: CommSendRequest) => void;
 }
@@ -61,6 +63,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     handleCancelEdit,
     logActivity,
     capture,
+    captureFieldEdit,
     resolveTemplateBody,
     sendCommTemplate,
   } = args;
@@ -233,6 +236,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   const onStatusChange = useCallback(
     (id: number, next: TaskStatus) => {
       const stamp = new Date().toISOString();
+      const prevRow = tasksRef.current.find((row) => row.id === id);
       setTasks((prev) =>
         prev.map((row) =>
           row.id === id && !row.jiraKey
@@ -240,8 +244,20 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
             : row,
         ),
       );
+      // Jira-synced tasks are read-only — no undo entry for a no-op.
+      if (prevRow && !prevRow.jiraKey) {
+        const after = applyStatusChange(prevRow, next, today);
+        captureFieldEdit?.({
+          setter: setTasks,
+          kind: "task.updated",
+          id,
+          before: { status: prevRow.status, completedDate: prevRow.completedDate },
+          after: { status: after.status, completedDate: after.completedDate },
+          stampField: "localModifiedAt",
+        });
+      }
     },
-    [today, setTasks],
+    [today, setTasks, tasksRef, captureFieldEdit],
   );
 
   const onEdit = useCallback(

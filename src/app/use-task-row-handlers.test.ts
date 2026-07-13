@@ -140,6 +140,39 @@ describe("useTaskRowHandlers", () => {
     expect(updater([open])[0].status).toBe("In Progress");
   });
 
+  it("captures a field-edit undo entry for a status change (status + completedDate)", () => {
+    const captureFieldEdit = vi.fn();
+    const setTasks = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "To Do", completedDate: undefined })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() => result.current.onStatusChange(1, "Done"));
+    expect(captureFieldEdit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "task.updated",
+        id: 1,
+        before: { status: "To Do", completedDate: undefined },
+      }),
+    );
+    const opts = captureFieldEdit.mock.calls[0][0] as {
+      after: { status: string; completedDate: string };
+    };
+    expect(opts.after.status).toBe("Done");
+    expect(opts.after.completedDate).toBeTruthy();
+  });
+
+  it("does not capture a field-edit undo entry for a Jira-synced task's status", () => {
+    const captureFieldEdit = vi.fn();
+    const setTasks = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, jiraKey: "LOP-1", status: "In Progress" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() => result.current.onStatusChange(1, "Done"));
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
   it("handleClearRaidTaskFilter calls setRaidFilterTaskId with null", () => {
     const setRaidFilterTaskId = vi.fn();
     const { result } = renderHook(() =>
