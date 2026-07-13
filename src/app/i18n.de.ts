@@ -2181,6 +2181,17 @@ export const de: Record<TranslationKey, string> = {
   // --- Dokumente-Tab (0.81.0) ---
   navDocuments: "Dokumente",
   documentsModuleDesc: "Ein zentraler Ort, um alle Dokument-Verknüpfungen im Projekt zu sehen und zu verwalten.",
+  // --- Feature-module descriptions (Settings -> Functions) ---
+  dashboardModuleDesc: "Landing-Cockpit mit Zusammenfassung von Status, Fortschritt und dem, was Ihre Aufmerksamkeit braucht - aktivieren Sie es für einen schnellen Überblick bei jedem Öffnen des Projekts.",
+  trendsModuleDesc: "Trendlinien zu Fertigstellung und Abweichung aus gespeicherten Snapshots (benötigt Turso-Speicher) - aktivieren, wenn Sie den Verlauf sehen wollen, nicht nur die heutigen Zahlen.",
+  ganttModuleDesc: "Zeitleiste von Aufgaben und Abhängigkeiten mit Verschieben per Ziehen - aktivieren für die Terminplanung bei zeitlich getakteten Projekten.",
+  milestonesModuleDesc: "Wichtige Termine und Ergebnisse mit RAG-Status verfolgen - aktivieren, wenn das Projekt von Fristen und Gate-Reviews bestimmt wird.",
+  resourcesModuleDesc: "Personen, Rollen, Kapazität, Zuordnungen und Abwesenheiten planen - aktivieren, wenn Sie ein Team besetzen und die Auslastung ausgleichen.",
+  budgetModuleDesc: "Kosten/Aufwand gegen eine Baseline planen und verfolgen, mit Earned-Value-Auswertung - aktivieren, wenn es ein Budget zu steuern gibt.",
+  raidModuleDesc: "Register für Risiken, Annahmen, Probleme und Abhängigkeiten mit Review-Erinnerungen - aktivieren für ein strukturiertes Risikomanagement.",
+  changesModuleDesc: "Änderungslog für Änderungsanträge zu Umfang/Termin/Kosten und Entscheidungen - aktivieren, wenn Änderungen formal verfolgt und freigegeben werden müssen.",
+  stakeholdersModuleDesc: "Stakeholder, Einfluss/Interesse, RACI und Kommunikation abbilden - aktivieren, wenn Sie die Einbindung vieler Beteiligter steuern.",
+  historyModuleDesc: "Versionsverlauf mit Wiederherstellung für Projektdaten (benötigt Turso-Speicher) - aktivieren, um Änderungen über die Zeit zu prüfen und zurückzunehmen.",
   documentsTitle: "Dokumente",
   documentsTabEmpty: "Noch keine Dokumente verknüpft. Unten oder im Editor eines Eintrags hinzufügen.",
   documentsColDocument: "Dokument",

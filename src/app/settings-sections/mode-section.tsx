@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import {
@@ -41,6 +41,9 @@ const MODE_LABEL_KEY = {
 export function ModeSection({ lang, settings, onCommitFeatures, onChange }: ModeSectionProps) {
   const saved = settings.features;
   const [draft, setDraft] = useState<FeatureModuleId[]>(saved);
+  // Namespace the per-module checkbox + description ids so two concurrent mounts
+  // (e.g. a settings pop-out beside the main window) can't collide.
+  const idBase = useId();
 
   const mode = deriveMode(draft);
   const dirty = !sameSet(draft, saved);
@@ -93,15 +96,26 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
           {t(lang, "modeModulesHeading")}
         </legend>
         {FEATURE_MODULES.map((m) => (
-          <label key={m.id} className="flex items-center gap-2 text-sm">
+          <div key={m.id} className="flex items-start gap-2 text-sm">
             <input
+              id={`${idBase}-${m.id}`}
               type="checkbox"
               checked={draft.includes(m.id)}
               onChange={() => toggle(m.id)}
-              className={`h-4 w-4 accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
+              aria-describedby={m.descKey ? `${idBase}-desc-${m.id}` : undefined}
+              className={`mt-0.5 h-4 w-4 shrink-0 accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
             />
-            <span>{t(lang, m.labelKey)}</span>
-          </label>
+            <span className="flex flex-col">
+              <label htmlFor={`${idBase}-${m.id}`} className="font-medium">
+                {t(lang, m.labelKey)}
+              </label>
+              {m.descKey && (
+                <span id={`${idBase}-desc-${m.id}`} className="text-xs text-muted-foreground">
+                  {t(lang, m.descKey)}
+                </span>
+              )}
+            </span>
+          </div>
         ))}
       </fieldset>
 

@@ -267,8 +267,14 @@ export function GanttHeader({
             aria-label={t(lang, "ganttResizeNameCol")}
             title={t(lang, "ganttResizeNameCol")}
             onMouseDown={onStartNameColResize}
-            className="absolute right-0 top-0 z-40 h-full w-1.5 cursor-col-resize select-none hover:bg-AIPM-dark-blue/20 print:hidden"
-          />
+            className="absolute right-0 top-0 z-40 flex h-full w-2 cursor-col-resize select-none items-center justify-center text-muted-foreground/60 transition-colors hover:bg-AIPM-dark-blue/10 hover:text-AIPM-dark-blue active:text-AIPM-dark-blue print:hidden"
+          >
+            <svg viewBox="0 0 2 12" width="2" height="12" fill="currentColor" aria-hidden="true">
+              <circle cx="1" cy="2" r="1" />
+              <circle cx="1" cy="6" r="1" />
+              <circle cx="1" cy="10" r="1" />
+            </svg>
+          </div>
         )}
       </div>
       <div

@@ -2208,6 +2208,17 @@ const enUS = {
   // --- Documents tab (0.81.0) ---
   navDocuments: "Documents",
   documentsModuleDesc: "A single place to see and manage every document link across the project.",
+  // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
+  dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",
+  trendsModuleDesc: "Completion and variance trend lines from saved snapshots (needs Turso storage) - enable when you want history, not just today's numbers.",
+  ganttModuleDesc: "Timeline of tasks and dependencies with drag-to-reschedule - enable for schedule planning on time-boxed work.",
+  milestonesModuleDesc: "Track key dates and deliverables with RAG health - enable when the project is driven by deadlines and gate reviews.",
+  resourcesModuleDesc: "Plan people, roles, capacity, allocations, and absences - enable when you staff and level workload across a team.",
+  budgetModuleDesc: "Plan and track cost/effort against a baseline with earned-value reporting - enable when there's a budget to control.",
+  raidModuleDesc: "Register for Risks, Assumptions, Issues, and Dependencies with review reminders - enable to run structured risk management.",
+  changesModuleDesc: "Change-control log for scope/schedule/cost requests and decisions - enable when changes need formal tracking and sign-off.",
+  stakeholdersModuleDesc: "Map stakeholders, influence/interest, RACI, and communications - enable when managing engagement across many parties.",
+  historyModuleDesc: "Version history with restore for project data (needs Turso storage) - enable to audit and roll back changes over time.",
   documentsTitle: "Documents",
   documentsTabEmpty: "No documents linked yet. Add one below or from any item's editor.",
   documentsColDocument: "Document",

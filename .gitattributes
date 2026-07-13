@@ -16,3 +16,9 @@
 # rule above for the .md fixture.)
 src/app/__fixtures__/golden-workspace.csv -text
 src/app/__fixtures__/golden-workspace.md -text
+
+# The operating-guide builtin is emitted by scripts/gen-operating-guide.mjs,
+# which normalizes its output to LF. Pin the committed + working copy to LF so
+# core.autocrlf can't check it out as CRLF and make `prebuild`'s regeneration
+# see phantom line-ending drift against the freshly generated LF file.
+src/app/operating-guide-builtin.generated.ts text eol=lf
