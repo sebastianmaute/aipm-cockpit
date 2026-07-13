@@ -45,3 +45,24 @@ describe("changedFieldGroups", () => {
     expect(changedFieldGroups(prev, { ...prev }, GROUPS)).toEqual([]);
   });
 });
+
+import {
+  TASK_UNDO_GROUPS, CHANGE_UNDO_GROUPS, RAID_UNDO_GROUPS,
+  MILESTONE_UNDO_GROUPS, STAKEHOLDER_UNDO_GROUPS, RESOURCE_UNDO_GROUPS,
+} from "./field-groups";
+
+describe("per-entity undo groups", () => {
+  test("task pairs status+completedDate and the assignee identity", () => {
+    expect(TASK_UNDO_GROUPS).toContainEqual(["status", "completedDate"]);
+    expect(TASK_UNDO_GROUPS).toContainEqual(["assignee", "assigneeEmail", "resourceId"]);
+  });
+  test("change pairs status+decisionDate", () => {
+    expect(CHANGE_UNDO_GROUPS).toContainEqual(["status", "decisionDate"]);
+  });
+  test("raid/milestone/stakeholder/resource default to no multi-key groups", () => {
+    expect(RAID_UNDO_GROUPS).toEqual([]);
+    expect(MILESTONE_UNDO_GROUPS).toEqual([]);
+    expect(STAKEHOLDER_UNDO_GROUPS).toEqual([]);
+    expect(RESOURCE_UNDO_GROUPS).toEqual([]);
+  });
+});

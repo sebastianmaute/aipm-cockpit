@@ -5,6 +5,8 @@
 // changedFieldGroups is array-AWARE on purpose: activity-log's diffFields skips
 // non-primitives, but undo must be able to revert labels/dependencies edits too.
 
+import type { Task, ChangeItem, RaidItem, Milestone, Stakeholder, Resource } from "../types";
+
 export type FieldGroup<T> = readonly (keyof T & string)[];
 
 /** Keys never captured as an editable field: identity + the sync stamp (the
@@ -63,3 +65,17 @@ export function changedFieldGroups<T extends { id: number }>(
 
   return out;
 }
+
+/** status⟺completedDate invariant; assignee identity is written as one unit. */
+export const TASK_UNDO_GROUPS: readonly FieldGroup<Task>[] = [
+  ["status", "completedDate"],
+  ["assignee", "assigneeEmail", "resourceId"],
+];
+/** A change's status transition auto-fills/clears decisionDate together. */
+export const CHANGE_UNDO_GROUPS: readonly FieldGroup<ChangeItem>[] = [
+  ["status", "decisionDate"],
+];
+export const RAID_UNDO_GROUPS: readonly FieldGroup<RaidItem>[] = [];
+export const MILESTONE_UNDO_GROUPS: readonly FieldGroup<Milestone>[] = [];
+export const STAKEHOLDER_UNDO_GROUPS: readonly FieldGroup<Stakeholder>[] = [];
+export const RESOURCE_UNDO_GROUPS: readonly FieldGroup<Resource>[] = [];
