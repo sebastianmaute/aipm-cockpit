@@ -10,6 +10,7 @@ import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ModalEditFooter } from "./modal-edit-fields";
 import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
@@ -115,7 +116,11 @@ export function MilestoneEditModal({
     }
   }
 
-  const { offset, handleProps } = useDraggable(draft !== null);
+  const { offset, reset: dragReset, handleProps } = useDraggable(
+    draft !== null,
+    "aipm-cockpit:modal-pos:milestone-edit",
+  );
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:milestone-edit");
 
   if (!draft) return null;
 
@@ -133,9 +138,10 @@ export function MilestoneEditModal({
       zIndex={50}
     >
       <div
+        ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[560px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex max-h-[95vh] w-[560px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -146,6 +152,10 @@ export function MilestoneEditModal({
           }
           onClose={onClose}
           dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
         />
 
         <div className="flex justify-end border-b border-line px-4 py-2">

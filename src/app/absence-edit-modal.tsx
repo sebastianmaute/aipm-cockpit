@@ -16,6 +16,7 @@ import { ModalHeader } from "./modal-header";
 import { AssigneeField, ModalEditFooter } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import { ABSENCE_TYPES, type Absence, type AbsenceType } from "./types";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
@@ -101,7 +102,11 @@ export function AbsenceEditModal({
     }
   }
 
-  const { offset, handleProps } = useDraggable(draft !== null);
+  const { offset, reset: dragReset, handleProps } = useDraggable(
+    draft !== null,
+    "aipm-cockpit:modal-pos:absence-edit",
+  );
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:absence-edit");
 
   if (!draft) return null;
 
@@ -119,15 +124,20 @@ export function AbsenceEditModal({
       zIndex={50}
     >
       <div
+        ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[560px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex max-h-[95vh] w-[560px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
           title={isNew ? t(lang, "absenceNewItem") : t(lang, "absenceEditItem", draft.id)}
           onClose={onClose}
           dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
         />
 
         <div className="flex justify-end border-b border-line px-4 py-2">

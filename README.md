@@ -2,7 +2,7 @@
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.177.0_%22Aldiss%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.185.0_%22Mandel%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
 > A project-command surface for project leads with a context-aware Claude copilot that knows your current view and is grounded in your operating guides. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents), syncs with Jira (primary two-way project plus optional read-only extra projects), and pulls actual time bookings from Timelog — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.

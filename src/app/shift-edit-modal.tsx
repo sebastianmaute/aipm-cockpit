@@ -15,6 +15,7 @@ import { ModalHeader } from "./modal-header";
 import { ModalEditFooter } from "./modal-edit-fields";
 import { ResourcePicker } from "./resource-picker";
 import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import {
   MAX_HOURS_PER_DAY,
   type Resource,
@@ -91,7 +92,11 @@ export function ShiftEditModal({
     setError(null);
   }
 
-  const { offset, handleProps } = useDraggable(draft !== null);
+  const { offset, reset: dragReset, handleProps } = useDraggable(
+    draft !== null,
+    "aipm-cockpit:modal-pos:shift-edit",
+  );
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:shift-edit");
 
   // Escape, focus management, and backdrop-click are owned by <Modal>.
 
@@ -162,15 +167,20 @@ export function ShiftEditModal({
       zIndex={50}
     >
       <div
+        ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[640px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex max-h-[95vh] w-[640px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
           title={isNew ? t(lang, "shiftNewItem") : t(lang, "shiftEditItem", draft.id)}
           onClose={onClose}
           dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
         />
 
         <form

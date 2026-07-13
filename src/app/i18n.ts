@@ -3261,6 +3261,7 @@ const enUS = {
   versionHighlightColorSchemesDark: "Scheme-driven color palettes with dark mode: pick from three built-in dark-capable schemes — Harbor (the new default), Meridian, and Umber — in Settings → Appearance, alongside the AIPM and Dashboard styles and your own custom schemes. Harbor is the fresh-install default with full light and dark support.",
   versionHighlightSchemeDehardcode: "The look is now fully scheme-driven: AIPM and the Dashboard style are read-only built-in color schemes alongside Harbor, Meridian, and Umber — nothing is hardcoded into the app anymore. Pick any of them in Settings → Appearance, and structural touches like card shadows now travel with the scheme.",
   versionHighlightSchemeDatabase: "Custom color schemes now save to the project database when Turso is connected, so your themes follow you across devices — and a scheme can carry its own logo and favicon (not just a slogan), so switching schemes rebrands the whole app.",
+  versionHighlightModalResize: "Every editor and popup dialog is now draggable and resizable — drag it by its header, resize it from the corner, and reset it to the default size and position from the header button. Your preferred size and position persist per dialog.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

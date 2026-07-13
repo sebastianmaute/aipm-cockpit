@@ -12,6 +12,7 @@ import { ModalHeader } from "./modal-header";
 import { ModalEditFooter } from "./modal-edit-fields";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
@@ -75,7 +76,11 @@ export function ResourceEditModal({
   const { isVisible } = useModalVisibility("resource");
   const confirm = useConfirm();
 
-  const { offset, handleProps } = useDraggable(draft !== null);
+  const { offset, reset: dragReset, handleProps } = useDraggable(
+    draft !== null,
+    "aipm-cockpit:modal-pos:resource-edit",
+  );
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:resource-edit");
 
   function update<K extends keyof Resource>(key: K, value: Resource[K]) {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -132,15 +137,20 @@ export function ResourceEditModal({
       zIndex={50}
     >
       <div
+        ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[560px] min-w-[320px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex max-h-[95vh] w-[560px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
           title={isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle")}
           onClose={onClose}
           dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
         />
 
         <div className="flex justify-end border-b border-line px-4 py-2">
