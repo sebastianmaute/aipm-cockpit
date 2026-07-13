@@ -203,6 +203,13 @@ export function DocumentsPanel() {
                 >
                   {t(lang, "documentsManualAdd")}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => { setManualName(""); setManualUrl(""); setAddOpen(false); }}
+                  className={`rounded-md border border-line bg-surface px-3 py-1 text-sm text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+                >
+                  {t(lang, "cancel")}
+                </button>
               </div>
               <p className="mb-2 text-xs text-muted-foreground">{t(lang, "documentsManualHint")}</p>
               {canAddDocument && (

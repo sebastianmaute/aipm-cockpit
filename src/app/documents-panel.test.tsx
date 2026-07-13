@@ -170,4 +170,15 @@ describe("DocumentsPanel", () => {
     // Stamped addedAt renders an "Added …" line on the new card.
     expect(screen.getByText(new RegExp(t("en-US", "documentsAdded", ".*")))).toBeInTheDocument();
   });
+
+  it("closes the add panel when Cancel is clicked next to Add link", () => {
+    renderWithTasks([seededTask([])]);
+    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
+    fireEvent.click(addBtn);
+    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }), { target: { value: "task:7" } });
+    // The manual add-link row (with its Cancel button) is now visible.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    // Cancel closes the whole add panel → its target combobox is gone.
+    expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
+  });
 });
