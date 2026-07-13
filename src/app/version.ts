@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.186.0";
-export const APP_BUILD_DATE = "2026-07-13"; // 0.186.0: per-function guidance text in Settings (what each feature does + when to enable it), a visible Gantt column-resize grip, an LF-stable generated operating guide, and a prospect-first README rewrite (Sheckley)
+export const APP_VERSION = "0.186.1";
+export const APP_BUILD_DATE = "2026-07-13"; // 0.186.1: modal dialogs restored from a larger screen re-clamp their drag offset to the current viewport on open, so they can never open off-screen (Sheckley)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.186.x line is "Sheckley" (Robert Sheckley). */
 export const APP_MILESTONE = "Sheckley";

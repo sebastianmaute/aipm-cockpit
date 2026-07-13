@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.186.1] - 2026-07-13 "Sheckley"
+
+### Fixed
+- **Draggable dialogs can't open off-screen.** A modal's dragged position is remembered per dialog;
+  a position saved on a large screen could strand the dialog off the viewport when the same dialog was
+  later opened on a smaller screen (or a resized window), leaving no grabbable edge. Dialogs now
+  re-clamp their restored offset against the live viewport on open (in memory only — the saved position
+  is untouched, so returning to the original screen restores it).
+
 ## [0.186.0] - 2026-07-13 "Sheckley"
 
 ### Added
