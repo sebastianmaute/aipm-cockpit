@@ -3273,6 +3273,7 @@ const enUS = {
   versionHighlightSchemeDehardcode: "The look is now fully scheme-driven: AIPM and the Dashboard style are read-only built-in color schemes alongside Harbor, Meridian, and Umber — nothing is hardcoded into the app anymore. Pick any of them in Settings → Appearance, and structural touches like card shadows now travel with the scheme.",
   versionHighlightSchemeDatabase: "Custom color schemes now save to the project database when Turso is connected, so your themes follow you across devices — and a scheme can carry its own logo and favicon (not just a slogan), so switching schemes rebrands the whole app.",
   versionHighlightModalResize: "Every editor and popup dialog is now draggable and resizable — drag it by its header, resize it from the corner, and reset it to the default size and position from the header button. Your preferred size and position persist per dialog.",
+  versionHighlightFeatureGuidance: "Settings → Functions now explains each feature: a short line under every toggle tells you what it does and when to enable it, so choosing what your project uses no longer means guessing.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -345,6 +345,11 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `GanttPanel` threads data + drag state/handlers (incl. the same `interactingWithBarRef` the row's
   `onDragStart` reads synchronously) down as props. ★ Gantt IS in axe `A11Y_VIEWS`. ★ One brittle
   markup-ORDER source test reads `gantt-chrome.tsx` (toolbar markup moved there), not `gantt.tsx`.
+  ★ The name-column resize handle (in `GanttHeader`, `gantt-chrome.tsx`) renders the SAME 3-dot ⋮ grip
+  glyph as the Open Points table but tuned for the LIGHT `bg-surface-muted` header (`text-muted-foreground/60`
+  + `hover:bg-AIPM-dark-blue/10` + `hover:text-AIPM-dark-blue`) — NOT the shared `ColumnResizeHandle` (which
+  uses dark-header `table-head-*` tokens). It's `role="button"` + aria-label, mouse-only (`onMouseDown`); the
+  SVG child is `aria-hidden` so the accessible name stays the aria-label.
 - **Reports module map:** `ReportsPanel` (`reports.tsx`) owns data + sort/column-resize state; pure
   i18n-free `reports-stats.ts` (`computeStats` + `Stats`/`GroupOrLabelRow`) and presentational
   `reports-tables.tsx` (`GroupOrLabelTable`, `AssigneeTable`, `Tile`, `Section`, `StackedBar` + shared
@@ -1011,6 +1016,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
 - **Settings sections:** each window shows a uniform pane `<h2>` (its rail label); `mode`/`templates`/
   `commTemplates` are excluded (they self-head + carry an intro line). Appearance is its OWN rail section
   (un-folded from General; General now folds only Storage).
+- **Feature-module guidance (Settings → Functions):** `mode-section.tsx` renders each `FEATURE_MODULES`
+  toggle with an optional `descKey` description under the label (use case + when to enable). ★ Adding a
+  module ⇒ give it a `descKey` + EN/DE i18n string (all 12 now have one). ★★ a11y: the description is a
+  SEPARATE `<span id>` linked via `aria-describedby` — do NOT nest it inside the `<label>` (that folds it
+  into the checkbox's accessible name and breaks exact-name `getByRole` queries). The checkbox `id` +
+  `aria-describedby` ids are `useId`-scoped so a settings pop-out can't collide.
 - **Responsive metric grids:** a multi-column grid of CONTENT cards (KPI tiles, budget CCI cards, hours
   breakdown, checkbox lists) must carry a `grid-cols-1` (or `grid-cols-2`) mobile base and only widen at
   `sm:`/`lg:` — a bare `grid grid-cols-3`/`grid-cols-4` overflows a phone/narrow-tablet viewport (the
@@ -1122,7 +1133,11 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `parseFeatureGuide(md, VALID_VIEWS)` (exported, pure) → emits `BUILTIN_FEATURE_GUIDES` (`builtin-app-overview`
   scope {} + `builtin-feature-<view>` scope {views:[…]}) into `operating-guide-builtin.generated.ts`. ★★ the
   generator's `writeFileSync` is inside `if (isMain)` — so a vitest `import { parseFeatureGuide }` does NOT
-  rewrite the generated file (don't move the write to top level). Prebuild regenerates; the
+  rewrite the generated file (don't move the write to top level). ★★ the generator NORMALIZES its output to
+  LF (`out.replace(/\r\n/g,"\n")`) and `.gitattributes` pins `operating-guide-builtin.generated.ts` to
+  `eol=lf` — WITHOUT this the emitted file mixed CRLF (template-literal lines on a Windows autocrlf checkout)
+  with LF (`JSON.stringify`), so `prebuild` regeneration showed phantom line-ending drift. Don't drop either.
+  Prebuild regenerates; the
   `operating-guide-builtin.test.ts` sync-guard re-parses the md + `toEqual`s the committed array (drift fails
   CI; keep the test's `VALID_VIEWS` == the generator's, == nav-config `AppView`). ★ Adding a section: TAG it
   (`<!-- views: … -->`) with REAL AppView ids — `parseFeatureGuide` THROWS on an unknown id AND on an untagged
