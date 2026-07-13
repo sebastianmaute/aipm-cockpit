@@ -391,6 +391,28 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     );
   }
 
+  // Refresh re-fetches the LAST-FETCHED (persisted) scope from
+  // `links.customerId`/`links.projectIds`, independent of the live picker — so
+  // it truly reloads what the user already fetched even if they've since changed
+  // the customer/project selection without re-fetching. Distinct from Fetch,
+  // which pulls the CURRENT picker selection. Scope is unchanged so nothing is
+  // re-persisted.
+  const refreshCustomerId = links.customerId;
+  const refreshProjectIds = links.projectIds ?? [];
+  const canRefresh =
+    refreshCustomerId !== undefined && refreshProjectIds.length > 0;
+  async function handleRefreshBookings() {
+    if (isPopout || sync.busy || confirming || !canRefresh) return;
+    const { start, end } = fetchWindow();
+    const result = await sync.fetchBookingsForProjects([...refreshProjectIds], start, end);
+    // Surface a partial per-project failure the same way Fetch does — else a
+    // refresh that silently dropped some projects looks like a complete result.
+    if (result && result.failedProjects > 0) {
+      logDiag("warn", "timelog.partialProjectFetch", { failedProjects: result.failedProjects });
+      showToast("error", t(lang, "guardTimelogPartialProjectFetch", result.failedProjects));
+    }
+  }
+
   // Fetch is gated on a customer + ≥1 picked project (button disabled otherwise).
   // Loads ONLY the selected projects' registrations; the People table is then
   // derived from who booked on them. Persists customer + project scope so the
@@ -470,6 +492,25 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
               ? t(lang, "loadingTimelog")
               : `${t(lang, "timelogSync")}${selectedProjectIds.size > 0 ? ` (${selectedProjectIds.size})` : ""}`}
           </button>
+          {/* Refresh — appears once bookings have been read; re-fetches the
+              LAST-FETCHED (persisted) customer + project scope so the user can
+              pull the latest bookings without re-picking, even if the picker was
+              since changed. Distinct from Fetch (current selection). */}
+          {sync.fetchedAt && (
+            <button
+              type="button"
+              disabled={sync.busy || isPopout || isMisconfigured || confirming || !canRefresh}
+              onClick={() => void handleRefreshBookings()}
+              title={t(lang, "timelogRefreshHint")}
+              className={`inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+            >
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-3.5 w-3.5">
+                <path d="M15.5 8A6 6 0 004 6.5M4 4v3h3" />
+                <path d="M4.5 12A6 6 0 0016 13.5M16 16v-3h-3" />
+              </svg>
+              {t(lang, "timelogRefresh")}
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <PrintButton lang={lang} />

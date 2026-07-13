@@ -153,22 +153,34 @@ export function DocumentsPanel() {
 
       {addOpen && (
         <div className="mb-3 shrink-0 rounded-md border border-line bg-surface-muted p-3 print:hidden">
-          <label className="mb-2 block text-sm text-foreground">
-            {t(lang, "documentsTarget")}
-            <select
-              value={targetKey}
-              aria-label={t(lang, "documentsTarget")}
-              onChange={(e) => setTargetKey(e.target.value)}
-              className={`ml-2 rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
+          {/* Target picker + Cancel on one row so Cancel is reachable as soon as
+              the add panel opens — including an empty project where no target
+              has been chosen yet (the manual-link row below is target-gated). */}
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <label className="text-sm text-foreground">
+              {t(lang, "documentsTarget")}
+              <select
+                value={targetKey}
+                aria-label={t(lang, "documentsTarget")}
+                onChange={(e) => setTargetKey(e.target.value)}
+                className={`ml-2 rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
+              >
+                <option value="">—</option>
+                {targets.map((s) => (
+                  <option key={`${s.kind}:${s.id}`} value={`${s.kind}:${s.id}`}>
+                    {t(lang, SOURCE_LABEL[s.kind])}: {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => { setManualName(""); setManualUrl(""); setTargetKey(""); setAddOpen(false); }}
+              className={`rounded-md border border-line bg-surface px-3 py-1 text-sm text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
-              <option value="">—</option>
-              {targets.map((s) => (
-                <option key={`${s.kind}:${s.id}`} value={`${s.kind}:${s.id}`}>
-                  {t(lang, SOURCE_LABEL[s.kind])}: {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              {t(lang, "cancel")}
+            </button>
+          </div>
           {target && (
             <>
               <div className="mb-2 flex flex-wrap items-end gap-2">

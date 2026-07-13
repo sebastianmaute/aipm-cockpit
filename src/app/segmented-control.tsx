@@ -21,6 +21,11 @@ export interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
   disabled?: boolean;
   ariaLabel?: string;
+  /** Per-option accessible name for the individual radio. Use when the same
+   *  control is repeated across rows so each radio is uniquely named (WCAG
+   *  2.4.6) — the group's `ariaLabel` alone doesn't disambiguate the radios.
+   *  When omitted, a radio's accessible name is just its visible label. */
+  optionAriaLabel?: (value: T) => string;
   /** Tooltip text for the whole control (rendered as the radiogroup's title). */
   title?: string;
   /** Extra classes for the wrapper (e.g. `w-full` to span its column). */
@@ -33,6 +38,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   disabled = false,
   ariaLabel,
+  optionAriaLabel,
   title,
   className = "",
 }: SegmentedControlProps<T>) {
@@ -56,6 +62,7 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={selected}
+            aria-label={optionAriaLabel ? optionAriaLabel(opt.value) : undefined}
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={[

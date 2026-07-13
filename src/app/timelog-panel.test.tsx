@@ -232,6 +232,65 @@ describe("TimelogPanel", () => {
     });
   });
 
+  describe("Refresh bookings", () => {
+    it("shows a Refresh button once bookings are read and re-fetches the persisted scope", async () => {
+      enableTimelog();
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 1 });
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
+      fireEvent.click(btn);
+      // Re-fetches the PERSISTED scope (links.projectIds = [9]), not the live
+      // picker — so the exact id list must be forwarded to the fetch.
+      await waitFor(() =>
+        expect(fetchBookingsForProjects).toHaveBeenCalledWith([9], expect.any(String), expect.any(String)),
+      );
+    });
+
+    it("surfaces a partial-failure toast when Refresh drops some projects", async () => {
+      enableTimelog();
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 1, projectCount: 2 });
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(await screen.findByRole("button", { name: t("en-US", "timelogRefresh") }));
+      await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)));
+    });
+
+    it("hides the Refresh button before any bookings are read", async () => {
+      enableTimelog();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchedAt: null } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.queryByRole("button", { name: t("en-US", "timelogRefresh") })).toBeNull();
+    });
+  });
+
   describe("External resource exclusion", () => {
     // External resources are capacity-only (excluded from cost) and never book
     // time as an internal TimeLog user — so they must be dropped from BOTH the

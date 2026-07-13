@@ -8,6 +8,23 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.187.0] - 2026-07-13 "Simak"
+
+### Added
+- **Multi-select Gantt filters.** The Gantt toolbar's Status, Priority, and Assignee filters are now
+  checkbox dropdowns so several values can be active at once (matches any selected value within a
+  filter; all filters still combine). Empty selection means "all". A stale assignee selection (e.g. a
+  renamed/removed person) stays clearable instead of leaving a phantom count.
+- **Explicit Hours/Days rate-unit switch (manage roles).** Each rate-card row has a Hours/Days
+  segmented switch that flips which unit is editable — choosing Days makes the day rates editable and
+  the hourly rates derived, and vice versa. Switching to Days pins the currently shown day rates so no
+  figure jumps. English + German.
+- **Refresh bookings (Time bookings).** Once bookings have been read for a project, a Refresh button
+  re-fetches the same persisted customer + project scope from Timelog without re-picking. Surfaces a
+  partial-fetch notice the same way the initial fetch does.
+- **Cancel in the Documents add-link form.** The manual link-document form has a Cancel button beside
+  "Add link" that clears the inputs and closes the form; it's reachable as soon as the add panel opens.
+
 ## [0.186.1] - 2026-07-13 "Sheckley"
 
 ### Fixed

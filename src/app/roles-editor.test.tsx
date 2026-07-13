@@ -163,4 +163,81 @@ describe("RolesEditor rate-card table", () => {
     saved = onSaveRole.mock.calls[1][0] as Role;
     expect(saved.rateBasis).toBe("hour");
   });
+
+  function renderOneRole(onSaveRole: (role: Role) => void, role: Role, workdayHours = 8) {
+    return render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={workdayHours}
+        roles={[role]}
+        disciplines={disciplines} grades={grades}
+        onSaveRole={onSaveRole} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    // Row-qualified radio accessible names (WCAG 2.4.6): "Engineering / Senior — Hours/Days".
+  }
+
+  it("Hours/Days switch flips the writable unit, pinning the derived day rates", () => {
+    const onSaveRole = vi.fn();
+    renderOneRole(onSaveRole, { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 });
+    // Default hour basis: the "Hours" radio is checked.
+    expect(screen.getByRole("radio", { name: /— Hours$/ })).toHaveAttribute("aria-checked", "true");
+    // Switch to Days → row becomes day-basis, day rates pinned from the derived
+    // values (100 * 8 = 800 internal, 200 * 8 = 1600 external).
+    fireEvent.click(screen.getByRole("radio", { name: /— Days$/ }));
+    expect(onSaveRole).toHaveBeenCalledTimes(1);
+    const saved = onSaveRole.mock.calls[0][0] as Role;
+    expect(saved.rateBasis).toBe("day");
+    expect(saved.internalRateDay).toBe(800);
+    expect(saved.externalRateDay).toBe(1600);
+  });
+
+  it("Hours/Days switch flips a day-basis row back to hour basis", () => {
+    const onSaveRole = vi.fn();
+    renderOneRole(onSaveRole, { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200, internalRateDay: 800, externalRateDay: 1600, rateBasis: "day" });
+    expect(screen.getByRole("radio", { name: /— Days$/ })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: /— Hours$/ }));
+    expect(onSaveRole).toHaveBeenCalledTimes(1);
+    expect((onSaveRole.mock.calls[0][0] as Role).rateBasis).toBe("hour");
+  });
+
+  it("clicking the already-selected basis is a no-op (no save)", () => {
+    const onSaveRole = vi.fn();
+    renderOneRole(onSaveRole, { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 });
+    // Already hour basis → clicking Hours must not fire a save.
+    fireEvent.click(screen.getByRole("radio", { name: /— Hours$/ }));
+    expect(onSaveRole).not.toHaveBeenCalled();
+  });
+
+  it("switching to Days with an invalid workdayHours falls back to 8 (never zeroes the rate)", () => {
+    const onSaveRole = vi.fn();
+    // A corrupted setting (0) must not zero the pinned day rate — the guard
+    // falls back to 8, so 100/h -> 800/d, not 0.
+    renderOneRole(onSaveRole, { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }, 0);
+    fireEvent.click(screen.getByRole("radio", { name: /— Days$/ }));
+    const saved = onSaveRole.mock.calls[0][0] as Role;
+    expect(saved.internalRateDay).toBe(800);
+    expect(saved.internalRate).toBe(100);
+  });
+
+  it("gives each row's basis radios a row-unique accessible name (WCAG 2.4.6)", () => {
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8}
+        roles={[
+          { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
+          { id: 2, disciplineId: 2, gradeId: 2, internalRate: 50, externalRate: 90 },
+        ]}
+        disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
+        grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
+        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    // Two rows → two distinct "Hours" radios, each qualified by its row context.
+    expect(screen.getByRole("radio", { name: "Engineering / Senior — Hours" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Design / Junior — Hours" })).toBeInTheDocument();
+  });
 });

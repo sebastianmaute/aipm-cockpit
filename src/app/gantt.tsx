@@ -138,9 +138,9 @@ export function GanttPanel({
     setPrefs,
     setSort,
     setSearch,
-    setStatusFilter,
-    setPriorityFilter,
-    setAssigneeFilter,
+    toggleStatus,
+    togglePriority,
+    toggleAssignee,
     resetFilters,
     toggleCriticalPath,
     toggleBaseline,
@@ -260,23 +260,33 @@ export function GanttPanel({
       const bar = allBars.get(task.id);
       if (!bar) continue;
 
-      // Status filter.
-      const isComplete = !!task.completedDate;
-      const isOverdue = !isComplete && bar.end.getTime() < today.getTime();
-      if (prefs.status === "open" && isComplete) continue;
-      if (prefs.status === "completed" && !isComplete) continue;
-      if (prefs.status === "overdue" && !isOverdue) continue;
+      // Status filter — multi-select, OR within the filter (empty = all). A
+      // task passes if it matches ANY selected status bucket.
+      if (prefs.statuses.length > 0) {
+        const isComplete = !!task.completedDate;
+        const isOverdue = !isComplete && bar.end.getTime() < today.getTime();
+        const isOpen = !isComplete;
+        const matches = prefs.statuses.some(
+          (s) =>
+            (s === "open" && isOpen) ||
+            (s === "completed" && isComplete) ||
+            (s === "overdue" && isOverdue),
+        );
+        if (!matches) continue;
+      }
 
-      // Priority filter.
-      if (prefs.priority !== "All" && task.priority !== prefs.priority)
+      // Priority filter — multi-select, OR within the filter (empty = all).
+      if (prefs.priorities.length > 0 && !prefs.priorities.includes(task.priority))
         continue;
 
-      // Assignee filter — compare against the LIVE resolved name so a renamed
-      // linked resource still matches the (resolved) dropdown option.
+      // Assignee filter — multi-select, OR within (empty = all). Compare against
+      // the LIVE resolved name so a renamed linked resource still matches the
+      // (resolved) dropdown option.
       if (
-        prefs.assignee !== "All" &&
-        effectivePersonName(task.assignee, task.resourceId, resourcesById) !==
-          prefs.assignee
+        prefs.assignees.length > 0 &&
+        !prefs.assignees.includes(
+          effectivePersonName(task.assignee, task.resourceId, resourcesById),
+        )
       )
         continue;
 
@@ -520,9 +530,9 @@ export function GanttPanel({
   // user gets a recoverable empty state when their filters are too tight.
   const filtersActive =
     prefs.search.trim() !== "" ||
-    prefs.status !== "all" ||
-    prefs.priority !== "All" ||
-    prefs.assignee !== "All";
+    prefs.statuses.length > 0 ||
+    prefs.priorities.length > 0 ||
+    prefs.assignees.length > 0;
 
   const toolbar = (
     <GanttToolbar
@@ -535,9 +545,9 @@ export function GanttPanel({
       resetGanttSize={resetGanttSize}
       resetNameColWidth={resetNameColWidth}
       setSearch={setSearch}
-      setStatusFilter={setStatusFilter}
-      setPriorityFilter={setPriorityFilter}
-      setAssigneeFilter={setAssigneeFilter}
+      toggleStatus={toggleStatus}
+      togglePriority={togglePriority}
+      toggleAssignee={toggleAssignee}
       setSort={setSort}
       resetFilters={resetFilters}
       toggleCriticalPath={toggleCriticalPath}

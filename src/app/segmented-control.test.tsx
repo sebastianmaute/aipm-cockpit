@@ -58,6 +58,28 @@ describe("SegmentedControl", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  test("optionAriaLabel overrides each radio's accessible name (row-unique)", () => {
+    render(
+      <SegmentedControl
+        value="Low"
+        options={PRIORITIES}
+        onChange={() => {}}
+        ariaLabel="Priority"
+        optionAriaLabel={(v) => `Row 1 — ${v}`}
+      />,
+    );
+    expect(screen.getByRole("radio", { name: "Row 1 — High" })).toBeInTheDocument();
+    // The plain visible label is no longer the accessible name.
+    expect(screen.queryByRole("radio", { name: "High" })).toBeNull();
+  });
+
+  test("without optionAriaLabel a radio's accessible name stays the visible label", () => {
+    render(
+      <SegmentedControl value="Low" options={PRIORITIES} onChange={() => {}} ariaLabel="Priority" />,
+    );
+    expect(screen.getByRole("radio", { name: "High" })).toBeInTheDocument();
+  });
+
   test("applies the title attribute to the radiogroup root", () => {
     render(
       <SegmentedControl

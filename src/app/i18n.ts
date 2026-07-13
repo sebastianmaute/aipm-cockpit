@@ -194,6 +194,7 @@ const enUS = {
   searchPlaceholder: "Search task name, assignee, blockers, notes…",
   allPriorities: "All priorities",
   allAssignees: "All assignees",
+  filterSelectedCount: "{0} selected",
   noTasks: "No tasks yet. Add one above.",
   noTasksFiltered: "No tasks match the current filters.",
 
@@ -933,7 +934,6 @@ const enUS = {
   ganttToday: "Today",
   ganttRange: "Showing {0} — {1}",
   ganttFilterStatus: "Status",
-  ganttStatusAll: "All status",
   ganttStatusOpen: "Open",
   ganttStatusCompleted: "Completed",
   ganttStatusOverdue: "Overdue",
@@ -1363,6 +1363,8 @@ const enUS = {
   timelogMatchClear: "Clear link",
   timelogMatchNone: "— not linked —",
   timelogSync: "Fetch bookings",
+  timelogRefresh: "Refresh bookings",
+  timelogRefreshHint: "Re-fetch the current bookings for the selected projects from Timelog.",
   timelogLoadPeople: "Load people",
   timelogLoadManagedProjects: "Load my projects",
   timelogIncludeClosed: "Include closed projects",
@@ -2606,7 +2608,11 @@ const enUS = {
   rolesGradeHint: "Seniority level used to derive the blended rate.",
   rolesInternalRateHint: "Hourly internal cost rate (EUR).",
   rolesExternalRateHint: "Hourly external/billing rate (EUR).",
-  rolesRateBasisHint: "Enter either the daily rate or the hourly rate — the other is calculated from your workday hours and locked. Clear the filled field to switch which one you enter.",
+  rolesRateBasisHint: "Enter either the daily rate or the hourly rate — the other is calculated from your workday hours and locked. Use the Hours/Days switch to choose which one you enter.",
+  rolesRateBasis: "Entered in",
+  rolesBasisHours: "Hours",
+  rolesBasisDays: "Days",
+  rolesRateBasisSwitch: "Switch entered rate unit",
   // Edit Resource tooltips
   resourceFirstNameHint: "Given name of the person.",
   resourceLastNameHint: "Family name of the person.",
@@ -3274,6 +3280,7 @@ const enUS = {
   versionHighlightSchemeDatabase: "Custom color schemes now save to the project database when Turso is connected, so your themes follow you across devices — and a scheme can carry its own logo and favicon (not just a slogan), so switching schemes rebrands the whole app.",
   versionHighlightModalResize: "Every editor and popup dialog is now draggable and resizable — drag it by its header, resize it from the corner, and reset it to the default size and position from the header button. Your preferred size and position persist per dialog.",
   versionHighlightFeatureGuidance: "Settings → Functions now explains each feature: a short line under every toggle tells you what it does and when to enable it, so choosing what your project uses no longer means guessing.",
+  versionHighlightUiBatch0187: "Quality-of-life batch: multi-select Gantt filters, an explicit Hours/Days rate-unit switch in manage roles, a Refresh button in Time bookings, and a Cancel button in the Documents add-link form.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

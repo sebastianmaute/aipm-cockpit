@@ -20,6 +20,17 @@ function round2(n: number): number {
 }
 
 /**
+ * Day rate derived from an hourly rate, applying the same `workdayHours` guard
+ * as `materializeRoleRates` (<= 0 or non-finite → 8) so a corrupted setting can
+ * never zero the pinned day rate. Shared by the roles editor's basis switch and
+ * its read-only day-rate display.
+ */
+export function dayFromHour(hourly: number, workdayHours: number): number {
+  const wdh = Number.isFinite(workdayHours) && workdayHours > 0 ? workdayHours : DEFAULT_WORKDAY_HOURS;
+  return round2((hourly ?? 0) * wdh);
+}
+
+/**
  * Return a new Role with both the day and hourly rates made consistent for the
  * current `rateBasis`. The authoritative unit is preserved; the sibling unit is
  * (re)derived from it using `workdayHours` (<= 0 falls back to 8).

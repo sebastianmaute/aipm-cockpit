@@ -9,7 +9,7 @@ import {
   DEFAULT_PREFS,
   type GanttPrefs,
   type GanttSort,
-  type GanttStatusFilter,
+  type GanttStatus,
   loadPrefs,
   savePrefs,
 } from "./gantt-engine";
@@ -19,13 +19,19 @@ export type GanttPrefsApi = {
   setPrefs: React.Dispatch<React.SetStateAction<GanttPrefs>>;
   setSort: (sort: GanttSort) => void;
   setSearch: (search: string) => void;
-  setStatusFilter: (status: GanttStatusFilter) => void;
-  setPriorityFilter: (priority: Priority | "All") => void;
-  setAssigneeFilter: (assignee: string) => void;
+  toggleStatus: (status: GanttStatus) => void;
+  togglePriority: (priority: Priority) => void;
+  toggleAssignee: (assignee: string) => void;
   resetFilters: () => void;
   toggleCriticalPath: () => void;
   toggleBaseline: () => void;
 };
+
+/** Toggle a value's membership in an array (add if absent, remove if present),
+ *  preserving order. Pure. */
+function toggleIn<T>(xs: readonly T[], value: T): T[] {
+  return xs.includes(value) ? xs.filter((x) => x !== value) : [...xs, value];
+}
 
 export function useGanttPrefs(): GanttPrefsApi {
   // --- prefs: sort + filters + custom order, persisted in localStorage ---
@@ -53,22 +59,22 @@ export function useGanttPrefs(): GanttPrefsApi {
   function setSearch(search: string) {
     setPrefs((p) => ({ ...p, search }));
   }
-  function setStatusFilter(status: GanttStatusFilter) {
-    setPrefs((p) => ({ ...p, status }));
+  function toggleStatus(status: GanttStatus) {
+    setPrefs((p) => ({ ...p, statuses: toggleIn(p.statuses, status) }));
   }
-  function setPriorityFilter(priority: Priority | "All") {
-    setPrefs((p) => ({ ...p, priority }));
+  function togglePriority(priority: Priority) {
+    setPrefs((p) => ({ ...p, priorities: toggleIn(p.priorities, priority) }));
   }
-  function setAssigneeFilter(assignee: string) {
-    setPrefs((p) => ({ ...p, assignee }));
+  function toggleAssignee(assignee: string) {
+    setPrefs((p) => ({ ...p, assignees: toggleIn(p.assignees, assignee) }));
   }
   function resetFilters() {
     setPrefs((p) => ({
       ...p,
       search: "",
-      status: "all",
-      priority: "All",
-      assignee: "All",
+      statuses: [],
+      priorities: [],
+      assignees: [],
     }));
   }
   function toggleCriticalPath() {
@@ -83,9 +89,9 @@ export function useGanttPrefs(): GanttPrefsApi {
     setPrefs,
     setSort,
     setSearch,
-    setStatusFilter,
-    setPriorityFilter,
-    setAssigneeFilter,
+    toggleStatus,
+    togglePriority,
+    toggleAssignee,
     resetFilters,
     toggleCriticalPath,
     toggleBaseline,

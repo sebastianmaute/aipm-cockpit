@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.186.1";
-export const APP_BUILD_DATE = "2026-07-13"; // 0.186.1: modal dialogs restored from a larger screen re-clamp their drag offset to the current viewport on open, so they can never open off-screen (Sheckley)
+export const APP_VERSION = "0.187.0";
+export const APP_BUILD_DATE = "2026-07-13"; // 0.187.0: UX batch — multi-select Gantt filters, explicit Hours/Days rate-unit switch in manage roles, a Timelog "Refresh bookings" button, and a Cancel button in the Documents add-link form (Simak)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.186.x line is "Sheckley" (Robert Sheckley). */
-export const APP_MILESTONE = "Sheckley";
+ *  0.187.x line is "Simak" (Clifford D. Simak). */
+export const APP_MILESTONE = "Simak";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -205,4 +205,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightSchemeDatabase",
   "versionHighlightModalResize",
   "versionHighlightFeatureGuidance",
+  "versionHighlightUiBatch0187",
 ] as const;

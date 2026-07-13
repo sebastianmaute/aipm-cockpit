@@ -170,4 +170,25 @@ describe("DocumentsPanel", () => {
     // Stamped addedAt renders an "Added …" line on the new card.
     expect(screen.getByText(new RegExp(t("en-US", "documentsAdded", ".*")))).toBeInTheDocument();
   });
+
+  it("closes the add panel when Cancel is clicked next to Add link", () => {
+    renderWithTasks([seededTask([])]);
+    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
+    fireEvent.click(addBtn);
+    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }), { target: { value: "task:7" } });
+    // The manual add-link row is visible; Cancel closes the whole add panel.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
+  });
+
+  it("Cancel is reachable and closes the add panel before any target is chosen", () => {
+    // The empty-project first-use flow: open Add, then back out without picking a
+    // target. Cancel must exist independent of the target-gated manual-link row.
+    renderWithTasks([seededTask([])]);
+    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
+    fireEvent.click(addBtn);
+    expect(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
+  });
 });
