@@ -5,6 +5,7 @@ import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import { SegmentedControl } from "./segmented-control";
 import {
   BUDGET_TYPES,
@@ -60,7 +61,8 @@ export function BudgetBucketModal({
   const [roleToAdd, setRoleToAdd] = useState<string>("");
   const [disciplineToAdd, setDisciplineToAdd] = useState<string>("");
   const [notice, setNotice] = useState<Record<string, string>>({});
-  const { offset, handleProps } = useDraggable(true);
+  const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:budget-bucket");
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:budget-bucket");
   const { isVisible } = useModalVisibility("budget");
   const showToast = useToastContext();
   const confirm = useConfirm();
@@ -212,15 +214,20 @@ export function BudgetBucketModal({
       backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto"
     >
       <div
+        ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[640px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex max-h-[95vh] w-[640px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
           title={t(lang, "budgetEditBucket")}
           onClose={onClose}
           dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
         />
 
         <div className="flex justify-end border-b border-line px-4 py-2">

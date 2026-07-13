@@ -130,8 +130,13 @@ export function JiraConflictsModal({
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
 
-  const { offset, handleProps } = useDraggable(conflicts.length > 0);
-  const { ref: panelRef } = useResizable("aipm-cockpit:conflicts-modal-size");
+  const { offset, reset: dragReset, handleProps } = useDraggable(
+    conflicts.length > 0,
+    "aipm-cockpit:modal-pos:jira-conflicts",
+  );
+  // Pre-existing size key kept as-is (not the `aipm-cockpit:modal-size:*`
+  // convention) to preserve users' already-persisted panel sizes — don't rename.
+  const { ref: panelRef, reset: sizeReset } = useResizable("aipm-cockpit:conflicts-modal-size");
 
   return (
     <Modal open onClose={onClose} ariaLabel={t(lang, "jiraConflictTitle")}>
@@ -146,6 +151,10 @@ export function JiraConflictsModal({
           title={t(lang, "jiraConflictTitle")}
           onClose={onClose}
           dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
         />
         <p className="bg-surface px-6 pb-2 text-xs text-foreground dark:text-muted-foreground">
           {t(lang, "jiraConflictSubtitle", conflicts.length)}

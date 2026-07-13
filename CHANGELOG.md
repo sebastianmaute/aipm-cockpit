@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.185.0] - 2026-07-13 "Mandel"
+
+### Changed
+- **Uniform draggable + resizable dialogs.** Every editor and popup modal now has
+  the same layout controls: drag it by its header, resize it from the corner, and
+  reset it to the default size and position via the header button — with your
+  preferred size and position persisted per dialog. This closes the gap where the
+  absence, milestone, resource, shift, and budget-bucket editors were drag-only
+  (not resizable) and the Jira-conflicts dialog had no reset control, bringing them
+  in line with the task editor. Resizable panels are also height-capped to the
+  viewport so a size restored from a larger screen can't overflow a smaller one.
+
 ## [0.184.0] - 2026-07-12 "North"
 
 ### Added

@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.184.0";
-export const APP_BUILD_DATE = "2026-07-12"; // 0.184.0: color-scheme Phase 3 — custom schemes now persist in the project database (Turso, cross-device) via a per-row synced color_schemes table with a localStorage sync cache, and a scheme owns its logo + favicon (not just slogan) so switching schemes rebrands the app (North)
+export const APP_VERSION = "0.185.0";
+export const APP_BUILD_DATE = "2026-07-13"; // 0.185.0: uniform modal layout controls — every editor and popup dialog is now draggable, corner-resizable, and reset-to-default via the header, with size + position persisted per dialog (Mandel)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.184.x line is "North" (Claire North). */
-export const APP_MILESTONE = "North";
+ *  0.185.x line is "Mandel" (Emily St. John Mandel). */
+export const APP_MILESTONE = "Mandel";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -203,4 +203,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightColorSchemesDark",
   "versionHighlightSchemeDehardcode",
   "versionHighlightSchemeDatabase",
+  "versionHighlightModalResize",
 ] as const;
