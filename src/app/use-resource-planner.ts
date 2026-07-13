@@ -15,6 +15,8 @@ import { mergeImportedResources, type OutlookContact } from "./outlook-contacts"
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
 import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldChanges } from "./undo/capture-field-changes";
+import { RAID_UNDO_GROUPS, RESOURCE_UNDO_GROUPS } from "./undo/field-groups";
 
 // Envelope-level defense against a caller accidentally forwarding a DOM/synthetic
 // event as `seed` (e.g. `onClick={onAddResource}`). Spreading an event injects a
@@ -74,6 +76,8 @@ export interface UseResourcePlannerArgs {
   /** Capture a MULTI-array pre-op snapshot for undo — reference-data deletes
    *  (role/discipline/grade) that cascade an edit into a second array. */
   captureComposite?: UndoStackApi["captureComposite"];
+  /** Capture per-field edits for undo (RAID/resource modal save). */
+  captureFieldEdit?: UndoStackApi["captureFieldEdit"];
 }
 
 /** True when an absence/shift belongs to one of the removed resources — by
@@ -128,6 +132,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
   const captureCompositeRef = useRef(args.captureComposite);
   useEffect(() => { captureCompositeRef.current = args.captureComposite; }, [args.captureComposite]);
+  const captureFieldEditRef = useRef(args.captureFieldEdit);
+  useEffect(() => { captureFieldEditRef.current = args.captureFieldEdit; }, [args.captureFieldEdit]);
   const logActivityChangesRef = useRef(args.logActivityChanges);
   const showToastRef = useRef(args.showToast);
   const tasksRef = useRef(tasks);
@@ -229,6 +235,14 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
           "info",
           t(langRef.current, "raidAutoCreatedIssue", id, autoIssueId ?? 0),
         );
+      }
+
+      if (!create && previous) {
+        captureFieldChanges(captureFieldEditRef.current, {
+          setter: setRaid, kind: "raid.updated", id,
+          prev: previous, next: withStamp, groups: RAID_UNDO_GROUPS,
+          stampField: "localModifiedAt",
+        });
       }
 
       if (create) {
@@ -455,6 +469,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         const withStamp: Resource = { ...next, localModifiedAt: stamp };
         setResources((prev) => prev.map((r) => (r.id === next.id ? withStamp : r)));
         setEditingResource(null);
+        captureFieldChanges(captureFieldEditRef.current, {
+          setter: setResources, kind: "resource.updated", id: next.id,
+          prev: previous, next: withStamp, groups: RESOURCE_UNDO_GROUPS,
+          stampField: "localModifiedAt",
+        });
         logUpdate("resource.updated", previous, withStamp, next.id, name);
       }
     },

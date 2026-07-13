@@ -617,7 +617,7 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite });
+  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
