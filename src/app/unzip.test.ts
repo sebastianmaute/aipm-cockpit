@@ -32,4 +32,20 @@ describe("readZipEntries", () => {
   it("throws on non-zip input", async () => {
     await expect(readZipEntries(new TextEncoder().encode("not a zip"))).rejects.toThrow();
   });
+
+  it("rejects when total decompressed size exceeds the aggregate budget", async () => {
+    const zip = await zipOf([
+      { name: "a.txt", text: "x".repeat(50) },
+      { name: "b.txt", text: "y".repeat(50) },
+      { name: "c.txt", text: "z".repeat(50) },
+    ]);
+    // Total stored bytes = 150; a 100-byte budget must trip.
+    await expect(readZipEntries(zip, 100)).rejects.toThrow(/exceeds/);
+  });
+
+  it("accepts an archive within the aggregate budget", async () => {
+    const zip = await zipOf([{ name: "a.txt", text: "hello" }]);
+    const entries = await readZipEntries(zip, 1000);
+    expect(decodeUtf8(entries.get("a.txt")!)).toBe("hello");
+  });
 });

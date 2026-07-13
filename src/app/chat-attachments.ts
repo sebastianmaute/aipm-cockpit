@@ -33,7 +33,7 @@ export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20 MB
 // ---------------------------------------------------------------------------
 
 export type AttachmentKind = "pdf" | "image" | "text" | "office";
-export type AttachmentError = "unsupported-type" | "too-large" | "extract-failed";
+export type AttachmentError = "unsupported-type" | "too-large";
 
 // ---------------------------------------------------------------------------
 // Internal helpers

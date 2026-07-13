@@ -11,11 +11,15 @@ const CDH_SIG = 0x02014b50;
  *  20 MB upstream attachment cap bounds INPUT, not DEFLATE output. */
 const MAX_INFLATED_BYTES = 100 * 1024 * 1024;
 
+/** Aggregate ceiling across ALL entries of one archive (zip-bomb guard — a
+ *  per-entry cap alone doesn't bound total memory from many entries). */
+const MAX_TOTAL_INFLATED_BYTES = 256 * 1024 * 1024;
+
 async function inflateRaw(input: Uint8Array): Promise<Uint8Array> {
   const ds = new DecompressionStream("deflate-raw");
   const writer = ds.writable.getWriter();
-  void writer.write(input as BufferSource);
-  void writer.close();
+  writer.write(input as BufferSource).catch(() => {});
+  writer.close().catch(() => {});
   const reader = ds.readable.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -51,6 +55,7 @@ function findEocd(view: DataView): number {
 /** Read every entry of a ZIP archive into a `path → bytes` map. */
 export async function readZipEntries(
   input: ArrayBuffer | Uint8Array,
+  maxTotalBytes: number = MAX_TOTAL_INFLATED_BYTES,
 ): Promise<Map<string, Uint8Array>> {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -63,6 +68,7 @@ export async function readZipEntries(
   const entries = new Map<string, Uint8Array>();
 
   let p = cdOffset;
+  let grandTotal = 0;
   for (let i = 0; i < cdCount; i++) {
     if (view.getUint32(p, true) !== CDH_SIG) throw new Error("corrupt central directory");
     const method = view.getUint16(p + 10, true);
@@ -82,6 +88,11 @@ export async function readZipEntries(
     if (method === 0) data = raw.slice();
     else if (method === 8) data = await inflateRaw(raw);
     else throw new Error(`unsupported zip compression method ${method}`);
+
+    grandTotal += data.length;
+    if (grandTotal > maxTotalBytes) {
+      throw new Error("archive decompressed size exceeds limit");
+    }
 
     entries.set(name, data);
     p += 46 + nameLen + extraLen + commentLen;
