@@ -27,26 +27,28 @@ export interface FeatureModule {
 }
 
 export const FEATURE_MODULES: readonly FeatureModule[] = [
-  { id: "dashboard", labelKey: "navDashboard", views: ["dashboard"] },
-  { id: "trends", labelKey: "navTrends", views: ["trends"] },
-  { id: "gantt", labelKey: "tabGantt", views: ["gantt"] },
-  { id: "milestones", labelKey: "navMilestones", views: ["milestones"] },
+  { id: "dashboard", labelKey: "navDashboard", descKey: "dashboardModuleDesc", views: ["dashboard"] },
+  { id: "trends", labelKey: "navTrends", descKey: "trendsModuleDesc", views: ["trends"] },
+  { id: "gantt", labelKey: "tabGantt", descKey: "ganttModuleDesc", views: ["gantt"] },
+  { id: "milestones", labelKey: "navMilestones", descKey: "milestonesModuleDesc", views: ["milestones"] },
   {
     id: "resources",
     labelKey: "tabResources",
+    descKey: "resourcesModuleDesc",
     views: ["resources", "directory", "workload", "calendar", "planning", "manage-roles"],
     report: "resource-report",
   },
-  { id: "budget", labelKey: "tabBudget", views: ["budget", "budget-report"], report: "budget-report" },
-  { id: "raid", labelKey: "tabRaid", views: ["raid", "raid-report"], report: "raid-report" },
-  { id: "changes", labelKey: "navChanges", views: ["changes", "change-report"] },
+  { id: "budget", labelKey: "tabBudget", descKey: "budgetModuleDesc", views: ["budget", "budget-report"], report: "budget-report" },
+  { id: "raid", labelKey: "tabRaid", descKey: "raidModuleDesc", views: ["raid", "raid-report"], report: "raid-report" },
+  { id: "changes", labelKey: "navChanges", descKey: "changesModuleDesc", views: ["changes", "change-report"] },
   {
     id: "stakeholders",
     labelKey: "navStakeholders",
+    descKey: "stakeholdersModuleDesc",
     views: ["stakeholders", "raci", "stakeholder-map"],
     report: "stakeholder-report",
   },
-  { id: "history", labelKey: "navHistory", views: ["history"] },
+  { id: "history", labelKey: "navHistory", descKey: "historyModuleDesc", views: ["history"] },
   { id: "documents", labelKey: "navDocuments", descKey: "documentsModuleDesc", views: ["documents"] },
   { id: "timelog", labelKey: "navTimelog", descKey: "timelogModuleDesc", views: ["timelog"] },
 ] as const;

@@ -1,37 +1,46 @@
-# AIPM Project Management Tracker
+# AIPM Cockpit
 
 [![Pipeline Status](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/pipeline.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
 [![coverage](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/badges/main/coverage.svg)](https://gitlab.example.com/example-group/public-collab/aipm-cockpit/-/commits/main)
-[![version](https://img.shields.io/badge/version-v0.185.0_%22Mandel%22-2e7d32)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-v0.186.0_%22Sheckley%22-2e7d32)](./CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-EUPL--1.2-blue)](./LICENSE)
 
-> A project-command surface for project leads with a context-aware Claude copilot that knows your current view and is grounded in your operating guides. It plugs into Microsoft 365 (Outlook contacts & calendar, SharePoint documents), syncs with Jira (primary two-way project plus optional read-only extra projects), and pulls actual time bookings from Timelog — so it accelerates your existing workflow instead of becoming another place to maintain data. Local-first; no backend account required.
+> **The AI project-management cockpit that knows *your* project.**
+>
+> A command surface for project leads with a Claude copilot grounded in your operating guides and the view you're in — it surfaces the next best action and can act on it. It plugs into the Microsoft 365 / Jira / Timelog stack you already use, so it accelerates your workflow instead of becoming one more place to re-key data. Local-first, bring-your-own-key, open source — no backend account required.
 
 ---
 
-## Overview
+## Why AIPM Cockpit
 
-A single-page Project Management Tracker built for project leads who maintain a "List of Open Points" (LOP). Manage open points and track accountability, plan resource capacity and cost, keep a stakeholder register, run RAID and change-control logs, manage a portfolio of projects, and monitor project health — all in the browser. **All data is stored locally by default — no backend account required.**
+**A copilot that knows *this* project — not a chatbot bolted on.**
+The Claude assistant is grounded in your operating guides and aware of the view and mode you're in, so its advice fits this project rather than reading like a generic chatbot. Per-view **"Ask Claude"** prompts and one-tap actions ("What's next?", a status overview, "prioritize") mean the tool tells you the next step — and can take it, creating and updating tasks, RAID, changes, milestones, and stakeholders in natural language. The **Action Center** ranks live project data into next-best-actions and **learns** from how you respond (act / snooze / dismiss).
 
-Core workflow:
+**Plugs into your stack, not another silo.**
+Pull people in from Outlook, attach documents straight from SharePoint, push milestones to your calendar, sync a two-way Jira project (plus optional read-only monitor projects), and fold actual Timelog bookings into your budget — so you accelerate your existing workflow instead of re-keying the same data into yet another tool.
 
-1. Add tasks with assignee, due date, and priority
-2. Filter, sort, and view tasks in a table or Gantt chart
-3. Ask the integrated Claude AI assistant to create, update, or summarize tasks in natural language
-4. Send pre-filled status-inquiry emails to assignees with one click
-5. Export the task list to CSV, Markdown, PDF, DOCX, XLSX, or PPTX
-6. Optionally sync tasks with Jira: a primary two-way project plus additional read-only projects to monitor
-7. Track RAID and change-control items and create reports for the steering committee
-8. Plan capacity, utilization, availability, and cost rates while accounting for holidays
-9. Run a portfolio of projects, each with its own workspace and metadata header
+**Own your data.**
+It runs in your browser with no backend account. Bring your own API keys — they're encrypted at rest (AES-256-GCM, device-sealed). Your workspace lives in a local file, in-browser IndexedDB, or *your own* Turso database — never a vendor's. EUPL-1.2 open source.
 
-### A copilot that knows your project — not another data silo
+**One cockpit for the whole engagement.**
+Project-health RAG, RAID and change-control registers, a stakeholder register with RACI, resource capacity and budget with Earned Value, and a multi-project portfolio — in one surface, with a landing dashboard that opens on what needs you.
 
-Two things set the tracker apart: it has an AI copilot that understands the project you're looking at, and it plugs into the stack you already use instead of becoming one more place to maintain data.
+### Built to be trusted
 
-**(1) An AI copilot that knows your project.** A context-aware Claude assistant that knows your current view and mode and is grounded in your operating guides — so it gives advice that fits *this* project, not generic chatbot answers. Per-view **"Ask Claude"** suggestions and one-tap foundational prompts ("What's next?", a status overview, "prioritize") mean the tool tells you what to do next, and it can act on it: create, update, and summarize across the whole register (tasks, RAID, changes, milestones, stakeholders) in natural language via tool calls, with a live token-usage panel, a Stop button, and a pop-out mirror. A ✨ prompt right on a task's row lets you edit it inline — describe the change, review a preview diff, and confirm — without opening the chat window. The AI reaches further into the workflow too — **describe a project** (or import one from a file, SharePoint, or a Confluence page) to pre-fill the create wizard, **"Analyze with AI"** in the Action Center for a triage of the queue, and opt-in **scheduled portfolio-analysis jobs**. The **Action Center** complements this by ranking live project data into next-best-actions, and that ranking **learns** from how you respond (act / snooze / dismiss).
+Not a prototype: 6,300+ automated tests with enforced coverage floors, a WCAG accessibility gate (axe across 13 views × 5 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: there is no application server holding your accounts or secrets, so the browser profile is the security boundary (see [Security Model](#security-model)).
 
-**(2) Plugs into your existing stack (M365, Jira + Timelog).** It pulls people in from your Outlook contacts, imports calendar events as absences and pushes milestones back to Outlook, attaches documents straight from SharePoint, syncs with Jira (a primary two-way project plus optional read-only monitor projects), and pulls actual time bookings from Timelog into your budget — so you accelerate your existing workflow instead of re-keying the same data into yet another tool.
+### See it in a minute
+
+1. `npm install && npm run dev`, open [http://localhost:3000](http://localhost:3000), and click **Explore a demo project** to load a realistic workspace.
+2. Add or import tasks; view them as a table, a Kanban board, or a Gantt chart.
+3. Open the Dashboard for health, ranked top actions, and trends — then ask the copilot "What's next?".
+4. Wire up Jira / Microsoft 365 / Timelog in Settings when you want it plugged into your stack.
+
+---
+
+## Full capability reference
+
+The rest of this document is the in-depth reference: the complete feature list, storage backends, integrations, automation, the sample workspace, and the security model.
 
 ## Features
 

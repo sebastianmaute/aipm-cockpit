@@ -1,6 +1,6 @@
 # Runbook
 
-Operational notes for deploying and supporting List of Open Points Tracker.
+Operational notes for deploying and supporting AIPM Cockpit.
 Architecture detail lives in [CODEMAPS/architecture.md](CODEMAPS/architecture.md);
 this file covers what to do when the app needs to ship or starts misbehaving.
 

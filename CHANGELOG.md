@@ -1,12 +1,35 @@
 # Changelog
 
-All notable changes to **Project Management Tracker** are recorded here.
+All notable changes to **AIPM Cockpit** are recorded here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
 This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
+
+## [0.186.0] - 2026-07-13 "Sheckley"
+
+### Added
+- **Per-function guidance in Settings.** Each feature-module toggle in Settings → Functions now
+  carries a short description explaining what the function does and when to enable it (use case +
+  scope), so choosing a mode no longer requires guessing. The 10 modules that lacked a description
+  gained one (Documents and Timelog already had theirs); the checkbox's accessible name stays the
+  module label and the description is linked via `aria-describedby`. English + German.
+
+### Changed
+- **Prospect-first README.** The README now opens with a positioning and pitch section — the
+  AI-copilot wedge, the "plugs into your stack, not another silo" story, data ownership, and the
+  quality proof — before the exhaustive capability reference, and the product is named **AIPM
+  Cockpit**. No reference content was removed; it moved below the pitch.
+
+### Fixed
+- **Visible Gantt column-resize grip.** The task-name column resize handle in the Gantt view was an
+  invisible transparent bar (hover-only). It now shows the same three-dot grip affordance as the
+  Open Points table, tuned (muted) for the light Gantt header.
+- **Stable generated operating guide.** `scripts/gen-operating-guide.mjs` now normalizes its output
+  to LF, and `.gitattributes` pins the generated file to `eol=lf`, so the `prebuild` regeneration no
+  longer reports phantom line-ending drift on Windows `core.autocrlf` checkouts.
 
 ## [0.185.0] - 2026-07-13 "Mandel"
 

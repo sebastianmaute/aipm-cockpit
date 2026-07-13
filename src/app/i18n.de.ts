@@ -2181,6 +2181,17 @@ export const de: Record<TranslationKey, string> = {
   // --- Dokumente-Tab (0.81.0) ---
   navDocuments: "Dokumente",
   documentsModuleDesc: "Ein zentraler Ort, um alle Dokument-Verknüpfungen im Projekt zu sehen und zu verwalten.",
+  // --- Feature-module descriptions (Settings -> Functions) ---
+  dashboardModuleDesc: "Landing-Cockpit mit Zusammenfassung von Status, Fortschritt und dem, was Ihre Aufmerksamkeit braucht - aktivieren Sie es für einen schnellen Überblick bei jedem Öffnen des Projekts.",
+  trendsModuleDesc: "Trendlinien zu Fertigstellung und Abweichung aus gespeicherten Snapshots (benötigt Turso-Speicher) - aktivieren, wenn Sie den Verlauf sehen wollen, nicht nur die heutigen Zahlen.",
+  ganttModuleDesc: "Zeitleiste von Aufgaben und Abhängigkeiten mit Verschieben per Ziehen - aktivieren für die Terminplanung bei zeitlich getakteten Projekten.",
+  milestonesModuleDesc: "Wichtige Termine und Ergebnisse mit RAG-Status verfolgen - aktivieren, wenn das Projekt von Fristen und Gate-Reviews bestimmt wird.",
+  resourcesModuleDesc: "Personen, Rollen, Kapazität, Zuordnungen und Abwesenheiten planen - aktivieren, wenn Sie ein Team besetzen und die Auslastung ausgleichen.",
+  budgetModuleDesc: "Kosten/Aufwand gegen eine Baseline planen und verfolgen, mit Earned-Value-Auswertung - aktivieren, wenn es ein Budget zu steuern gibt.",
+  raidModuleDesc: "Register für Risiken, Annahmen, Probleme und Abhängigkeiten mit Review-Erinnerungen - aktivieren für ein strukturiertes Risikomanagement.",
+  changesModuleDesc: "Änderungslog für Änderungsanträge zu Umfang/Termin/Kosten und Entscheidungen - aktivieren, wenn Änderungen formal verfolgt und freigegeben werden müssen.",
+  stakeholdersModuleDesc: "Stakeholder, Einfluss/Interesse, RACI und Kommunikation abbilden - aktivieren, wenn Sie die Einbindung vieler Beteiligter steuern.",
+  historyModuleDesc: "Versionsverlauf mit Wiederherstellung für Projektdaten (benötigt Turso-Speicher) - aktivieren, um Änderungen über die Zeit zu prüfen und zurückzunehmen.",
   documentsTitle: "Dokumente",
   documentsTabEmpty: "Noch keine Dokumente verknüpft. Unten oder im Editor eines Eintrags hinzufügen.",
   documentsColDocument: "Dokument",
@@ -3242,4 +3253,5 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightSchemeDehardcode: "Das Erscheinungsbild ist jetzt vollständig schemabasiert: AIPM und der Dashboard-Stil sind schreibgeschützte integrierte Farbschemata neben Harbor, Meridian und Umber — nichts ist mehr fest in der App verankert. Wählen Sie eines davon in Einstellungen → Darstellung; strukturelle Details wie Kartenschatten gehören jetzt zum Schema.",
   versionHighlightSchemeDatabase: "Eigene Farbschemata werden jetzt in der Projektdatenbank gespeichert, wenn Turso verbunden ist, sodass Ihre Designs Sie geräteübergreifend begleiten — und ein Schema kann ein eigenes Logo und Favicon tragen (nicht nur einen Slogan), sodass ein Schemawechsel die gesamte App neu brandet.",
   versionHighlightModalResize: "Jeder Editor- und Popup-Dialog lässt sich jetzt verschieben und in der Größe ändern — ziehen Sie ihn an der Kopfzeile, ändern Sie die Größe an der Ecke und setzen Sie ihn über die Schaltfläche in der Kopfzeile auf Standardgröße und -position zurück. Ihre bevorzugte Größe und Position bleiben pro Dialog erhalten.",
+  versionHighlightFeatureGuidance: "Einstellungen → Funktionen erklärt jetzt jede Funktion: Eine kurze Zeile unter jedem Schalter sagt Ihnen, was sie tut und wann Sie sie aktivieren sollten — so ist die Auswahl kein Raten mehr.",
 };

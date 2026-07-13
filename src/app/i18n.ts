@@ -2208,6 +2208,17 @@ const enUS = {
   // --- Documents tab (0.81.0) ---
   navDocuments: "Documents",
   documentsModuleDesc: "A single place to see and manage every document link across the project.",
+  // --- Feature-module descriptions (Settings -> Functions; guidance on when to enable each) ---
+  dashboardModuleDesc: "Landing cockpit summarising health, progress, and what needs attention - enable for an at-a-glance overview each time you open the project.",
+  trendsModuleDesc: "Completion and variance trend lines from saved snapshots (needs Turso storage) - enable when you want history, not just today's numbers.",
+  ganttModuleDesc: "Timeline of tasks and dependencies with drag-to-reschedule - enable for schedule planning on time-boxed work.",
+  milestonesModuleDesc: "Track key dates and deliverables with RAG health - enable when the project is driven by deadlines and gate reviews.",
+  resourcesModuleDesc: "Plan people, roles, capacity, allocations, and absences - enable when you staff and level workload across a team.",
+  budgetModuleDesc: "Plan and track cost/effort against a baseline with earned-value reporting - enable when there's a budget to control.",
+  raidModuleDesc: "Register for Risks, Assumptions, Issues, and Dependencies with review reminders - enable to run structured risk management.",
+  changesModuleDesc: "Change-control log for scope/schedule/cost requests and decisions - enable when changes need formal tracking and sign-off.",
+  stakeholdersModuleDesc: "Map stakeholders, influence/interest, RACI, and communications - enable when managing engagement across many parties.",
+  historyModuleDesc: "Version history with restore for project data (needs Turso storage) - enable to audit and roll back changes over time.",
   documentsTitle: "Documents",
   documentsTabEmpty: "No documents linked yet. Add one below or from any item's editor.",
   documentsColDocument: "Document",
@@ -3262,6 +3273,7 @@ const enUS = {
   versionHighlightSchemeDehardcode: "The look is now fully scheme-driven: AIPM and the Dashboard style are read-only built-in color schemes alongside Harbor, Meridian, and Umber — nothing is hardcoded into the app anymore. Pick any of them in Settings → Appearance, and structural touches like card shadows now travel with the scheme.",
   versionHighlightSchemeDatabase: "Custom color schemes now save to the project database when Turso is connected, so your themes follow you across devices — and a scheme can carry its own logo and favicon (not just a slogan), so switching schemes rebrands the whole app.",
   versionHighlightModalResize: "Every editor and popup dialog is now draggable and resizable — drag it by its header, resize it from the corner, and reset it to the default size and position from the header button. Your preferred size and position persist per dialog.",
+  versionHighlightFeatureGuidance: "Settings → Functions now explains each feature: a short line under every toggle tells you what it does and when to enable it, so choosing what your project uses no longer means guessing.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -58,6 +58,10 @@ export const BUILTIN_GUIDE_NAME = "Project Leadership Operating Guide";
 export const BUILTIN_GUIDE_CONTENT = ${JSON.stringify(content)};
 export const BUILTIN_FEATURE_GUIDES: { id: string; name: string; content: string; scope: { views?: string[] } }[] = ${JSON.stringify(featureGuides, null, 2)};
 `;
-  writeFileSync(OUT, out, "utf8");
+  // Force LF so the output is byte-identical on every platform (the template
+  // literal above inherits this file's own EOL, which is CRLF on a Windows
+  // autocrlf checkout, while JSON.stringify emits LF — a mix that makes the
+  // regenerated file differ from the committed blob). Pinned LF in .gitattributes.
+  writeFileSync(OUT, out.replace(/\r\n/g, "\n"), "utf8");
   console.log(`gen-operating-guide: wrote ${OUT} (leadership ${content.length} chars, ${featureGuides.length} feature guides)`);
 }
