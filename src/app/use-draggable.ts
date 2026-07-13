@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export interface Offset {
   x: number;
@@ -8,6 +8,7 @@ export interface Offset {
 }
 
 export interface DragHandleProps {
+  ref: (el: HTMLElement | null) => void;
   onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
   onPointerMove: (e: React.PointerEvent<HTMLElement>) => void;
   onPointerUp: (e: React.PointerEvent<HTMLElement>) => void;
@@ -47,6 +48,27 @@ export function clampOffset(desired: Offset, rect: Rect, vp: Viewport): Offset {
     x: Math.min(Math.max(desired.x, minX), maxX),
     y: Math.min(Math.max(desired.y, minY), maxY),
   };
+}
+
+/**
+ * Re-clamp an already-applied offset against the live viewport. `panelRect` is
+ * the panel's CURRENT on-screen rect (i.e. it already includes `cur`); the base
+ * (un-offset) rect is recovered by subtracting `cur`, then `clampOffset` keeps
+ * MARGIN px reachable. Idempotent, so a value already on-screen is returned
+ * unchanged. Pure + testable — guards a stale offset restored from a larger
+ * screen from stranding the panel off-viewport. */
+export function reconcileOffset(
+  cur: Offset,
+  panelRect: Rect,
+  vp: Viewport,
+): Offset {
+  const base: Rect = {
+    left: panelRect.left - cur.x,
+    top: panelRect.top - cur.y,
+    width: panelRect.width,
+    height: panelRect.height,
+  };
+  return clampOffset(cur, base, vp);
 }
 
 /**
@@ -96,6 +118,12 @@ export function useDraggable(
   // without depending on `offset` (which would re-create the callbacks mid-drag).
   const offsetRef = useRef<Offset>(offset);
   const dragState = useRef<{ startX: number; startY: number; base: Offset; rect: Rect } | null>(null);
+  // The drag-handle element (modal header), used to reach the panel for a
+  // post-layout viewport re-clamp of a restored offset.
+  const handleElRef = useRef<HTMLElement | null>(null);
+  const setHandleRef = useCallback((el: HTMLElement | null) => {
+    handleElRef.current = el;
+  }, []);
 
   const reset = useCallback(() => {
     offsetRef.current = { x: 0, y: 0 };
@@ -118,6 +146,35 @@ export function useDraggable(
     }
     wasOpen.current = open;
   }, [open, storageKey]);
+
+  // Re-clamp a restored/stale offset against the live viewport once the panel is
+  // laid out with it. Layout effect → measured rect is consistent with `offset`
+  // (no off-screen flash). Skipped while actively dragging (onPointerMove already
+  // clamps) and when the rect is unmeasurable (pre-layout / jsdom, rect≈0).
+  // Idempotent: converges in ≤2 passes and no-ops for an on-screen panel.
+  //
+  // The corrected offset is applied IN-MEMORY only — never persisted. The stored
+  // value stays the user's last dragged position, so re-opening the same dialog
+  // on the original (larger) screen restores it; only the on-screen view is
+  // adjusted while it would otherwise be stranded.
+  useLayoutEffect(() => {
+    if (!open || dragState.current || typeof window === "undefined") return;
+    const handle = handleElRef.current;
+    if (!handle) return;
+    const panel =
+      (handle.closest("[data-modal-panel]") as HTMLElement | null) ?? handle;
+    const r = panel.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
+    const cur = offsetRef.current;
+    const next = reconcileOffset(
+      cur,
+      { left: r.left, top: r.top, width: r.width, height: r.height },
+      { w: window.innerWidth, h: window.innerHeight },
+    );
+    if (next.x === cur.x && next.y === cur.y) return;
+    offsetRef.current = next;
+    setOffset(next);
+  }, [open, offset]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLElement>) => {
@@ -164,6 +221,6 @@ export function useDraggable(
   return {
     offset,
     reset,
-    handleProps: { onPointerDown, onPointerMove, onPointerUp },
+    handleProps: { ref: setHandleRef, onPointerDown, onPointerMove, onPointerUp },
   };
 }
