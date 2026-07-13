@@ -404,7 +404,13 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   async function handleRefreshBookings() {
     if (isPopout || sync.busy || confirming || !canRefresh) return;
     const { start, end } = fetchWindow();
-    await sync.fetchBookingsForProjects([...refreshProjectIds], start, end);
+    const result = await sync.fetchBookingsForProjects([...refreshProjectIds], start, end);
+    // Surface a partial per-project failure the same way Fetch does — else a
+    // refresh that silently dropped some projects looks like a complete result.
+    if (result && result.failedProjects > 0) {
+      logDiag("warn", "timelog.partialProjectFetch", { failedProjects: result.failedProjects });
+      showToast("error", t(lang, "guardTimelogPartialProjectFetch", result.failedProjects));
+    }
   }
 
   // Fetch is gated on a customer + ≥1 picked project (button disabled otherwise).

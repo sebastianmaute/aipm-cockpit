@@ -256,6 +256,24 @@ describe("TimelogPanel", () => {
       );
     });
 
+    it("surfaces a partial-failure toast when Refresh drops some projects", async () => {
+      enableTimelog();
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 1, projectCount: 2 });
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      fireEvent.click(await screen.findByRole("button", { name: t("en-US", "timelogRefresh") }));
+      await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)));
+    });
+
     it("hides the Refresh button before any bookings are read", async () => {
       enableTimelog();
       const { useTimelogSync } = await import("./use-timelog-sync");
