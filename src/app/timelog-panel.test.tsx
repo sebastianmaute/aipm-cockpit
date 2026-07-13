@@ -232,6 +232,43 @@ describe("TimelogPanel", () => {
     });
   });
 
+  describe("Refresh bookings", () => {
+    it("shows a Refresh button once bookings are read and re-fetches the persisted scope", async () => {
+      enableTimelog();
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 1 });
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchBookingsForProjects } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefresh") });
+      fireEvent.click(btn);
+      await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalled());
+    });
+
+    it("hides the Refresh button before any bookings are read", async () => {
+      enableTimelog();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchedAt: null } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.queryByRole("button", { name: t("en-US", "timelogRefresh") })).toBeNull();
+    });
+  });
+
   describe("External resource exclusion", () => {
     // External resources are capacity-only (excluded from cost) and never book
     // time as an internal TimeLog user — so they must be dropped from BOTH the

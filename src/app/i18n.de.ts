@@ -1356,6 +1356,8 @@ export const de: Record<TranslationKey, string> = {
   timelogMatchClear: "Verknüpfung entfernen",
   timelogMatchNone: "— nicht verknüpft —",
   timelogSync: "Buchungen abrufen",
+  timelogRefresh: "Buchungen aktualisieren",
+  timelogRefreshHint: "Ruft die aktuellen Buchungen für die ausgewählten Projekte erneut aus Timelog ab.",
   timelogLoadPeople: "Personen laden",
   timelogLoadManagedProjects: "Meine Projekte laden",
   timelogIncludeClosed: "Abgeschlossene Projekte einbeziehen",

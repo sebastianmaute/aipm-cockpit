@@ -1364,6 +1364,8 @@ const enUS = {
   timelogMatchClear: "Clear link",
   timelogMatchNone: "— not linked —",
   timelogSync: "Fetch bookings",
+  timelogRefresh: "Refresh bookings",
+  timelogRefreshHint: "Re-fetch the current bookings for the selected projects from Timelog.",
   timelogLoadPeople: "Load people",
   timelogLoadManagedProjects: "Load my projects",
   timelogIncludeClosed: "Include closed projects",
