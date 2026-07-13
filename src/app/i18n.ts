@@ -3280,6 +3280,7 @@ const enUS = {
   versionHighlightFeatureGuidance: "Settings → Functions now explains each feature: a short line under every toggle tells you what it does and when to enable it, so choosing what your project uses no longer means guessing.",
   versionHighlightUiBatch0187: "Quality-of-life batch: multi-select Gantt filters, an explicit Hours/Days rate-unit switch in manage roles, a Refresh button in Time bookings, and a Cancel button in the Documents add-link form.",
   versionHighlightFieldUndo: "Field-level edit undo: inline cell edits, the status dropdown, and modal saves are now undoable one field at a time across tasks, RAID, changes, milestones, stakeholders, and resources. Correlated fields (status and completion date, the assignee identity) revert together; bulk edit keeps its single whole-row undo.",
+  versionHighlightOfficeIngest: "Office document ingestion: the AI Assistant and the create-project importer now read Word, Excel (incl. macro-enabled .xlsm), and PowerPoint files alongside PDFs and images. They are unzipped and converted to structured Markdown fully in your browser — no upload, no new dependency — so the assistant can pull out tasks, risks, and other actionable items.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -8,6 +8,27 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.189.0] - 2026-07-13 "Bishop"
+
+### Added
+
+- **Office document ingestion (docx / xlsx / xlsm / pptx).** The AI Assistant chat
+  and the "create project from source" importer now accept Microsoft Office files
+  alongside the existing PDF / image / text support. Office files are unzipped and
+  text-extracted fully **client-side with zero new dependencies** (native
+  `DecompressionStream` + a minimal ZIP reader), producing **structured Markdown**
+  the assistant reads for actionable extraction:
+  - **Word** → headings, paragraphs, and tables as Markdown tables.
+  - **Excel** (incl. macro-enabled `.xlsm`) → one Markdown table per sheet, sheet
+    names resolved via the workbook relationships (correct even when sheets were
+    reordered), shared strings resolved, columns kept aligned.
+  - **PowerPoint** → one section per slide with bullet paragraphs, in slide order.
+  - Extraction is bounded (per-entry and aggregate decompression caps guard against
+    zip bombs; a 200k-character output cap guards the token budget) and fails safe —
+    a corrupt or unsupported file surfaces a read error and is skipped, never
+    crashing the send. Nested Word tables are a documented limitation (extracted
+    partially).
+
 ## [0.188.0] - 2026-07-13 "Blish"
 
 ### Added

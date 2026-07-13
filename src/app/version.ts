@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.188.0";
-export const APP_BUILD_DATE = "2026-07-13"; // 0.188.0: Field-level edit undo — inline cell edits, the status dropdown, and modal/full-page saves are now undoable at per-changed-field granularity across all six edited registers (Blish)
+export const APP_VERSION = "0.189.0";
+export const APP_BUILD_DATE = "2026-07-13"; // 0.189.0: Office document ingestion — the AI Assistant and create-project importer now read docx/xlsx/xlsm/pptx, extracting structured Markdown fully client-side (zero dependencies) for actionable extraction (Bishop)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.188.x line is "Blish" (James Blish). */
-export const APP_MILESTONE = "Blish";
+ *  0.189.x line is "Bishop" (Michael Bishop). */
+export const APP_MILESTONE = "Bishop";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -207,4 +207,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightFeatureGuidance",
   "versionHighlightUiBatch0187",
   "versionHighlightFieldUndo",
+  "versionHighlightOfficeIngest",
 ] as const;
