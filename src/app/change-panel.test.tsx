@@ -254,6 +254,12 @@ describe("Changes bulk edit", () => {
     fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, status: "Approved" }));
+    // Bulk apply passes suppressFieldUndo so the looped save skips per-field
+    // undo capture (the whole-row bulk.edit entry already covers it).
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1, status: "Approved" }),
+      undefined,
+      { suppressFieldUndo: true },
+    );
   });
 });
