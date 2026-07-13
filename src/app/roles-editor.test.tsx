@@ -163,4 +163,28 @@ describe("RolesEditor rate-card table", () => {
     saved = onSaveRole.mock.calls[1][0] as Role;
     expect(saved.rateBasis).toBe("hour");
   });
+
+  it("Hours/Days switch flips the writable unit, pinning the derived day rates", () => {
+    const onSaveRole = vi.fn();
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8}
+        roles={[{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 }]}
+        disciplines={disciplines} grades={grades}
+        onSaveRole={onSaveRole} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    // Default hour basis: "Hours" is the checked radio.
+    expect(screen.getByRole("radio", { name: t("en-US", "rolesBasisHours") })).toHaveAttribute("aria-checked", "true");
+    // Switch to Days → row becomes day-basis, day rates pinned from the derived
+    // values (100 * 8 = 800 internal, 200 * 8 = 1600 external).
+    fireEvent.click(screen.getByRole("radio", { name: t("en-US", "rolesBasisDays") }));
+    expect(onSaveRole).toHaveBeenCalledTimes(1);
+    const saved = onSaveRole.mock.calls[0][0] as Role;
+    expect(saved.rateBasis).toBe("day");
+    expect(saved.internalRateDay).toBe(800);
+    expect(saved.externalRateDay).toBe(1600);
+  });
 });

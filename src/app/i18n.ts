@@ -2607,7 +2607,11 @@ const enUS = {
   rolesGradeHint: "Seniority level used to derive the blended rate.",
   rolesInternalRateHint: "Hourly internal cost rate (EUR).",
   rolesExternalRateHint: "Hourly external/billing rate (EUR).",
-  rolesRateBasisHint: "Enter either the daily rate or the hourly rate — the other is calculated from your workday hours and locked. Clear the filled field to switch which one you enter.",
+  rolesRateBasisHint: "Enter either the daily rate or the hourly rate — the other is calculated from your workday hours and locked. Use the Hours/Days switch to choose which one you enter.",
+  rolesRateBasis: "Entered in",
+  rolesBasisHours: "Hours",
+  rolesBasisDays: "Days",
+  rolesRateBasisSwitch: "Switch entered rate unit",
   // Edit Resource tooltips
   resourceFirstNameHint: "Given name of the person.",
   resourceLastNameHint: "Family name of the person.",

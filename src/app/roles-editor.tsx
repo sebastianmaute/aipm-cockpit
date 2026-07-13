@@ -10,6 +10,7 @@ import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { materializeRoleRates } from "./role-rates";
+import { SegmentedControl } from "./segmented-control";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -18,6 +19,7 @@ export const ROLES_COL_WIDTHS = {
   external: 120,
   internalDay: 120,
   externalDay: 120,
+  basis: 150,
 } as const;
 
 export interface RolesEditorProps {
@@ -109,6 +111,23 @@ export function RolesEditor({
   // materializeRoleRates; clearing the editable cell flips which unit is entered.
   const editInputClass = "w-24 rounded-md border border-line px-2 py-1 text-right text-sm tabular-nums bg-surface-muted";
   const readInputClass = "w-24 rounded-md border border-transparent px-2 py-1 text-right text-sm tabular-nums bg-transparent text-muted-foreground";
+  // Flip which unit the row is entered in. Switching to "day" pins the currently
+  // displayed (derived) day rates as the new authoritative values so no figure
+  // jumps; switching to "hour" keeps the already-authoritative hourly rates.
+  // materializeRoleRates then re-derives the sibling unit + the hourly cost source.
+  function flipBasis(r: Role, next: "hour" | "day") {
+    if ((r.rateBasis ?? "hour") === next) return;
+    const flipped: Role =
+      next === "day"
+        ? {
+            ...r,
+            rateBasis: "day",
+            internalRateDay: round2(r.internalRate * workdayHours),
+            externalRateDay: round2(r.externalRate * workdayHours),
+          }
+        : { ...r, rateBasis: "hour" };
+    onSaveRole(materializeRoleRates(flipped, workdayHours));
+  }
   function rateCell(r: Role, rowCtx: string, unit: "hour" | "day", field: "internal" | "external") {
     const dayBasis = (r.rateBasis ?? "hour") === "day";
     const editable = unit === "day" ? dayBasis : !dayBasis;
@@ -128,12 +147,9 @@ export function RolesEditor({
         : unit === "day" ? "rolesExternalRateDay" : "rolesExternalRate";
     const onChange = (raw: string) => {
       if (raw.trim() === "") {
-        // Clear-to-switch: flip which unit the whole row is entered in.
-        const flipped: Role =
-          unit === "day"
-            ? { ...r, rateBasis: "hour" }
-            : { ...r, rateBasis: "day", internalRateDay: internalDay, externalRateDay: externalDay };
-        onSaveRole(materializeRoleRates(flipped, workdayHours));
+        // Clear-to-switch: flip which unit the whole row is entered in (same
+        // outcome as the Hours/Days switch on the basis column).
+        flipBasis(r, unit === "day" ? "hour" : "day");
         return;
       }
       const v = clampRate(raw);
@@ -218,6 +234,12 @@ export function RolesEditor({
                     <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
                   </span>
                 </th>
+                <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.basis, minWidth: ROLES_COL_WIDTHS.basis }}>
+                  <span className="inline-flex items-center gap-1">
+                    {t(lang, "rolesRateBasis")}
+                    <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
+                  </span>
+                </th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
@@ -260,6 +282,18 @@ export function RolesEditor({
                   {rateCell(r, rowCtx, "hour", "external")}
                   {rateCell(r, rowCtx, "day", "internal")}
                   {rateCell(r, rowCtx, "day", "external")}
+                  <td className="px-3 py-2">
+                    <SegmentedControl<"hour" | "day">
+                      value={(r.rateBasis ?? "hour") === "day" ? "day" : "hour"}
+                      options={[
+                        { value: "hour", label: t(lang, "rolesBasisHours") },
+                        { value: "day", label: t(lang, "rolesBasisDays") },
+                      ]}
+                      onChange={(next) => flipBasis(r, next)}
+                      ariaLabel={`${rowCtx} — ${t(lang, "rolesRateBasisSwitch")}`}
+                      title={t(lang, "rolesRateBasisHint")}
+                    />
+                  </td>
                   <td className="px-3 py-2 text-right print:hidden">
                     <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={t(lang, "delete")}
                       className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink">×</button>
