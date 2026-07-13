@@ -96,16 +96,6 @@ describe("useTaskRowHandlers", () => {
     expect(result.current.expandedNotes.has(1)).toBe(false);
   });
 
-  it("onToggleComplete calls setTasks", () => {
-    const setTasks = vi.fn();
-    const task = makeTask();
-    const { result } = renderHook(() =>
-      useTaskRowHandlers(makeArgs({ setTasks })),
-    );
-    act(() => result.current.onToggleComplete(task));
-    expect(setTasks).toHaveBeenCalled();
-  });
-
   it("onDelete calls setTasks when user confirms", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const setTasks = vi.fn();
@@ -150,6 +140,50 @@ describe("useTaskRowHandlers", () => {
     expect(updater([open])[0].status).toBe("In Progress");
   });
 
+  it("captures a field-edit undo entry for a status change (status + completedDate)", () => {
+    const captureFieldEdit = vi.fn();
+    const setTasks = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "To Do", completedDate: undefined })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() => result.current.onStatusChange(1, "Done"));
+    expect(captureFieldEdit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "task.updated",
+        id: 1,
+        before: { status: "To Do", completedDate: undefined },
+      }),
+    );
+    const opts = captureFieldEdit.mock.calls[0][0] as {
+      after: { status: string; completedDate: string };
+    };
+    expect(opts.after.status).toBe("Done");
+    expect(opts.after.completedDate).toBeTruthy();
+  });
+
+  it("does not capture a field-edit undo entry for a Jira-synced task's status", () => {
+    const captureFieldEdit = vi.fn();
+    const setTasks = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, jiraKey: "LOP-1", status: "In Progress" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() => result.current.onStatusChange(1, "Done"));
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
+  it("does not capture a field-edit undo entry when the status is unchanged (no-op)", () => {
+    const captureFieldEdit = vi.fn();
+    const setTasks = vi.fn();
+    const tasksRef = { current: [makeTask({ id: 1, status: "To Do" })] };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() => result.current.onStatusChange(1, "To Do"));
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+  });
+
   it("handleClearRaidTaskFilter calls setRaidFilterTaskId with null", () => {
     const setRaidFilterTaskId = vi.fn();
     const { result } = renderHook(() =>
@@ -157,88 +191,6 @@ describe("useTaskRowHandlers", () => {
     );
     act(() => result.current.handleClearRaidTaskFilter());
     expect(setRaidFilterTaskId).toHaveBeenCalledWith(null);
-  });
-});
-
-describe("useTaskRowHandlers — onToggleComplete state & guards", () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  it("blocks reopening a Jira-linked completed task (alert, no setTasks)", () => {
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
-    const setTasks = vi.fn();
-    const logActivity = vi.fn();
-    const task = makeTask({ completedDate: "2030-01-01", jiraKey: "LOP-1" });
-    const { result } = renderHook(() =>
-      useTaskRowHandlers(makeArgs({ setTasks, logActivity })),
-    );
-    act(() => result.current.onToggleComplete(task));
-    expect(alertSpy).toHaveBeenCalled();
-    expect(setTasks).not.toHaveBeenCalled();
-    expect(logActivity).not.toHaveBeenCalled();
-  });
-
-  it("completing an open task stamps completedDate=today and logs task.completed", () => {
-    const setTasks = vi.fn();
-    const logActivity = vi.fn();
-    const task = makeTask({ id: 1, completedDate: undefined });
-    const { result } = renderHook(() =>
-      useTaskRowHandlers(makeArgs({ setTasks, logActivity, today: "2030-01-01" })),
-    );
-    act(() => result.current.onToggleComplete(task));
-    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
-    const [updated] = updater([task]);
-    expect(updated.completedDate).toBe("2030-01-01");
-    expect(updated.localModifiedAt).toBeTruthy();
-    expect(logActivity).toHaveBeenCalledWith("task.completed", 1, task.taskName);
-  });
-
-  it("reopening a non-Jira completed task clears completedDate and logs task.reopened", () => {
-    const setTasks = vi.fn();
-    const logActivity = vi.fn();
-    const task = makeTask({ id: 1, completedDate: "2030-01-01" });
-    const { result } = renderHook(() =>
-      useTaskRowHandlers(makeArgs({ setTasks, logActivity })),
-    );
-    act(() => result.current.onToggleComplete(task));
-    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
-    expect(updater([task])[0].completedDate).toBeFalsy();
-    expect(logActivity).toHaveBeenCalledWith("task.reopened", 1, task.taskName);
-  });
-
-  it("completing a task sets status Done + completedDate (invariant)", () => {
-    const setTasks = vi.fn();
-    const task = makeTask({ id: 1, completedDate: undefined, status: "To Do" });
-    const { result } = renderHook(() =>
-      useTaskRowHandlers(makeArgs({ setTasks, today: "2030-01-01" })),
-    );
-    act(() => result.current.onToggleComplete(task));
-    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
-    const [updated] = updater([task]);
-    expect(updated.status).toBe("Done");
-    expect(updated.completedDate).toBeTruthy();
-  });
-
-  it("reopening clears status to To Do + completedDate empty (invariant)", () => {
-    const setTasks = vi.fn();
-    const task = makeTask({ id: 1, completedDate: "2030-01-01", status: "Done" });
-    const { result } = renderHook(() =>
-      useTaskRowHandlers(makeArgs({ setTasks })),
-    );
-    act(() => result.current.onToggleComplete(task));
-    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
-    const [updated] = updater([task]);
-    expect(updated.status).toBe("To Do");
-    expect(updated.completedDate).toBeFalsy();
-  });
-
-  it("cancels the open editor when toggling the task being edited", () => {
-    const handleCancelEdit = vi.fn();
-    const task = makeTask({ id: 1 });
-    const { result } = renderHook(() =>
-      useTaskRowHandlers(makeArgs({ handleCancelEdit, editingId: 1 })),
-    );
-    act(() => result.current.onToggleComplete(task));
-    expect(handleCancelEdit).toHaveBeenCalled();
   });
 });
 

@@ -1,8 +1,15 @@
 "use client";
 import { useCallback, useRef, useState } from "react";
 
-/** The five Open-Points task cells that support in-place inline editing. */
-export type InlineField = "taskName" | "startDate" | "dueDate" | "assignee" | "priority";
+/** The Open-Points task cells that support in-place inline editing. */
+export type InlineField =
+  | "taskName"
+  | "startDate"
+  | "dueDate"
+  | "assignee"
+  | "priority"
+  | "notes"
+  | "blockers";
 
 export interface InlineCellEdit {
   editing: InlineField | null;

@@ -48,6 +48,7 @@ export type TaskFormDraft = ReturnType<typeof emptyForm>;
 
 export type BulkEditField =
   | "priority"
+  | "status"
   | "dueDate"
   | "lastUpdateDate"
   | "assignee"
@@ -61,6 +62,7 @@ export function emptyBulkEdit() {
   return {
     enabled: {
       priority: false,
+      status: false,
       dueDate: false,
       lastUpdateDate: false,
       assignee: false,
@@ -71,6 +73,7 @@ export function emptyBulkEdit() {
       labels: false,
     } as Record<BulkEditField, boolean>,
     priority: "Medium" as Priority,
+    status: "To Do" as TaskStatus,
     dueDate: "",
     lastUpdateDate: todayISO(),
     assignee: "",

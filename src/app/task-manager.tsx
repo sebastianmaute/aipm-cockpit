@@ -617,7 +617,7 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite });
+  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
@@ -634,13 +634,13 @@ function TaskManagerInner() {
   }
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
-  const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture });
+  const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
   // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo: captureStakeholderBulk } =
-    useStakeholders({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture });
+    useStakeholders({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
   // assembles a Workspace from the live workspace-context collections the same
@@ -1222,6 +1222,7 @@ function TaskManagerInner() {
     pendingLinkRaidIdRef,
     onTaskCreated: flushEditorBuffer,
     onEditorDiscard: discardEditorBuffer,
+    captureFieldEdit: undoApi.captureFieldEdit,
   });
 
   // taskModalOpen<->activeTab sync for the full-page editor. editArmedRef tells OPEN apart from NAV-AWAY (any setActiveTab while editing — sidebar/search/alerts/top-bar — used to look like an open and get silently reverted); nav-away skips setActiveTab since the target view's already set.
@@ -1290,7 +1291,6 @@ function TaskManagerInner() {
     pushingIds,
     onToggleNoteExpanded,
     onJumpToRaid,
-    onToggleComplete,
     onSendInquiry,
     onPushToJira,
     onStatusChange,
@@ -1314,6 +1314,7 @@ function TaskManagerInner() {
     handleCancelEdit,
     logActivity,
     capture: undoApi.capture,
+    captureFieldEdit: undoApi.captureFieldEdit,
     resolveTemplateBody: resolveCommBody,
     sendCommTemplate: commSend.send,
   });
@@ -1740,6 +1741,7 @@ function TaskManagerInner() {
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
     onCaptureRaidBulk: captureRaidBulkUndo,
     onCaptureUndo: undoApi.capture,
+    onCaptureFieldEdit: undoApi.captureFieldEdit,
     m365Configured: m365Enabled,
     raidCalendar: {
       enabled: calendarRaidEnabled,
@@ -1945,12 +1947,12 @@ function TaskManagerInner() {
       m365Configured={m365Enabled}
       dispatcher={dispatcher}
       logActivity={logActivity}
+      captureFieldEdit={undoApi.captureFieldEdit}
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}
       onToggleNoteExpanded={onToggleNoteExpanded}
       onJumpToRaid={onJumpToRaid}
-      onToggleComplete={onToggleComplete}
       onSendInquiry={onSendInquiry}
       onPushToJira={onPushToJira}
       onStatusChange={onStatusChange}

@@ -40,6 +40,8 @@ export interface UseTaskRowHandlersArgs {
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   /** Capture a pre-op snapshot for undo (a delete removes rows). */
   capture: UndoStackApi["capture"];
+  /** Capture a single field-level undo entry (the inline status dropdown). */
+  captureFieldEdit?: UndoStackApi["captureFieldEdit"];
   resolveTemplateBody?: (category: "status-inquiry") => string | null;
   sendCommTemplate?: (req: CommSendRequest) => void;
 }
@@ -61,6 +63,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     handleCancelEdit,
     logActivity,
     capture,
+    captureFieldEdit,
     resolveTemplateBody,
     sendCommTemplate,
   } = args;
@@ -101,34 +104,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
       setWorkspaceCollapsed((prev) => (prev ? false : prev));
     },
     [setRaidFilterTaskId, setActiveTab, setWorkspaceCollapsed],
-  );
-
-  const onToggleComplete = useCallback(
-    (task: Task) => {
-      if (task.completedDate && task.jiraKey) {
-        window.alert(t(lang, "jiraReopenForbidden", task.jiraKey));
-        return;
-      }
-      const wasComplete = !!task.completedDate;
-      const stamp = new Date().toISOString();
-      setTasks((prev) =>
-        prev.map((row) => {
-          if (row.id !== task.id) return row;
-          // Route through applyStatusChange so `status` stays in sync with
-          // `completedDate` (the Done ⟺ completedDate invariant). Reopening
-          // resets status to "To Do"; completing sets it to "Done".
-          const next: TaskStatus = row.completedDate ? "To Do" : "Done";
-          return { ...applyStatusChange(row, next, today), localModifiedAt: stamp };
-        }),
-      );
-      if (editingId === task.id) handleCancelEditRef.current();
-      logActivityRef.current(
-        wasComplete ? "task.reopened" : "task.completed",
-        task.id,
-        task.taskName,
-      );
-    },
-    [lang, today, editingId, setTasks],
   );
 
   const onSendInquiry = useCallback(
@@ -261,6 +236,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   const onStatusChange = useCallback(
     (id: number, next: TaskStatus) => {
       const stamp = new Date().toISOString();
+      const prevRow = tasksRef.current.find((row) => row.id === id);
       setTasks((prev) =>
         prev.map((row) =>
           row.id === id && !row.jiraKey
@@ -268,8 +244,21 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
             : row,
         ),
       );
+      // Jira-synced tasks are read-only — no undo entry for a no-op, nor when
+      // the status didn't actually change (e.g. re-selecting the same value).
+      if (prevRow && !prevRow.jiraKey && prevRow.status !== next) {
+        const after = applyStatusChange(prevRow, next, today);
+        captureFieldEdit?.({
+          setter: setTasks,
+          kind: "task.updated",
+          id,
+          before: { status: prevRow.status, completedDate: prevRow.completedDate },
+          after: { status: after.status, completedDate: after.completedDate },
+          stampField: "localModifiedAt",
+        });
+      }
     },
-    [today, setTasks],
+    [today, setTasks, tasksRef, captureFieldEdit],
   );
 
   const onEdit = useCallback(
@@ -333,7 +322,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     setPushingIds,
     onToggleNoteExpanded,
     onJumpToRaid,
-    onToggleComplete,
     onSendInquiry,
     onPushToJira,
     onStatusChange,

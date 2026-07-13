@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.187.0";
-export const APP_BUILD_DATE = "2026-07-13"; // 0.187.0: UX batch — multi-select Gantt filters, explicit Hours/Days rate-unit switch in manage roles, a Timelog "Refresh bookings" button, and a Cancel button in the Documents add-link form (Simak)
+export const APP_VERSION = "0.188.0";
+export const APP_BUILD_DATE = "2026-07-13"; // 0.188.0: Field-level edit undo — inline cell edits, the status dropdown, and modal/full-page saves are now undoable at per-changed-field granularity across all six edited registers (Blish)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.187.x line is "Simak" (Clifford D. Simak). */
-export const APP_MILESTONE = "Simak";
+ *  0.188.x line is "Blish" (James Blish). */
+export const APP_MILESTONE = "Blish";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -206,4 +206,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightModalResize",
   "versionHighlightFeatureGuidance",
   "versionHighlightUiBatch0187",
+  "versionHighlightFieldUndo",
 ] as const;

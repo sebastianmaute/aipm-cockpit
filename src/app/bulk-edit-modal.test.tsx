@@ -150,4 +150,24 @@ describe("BulkEditModal", () => {
     toggle!.click();
     expect(captured.enabledPriority).toBe(true);
   });
+
+  test("the status select keeps an accessible name even with the Jira note sibling present", () => {
+    // selectedJiraCount>0 renders a sibling <p> note, making the row's children
+    // an array — BulkEditFieldRow's aria-label clone is skipped, so the select
+    // carries its own explicit aria-label. Regression guard for that a11y gap.
+    render(
+      <TaskFormProvider>
+        <Probe openBulk={true}>
+          <BulkEditModal {...defaultProps({ selectedJiraCount: 1 })} />
+        </Probe>
+      </TaskFormProvider>,
+    );
+    expect(
+      screen.getByRole("combobox", { name: t("en-US", "colTaskStatus") }),
+    ).toBeInTheDocument();
+    // The assignee input (same array-children pattern) is also explicitly named.
+    expect(
+      screen.getByRole("textbox", { name: t("en-US", "assignee") }),
+    ).toBeInTheDocument();
+  });
 });

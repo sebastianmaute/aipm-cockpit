@@ -187,6 +187,12 @@ describe("Stakeholders bulk edit", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
 
     expect(props.onSave).toHaveBeenCalledTimes(1);
-    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, influence: "High" }));
+    // Bulk apply passes suppressFieldUndo so the looped save skips per-field
+    // undo capture (the whole-row bulk.edit entry already covers it).
+    expect(props.onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1, influence: "High" }),
+      undefined,
+      { suppressFieldUndo: true },
+    );
   });
 });

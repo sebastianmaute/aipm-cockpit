@@ -910,8 +910,6 @@ export const de: Record<TranslationKey, string> = {
   exportPptxHint:
     "Titelfolie + eine Folie pro Aufgabe (max. 100 Aufgaben).",
 
-  markComplete: "Erledigt",
-  reopenTask: "Wieder öffnen",
   completedOn: "Erledigt am {0}",
 
   tabReports: "Berichte",
@@ -1215,6 +1213,7 @@ export const de: Record<TranslationKey, string> = {
 
   depDependencies: "Abhängigkeiten",
   depRelations: "Beziehungen",
+  depEditRelations: "Beziehungen bearbeiten",
   depDependsOn: "Abhängig von",
   depAdd: "Hinzufügen",
   depRemove: "Entfernen",
@@ -1285,8 +1284,6 @@ export const de: Record<TranslationKey, string> = {
     "{0} Konflikt(e) – Jira hat Vorrang; bitte prüfen.",
   jiraSyncFailed: "Jira-Synchronisierung fehlgeschlagen: {0}",
   jiraPushFailed: "{0} konnte nicht hochgeladen werden: {1}",
-  jiraReopenForbidden:
-    "Diese Aufgabe ist mit {0} verknüpft. Das Wiedereröffnen muss in Jira erfolgen – der Workflow-Übergang ist aus dieser App nicht verfügbar.",
   jiraAssigneeForbidden:
     "Der Bearbeiter für {0} wird in Jira verwaltet. Bitte in Jira ändern und neu synchronisieren.",
   jiraManagedHint: "Wird von Jira verwaltet – Änderung nur in Jira",
@@ -1626,6 +1623,7 @@ export const de: Record<TranslationKey, string> = {
   directorySearchPlaceholder: "Nach Name, Titel, Abteilung, E-Mail filtern…",
   sortBy: "Sortieren nach {0}",
   clickToEdit: "zum Bearbeiten klicken",
+  doubleClickToEdit: "zum Bearbeiten doppelklicken",
   popoutReadOnly: "Bearbeiten ist in der abgedockten Ansicht deaktiviert – Änderungen bitte im Hauptfenster vornehmen.",
   popoutReadOnlyBanner: "Schreibgeschützte Ansicht – Änderungen bitte im Hauptfenster vornehmen.",
   priorityFilterHint: "Zeigt nur Aufgaben mit der gewählten Priorität.",
@@ -3261,4 +3259,5 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightModalResize: "Jeder Editor- und Popup-Dialog lässt sich jetzt verschieben und in der Größe ändern — ziehen Sie ihn an der Kopfzeile, ändern Sie die Größe an der Ecke und setzen Sie ihn über die Schaltfläche in der Kopfzeile auf Standardgröße und -position zurück. Ihre bevorzugte Größe und Position bleiben pro Dialog erhalten.",
   versionHighlightFeatureGuidance: "Einstellungen → Funktionen erklärt jetzt jede Funktion: Eine kurze Zeile unter jedem Schalter sagt Ihnen, was sie tut und wann Sie sie aktivieren sollten — so ist die Auswahl kein Raten mehr.",
   versionHighlightUiBatch0187: "Komfort-Paket: Mehrfachauswahl-Filter im Gantt, ein expliziter Stunden/Tage-Schalter in der Rollenverwaltung, eine Aktualisieren-Schaltfläche in den Zeitbuchungen und eine Abbrechen-Schaltfläche im Dokument-Verknüpfungsformular.",
+  versionHighlightFieldUndo: "Bearbeitung einzelner Felder rückgängig machen: Inline-Zellbearbeitungen, das Status-Dropdown und Modal-Speichervorgänge lassen sich jetzt Feld für Feld rückgängig machen – über Aufgaben, RAID, Änderungen, Meilensteine, Stakeholder und Ressourcen. Zusammengehörige Felder (Status und Abschlussdatum, die Zuständigen-Identität) werden gemeinsam zurückgesetzt; die Massenbearbeitung behält ihr einzelnes zeilenweises Rückgängig.",
 };

@@ -238,6 +238,55 @@ describe("useBulkOperations", () => {
       expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
       alertSpy.mockRestore();
     });
+
+    it("bulk status change routes through applyStatusChange (sets completedDate on Done)", () => {
+      const { result } = renderBulk({});
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "T", assignee: "", assigneeEmail: "", dueDate: "",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium",
+            blockers: "", notes: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+        ]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => {
+        result.current.taskForm.setBulkEdit(prev => ({
+          ...prev, enabled: { ...prev.enabled, status: true }, status: "Done",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      const task = result.current.workspace.tasks[0];
+      expect(task.status).toBe("Done");
+      expect(task.completedDate).toBeTruthy(); // Done ⟺ completedDate invariant held
+    });
+
+    it("bulk status is skipped on Jira-synced rows (Jira owns status)", () => {
+      const { result } = renderBulk({});
+      const base = {
+        assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "2026-05-20",
+        status: "To Do" as const, priority: "Medium" as const, blockers: "", notes: "",
+        group: "", inquiriesSent: 0, localModifiedAt: "STAMP",
+      };
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Synced", jiraKey: "PROJ-1", ...base },
+          { id: 2, taskName: "Local", ...base },
+        ]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); result.current.bulk.onToggleSelect(2); });
+      act(() => {
+        result.current.taskForm.setBulkEdit(prev => ({
+          ...prev, enabled: { ...prev.enabled, status: true }, status: "Done",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+      const synced = result.current.workspace.tasks.find(t => t.id === 1)!;
+      const local = result.current.workspace.tasks.find(t => t.id === 2)!;
+      expect(synced.status).toBe("To Do");        // untouched — Jira-managed
+      expect(synced.localModifiedAt).toBe("STAMP");
+      expect(local.status).toBe("Done");          // non-synced applied
+      expect(local.completedDate).toBeTruthy();
+    });
   });
 
   describe("handleClearAll", () => {

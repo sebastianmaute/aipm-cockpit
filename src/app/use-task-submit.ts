@@ -10,6 +10,9 @@ import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem } from "./types";
 import { applyStatusChange } from "./task-status";
+import { captureFieldChanges } from "./undo/capture-field-changes";
+import { TASK_UNDO_GROUPS } from "./undo/field-groups";
+import type { UndoStackApi } from "./undo/use-undo-stack";
 import {
   ASSIGNEE_MAX,
   EMAIL_MAX,
@@ -60,6 +63,7 @@ export interface UseTaskSubmitArgs {
   /** Called when the editor closes without creating (cancel/nav-away) so the
    *  editor buffer discards any staged create-mode items. */
   onEditorDiscard?: () => void;
+  captureFieldEdit?: UndoStackApi["captureFieldEdit"];
 }
 
 export function useTaskSubmit(args: UseTaskSubmitArgs): {
@@ -91,6 +95,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
     pendingLinkRaidIdRef,
     onTaskCreated,
     onEditorDiscard,
+    captureFieldEdit,
   } = args;
 
   // `submitted` flips true on the first submit attempt so per-field errors can
@@ -183,15 +188,28 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           ),
         );
         setEditingId(null);
-        if (prevTask && logActivityChanges) {
+        if (prevTask) {
           // Single-item edit, so tasksRef's row equals the mapped row — recompute
-          // the same next value to diff prev→next for the audit detail.
+          // the same next value to diff prev→next for the undo capture + audit detail.
           const nextTask = applyStatusChange(
             { ...prevTask, ...payload, localModifiedAt: stamp },
             form.status,
             today,
           );
-          logActivityChanges("task.updated", diffFields(prevTask, nextTask), updatedId, taskName);
+          captureFieldChanges(captureFieldEdit, {
+            setter: setTasks,
+            kind: "task.updated",
+            id: updatedId,
+            prev: prevTask,
+            next: nextTask,
+            groups: TASK_UNDO_GROUPS,
+            stampField: "localModifiedAt",
+          });
+          if (logActivityChanges) {
+            logActivityChanges("task.updated", diffFields(prevTask, nextTask), updatedId, taskName);
+          } else {
+            logActivity("task.updated", updatedId, taskName);
+          }
         } else {
           logActivity("task.updated", updatedId, taskName);
         }
@@ -262,6 +280,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
       setRaid,
       pendingLinkRaidIdRef,
       onTaskCreated,
+      captureFieldEdit,
     ],
   );
 

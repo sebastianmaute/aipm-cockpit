@@ -2,7 +2,7 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
-import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Task, type TaskStatus } from "./types";
+import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { useSettings } from "./use-settings";
@@ -18,7 +18,9 @@ import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
-import { sanitizeAssignee, sanitizeIsoDate, sanitizePriority, sanitizeTaskName } from "./sanitize";
+import { sanitizeInlinePatch } from "./task-inline-patch";
+import type { UndoStackApi } from "./undo/use-undo-stack";
+import { valuesDiffer } from "./undo/field-groups";
 import { useEntityCalendarPush } from "./use-entity-calendar-push";
 import { useEntityCalendarPull } from "./use-entity-calendar-pull";
 import { CalendarPullSummaryModal } from "./calendar-pull-summary-modal";
@@ -40,6 +42,10 @@ import {
   SortableTh,
   Th,
 } from "./task-manager-ui";
+
+/** Stable empty directory so a resource-less workspace keeps the row-context memo
+ *  reference-stable (a fresh `[]` each render would bust it). */
+const EMPTY_RESOURCES: readonly Resource[] = [];
 
 const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","notes","depRelations","estimate","spent","actions"] as const;
 
@@ -82,7 +88,6 @@ export interface TasksSectionProps {
   onToggleSelect: (id: number) => void;
   onToggleNoteExpanded: (id: number) => void;
   onJumpToRaid: (id: number) => void;
-  onToggleComplete: (task: Task) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
@@ -147,6 +152,8 @@ export interface TasksSectionProps {
   // both threaded from task-manager.
   dispatcher: ToolDispatcher;
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** Capture a field-level undo entry for an inline cell edit. */
+  captureFieldEdit?: UndoStackApi["captureFieldEdit"];
 }
 
 export function TasksSection({
@@ -158,7 +165,6 @@ export function TasksSection({
   onToggleSelect,
   onToggleNoteExpanded,
   onJumpToRaid,
-  onToggleComplete,
   onSendInquiry,
   onPushToJira,
   onStatusChange,
@@ -205,6 +211,7 @@ export function TasksSection({
   m365Configured,
   dispatcher,
   logActivity,
+  captureFieldEdit,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -295,23 +302,40 @@ export function TasksSection({
   // sanitizers (use-task-submit); Jira-synced rows are read-only and skipped.
   const onInlinePatch = useCallback(
     (taskId: number, patch: Partial<Task>) => {
+      const beforeRow = tasks.find((tk) => tk.id === taskId);
+      // Jira-synced rows are read-only — no edit, no capture.
+      if (!beforeRow || beforeRow.jiraKey) return;
+      const knownTaskIds = new Set(tasks.map((tk) => tk.id));
+      const clean = sanitizeInlinePatch(patch, {
+        hasResource: (id) => resourcesById.has(id),
+        knownTaskIds,
+        ownTaskId: taskId,
+      });
       setTasks((prev) =>
-        prev.map((row) => {
-          if (row.id !== taskId || row.jiraKey) return row;
-          const clean: Partial<Task> = {};
-          if ("taskName" in patch) {
-            const name = sanitizeTaskName(patch.taskName);
-            if (name) clean.taskName = name; // never blank out the task's identity
-          }
-          if ("assignee" in patch) clean.assignee = sanitizeAssignee(patch.assignee);
-          if ("startDate" in patch) clean.startDate = sanitizeIsoDate(patch.startDate);
-          if ("dueDate" in patch) clean.dueDate = sanitizeIsoDate(patch.dueDate);
-          if ("priority" in patch) clean.priority = sanitizePriority(patch.priority);
-          return { ...row, ...clean, localModifiedAt: new Date().toISOString() };
-        }),
+        prev.map((row) =>
+          row.id === taskId && !row.jiraKey
+            ? { ...row, ...clean, localModifiedAt: new Date().toISOString() }
+            : row,
+        ),
       );
+      const cleanKeys = Object.keys(clean) as (keyof Task)[];
+      const anyChanged = cleanKeys.some((k) => valuesDiffer(beforeRow[k], clean[k]));
+      if (cleanKeys.length > 0 && anyChanged) {
+        const before: Partial<Task> = {};
+        for (const k of cleanKeys) {
+          (before as Record<string, unknown>)[k] = beforeRow[k];
+        }
+        captureFieldEdit?.({
+          setter: setTasks,
+          kind: "task.updated",
+          id: taskId,
+          before,
+          after: clean,
+          stampField: "localModifiedAt",
+        });
+      }
     },
-    [setTasks],
+    [tasks, setTasks, resourcesById, captureFieldEdit],
   );
 
   const rowContextValue = useMemo<RowContextValue>(
@@ -327,7 +351,6 @@ export function TasksSection({
       onToggleSelect,
       onToggleNoteExpanded,
       onJumpToRaid,
-      onToggleComplete,
       onSendInquiry,
       onPushToJira,
       onStatusChange,
@@ -337,6 +360,7 @@ export function TasksSection({
       aiEditEnabled,
       onInlinePatch,
       resourcesById,
+      resources: resources ?? EMPTY_RESOURCES,
     }),
     [
       lang,
@@ -350,7 +374,6 @@ export function TasksSection({
       onToggleSelect,
       onToggleNoteExpanded,
       onJumpToRaid,
-      onToggleComplete,
       onSendInquiry,
       onPushToJira,
       onStatusChange,
@@ -360,6 +383,7 @@ export function TasksSection({
       aiEditEnabled,
       onInlinePatch,
       resourcesById,
+      resources,
     ],
   );
 

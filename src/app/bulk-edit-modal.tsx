@@ -11,7 +11,8 @@ import {
   TEXTAREA_MAX,
 } from "./sanitize";
 import { useTaskForm } from "./task-form-context";
-import { PRIORITIES, type Priority } from "./types";
+import { statusLabelKey } from "./task-status-ui";
+import { PRIORITIES, TASK_STATUSES, type Priority, type TaskStatus } from "./types";
 
 // Same compact input class the rest of the form uses. Duplicated here to
 // avoid a circular import back into task-manager.tsx.
@@ -80,6 +81,44 @@ export function BulkEditModal({
               </option>
             ))}
           </select>
+        </BulkEditFieldRow>
+
+        <BulkEditFieldRow
+          id="bulk-status"
+          label={t(lang, "colTaskStatus")}
+          enabled={bulkEdit.enabled.status}
+          onToggle={() =>
+            setBulkEdit((b) => ({
+              ...b,
+              enabled: { ...b.enabled, status: !b.enabled.status },
+            }))
+          }
+        >
+          <select
+            value={bulkEdit.status}
+            onChange={(e) =>
+              setBulkEdit((b) => ({
+                ...b,
+                status: e.target.value as TaskStatus,
+              }))
+            }
+            disabled={!bulkEdit.enabled.status}
+            // Explicit name: this row has a sibling <p> note, so children is an
+            // array and BulkEditFieldRow's aria-label clone is skipped.
+            aria-label={t(lang, "colTaskStatus")}
+            className={`${inputClass} disabled:opacity-50`}
+          >
+            {TASK_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {t(lang, statusLabelKey(s))}
+              </option>
+            ))}
+          </select>
+          {selectedJiraCount > 0 && (
+            <p className="mt-1 text-xs italic text-muted-foreground">
+              {t(lang, "jiraBulkManagedFieldsNote")}
+            </p>
+          )}
         </BulkEditFieldRow>
 
         <BulkEditFieldRow
@@ -153,6 +192,9 @@ export function BulkEditModal({
             }
             placeholder={t(lang, "placeholderAssignee")}
             disabled={!bulkEdit.enabled.assignee}
+            // Explicit name: this row has a sibling <p> note, so children is an
+            // array and BulkEditFieldRow's aria-label clone is skipped.
+            aria-label={t(lang, "assignee")}
             className={`${inputClass} disabled:opacity-50`}
           />
           {selectedJiraCount > 0 && (

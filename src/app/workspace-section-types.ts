@@ -105,6 +105,8 @@ export interface WorkspaceSectionProps {
   onCaptureRaidBulk?: (ids: readonly number[]) => void;
   /** Raw undo capture (milestone panel builds its own restore via setMilestones). */
   onCaptureUndo?: import("./undo/use-undo-stack").UndoStackApi["capture"];
+  /** Per-field edit undo capture (milestone panel diffs prev/next itself). */
+  onCaptureFieldEdit?: import("./undo/use-undo-stack").UndoStackApi["captureFieldEdit"];
   changes: readonly ChangeItem[];
   handleSaveChange: (item: ChangeItem, isNew?: boolean) => void;
   handleDeleteChange: (id: number, title: string) => void;

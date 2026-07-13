@@ -78,7 +78,7 @@ export type RaidPanelProps = {
   onClearTaskFilter: () => void;
   /** Upsert (create or replace) a RAID item. The parent stamps
    *  `localModifiedAt`. */
-  onSave: (item: RaidItem, isNew?: boolean) => void;
+  onSave: (item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number) => void;
   /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
   onCaptureBulk?: (ids: readonly number[]) => void;
@@ -282,7 +282,7 @@ function RaidPanelBody({
         const r = changes.owner ? resources.find((x) => String(x.id) === changes.owner) : undefined;
         patched = { ...patched, owner: r ? resourceDisplayName(r) : "", ownerEmail: r?.email, ownerResourceId: r ? r.id : null };
       }
-      onSave(patched);
+      onSave(patched, undefined, { suppressFieldUndo: true });
     }
     setBulkOpen(false);
     sel.clear();

@@ -58,7 +58,6 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     onToggleSelect: vi.fn(),
     onToggleNoteExpanded: vi.fn(),
     onJumpToRaid: vi.fn(),
-    onToggleComplete: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
     onStatusChange: vi.fn(),
@@ -68,6 +67,7 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     aiEditEnabled: () => false,
     onInlinePatch: vi.fn(),
     resourcesById: new Map(),
+    resources: [],
     ...overrides,
   };
 }
@@ -140,13 +140,13 @@ describe("TaskRow", () => {
   test("assignee cell shows the LIVE resource name when the task is linked, not the stale cache", () => {
     // The task's cached `assignee` string is stale ("Old Removed") but its
     // resourceId resolves to a live resource renamed to "Correct Name". The
-    // cell must render the resource's current name, read-only (no inline-edit
-    // ghost button) since a linked assignee is not free-text editable.
+    // cell must render the resource's current name; the inline picker now makes
+    // linked assignees editable too (an inline-edit button, not read-only text).
     const ctx = makeContext({
       resourcesById: new Map([[7, makeResource({ id: 7, firstName: "Correct", lastName: "Name" })]]),
     });
     const task = makeTask({ id: 3, taskName: "Linked task", assignee: "Old Removed", resourceId: 7 });
-    const { getByText, queryByText, queryByLabelText } = render(
+    const { getByText, queryByText, getByLabelText } = render(
       rowWrapper({
         context: ctx,
         children: (
@@ -156,8 +156,10 @@ describe("TaskRow", () => {
     );
     expect(getByText("Correct Name")).toBeTruthy();
     expect(queryByText("Old Removed")).toBeNull();
-    // Linked → plain read-only text, no inline-edit ghost button for assignee.
-    expect(queryByLabelText("Assignee – Linked task")).toBeNull();
+    // Linked → the LIVE resource name renders on an editable inline button.
+    const btn = getByLabelText("Assignee – Linked task");
+    expect(btn.tagName).toBe("BUTTON");
+    expect(btn.textContent).toContain("Correct Name");
   });
 
   test("assignee cell stays inline-editable (seeded from the cache) when the task is unlinked", () => {
@@ -710,10 +712,6 @@ describe("TaskActions", () => {
       </table>,
     );
 
-    fireEvent.click(getByText("Mark complete"));
-    expect(ctx.onToggleComplete).toHaveBeenCalledTimes(1);
-    expect(ctx.onToggleComplete).toHaveBeenCalledWith(task);
-
     fireEvent.click(getByText("Edit"));
     expect(ctx.onEdit).toHaveBeenCalledTimes(1);
     expect(ctx.onEdit).toHaveBeenCalledWith(task);
@@ -959,17 +957,17 @@ describe("TaskRow inline cell editing", () => {
   test("Escape cancels an inline edit without committing", () => {
     const onInlinePatch = vi.fn();
     const ctx = makeContext({ onInlinePatch });
-    const task = makeTask({ id: 42, taskName: "Keep me", assignee: "Alice" });
+    const task = makeTask({ id: 42, taskName: "Keep me", startDate: "2026-07-01" });
     const { getByRole, getByLabelText, queryByLabelText } = renderRow(ctx, task);
 
-    fireEvent.click(getByRole("button", { name: "Assignee – Keep me" }));
-    const input = getByLabelText("Assignee – Keep me") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "Bob" } });
+    fireEvent.click(getByRole("button", { name: "Start date – Keep me" }));
+    const input = getByLabelText("Start date – Keep me") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "2026-07-09" } });
     fireEvent.keyDown(input, { key: "Escape" });
 
     expect(onInlinePatch).not.toHaveBeenCalled();
     // Editor closed → the labelled input is gone, the display button is back.
-    expect(queryByLabelText("Assignee – Keep me")?.tagName).toBe("BUTTON");
+    expect(queryByLabelText("Start date – Keep me")?.tagName).toBe("BUTTON");
   });
 
   test("priority select commits the chosen value directly", () => {
@@ -996,5 +994,61 @@ describe("TaskRow inline cell editing", () => {
     expect(queryByRole("button", { name: "Due date – Synced" })).toBeNull();
     expect(queryByRole("button", { name: "Priority – Synced" })).toBeNull();
     expect(getByText("Alice")).toBeTruthy();
+  });
+
+  test("assignee cell opens the ResourcePicker and commits name/email/resourceId on blur", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 45, taskName: "Pick me", assignee: "Alice", assigneeEmail: "a@b.com" });
+    const { getByRole } = renderRow(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "Assignee – Pick me" }));
+    const combo = getByRole("combobox", { name: "Assignee – Pick me" }) as HTMLInputElement;
+    fireEvent.change(combo, { target: { value: "Bob" } }); // free-text breaks any FK link
+    fireEvent.blur(combo);
+
+    expect(onInlinePatch).toHaveBeenCalledWith(45, {
+      assignee: "Bob",
+      assigneeEmail: "a@b.com",
+      resourceId: undefined,
+    });
+  });
+
+  test("double-clicking the notes cell opens a textarea and commits a notes patch on blur", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 46, taskName: "Note me", notes: "old note" });
+    const { getByText, getByLabelText } = renderRow(ctx, task);
+
+    fireEvent.doubleClick(getByText("old note"));
+    const area = getByLabelText("Notes – Note me") as HTMLTextAreaElement;
+    fireEvent.change(area, { target: { value: "new note" } });
+    fireEvent.blur(area);
+
+    expect(onInlinePatch).toHaveBeenCalledWith(46, { notes: "new note" });
+  });
+
+  test("double-clicking the blockers cell opens a textarea and commits a blockers patch on blur", () => {
+    const onInlinePatch = vi.fn();
+    const ctx = makeContext({ onInlinePatch });
+    const task = makeTask({ id: 47, taskName: "Block me", blockers: "waiting on X" });
+    const { getByText, getByLabelText } = renderRow(ctx, task);
+
+    fireEvent.doubleClick(getByText("waiting on X"));
+    const area = getByLabelText("Blockers – Block me") as HTMLTextAreaElement;
+    fireEvent.change(area, { target: { value: "waiting on Y" } });
+    fireEvent.blur(area);
+
+    expect(onInlinePatch).toHaveBeenCalledWith(47, { blockers: "waiting on Y" });
+  });
+
+  test("relations cell exposes an edit button that opens the dependency editor popover", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 48, taskName: "Relate me", dependencies: [] });
+    const { getByRole, queryByRole } = renderRow(ctx, task);
+
+    expect(queryByRole("dialog", { name: "Edit relations" })).toBeNull();
+    fireEvent.click(getByRole("button", { name: "Edit relations – Relate me" }));
+    expect(getByRole("dialog", { name: "Edit relations" })).toBeTruthy();
   });
 });

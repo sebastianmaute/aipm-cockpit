@@ -420,7 +420,13 @@ describe("RAID bulk edit", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ id: 1, severity: "High" }));
+    // Bulk apply passes suppressFieldUndo so the looped save skips per-field
+    // undo capture (the whole-row bulk.edit entry already covers it).
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1, severity: "High" }),
+      undefined,
+      { suppressFieldUndo: true },
+    );
   });
 });
 

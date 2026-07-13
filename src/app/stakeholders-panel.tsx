@@ -71,7 +71,7 @@ export interface StakeholdersPanelProps {
   stakeholders: readonly Stakeholder[];
   resources: readonly Resource[];
   milestones: readonly Milestone[];
-  onSave: (item: Stakeholder, isNew?: boolean) => void;
+  onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number, name: string) => void;
   /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
   onCaptureBulk?: (ids: readonly number[]) => void;
@@ -211,7 +211,7 @@ function StakeholdersPanelBody({
       if (changes.category !== undefined) patched = { ...patched, category: changes.category as StakeholderCategory };
       if (changes.influence !== undefined) patched = { ...patched, influence: changes.influence as InfluenceInterest };
       if (changes.interest !== undefined) patched = { ...patched, interest: changes.interest as InfluenceInterest };
-      onSave(patched);
+      onSave(patched, undefined, { suppressFieldUndo: true });
     }
     setBulkOpen(false);
     sel.clear();

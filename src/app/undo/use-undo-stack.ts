@@ -35,6 +35,18 @@ export interface CaptureOpts<T extends { id: number }> {
   fromArray: readonly T[];
 }
 
+/** A single-field-group edit: revert by MERGING `before`/`after` onto the live
+ *  row by id (not a whole-row replace), so independent per-field entries compose
+ *  and undo in any LIFO order. `stampField` is re-stamped on undo AND redo. */
+export interface CaptureFieldEditOpts<T extends { id: number }> {
+  setter: Dispatch<SetStateAction<readonly T[]>>;
+  kind: ActivityKind;
+  id: number;
+  before: Partial<T>;
+  after: Partial<T>;
+  stampField?: keyof T & string;
+}
+
 /** One array's contribution to a composite (multi-array) undo — the same shape
  *  as `CaptureOpts` minus the entry-level `kind` (a composite op has one kind). */
 export interface CapturePart<T extends { id: number }> {
@@ -220,6 +232,7 @@ export interface CaptureCompositeOpts {
 
 export interface UndoStackApi {
   capture: <T extends { id: number }>(opts: CaptureOpts<T>) => void;
+  captureFieldEdit: <T extends { id: number }>(opts: CaptureFieldEditOpts<T>) => void;
   captureComposite: (opts: CaptureCompositeOpts) => void;
   undo: () => void;
   undoById: (id: number) => void;
@@ -322,6 +335,18 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     pushEntry(kind, primaryCount, fragmentUndoRunner(setter, images));
   }, [pushEntry]);
 
+  const captureFieldEdit = useCallback(<T extends { id: number }>(opts: CaptureFieldEditOpts<T>) => {
+    const { setter, kind, id, before, after, stampField } = opts;
+    const stamp = (row: T): T =>
+      stampField ? ({ ...row, [stampField]: new Date().toISOString() } as T) : row;
+    const merge = (patch: Partial<T>) =>
+      setter((prev) => prev.map((r) => (r.id === id ? stamp({ ...r, ...patch }) : r)));
+    // Mutually-recursive, reusable undo↔redo runners (function decls hoist).
+    function runUndo(): Runner { merge(before); return runRedo; }
+    function runRedo(): Runner { merge(after); return runUndo; }
+    pushEntry(kind, 1, runUndo);
+  }, [pushEntry]);
+
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
@@ -333,6 +358,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
 
   return {
     capture,
+    captureFieldEdit,
     captureComposite,
     undo,
     undoById,

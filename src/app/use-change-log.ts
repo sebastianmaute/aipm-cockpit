@@ -7,6 +7,8 @@ import { resolveEntitySave } from "./entity-id-mint";
 import { reportSilentFailure } from "./guard-feedback";
 import type { Lang } from "./i18n";
 import type { ChangeItem, ChangeStatus } from "./types";
+import { captureFieldChanges } from "./undo/capture-field-changes";
+import { CHANGE_UNDO_GROUPS } from "./undo/field-groups";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 
 /** Status transition: auto-fill decisionDate the first time the item leaves the
@@ -32,6 +34,8 @@ export interface UseChangeLogArgs {
   ) => void;
   /** Capture a pre-op snapshot for undo (delete removes the row). */
   capture?: UndoStackApi["capture"];
+  /** Capture per-field edits for undo (modal/inline save). */
+  captureFieldEdit?: UndoStackApi["captureFieldEdit"];
 }
 
 export function useChangeLog(args: UseChangeLogArgs) {
@@ -40,7 +44,7 @@ export function useChangeLog(args: UseChangeLogArgs) {
   // isNew carries the modal's create/edit intent so a create can't be misread as
   // an update and clobber a row committed since the modal opened (id-mint race).
   // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
-  const handleSaveChange = useCallback((item: ChangeItem, isNew?: boolean) => {
+  const handleSaveChange = useCallback((item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => {
     const { create, id } = resolveEntitySave(changes, item.id, isNew, () => nextChangeId(changes));
     const withStamp: ChangeItem = { ...item, id, localModifiedAt: new Date().toISOString() };
     const previous = create ? undefined : changes.find((c) => c.id === id);
@@ -60,11 +64,20 @@ export function useChangeLog(args: UseChangeLogArgs) {
     );
     if (create) {
       args.logActivity?.("change.created", id, item.title);
-    } else if (previous && args.logActivityChanges) {
-      args.logActivityChanges("change.updated", diffFields(previous, withStamp), id, item.title);
-    } else {
-      // Back-compat: a caller wiring only logActivity still records the update.
-      args.logActivity?.("change.updated", id, item.title);
+    } else if (previous) {
+      if (!opts?.suppressFieldUndo) {
+        captureFieldChanges(args.captureFieldEdit, {
+          setter: setChanges, kind: "change.updated", id,
+          prev: previous, next: withStamp, groups: CHANGE_UNDO_GROUPS,
+          stampField: "localModifiedAt",
+        });
+      }
+      if (args.logActivityChanges) {
+        args.logActivityChanges("change.updated", diffFields(previous, withStamp), id, item.title);
+      } else {
+        // Back-compat: a caller wiring only logActivity still records the update.
+        args.logActivity?.("change.updated", id, item.title);
+      }
     }
   }, [changes, setChanges, args]);
 

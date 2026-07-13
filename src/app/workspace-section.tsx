@@ -105,6 +105,7 @@ export function WorkspaceSection({
   handleDeleteRaidItem,
   onCaptureRaidBulk,
   onCaptureUndo,
+  onCaptureFieldEdit,
   changes,
   handleSaveChange,
   handleDeleteChange,
@@ -710,6 +711,7 @@ export function WorkspaceSection({
               logActivity={logActivity}
               logActivityChanges={logActivityChanges}
               capture={onCaptureUndo}
+              captureFieldEdit={onCaptureFieldEdit}
               openCreateNonce={milestoneCreateNonce}
               onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}
