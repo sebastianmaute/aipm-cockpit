@@ -273,7 +273,6 @@ function MilestonesPanelBody({
       captureFieldChanges(captureFieldEdit, {
         setter: setMilestones, kind: "milestone.updated", id,
         prev: previous, next: finalItem, groups: MILESTONE_UNDO_GROUPS,
-        stampField: "localModifiedAt",
       });
     }
     if (create) {

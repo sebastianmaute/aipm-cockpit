@@ -301,25 +301,25 @@ export function TasksSection({
   // sanitizers (use-task-submit); Jira-synced rows are read-only and skipped.
   const onInlinePatch = useCallback(
     (taskId: number, patch: Partial<Task>) => {
-      let beforeRow: Task | undefined;
-      let cleanApplied: Partial<Task> | undefined;
-      setTasks((prev) => {
-        const knownTaskIds = new Set(prev.map((tk) => tk.id));
-        return prev.map((row) => {
-          if (row.id !== taskId || row.jiraKey) return row;
-          const clean = sanitizeInlinePatch(patch, {
-            hasResource: (id) => resourcesById.has(id),
-            knownTaskIds,
-            ownTaskId: taskId,
-          });
-          beforeRow = row;
-          cleanApplied = clean;
-          return { ...row, ...clean, localModifiedAt: new Date().toISOString() };
-        });
+      const beforeRow = tasks.find((tk) => tk.id === taskId);
+      // Jira-synced rows are read-only — no edit, no capture.
+      if (!beforeRow || beforeRow.jiraKey) return;
+      const knownTaskIds = new Set(tasks.map((tk) => tk.id));
+      const clean = sanitizeInlinePatch(patch, {
+        hasResource: (id) => resourcesById.has(id),
+        knownTaskIds,
+        ownTaskId: taskId,
       });
-      if (beforeRow && cleanApplied && Object.keys(cleanApplied).length > 0) {
+      setTasks((prev) =>
+        prev.map((row) =>
+          row.id === taskId && !row.jiraKey
+            ? { ...row, ...clean, localModifiedAt: new Date().toISOString() }
+            : row,
+        ),
+      );
+      if (Object.keys(clean).length > 0) {
         const before: Partial<Task> = {};
-        for (const k of Object.keys(cleanApplied) as (keyof Task)[]) {
+        for (const k of Object.keys(clean) as (keyof Task)[]) {
           (before as Record<string, unknown>)[k] = beforeRow[k];
         }
         captureFieldEdit?.({
@@ -327,12 +327,12 @@ export function TasksSection({
           kind: "task.updated",
           id: taskId,
           before,
-          after: cleanApplied,
+          after: clean,
           stampField: "localModifiedAt",
         });
       }
     },
-    [setTasks, resourcesById, captureFieldEdit],
+    [tasks, setTasks, resourcesById, captureFieldEdit],
   );
 
   const rowContextValue = useMemo<RowContextValue>(
