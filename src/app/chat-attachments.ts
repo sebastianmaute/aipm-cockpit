@@ -2,6 +2,8 @@
 // Classifies uploaded files and builds Anthropic Messages API content blocks.
 // Caller is responsible for reading file bytes; this module is synchronous.
 
+import { officeKindOf } from "./office-extract";
+
 // ---------------------------------------------------------------------------
 // Exported types — chat-panel.tsx imports these to extend its ContentBlock union
 // ---------------------------------------------------------------------------
@@ -30,8 +32,8 @@ export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20 MB
 // Exported narrower types
 // ---------------------------------------------------------------------------
 
-export type AttachmentKind = "pdf" | "image" | "text";
-export type AttachmentError = "unsupported-type" | "too-large";
+export type AttachmentKind = "pdf" | "image" | "text" | "office";
+export type AttachmentError = "unsupported-type" | "too-large" | "extract-failed";
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -91,6 +93,9 @@ export function classifyAttachment(
   if (ext !== "" && IMAGE_EXTENSIONS.has(ext)) return "image";
   if (ext !== "" && TEXT_EXTENSIONS.has(ext)) return "text";
 
+  // --- Office (OOXML: docx/xlsx/xlsm/pptx) — MIME or extension ---
+  if (officeKindOf(mimeType, fileName)) return "office";
+
   return null;
 }
 
@@ -135,6 +140,14 @@ export function buildAttachmentBlock(
     return {
       type: "image",
       source: { type: "base64", media_type: normalized, data },
+    };
+  }
+
+  if (kind === "office") {
+    // `data` is already the extracted Markdown (produced by the file reader).
+    return {
+      type: "document",
+      source: { type: "text", media_type: "text/plain", data },
     };
   }
 
