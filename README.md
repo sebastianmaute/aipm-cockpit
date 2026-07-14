@@ -212,10 +212,23 @@ Microsoft 365 features use MSAL (browser PKCE — no backend token exchange) and
 
 #### Setup
 
-1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/) as a single-page application (SPA).
-2. Add a redirect URI: `http://localhost:3000` for dev, or your production URL.
-3. Grant API permissions: `Contacts.Read`, `Calendars.Read`, `Calendars.ReadWrite` (milestone write-back), `Files.ReadWrite.All`, `Sites.Read.All` (or narrower equivalents — grant only the scopes for the features you use).
-4. Copy the **Client ID** and **Tenant ID** into Settings → Integrations, or provide them via the env vars below.
+1. Register an app in [Microsoft Entra admin center](https://entra.microsoft.com/) → **App registrations → New registration**.
+2. Under **Authentication → Add a platform**, choose **Single-page application (SPA)** and add the redirect URI **`<origin>/msal-redirect`** — e.g. `http://localhost:3000/msal-redirect` for dev, `https://<your-host>/msal-redirect` for production. This exact path matters (see [How sign-in works](#how-sign-in-works)); a bare origin will fail with `AADSTS50011`. Add one URI per origin you serve from. It must be the **SPA** platform, not **Web** (Web expects a client secret and a query-code flow the browser can't complete).
+3. Grant **delegated** Microsoft Graph permissions: `User.Read` (sign-in), plus `Contacts.Read`, `Calendars.Read`, `Calendars.ReadWrite` (calendar write-back/two-way sync), `Files.ReadWrite.All`, `Sites.Read.All` (or narrower equivalents — grant only the scopes for the features you use). Consent to each scope is requested incrementally on first use.
+4. From the app registration **Overview**, copy the **Application (client) ID** and **Directory (tenant) ID** into Settings → Integrations → Microsoft 365, or provide them via the env vars below. No client secret is used or stored — MSAL runs a public-client PKCE flow entirely in the browser.
+
+#### How sign-in works
+
+Sign-in opens a Microsoft pop-up. On success Microsoft redirects the pop-up to the app's dedicated **`/msal-redirect`** route (not the main app), which uses the MSAL v5 [redirect-bridge](https://github.com/AzureAD/microsoft-authentication-library-for-js) (`broadcastResponseToMainFrame`) to hand the response back to the opener over a `BroadcastChannel` and close itself. This route is intentionally minimal so the full app never boots inside the pop-up. Runtime config (Client ID / Tenant ID) is read from Settings first and env vars second, so the integration works without a rebuild.
+
+Troubleshooting (from `window.__lopDiag()` diagnostics under `msauth.*`):
+
+| Symptom / error | Cause | Fix |
+|-----------------|-------|-----|
+| `MSAL config not available` | No Client ID from Settings **or** env | Enter Client ID / Tenant ID in Settings → Integrations |
+| `AADSTS50011: redirect URI … does not match` | The exact `<origin>/msal-redirect` URI isn't registered | Add it under Authentication → **SPA** (step 2) |
+| Pop-up opens but shows the app and never closes | Redirect target isn't the `/msal-redirect` bridge route | Register `<origin>/msal-redirect` and ensure it's reachable |
+| `interaction_in_progress`, pop-up won't open | A prior aborted sign-in left MSAL's lock set | Reload the page (the app auto-clears the stale lock on load), or clear `msal.*` keys in Local Storage |
 
 ### Timelog
 

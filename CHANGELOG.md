@@ -8,6 +8,29 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.189.1] - 2026-07-14 "Bishop"
+
+### Fixed
+
+- **Microsoft 365 sign-in.** The integration was fully broken; four root causes fixed:
+  - **Config never reached MSAL.** The Client ID / Tenant ID entered under
+    Settings → Integrations were ignored (only build-time `NEXT_PUBLIC_MSAL_*`
+    env vars worked), so sign-in threw `MSAL config not available`. The Settings
+    values are now threaded into MSAL and the client rebuilds when they change.
+  - **Pop-up never closed.** MSAL v5 completes a pop-up via a `BroadcastChannel`
+    bridge, not by polling the pop-up URL. A dedicated light `/msal-redirect`
+    route now runs `broadcastResponseToMainFrame`, so the pop-up hands its
+    response back and closes instead of loading the full app and hanging.
+  - **Stuck `interaction_in_progress`.** A timed-out/aborted sign-in left MSAL's
+    interaction lock set, blocking every later attempt; it now self-heals on load.
+  - **Stale session on tenant change.** Editing the tenant while signed in
+    re-checks the session (dropping a stale "signed in" account) instead of
+    silently failing on the next Graph call.
+- **README.** Rewrote the Microsoft 365 setup (SPA platform, the exact
+  `<origin>/msal-redirect` redirect URI, delegated scopes, no client secret) and
+  added a "How sign-in works" section plus a troubleshooting table mapping the
+  `msauth.*` diagnostics to their cause and fix.
+
 ## [0.189.0] - 2026-07-13 "Bishop"
 
 ### Added

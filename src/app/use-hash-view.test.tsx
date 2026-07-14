@@ -2,7 +2,7 @@ import { renderHook, act, render, screen } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
-import { useHashView } from "./use-hash-view";
+import { isAuthResponseHash, useHashView } from "./use-hash-view";
 
 function wrapper({ children }: { children: ReactNode }) {
   return <WorkspaceTabProvider>{children}</WorkspaceTabProvider>;
@@ -29,6 +29,29 @@ describe("useHashView", () => {
       { wrapper },
     );
     expect(result.current.activeTab).toBe("gantt");
+  });
+
+  it("detects MSAL auth-response fragments (and only those)", () => {
+    expect(isAuthResponseHash("#code=abc&state=xyz")).toBe(true);
+    expect(isAuthResponseHash("#error=access_denied")).toBe(true);
+    expect(isAuthResponseHash("#state=foo")).toBe(true);
+    expect(isAuthResponseHash("#id_token=jwt")).toBe(true);
+    expect(isAuthResponseHash("#raid/123")).toBe(false);
+    expect(isAuthResponseHash("#open-points")).toBe(false);
+    expect(isAuthResponseHash("")).toBe(false);
+    expect(isAuthResponseHash("#")).toBe(false);
+  });
+
+  it("does NOT route or clobber an MSAL auth-response fragment (popup can close)", () => {
+    window.location.hash = "#code=abc&state=xyz";
+    const { result } = renderHook(
+      () => { useHashView(); return useWorkspaceTab(); },
+      { wrapper },
+    );
+    // Stays on the default view (no routing) and leaves the fragment intact so
+    // handleRedirectPromise can read it, broadcast, and close the popup.
+    expect(result.current.activeTab).toBe("dashboard");
+    expect(window.location.hash).toBe("#code=abc&state=xyz");
   });
 
   it("falls back to open-points on an unknown hash", () => {

@@ -970,7 +970,7 @@ function TaskManagerInner() {
   const m365Enabled = settings.integrations?.m365?.enabled ?? false;
   const outlookContactsEnabled =
     m365Enabled && (settings.integrations?.m365?.outlookContacts ?? false);
-  const msAuth = useMsAuth(m365Enabled);
+  const msAuth = useMsAuth(m365Enabled, { clientId: settings.integrations?.m365?.clientId, tenantId: settings.integrations?.m365?.tenantId });
   const commSend = useCommSend({ mode: settings.commTemplateSendMode ?? "mailto", msAuth, lang, showToast });
   const { fetchContacts: fetchOutlookContacts } = useOutlookContacts(msAuth.acquireToken);
 

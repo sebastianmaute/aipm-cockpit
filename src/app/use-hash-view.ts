@@ -10,6 +10,28 @@ function currentHash(): string {
 }
 
 /**
+ * True when the URL fragment is an MSAL auth response (`#code=…`/`#state=…`/
+ * `#error=…`/`#id_token=…`). Such a fragment MUST be left untouched: the MSAL
+ * popup lands on the app origin and its `handleRedirectPromise` reads the
+ * fragment, broadcasts the response to the opener over a BroadcastChannel, and
+ * closes the popup. If this hook rewrites the hash first (routing an unknown
+ * slug to a default view), the response is destroyed and the sign-in popup
+ * hangs open forever. A normal view hash (`#raid/123`) never has these keys.
+ */
+export function isAuthResponseHash(raw: string): boolean {
+  const h = raw.charAt(0) === "#" ? raw.slice(1) : raw;
+  if (!h) return false;
+  const params = new URLSearchParams(h);
+  return (
+    params.has("code") ||
+    params.has("state") ||
+    params.has("error") ||
+    params.has("id_token") ||
+    params.has("session_state")
+  );
+}
+
+/**
  * Two-way sync between the URL hash and the active view, for the MAIN window
  * only (popouts use ?popout= and must not be touched). Hash grammar is
  * `#<slug>[/<id>]`: a trailing numeric id deep-links a specific item via
@@ -40,6 +62,9 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
     if (!enabled || isPopout) return;
     const apply = () => {
       const raw = currentHash();
+      // Leave an MSAL auth-response fragment intact for handleRedirectPromise —
+      // routing it away would strand the sign-in popup open (see isAuthResponseHash).
+      if (isAuthResponseHash(raw)) return;
       // Fresh open / no view encoded ("" or bare "#") lands on the Dashboard
       // home — but fall back to open-points (a guaranteed core view) if the
       // dashboard module is disabled, so the user is never stranded.
@@ -65,6 +90,7 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   // the hashchange listener above — see the hook doc comment.
   useEffect(() => {
     if (!enabled || typeof window === "undefined" || isPopout || activeTab === "edit") return;
+    if (isAuthResponseHash(window.location.hash)) return; // don't clobber an MSAL response
     const current = parseHash(window.location.hash);
     if (current.view !== activeTab) {
       window.history.replaceState(null, "", buildHash(activeTab));

@@ -118,7 +118,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
   const integrations = settings.integrations ?? defaultIntegrations;
   const m365 = integrations.m365 ?? defaultM365Integrations;
   const turso = integrations.turso ?? defaultTursoIntegrations;
-  const auth = useMsAuth(m365.enabled);
+  const auth = useMsAuth(m365.enabled, { clientId: m365.clientId, tenantId: m365.tenantId });
   const showToast = useToastContext();
   const envClientIdSet = !!process.env.NEXT_PUBLIC_MSAL_CLIENT_ID;
   const envTenantIdSet = !!process.env.NEXT_PUBLIC_MSAL_TENANT_ID;
