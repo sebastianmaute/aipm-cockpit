@@ -635,6 +635,8 @@ export const de: Record<TranslationKey, string> = {
   aiPromptStatusBody: "Gib mir einen Überblick über den aktuellen Projektstatus - Zeitplan, Risiken und Budget.",
   aiPromptPrioritizeLabel: "Priorisieren",
   aiPromptPrioritizeBody: "Welche einzelne nächste Maßnahme sollte ich jetzt priorisieren, und warum?",
+  aiPromptProcessAttachmentLabel: "Anhang verarbeiten",
+  aiPromptProcessAttachmentBody: "Extrahiere die wichtigsten Informationen aus dem/den angehängten Dokument(en) - Aufgaben, Risiken, Probleme, Entscheidungen, Meilensteine, Stakeholder, Termine und Budgetzahlen. Fasse zusammen, was du gefunden hast, und nenne mir dann genau, welche Datensätze du anlegen oder aktualisieren würdest (samt Feldern), bevor du etwas tust. Warte auf meine ausdrückliche Bestätigung, bevor du eine Anlege-, Aktualisierungs- oder Löschoperation ausführst.",
   aiPromptDashHealthLabel: "Bewertungen erklären",
   aiPromptDashHealthBody: "Erkläre, was jede RAG-Bewertung (Zeitplan, Budget, Scope) treibt und ob eine Bewertung geändert werden sollte.",
   aiPromptDashRisksLabel: "Zeitplan-Risiken",

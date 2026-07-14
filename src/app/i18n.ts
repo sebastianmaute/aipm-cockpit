@@ -633,6 +633,8 @@ const enUS = {
   aiPromptStatusBody: "Give me an overview of the current project status - schedule, risks, and budget health.",
   aiPromptPrioritizeLabel: "Prioritize",
   aiPromptPrioritizeBody: "What single next action should I prioritize right now, and why?",
+  aiPromptProcessAttachmentLabel: "Process attachment",
+  aiPromptProcessAttachmentBody: "Extract the key information from the attached document(s) - tasks, risks, issues, decisions, milestones, stakeholders, dates, and budget figures. Summarize what you found, then tell me exactly which records you would create or update (and their fields) before doing anything. Wait for my explicit confirmation before performing any create, update, or delete operation.",
   // View-specific prompts
   aiPromptDashHealthLabel: "Explain the ratings",
   aiPromptDashHealthBody: "Explain what's driving each RAG health rating (schedule, budget, scope) and whether any rating should change.",
