@@ -52,6 +52,19 @@ describe("ResourcePicker", () => {
     expect(onChange).toHaveBeenCalledWith({ name: "Old Contact", email: "old@x.com", resourceId: null });
   });
 
+  it("clear/unlink button prevents mousedown default (commit-on-blur editors keep focus) and unlinks the FK", () => {
+    // The inline task-row assignee commits on blur. If the clear button lets the
+    // mousedown blur the input first, commitAssignee closes the editor before the
+    // unlink onChange applies → the field never clears. Mirror the listbox rows:
+    // preventDefault on mousedown so the input keeps focus.
+    const { onChange } = setup({ name: "Alex Example", email: "Sample@x.com", resourceId: 1 });
+    const clearBtn = screen.getByRole("button"); // only the unlink button (popover closed)
+    const notPrevented = fireEvent.mouseDown(clearBtn);
+    expect(notPrevented).toBe(false); // false ⇒ preventDefault was called
+    fireEvent.click(clearBtn);
+    expect(onChange).toHaveBeenCalledWith({ name: "Alex Example", email: "Sample@x.com", resourceId: null });
+  });
+
   it("typing a name emits free text with resourceId null", () => {
     const { onChange } = setup({ name: "", email: "", resourceId: null });
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "Brand New" } });
