@@ -55,7 +55,15 @@ export function WorkspaceTabProvider({ children }: { children: React.ReactNode }
     setActiveTab(view);
     setPendingOpen({ view, id });
     if (!isPopout && typeof window !== "undefined") {
-      window.location.hash = buildHash(view, id);
+      // replaceState, NOT `location.hash = …`: assigning location.hash fires a
+      // hashchange, which useHashView handles by re-invoking requestOpen — that
+      // re-entrant setActiveTab navigates AWAY from a just-armed full-page task
+      // editor (cancelling it, then leaving taskModalOpen stuck true so the row
+      // click no-ops and the editor only surfaces on the NEXT nav). replaceState
+      // updates the URL without the self-triggered hashchange (same reason
+      // useHashView's view->hash write uses replaceState). Genuine back/forward
+      // still fires popstate, which useHashView handles.
+      window.history.replaceState(null, "", buildHash(view, id));
     }
   }, [isPopout]);
   const clearPendingOpen = useCallback(() => setPendingOpen(null), []);

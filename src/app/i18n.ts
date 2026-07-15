@@ -633,6 +633,8 @@ const enUS = {
   aiPromptStatusBody: "Give me an overview of the current project status - schedule, risks, and budget health.",
   aiPromptPrioritizeLabel: "Prioritize",
   aiPromptPrioritizeBody: "What single next action should I prioritize right now, and why?",
+  aiPromptProcessAttachmentLabel: "Process attachment",
+  aiPromptProcessAttachmentBody: "Extract the key information from the attached document(s) - tasks, risks, issues, decisions, milestones, stakeholders, dates, and budget figures. Summarize what you found, then tell me exactly which records you would create or update (and their fields) before doing anything. Wait for my explicit confirmation before performing any create, update, or delete operation.",
   // View-specific prompts
   aiPromptDashHealthLabel: "Explain the ratings",
   aiPromptDashHealthBody: "Explain what's driving each RAG health rating (schedule, budget, scope) and whether any rating should change.",
@@ -3282,6 +3284,10 @@ const enUS = {
   versionHighlightFieldUndo: "Field-level edit undo: inline cell edits, the status dropdown, and modal saves are now undoable one field at a time across tasks, RAID, changes, milestones, stakeholders, and resources. Correlated fields (status and completion date, the assignee identity) revert together; bulk edit keeps its single whole-row undo.",
   versionHighlightOfficeIngest: "Office document ingestion: the AI Assistant and the create-project importer now read Word, Excel (incl. macro-enabled .xlsm), and PowerPoint files alongside PDFs and images. They are unzipped and converted to structured Markdown fully in your browser — no upload, no new dependency — so the assistant can pull out tasks, risks, and other actionable items.",
   versionHighlightM365SignInFix: "Microsoft 365 sign-in fixed: the Client ID and Tenant ID you enter under Settings → Integrations now reach the sign-in flow, the pop-up completes and closes cleanly via a dedicated redirect page, and a stuck sign-in from an earlier attempt clears itself on reload. Editing a tenant while signed in re-checks the session instead of showing a stale account.",
+  versionHighlightDeepLinkEditor: "Opening a task from the Next-actions or Dashboard now reliably opens its editor instead of only highlighting the row.",
+  versionHighlightResourceClearFix: "Clearing an assignee with the ✕ button now works while editing a row inline, instead of leaving the field linked.",
+  versionHighlightPopoverClip: "Action pop-overs — reschedule, escalate, assign owner, and the ⋮ menu — no longer get clipped; the date picker and menus now float clear of the list edge and stay on-screen.",
+  versionHighlightProcessAttachment: "New \"Process attachment\" prompt in the AI assistant: attach a document and it extracts tasks, risks, and other items, tells you what it would create or update, and waits for your confirmation.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

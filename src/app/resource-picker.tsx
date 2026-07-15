@@ -204,6 +204,11 @@ export function ResourcePicker({
         {(linked || dangling) && (
           <button
             type="button"
+            // preventDefault on mousedown so clicking this button does NOT blur
+            // the input first — commit-on-blur consumers (the inline task-row
+            // assignee) would otherwise close the editor before this unlink
+            // onChange applies, swallowing the clear. Mirrors the listbox rows.
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => onChange({ name: value.name, email: value.email, resourceId: null })}
             aria-label={t(lang, "resourcePickerUnlink")}
             title={linked ? t(lang, "resourcePickerLinked") : t(lang, "resourcePickerUnlink")}

@@ -1,6 +1,6 @@
 // src/app/action-cta-controls.tsx
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Resource } from "./types";
@@ -9,7 +9,7 @@ import { ResourcePicker } from "./resource-picker";
 import { EscalatePopover, type EscalateBundle } from "./escalate-popover";
 import { RebaselinePopover, type RebaselineBundle } from "./rebaseline-popover";
 import { ReschedulePopover, type RescheduleBundle } from "./reschedule-popover";
-import { usePopoverDismiss } from "./use-popover-dismiss";
+import { PopoverPanel } from "./popover-panel";
 import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { pickPrimaryCta, overflowCtas, type ActionCaps } from "./next-actions/action-cta";
 
@@ -69,16 +69,8 @@ interface CtaProps {
  *  direct verbs render a button) PLUS a ghost Open when the primary isn't Open. */
 export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: CtaProps) {
   const [assignOpen, setAssignOpen] = useState(false);
-  const assignPopRef = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (assignOpen) assignPopRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus();
-  }, [assignOpen]);
-  useEffect(() => {
-    if (!assignOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAssignOpen(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [assignOpen]);
+  const assignBtnRef = useRef<HTMLButtonElement>(null);
+  const closeAssign = useCallback(() => setAssignOpen(false), []);
 
   const kind = pickPrimaryCta(action, caps);
   const directBtn = `${FILLED_BASE} ${prominent ? "px-4 py-1.5 text-sm" : "px-3 py-1 text-xs"}`;
@@ -95,20 +87,17 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
   if (kind === "assign" && handlers.assignOwner) {
     primary = (
       <span className="relative">
-        <button type="button" aria-haspopup="dialog" aria-expanded={assignOpen}
+        <button ref={assignBtnRef} type="button" aria-haspopup="dialog" aria-expanded={assignOpen}
           onClick={(e) => { stop(e); setAssignOpen((o) => !o); }} className={prominent ? directBtn : GHOST}>
           {t(lang, "actionAssignOwner")}
         </button>
-        {assignOpen && (
-          <span ref={assignPopRef} role="dialog" aria-label={t(lang, "actionAssignOwner")}
-            onClick={stop} onKeyDown={(e) => { if (e.key === "Escape") setAssignOpen(false); }}
-            className="absolute right-0 top-full z-20 mt-1 w-64 rounded-md border border-line bg-surface p-2">
-            <ResourcePicker lang={lang} value={{ name: "", email: "", resourceId: null }}
-              resources={handlers.assignOwner.resources} contacts={[]}
-              onCreateResource={handlers.assignOwner.onCreateResource}
-              onChange={(next) => { handlers.assignOwner!.onAssign(action, next); setAssignOpen(false); }} />
-          </span>
-        )}
+        <PopoverPanel open={assignOpen} anchorRef={assignBtnRef} onClose={closeAssign}
+          role="dialog" ariaLabel={t(lang, "actionAssignOwner")} className="w-64 p-2">
+          <ResourcePicker lang={lang} value={{ name: "", email: "", resourceId: null }}
+            resources={handlers.assignOwner.resources} contacts={[]}
+            onCreateResource={handlers.assignOwner.onCreateResource}
+            onChange={(next) => { handlers.assignOwner!.onAssign(action, next); setAssignOpen(false); }} />
+        </PopoverPanel>
       </span>
     );
   } else if (kind === "escalate" && handlers.escalate) {
@@ -136,9 +125,8 @@ export function ActionPrimaryCta({ lang, action, caps, handlers, prominent }: Ct
 /** The ⋮ overflow holding the menu-able secondaries minus the primary. */
 export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const wrapRef = useRef<HTMLSpanElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setMenuOpen(false), []);
-  usePopoverDismiss(menuOpen, wrapRef, close);
   const items = overflowCtas(action, caps);
   if (items.length === 0) return null;
   const title = t(lang, action.title.key, ...(action.title.params ?? []));
@@ -149,15 +137,14 @@ export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
       className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">{label}</button>
   );
   return (
-    <span ref={wrapRef} className="relative">
-      <button type="button" aria-expanded={menuOpen}
+    <span className="relative">
+      <button ref={btnRef} type="button" aria-expanded={menuOpen}
         aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
         onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
         className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 ${FOCUS_RING}`}>
         ⋮
       </button>
-      {menuOpen && (
-        <span className="absolute right-0 top-full z-20 mt-1 flex w-max flex-col rounded-md border border-line bg-surface py-1">
+      <PopoverPanel open={menuOpen} anchorRef={btnRef} onClose={close} className="flex w-max flex-col py-1">
           {items.map((k) => {
             if (k === "markDone" && handlers.onMarkDone) return item(t(lang, "actionMarkDone"), () => handlers.onMarkDone!(action));
             if (k === "draft" && handlers.onDraftMessage) return item(t(lang, "actionDraftMessage"), () => handlers.onDraftMessage!(action));
@@ -170,8 +157,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
             );
             return null;
           })}
-        </span>
-      )}
+      </PopoverPanel>
     </span>
   );
 }

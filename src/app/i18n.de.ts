@@ -635,6 +635,8 @@ export const de: Record<TranslationKey, string> = {
   aiPromptStatusBody: "Gib mir einen Überblick über den aktuellen Projektstatus - Zeitplan, Risiken und Budget.",
   aiPromptPrioritizeLabel: "Priorisieren",
   aiPromptPrioritizeBody: "Welche einzelne nächste Maßnahme sollte ich jetzt priorisieren, und warum?",
+  aiPromptProcessAttachmentLabel: "Anhang verarbeiten",
+  aiPromptProcessAttachmentBody: "Extrahiere die wichtigsten Informationen aus dem/den angehängten Dokument(en) - Aufgaben, Risiken, Probleme, Entscheidungen, Meilensteine, Stakeholder, Termine und Budgetzahlen. Fasse zusammen, was du gefunden hast, und nenne mir dann genau, welche Datensätze du anlegen oder aktualisieren würdest (samt Feldern), bevor du etwas tust. Warte auf meine ausdrückliche Bestätigung, bevor du eine Anlege-, Aktualisierungs- oder Löschoperation ausführst.",
   aiPromptDashHealthLabel: "Bewertungen erklären",
   aiPromptDashHealthBody: "Erkläre, was jede RAG-Bewertung (Zeitplan, Budget, Scope) treibt und ob eine Bewertung geändert werden sollte.",
   aiPromptDashRisksLabel: "Zeitplan-Risiken",
@@ -3262,4 +3264,8 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightFieldUndo: "Bearbeitung einzelner Felder rückgängig machen: Inline-Zellbearbeitungen, das Status-Dropdown und Modal-Speichervorgänge lassen sich jetzt Feld für Feld rückgängig machen – über Aufgaben, RAID, Änderungen, Meilensteine, Stakeholder und Ressourcen. Zusammengehörige Felder (Status und Abschlussdatum, die Zuständigen-Identität) werden gemeinsam zurückgesetzt; die Massenbearbeitung behält ihr einzelnes zeilenweises Rückgängig.",
   versionHighlightOfficeIngest: "Office-Dokumente einlesen: Der KI-Assistent und der Import zum Projektanlegen lesen jetzt Word-, Excel- (inkl. makrofähiger .xlsm) und PowerPoint-Dateien zusätzlich zu PDFs und Bildern. Sie werden vollständig im Browser entpackt und in strukturiertes Markdown umgewandelt — kein Upload, keine neue Abhängigkeit —, sodass der Assistent Aufgaben, Risiken und andere umsetzbare Punkte extrahieren kann.",
   versionHighlightM365SignInFix: "Microsoft-365-Anmeldung behoben: Die Client-ID und Mandanten-ID, die Sie unter Einstellungen → Integrationen eingeben, erreichen jetzt den Anmeldevorgang, das Pop-up wird über eine eigene Weiterleitungsseite sauber abgeschlossen und geschlossen, und eine aus einem früheren Versuch hängengebliebene Anmeldung löst sich beim Neuladen von selbst. Wird ein Mandant im angemeldeten Zustand geändert, wird die Sitzung neu geprüft, statt ein veraltetes Konto anzuzeigen.",
+  versionHighlightDeepLinkEditor: "Das Öffnen einer Aufgabe aus den nächsten Aktionen oder dem Dashboard öffnet jetzt zuverlässig deren Editor, statt nur die Zeile hervorzuheben.",
+  versionHighlightResourceClearFix: "Das Löschen einer zugewiesenen Person mit der ✕-Schaltfläche funktioniert jetzt auch beim direkten Bearbeiten einer Zeile, statt das Feld verknüpft zu lassen.",
+  versionHighlightPopoverClip: "Aktions-Pop-ups — Neu terminieren, Eskalieren, Verantwortliche zuweisen und das ⋮-Menü — werden nicht mehr abgeschnitten; die Datumsauswahl und Menüs schweben jetzt frei über dem Listenrand und bleiben sichtbar.",
+  versionHighlightProcessAttachment: "Neuer Prompt „Anhang verarbeiten“ im KI-Assistenten: Hänge ein Dokument an, und er extrahiert Aufgaben, Risiken und weitere Punkte, nennt dir, was er anlegen oder aktualisieren würde, und wartet auf deine Bestätigung.",
 };

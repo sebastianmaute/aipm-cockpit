@@ -1,7 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { buildHash } from "./nav-config";
 
 function wrapper({ children }: { children: ReactNode }) {
   return <WorkspaceTabProvider>{children}</WorkspaceTabProvider>;
@@ -16,6 +17,27 @@ describe("pendingOpen", () => {
     act(() => result.current.clearPendingOpen());
     expect(result.current.pendingOpen).toBeNull();
   });
+
+  it("writes the deep-link hash via replaceState so it does not fire a re-entrant hashchange", () => {
+    // Root cause of the stuck full-page editor: `location.hash = …` fires a
+    // hashchange, useHashView re-invokes requestOpen, and the re-entrant
+    // setActiveTab navigates away from the just-armed editor. replaceState
+    // updates the URL without the self-triggered hashchange (mirrors useHashView's
+    // own view->hash write).
+    const replaceSpy = vi.spyOn(window.history, "replaceState");
+    const hashChanged = vi.fn();
+    window.addEventListener("hashchange", hashChanged);
+    const { result } = renderHook(() => useWorkspaceTab(), { wrapper });
+    act(() => result.current.requestOpen("open-points", 5));
+    expect(window.location.hash).toBe(buildHash("open-points", 5));
+    expect(replaceSpy).toHaveBeenCalled();
+    window.removeEventListener("hashchange", hashChanged);
+    replaceSpy.mockRestore();
+  });
+});
+
+afterEach(() => {
+  window.history.replaceState(null, "", " ");
 });
 
 describe("pendingChatSeed", () => {

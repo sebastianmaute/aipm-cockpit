@@ -18,6 +18,7 @@ export const FOUNDATIONAL_PROMPTS: PromptDef[] = [
   { labelKey: "aiPromptWhatsNextLabel", bodyKey: "aiPromptWhatsNextBody" },
   { labelKey: "aiPromptStatusLabel", bodyKey: "aiPromptStatusBody" },
   { labelKey: "aiPromptPrioritizeLabel", bodyKey: "aiPromptPrioritizeBody" },
+  { labelKey: "aiPromptProcessAttachmentLabel", bodyKey: "aiPromptProcessAttachmentBody" },
 ];
 
 /** View-specific suggestions. A view absent here has no "on this page" set;

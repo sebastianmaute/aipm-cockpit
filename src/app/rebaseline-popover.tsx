@@ -1,10 +1,10 @@
 "use client";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Milestone, Task } from "./types";
 import { milestoneRebaselineDate, isValidIsoDate } from "./action-rebaseline";
-import { usePopoverDismiss } from "./use-popover-dismiss";
+import { PopoverPanel } from "./popover-panel";
 import { popoverTriggerClass } from "./action-cta-styles";
 
 export interface RebaselineBundle {
@@ -30,21 +30,14 @@ const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
 
 export function RebaselinePopover({ lang, action, bundle, prominent }: RebaselinePopoverProps) {
   const isMilestone = action.source === "milestone";
-  const wrapRef = useRef<HTMLSpanElement>(null);
-  const popRef = useRef<HTMLSpanElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
 
   const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
   const milestone = isMilestone ? bundle.milestones.find((m) => m.id === id) : undefined;
 
-  useEffect(() => {
-    if (open) popRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus();
-  }, [open]);
-
-  // Close on outside-click or Escape (wrapper holds the trigger + the dialog).
   const close = useCallback(() => setOpen(false), []);
-  usePopoverDismiss(open, wrapRef, close);
 
   const toggleOpen = () => {
     if (!open && milestone) {
@@ -68,8 +61,9 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
   const canRender = isMilestone ? milestone != null : true;
 
   return (
-    <span ref={wrapRef} className="relative">
+    <span className="relative">
       <button
+        ref={btnRef}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -78,15 +72,14 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
       >
         {t(lang, "actionRebaseline")}
       </button>
-      {open && canRender && (
-        <span
-          ref={popRef}
-          role="dialog"
-          aria-label={t(lang, "actionRebaselineTitle")}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
-          className="absolute right-0 top-full z-20 mt-1 w-72 rounded-md border border-line bg-surface p-2"
-        >
+      <PopoverPanel
+        open={open && canRender}
+        anchorRef={btnRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={t(lang, "actionRebaselineTitle")}
+        className="w-72 p-2"
+      >
           {isMilestone && milestone ? (
             <>
               <p className="mb-2 text-xs text-foreground">
@@ -131,8 +124,7 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
               </div>
             </>
           )}
-        </span>
-      )}
+      </PopoverPanel>
     </span>
   );
 }
