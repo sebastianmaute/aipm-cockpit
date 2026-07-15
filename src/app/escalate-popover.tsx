@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { RaidItem, Resource } from "./types";
@@ -7,6 +7,7 @@ import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { isValidEmail } from "./sanitize";
 import { planEscalation } from "./action-escalate";
 import { popoverTriggerClass } from "./action-cta-styles";
+import { PopoverPanel } from "./popover-panel";
 
 export interface EscalateBundle {
   resources: readonly Resource[];
@@ -32,18 +33,8 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
   const [open, setOpen] = useState(false);
   const [recipient, setRecipient] = useState<ResourcePickerValue>(EMPTY_RECIPIENT);
   const [emailInput, setEmailInput] = useState("");
-  const popRef = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    if (open) popRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus();
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
 
   const id = action.cta.kind === "open" ? Number(action.cta.id) : -1;
   const item = bundle.raid.find((r) => r.id === id);
@@ -77,6 +68,7 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
   return (
     <span className="relative">
       <button
+        ref={btnRef}
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -85,15 +77,16 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
       >
         {t(lang, "actionEscalate")}
       </button>
-      {open && plan && (
-        <span
-          ref={popRef}
-          role="dialog"
-          aria-label={t(lang, "actionEscalateTitle")}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
-          className="absolute right-0 top-full z-20 mt-1 w-72 rounded-md border border-line bg-surface p-2"
-        >
+      <PopoverPanel
+        open={open && !!plan}
+        anchorRef={btnRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={t(lang, "actionEscalateTitle")}
+        className="w-72 p-2"
+      >
+        {plan && (
+          <>
           <p className="mb-2 text-xs text-foreground">
             {plan.raisesSeverity && plan.from && plan.to
               ? t(lang, "actionEscalateRaiseSeverity", plan.from, plan.to)
@@ -133,8 +126,9 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
               {t(lang, "actionEscalateConfirm")}
             </button>
           </div>
-        </span>
-      )}
+          </>
+        )}
+      </PopoverPanel>
     </span>
   );
 }

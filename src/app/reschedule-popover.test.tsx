@@ -24,4 +24,29 @@ describe("ReschedulePopover", () => {
     fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
     expect(screen.getByRole("button", { name: /update/i })).toBeDisabled();
   });
+
+  it("portals the dialog to document.body with fixed positioning (escapes the overflow-auto clip)", () => {
+    render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
+    fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
+    const dialog = screen.getByRole("dialog");
+    // Portaled OUT of the trigger's subtree so the actions-panel scroller can't
+    // clip it — the dialog is a direct child of <body>, not the component.
+    expect(dialog.parentElement).toBe(document.body);
+    expect(dialog).toHaveClass("fixed");
+  });
+
+  it("stays open when interacting inside the portaled dialog (dismiss covers the portal)", () => {
+    render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
+    fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
+    fireEvent.mouseDown(screen.getByLabelText(/new due date/i));
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+  });
+
+  it("closes on an outside mousedown", () => {
+    render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
+    fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
+    expect(screen.queryByRole("dialog")).not.toBeNull();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });
