@@ -8,6 +8,38 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.189.2] - 2026-07-15 "Bishop"
+
+### Fixed
+
+- **Action-Center / Dashboard deep-links open the task editor.** `requestOpen`
+  wrote the deep-link hash with `location.hash = …`, which fired a `hashchange`
+  that `useHashView` re-handled by re-invoking `requestOpen`; the re-entrant
+  `setActiveTab` navigated away from the just-armed modern full-page task editor,
+  leaving it stuck closed (the row only highlighted, and the editor surfaced on
+  the next unrelated navigation). Now writes the hash via `history.replaceState`
+  (no self-triggered `hashchange`), matching `useHashView`'s own view→hash write.
+- **Resource-picker clear (✕) works in inline editors.** The clear/unlink button
+  used a plain `onClick`, so clicking it blurred the input first; in the inline
+  task-row assignee (which commits on blur and closes the editor) that swallowed
+  the unlink, leaving the field linked. It now `preventDefault`s the mousedown so
+  the input keeps focus and the unlink applies (mirrors the listbox rows).
+- **Action pop-overs no longer clip the date picker.** The reschedule / escalate /
+  assign-owner / ⋮-overflow / rebaseline pop-overs rendered `position:absolute`
+  inside the Action-Center's `overflow-auto` scroller and were clipped at its edge.
+  They now share a `PopoverPanel` that portals to `document.body` and positions
+  `fixed` from the trigger (right-aligned, left-edge-clamped, flips above when
+  there's no room below); it dismisses on outside-click/Escape/ancestor-scroll but
+  keeps a nested scrollable picker open, and ignores a mobile-keyboard height resize.
+
+### Added
+
+- **"Process attachment" AI-assistant prompt.** A new one-tap prompt (chat
+  empty-state + Ask-Claude general menu, EN + DE): attach a document and the
+  assistant extracts tasks, risks, and other actionable items, states which
+  records it would create or update, and waits for your confirmation before any
+  create/update/delete. Pairs with the 0.189.0 Office-ingestion attachment support.
+
 ## [0.189.1] - 2026-07-14 "Bishop"
 
 ### Fixed

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.189.1";
-export const APP_BUILD_DATE = "2026-07-14"; // 0.189.1: Microsoft 365 sign-in fix — Settings-panel Client/Tenant ID now reach MSAL, the pop-up completes via a dedicated redirect-bridge route and closes, and a stale interaction lock self-heals on load (Bishop)
+export const APP_VERSION = "0.189.2";
+export const APP_BUILD_DATE = "2026-07-15"; // 0.189.2: UX fixes — Action-Center deep-links open the task editor, the resource-picker clear button works in inline editors, action popovers no longer clip the date picker, plus a "Process attachment" AI prompt (Bishop)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.189.x line is "Bishop" (Michael Bishop). */
 export const APP_MILESTONE = "Bishop";
@@ -209,4 +209,8 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightFieldUndo",
   "versionHighlightOfficeIngest",
   "versionHighlightM365SignInFix",
+  "versionHighlightDeepLinkEditor",
+  "versionHighlightResourceClearFix",
+  "versionHighlightPopoverClip",
+  "versionHighlightProcessAttachment",
 ] as const;
