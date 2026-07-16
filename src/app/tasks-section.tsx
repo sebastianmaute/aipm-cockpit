@@ -596,7 +596,7 @@ export function TasksSection({
         <select
           value={healthFilter}
           onChange={(e) => setHealthFilter(e.target.value as HealthFilter)}
-          aria-label={t(lang, "healthFilterHint")}
+          aria-label={t(lang, "healthFilterLabel")}
           title={t(lang, "healthFilterHint")}
           className={inputClass}
         >

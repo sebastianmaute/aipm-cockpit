@@ -1264,6 +1264,7 @@ export const de: Record<TranslationKey, string> = {
   groupNone: "Ohne Gruppe",
   allLabels: "Alle Labels",
   allHealth: "Alle Ampeln",
+  healthFilterLabel: "Ampel",
   healthFilterHint: "Nur Aufgaben mit der gewählten Ampelbewertung anzeigen.",
   reportsByGroup: "Nach Gruppe",
   reportsByLabel: "Nach Label",

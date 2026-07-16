@@ -11,6 +11,7 @@ function mkPayload(over: Partial<SavedViewPayload> = {}): SavedViewPayload {
     assigneeFilter: "",
     groupFilter: "",
     labelFilter: "",
+    healthFilter: "all",
     sortKey: "id",
     sortDir: "asc",
     hiddenCols: [],

@@ -1272,6 +1272,7 @@ const enUS = {
   groupNone: "No group",
   allLabels: "All labels",
   allHealth: "All health",
+  healthFilterLabel: "Health",
   healthFilterHint: "Show only tasks with the selected health rating.",
   reportsByGroup: "By group",
   reportsByLabel: "By label",
