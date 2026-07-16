@@ -136,7 +136,9 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
       projectSwitcher={projectSwitcher}
       trailing={
         <div className="flex items-center gap-2">
-          <GlobalSearchConnected lang={lang} />
+          <div className="w-44 max-w-[55vw] sm:w-72 lg:w-96">
+            <GlobalSearchConnected lang={lang} />
+          </div>
           {undoControl}
           {displayTzSwitcherEl}
         </div>

@@ -2336,7 +2336,11 @@ function TaskManagerInner() {
         bannerCount={nowCount}
         onShowAlerts={() => setActiveTab("actions")}
         onOpenAiAssistant={() => openPopoutWindow("chat", settings.popout.reuseWindow)}
-        search={<GlobalSearchConnected lang={lang} />}
+        search={
+          <div className="w-44 max-w-[55vw] sm:w-72 lg:w-96">
+            <GlobalSearchConnected lang={lang} />
+          </div>
+        }
         topBarMenus={topBarMenus}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
