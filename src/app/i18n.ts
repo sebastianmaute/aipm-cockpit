@@ -1733,7 +1733,7 @@ const enUS = {
   outlookImportSelectedN: "{0} selected",
   outlookImportConfirm: "Import ({0})",
   outlookImportCancel: "Cancel",
-  outlookImportButton: "Sync with Outlook",
+  outlookImportButton: "Pull contacts",
   outlookImportedN: "Imported {0} contacts",
   outlookSignInRequired: "Sign in with Microsoft to import Outlook contacts.",
   outlookSignInExpired: "Microsoft session expired. Please sign in again.",

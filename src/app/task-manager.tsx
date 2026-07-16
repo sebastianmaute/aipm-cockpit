@@ -109,7 +109,7 @@ import { SidebarFooter } from "./sidebar-footer";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
 import { useOutlookContacts } from "./use-outlook-contacts";
 import { OutlookImportModal } from "./outlook-import-modal";
-import { contactsFromImported, type OutlookContact } from "./outlook-contacts";
+import { contactsFromImported, canImportOutlookContacts, type OutlookContact } from "./outlook-contacts";
 import { upsertContact } from "./contacts";
 import { useOutlookCalendar } from "./use-outlook-calendar";
 import { OutlookCalendarImportModal } from "./outlook-calendar-import-modal";
@@ -957,8 +957,6 @@ function TaskManagerInner() {
   }, [handleCloseResourceModal]);
 
   const m365Enabled = settings.integrations?.m365?.enabled ?? false;
-  const outlookContactsEnabled =
-    m365Enabled && (settings.integrations?.m365?.outlookContacts ?? false);
   const msAuth = useMsAuth(m365Enabled, { clientId: settings.integrations?.m365?.clientId, tenantId: settings.integrations?.m365?.tenantId });
   const commSend = useCommSend({ mode: settings.commTemplateSendMode ?? "mailto", msAuth, lang, showToast });
   const { fetchContacts: fetchOutlookContacts } = useOutlookContacts(msAuth.acquireToken);
@@ -1824,7 +1822,7 @@ function TaskManagerInner() {
     onBulkDeleteResources: guardEdit(handleBulkDeleteResources),
     onAddResource: guardEdit(handleOpenAddResource),
     onImportOutlook:
-      outlookContactsEnabled && msAuth.account && !importLoading
+      canImportOutlookContacts({ m365Enabled, isPopout, importLoading })
         ? guardEdit(() => { void handleOpenOutlookImport(); })
         : undefined,
     onImportOutlookCalendar:

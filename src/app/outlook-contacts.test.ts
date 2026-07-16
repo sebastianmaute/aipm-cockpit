@@ -4,6 +4,7 @@ import {
   parseGraphBirthday,
   mergeImportedResources,
   contactsFromImported,
+  canImportOutlookContacts,
   type GraphContact,
   type OutlookContact,
 } from "./outlook-contacts";
@@ -37,6 +38,21 @@ describe("parseGraphBirthday", () => {
     expect(parseGraphBirthday(undefined)).toBeUndefined();
     expect(parseGraphBirthday("not-a-date")).toBeUndefined();
     expect(parseGraphBirthday("1974-13-40T00:00:00Z")).toBeUndefined();
+  });
+});
+
+describe("canImportOutlookContacts", () => {
+  it("shows the button when M365 is live — no sub-toggle or signed-in account required", () => {
+    expect(canImportOutlookContacts({ m365Enabled: true, isPopout: false, importLoading: false })).toBe(true);
+  });
+  it("hides the button when M365 integration is off", () => {
+    expect(canImportOutlookContacts({ m365Enabled: false, isPopout: false, importLoading: false })).toBe(false);
+  });
+  it("hides the button in a popout", () => {
+    expect(canImportOutlookContacts({ m365Enabled: true, isPopout: true, importLoading: false })).toBe(false);
+  });
+  it("hides the button while a fetch is already in flight", () => {
+    expect(canImportOutlookContacts({ m365Enabled: true, isPopout: false, importLoading: true })).toBe(false);
   });
 });
 
