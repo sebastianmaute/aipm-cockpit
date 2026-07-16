@@ -486,8 +486,13 @@ function ChatPanelInner({
             { kind: "notice", text: t(lang, "aiUsageLimitReached") },
           ]);
         } else {
+          // AiHttpError.message is status-only ("400"); its `safeMessage` (the
+          // sanitized RESPONSE error.message, e.g. "prompt is too long: N > M")
+          // is appended so a 400 isn't just a bare status digit. Never logged.
           const msg = err instanceof Error ? err.message : String(err);
-          setError(t(lang, "chatError", msg));
+          const base = t(lang, "chatError", msg);
+          const safeMessage = err instanceof AiHttpError ? err.safeMessage : undefined;
+          setError(safeMessage ? `${base} — ${safeMessage}` : base);
         }
       }
     } finally {

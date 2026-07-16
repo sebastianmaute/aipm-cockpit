@@ -1108,3 +1108,61 @@ describe("closable error banner", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 });
+
+// ---------------------------------------------------------------------------
+// 400 response message surfacing: an invalid_request_error (generic, not a rate
+// limit) surfaces the sanitized RESPONSE error.message in the banner so the user
+// sees WHY (e.g. "prompt is too long"), not just a bare status digit.
+// ---------------------------------------------------------------------------
+describe("400 response message surfacing", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("appends the Anthropic error.message text to the error banner on a 400", async () => {
+    const body = {
+      error: {
+        type: "invalid_request_error",
+        message: "prompt is too long: 250000 tokens > 200000 maximum",
+      },
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: () => Promise.resolve(body),
+      text: () => Promise.resolve(JSON.stringify(body)),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    // The message text is surfaced...
+    expect(alert).toHaveTextContent(/prompt is too long: 250000 tokens > 200000/);
+    // ...alongside the status digit from the chatError template.
+    expect(alert).toHaveTextContent(/400/);
+  });
+
+  it("stays status-only when a non-400 failure has no readable message body", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: () => Promise.reject(new Error("not json")),
+      text: () => Promise.resolve(""),
+    } as unknown as Response);
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/500/);
+    // No " — <message>" suffix when there is no readable body.
+    expect(alert.textContent ?? "").not.toContain(" — ");
+  });
+});
