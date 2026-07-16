@@ -352,8 +352,9 @@ describe("RAID column visibility", () => {
     const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High", owner: "Priya Nadkarni" })];
     const { container } = renderPanel(makeProps({ raid }));
 
-    // Owner value visible initially.
-    expect(screen.getByText("Priya Nadkarni")).toBeInTheDocument();
+    // Owner value visible initially (in the owner cell span — the owner filter
+    // <option> also carries the name, so scope to the cell span).
+    expect(screen.getByText("Priya Nadkarni", { selector: "span" })).toBeInTheDocument();
 
     // Open the column config popover and untick "Owner".
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
@@ -361,7 +362,7 @@ describe("RAID column visibility", () => {
     fireEvent.click(within(dialog).getByLabelText(t("en-US", "raidOwner")));
 
     // Owner cell gone; the table still renders the remaining columns.
-    expect(screen.queryByText("Priya Nadkarni")).not.toBeInTheDocument();
+    expect(screen.queryByText("Priya Nadkarni", { selector: "span" })).not.toBeInTheDocument();
     expect(rowIds(container)).toEqual(["#1"]);
   });
 
@@ -387,7 +388,7 @@ describe("RAID owner column — live resource name (stale-cache fix)", () => {
     ];
     const resources: Resource[] = [res({ id: 7, firstName: "Live", lastName: "Owner" })];
     renderPanel(makeProps({ raid, resources }));
-    expect(screen.getByText("Live Owner")).toBeInTheDocument();
+    expect(screen.getByText("Live Owner", { selector: "span" })).toBeInTheDocument();
     expect(screen.queryByText("Old Name")).toBeNull();
   });
 
@@ -396,7 +397,7 @@ describe("RAID owner column — live resource name (stale-cache fix)", () => {
       makeRaidItem({ id: 1, title: "Vendor risk", severity: "High", owner: "Freetext Owner", ownerResourceId: null }),
     ];
     renderPanel(makeProps({ raid, resources: [] }));
-    expect(screen.getByText("Freetext Owner")).toBeInTheDocument();
+    expect(screen.getByText("Freetext Owner", { selector: "span" })).toBeInTheDocument();
   });
 });
 
@@ -547,5 +548,32 @@ describe("RaidPanel send-inquiry (owner)", () => {
     const item = makeRaidItem({ id: 9, title: "No handler", severity: "High", owner: "Cara" });
     renderPanel(makeProps({ raid: [item] }));
     expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "sendInquiry")) })).toBeNull();
+  });
+});
+
+describe("RaidPanel owner filter", () => {
+  it("selecting an owner narrows the rows to that owner", () => {
+    const items: RaidItem[] = [
+      makeRaidItem({ id: 1, title: "Alpha", severity: "High", owner: "Alice Owner" }),
+      makeRaidItem({ id: 2, title: "Beta", severity: "High", owner: "Bob Boss" }),
+    ];
+    const { container } = renderPanel(makeProps({ raid: items }));
+    // Both rows visible initially.
+    expect(rowIds(container)).toEqual(["#1", "#2"]);
+    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidOwner") });
+    fireEvent.change(ownerSelect, { target: { value: "Alice Owner" } });
+    expect(rowIds(container)).toEqual(["#1"]);
+  });
+
+  it("filters by the linked resource's LIVE name, not the stale cached owner", () => {
+    const resources: Resource[] = [res({ id: 5, firstName: "Live", lastName: "Owner" })];
+    const items: RaidItem[] = [
+      makeRaidItem({ id: 3, title: "Gamma", severity: "High", owner: "Stale Name", ownerResourceId: 5 }),
+      makeRaidItem({ id: 4, title: "Delta", severity: "High", owner: "Someone Else" }),
+    ];
+    const { container } = renderPanel(makeProps({ raid: items, resources }));
+    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidOwner") });
+    fireEvent.change(ownerSelect, { target: { value: "Live Owner" } });
+    expect(rowIds(container)).toEqual(["#3"]);
   });
 });
