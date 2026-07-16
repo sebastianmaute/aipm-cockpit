@@ -85,7 +85,6 @@ import { ModernShell } from "./modern-shell";
 import { AskClaudeMenu } from "./ask-claude-menu";
 import { useHashView } from "./use-hash-view";
 import { navLabelKey, filterNavGroups } from "./nav-config";
-import type { AppView } from "./nav-config";
 import { useSnapshots } from "./use-snapshots";
 import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
@@ -93,7 +92,6 @@ import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
 import { aiKeyIfEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
-import { TaskEditView, TASK_EDIT_FORM_ID } from "./task-edit-view";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { makeEditGuard } from "./read-only-guard";
@@ -199,7 +197,7 @@ function TaskManagerInner() {
     resetColWidths,
     startColResize,
   } = useColumnManager();
-  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestFlash, requestHelpConcept } = useWorkspaceTab();
+  const { isPopout, activeTab, setActiveTab, requestOpen, pendingOpen, clearPendingOpen, requestChat, requestHelpConcept } = useWorkspaceTab();
   useHashView(settings.layout === "modern", settings.features);
   // Classic mode has no panel for the modern-only views; fall back to chat.
   useEffect(() => {
@@ -295,17 +293,8 @@ function TaskManagerInner() {
     setForm,
     editingId,
     setEditingId,
-    taskModalOpen,
     setTaskModalOpen,
   } = useTaskForm();
-
-  // Phase 2: modern (non-popout) shows the editor as a full-page "edit" view; `taskModalOpen` is the single open/close signal this effect mirrors into nav, remembering the origin view for Save/Cancel.
-  const useEditView = settings.layout === "modern" && !isPopout;
-  const editorReturnRef = useRef<AppView>("open-points");
-  // Deep-link flash target: task id to flash once the editor closes and the list remounts.
-  const flashOnEditReturnRef = useRef<number | null>(null);
-  // Open-vs-nav-away flag for the sync effect below `useTaskSubmit` (it calls `handleCancelEdit`, defined there).
-  const editArmedRef = useRef(false);
 
   // Populated after useBulkOperations is called below; onDelete calls through
   // this ref so it doesn't depend on deselectId being defined first.
@@ -1225,39 +1214,17 @@ function TaskManagerInner() {
     captureFieldEdit: undoApi.captureFieldEdit,
   });
 
-  // taskModalOpen<->activeTab sync for the full-page editor. editArmedRef tells OPEN apart from NAV-AWAY (any setActiveTab while editing — sidebar/search/alerts/top-bar — used to look like an open and get silently reverted); nav-away skips setActiveTab since the target view's already set.
-  useEffect(() => {
-    if (!useEditView) return;
-    if (taskModalOpen && !editArmedRef.current) {
-      if (activeTab !== "edit") editorReturnRef.current = activeTab;
-      editArmedRef.current = true;
-      setActiveTab("edit");
-    } else if (taskModalOpen && editArmedRef.current && activeTab !== "edit") {
-      editArmedRef.current = false; flashOnEditReturnRef.current = null;
-      handleCancelEdit();
-    } else if (!taskModalOpen && activeTab === "edit") {
-      editArmedRef.current = false;
-      const back = editorReturnRef.current;
-      setActiveTab(back);
-      if (flashOnEditReturnRef.current !== null) {
-        const flashTaskId = flashOnEditReturnRef.current;
-        flashOnEditReturnRef.current = null;
-        if (back === "open-points") requestFlash("open-points", flashTaskId);
-      }
-    }
-  }, [useEditView, taskModalOpen, activeTab, setActiveTab, requestFlash, handleCancelEdit]);
-
   // Deep-link: when a suggested-action chip requests opening a task, open its
-  // edit modal once and clear the pending signal so it does not re-fire.
+  // edit modal once and clear the pending signal so it does not re-fire. The
+  // editor is the floating TaskFormModal in every layout, so the list stays
+  // mounted underneath and its own useDeepLinkRowFlash flashes the row (the
+  // immediate path) — no full-page return-flash channel is needed here.
   useEffect(() => {
     if (pendingOpen?.view !== "open-points") return;
     const task = tasks.find((t) => t.id === pendingOpen.id);
-    if (task) {
-      if (useEditView) flashOnEditReturnRef.current = task.id;
-      openEditModal(task);
-    }
+    if (task) openEditModal(task);
     clearPendingOpen();
-  }, [pendingOpen, tasks, openEditModal, clearPendingOpen, useEditView]);
+  }, [pendingOpen, tasks, openEditModal, clearPendingOpen]);
 
   const commTemplatesActive = tursoConfig !== null && !isPopout;
   const commTemplates = useCommTemplates({ active: commTemplatesActive, config: tursoConfig });
@@ -1992,15 +1959,9 @@ function TaskManagerInner() {
     />
   );
 
-  // Phase 2 full-page editor (modern). Reuses the same fields/validation as the
-  // modal; submit goes through the existing handleSubmit.
-  const editTitle =
-    editingId !== null ? t(lang, "tabEditTask", editingId) : t(lang, "tabNewTask");
-
   // Send inquiry / Push to Jira — only for an EXISTING task, never in popouts
   // (read-only). Push is additionally hidden for unconfigured Jira or an
-  // already-synced task. Shared by the modern TaskEditView footer and the
-  // classic TaskFormModal (threaded as leadingActions).
+  // already-synced task. Threaded into the TaskFormModal footer as leadingActions.
   const editorActions =
     editingTask && !isPopout ? (
       <TaskEditorActions
@@ -2014,13 +1975,10 @@ function TaskManagerInner() {
       />
     ) : null;
 
-  // Delete button — left side of footer, only for an EXISTING task, never in popouts.
-  const editorDeleteAction =
-    editingTask && !isPopout ? (
-      <TaskDeleteButton lang={lang} taskId={editingTask.id} onDelete={onDelete} />
-    ) : null;
-
-  const editActions = (
+  // Footer leading actions for the modal editor: send-inquiry/push-Jira plus the
+  // two-way Jira sync button for a Jira-linked task (was the full-page editor's
+  // footer; now shared by the modal in every layout).
+  const editorLeadingActions = (
     <>
       {editorActions}
       {editingIsJiraLinked && settings.jira.enabled && (
@@ -2033,26 +1991,17 @@ function TaskManagerInner() {
           {t(lang, jiraSyncing ? "jiraSyncing" : "jiraSync")}
         </button>
       )}
-      <button
-        type="button"
-        onClick={handleCancelEdit}
-        className="rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
-      >
-        {t(lang, "cancel")}
-      </button>
-      <button
-        type="submit"
-        form={TASK_EDIT_FORM_ID}
-        disabled={saveDisabled}
-        className="rounded-md bg-AIPM-green px-4 py-1.5 text-sm font-semibold text-AIPM-dark-blue hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {editingId !== null ? t(lang, "updateTask") : t(lang, "addTask")}
-      </button>
     </>
   );
 
+  // Delete button — left side of footer, only for an EXISTING task, never in popouts.
+  const editorDeleteAction =
+    editingTask && !isPopout ? (
+      <TaskDeleteButton lang={lang} taskId={editingTask.id} onDelete={onDelete} />
+    ) : null;
+
   // Shared editor extras (create-RAID mini-form + new-linked-task button),
-  // mounted below the fields in BOTH editor surfaces. Never in popouts.
+  // mounted below the fields in the modal editor. Never in popouts.
   const editorExtrasEl = !isPopout ? (
     <>
       <TaskEditorRaidMini
@@ -2069,37 +2018,6 @@ function TaskManagerInner() {
       </button>
     </>
   ) : null;
-
-  const editViewEl = (
-    <TaskEditView
-      lang={lang}
-      today={today}
-      nextId={nextId}
-      contactsList={contactsList}
-      resources={resources}
-      onCreateResource={handleCreateResource}
-      absences={absences}
-      tasksForDeps={tasks}
-      uniqueGroups={uniqueGroups}
-      uniqueLabels={uniqueLabels}
-      editingIsJiraLinked={editingIsJiraLinked}
-      readOnlyJiraProjectName={editingReadOnlyJiraProjectName}
-      jiraEnabled={settings.jira.enabled}
-      fieldErrors={fieldErrors}
-      submitted={submitted}
-      holidaySet={holidaySet}
-      jiraProjectKey={settings.jira.projectKey}
-      jiraDefaultIssueType={settings.jira.issueTypes[0]}
-      onSubmit={handleSubmit}
-      onRemoveContact={handleRemoveContact}
-      onAddAssigneeToAddressBook={handleAddAssigneeToAddressBook}
-      heading={editingId !== null ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")}
-      onClose={handleCancelEdit}
-      footer={editActions}
-      footerLeading={editorDeleteAction}
-      editorExtras={editorExtrasEl}
-    />
-  );
 
   const settingsViewEl = (
     <SettingsView
@@ -2310,8 +2228,7 @@ function TaskManagerInner() {
       <AppModals
         lang={lang}
         isPopout={isPopout}
-        showTaskFormModal={!useEditView}
-        taskEditorActions={editorActions}
+        taskEditorActions={editorLeadingActions}
         taskDeleteAction={editorDeleteAction}
         taskEditorExtras={editorExtrasEl}
         jiraConflicts={jiraConflicts}
@@ -2434,8 +2351,6 @@ function TaskManagerInner() {
         }
         tasksSection={tasksSectionEl}
         workspace={workspaceFullBleedEl}
-        editView={editViewEl}
-        editTitle={editTitle}
         settingsView={settingsViewEl}
         learningInsightsView={learningInsightsEl}
         banners={bannersEl}
