@@ -196,7 +196,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const stamp = new Date().toISOString();
     const beforeRows = tasks.filter((r) => selectedIds.has(r.id));
     if (beforeRows.length > 0) {
-      captureRef.current({ setter: setTasks, kind: "bulk.edit", edited: beforeRows, fromArray: tasks });
+      captureRef.current({ setter: setTasks, kind: "bulk.edit", edited: beforeRows, fromArray: tasks, entityKey: "task" });
     }
     setTasks((prev) =>
       prev.map((row) => {

@@ -198,7 +198,7 @@ function MilestonesPanelBody({
 
   const applyBulk = (changes: Record<string, string>) => {
     const beforeRows = milestones.filter((m) => sel.selectedIds.has(m.id));
-    if (beforeRows.length) capture?.({ setter: setMilestones, kind: "bulk.edit", edited: beforeRows, fromArray: milestones });
+    if (beforeRows.length) capture?.({ setter: setMilestones, kind: "bulk.edit", edited: beforeRows, fromArray: milestones, entityKey: "milestone" });
     for (const id of sel.selectedIds) {
       const item = milestoneById.get(id);
       if (!item) continue;
@@ -273,6 +273,7 @@ function MilestonesPanelBody({
       captureFieldChanges(captureFieldEdit, {
         setter: setMilestones, kind: "milestone.updated", id,
         prev: previous, next: finalItem, groups: MILESTONE_UNDO_GROUPS,
+        name: finalItem.name,
       });
     }
     if (create) {
@@ -287,7 +288,7 @@ function MilestonesPanelBody({
 
   function del(id: number) {
     const doomed = milestones.find((m) => m.id === id);
-    if (doomed) capture?.({ setter: setMilestones, kind: "milestone.deleted", removed: [doomed], fromArray: milestones });
+    if (doomed) capture?.({ setter: setMilestones, kind: "milestone.deleted", removed: [doomed], fromArray: milestones, name: doomed.name });
     setMilestones((prev) => prev.filter((m) => m.id !== id));
     logActivity?.("milestone.deleted", id);
     setEditing(null);

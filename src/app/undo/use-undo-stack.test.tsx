@@ -30,6 +30,37 @@ describe("useUndoStack", () => {
     expect(deps.showToastAction).toHaveBeenCalledWith("info", expect.any(String), expect.objectContaining({ labelKey: "undo" }));
   });
 
+  it("carries a human label naming the entity; undo/redo toasts include it", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    let arr: readonly Row[] = [{ id: 1, name: "a" }];
+    const setter = (u: SetStateAction<readonly Row[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+    act(() => {
+      result.current.capture({
+        setter, kind: "task.deleted", name: "Design review",
+        removed: [{ id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }],
+      });
+    });
+    // Label built at capture: verb + entity + name.
+    expect(result.current.stack[0].label).toBe('Delete task "Design review"');
+    act(() => result.current.undo());
+    expect(deps.showToast).toHaveBeenCalledWith("info", 'Undone: Delete task "Design review"');
+    act(() => result.current.redo());
+    expect(deps.showToast).toHaveBeenCalledWith("info", 'Redone: Delete task "Design review"');
+  });
+
+  it("labels a bulk edit via the explicit entityKey (kind is ambiguous)", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useUndoStack(deps));
+    act(() => {
+      result.current.capture({
+        setter: vi.fn(), kind: "bulk.edit", entityKey: "raid",
+        edited: [{ id: 1, name: "a" }, { id: 2, name: "b" }], fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }],
+      });
+    });
+    expect(result.current.stack[0].label).toBe("Bulk edit 2 RAID items");
+  });
+
   it("undo restores via the setter, logs, toasts, and empties the stack", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));

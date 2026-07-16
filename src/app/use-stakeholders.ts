@@ -59,7 +59,7 @@ export function useStakeholders(args: UseStakeholdersArgs) {
         captureFieldChanges(args.captureFieldEdit, {
           setter: setStakeholders, kind: "stakeholder.updated", id,
           prev: previous, next: withStamp, groups: STAKEHOLDER_UNDO_GROUPS,
-          stampField: "localModifiedAt",
+          stampField: "localModifiedAt", name: item.name,
         });
       }
       if (args.logActivityChanges) {
@@ -72,7 +72,7 @@ export function useStakeholders(args: UseStakeholdersArgs) {
 
   const handleDeleteStakeholder = useCallback((id: number, name: string) => {
     const doomed = stakeholders.find((s) => s.id === id);
-    if (doomed) args.capture?.({ setter: setStakeholders, kind: "stakeholder.deleted", removed: [doomed], fromArray: stakeholders });
+    if (doomed) args.capture?.({ setter: setStakeholders, kind: "stakeholder.deleted", removed: [doomed], fromArray: stakeholders, name });
     setStakeholders((prev) => prev.filter((s) => s.id !== id));
     args.logActivity?.("stakeholder.deleted", id, name);
   }, [stakeholders, setStakeholders, args]);
@@ -81,7 +81,7 @@ export function useStakeholders(args: UseStakeholdersArgs) {
   // per-row save handler; call BEFORE the loop mutates them.
   const captureBulkUndo = useCallback((ids: readonly number[]) => {
     const edited = stakeholders.filter((s) => ids.includes(s.id));
-    if (edited.length) args.capture?.({ setter: setStakeholders, kind: "bulk.edit", edited, fromArray: stakeholders });
+    if (edited.length) args.capture?.({ setter: setStakeholders, kind: "bulk.edit", edited, fromArray: stakeholders, entityKey: "stakeholder" });
   }, [stakeholders, setStakeholders, args]);
 
   return { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo };

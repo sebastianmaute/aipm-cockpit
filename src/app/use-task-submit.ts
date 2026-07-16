@@ -204,6 +204,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             next: nextTask,
             groups: TASK_UNDO_GROUPS,
             stampField: "localModifiedAt",
+            name: taskName,
           });
           if (logActivityChanges) {
             logActivityChanges("task.updated", diffFields(prevTask, nextTask), updatedId, taskName);

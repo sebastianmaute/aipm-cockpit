@@ -22,6 +22,84 @@ import {
 // Retention: how many destructive ops stay undoable/redoable at once.
 const UNDO_CAP = 25;
 
+/** The entities an undo label can name. `bulk.edit` is entity-AMBIGUOUS (one
+ *  shared kind across tasks/raid/change/…), so its capture site passes an explicit
+ *  `entityKey`; every other kind derives the entity from its `entity.op` prefix. */
+export type UndoEntityKey =
+  | "task" | "milestone" | "raid" | "change" | "stakeholder"
+  | "resource" | "absence" | "shift" | "role" | "discipline" | "grade";
+
+type I18nKey = Parameters<typeof t>[1];
+
+const ENTITY_SINGULAR: Record<UndoEntityKey, I18nKey> = {
+  task: "undoEntityTask",
+  milestone: "undoEntityMilestone",
+  raid: "undoEntityRaid",
+  change: "undoEntityChange",
+  stakeholder: "undoEntityStakeholder",
+  resource: "undoEntityResource",
+  absence: "undoEntityAbsence",
+  shift: "undoEntityShift",
+  role: "undoEntityRole",
+  discipline: "undoEntityDiscipline",
+  grade: "undoEntityGrade",
+};
+// Plurals only for entities that appear with a count (bulk/multi-delete); the
+// rest fall back to the singular (they're only ever named, count 1).
+const ENTITY_PLURAL: Partial<Record<UndoEntityKey, I18nKey>> = {
+  task: "undoEntityTasks",
+  milestone: "undoEntityMilestones",
+  raid: "undoEntityRaids",
+  change: "undoEntityChanges",
+  stakeholder: "undoEntityStakeholders",
+  resource: "undoEntityResources",
+};
+
+const ENTITY_KEY_SET: ReadonlySet<string> = new Set<UndoEntityKey>([
+  "task", "milestone", "raid", "change", "stakeholder",
+  "resource", "absence", "shift", "role", "discipline", "grade",
+]);
+
+function entityKeyFromKind(kind: ActivityKind): UndoEntityKey | null {
+  const prefix = kind.split(".")[0];
+  return ENTITY_KEY_SET.has(prefix) ? (prefix as UndoEntityKey) : null;
+}
+
+/** Longest entity name to inline in a label before eliding (keeps toasts short). */
+const UNDO_LABEL_NAME_MAX = 40;
+function truncateName(name: string): string {
+  const n = name.trim();
+  return n.length > UNDO_LABEL_NAME_MAX ? `${n.slice(0, UNDO_LABEL_NAME_MAX - 1)}…` : n;
+}
+
+/**
+ * Compose the already-translated human label for one undoable op from its
+ * operation + entity + name/count. Built at capture time (in the user's current
+ * language). Falls back to a generic "Edited/Deleted N item(s)" when the entity
+ * can't be resolved (unknown kind, no entityKey). Pure aside from i18n lookups.
+ */
+export function buildUndoLabel(
+  lang: Lang,
+  kind: ActivityKind,
+  count: number,
+  opts?: { name?: string; entityKey?: UndoEntityKey },
+): string {
+  const key = opts?.entityKey ?? entityKeyFromKind(kind);
+  const isDelete = kind.endsWith(".deleted");
+  const isBulk = kind === "bulk.edit";
+  const name = opts?.name && opts.name.trim() ? truncateName(opts.name) : "";
+  if (!key) return t(lang, isDelete ? "undoToastDelete" : "undoToastEdit", count);
+  const singular = t(lang, ENTITY_SINGULAR[key]);
+  const plural = t(lang, ENTITY_PLURAL[key] ?? ENTITY_SINGULAR[key]);
+  if (isBulk) return t(lang, "undoLabelBulkEdit", count, plural);
+  if (isDelete) {
+    if (name && count <= 1) return t(lang, "undoLabelDeleteNamed", singular, name);
+    return t(lang, "undoLabelDeleteCount", count, count === 1 ? singular : plural);
+  }
+  if (name) return t(lang, "undoLabelEditNamed", singular, name);
+  return t(lang, "undoToastEdit", count);
+}
+
 export interface CaptureOpts<T extends { id: number }> {
   setter: Dispatch<SetStateAction<readonly T[]>>;
   kind: ActivityKind;
@@ -33,6 +111,10 @@ export interface CaptureOpts<T extends { id: number }> {
   edited?: readonly T[];
   /** The array as it was BEFORE the op — used to resolve each row's index. */
   fromArray: readonly T[];
+  /** Entity name/title for the undo label (e.g. the deleted task's title). */
+  name?: string;
+  /** Explicit entity for the label when the kind is entity-ambiguous (bulk.edit). */
+  entityKey?: UndoEntityKey;
 }
 
 /** A single-field-group edit: revert by MERGING `before`/`after` onto the live
@@ -45,6 +127,8 @@ export interface CaptureFieldEditOpts<T extends { id: number }> {
   before: Partial<T>;
   after: Partial<T>;
   stampField?: keyof T & string;
+  /** Entity name/title for the undo label (e.g. the edited task's title). */
+  name?: string;
 }
 
 /** One array's contribution to a composite (multi-array) undo — the same shape
@@ -228,6 +312,8 @@ export interface CaptureCompositeOpts {
    *  that contributed nothing) are ignored. The FIRST non-null fragment is the
    *  PRIMARY delete — its id-remap drives every cascade's `fkRemapField`. */
   parts: readonly (CompositeFragment | null)[];
+  /** Entity name/title for the undo label (e.g. the deleted resource's name). */
+  name?: string;
 }
 
 export interface UndoStackApi {
@@ -275,7 +361,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const redoRun = entry.run();
     const { lang, logActivity, showToast } = depsRef.current;
     logActivity("undo", entry.meta.count);
-    showToast("info", t(lang, "undoRestored", entry.meta.count));
+    showToast("info", t(lang, "undoneX", entry.meta.label));
     setStack(nextStack);
     if (pushRedo) {
       setRedoStack((rs) => pushUndo(rs, { meta: entry.meta, run: redoRun }, UNDO_CAP));
@@ -306,7 +392,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const undoRun = popped.entry.run();
     const { lang, logActivity, showToast } = depsRef.current;
     logActivity("redo", popped.entry.meta.count);
-    showToast("info", t(lang, "redoRestored", popped.entry.meta.count));
+    showToast("info", t(lang, "redoneX", popped.entry.meta.label));
     setRedoStack(popped.rest);
     setStack((s) => pushUndo(s, { meta: popped.entry.meta, run: undoRun }, UNDO_CAP));
   }, []);
@@ -314,9 +400,15 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   // Shared tail: push one undo entry, invalidate any pending redo (a fresh
   // destructive op breaks redo coherence), and fire its action toast. `run` is
   // the entry's directional runner (single- or multi-array).
-  const pushEntry = useCallback((kind: ActivityKind, primaryCount: number, run: Runner) => {
+  const pushEntry = useCallback((
+    kind: ActivityKind,
+    primaryCount: number,
+    run: Runner,
+    labelOpts?: { name?: string; entityKey?: UndoEntityKey },
+  ) => {
     const id = (idRef.current += 1);
-    const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString() };
+    const label = buildUndoLabel(depsRef.current.lang, kind, primaryCount, labelOpts);
+    const meta: UndoMeta = { id, kind, count: primaryCount, timestamp: new Date().toISOString(), label };
     setStack((s) => pushUndo(s, { meta, run }, UNDO_CAP));
     setRedoStack([]);
     const { lang, showToastAction } = depsRef.current;
@@ -326,17 +418,17 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   }, [undoById]);
 
   const capture = useCallback(<T extends { id: number }>(opts: CaptureOpts<T>) => {
-    const { setter, kind, removed = [], edited = [], fromArray } = opts;
+    const { setter, kind, removed = [], edited = [], fromArray, name, entityKey } = opts;
     const images = buildBeforeImages(removed, edited, fromArray);
     if (images.length === 0) return;
     // Toast/count reflect the PRIMARY op (the rows the user acted on), not the
     // incidental dependents an edit-cascade also captured.
     const primaryCount = removed.length > 0 ? removed.length : edited.length;
-    pushEntry(kind, primaryCount, fragmentUndoRunner(setter, images));
+    pushEntry(kind, primaryCount, fragmentUndoRunner(setter, images), { name, entityKey });
   }, [pushEntry]);
 
   const captureFieldEdit = useCallback(<T extends { id: number }>(opts: CaptureFieldEditOpts<T>) => {
-    const { setter, kind, id, before, after, stampField } = opts;
+    const { setter, kind, id, before, after, stampField, name } = opts;
     const stamp = (row: T): T =>
       stampField ? ({ ...row, [stampField]: new Date().toISOString() } as T) : row;
     const merge = (patch: Partial<T>) =>
@@ -344,13 +436,13 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // Mutually-recursive, reusable undo↔redo runners (function decls hoist).
     function runUndo(): Runner { merge(before); return runRedo; }
     function runRedo(): Runner { merge(after); return runUndo; }
-    pushEntry(kind, 1, runUndo);
+    pushEntry(kind, 1, runUndo, { name });
   }, [pushEntry]);
 
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments));
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments), { name: opts.name });
   }, [pushEntry]);
 
   const metas = useMemo(() => stack.map((e) => e.meta), [stack]);

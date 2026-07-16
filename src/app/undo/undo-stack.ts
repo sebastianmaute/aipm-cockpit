@@ -20,6 +20,10 @@ export interface UndoMeta {
   kind: ActivityKind;
   count: number;
   timestamp: string;
+  /** Human-readable, already-translated summary of the op (e.g. `Edit task "X"`,
+   *  `Delete 3 tasks`). Built at CAPTURE time so the undone/redone toast and the
+   *  caret preview can say WHAT will be reverted, not just a depth count. */
+  label: string;
 }
 
 /** One stack entry: display meta + the impure restore thunk (closes over the setter). */
