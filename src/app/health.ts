@@ -103,6 +103,34 @@ export function computeTaskHealth(
   return { color, drivers };
 }
 
+/** Toolbar RAG-filter selection for the task list. "all" is the no-op default. */
+export type HealthFilter = "all" | "red" | "amber" | "green";
+
+/** Map a concrete health-filter selection to the RAG color it keeps. */
+export const HEALTH_FILTER_COLOR: Record<Exclude<HealthFilter, "all">, Health> = {
+  red: "R",
+  amber: "A",
+  green: "G",
+};
+
+/**
+ * Pure: keep only the tasks whose derived RAG matches the filter. "all" is a
+ * no-op that returns the input array unchanged (reference-stable, so a caller's
+ * memo isn't busted when no filter is active).
+ */
+export function filterTasksByHealth<T extends Task>(
+  tasks: readonly T[],
+  filter: HealthFilter,
+  todayISO: string,
+  holidays: ReadonlySet<string> = new Set<string>(),
+): readonly T[] {
+  if (filter === "all") return tasks;
+  const want = HEALTH_FILTER_COLOR[filter];
+  return tasks.filter(
+    (task) => computeTaskHealth(task, todayISO, holidays).color === want,
+  );
+}
+
 export type GroupHealth = {
   color: Health;
   counts: Record<Health, number>;

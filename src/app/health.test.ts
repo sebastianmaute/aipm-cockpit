@@ -6,6 +6,7 @@ import {
   formatHealthTooltip,
   healthDot,
   healthText,
+  filterTasksByHealth,
   type TaskHealth,
 } from "./health";
 import type { Task } from "./types";
@@ -835,5 +836,34 @@ describe("healthDot", () => {
   it("uses role-token indirection so style switches reflow RAG color", () => {
     expect(healthDot.A).toBe("bg-[var(--rag-amber)]");
     expect(healthText.A).toBe("text-[var(--rag-amber-text)]");
+  });
+});
+
+describe("filterTasksByHealth", () => {
+  const today = "2026-05-26";
+  const holidays = new Set<string>();
+  const overdue = createTask({ id: 1, dueDate: "2026-05-20" }); // Red (overdue)
+  const dueToday = createTask({ id: 2, dueDate: "2026-05-26" }); // Amber (due today)
+  const onTrack = createTask({ id: 3, dueDate: "2026-12-01" }); // Green (far future)
+  const tasks = [overdue, dueToday, onTrack];
+
+  it("returns every task unchanged (same reference) when filter is 'all'", () => {
+    const result = filterTasksByHealth(tasks, "all", today, holidays);
+    expect(result).toBe(tasks);
+  });
+
+  it("keeps only Red-RAG tasks when filter is 'red'", () => {
+    const result = filterTasksByHealth(tasks, "red", today, holidays);
+    expect(result.map((t) => t.id)).toEqual([1]);
+  });
+
+  it("keeps only Amber-RAG tasks when filter is 'amber'", () => {
+    const result = filterTasksByHealth(tasks, "amber", today, holidays);
+    expect(result.map((t) => t.id)).toEqual([2]);
+  });
+
+  it("keeps only Green-RAG tasks when filter is 'green'", () => {
+    const result = filterTasksByHealth(tasks, "green", today, holidays);
+    expect(result.map((t) => t.id)).toEqual([3]);
   });
 });

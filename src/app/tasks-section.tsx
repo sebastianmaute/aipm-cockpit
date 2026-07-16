@@ -18,6 +18,7 @@ import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
+import { filterTasksByHealth, type HealthFilter } from "./health";
 import { sanitizeInlinePatch } from "./task-inline-patch";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { valuesDiffer } from "./undo/field-groups";
@@ -219,6 +220,7 @@ export function TasksSection({
     assigneeFilter, setAssigneeFilter,
     groupFilter, setGroupFilter,
     labelFilter, setLabelFilter,
+    healthFilter, setHealthFilter,
     sortKey, sortDir, setSortKey, setSortDir,
   } = useFilters();
 
@@ -293,9 +295,15 @@ export function TasksSection({
     lang,
     enabled: !!m365Configured && !isPopout,
   });
+  // RAG health filter (toolbar) applies to BOTH the table and the board; the
+  // separate hide-finished toggle stays table-only (below). "all" is a no-op.
+  const healthFilteredTasks = useMemo(
+    () => filterTasksByHealth(filteredSortedTasks, healthFilter, today, holidaySet),
+    [filteredSortedTasks, healthFilter, today, holidaySet],
+  );
   const visibleRows = hideFinished
-    ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
-    : filteredSortedTasks;
+    ? healthFilteredTasks.filter((r) => !isTaskFinished(r))
+    : healthFilteredTasks;
 
   // Inline Open-Points cell edit: apply one sanitized field patch to a task via
   // a functional setter, stamping localModifiedAt. Mirrors the form-save
@@ -582,6 +590,18 @@ export function TasksSection({
             </option>
           ))}
         </select>
+        <select
+          value={healthFilter}
+          onChange={(e) => setHealthFilter(e.target.value as HealthFilter)}
+          aria-label={t(lang, "healthFilterHint")}
+          title={t(lang, "healthFilterHint")}
+          className={inputClass}
+        >
+          <option value="all">{t(lang, "allHealth")}</option>
+          <option value="red">{t(lang, "healthRed")}</option>
+          <option value="amber">{t(lang, "healthAmber")}</option>
+          <option value="green">{t(lang, "healthGreen")}</option>
+        </select>
         <div ref={colConfigRef} className="relative">
           <button
             type="button"
@@ -769,7 +789,7 @@ export function TasksSection({
            stay populated. SP-B Task 6 swaps in the rich <TaskKanbanCard>. */
         <TaskKanban
           lang={lang}
-          tasks={filteredSortedTasks}
+          tasks={healthFilteredTasks}
           today={today}
           holidaySet={holidaySet}
           resourcesById={resourcesById}
