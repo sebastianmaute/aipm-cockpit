@@ -15,6 +15,7 @@ import { DEFAULT_FOOTER_SLOGAN } from "./settings-types";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Absence, Resource, Shift, Task } from "./types";
+import type { Toast } from "./use-toast";
 
 export interface AppModalsProps {
   lang: Lang;
@@ -82,7 +83,11 @@ export interface AppModalsProps {
   onCloseResourceModal: () => void;
 
   // Toast
-  toast: { kind: "info" | "error"; text: string; action?: { labelKey: import("./i18n").TranslationKey; run: () => void } } | null;
+  toast: Toast | null;
+  /** Pause auto-dismiss while the toast is hovered/focused. */
+  onToastPause?: () => void;
+  /** Resume auto-dismiss when the pointer/focus leaves the toast. */
+  onToastResume?: () => void;
 }
 
 export function AppModals({
@@ -133,6 +138,8 @@ export function AppModals({
   onDeleteResource,
   onCloseResourceModal,
   toast,
+  onToastPause,
+  onToastResume,
 }: AppModalsProps) {
   const { settings } = useSettings();
   const footerSlogan = settings.branding?.footerSlogan?.trim() || DEFAULT_FOOTER_SLOGAN;
@@ -230,13 +237,20 @@ export function AppModals({
         <div
           role="status"
           aria-live="polite"
+          // Hover/focus pauses the auto-dismiss timer so the reader isn't rushed.
+          onMouseEnter={onToastPause}
+          onMouseLeave={onToastResume}
+          onFocus={onToastPause}
+          onBlur={onToastResume}
           // Tinted style matching the app's inline error boxes: a colored tint +
           // left-accent border + AA-contrast accent text in both themes.
           // (white-on-pink — even on pink-strong — fails AA in dark mode.)
           className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md border border-l-4 px-4 py-2.5 text-sm shadow-lg ${
             toast.kind === "error"
               ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink-strong dark:bg-AIPM-pink/15"
-              : "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
+              : toast.kind === "success"
+                ? "border-AIPM-green bg-AIPM-green/10 text-AIPM-green-strong dark:bg-AIPM-green/15"
+                : "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
           }`}
         >
           <div className="flex items-center gap-3">

@@ -33,7 +33,7 @@ describe("export menu stacking", () => {
 
 const PLAN: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
 
-function renderMenu(showToastSpy: (kind: "info" | "error", text: string) => void) {
+function renderMenu(showToastSpy: (kind: "info" | "error" | "success", text: string) => void) {
   return render(
     <ToastProvider value={{ showToast: showToastSpy, showToastAction: showToastSpy }}>
       <ExportMenu

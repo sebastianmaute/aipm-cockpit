@@ -1,9 +1,9 @@
 "use client";
 import { createContext, useContext, type ReactNode } from "react";
-import type { ToastAction } from "./use-toast";
+import type { ToastAction, ToastKind } from "./use-toast";
 
-type ShowToast = (kind: "info" | "error", text: string) => void;
-type ShowToastAction = (kind: "info" | "error", text: string, action: ToastAction) => void;
+type ShowToast = (kind: ToastKind, text: string) => void;
+type ShowToastAction = (kind: ToastKind, text: string, action: ToastAction) => void;
 
 interface ToastApi {
   showToast: ShowToast;

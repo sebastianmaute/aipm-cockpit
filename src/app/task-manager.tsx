@@ -177,7 +177,7 @@ function TaskManagerInner() {
   useApplyFavicon(settings.branding?.favicon ?? null);
   const { activityLog, setActivityLog, logActivity, logActivityChanges, handleClearActivityLog } =
     useActivityLog();
-  const { toast, showToast, showToastAction } = useToast();
+  const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
   // capture is threaded into each entity hook below; undo/control are surfaces.
   const undoApi = useUndoStack({ lang, logActivity, showToast, showToastAction });
@@ -2272,6 +2272,8 @@ function TaskManagerInner() {
         onDeleteResource={handleDeleteResource}
         onCloseResourceModal={handleCloseResourceFromAnywhere}
         toast={toast}
+        onToastPause={pauseToast}
+        onToastResume={resumeToast}
       />
       {linkedTaskOpen && (
         <TaskLinkedTaskModal
