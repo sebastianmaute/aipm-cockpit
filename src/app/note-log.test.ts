@@ -35,10 +35,18 @@ describe("note-log codec", () => {
     expect(sanitizeNoteLog([{ text: "hi" }])).toEqual([]);
   });
 
-  it("strips control chars from text (keeps the entry)", () => {
+  it("strips residual control chars but degrades the newline to a space", () => {
     const out = sanitizeNoteLog([{ timestamp: good.timestamp, text: "a\u0000b\u0007c\ndone" }]);
     expect(out).toHaveLength(1);
-    expect(out[0].text).toBe("abcdone");
+    expect(out[0].text).toBe("abc done");
+  });
+
+  it("degrades newlines/tabs to a single space (readable single line)", () => {
+    const nl = String.fromCharCode(10);
+    const crlf = String.fromCharCode(13, 10);
+    const tab = String.fromCharCode(9);
+    expect(sanitizeNoteLog([{ timestamp: good.timestamp, text: "line1" + nl + "line2" }])[0].text).toBe("line1 line2");
+    expect(sanitizeNoteLog([{ timestamp: good.timestamp, text: "a" + crlf + "b" + tab + "c" }])[0].text).toBe("a b c");
   });
 
   it("drops a non-positive authorResourceId but keeps the entry", () => {

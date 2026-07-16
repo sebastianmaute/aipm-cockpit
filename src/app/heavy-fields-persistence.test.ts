@@ -66,6 +66,26 @@ describe("Task.noteLog persistence", () => {
     const back = markdownToWorkspace(workspaceToMarkdown(seedTaskNote()));
     expect(back.tasks[0]?.noteLog).toEqual(seedTaskNote().tasks[0].noteLog);
   });
+  it("survives comma + double-quote + pipe in text/authorName (JSON-in-cell edge)", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      tasks: [{
+        id: 9, taskName: "Edge", assignee: "A", assigneeEmail: "a@x.com",
+        dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
+        blockers: "", notes: "",
+        noteLog: [{
+          authorName: 'Zoe "Z", Ng | Lee',
+          timestamp: "2026-07-16T10:00:00.000Z",
+          text: 'Called re: "vendor A, B | C" — no answer',
+        }],
+      }],
+    };
+    const csvBack = csvToWorkspace(workspaceToCsv(ws));
+    expect(csvBack.tasks[0]?.noteLog).toEqual(ws.tasks[0].noteLog);
+    const mdBack = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(mdBack.tasks[0]?.noteLog).toEqual(ws.tasks[0].noteLog);
+  });
+
   it("a legacy task without noteLog stays undefined (sparse)", () => {
     const ws: Workspace = {
       ...emptyWorkspace(),

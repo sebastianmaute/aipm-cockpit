@@ -11,8 +11,12 @@ import type { NoteLogEntry } from "./types";
 const MAX_NOTE_ENTRIES = 500;
 const MAX_NOTE_TEXT = 4000;
 const MAX_AUTHOR_NAME = 200;
-/** Strip control chars (incl. newlines/tabs) — keeps a note-log cell single-line
- *  and free of file-corrupting bytes. Same class as the rationale sanitizer. */
+/** Collapse newlines/tabs to a single space FIRST so multi-line pasted note
+ *  text degrades to a readable single line (words stay separated) rather than
+ *  being jammed together by the raw control-char strip below. */
+const NEWLINE_TAB = /[\r\n\t]+/g;
+/** Strip the remaining control chars — keeps a note-log cell single-line and
+ *  free of file-corrupting bytes. Same class as the rationale sanitizer. */
 const CONTROL_CHARS = /[\x00-\x1f]/g;
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -34,6 +38,7 @@ export function sanitizeNoteLog(raw: unknown): NoteLogEntry[] {
     if (!isPlainObject(entry)) continue;
     if (!isValidTimestamp(entry.timestamp)) continue;
     const text = (typeof entry.text === "string" ? entry.text : "")
+      .replace(NEWLINE_TAB, " ")
       .replace(CONTROL_CHARS, "")
       .trim()
       .slice(0, MAX_NOTE_TEXT);
