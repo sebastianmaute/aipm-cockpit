@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
@@ -133,5 +133,24 @@ describe("RaidEditModal field visibility", () => {
       { wrapper },
     );
     expect(screen.getByText(RISK_MATRIX_LABEL)).toBeTruthy();
+  });
+});
+
+describe("RaidEditModal drag/resize chrome", () => {
+  it("restores the saved position + size and the reset button clears both", () => {
+    window.localStorage.setItem("aipm-cockpit:modal-pos:raid-edit", JSON.stringify({ x: 30, y: 40 }));
+    window.localStorage.setItem("aipm-cockpit:modal-size:raid-edit", JSON.stringify({ width: 600, height: 500 }));
+    const { container } = render(modalEl(), { wrapper });
+    const panel = container.querySelector("[data-modal-panel]") as HTMLElement;
+    expect(panel.style.transform).toContain("translate(30px, 40px)");
+    expect(panel.style.width).toBe("600px");
+    expect(panel.style.height).toBe("500px");
+
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "modalResetSize") }));
+    expect(window.localStorage.getItem("aipm-cockpit:modal-pos:raid-edit")).toBeNull();
+    expect(window.localStorage.getItem("aipm-cockpit:modal-size:raid-edit")).toBeNull();
+    expect(panel.style.transform).toContain("translate(0px, 0px)");
+    expect(panel.style.width).toBe("");
+    expect(panel.style.height).toBe("");
   });
 });

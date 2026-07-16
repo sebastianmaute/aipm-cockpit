@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
+import { t } from "./i18n";
 
 const acquire = vi.fn(async () => "tok");
 
@@ -168,6 +169,26 @@ describe("SharePointPickerModal", () => {
     expect(screen.queryByText(/use this folder/i)).toBeNull();
     // The folder row renders an "Open" button (in addition to the disabled paste-URL "Open")
     expect(screen.getAllByText("Open").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("restores the saved draggable position + resizable size and the reset button clears both", () => {
+    mockFetch({ value: [] });
+    window.localStorage.setItem("aipm-cockpit:modal-pos:sharepoint", JSON.stringify({ x: 30, y: 40 }));
+    window.localStorage.setItem("aipm-cockpit:modal-size:sharepoint", JSON.stringify({ width: 500, height: 400 }));
+    const { container } = render(
+      <SharePointPickerModal mode="link" lang="en-US" acquireToken={acquire} onSelect={vi.fn()} onClose={vi.fn()} />,
+    );
+    const panel = container.querySelector("[data-modal-panel]") as HTMLElement;
+    expect(panel.style.transform).toContain("translate(30px, 40px)");
+    expect(panel.style.width).toBe("500px");
+    expect(panel.style.height).toBe("400px");
+
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "modalResetSize") }));
+    expect(window.localStorage.getItem("aipm-cockpit:modal-pos:sharepoint")).toBeNull();
+    expect(window.localStorage.getItem("aipm-cockpit:modal-size:sharepoint")).toBeNull();
+    expect(panel.style.transform).toContain("translate(0px, 0px)");
+    expect(panel.style.width).toBe("");
+    expect(panel.style.height).toBe("");
   });
 
   it("403 error renders the forbidden message", async () => {

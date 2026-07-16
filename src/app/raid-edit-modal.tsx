@@ -11,6 +11,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { ModalFieldControls } from "./modal-field-controls";
+import { ModalHeader } from "./modal-header";
+import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
@@ -124,6 +127,8 @@ export function RaidEditModal({
   const mitigationRef = useRef<HTMLTextAreaElement>(null);
   useAutogrow(descriptionRef, draft.description ?? "");
   useAutogrow(mitigationRef, draft.mitigation ?? "");
+  const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:raid-edit");
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:raid-edit");
   // Category is locked after creation by default (changing it can lose
   // status / matrix data). Users can unlock it with the inline "Advanced"
   // affordance. Re-locks whenever the user navigates to a different item.
@@ -258,28 +263,22 @@ export function RaidEditModal({
       onClick={onCancel}
     >
       <div
+        ref={sizeRef}
+        data-modal-panel
         onClick={(e) => e.stopPropagation()}
-        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+        className="relative flex max-h-[95vh] w-[720px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
-          <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-            {isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)}
-          </h2>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label={t(lang, "cancel")}
-            className={`rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue ${INTERACTIVE}`}
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-              <path
-                fillRule="evenodd"
-                d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </header>
+        <ModalHeader
+          lang={lang}
+          title={isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)}
+          onClose={onCancel}
+          dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
+        />
 
         <div className="flex justify-end border-b border-line px-4 py-2">
           <ModalFieldControls modalId="raid" lang={lang} />

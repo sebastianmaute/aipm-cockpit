@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import { t, type Lang } from "./i18n";
 import { useSharePointBrowser, type AcquireToken } from "./use-sharepoint-browser";
 import { parseSharePointSiteUrl } from "./sharepoint-backend";
@@ -79,6 +81,8 @@ export function SharePointPickerModal({
 }: SharePointPickerModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [pasteUrl, setPasteUrl] = useState("");
+  const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:sharepoint");
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:sharepoint");
 
   const {
     loading,
@@ -133,11 +137,21 @@ export function SharePointPickerModal({
       zIndex={60}
     >
       <div
+        ref={sizeRef}
         data-modal-panel
-        className="flex w-[640px] max-w-[95vw] flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-lg"
-        style={{ maxHeight: "80vh" }}
+        className="flex w-[640px] min-w-[360px] max-w-[95vw] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-lg"
+        style={{ maxHeight: "80vh", transform: `translate(${offset.x}px, ${offset.y}px)` }}
       >
-        <ModalHeader lang={lang} title={title} onClose={onClose} />
+        <ModalHeader
+          lang={lang}
+          title={title}
+          onClose={onClose}
+          dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
+        />
 
         <div className="flex flex-col gap-3 overflow-y-auto p-4">
           {/* Search row */}
