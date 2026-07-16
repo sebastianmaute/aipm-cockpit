@@ -1466,6 +1466,7 @@ export const de: Record<TranslationKey, string> = {
   absenceTypeSick: "Krank",
   absenceTypeTraining: "Schulung",
   absenceTypeOther: "Sonstiges",
+  absenceLegendLabel: "Legende Abwesenheitsarten",
   absencePlaceholderAssignee: "Name (passend zu bestehenden Aufgaben-Zugewiesenen)",
   absencePlaceholderNote: "Optional – Kontext für das Team",
   absenceErrorRequired: "Zugewiesen an, Start und Ende sind erforderlich.",

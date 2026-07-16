@@ -390,7 +390,7 @@ export function ResourceWorkload({
     </div>
       <ul
         className="mt-2 flex flex-wrap items-center gap-3 px-1 text-xs text-muted-foreground"
-        aria-label={t(lang, "resourcesUpcomingAbsences")}
+        aria-label={t(lang, "absenceLegendLabel")}
       >
         {ABSENCE_TYPES.map((type) => (
           <li key={type} className="flex items-center gap-1.5">

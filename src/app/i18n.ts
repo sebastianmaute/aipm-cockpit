@@ -1473,6 +1473,7 @@ const enUS = {
   absenceTypeSick: "Sick",
   absenceTypeTraining: "Training",
   absenceTypeOther: "Other",
+  absenceLegendLabel: "Absence type legend",
   absencePlaceholderAssignee: "Name (matches existing Task assignees)",
   absencePlaceholderNote: "Optional — context for the team",
   absenceErrorRequired: "Assignee, start, and end are required.",
