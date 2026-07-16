@@ -8,6 +8,8 @@ import { PopoverPanel } from "./popover-panel";
 
 export interface RescheduleBundle {
   onReschedule: (action: SuggestedAction, isoDate: string) => void;
+  /** Resolves the entity's CURRENT due date (ISO) for display + prefill. */
+  currentDueDate?: (action: SuggestedAction) => string | undefined;
 }
 
 interface ReschedulePopoverProps {
@@ -24,8 +26,9 @@ export function ReschedulePopover({ lang, action, bundle, prominent }: Reschedul
   const btnRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
 
+  const currentDue = bundle.currentDueDate?.(action);
   const canConfirm = isValidIsoDate(date);
-  const toggleOpen = () => { if (!open) setDate(""); setOpen((o) => !o); };
+  const toggleOpen = () => { if (!open) setDate(currentDue ?? ""); setOpen((o) => !o); };
   const confirm = () => { bundle.onReschedule(action, date); setDate(""); setOpen(false); };
 
   return (
@@ -51,6 +54,11 @@ export function ReschedulePopover({ lang, action, bundle, prominent }: Reschedul
         <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           {t(lang, "actionRescheduleTitle")}
         </label>
+        {currentDue && (
+          <p className="mb-1 text-[11px] text-muted-foreground">
+            {t(lang, "currentDueDate", currentDue)}
+          </p>
+        )}
         <input
           type="date"
           aria-label={t(lang, "actionRescheduleTitle")}

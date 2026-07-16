@@ -2443,6 +2443,7 @@ const enUS = {
   actionClearBlocker: "Clear blocker",
   actionReschedule: "Reschedule",
   actionRescheduleTitle: "New due date",
+  currentDueDate: "Current due date: {0}",
   actionRescheduleConfirm: "Update",
   actionTaskCompleted: "Task marked done",
   actionBlockerCleared: "Blocker cleared",

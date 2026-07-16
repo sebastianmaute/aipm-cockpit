@@ -2420,6 +2420,7 @@ export const de: Record<TranslationKey, string> = {
   actionClearBlocker: "Blocker entfernen",
   actionReschedule: "Neu planen",
   actionRescheduleTitle: "Neues Fälligkeitsdatum",
+  currentDueDate: "Aktuelles Fälligkeitsdatum: {0}",
   actionRescheduleConfirm: "Aktualisieren",
   actionTaskCompleted: "Aufgabe als erledigt markiert",
   actionBlockerCleared: "Blocker entfernt",

@@ -19,6 +19,19 @@ describe("ReschedulePopover", () => {
     fireEvent.click(screen.getByRole("button", { name: /update/i }));
     expect(onReschedule).toHaveBeenCalledWith(action, "2026-08-01");
   });
+  it("shows the current due date and prefills the input with it", () => {
+    render(
+      <ReschedulePopover
+        lang="en-US"
+        action={action}
+        bundle={{ onReschedule: vi.fn(), currentDueDate: () => "2026-07-10" }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
+    expect(screen.getByText(/current due date: 2026-07-10/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/new due date/i)).toHaveValue("2026-07-10");
+  });
+
   it("disables confirm when the date is empty/invalid", () => {
     render(<ReschedulePopover lang="en-US" action={action} bundle={{ onReschedule: vi.fn() }} />);
     fireEvent.click(screen.getByRole("button", { name: /reschedule/i }));
