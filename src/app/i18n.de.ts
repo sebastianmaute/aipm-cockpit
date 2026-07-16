@@ -949,6 +949,9 @@ export const de: Record<TranslationKey, string> = {
   ganttBaseline: "Baseline",
   ganttBaselineHint:
     "Zeigt das zugesagte Baseline-Datum jedes Meilensteins als Geisterraute hinter dem aktuellen Datum, um Terminverschiebungen sichtbar zu machen.",
+  ganttMilestonesInline: "Meilensteine inline",
+  ganttMilestonesInlineHint:
+    "Jeden Meilenstein als eigene Zeile zwischen den Aufgaben an seinem Fälligkeitsdatum anzeigen, statt als Block darunter.",
   health: "Ampel",
   healthAuto: "Automatisch",
   healthRed: "Rot",

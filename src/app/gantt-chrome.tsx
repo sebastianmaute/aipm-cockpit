@@ -49,6 +49,8 @@ export function GanttToolbar({
   toggleCriticalPath,
   toggleBaseline,
   hasBaseline,
+  toggleMilestonePlacement,
+  hasMilestones,
 }: {
   lang: Lang;
   prefs: GanttPrefs;
@@ -67,6 +69,8 @@ export function GanttToolbar({
   toggleCriticalPath: () => void;
   toggleBaseline: () => void;
   hasBaseline: boolean;
+  toggleMilestonePlacement: () => void;
+  hasMilestones: boolean;
 }) {
   return (
     <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
@@ -210,6 +214,39 @@ export function GanttToolbar({
           <span>{t(lang, "ganttBaseline")}</span>
         </button>
       )}
+      {hasMilestones && (
+        <button
+          type="button"
+          onClick={toggleMilestonePlacement}
+          // Toggle-button name/state coherence: the visible label is pinned to
+          // what the toggle ENABLES ("Inline milestones") and aria-pressed
+          // tracks THAT state, so "Inline milestones, pressed" ⇒ inline is on.
+          aria-pressed={prefs.milestonePlacement === "inline"}
+          title={t(lang, "ganttMilestonesInlineHint")}
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 ${
+            prefs.milestonePlacement === "inline"
+              ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
+              : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
+          }`}
+        >
+          {/* Diamond-between-rows glyph — a milestone marker interleaved among
+              horizontal task rows. */}
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            aria-hidden="true"
+            className="h-3.5 w-3.5"
+          >
+            <line x1={3} y1={5} x2={17} y2={5} />
+            <line x1={3} y1={15} x2={17} y2={15} />
+            <rect x={8} y={8} width={4} height={4} transform="rotate(45 10 10)" fill="currentColor" stroke="none" />
+          </svg>
+          <span>{t(lang, "ganttMilestonesInline")}</span>
+        </button>
+      )}
       <button
         type="button"
         onClick={resetNameColWidth}
@@ -320,22 +357,24 @@ export function GanttHeader({
 export function GanttDependencyLayer({
   placeable,
   bars,
-  rowIndexById,
+  taskRowIndexById,
   range,
   critical,
   sortedMilestones,
-  rowsCount,
+  milestoneRowIndexById,
   chartWidthPx,
   totalRowsCount,
   nameColWidth,
 }: {
   placeable: readonly Task[];
   bars: ReadonlyMap<number, { start: Date; end: Date }>;
-  rowIndexById: ReadonlyMap<number, number>;
+  /** Task id → its row index in the FULL (task + milestone) row list. */
+  taskRowIndexById: ReadonlyMap<number, number>;
   range: { min: Date };
   critical: { criticalEdges: ReadonlySet<string> };
   sortedMilestones: readonly Milestone[];
-  rowsCount: number;
+  /** Milestone id → its row index in the FULL row list. */
+  milestoneRowIndexById: ReadonlyMap<number, number>;
   chartWidthPx: number;
   totalRowsCount: number;
   nameColWidth: number;
@@ -374,12 +413,16 @@ export function GanttDependencyLayer({
           <path d="M 0 0 L 10 5 L 0 10 z" />
         </marker>
       </defs>
-      {placeable.flatMap((task, rowIdx) => {
+      {placeable.flatMap((task) => {
         if (!task.dependencies || task.dependencies.length === 0) {
           return [];
         }
         const myBar = bars.get(task.id);
         if (!myBar) return [];
+        // Row index is looked up (not the map index) so arrows stay aligned
+        // when milestone rows are interleaved among the task rows (inline mode).
+        const rowIdx = taskRowIndexById.get(task.id) ?? -1;
+        if (rowIdx < 0) return [];
         const myStartX =
           nameColWidth +
           diffDays(range.min, myBar.start) * DAY_WIDTH_PX;
@@ -388,7 +431,7 @@ export function GanttDependencyLayer({
           (diffDays(range.min, myBar.end) + 1) * DAY_WIDTH_PX;
         const myYMid = rowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
         return task.dependencies.map((dep, depIdx) => {
-          const predRowIdx = rowIndexById.get(dep.taskId) ?? -1;
+          const predRowIdx = taskRowIndexById.get(dep.taskId) ?? -1;
           if (predRowIdx < 0) return null;
           const predBar = bars.get(dep.taskId);
           if (!predBar) return null;
@@ -449,17 +492,19 @@ export function GanttDependencyLayer({
           a muted grey dash (lighter than the non-critical dependency
           edge) so it reads as context, not a schedule driver.
           Linked tasks with no bar (deleted/filtered) are skipped. */}
-      {sortedMilestones.flatMap((m, mIdx) => {
+      {sortedMilestones.flatMap((m) => {
         const md = parseISO(m.date);
         if (!md) return [];
+        const mRowIdx = milestoneRowIndexById.get(m.id) ?? -1;
+        if (mRowIdx < 0) return [];
         const milestoneX =
           nameColWidth + diffDays(range.min, md) * DAY_WIDTH_PX;
         const milestoneYMid =
-          (rowsCount + mIdx) * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
+          mRowIdx * ROW_HEIGHT_PX + ROW_HEIGHT_PX / 2;
         return (m.linkedTaskIds ?? []).flatMap((taskId) => {
           const bar = bars.get(taskId);
           if (!bar) return [];
-          const taskRowIdx = rowIndexById.get(taskId) ?? -1;
+          const taskRowIdx = taskRowIndexById.get(taskId) ?? -1;
           if (taskRowIdx < 0) return [];
           const taskEndX =
             nameColWidth +

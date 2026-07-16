@@ -958,6 +958,9 @@ const enUS = {
   ganttBaseline: "Baseline",
   ganttBaselineHint:
     "Show each milestone's committed baseline date as a ghost diamond behind the current date, to reveal schedule slip.",
+  ganttMilestonesInline: "Inline milestones",
+  ganttMilestonesInlineHint:
+    "Place each milestone as its own row among the tasks at its due date, instead of in a block below them.",
   health: "Health",
   healthAuto: "Auto",
   healthRed: "Red",

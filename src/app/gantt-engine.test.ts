@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  buildGanttRows,
   clampNameColWidth,
   GANTT_NAME_COL_MAX,
   GANTT_NAME_COL_MIN,
@@ -7,6 +8,7 @@ import {
   loadPrefs,
   milestoneSlipDays,
 } from "./gantt-engine";
+import type { Milestone, Task } from "./types";
 
 const PREFS_KEY = "aipm-cockpit:gantt-prefs";
 
@@ -82,5 +84,57 @@ describe("milestoneSlipDays", () => {
   it("returns null when either date is unparseable", () => {
     expect(milestoneSlipDays("not-a-date", "2026-06-01")).toBeNull();
     expect(milestoneSlipDays("2026-06-01", "")).toBeNull();
+  });
+});
+
+describe("buildGanttRows milestone placement", () => {
+  const task = (id: number): Task => ({ id, taskName: `T${id}` }) as unknown as Task;
+  const milestone = (id: number, date: string, achievedDate?: string): Milestone =>
+    ({ id, name: `M${id}`, date, achievedDate, linkedTaskIds: [] }) as Milestone;
+  const bar = (iso: string) => ({ start: new Date(iso), end: new Date(iso) });
+  // Serialize a row list to compact keys for readable assertions.
+  const keys = (rows: ReturnType<typeof buildGanttRows>): string[] =>
+    rows.map((r) => (r.kind === "task" ? `t${r.task.id}` : `m${r.milestone.id}`));
+
+  // Two tasks ending 2026-01-10 and 2026-02-10.
+  const tasks = [task(1), task(2)];
+  const bars = new Map([
+    [1, bar("2026-01-10")],
+    [2, bar("2026-02-10")],
+  ]);
+
+  it("'below' places every task first, then all milestones in date order", () => {
+    const ms = [milestone(10, "2026-01-20"), milestone(11, "2026-03-01")];
+    expect(keys(buildGanttRows(tasks, ms, "below", bars))).toEqual([
+      "t1",
+      "t2",
+      "m10",
+      "m11",
+    ]);
+  });
+
+  it("'inline' splices each non-achieved milestone at its due-date position", () => {
+    // m10 (01-20) sits after t1 (01-10) but before t2 (02-10); m11 (03-01) is
+    // after every task so it lands at the end.
+    const ms = [milestone(10, "2026-01-20"), milestone(11, "2026-03-01")];
+    expect(keys(buildGanttRows(tasks, ms, "inline", bars))).toEqual([
+      "t1",
+      "m10",
+      "t2",
+      "m11",
+    ]);
+  });
+
+  it("'inline' keeps achieved and unparseable-date milestones at the end", () => {
+    const ms = [
+      milestone(20, "2026-01-05", "2026-01-06"), // achieved → below
+      milestone(21, "not-a-date"), // unparseable → end
+    ];
+    expect(keys(buildGanttRows(tasks, ms, "inline", bars))).toEqual([
+      "t1",
+      "t2",
+      "m20",
+      "m21",
+    ]);
   });
 });

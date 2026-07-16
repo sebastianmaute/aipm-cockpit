@@ -187,6 +187,35 @@ describe("GanttPanel milestones", () => {
   });
 });
 
+// ---------- milestone placement toggle -------------------------------------
+
+describe("GanttPanel milestone placement toggle", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  const milestones: Milestone[] = [
+    { id: 100, name: "Beta", date: dayPlus(10), linkedTaskIds: [] },
+  ];
+
+  it("hides the toggle when there are no milestones", () => {
+    const { queryByRole } = render(<GanttPanel {...BASE_PROPS} />);
+    expect(queryByRole("button", { name: /inline milestones/i })).toBeNull();
+  });
+
+  it("shows a pinned-label toggle whose aria-pressed tracks inline mode", () => {
+    const { getByRole } = render(
+      <GanttPanel {...BASE_PROPS} milestones={milestones} />,
+    );
+    const btn = getByRole("button", { name: /inline milestones/i });
+    // Label is pinned to what it ENABLES; default (below) → not pressed.
+    expect(btn.getAttribute("aria-pressed")).toBe("false");
+    act(() => {
+      fireEvent.click(btn);
+    });
+    expect(btn.getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
 // ---------- dependency arrows ----------------------------------------------
 
 describe("GanttPanel dependency arrows", () => {
