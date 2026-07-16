@@ -1,9 +1,10 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 import { FiltersProvider } from "./filters-context";
 import { SavedViewsControl } from "./saved-views-control";
 import { loadSavedViews, saveSavedViews, type SavedViewPayload } from "./saved-views";
+import { SETTINGS_KEY } from "./use-settings";
 
 function basePayload(overrides: Partial<SavedViewPayload> = {}): SavedViewPayload {
   return {
@@ -128,5 +129,18 @@ describe("SavedViewsControl", () => {
     expect(screen.getByRole("combobox", { name: "Apply a saved view" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save current view" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Delete the selected saved view" })).toBeTruthy();
+  });
+
+  it("renders by default (Show saved views on)", () => {
+    renderControl();
+    expect(screen.getByRole("combobox", { name: "Apply a saved view" })).toBeTruthy();
+  });
+
+  it("renders null when the global Show-saved-views setting is off", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ showSavedViews: false }));
+    renderControl();
+    await waitFor(() =>
+      expect(screen.queryByRole("combobox", { name: "Apply a saved view" })).toBeNull(),
+    );
   });
 });

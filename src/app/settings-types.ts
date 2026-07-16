@@ -531,6 +531,9 @@ export type Settings = {
   /** Per-device: show the edit-modal field-config controls (the Simple/Advanced/
    *  Full tier switch + the per-field cog). Default ON (read as `!== false`). */
   showFieldConfig?: boolean;
+  /** Per-device: show the saved-views controls (tasks + panel + reports).
+   *  Default ON (read as `!== false`). */
+  showSavedViews?: boolean;
   /** Per-device sidebar branding: a custom logo (data:image URL) and/or slogan
    *  overriding the default Acme logo + subtitle. */
   branding?: BrandingConfig;
@@ -594,6 +597,7 @@ export const defaultSettings: Settings = {
   dictation: { engine: "web-speech", hotkey: "F4" },
   showViewHints: true,
   showFieldConfig: true,
+  showSavedViews: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
   showDisplayTzSwitcher: false,
   reports: { extra: ["raid-report", "budget-report"] },

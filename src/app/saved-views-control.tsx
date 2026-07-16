@@ -7,6 +7,7 @@ import { useFilters } from "./filters-context";
 import { useSavedViews } from "./use-saved-views";
 import { type SavedView, type SavedViewPayload } from "./saved-views";
 import { SavedViewsMenu } from "./saved-views-menu";
+import { useSettings } from "./use-settings";
 
 interface SavedViewsControlProps {
   lang: Lang;
@@ -15,6 +16,7 @@ interface SavedViewsControlProps {
 }
 
 export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedViewsControlProps) {
+  const { settings } = useSettings();
   const f = useFilters();
   const { views, addView, removeView } = useSavedViews();
 
@@ -42,6 +44,9 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
     f.setRaidFilterTaskId(null);
     setHiddenCols(new Set(v.payload.hiddenCols));
   }
+
+  // Global "Show saved views" opt-out (Settings → Appearance) hides the control.
+  if (settings.showSavedViews === false) return null;
 
   return (
     <SavedViewsMenu
