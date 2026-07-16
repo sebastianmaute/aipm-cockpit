@@ -274,6 +274,10 @@ const enUS = {
   emailSubject: "Update for assigned task: #{0} – {1}",
   emailBodyTemplate:
     "Hi {0},\n\nCould you provide a status update on the following task?\n\n- ID: #{1}\n- Task: {2}\n- Due: {3}\n- Last update: {4}\n\nThanks",
+  raidEmailSubject: "Update requested on RAID item: #{0} – {1}",
+  raidEmailBodyTemplate:
+    "Hi {0},\n\nCould you provide a status update on the following RAID item?\n\n- ID: #{1}\n- Item: {2}\n- Target date: {3}\n- Raised: {4}\n\nThanks",
+  raidOwnerAll: "All owners",
 
   dueToday: "Due today",
   overdue: "Overdue (was due {0})",

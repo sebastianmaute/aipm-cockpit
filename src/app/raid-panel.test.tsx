@@ -524,3 +524,28 @@ describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
     expect(onPullCalendar).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("RaidPanel send-inquiry (owner)", () => {
+  it("renders a row-unique Send inquiry button for an active item and calls onSendInquiry with that item", () => {
+    const onSendInquiry = vi.fn();
+    const item = makeRaidItem({ id: 7, title: "Capacity risk", severity: "High", owner: "Alice Owner", ownerEmail: "alice@test.com" });
+    renderPanel(makeProps({ raid: [item], onSendInquiry }));
+    const btn = screen.getByRole("button", { name: `${t("en-US", "sendInquiry")} – Capacity risk` });
+    fireEvent.click(btn);
+    expect(onSendInquiry).toHaveBeenCalledTimes(1);
+    expect(onSendInquiry).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+  });
+
+  it("hides the Send inquiry button for a closed (review-inactive) item", () => {
+    const onSendInquiry = vi.fn();
+    const item = makeRaidItem({ id: 8, title: "Closed one", severity: "Low", status: "Closed", closedDate: "2026-05-01", owner: "Bob" });
+    renderPanel(makeProps({ raid: [item], onSendInquiry }));
+    expect(screen.queryByRole("button", { name: `${t("en-US", "sendInquiry")} – Closed one` })).toBeNull();
+  });
+
+  it("omits the button entirely when onSendInquiry is absent (popout)", () => {
+    const item = makeRaidItem({ id: 9, title: "No handler", severity: "High", owner: "Cara" });
+    renderPanel(makeProps({ raid: [item] }));
+    expect(screen.queryByRole("button", { name: new RegExp(t("en-US", "sendInquiry")) })).toBeNull();
+  });
+});

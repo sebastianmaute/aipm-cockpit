@@ -109,6 +109,9 @@ export type RaidPanelProps = {
   onAiEdit?: (item: RaidItem) => void;
   /** Gate the per-row ✨ button (e.g. AI enabled && not Jira-synced). */
   aiEditEnabled?: (item: RaidItem) => boolean;
+  /** Send a status-inquiry email to an item's owner. Absent in popouts (the
+   *  row + modal buttons hide when undefined). */
+  onSendInquiry?: (item: RaidItem) => void;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -151,6 +154,7 @@ function RaidPanelBody({
   calendarPullBusy,
   onAiEdit,
   aiEditEnabled,
+  onSendInquiry,
 }: RaidPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
@@ -487,6 +491,7 @@ function RaidPanelBody({
               const target = raidById.get(id);
               if (target) openEdit(target);
             }}
+            onSendInquiry={onSendInquiry}
           />
         )
       }
@@ -512,6 +517,7 @@ function RaidPanelBody({
           flashId={flashId}
           onAiEdit={onAiEdit}
           aiEditEnabled={aiEditEnabled}
+          onSendInquiry={onSendInquiry}
         />
     </PanelTableScaffold>
   );

@@ -103,6 +103,7 @@ export function WorkspaceSection({
   handleClearRaidTaskFilter,
   handleSaveRaidItem,
   handleDeleteRaidItem,
+  onSendRaidInquiry,
   onCaptureRaidBulk,
   onCaptureUndo,
   onCaptureFieldEdit,
@@ -415,6 +416,7 @@ export function WorkspaceSection({
             onClearTaskFilter={handleClearRaidTaskFilter}
             onSave={handleSaveRaidItem}
             onDelete={handleDeleteRaidItem}
+            onSendInquiry={onSendRaidInquiry}
             onCaptureBulk={onCaptureRaidBulk}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}

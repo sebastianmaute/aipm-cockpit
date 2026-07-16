@@ -1106,4 +1106,59 @@ describe("useResourcePlanner", () => {
       expect(result.current.workspace.resources[0].utilizationMode).toBe("hours");
     });
   });
+
+  describe("handleSendRaidInquiry", () => {
+    const owned = (overrides?: Partial<RaidItem>): RaidItem => ({
+      id: 4, category: "R", title: "Capacity risk", description: "", severity: "High",
+      status: "Open", owner: "Alice Owner", ownerEmail: "alice@test.com",
+      linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [],
+      raisedDate: "2026-05-01", targetDate: "2026-06-01", ...overrides,
+    });
+
+    let hrefValue = "";
+    let originalLocation: Location;
+    beforeEach(() => {
+      hrefValue = "";
+      originalLocation = window.location;
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...originalLocation, set href(v: string) { hrefValue = v; }, get href() { return hrefValue; } },
+      });
+    });
+
+    it("opens a mailto and bumps inquiriesSent via a prev-based setter", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setRaid([owned({ inquiriesSent: 2 })]); });
+      act(() => { result.current.planner.handleSendRaidInquiry(owned({ inquiriesSent: 2 })); });
+      expect(hrefValue.startsWith("mailto:")).toBe(true);
+      expect(hrefValue).toContain(encodeURIComponent("alice@test.com"));
+      expect((result.current.workspace.raid[0] as RaidItem).inquiriesSent).toBe(3);
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    });
+
+    it("sends to the linked resource's LIVE email, not a stale cached ownerEmail", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.workspace.setResources([
+          { id: 9, firstName: "Live", lastName: "Owner", roleId: null, utilizationMode: "percent", utilization: {}, email: "live@corp.com" },
+        ]);
+        result.current.workspace.setRaid([owned({ ownerEmail: "stale@old.com", ownerResourceId: 9 })]);
+      });
+      act(() => { result.current.planner.handleSendRaidInquiry(owned({ ownerEmail: "stale@old.com", ownerResourceId: 9 })); });
+      expect(hrefValue).toContain(encodeURIComponent("live@corp.com"));
+      expect(hrefValue).not.toContain(encodeURIComponent("stale@old.com"));
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    });
+
+    it("does nothing when the owner has no email and the prompt is cancelled", () => {
+      vi.spyOn(window, "prompt").mockReturnValue(null);
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setRaid([owned({ owner: "No Email", ownerEmail: undefined })]); });
+      act(() => { result.current.planner.handleSendRaidInquiry(owned({ owner: "No Email", ownerEmail: undefined })); });
+      expect(hrefValue).toBe("");
+      expect((result.current.workspace.raid[0] as RaidItem).inquiriesSent ?? 0).toBe(0);
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+      vi.restoreAllMocks();
+    });
+  });
 });

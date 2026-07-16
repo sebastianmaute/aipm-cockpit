@@ -278,6 +278,11 @@ export const de: Record<TranslationKey, string> = {
   emailBodyTemplate:
     "Hallo {0},\n\nkönnten Sie ein Status-Update zur folgenden Aufgabe geben?\n\n- ID: #{1}\n- Aufgabe: {2}\n- Fällig: {3}\n- Letzte Aktualisierung: {4}\n\nDanke",
 
+  raidEmailSubject: "Update zum RAID-Eintrag angefragt: #{0} – {1}",
+  raidEmailBodyTemplate:
+    "Hallo {0},\n\nkönnten Sie ein Status-Update zum folgenden RAID-Eintrag geben?\n\n- ID: #{1}\n- Eintrag: {2}\n- Zieldatum: {3}\n- Erfasst: {4}\n\nDanke",
+  raidOwnerAll: "Alle Verantwortlichen",
+
   dueToday: "Heute fällig",
   overdue: "Überfällig (war fällig am {0})",
   workDayLeft: "{0} Arbeitstag verbleibend",

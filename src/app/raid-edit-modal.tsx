@@ -24,6 +24,7 @@ import {
   statusOptionsFor,
   wouldCreateCycle,
 } from "./raid";
+import { isRaidActiveForReview } from "./raid-review";
 import {
   RAID_CATEGORIES,
   RAID_SEVERITIES,
@@ -75,6 +76,9 @@ export type RaidEditModalProps = {
   /** Switch the panel's modal to a different RAID item. Used by the
    *  "Caused by" link and the "Items caused by this" chips. */
   onJumpToRaid: (id: number) => void;
+  /** Send a status-inquiry email to the item's owner. Absent in popouts; the
+   *  footer button only renders for a saved, review-active item. */
+  onSendInquiry?: (item: RaidItem) => void;
 };
 
 export function RaidEditModal({
@@ -96,6 +100,7 @@ export function RaidEditModal({
   onDelete,
   onCreateMitigationTask,
   onJumpToRaid,
+  onSendInquiry,
 }: RaidEditModalProps) {
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("raid");
@@ -618,19 +623,30 @@ export function RaidEditModal({
           {error && <ModalFieldError error={error} />}
 
           <div className="flex justify-between gap-2 sm:col-span-2">
-            <span className="inline-flex items-center gap-1">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (await confirm({ message: t(lang, "raidConfirmDelete") })) onDelete();
-                }}
-                disabled={isNew}
-                className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                {t(lang, "raidDelete")}
-              </button>
-              <InfoTooltip text={t(lang, "raidFieldDeleteHint")} />
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (await confirm({ message: t(lang, "raidConfirmDelete") })) onDelete();
+                  }}
+                  disabled={isNew}
+                  className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                >
+                  {t(lang, "raidDelete")}
+                </button>
+                <InfoTooltip text={t(lang, "raidFieldDeleteHint")} />
+              </span>
+              {!isNew && onSendInquiry && isRaidActiveForReview(draft) && (
+                <button
+                  type="button"
+                  onClick={() => onSendInquiry(draft)}
+                  className={`rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+                >
+                  {t(lang, "sendInquiry")}
+                </button>
+              )}
+            </div>
             <div className="flex gap-2">
               <button
                 type="button"

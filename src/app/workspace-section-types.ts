@@ -101,6 +101,9 @@ export interface WorkspaceSectionProps {
   // entity-id-mint.ts); non-modal callers (bulk edit) omit it.
   handleSaveRaidItem: (item: RaidItem, isNew?: boolean) => void;
   handleDeleteRaidItem: (id: number) => void;
+  /** Send a status-inquiry email to a RAID item's owner (mirrors task
+   *  `onSendInquiry`). Absent in popouts. */
+  onSendRaidInquiry?: (item: RaidItem) => void;
   /** Capture the selected RAID rows' pre-edit images for undo before a bulk apply. */
   onCaptureRaidBulk?: (ids: readonly number[]) => void;
   /** Raw undo capture (milestone panel builds its own restore via setMilestones). */
