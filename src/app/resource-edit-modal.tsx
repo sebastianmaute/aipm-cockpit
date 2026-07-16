@@ -5,10 +5,11 @@
 // via useEffect, `update(key, value)` helper, footer with Delete/Cancel/Save.
 // Does NOT edit discipline/grade (those are owned by the Roles modal).
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { useAutogrow } from "./use-autogrow";
 import { ModalEditFooter } from "./modal-edit-fields";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";
@@ -75,6 +76,8 @@ export function ResourceEditModal({
   const adj = useAdjustmentTracker();
   const { isVisible } = useModalVisibility("resource");
   const confirm = useConfirm();
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  useAutogrow(notesRef, draft?.notes ?? "");
 
   const { offset, reset: dragReset, handleProps } = useDraggable(
     draft !== null,
@@ -385,10 +388,11 @@ export function ResourceEditModal({
                 {t(lang, "resourceNotes")}<InfoTooltip text={t(lang, "resourceNotesHint")} />
               </span>
               <textarea
+                ref={notesRef}
                 rows={3}
                 value={draft.notes ?? ""}
                 onChange={(e) => update("notes", e.target.value || undefined)}
-                className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+                className={`resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}

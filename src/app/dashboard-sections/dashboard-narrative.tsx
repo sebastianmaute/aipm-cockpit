@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { type Lang, t } from "../i18n";
 import { TRANSITION, FOCUS_RING, INTERACTIVE } from "../interaction-styles";
+import { useAutogrow } from "../use-autogrow";
 import type { ProjectStatus } from "../types";
 
 /** Read-only exec-summary of the saved status narrative (Tier 0). Renders null
@@ -45,13 +46,7 @@ export function NarrativeEditor({
   }
 
   const narrativeRef = useRef<HTMLTextAreaElement | null>(null);
-  const resizeNarrative = (el: HTMLTextAreaElement) => {
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  };
-  useEffect(() => {
-    if (narrativeRef.current) resizeNarrative(narrativeRef.current);
-  }, [draftNarrative]);
+  useAutogrow(narrativeRef, draftNarrative);
 
   const commitNarrative = () => {
     const trimmed = draftNarrative.trim();
@@ -65,8 +60,8 @@ export function NarrativeEditor({
       setStatus((s) => ({ ...s, narrative: "", narrativeUpdatedAt: new Date().toISOString() }));
     }
     // No synchronous resize here: the draft state hasn't flushed yet, so the
-    // textarea still holds its old value. The useEffect([draftNarrative]) pass
-    // re-measures after the cleared value lands in the DOM.
+    // textarea still holds its old value. The useAutogrow pass re-measures
+    // after the cleared value lands in the DOM.
   };
 
   return (
@@ -82,7 +77,6 @@ export function NarrativeEditor({
           placeholder={t(lang, "dashboardNarrativePlaceholder")}
           value={draftNarrative}
           onChange={(e) => setDraftNarrative(e.target.value)}
-          onInput={(e) => resizeNarrative(e.currentTarget)}
           onBlur={commitNarrative}
         />
         <div className="mt-2 flex justify-end gap-2 print:hidden">

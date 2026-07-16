@@ -9,10 +9,11 @@
 // HTML5 datalist autocomplete of known assignees so the user can either
 // pick an existing person or type a new one.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { useAutogrow } from "./use-autogrow";
 import { AssigneeField, ModalEditFooter } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
@@ -55,6 +56,8 @@ export function AbsenceEditModal({
 
   const { isVisible } = useModalVisibility("absence");
   const confirm = useConfirm();
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  useAutogrow(noteRef, draft?.note ?? "");
 
   if (prevAbsence !== absence) {
     setPrevAbsence(absence);
@@ -224,13 +227,14 @@ export function AbsenceEditModal({
                 {t(lang, "absenceNote")}<InfoTooltip text={t(lang, "absenceNoteHint")} />
               </span>
               <textarea
+                ref={noteRef}
                 rows={2}
                 value={draft.note ?? ""}
                 onChange={(e) =>
                   update("note", e.target.value || undefined)
                 }
                 placeholder={t(lang, "absencePlaceholderNote")}
-                className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
+                className="resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
             </label>
           )}

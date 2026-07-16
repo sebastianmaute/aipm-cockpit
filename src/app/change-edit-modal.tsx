@@ -39,6 +39,7 @@ import {
 } from "./edit-modal-chrome";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
+import { useAutogrow } from "./use-autogrow";
 import { useSettings } from "./use-settings";
 
 export interface ChangeEditModalProps {
@@ -109,6 +110,12 @@ export function ChangeEditModal({
   const [notice, setNotice] = useState<Record<string, string>>({});
   const scheduleNoticeId = useId();
   const costNoticeId = useId();
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const impactRef = useRef<HTMLTextAreaElement>(null);
+  const resolutionRef = useRef<HTMLTextAreaElement>(null);
+  useAutogrow(descriptionRef, draft.description ?? "");
+  useAutogrow(impactRef, draft.impactDescription ?? "");
+  useAutogrow(resolutionRef, draft.resolutionNotes ?? "");
   const adj = useAdjustmentTracker();
   const { settings } = useSettings();
   const draftRef = useRef(draft);
@@ -310,6 +317,7 @@ export function ChangeEditModal({
               {descriptionMic}
             </span>
             <textarea
+              ref={descriptionRef}
               rows={2}
               value={draft.description}
               onChange={(e) => update("description", e.target.value)}
@@ -319,7 +327,7 @@ export function ChangeEditModal({
                 descriptionDictationReg.onBlur();
               }}
               aria-describedby="change-description-counter"
-              className={INPUT_CLASS}
+              className={`resize-none ${INPUT_CLASS}`}
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="change-description-counter" lang={lang} />
             {descriptionDictationStatus}
@@ -385,6 +393,7 @@ export function ChangeEditModal({
               {t(lang, "changeFieldImpactDescription")}<InfoTooltip text={t(lang, "changeFieldImpactDescriptionHint")} />
             </span>
             <textarea
+              ref={impactRef}
               rows={2}
               value={draft.impactDescription ?? ""}
               onChange={(e) =>
@@ -392,7 +401,7 @@ export function ChangeEditModal({
               }
               onBlur={(e) => update("impactDescription", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
               aria-describedby="change-impactDescription-counter"
-              className={INPUT_CLASS}
+              className={`resize-none ${INPUT_CLASS}`}
             />
             <CharCounter value={draft.impactDescription ?? ""} max={TEXTAREA_MAX} id="change-impactDescription-counter" lang={lang} />
           </label>
@@ -512,6 +521,7 @@ export function ChangeEditModal({
               {t(lang, "changeFieldResolution")}<InfoTooltip text={t(lang, "changeFieldResolutionHint")} />
             </span>
             <textarea
+              ref={resolutionRef}
               rows={2}
               value={draft.resolutionNotes ?? ""}
               onChange={(e) =>
@@ -519,7 +529,7 @@ export function ChangeEditModal({
               }
               onBlur={(e) => update("resolutionNotes", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
               aria-describedby="change-resolutionNotes-counter"
-              className={INPUT_CLASS}
+              className={`resize-none ${INPUT_CLASS}`}
             />
             <CharCounter value={draft.resolutionNotes ?? ""} max={TEXTAREA_MAX} id="change-resolutionNotes-counter" lang={lang} />
           </label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ComboInput } from "./combo-input";
 import { DocumentLinksFieldGated } from "./document-links-field-gated";
 import { ResourcePicker } from "./resource-picker";
@@ -11,6 +11,7 @@ import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
+import { useAutogrow } from "./use-autogrow";
 import { useSettings } from "./use-settings";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import {
@@ -90,6 +91,8 @@ export function TaskFormFields({
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  useAutogrow(notesRef, form.notes);
   const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
@@ -548,6 +551,7 @@ export function TaskFormFields({
             {notesMic}
           </span>
           <textarea
+            ref={notesRef}
             rows={3}
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -558,7 +562,7 @@ export function TaskFormFields({
             }}
             placeholder={t(lang, "placeholderNotes")}
             aria-describedby="notes-counter"
-            className={inputClass}
+            className={`resize-none ${inputClass}`}
           />
           <CharCounter value={form.notes} max={TEXTAREA_MAX} id="notes-counter" lang={lang} />
           {notesDictationStatus}
