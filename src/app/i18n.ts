@@ -1446,7 +1446,7 @@ const enUS = {
   popoutOpenInNewWindow: "Open in new window",
   popoutReuseWindow: "Reuse popout window",
   tabResources: "Resources",
-  resourcesEmpty: "No tasks have been assigned to anyone yet.",
+  resourcesEmpty: "No contacts available.",
   resourcesOpenTasks: "Open",
   resourcesOverdueTasks: "Overdue",
   workloadOpenRaid: "Open RAID",

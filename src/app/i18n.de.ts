@@ -1439,7 +1439,7 @@ export const de: Record<TranslationKey, string> = {
   popoutOpenInNewWindow: "In neuem Fenster öffnen",
   popoutReuseWindow: "Bereits geöffnetes Fenster wiederverwenden",
   tabResources: "Ressourcen",
-  resourcesEmpty: "Es wurden noch keine Aufgaben zugewiesen.",
+  resourcesEmpty: "Keine Kontakte verfügbar.",
   resourcesOpenTasks: "Offen",
   resourcesOverdueTasks: "Überfällig",
   workloadOpenRaid: "Offene RAID",
