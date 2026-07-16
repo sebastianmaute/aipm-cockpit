@@ -134,7 +134,7 @@ export function buildDocx(sections: ExportSection[]): Blob {
       <w:pPr><w:pStyle w:val="Title"/></w:pPr>
       <w:r>
         <w:rPr><w:color w:val="${COLOR_DARK_BLUE}"/><w:sz w:val="48"/></w:rPr>
-        <w:t>AIPM Cockpit</w:t>
+        <w:t>AI PM Cockpit</w:t>
       </w:r>
     </w:p>
     <w:p>

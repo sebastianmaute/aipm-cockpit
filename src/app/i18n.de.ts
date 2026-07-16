@@ -7,7 +7,7 @@
 import type { TranslationKey } from "./i18n";
 
 export const de: Record<TranslationKey, string> = {
-  appTitle: "AIPM Cockpit",
+  appTitle: "AI PM Cockpit",
   appSubtitle: "Erfassen Sie offene Projektpunkte. Lokal in diesem Browser gespeichert.",
 
   editingTask: "Aufgabe #{0} bearbeiten",

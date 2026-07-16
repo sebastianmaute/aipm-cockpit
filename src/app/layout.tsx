@@ -15,7 +15,7 @@ const titillium = Titillium_Web({
 });
 
 export const metadata: Metadata = {
-  title: "AIPM Cockpit",
+  title: "AI PM Cockpit",
   description:
     "AI-assisted project cockpit — task, RAID, budget and milestone tracking that plugs into M365, Jira and Timelog. Local-first, no backend.",
   manifest: "/manifest.webmanifest",
