@@ -172,6 +172,23 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
         />
       </div>
 
+      <div className="mb-4">
+        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "showFieldConfigLabel")}
+          <InfoTooltip text={t(lang, "showFieldConfigHint")} />
+        </span>
+        <SegmentedControl<"shown" | "hidden">
+          value={settings.showFieldConfig !== false ? "shown" : "hidden"}
+          ariaLabel={t(lang, "showFieldConfigLabel")}
+          className="w-full"
+          options={[
+            { value: "shown", label: t(lang, "viewHintsShown") },
+            { value: "hidden", label: t(lang, "viewHintsHidden") },
+          ]}
+          onChange={(v) => onChange({ ...settings, showFieldConfig: v === "shown" })}
+        />
+      </div>
+
       {/* GLOBAL branding: logo/favicon/app-name/footer edited HERE only while a
           BUILT-IN scheme is active (built-ins ship empty branding, read-only in
           the editor). A USER scheme OWNS all four (its editor edits them; apply

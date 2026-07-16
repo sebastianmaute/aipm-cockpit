@@ -11,6 +11,7 @@ import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import { MODAL_FIELDS, type FieldTier, type ModalId } from "./modal-fields";
 import { useModalVisibility } from "./use-modal-visibility";
+import { useSettings } from "./use-settings";
 
 interface ModalFieldControlsProps {
   modalId: ModalId;
@@ -31,7 +32,11 @@ const SEGMENT_INACTIVE = "text-foreground hover:bg-surface-muted";
 
 export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
   const { mode, isVisible, setMode, toggleField, reset } = useModalVisibility(modalId);
+  const { settings } = useSettings();
   const [cogOpen, setCogOpen] = useState(false);
+
+  // Per-device opt-out: hide the field-tier switch + per-field cog entirely.
+  if (settings.showFieldConfig === false) return null;
 
   return (
     <div className="flex items-center gap-2">

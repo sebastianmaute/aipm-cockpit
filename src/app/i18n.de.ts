@@ -1947,6 +1947,8 @@ export const de: Record<TranslationKey, string> = {
   showViewHintsHint: "Zeigt über jeder Arbeitsansicht eine kurze Erklärung mit Link zum passenden Hilfethema.",
   viewHintsShown: "Eingeblendet",
   viewHintsHidden: "Ausgeblendet",
+  showFieldConfigLabel: "Feldkonfiguration",
+  showFieldConfigHint: "Zeigt den Umschalter Einfach/Erweitert/Vollständig und das Feld-Zahnrad in den Bearbeitungsdialogen.",
   viewHintOpenPoints: "Offene Punkte sind die Aufgaben, die das Projekt voranbringen. Vergeben Sie Status und Fälligkeit, damit nichts liegen bleibt.",
   viewHintGantt: "Das Gantt-Diagramm zeigt Aufgaben und Meilensteine auf einer Zeitachse. Verknüpfen Sie Abhängigkeiten, um zu sehen, was zuerst fertig sein muss.",
   viewHintMilestones: "Meilensteine sind die zugesagten Schlüsseltermine. Verfolgen Sie sie, um zu zeigen, ob der Plan im Zeitrahmen liegt.",

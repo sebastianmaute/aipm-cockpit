@@ -528,6 +528,9 @@ export type Settings = {
   /** Per-device: show the contextual per-view Help callouts. Default ON
    *  (read as `!== false`); individual callouts can also be dismissed per-view. */
   showViewHints?: boolean;
+  /** Per-device: show the edit-modal field-config controls (the Simple/Advanced/
+   *  Full tier switch + the per-field cog). Default ON (read as `!== false`). */
+  showFieldConfig?: boolean;
   /** Per-device sidebar branding: a custom logo (data:image URL) and/or slogan
    *  overriding the default Acme logo + subtitle. */
   branding?: BrandingConfig;
@@ -590,6 +593,7 @@ export const defaultSettings: Settings = {
   digest: { enabled: false, cadenceDays: 7 },
   dictation: { engine: "web-speech", hotkey: "F4" },
   showViewHints: true,
+  showFieldConfig: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
   showDisplayTzSwitcher: false,
   reports: { extra: ["raid-report", "budget-report"] },

@@ -1953,6 +1953,8 @@ const enUS = {
   showViewHintsHint: "Show a short explainer atop each working view, with a link to the matching Help topic.",
   viewHintsShown: "Shown",
   viewHintsHidden: "Hidden",
+  showFieldConfigLabel: "Field configuration",
+  showFieldConfigHint: "Show the Simple/Advanced/Full field switch and the per-field cog in the edit dialogs.",
   viewHintOpenPoints: "Open points are the tasks that move the project forward. Set a status and due date on each so nothing stalls.",
   viewHintGantt: "The Gantt chart shows tasks and milestones on a timeline. Link dependencies to see what must finish before what.",
   viewHintMilestones: "Milestones are the key dates you commit to. Track them to show whether the plan is on schedule.",

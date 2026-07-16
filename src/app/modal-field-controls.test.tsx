@@ -1,10 +1,11 @@
 // src/app/modal-field-controls.test.tsx
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { FiltersProvider } from "./filters-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { t } from "./i18n";
+import { SETTINGS_KEY } from "./use-settings";
 import { WorkspaceProvider } from "./workspace-context";
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -36,5 +37,17 @@ describe("ModalFieldControls", () => {
     const nameBox = screen.getByRole("checkbox", { name: t("en-US", "name") });
     expect(nameBox).toBeDisabled();
     expect(nameBox).toBeChecked();
+  });
+
+  describe("showFieldConfig opt-out", () => {
+    afterEach(() => window.localStorage.removeItem(SETTINGS_KEY));
+
+    it("renders nothing when settings.showFieldConfig is false", async () => {
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ showFieldConfig: false }));
+      const { container } = renderControls();
+      // useSettings hydrates from localStorage asynchronously; the controls
+      // disappear once the false flag lands.
+      await waitFor(() => expect(container).toBeEmptyDOMElement());
+    });
   });
 });
