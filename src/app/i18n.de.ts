@@ -3159,6 +3159,8 @@ export const de: Record<TranslationKey, string> = {
   projectsNew: "Neues Projekt",
   reloadProject: "Projekt neu laden",
   reloadProjectHint: "Ruft die Daten des aktuellen Projekts erneut aus dem Speicher ab. Damit können Sie den Zustand wiederherstellen, falls ein Fehler die App ohne ihre Daten zurückgelassen hat.",
+  reloadProjectSuccess: "Projekt aus dem Speicher neu geladen.",
+  reloadProjectError: "Projekt konnte nicht neu geladen werden. Die Daten wurden nicht verändert.",
   reloadEmptyConfirm: "Das Neuladen würde dieses Projekt durch leere Daten ersetzen (die gespeicherte Kopie enthält keine Einträge). Das deutet meist auf einen fehlgeschlagenen Lesevorgang hin. Trotzdem neu laden und den aktuellen Inhalt verwerfen?",
   storageKeptCurrentData: "Der Speicher lieferte keine Daten — Ihr aktuelles Projekt wurde beibehalten. Laden Sie die Seite neu, falls dies weiterhin auftritt.",
   storageRefusedWipe: "Der Speicher hat ein plötzliches Leeren des gesamten Projekts verhindert, um es zu schützen (vermutlich eine Störung). Ihre gespeicherten Daten sind intakt — laden Sie die Seite neu, um sie wiederherzustellen.",

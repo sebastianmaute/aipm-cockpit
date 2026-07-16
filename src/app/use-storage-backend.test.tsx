@@ -1429,6 +1429,25 @@ describe("useStorageBackend — reloadCurrentProject data-loss guard", () => {
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(result.current.tasks).toHaveLength(1);
   });
+
+  it("shows a success toast when the reload applies", async () => {
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount empty
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 5, taskName: "Fresh" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(showToast).toHaveBeenCalledWith("success", expect.any(String));
+  });
+
+  it("shows an error toast and leaves data untouched when the reload throws", async () => {
+    mockBackend.load.mockResolvedValueOnce({ tasks: [{ id: 1, taskName: "Keep me" }] as unknown as Task[], raid: [], absences: [], shifts: [] });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); }); // mount 1 task
+    expect(result.current.tasks).toHaveLength(1);
+    mockBackend.load.mockRejectedValueOnce(new Error("backend unreachable"));
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
+    expect(result.current.tasks).toHaveLength(1); // unchanged on failure
+  });
 });
 
 describe("useStorageBackend — id-minter high-water seeding on load", () => {
