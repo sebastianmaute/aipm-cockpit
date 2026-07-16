@@ -694,11 +694,8 @@ describe("TaskRow changes badge", () => {
 });
 
 describe("TaskActions", () => {
-  test("each button calls the corresponding handler with the right argument", () => {
-    const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
-    const task = makeTask({ id: 99 });
-
-    const { getByText } = render(
+  const renderActions = (ctx: RowContextValue, task: Task) =>
+    render(
       <table>
         <tbody>
           <tr>
@@ -712,10 +709,34 @@ describe("TaskActions", () => {
       </table>,
     );
 
+  test("Edit is inline and fires onEdit; the secondaries stay hidden until ⋮ opens", () => {
+    const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
+    const task = makeTask({ id: 99 });
+    const { getByText, getByRole, queryByText } = renderActions(ctx, task);
+
+    // Edit renders inline.
     fireEvent.click(getByText("Edit"));
     expect(ctx.onEdit).toHaveBeenCalledTimes(1);
     expect(ctx.onEdit).toHaveBeenCalledWith(task);
 
+    // The moved verbs are not rendered while the overflow is closed.
+    expect(queryByText("Send inquiry")).toBeNull();
+    expect(queryByText("Push to Jira")).toBeNull();
+    expect(queryByText("Delete")).toBeNull();
+
+    // Opening the ⋮ menu (row-unique accessible name) reveals the three moved actions.
+    fireEvent.click(getByRole("button", { name: "More actions – Sample task" }));
+    expect(getByText("Send inquiry")).toBeInTheDocument();
+    expect(getByText("Push to Jira")).toBeInTheDocument();
+    expect(getByText("Delete")).toBeInTheDocument();
+  });
+
+  test("overflow Delete fires onDelete with the task id", () => {
+    const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
+    const task = makeTask({ id: 99 });
+    const { getByText, getByRole } = renderActions(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "More actions – Sample task" }));
     fireEvent.click(getByText("Delete"));
     expect(ctx.onDelete).toHaveBeenCalledTimes(1);
     expect(ctx.onDelete).toHaveBeenCalledWith(99);

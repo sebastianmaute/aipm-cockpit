@@ -859,7 +859,7 @@ export function TasksSection({
               {/* Leading gutter column matching the per-row hover Ask-Claude cell
                   and the leading <th> below — under table-layout:fixed a missing
                   <col> shifts every column's width to its left neighbour. */}
-              <col className="w-8" />
+              <col className="w-7" />
               {ALL_TASK_COLS
                 .filter((col) => !hiddenCols.has(col))
                 .map((col) => (
@@ -869,7 +869,7 @@ export function TasksSection({
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 {/* Leading gutter matching the per-row hover Ask-Claude cell. */}
-                <th className="w-8" aria-hidden="true" />
+                <th className="w-7" aria-hidden="true" />
                 <Th onResize={(e) => startColResize("sel", e)}>
                   <input
                     type="checkbox"
