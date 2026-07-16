@@ -15,6 +15,7 @@ import { EmptyState } from "./empty-state";
 import { TRANSITION, PRESS } from "./interaction-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
+import { ViewCallout } from "./view-callout";
 
 // --- Props ------------------------------------------------------------------
 
@@ -27,6 +28,13 @@ export interface StakeholderMapPanelProps {
   /** Save an edited stakeholder (drag-to-move). Omit for read-only popouts —
    *  chips are then non-draggable and cells accept no drop. */
   onSaveStakeholder?: (s: Stakeholder) => void;
+  /** Global "show tips" setting (Settings → Appearance) — gates the callout. */
+  showHints?: boolean;
+  /** Popouts are read-only — the callout self-hides. */
+  isPopout?: boolean;
+  /** Deep-link the matching Help concept (wired to `requestHelpConcept`).
+   *  Omit → no callout (read-only popout mirror). */
+  onLearnMore?: (conceptId: string) => void;
 }
 
 // --- Quadrant cell config ---------------------------------------------------
@@ -77,7 +85,7 @@ const QUADRANTS: QuadrantConfig[] = [
 
 // --- Component --------------------------------------------------------------
 
-export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onSaveStakeholder }: StakeholderMapPanelProps) {
+export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onSaveStakeholder, showHints, isPopout, onLearnMore }: StakeholderMapPanelProps) {
   const { ref, reset } = useResizable("aipm-cockpit:stakeholder-map-size");
 
   // Group stakeholders by quadrant once.
@@ -108,6 +116,15 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
 
   return (
     <div ref={ref} data-testid="stakeholder-map-pane" className={`print-root ${CENTERED_HALF_PANE_CLASS}`}>
+      {onLearnMore && (
+        <ViewCallout
+          view="stakeholder-map"
+          lang={lang}
+          showHints={showHints !== false}
+          isPopout={!!isPopout}
+          onLearnMore={onLearnMore}
+        />
+      )}
       {/* Toolbar: title left, controls right */}
       <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 print:hidden">
         <h2 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">

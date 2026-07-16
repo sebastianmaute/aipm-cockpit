@@ -21,6 +21,7 @@ export const VIEW_CALLOUTS: Partial<Record<AppView, ViewCallout>> = {
   raid: { textKey: "viewHintRaid", conceptId: "concept-raid" },
   changes: { textKey: "viewHintChanges", conceptId: "concept-change" },
   stakeholders: { textKey: "viewHintStakeholders", conceptId: "concept-stakeholder" },
+  "stakeholder-map": { textKey: "viewHintStakeholderMap", conceptId: "concept-stakeholder" },
   documents: { textKey: "viewHintDocuments", conceptId: "concept-document" },
   raci: { textKey: "viewHintRaci", conceptId: "concept-raci" },
   budget: { textKey: "viewHintBudget", conceptId: "concept-budget" },

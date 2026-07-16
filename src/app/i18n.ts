@@ -2001,6 +2001,7 @@ const enUS = {
   viewHintRaid: "RAID logs your Risks, Assumptions, Issues and Dependencies — the things that could knock the project off course.",
   viewHintChanges: "The change log records agreed changes to scope, time or budget, so the baseline stays honest.",
   viewHintStakeholders: "Stakeholders are the people affected by or influencing the project. Map who needs what, and when.",
+  viewHintStakeholderMap: "Plot each stakeholder by influence and interest, then drag them between quadrants to agree how closely to manage them.",
   viewHintDocuments: "Every file linked across the project in one place — filter by source, search, and jump to the item a document belongs to.",
   viewHintRaci: "RACI clarifies who is Responsible, Accountable, Consulted and Informed for each milestone — no more guessing.",
   viewHintBudget: "The budget plans effort and cost by role and period. Compare it against actuals to spot overspend early.",

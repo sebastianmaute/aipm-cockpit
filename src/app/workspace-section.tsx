@@ -653,6 +653,9 @@ export function WorkspaceSection({
               stakeholders={stakeholders}
               onOpenStakeholder={isPopout ? undefined : (id) => requestOpen("stakeholders", id)}
               onSaveStakeholder={isPopout ? undefined : handleSaveStakeholder}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}

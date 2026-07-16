@@ -1996,6 +1996,7 @@ export const de: Record<TranslationKey, string> = {
   viewHintRaid: "RAID erfasst Risiken, Annahmen, Probleme und Abhängigkeiten – die Dinge, die das Projekt aus der Bahn werfen können.",
   viewHintChanges: "Das Änderungsprotokoll erfasst vereinbarte Änderungen an Umfang, Zeit oder Budget, damit die Baseline verlässlich bleibt.",
   viewHintStakeholders: "Stakeholder sind die Personen, die das Projekt beeinflussen oder davon betroffen sind. Halten Sie fest, wer was wann braucht.",
+  viewHintStakeholderMap: "Ordnen Sie jeden Stakeholder nach Einfluss und Interesse ein und ziehen Sie ihn zwischen den Quadranten, um festzulegen, wie eng er zu steuern ist.",
   viewHintDocuments: "Alle im Projekt verknüpften Dateien an einem Ort — nach Quelle filtern, suchen und zum zugehörigen Element springen.",
   viewHintRaci: "RACI klärt, wer je Meilenstein verantwortlich (R), rechenschaftspflichtig (A), konsultiert (C) und informiert (I) ist – kein Rätselraten mehr.",
   viewHintBudget: "Das Budget plant Aufwand und Kosten je Rolle und Periode. Vergleichen Sie es mit den Ist-Werten, um Mehrausgaben früh zu erkennen.",

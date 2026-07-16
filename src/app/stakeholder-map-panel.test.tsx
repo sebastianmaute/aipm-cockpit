@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { StakeholderMapPanel } from "./stakeholder-map-panel";
+import { t } from "./i18n";
 import type { Stakeholder } from "./types";
 
 const items: Stakeholder[] = [
@@ -37,6 +38,56 @@ describe("StakeholderMapPanel", () => {
     const pane = container.querySelector("[data-testid='stakeholder-map-pane']")!;
     expect(pane.className).toContain("mx-auto"); // centered
     expect(pane.className).toContain("w-[50%]");
+  });
+});
+
+describe("StakeholderMapPanel help callout", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("renders the callout when hints are on and onLearnMore is wired", () => {
+    render(
+      <StakeholderMapPanel
+        lang="en-US"
+        stakeholders={items}
+        showHints
+        isPopout={false}
+        onLearnMore={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(t("en-US", "viewHintStakeholderMap"))).toBeInTheDocument();
+  });
+
+  it("hides the callout when hints are off", () => {
+    render(
+      <StakeholderMapPanel
+        lang="en-US"
+        stakeholders={items}
+        showHints={false}
+        isPopout={false}
+        onLearnMore={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(t("en-US", "viewHintStakeholderMap"))).toBeNull();
+  });
+
+  it("renders no callout without an onLearnMore handler (read-only mirror)", () => {
+    render(<StakeholderMapPanel lang="en-US" stakeholders={items} showHints />);
+    expect(screen.queryByText(t("en-US", "viewHintStakeholderMap"))).toBeNull();
+  });
+
+  it("deep-links the stakeholder concept on Learn more", () => {
+    const onLearnMore = vi.fn();
+    render(
+      <StakeholderMapPanel
+        lang="en-US"
+        stakeholders={items}
+        showHints
+        isPopout={false}
+        onLearnMore={onLearnMore}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /learn more/i }));
+    expect(onLearnMore).toHaveBeenCalledWith("concept-stakeholder");
   });
 });
 
