@@ -29,6 +29,17 @@ export type TaskDependency = {
   type: DependencyType;
 };
 
+/** A single dated note in a task's running note log. Author is best-effort:
+ *  `authorResourceId` links to a Resource; `authorName` is the display fallback.
+ *  `timestamp` is an ISO instant; `text` is the (control-char-stripped) body. */
+export type NoteLogEntry = {
+  authorResourceId?: number;
+  authorName?: string;
+  /** ISO timestamp when the note was recorded. */
+  timestamp: string;
+  text: string;
+};
+
 export type Task = {
   id: number;
   taskName: string;
@@ -84,6 +95,9 @@ export type Task = {
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
   documentLinks?: DocumentLink[];
+  /** Running note log — dated free-text notes. Optional + sparse; absent on
+   *  legacy data. Persisted as a JSON-in-cell array across the text backends. */
+  noteLog?: NoteLogEntry[];
 };
 
 export const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Urgent"];
@@ -203,6 +217,9 @@ export type RaidItem = {
   /** Outlook calendar event id for this item's review date (calendar write-back
    *  link, keyed on targetDate). App-managed; users never enter it. */
   outlookEventId?: string;
+  /** Total number of status-inquiry emails sent for this item (mirrors
+   *  Task.inquiriesSent). Optional + sparse; absent/0 on legacy data. */
+  inquiriesSent?: number;
 };
 
 /** A zero-duration key date, distinct from a task. `achievedDate` is a manual

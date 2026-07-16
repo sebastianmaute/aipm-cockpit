@@ -123,6 +123,48 @@ describe("entity persistence registry — outlookEventId survives every text bac
   }
 });
 
+// New heavy fields: RaidItem.inquiriesSent (mirrors Task.inquiriesSent) and
+// Task.noteLog (structured JSON-in-cell). CSV column presence also covers Turso
+// single+tenant; the round-trip covers CSV + Markdown.
+describe("entity persistence registry — inquiriesSent + noteLog survive every text backend", () => {
+  it("inquiriesSent is in the RAID CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(RAID_CSV_COLUMNS as readonly string[]).toContain("inquiriesSent");
+  });
+  it("noteLog is in the Task CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(CSV_COLUMNS as readonly string[]).toContain("noteLog");
+  });
+
+  const seedRaid = (): Workspace => ({
+    ...emptyWorkspace(),
+    raid: [{
+      id: 1, category: "R", title: "Risk", status: "Open", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01", inquiriesSent: 5,
+    }],
+  });
+  const seedNote = (): Workspace => ({
+    ...emptyWorkspace(),
+    tasks: [{
+      id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.com",
+      dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
+      blockers: "", notes: "",
+      noteLog: [{ authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", text: "hi" }],
+    }],
+  });
+
+  it("raid inquiriesSent survives the CSV round-trip", () => {
+    expect(csvToWorkspace(workspaceToCsv(seedRaid())).raid[0]?.inquiriesSent).toBe(5);
+  });
+  it("raid inquiriesSent survives the Markdown round-trip", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(seedRaid())).raid[0]?.inquiriesSent).toBe(5);
+  });
+  it("task noteLog survives the CSV round-trip", () => {
+    expect(csvToWorkspace(workspaceToCsv(seedNote())).tasks[0]?.noteLog?.[0]?.text).toBe("hi");
+  });
+  it("task noteLog survives the Markdown round-trip", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(seedNote())).tasks[0]?.noteLog?.[0]?.text).toBe("hi");
+  });
+});
+
 // Rate-card day-rate columns (T13): internalRateDay/externalRateDay/rateBasis
 // ride the same CSV+MD columns (CSV also drives Turso single/tenant).
 describe("entity persistence registry — role day rates survive every text backend", () => {

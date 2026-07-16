@@ -1,5 +1,29 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeSteeringCommittee } from "./sanitize";
+import { sanitizeSteeringCommittee, sanitizeRaidItem } from "./sanitize";
+
+const baseRaid = {
+  id: 1,
+  category: "R" as const,
+  title: "Vendor risk",
+  status: "Open" as const,
+  raisedDate: "2026-01-01",
+};
+
+describe("sanitizeRaidItem — inquiriesSent", () => {
+  it("keeps a positive integer count", () => {
+    expect(sanitizeRaidItem({ ...baseRaid, inquiriesSent: 4 })?.inquiriesSent).toBe(4);
+  });
+  it("floors a fractional count", () => {
+    expect(sanitizeRaidItem({ ...baseRaid, inquiriesSent: 2.9 })?.inquiriesSent).toBe(2);
+  });
+  it("drops a negative count (sparse undefined)", () => {
+    expect(sanitizeRaidItem({ ...baseRaid, inquiriesSent: -3 })?.inquiriesSent).toBeUndefined();
+  });
+  it("drops zero / absent (sparse undefined)", () => {
+    expect(sanitizeRaidItem({ ...baseRaid, inquiriesSent: 0 })?.inquiriesSent).toBeUndefined();
+    expect(sanitizeRaidItem({ ...baseRaid })?.inquiriesSent).toBeUndefined();
+  });
+});
 
 describe("sanitizeSteeringCommittee — per-meeting report", () => {
   it("round-trips a valid meeting report (html/updatedAt/sentAt preserved)", () => {

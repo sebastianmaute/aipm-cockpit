@@ -1,5 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, sanitizeSelfResourceId } from "./settings-types";
+
+describe("sanitizeSelfResourceId", () => {
+  it("keeps a positive integer id", () => {
+    expect(sanitizeSelfResourceId(42)).toBe(42);
+  });
+  it("floors a fractional id", () => {
+    expect(sanitizeSelfResourceId(42.7)).toBe(42);
+  });
+  it("returns undefined for zero / negative / non-number / NaN", () => {
+    expect(sanitizeSelfResourceId(0)).toBeUndefined();
+    expect(sanitizeSelfResourceId(-1)).toBeUndefined();
+    expect(sanitizeSelfResourceId("5")).toBeUndefined();
+    expect(sanitizeSelfResourceId(undefined)).toBeUndefined();
+    expect(sanitizeSelfResourceId(Number.NaN)).toBeUndefined();
+  });
+});
 
 describe("sanitizeBranding", () => {
   const pngUrl = "data:image/png;base64,iVBORw0KGgo=";

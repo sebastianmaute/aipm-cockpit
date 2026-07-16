@@ -7,6 +7,7 @@
 // Re-exported via the ./markdown-codecs barrel.
 
 import { decodeDocumentLinks } from "./document-link";
+import { decodeNoteLog } from "./note-log";
 import { migrateTaskStatus } from "./task-status";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
@@ -265,6 +266,7 @@ const RAID_ALIASES: Record<string, string> = {
   causedby: "causedByRaidIds", causedbyraidid: "causedByRaidIds",
   stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
   documentlinks: "documentLinks", outlookeventid: "outlookEventId",
+  inquiries: "inquiriesSent", inquiriessent: "inquiriesSent",
 };
 
 function markdownToRaid(md: string, diag?: ImportDiag): RaidItem[] {
@@ -361,6 +363,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       colMap[idx] = "timeSpentMinutes";
     else if (norm === "documentlinks") colMap[idx] = "documentLinks";
     else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
+    else if (norm === "notelog") colMap[idx] = "noteLog";
   });
 
   const tasks: Task[] = [];
@@ -406,6 +409,10 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
       timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
       documentLinks: decodeDocumentLinks(obj.documentLinks),
+      noteLog: (() => {
+        const nl = decodeNoteLog(obj.noteLog);
+        return nl.length ? nl : undefined;
+      })(),
     }));
   }
   return dropDanglingDependencies(tasks);

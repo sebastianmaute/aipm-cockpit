@@ -504,6 +504,9 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device: the Resource id representing "me" (the current user). Drives
+   *  note-log author attribution etc. Undefined = not set. Positive integer. */
+  selfResourceId?: number;
   /** Per-device weekly status digest config (enable + cadence in days). Default
    *  disabled, 7-day. Rides the writeSettings spread (no allowlist edit). */
   digest?: import("./digest/digest-config").DigestConfig;
@@ -561,6 +564,13 @@ export type Settings = {
   /** How comm-template sends are dispatched. Readers fall back to "mailto" when unset. */
   commTemplateSendMode?: CommTemplateSendMode;
 };
+
+/** Coerce a persisted `selfResourceId` to a positive integer, else undefined. */
+export function sanitizeSelfResourceId(raw: unknown): number | undefined {
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0
+    ? Math.floor(raw)
+    : undefined;
+}
 
 export const defaultSettings: Settings = {
   language: "en-US",
