@@ -67,9 +67,10 @@ describe("TaskFormFields — assignee ResourcePicker integration", () => {
     const combobox = screen.getByPlaceholderText("Assignee");
     fireEvent.focus(combobox);
 
-    // Pick the suggested resource row.
+    // Pick the suggested resource row. Scope out the note-log author <option>
+    // (which now also lists the resource by name) so the query stays unambiguous.
     // mouseDown (not click): ResourcePicker selects on mousedown to beat the input's blur-close.
-    fireEvent.mouseDown(screen.getByText("Alex Example"));
+    fireEvent.mouseDown(screen.getByText("Alex Example", { selector: ":not(option)" }));
 
     expect(screen.getByTestId("resourceId").textContent).toBe("1");
   });

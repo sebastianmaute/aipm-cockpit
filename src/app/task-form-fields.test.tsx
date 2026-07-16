@@ -1,9 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
 import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
+import { SETTINGS_KEY } from "./use-settings";
+import type { Resource } from "./types";
 import { t } from "./i18n";
 
 function Harness() {
@@ -115,5 +117,67 @@ describe("TaskFormFields", () => {
       expect(screen.queryByText("Priority")).toBeNull();
       expect(screen.getByText("Task name")).toBeTruthy();
     });
+  });
+});
+
+const RESOURCES = [
+  { id: 5, firstName: "Alice", lastName: "Smith" },
+  { id: 6, firstName: "Bob", lastName: "Jones" },
+] as unknown as Resource[];
+
+function NoteLogHarness() {
+  return (
+    <form aria-label="form">
+      <TaskFormFields
+        lang="en-US" today="2026-05-29" nextId={1} contactsList={[]}
+        resources={RESOURCES} onCreateResource={vi.fn(() => 1)}
+        absences={[]} tasksForDeps={[]} uniqueGroups={[]} uniqueLabels={[]}
+        editingIsJiraLinked={false} jiraEnabled={false}
+        fieldErrors={{}} submitted={false}
+        holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
+        onRemoveContact={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
+      />
+    </form>
+  );
+}
+
+describe("TaskFormFields note log", () => {
+  afterEach(() => window.localStorage.removeItem(SETTINGS_KEY));
+
+  it("defaults the author to settings.selfResourceId and appends notes one per line", async () => {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ selfResourceId: 5 }));
+    const user = userEvent.setup();
+    render(<NoteLogHarness />, { wrapper: TestProviders });
+
+    const authorSelect = screen.getByLabelText(t("en-US", "noteLogAuthor"));
+    await waitFor(() => expect(authorSelect).toHaveValue("5")); // Alice, from selfResourceId
+
+    const input = screen.getByLabelText(t("en-US", "noteLogPlaceholder"));
+    await user.type(input, "Reviewed the scope");
+    await user.click(screen.getByRole("button", { name: t("en-US", "noteLogAdd") }));
+
+    const first = screen.getByRole("listitem");
+    expect(first.textContent).toContain("Alice Smith");
+    expect(first.textContent).toContain("Reviewed the scope");
+    expect(input).toHaveValue(""); // cleared after add
+
+    await user.type(input, "Second note");
+    await user.click(screen.getByRole("button", { name: t("en-US", "noteLogAdd") }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(2); // one entry per line
+  });
+
+  it("lets the author be overridden per note", async () => {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ selfResourceId: 5 }));
+    const user = userEvent.setup();
+    render(<NoteLogHarness />, { wrapper: TestProviders });
+
+    const authorSelect = screen.getByLabelText(t("en-US", "noteLogAuthor"));
+    await waitFor(() => expect(authorSelect).toHaveValue("5"));
+    await user.selectOptions(authorSelect, "6"); // override to Bob
+
+    await user.type(screen.getByLabelText(t("en-US", "noteLogPlaceholder")), "Bob note");
+    await user.click(screen.getByRole("button", { name: t("en-US", "noteLogAdd") }));
+
+    expect(screen.getByRole("listitem").textContent).toContain("Bob Jones");
   });
 });

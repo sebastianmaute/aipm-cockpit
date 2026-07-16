@@ -2048,6 +2048,7 @@ function TaskManagerInner() {
       requestSection={settingsSectionRequest}
       onSectionConsumed={clearSettingsSectionRequest}
       isPopout={isPopout}
+      resources={resources}
     />
   );
 

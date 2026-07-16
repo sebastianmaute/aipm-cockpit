@@ -35,6 +35,14 @@ const enUS = {
   taskHintBlockers: "What is currently holding this task up — surfaced as an impediment.",
   taskHintHealth: "Red/Amber/Green status. Leave on auto, or override to set it manually.",
   notes: "Notes",
+  noteLogTitle: "Notes log",
+  noteLogPlaceholder: "Write a note…",
+  noteLogAuthor: "Note author",
+  noteLogAdd: "Add note",
+  noteLogNoAuthor: "No author",
+  selfResourceLabel: "I am this resource",
+  selfResourceHint: "Used to attribute notes and activity to you.",
+  selfResourceNone: "Not set",
 
   // Shared field labels (reused across multiple entity modals)
   title: "Title",

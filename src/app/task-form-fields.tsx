@@ -36,8 +36,9 @@ import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
-import { PRIORITIES, TASK_STATUSES, type Absence, type Resource, type Task, type TaskStatus } from "./types";
+import { PRIORITIES, TASK_STATUSES, type Absence, type NoteLogEntry, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
+import { resourceDisplayName } from "./resource-foundation";
 
 // Same compact input class the rest of the form uses. Declared here to avoid
 // a circular import back into task-form-modal.tsx.
@@ -109,6 +110,30 @@ export function TaskFormFields({
     onAppendFinal: (txt) =>
       setForm((prev) => ({ ...prev, taskName: describeTextCap(appendDictation(prev.taskName ?? "", txt), TASK_NAME_MAX).value })),
   });
+
+  // Running note-log composer. The author defaults to the configured "me"
+  // resource (`settings.selfResourceId`) but is overridable per note. The value
+  // is DERIVED (not seeded state) so it tracks settings hydration without an
+  // effect; once the user picks an author, `chosenAuthor` pins it.
+  const [noteText, setNoteText] = useState("");
+  const [chosenAuthor, setChosenAuthor] = useState<number | "" | undefined>(undefined);
+  const noteAuthorValue: number | "" =
+    chosenAuthor === undefined ? (settings.selfResourceId ?? "") : chosenAuthor;
+  const addNote = () => {
+    const text = noteText.trim();
+    if (!text) return;
+    const authorId = noteAuthorValue === "" ? undefined : noteAuthorValue;
+    const author = authorId != null ? resources.find((r) => r.id === authorId) : undefined;
+    // `new Date()` lives HERE (event handler), never in the render body (purity).
+    const entry: NoteLogEntry = {
+      timestamp: new Date().toISOString(),
+      text,
+      ...(authorId != null ? { authorResourceId: authorId } : {}),
+      ...(author ? { authorName: resourceDisplayName(author) } : {}),
+    };
+    setForm((prev) => ({ ...prev, noteLog: [...(prev.noteLog ?? []), entry] }));
+    setNoteText("");
+  };
 
   // A field's error shows once it's been blurred (touched) or a submit was
   // attempted — a pristine form stays quiet. Reset when switching tasks via the
@@ -568,6 +593,67 @@ export function TaskFormFields({
           {notesDictationStatus}
         </label>
         )}
+
+        <div className="sm:col-span-2">
+          <span className="mb-1 block text-sm font-medium text-foreground">{t(lang, "noteLogTitle")}</span>
+          {(form.noteLog ?? []).length > 0 && (
+            <ul className="mb-2 flex flex-col gap-1">
+              {(form.noteLog ?? []).map((n, i) => (
+                <li
+                  key={i}
+                  className="rounded-md border border-line bg-surface-muted px-2 py-1 text-xs"
+                >
+                  <span className="font-medium text-foreground">
+                    {n.authorName ?? t(lang, "noteLogNoAuthor")}
+                  </span>{" "}
+                  <span className="text-muted-foreground">
+                    {n.timestamp.slice(0, 16).replace("T", " ")}
+                  </span>
+                  <span className="text-foreground">: {n.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[10rem] flex-1">
+              <input
+                type="text"
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addNote();
+                  }
+                }}
+                placeholder={t(lang, "noteLogPlaceholder")}
+                aria-label={t(lang, "noteLogPlaceholder")}
+                className={inputClass}
+              />
+            </div>
+            <select
+              value={noteAuthorValue === "" ? "" : String(noteAuthorValue)}
+              onChange={(e) => setChosenAuthor(e.target.value === "" ? "" : Number(e.target.value))}
+              aria-label={t(lang, "noteLogAuthor")}
+              className={`rounded-md border border-line bg-surface px-2 py-2 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            >
+              <option value="">{t(lang, "noteLogNoAuthor")}</option>
+              {resources.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {resourceDisplayName(r)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addNote}
+              disabled={!noteText.trim()}
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey ${INTERACTIVE}`}
+            >
+              {t(lang, "noteLogAdd")}
+            </button>
+          </div>
+        </div>
 
         <Field label={t(lang, "documents")} className="sm:col-span-2">
           <DocumentLinksFieldGated

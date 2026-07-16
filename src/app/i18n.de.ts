@@ -39,6 +39,14 @@ export const de: Record<TranslationKey, string> = {
   taskHintBlockers: "Was diese Aufgabe derzeit aufhält — wird als Hindernis angezeigt.",
   taskHintHealth: "Rot/Gelb/Grün-Status. Automatisch lassen oder manuell überschreiben.",
   notes: "Notizen",
+  noteLogTitle: "Notizprotokoll",
+  noteLogPlaceholder: "Notiz schreiben…",
+  noteLogAuthor: "Notizautor",
+  noteLogAdd: "Notiz hinzufügen",
+  noteLogNoAuthor: "Kein Autor",
+  selfResourceLabel: "Ich bin diese Ressource",
+  selfResourceHint: "Wird verwendet, um Notizen und Aktivitäten Ihnen zuzuordnen.",
+  selfResourceNone: "Nicht festgelegt",
 
   // Shared field labels (reused across multiple entity modals)
   title: "Titel",
