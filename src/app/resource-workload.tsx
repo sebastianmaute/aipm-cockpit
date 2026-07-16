@@ -4,13 +4,27 @@ import { useMemo } from "react";
 import { shortDateRange } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { buildResourceWorkload } from "./resource-workload-rows";
-import type { Absence, RaidItem, Resource, Shift, Task } from "./types";
+import { ABSENCE_TYPES, type Absence, type AbsenceType, type RaidItem, type Resource, type Shift, type Task } from "./types";
+import { absenceBg, absenceLegendBg } from "./absence-style";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { WorkloadOverdueTriage } from "./resource-workload-triage";
 import { useConfirm } from "./confirm-dialog";
+
+function absenceTypeLabel(type: AbsenceType, lang: Lang): string {
+  switch (type) {
+    case "vacation":
+      return t(lang, "absenceTypeVacation");
+    case "sick":
+      return t(lang, "absenceTypeSick");
+    case "training":
+      return t(lang, "absenceTypeTraining");
+    default:
+      return t(lang, "absenceTypeOther");
+  }
+}
 
 export const WORKLOAD_COL_WIDTHS = {
   assignee: 160,
@@ -236,7 +250,7 @@ export function ResourceWorkload({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); onEditAbsence(a); }}
                           title={a.note ?? ""}
-                          className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                          className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                         >
                           <span>{shortDateRange(a, lang)}</span>
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -355,7 +369,7 @@ export function ResourceWorkload({
                               type="button"
                               onClick={() => onEditAbsence(a)}
                               title={a.note ?? ""}
-                              className={`inline-flex items-center gap-1 rounded-md border border-line bg-surface px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                              className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                             >
                               <span>{shortDateRange(a, lang)}</span>
                               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -374,6 +388,17 @@ export function ResourceWorkload({
         </tbody>
       </table>
     </div>
+      <ul
+        className="mt-2 flex flex-wrap items-center gap-3 px-1 text-xs text-muted-foreground"
+        aria-label={t(lang, "resourcesUpcomingAbsences")}
+      >
+        {ABSENCE_TYPES.map((type) => (
+          <li key={type} className="flex items-center gap-1.5">
+            <span aria-hidden="true" className={`inline-block h-3 w-3 rounded-sm ${absenceLegendBg(type)}`} />
+            {absenceTypeLabel(type, lang)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
+import { absenceBg, absenceGlyph } from "./absence-style";
 import { resourceDisplayName, splitName } from "./resource-foundation";
 import { INTERACTIVE } from "./interaction-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -56,32 +57,6 @@ interface CalendarDay {
   isWeekend: boolean;
   isHoliday: boolean;
   isToday: boolean;
-}
-
-function absenceCellBg(type: AbsenceType): string {
-  switch (type) {
-    case "vacation":
-      return "bg-AIPM-blue/30 hover:bg-AIPM-blue/40 dark:bg-AIPM-blue/25 dark:hover:bg-AIPM-blue/35";
-    case "sick":
-      return "bg-AIPM-pink/30 hover:bg-AIPM-pink/40 dark:bg-AIPM-pink/25 dark:hover:bg-AIPM-pink/35";
-    case "training":
-      return "bg-AIPM-purple/30 hover:bg-AIPM-purple/40 dark:bg-AIPM-purple/25 dark:hover:bg-AIPM-purple/35";
-    default:
-      return "bg-AIPM-medium-grey/45 hover:bg-AIPM-medium-grey/55 dark:bg-AIPM-medium-grey/35 dark:hover:bg-AIPM-medium-grey/45";
-  }
-}
-
-function absenceGlyph(type: AbsenceType): string {
-  switch (type) {
-    case "vacation":
-      return "V";
-    case "sick":
-      return "S";
-    case "training":
-      return "T";
-    default:
-      return "O";
-  }
 }
 
 function localTypeLabel(type: AbsenceType, lang: Lang): string {
@@ -317,7 +292,7 @@ function ResourceCalendarInner({
                       (a) => d.iso >= a.startDate && d.iso <= a.endDate,
                     );
                     const baseBg = hit
-                      ? absenceCellBg(hit.type)
+                      ? absenceBg(hit.type)
                       : d.isToday
                         ? "bg-AIPM-green/15 hover:bg-AIPM-green/25 dark:bg-AIPM-green/15 dark:hover:bg-AIPM-green/25"
                         : d.isHoliday
