@@ -8,6 +8,7 @@ const enUS = {
 
   editingTask: "Editing task #{0}",
   cancel: "Cancel",
+  dismiss: "Dismiss",
   confirm: "Confirm",
   confirmTitle: "Please confirm",
   addTask: "Add task",

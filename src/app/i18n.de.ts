@@ -12,6 +12,7 @@ export const de: Record<TranslationKey, string> = {
 
   editingTask: "Aufgabe #{0} bearbeiten",
   cancel: "Abbrechen",
+  dismiss: "Schließen",
   confirm: "Bestätigen",
   confirmTitle: "Bitte bestätigen",
   addTask: "Aufgabe hinzufügen",

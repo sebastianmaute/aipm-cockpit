@@ -1082,3 +1082,29 @@ describe("usage-limit notice", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Send" })).toBeInTheDocument());
   });
 });
+
+// ---------------------------------------------------------------------------
+// Closable error banner: the error alert carries a labeled dismiss control that
+// clears the error.
+// ---------------------------------------------------------------------------
+describe("closable error banner", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("shows a dismiss button that clears the error banner", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("boom"));
+
+    render(
+      <ChatPanel lang="en-US" ai={AI_WITH_KEY} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "list tasks" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/Chat failed/i);
+
+    // The banner carries a labeled dismiss control; clicking it clears the error.
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+});

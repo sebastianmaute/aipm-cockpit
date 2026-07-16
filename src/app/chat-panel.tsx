@@ -758,12 +758,21 @@ function ChatPanelInner({
       </div>
 
       {error && (
-        <p
+        <div
           role="alert"
-          className="mt-2 whitespace-pre-line rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15"
+          className="mt-2 flex items-start justify-between gap-2 rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15"
         >
-          {error}
-        </p>
+          <p className="min-w-0 whitespace-pre-line">{error}</p>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label={t(lang, "dismiss")}
+            title={t(lang, "dismiss")}
+            className={`shrink-0 rounded px-1 font-semibold hover:text-AIPM-pink ${INTERACTIVE}`}
+          >
+            ×
+          </button>
+        </div>
       )}
 
       {attachments.length > 0 && (
