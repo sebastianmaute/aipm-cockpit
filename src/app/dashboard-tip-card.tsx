@@ -5,6 +5,7 @@ import { type Lang, t } from "./i18n";
 import { TIPS, tipIndexForDay } from "./tips";
 import type { DensityClasses } from "./dashboard-density";
 import { INTERACTIVE } from "./interaction-styles";
+import { useSettings } from "./use-settings";
 
 // Per-device tip state (NOT workspace data): which tip + whether dismissed today.
 const KEY = "aipm-cockpit:tip-state";
@@ -40,8 +41,11 @@ interface DashboardTipCardProps {
 
 /** "Tip of the day" — a dismissable dashboard card that rotates one app tip per
  *  day. Day number + stored state are captured lazily so no `Date.now()` runs
- *  in the render body (react-hooks purity). */
+ *  in the render body (react-hooks purity). Gated by the global "Show tips"
+ *  setting (`showViewHints`), the same umbrella that drives the per-view Help
+ *  callouts, so one Settings control turns off all tips. */
 export function DashboardTipCard({ lang, dc, isPopout = false }: DashboardTipCardProps) {
+  const { settings } = useSettings();
   const [today] = useState(() => Math.floor(Date.now() / 86_400_000));
   const [stored] = useState(loadTipState);
   const [index, setIndex] = useState(() =>
@@ -49,7 +53,7 @@ export function DashboardTipCard({ lang, dc, isPopout = false }: DashboardTipCar
   );
   const [dismissed, setDismissed] = useState(() => stored.dismissedDay === today);
 
-  if (dismissed || TIPS.length === 0) return null;
+  if (settings.showViewHints === false || dismissed || TIPS.length === 0) return null;
 
   const next = () => {
     const ni = tipIndexForDay(index + 1);

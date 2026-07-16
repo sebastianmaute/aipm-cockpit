@@ -1984,8 +1984,8 @@ export const de: Record<TranslationKey, string> = {
   // Kontextbezogene Hilfe-Hinweise je Ansicht (SP2)
   viewHintLearnMore: "Mehr erfahren",
   viewHintDismiss: "Hinweis ausblenden",
-  showViewHintsLabel: "Ansichtshinweise",
-  showViewHintsHint: "Zeigt über jeder Arbeitsansicht eine kurze Erklärung mit Link zum passenden Hilfethema.",
+  showViewHintsLabel: "Tipps anzeigen",
+  showViewHintsHint: "Zeigt hilfreiche Tipps: die Tipp-des-Tages-Karte auf dem Dashboard und über jeder Arbeitsansicht eine kurze Erklärung mit Link zum passenden Hilfethema.",
   viewHintsShown: "Eingeblendet",
   viewHintsHidden: "Ausgeblendet",
   showFieldConfigLabel: "Feldkonfiguration",

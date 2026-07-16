@@ -1989,8 +1989,8 @@ const enUS = {
   // Per-view contextual Help callouts (SP2)
   viewHintLearnMore: "Learn more",
   viewHintDismiss: "Dismiss hint",
-  showViewHintsLabel: "View hints",
-  showViewHintsHint: "Show a short explainer atop each working view, with a link to the matching Help topic.",
+  showViewHintsLabel: "Show tips",
+  showViewHintsHint: "Show helpful tips: the tip-of-the-day card on the dashboard and a short explainer atop each working view, with a link to the matching Help topic.",
   viewHintsShown: "Shown",
   viewHintsHidden: "Hidden",
   showFieldConfigLabel: "Field configuration",
