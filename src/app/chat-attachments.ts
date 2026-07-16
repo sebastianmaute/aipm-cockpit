@@ -48,7 +48,7 @@ const SUPPORTED_IMAGE_MIMES = new Set([
 
 const PDF_EXTENSIONS = new Set([".pdf"]);
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
-const TEXT_EXTENSIONS = new Set([".txt", ".md", ".markdown", ".csv"]);
+const TEXT_EXTENSIONS = new Set([".txt", ".md", ".markdown", ".csv", ".html", ".htm", ".vtt"]);
 
 function fileExtension(fileName: string): string {
   const dot = fileName.lastIndexOf(".");
@@ -78,11 +78,13 @@ export function classifyAttachment(
     return SUPPORTED_IMAGE_MIMES.has(mime) ? "image" : null;
   }
 
-  // --- Text ---
+  // --- Text (read natively as UTF-8; Claude parses HTML/VTT without a lib) ---
   if (
     mime === "text/plain" ||
     mime === "text/markdown" ||
-    mime === "text/csv"
+    mime === "text/csv" ||
+    mime === "text/html" ||
+    mime === "text/vtt"
   ) {
     return "text";
   }
