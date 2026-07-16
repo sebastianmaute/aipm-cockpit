@@ -502,6 +502,18 @@ describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
     expect(onPushCalendar).toHaveBeenCalledTimes(1);
   });
 
+  it("styles the Push button neutrally (matches the milestone push, not the old accent style)", () => {
+    renderPanel(
+      makeProps({ m365Configured: true, onToggleCalendar: vi.fn(), calendarEnabled: true, onPushCalendar: vi.fn() }),
+    );
+    const push = screen.getByRole("button", { name: t("en-US", "calendarPush") });
+    expect(push.className).toContain("border-line");
+    expect(push.className).toContain("text-foreground");
+    expect(push.className).not.toContain("border-AIPM-dark-blue");
+    // Leading icon present + decorative (does not bleed into the accessible name).
+    expect(push.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  });
+
   it("shows the Pull button only when calendarEnabled and onPullCalendar, and calls it", () => {
     const onPullCalendar = vi.fn();
     // Absent without onPullCalendar even when calendarEnabled.
