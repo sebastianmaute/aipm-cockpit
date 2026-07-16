@@ -3,6 +3,21 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { SteeringCommitteePanel } from "./steering-committee-panel";
 import { loadI18n, t } from "./i18n";
 import type { Resource, SteeringCommittee } from "./types";
+import type { MeetingReportBag } from "./use-meeting-report-actions";
+
+const reportBag: MeetingReportBag = {
+  m365Configured: false,
+  aiConfigured: false,
+  tursoActive: false,
+  onSaveReport: () => {},
+  onSendReport: () => {},
+  sendBusyMeetingId: null,
+  onGenerateReport: () => {},
+  generateBusyMeetingId: null,
+  loadVersions: async () => [],
+  onRestore: () => {},
+  restoreBusyId: null,
+};
 
 function res(id: number, firstName: string, lastName: string): Resource {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -235,6 +250,36 @@ describe("SteeringCommitteePanel", () => {
     );
     const btn = screen.getByRole("button", { name: t("en-US", "committeePushBusy") });
     expect(btn).toBeDisabled();
+  });
+
+  it("wraps the status-report surface in resize/reset/print/cancel chrome; cancel closes it", async () => {
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        report={reportBag}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "reportStatusReport")} – Kickoff` }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    // Resizable content-pane container (native CSS `resize`).
+    const heading = within(dialog).getByRole("heading", {
+      name: `${t("en-US", "reportStatusReport")} – Kickoff`,
+    });
+    expect(heading.closest("div.resize")).not.toBeNull();
+    // Print + reset-size + cancel controls present, scoped to the dialog.
+    expect(within(dialog).getByRole("button", { name: t("en-US", "printHint") })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: t("en-US", "tableResetSizeHint") }),
+    ).toBeInTheDocument();
+    const cancel = within(dialog).getByRole("button", { name: t("en-US", "cancel") });
+    fireEvent.click(cancel);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 
