@@ -244,6 +244,24 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     onCancelEditRef.current();
   }, [tasks, setTasks]);
 
+  // Delete only the selected rows (distinct from clear-all). Functional setter so
+  // it reads the live array, captures an undo snapshot of the removed rows, and
+  // arms the storage destructive-save bypass (a large multi-row delete can trip
+  // the persistence mass-deletion guard, same as clear-all). Callers gate it
+  // behind a type-to-confirm dialog.
+  const handleBulkDelete = useCallback(
+    (ids: Set<number>) => {
+      if (ids.size === 0) return;
+      const removed = tasks.filter((r) => ids.has(r.id));
+      if (removed.length === 0) return;
+      captureRef.current({ setter: setTasks, kind: "task.deleted", removed, fromArray: tasks });
+      allowDestructiveSaveRef.current?.();
+      setTasks((prev) => prev.filter((r) => !ids.has(r.id)));
+      setSelectedIds(new Set());
+    },
+    [tasks, setTasks],
+  );
+
   const handleBulkSendInquiry = useCallback(() => {
     const lang = langRef.current;
     const selected = tasks.filter((row) => selectedIds.has(row.id));
@@ -394,6 +412,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     cancelBulkEdit,
     applyBulkEdit,
     handleBulkSendInquiry,
+    handleBulkDelete,
     handleClearAll,
     handleCommand,
   };

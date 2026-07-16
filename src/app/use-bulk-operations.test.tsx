@@ -363,6 +363,55 @@ describe("useBulkOperations", () => {
     });
   });
 
+  describe("handleBulkDelete", () => {
+    const seed = (id: number) => ({
+      id,
+      taskName: `Task ${id}`,
+      assignee: "Alice",
+      assigneeEmail: "alice@test.com",
+      dueDate: "2026-06-01",
+      lastUpdateDate: "2026-05-20",
+      status: "To Do" as const,
+      priority: "Medium" as const,
+      blockers: "",
+      notes: "",
+      inquiriesSent: 0,
+      localModifiedAt: "2026-05-20T00:00:00.000Z",
+    });
+
+    it("removes ONLY the selected ids (functional setter), keeping the rest", () => {
+      const { result } = renderBulk();
+      act(() => { result.current.workspace.setTasks([seed(1), seed(2), seed(3)]); });
+      act(() => { result.current.bulk.handleBulkDelete(new Set([1, 3])); });
+      expect(result.current.workspace.tasks.map((t) => t.id)).toEqual([2]);
+      expect(result.current.bulk.selectedIds.size).toBe(0);
+    });
+
+    it("does nothing when the id set is empty (no arm, no capture)", () => {
+      const allowDestructiveSave = vi.fn();
+      const capture = vi.fn();
+      const { result } = renderBulk({ allowDestructiveSave, capture });
+      act(() => { result.current.workspace.setTasks([seed(1)]); });
+      act(() => { result.current.bulk.handleBulkDelete(new Set()); });
+      expect(result.current.workspace.tasks).toHaveLength(1);
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+      expect(capture).not.toHaveBeenCalled();
+    });
+
+    it("arms allowDestructiveSave and captures the removed rows for undo", () => {
+      const allowDestructiveSave = vi.fn();
+      const capture = vi.fn();
+      const { result } = renderBulk({ allowDestructiveSave, capture });
+      act(() => { result.current.workspace.setTasks([seed(1), seed(2)]); });
+      act(() => { result.current.bulk.handleBulkDelete(new Set([2])); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+      expect(capture).toHaveBeenCalledTimes(1);
+      const opts = capture.mock.calls[0][0] as { kind: string; removed: { id: number }[] };
+      expect(opts.kind).toBe("task.deleted");
+      expect(opts.removed.map((r) => r.id)).toEqual([2]);
+    });
+  });
+
   describe("handleCommand", () => {
     it('kind="edit" calls handlers.onEdit with matching task', () => {
       const onEdit = vi.fn();

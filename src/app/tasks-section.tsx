@@ -132,6 +132,7 @@ export interface TasksSectionProps {
   toggleSelectAllVisible: () => void;
   clearSelection: () => void;
   handleBulkSendInquiry: () => void;
+  handleBulkDelete: (ids: Set<number>) => void;
   applyBulkEdit: () => void;
   cancelBulkEdit: () => void;
   // Inline action chips (SP4): task-due actions surfaced atop the Open Points pane.
@@ -200,6 +201,7 @@ export function TasksSection({
   toggleSelectAllVisible,
   clearSelection,
   handleBulkSendInquiry,
+  handleBulkDelete,
   applyBulkEdit,
   cancelBulkEdit,
   nextActions = [],
@@ -407,6 +409,7 @@ export function TasksSection({
   const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [deleteSelectedConfirmOpen, setDeleteSelectedConfirmOpen] = useState(false);
   // Voice `clearAll` (from any view — task-manager navigates here first) sets a
   // non-null clearAllRequestNonce → open the type-to-confirm dialog (same
   // friction as the toolbar button). Render-time reconcile (react-hooks bans
@@ -761,6 +764,13 @@ export function TasksSection({
             </button>
             <button
               type="button"
+              onClick={() => setDeleteSelectedConfirmOpen(true)}
+              className={`rounded-md border border-AIPM-pink-strong bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/5 ${INTERACTIVE}`}
+            >
+              {t(lang, "deleteSelected")}
+            </button>
+            <button
+              type="button"
               onClick={clearSelection}
               className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
@@ -768,6 +778,21 @@ export function TasksSection({
             </button>
           </div>
         </div>
+      )}
+
+      {deleteSelectedConfirmOpen && (
+        <TypeToConfirmDialog
+          lang={lang}
+          title={t(lang, "tasksDeleteSelectedDialogTitle")}
+          message={t(lang, "tasksDeleteSelectedDialogMessage", selectedIds.size)}
+          confirmValue={`delete ${selectedIds.size} tasks`}
+          confirmLabel={t(lang, "tasksDeleteSelectedConfirmLabel")}
+          onConfirm={() => {
+            handleBulkDelete(selectedIds);
+            setDeleteSelectedConfirmOpen(false);
+          }}
+          onCancel={() => setDeleteSelectedConfirmOpen(false)}
+        />
       )}
 
       <BulkEditModal

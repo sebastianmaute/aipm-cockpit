@@ -200,6 +200,7 @@ function makeProps(): TasksSectionProps {
     toggleSelectAllVisible: vi.fn(),
     clearSelection: vi.fn(),
     handleBulkSendInquiry: vi.fn(),
+    handleBulkDelete: vi.fn(),
     applyBulkEdit: vi.fn(),
     cancelBulkEdit: vi.fn(),
     // Inline "Ask Claude" task edit (SP1)

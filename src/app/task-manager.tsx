@@ -1351,6 +1351,7 @@ function TaskManagerInner() {
     cancelBulkEdit,
     applyBulkEdit,
     handleBulkSendInquiry,
+    handleBulkDelete,
     handleClearAll,
     handleCommand,
   } = useBulkOperations({
@@ -1954,6 +1955,7 @@ function TaskManagerInner() {
       toggleSelectAllVisible={toggleSelectAllVisible}
       clearSelection={clearSelection}
       handleBulkSendInquiry={handleBulkSendInquiry}
+      handleBulkDelete={handleBulkDelete}
       applyBulkEdit={applyBulkEdit}
       cancelBulkEdit={cancelBulkEdit}
     />
