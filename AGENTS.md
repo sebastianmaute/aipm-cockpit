@@ -285,13 +285,14 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must CLEAR (consume) or
   monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view learning deep-link AND
   milestones-panel `openCreateNonce` (Gantt "Add milestone").
-- **Task editor has TWO surfaces:** modern DEFAULT uses full-page `TaskEditView` (ModernShell `editView`
-  slot; `useEditView = layout==="modern" && !isPopout`); classic/popout use `TaskFormModal` (which has
-  its own `ModalHeader` title+✕). New editor controls/heading wire into the surface in play —
-  TaskEditView's control bar is SEPARATE from the modal's header. ★ The Delete button lives footer-LEFT +
-  pink/destructive (mirrors `change-edit-modal`), wired in BOTH surfaces: exported `TaskDeleteButton`
-  (`task-editor-actions.tsx`); `TaskFormModal` takes a `deleteAction` prop; `TaskEditView` takes a
-  `footerLeading` prop. Dark-mode hover uses `dark:hover:bg-AIPM-pink/5`.
+- **Task editor is ONE floating surface now:** ALL layouts (modern DEFAULT, classic, popout) use the shared
+  floating `TaskFormModal` (draggable/resizable/reset; its own `ModalHeader` title+✕). The former modern
+  full-page `TaskEditView` (ModernShell `editView` slot / `useEditView`) was RETIRED — modern no longer
+  replaces the shell with an edit page; the modal floats over the active view (which stays Open Points). New
+  editor controls/heading wire into the modal header/footer. ★ The Delete button lives footer-LEFT +
+  pink/destructive (mirrors `change-edit-modal`) via exported `TaskDeleteButton` (`task-editor-actions.tsx`);
+  `TaskFormModal` takes a `deleteAction` prop (the old `TaskEditView` `footerLeading` path is gone).
+  Dark-mode hover uses `dark:hover:bg-AIPM-pink/5`.
 - **Task status model:** `Task.status` (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the
   SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
   **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
@@ -567,7 +568,11 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `clearPendingFlash`; `task-manager`'s `flashOnEditReturnRef` is set when a deep-link opens the modern
   full-page editor and fired in the view-switch close branch when returning to `open-points` (works for
   cancel + save). Classic/popout uses the immediate path; the other four panels show the flash in modern as
-  before.
+  before. ★ STALE (v0.190.0): the modern task editor is now the floating `TaskFormModal` (the full-page
+  `TaskEditView` was retired), so the list/board stays MOUNTED under the editor and the immediate flash path
+  applies to tasks too — the `pendingFlash`/`requestFlash` + `flashOnEditReturnRef` return-path is effectively
+  DEAD (task-manager no longer sets it). The channel + `useDeepLinkRowFlash` consumer remain but are unused;
+  safe to prune later.
 - **Global search:** pure i18n-free `global-search.ts` (`searchWorkspace(ws, query)` → ranked
   `SearchResult[]`; id-exact > title-hit > body-hit tiers, per-type cap `SEARCH_MAX_PER_TYPE`
   round-robin-merged under `SEARCH_MAX_RESULTS`, `SEARCH_MIN_QUERY=2` with pure-numeric `#id` queries exempt

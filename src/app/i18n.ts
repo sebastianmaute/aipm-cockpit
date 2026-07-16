@@ -3348,6 +3348,16 @@ const enUS = {
   versionHighlightResourceClearFix: "Clearing an assignee with the ✕ button now works while editing a row inline, instead of leaving the field linked.",
   versionHighlightPopoverClip: "Action pop-overs — reschedule, escalate, assign owner, and the ⋮ menu — no longer get clipped; the date picker and menus now float clear of the list edge and stay on-screen.",
   versionHighlightProcessAttachment: "New \"Process attachment\" prompt in the AI assistant: attach a document and it extracts tasks, risks, and other items, tells you what it would create or update, and waits for your confirmation.",
+  versionHighlightFloatingEditor: "Floating task editor: in the modern layout, opening a task now shows a draggable, resizable dialog you can reposition and reset to its default, instead of taking over the whole page.",
+  versionHighlightOpenPointsActions: "Open Points polish: filter tasks by RAG health, delete several selected tasks at once, and find the per-row actions tidied into a single ⋮ overflow menu.",
+  versionHighlightRaidInquiry: "RAID inquiries: send an inquiry to a risk or issue owner directly from the register, and filter the RAID list by owner to focus on one person's items.",
+  versionHighlightTaskNoteLog: "Structured task notes: a task's notes are now a dated log showing who wrote what and when, instead of a single free-text field.",
+  versionHighlightGanttMilestonePlacement: "Gantt milestone placement: choose whether milestones sit inline on the task rows or on their own row below, whichever reads more clearly.",
+  versionHighlightUndoLabels: "Clearer undo/redo: undo and redo now name exactly what they will change and preview the next step, so you always know what you're reverting.",
+  versionHighlightToastPause: "Steadier notifications: toasts linger longer and pause while you hover or focus them, with clearer success and error styling.",
+  versionHighlightAiErrorDetail: "AI assistant errors are clearer: messages can be dismissed and show the real API detail, and the assistant can now read HTML and subtitle (VTT) files alongside your other attachments.",
+  versionHighlightPullContacts: "Pull contacts from Outlook: import your Microsoft 365 contacts into the resource directory with one click, now with clear success and error feedback.",
+  versionHighlightAppRename: "The application is now called AI PM Cockpit.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
