@@ -165,6 +165,63 @@ describe("SteeringCommitteePanel", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "committeePushOutlook") })).toBeNull();
   });
 
+  it("pushes a single meeting row via onPushRow with a meeting-scoped target", () => {
+    const onPushRow = vi.fn();
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        outlookPush={{ onPush: () => {}, busy: false, onPushRow }}
+      />,
+    );
+    // Row-unique accessible name: "Push to Outlook – <meeting>".
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Kickoff` }),
+    );
+    expect(onPushRow).toHaveBeenCalledWith({ kind: "meeting", id: 1 });
+    // Distinct control per meeting row (WCAG 2.4.6).
+    expect(
+      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Review` }),
+    ).toBeInTheDocument();
+  });
+
+  it("pushes a single info-schedule row via onPushRow with a schedule-scoped target", () => {
+    const onPushRow = vi.fn();
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        outlookPush={{ onPush: () => {}, busy: false, onPushRow }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Board pack` }),
+    );
+    expect(onPushRow).toHaveBeenCalledWith({ kind: "schedule", id: 1 });
+  });
+
+  it("hides per-row push buttons when onPushRow is absent", () => {
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        outlookPush={{ onPush: () => {}, busy: false }}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Kickoff` }),
+    ).toBeNull();
+  });
+
   it("shows the Outlook push button (disabled while busy) when the prop is provided", () => {
     render(
       <SteeringCommitteePanel

@@ -2507,6 +2507,7 @@ const enUS = {
   committeeReminderUpcoming: "Upcoming",
   committeePushOutlook: "Push to Outlook",
   committeePushBusy: "Pushing…",
+  committeePushRow: "Push",
   reportStatusReport: "Status report",
   reportBody: "Report",
   reportTo: "To",

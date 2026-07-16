@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
-import { planCommitteeReconcile } from "./committee-calendar-reconcile";
+import { planCommitteeReconcile, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
 import { logDiag } from "./diagnostics";
 import {
   CALENDAR_READWRITE_SCOPE, committeeMeetingToGraphEvent, committeeInfoToGraphEvent,
@@ -38,14 +38,21 @@ export function useCommitteeOutlookPush({
   const showToast = useToastContext();
   const [busy, setBusy] = useState(false);
 
-  const pushToOutlook = useCallback(async () => {
+  /**
+   * Push the whole committee, or — when `target` is given — only that one
+   * meeting / info-schedule row (the per-row "Push" button). The scoped plan
+   * touches only the target's keyed events (see planCommitteeReconcile), so a
+   * single-row push never deletes another entry's events or clears the pending
+   * orphaned-meeting accounting.
+   */
+  const pushToOutlook = useCallback(async (target?: CommitteeReconcileTarget) => {
     if (isPopout || !committee) return;
     setBusy(true);
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
       if (!token) { showToast("error", t(lang, "committeePushError")); return; }
 
-      const plan = planCommitteeReconcile(committee, today);
+      const plan = planCommitteeReconcile(committee, today, target);
       const newMeetingIds = new Map<number, string>(); // meetingId -> created eventId
       const newInfoIds = new Map<string, string>(); // "<meetingId>:<scheduleId>" -> created eventId
       const staleMeetingIds = new Set<number>(); // update hit 404 (deleted in Outlook) -> clear id, re-create next push

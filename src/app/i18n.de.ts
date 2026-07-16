@@ -2484,6 +2484,7 @@ export const de: Record<TranslationKey, string> = {
   committeeReminderUpcoming: "Demnächst",
   committeePushOutlook: "An Outlook senden",
   committeePushBusy: "Wird gesendet…",
+  committeePushRow: "Senden",
   reportStatusReport: "Statusbericht",
   reportBody: "Bericht",
   reportTo: "An",

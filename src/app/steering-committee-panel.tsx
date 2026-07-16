@@ -18,6 +18,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { CommitteeMeeting, InfoSchedule, Resource, SteeringCommittee } from "./types";
 import { Modal } from "./modal";
+import type { CommitteeReconcileTarget } from "./committee-calendar-reconcile";
 import { MeetingReportPanel, type MeetingReportVersionUi } from "./meeting-report-panel";
 import { committeeMemberEmails } from "./committee-report/report-recipients";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
@@ -60,6 +61,24 @@ function DeleteCell({ lang, onClick, label }: { lang: Lang; onClick: () => void;
   );
 }
 
+/** Per-row "Push" cell — scopes an Outlook push to this one meeting/schedule.
+ *  Row-unique accessible name (WCAG 2.4.6): "Push to Outlook – <label>". */
+function PushRowCell({ lang, onClick, label, busy }: { lang: Lang; onClick: () => void; label: string; busy: boolean }) {
+  return (
+    <td className="text-right print:hidden">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={busy}
+        aria-label={`${t(lang, "committeePushOutlook")} – ${label}`}
+        className={BTN_SECONDARY}
+      >
+        {t(lang, "committeePushRow")}
+      </button>
+    </td>
+  );
+}
+
 const REMINDER_TIER_KEY: Record<ReminderTier, "committeeReminderOverdue" | "committeeReminderSoon" | "committeeReminderUpcoming"> = {
   now: "committeeReminderOverdue",
   soon: "committeeReminderSoon",
@@ -73,8 +92,10 @@ export interface SteeringCommitteePanelProps {
   resources: readonly Resource[];
   today: string;
   /** Supplied by Task 7 (Outlook push). When absent the button is hidden.
-   *  Errors surface via toast (not inline), so no `error` field is threaded. */
-  outlookPush?: { onPush: () => void; busy: boolean };
+   *  Errors surface via toast (not inline), so no `error` field is threaded.
+   *  `onPushRow` (optional) scopes a push to a single meeting / info-schedule
+   *  row — when absent the per-row "Push" buttons are hidden. */
+  outlookPush?: { onPush: () => void; busy: boolean; onPushRow?: (target: CommitteeReconcileTarget) => void };
   /** Per-meeting status-report actions (save/email + AI/versions). When absent
    *  the per-meeting "Status report" button is hidden. */
   report?: MeetingReportBag;
@@ -286,6 +307,7 @@ export function SteeringCommitteePanel({
                     <ColumnResizeHandle col="location" onMouseDown={startMeetingResize} />
                   </th>
                   {report && !isPopout && <th className="px-3 py-2" />}
+                  {outlookPush?.onPushRow && <th className="px-3 py-2 print:hidden" />}
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -335,6 +357,14 @@ export function SteeringCommitteePanel({
                           {t(lang, "reportStatusReport")}
                         </button>
                       </td>
+                    )}
+                    {outlookPush?.onPushRow && (
+                      <PushRowCell
+                        lang={lang}
+                        onClick={() => outlookPush.onPushRow!({ kind: "meeting", id: m.id })}
+                        label={m.title || m.date}
+                        busy={outlookPush.busy}
+                      />
                     )}
                     <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={m.title || m.date} />
                   </tr>
@@ -389,6 +419,7 @@ export function SteeringCommitteePanel({
                     {t(lang, "committeeScheduleLeadDays")}
                     <ColumnResizeHandle col="leadDays" onMouseDown={startScheduleResize} />
                   </th>
+                  {outlookPush?.onPushRow && <th className="px-3 py-2 print:hidden" />}
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -415,6 +446,14 @@ export function SteeringCommitteePanel({
                         className={`${INPUT_CLASS} w-24`}
                       />
                     </td>
+                    {outlookPush?.onPushRow && (
+                      <PushRowCell
+                        lang={lang}
+                        onClick={() => outlookPush.onPushRow!({ kind: "schedule", id: s.id })}
+                        label={s.label || String(s.id)}
+                        busy={outlookPush.busy}
+                      />
+                    )}
                     <DeleteCell lang={lang} onClick={() => deleteSchedule(s.id)} label={s.label || String(s.id)} />
                   </tr>
                 ))}
