@@ -18,6 +18,21 @@ describe("UndoControl", () => {
     await userEvent.click(btn);
     expect(onUndo).toHaveBeenCalledTimes(1);
   });
+
+  it("caret opens a popover previewing the next entry's label", async () => {
+    render(<UndoControl lang="en-US" depth={2} nextLabel={'Delete task "X"'} onUndo={() => {}} />);
+    const caret = screen.getByRole("button", { name: /show next undo/i });
+    expect(caret).toHaveAttribute("aria-haspopup");
+    expect(caret).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(caret);
+    expect(caret).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText('Delete task "X"')).toBeInTheDocument();
+  });
+
+  it("renders no caret when nextLabel is absent", () => {
+    render(<UndoControl lang="en-US" depth={2} onUndo={() => {}} />);
+    expect(screen.queryByRole("button", { name: /show next undo/i })).toBeNull();
+  });
 });
 
 describe("RedoControl", () => {
