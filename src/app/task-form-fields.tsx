@@ -527,10 +527,15 @@ export function TaskFormFields({
               `inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium ${INTERACTIVE}`;
             const chipInactive =
               "border-line bg-surface text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
+            // RAG-semantic override chips: border + tint ride the canonical
+            // --rag-* role tokens (amber = warning orange, never purple) so the
+            // active RAG choice matches every RAG dot and reflows per scheme.
+            // Text stays dark-blue/light-grey (AA-safe) — the amber tint is a
+            // background only, never small text.
             const chipActive: Record<Health, string> = {
-              R: "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-dark-blue dark:border-AIPM-pink dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey",
-              A: "border-AIPM-purple bg-AIPM-purple/10 text-AIPM-dark-blue dark:border-AIPM-purple dark:bg-AIPM-purple/15 dark:text-AIPM-light-grey",
-              G: "border-AIPM-green bg-AIPM-green/10 text-AIPM-dark-blue dark:border-AIPM-green dark:bg-AIPM-green/15 dark:text-AIPM-light-grey",
+              R: "border-[var(--rag-red)] bg-[var(--rag-red)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-red)]/15 dark:text-AIPM-light-grey",
+              A: "border-[var(--rag-amber)] bg-[var(--rag-amber)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-amber)]/15 dark:text-AIPM-light-grey",
+              G: "border-[var(--rag-green)] bg-[var(--rag-green)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-green)]/15 dark:text-AIPM-light-grey",
             };
             return (
               <div className="flex flex-wrap items-center gap-2">
