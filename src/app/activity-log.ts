@@ -52,6 +52,7 @@ export type ActivityKind =
   | "history.restore"
   | "calendar.autoPulled"
   | "ai.inlineEdit"
+  | "ai.taskDedup"
   | "undo"
   | "redo";
 
@@ -198,6 +199,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "history.restore": "activityHistoryRestore",
   "calendar.autoPulled": "activityCalendarAutoPulled",
   "ai.inlineEdit": "activityAiInlineEdit",
+  "ai.taskDedup": "activityAiTaskDedup",
   "undo": "activityUndo",
   "redo": "activityRedo",
 };
