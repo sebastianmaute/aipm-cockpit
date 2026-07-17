@@ -27,7 +27,7 @@ import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { fetchConfluencePage } from "./confluence-api";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import { Modal } from "./modal";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -205,7 +205,7 @@ export function Step0ImportPanel({
   // SharePoint picker yielded a file link → fetch its bytes via Graph + classify
   // (SOURCE step in try/catch), then ingest OUTSIDE the catch. Errors surface a
   // sanitized message only.
-  const onSharePointPick = async (link: DocumentLink) => {
+  const onSharePointPick = async (link: KnowledgeLink) => {
     setSpPickerOpen(false);
     setImportError(null);
     let content: ProposalContent;

@@ -1,5 +1,5 @@
 // src/app/documents.ts — pure aggregator of every document link in a workspace.
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import type { AppView } from "./nav-config";
 import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder, ProjectMeta } from "./types";
 
@@ -13,7 +13,7 @@ export interface DocSource {
 }
 
 export interface DocRef {
-  link: DocumentLink;
+  link: KnowledgeLink;
   source: DocSource;
   index: number;
 }
@@ -27,7 +27,7 @@ export interface CollectDocumentsArgs {
   project: ProjectMeta | undefined;
 }
 
-function push(out: DocRef[], links: readonly DocumentLink[] | undefined, source: DocSource): void {
+function push(out: DocRef[], links: readonly KnowledgeLink[] | undefined, source: DocSource): void {
   (links ?? []).forEach((link, index) => out.push({ link, source, index }));
 }
 

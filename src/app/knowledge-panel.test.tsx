@@ -8,7 +8,7 @@ import { KnowledgePanel } from "./knowledge-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import type { Task } from "./types";
 
 afterEach(() => {
@@ -25,14 +25,14 @@ function enableSharePoint() {
   );
 }
 
-const LINK: DocumentLink = {
+const LINK: KnowledgeLink = {
   id: "dl-1",
   name: "Spec.docx",
   url: "https://example.sharepoint.com/Spec.docx",
   kind: "file",
 };
 
-function seededTask(documentLinks: DocumentLink[]): Task {
+function seededTask(documentLinks: KnowledgeLink[]): Task {
   return {
     id: 7,
     taskName: "Write spec",
@@ -115,7 +115,7 @@ describe("KnowledgePanel", () => {
   });
 
   it("filters the grid when a source chip is selected", () => {
-    const raidDoc: DocumentLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
+    const raidDoc: KnowledgeLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
     const task = seededTask([LINK]);
     const taskWithRaid: Task = { ...task, raid: undefined } as Task;
     // Two docs from two different sources: one task link, one task link renamed.
@@ -128,7 +128,7 @@ describe("KnowledgePanel", () => {
   });
 
   it("narrows by the search box", () => {
-    const second: DocumentLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
+    const second: KnowledgeLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
     renderWithTasks([{ ...seededTask([LINK, second]) }]);
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "risk" } });
     expect(screen.queryByText(/Spec\.docx/)).not.toBeInTheDocument();

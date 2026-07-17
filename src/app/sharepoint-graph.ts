@@ -1,10 +1,10 @@
 // src/app/sharepoint-graph.ts
 //
 // Pure core for the SharePoint browse picker: Graph response types, URL
-// builders, and mappers to the app's DocumentLink / SiteRef. No fetch, no
+// builders, and mappers to the app's KnowledgeLink / SiteRef. No fetch, no
 // React, no window — the hook (use-sharepoint-browser.ts) owns I/O.
 
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 
 export const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
@@ -97,9 +97,9 @@ export function mapDrive(raw: GraphDrive): DriveRef {
   };
 }
 
-export function mapDriveItem(raw: GraphDriveItem): DocumentLink {
+export function mapDriveItem(raw: GraphDriveItem): KnowledgeLink {
   const folder = isFolder(raw);
-  const link: DocumentLink = {
+  const link: KnowledgeLink = {
     id: typeof raw.id === "string" ? raw.id : "",
     name: (raw.name ?? "").trim(),
     url: (raw.webUrl ?? "").trim(),

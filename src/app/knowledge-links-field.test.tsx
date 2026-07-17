@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { KnowledgeLinksField } from "./knowledge-links-field";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 
-const links: DocumentLink[] = [
+const links: KnowledgeLink[] = [
   { id: "1", name: "Spec.docx", url: "https://c.sharepoint.com/x", kind: "file" },
 ];
 const acquire = vi.fn(async () => "tok");

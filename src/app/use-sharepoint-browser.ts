@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import {
   searchSitesUrl, siteDrivesUrl, driveRootChildrenUrl, folderChildrenUrl,
   siteDefaultDriveRootChildrenUrl,
@@ -26,7 +26,7 @@ interface BrowserState {
   searchForbidden: boolean;
   sites: SiteRef[];
   drives: DriveRef[];
-  items: DocumentLink[];
+  items: KnowledgeLink[];
   breadcrumb: Crumb[];
   currentDriveId: string | null;
 }
@@ -99,7 +99,7 @@ export function useSharePointBrowser(acquireToken: AcquireToken) {
     }));
   }, [call]);
 
-  const openFolder = useCallback(async (link: DocumentLink) => {
+  const openFolder = useCallback(async (link: KnowledgeLink) => {
     if (!link.driveId || !link.itemId) return;
     const json = await call<unknown>(folderChildrenUrl(link.driveId, link.itemId));
     if (!json) return;

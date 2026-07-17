@@ -16,7 +16,7 @@ import type React from "react";
 import { FieldError } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import { tzZones } from "./timezone";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import {
@@ -51,7 +51,7 @@ export type ProjectFormDraft = ProjectDraft & {
   quotes: string;
   docRepoLocation: string;
   notes: string;
-  documentLinks: DocumentLink[];
+  documentLinks: KnowledgeLink[];
   operatingTimezone: string;
 };
 

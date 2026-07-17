@@ -1,4 +1,4 @@
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 
 export type Priority = "Low" | "Medium" | "High" | "Urgent";
 
@@ -94,7 +94,7 @@ export type Task = {
   healthOverride?: "R" | "A" | "G";
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
   /** Running note log — dated free-text notes. Optional + sparse; absent on
    *  legacy data. Persisted as a JSON-in-cell array across the text backends. */
   noteLog?: NoteLogEntry[];
@@ -213,7 +213,7 @@ export type RaidItem = {
   stakeholderIds: number[];
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
   /** Outlook calendar event id for this item's review date (calendar write-back
    *  link, keyed on targetDate). App-managed; users never enter it. */
   outlookEventId?: string;
@@ -237,7 +237,7 @@ export type Milestone = {
   outlookEventId?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
 };
 
 // ----------------------------------------------------------------------------
@@ -318,7 +318,7 @@ export type ChangeItem = {
   localModifiedAt?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
   /** Outlook calendar event id for this change's decision-date write-back
    *  (SP3). Set by the push; absent until first synced. */
   outlookEventId?: string;
@@ -360,7 +360,7 @@ export type Stakeholder = {
   localModifiedAt?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
 };
 
 /** Project-level status overrides + PM narrative for the health dashboard.
@@ -692,5 +692,5 @@ export type ProjectMeta = {
   notes?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
 };

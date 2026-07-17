@@ -5,7 +5,7 @@ import { useSettings } from "./use-settings";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { collectDocuments, type DocRef, type DocSource, type DocSourceKind } from "./knowledge";
-import { isSafeHttpUrl, type DocumentLink } from "./document-link";
+import { isSafeHttpUrl, type KnowledgeLink } from "./document-link";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
@@ -63,7 +63,7 @@ export function KnowledgePanel() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<DocSort>("added");
 
-  function linksOf(s: DocSource): DocumentLink[] {
+  function linksOf(s: DocSource): KnowledgeLink[] {
     if (s.kind === "project") return [...(project?.documentLinks ?? [])];
     const list =
       s.kind === "task"
@@ -76,12 +76,12 @@ export function KnowledgePanel() {
               ? milestones
               : stakeholders;
     return [
-      ...((list as readonly { id: number; documentLinks?: DocumentLink[] }[]).find((e) => e.id === s.id)
+      ...((list as readonly { id: number; documentLinks?: KnowledgeLink[] }[]).find((e) => e.id === s.id)
         ?.documentLinks ?? []),
     ];
   }
-  function setDocsForSource(s: DocSource, next: DocumentLink[]) {
-    const patch = <T extends { id: number; documentLinks?: DocumentLink[] }>(arr: readonly T[]): T[] =>
+  function setDocsForSource(s: DocSource, next: KnowledgeLink[]) {
+    const patch = <T extends { id: number; documentLinks?: KnowledgeLink[] }>(arr: readonly T[]): T[] =>
       arr.map((e) => (e.id === s.id ? { ...e, documentLinks: next } : e));
     if (s.kind === "task") ws.setTasks((p) => patch(p));
     else if (s.kind === "raid") ws.setRaid((p) => patch(p));
@@ -123,7 +123,7 @@ export function KnowledgePanel() {
   function addManualLink(s: DocSource) {
     if (!manualValid) return;
     const url = manualUrl.trim();
-    const link: DocumentLink = { id: url, kind: "file", name: manualName.trim(), url, addedAt: new Date().toISOString() };
+    const link: KnowledgeLink = { id: url, kind: "file", name: manualName.trim(), url, addedAt: new Date().toISOString() };
     if (linksOf(s).some((l) => l.url === link.url)) return;
     setDocsForSource(s, [...linksOf(s), link]);
     setManualName("");

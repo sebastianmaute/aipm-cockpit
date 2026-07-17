@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { isSafeHttpUrl, type DocumentLink } from "./document-link";
+import { isSafeHttpUrl, type KnowledgeLink } from "./document-link";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import type { AcquireToken } from "./use-sharepoint-browser";
 
 export interface KnowledgeLinksFieldProps {
-  value: DocumentLink[];
-  onChange: (next: DocumentLink[]) => void;
+  value: KnowledgeLink[];
+  onChange: (next: KnowledgeLink[]) => void;
   lang: Lang;
   acquireToken: AcquireToken;
   onLog?: (action: "added" | "removed", name: string) => void;
@@ -17,9 +17,9 @@ export interface KnowledgeLinksFieldProps {
 export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog }: KnowledgeLinksFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  function add(link: DocumentLink) {
+  function add(link: KnowledgeLink) {
     if (value.some((l) => l.url === link.url)) return;
-    const stamped: DocumentLink = link.addedAt ? link : { ...link, addedAt: new Date().toISOString() };
+    const stamped: KnowledgeLink = link.addedAt ? link : { ...link, addedAt: new Date().toISOString() };
     onChange([...value, stamped]);
     onLog?.("added", link.name);
   }

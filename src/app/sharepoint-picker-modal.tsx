@@ -8,24 +8,24 @@ import { useResizable } from "./use-resizable";
 import { t, type Lang } from "./i18n";
 import { useSharePointBrowser, type AcquireToken } from "./use-sharepoint-browser";
 import { parseSharePointSiteUrl } from "./sharepoint-backend";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import type { SiteRef, DriveRef } from "./sharepoint-graph";
 
 export interface SharePointPickerModalProps {
   mode: "location" | "link";
   lang: Lang;
   acquireToken: AcquireToken;
-  onSelect: (link: DocumentLink) => void;
+  onSelect: (link: KnowledgeLink) => void;
   onClose: () => void;
 }
 
 interface ResultRowProps {
-  item: DocumentLink;
+  item: KnowledgeLink;
   mode: "location" | "link";
   lang: Lang;
-  onSelect: (link: DocumentLink) => void;
+  onSelect: (link: KnowledgeLink) => void;
   onClose: () => void;
-  openFolder: (link: DocumentLink) => void;
+  openFolder: (link: KnowledgeLink) => void;
 }
 
 function ResultRow({ item, mode, lang, onSelect, onClose, openFolder }: ResultRowProps) {
@@ -258,7 +258,7 @@ export function SharePointPickerModal({
                 {/* Items (folder contents) */}
                 {inDrive && hasItems && (
                   <div className="flex flex-col gap-1">
-                    {items.map((item: DocumentLink) => (
+                    {items.map((item: KnowledgeLink) => (
                       <ResultRow
                         key={item.id}
                         item={item}

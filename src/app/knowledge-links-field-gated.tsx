@@ -1,15 +1,15 @@
 "use client";
 
 import { type Lang, t } from "./i18n";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import { KnowledgeLinksField } from "./knowledge-links-field";
 import { useMsAuth } from "./use-ms-auth";
 import { useSettings } from "./use-settings";
 import { useActivityLogger } from "./activity-log-context";
 
 export interface KnowledgeLinksFieldGatedProps {
-  value: DocumentLink[];
-  onChange: (next: DocumentLink[]) => void;
+  value: KnowledgeLink[];
+  onChange: (next: KnowledgeLink[]) => void;
   lang: Lang;
 }
 

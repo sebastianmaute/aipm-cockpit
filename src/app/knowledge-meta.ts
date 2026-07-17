@@ -1,5 +1,5 @@
 // src/app/document-meta.ts
-// Pure, i18n-free display-metadata helpers for DocumentLink lists: host label
+// Pure, i18n-free display-metadata helpers for KnowledgeLink lists: host label
 // (from URL), file type (icon + i18n key), and list filter/sort/counts for the
 // Documents card grid. Deterministic — no Date/Math.random.
 

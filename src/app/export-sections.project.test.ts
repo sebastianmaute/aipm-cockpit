@@ -5,7 +5,7 @@ import { emptyWorkspace } from "./storage";
 import { defaultExportConfig } from "./settings-types";
 import { loadI18n } from "./i18n";
 import type { ProjectMeta } from "./types";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -241,7 +241,7 @@ describe("buildExportSections – project section", () => {
   });
 
   it("documentLinks are rendered as readable names, not '[object Object]'", () => {
-    const links: DocumentLink[] = [
+    const links: KnowledgeLink[] = [
       { id: "dl-1", name: "Spec.docx", url: "https://sp.example.com/spec.docx", kind: "file" },
       { id: "dl-2", name: "Evidence", url: "https://sp.example.com/evidence", kind: "folder" },
     ];
