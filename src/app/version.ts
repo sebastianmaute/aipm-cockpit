@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.8";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.8: design-system form-field primitives (P2a) — canonical <Input>/<Select>/<Textarea>/<Checkbox>; checkboxes now share ONE brand accent (previously an inert/6-way mix) and form fields share the ring-2 green focus ring (Pinsker)
+export const APP_VERSION = "0.190.9";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.9: design-system menu/loading consistency (P2b) — canonical <Spinner> primitive (dedups 3 inline spinners); combo-input focus ring ring-1 -> canonical ring-2; toolbar filter/column dropdowns portal via PopoverPanel (escape overflow-clip) + render the canonical <Checkbox> (fixes an inert text-* checkbox class) (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
