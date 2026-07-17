@@ -42,7 +42,7 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
               <span className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-foreground">{t(lang, tour.titleKey)}</span>
                 {isDone && (
-                  <Badge pill className="shrink-0 bg-AIPM-green/15 font-medium text-AIPM-green-strong">
+                  <Badge pill size="sm" className="shrink-0 bg-AIPM-green/15 font-medium text-AIPM-green-strong">
                     <span aria-hidden="true">✓ </span>
                     {t(lang, "tourDoneBadge")}
                   </Badge>

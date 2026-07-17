@@ -266,7 +266,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}`}
                   className="accent-AIPM-dark-blue"
                 />
-                <Badge size="sm" className={v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-dark-blue dark:text-AIPM-light-grey" : "bg-surface-muted text-muted-foreground"}>
+                <Badge size="md" className={v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-dark-blue dark:text-AIPM-light-grey" : "bg-surface-muted text-muted-foreground"}>
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
                 </Badge>
                 <span className="text-foreground">{v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
