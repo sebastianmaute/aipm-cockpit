@@ -7,6 +7,7 @@ import { useFilters } from "./filters-context";
 import { useSavedViews } from "./use-saved-views";
 import { type SavedView, type SavedViewPayload } from "./saved-views";
 import { SavedViewsMenu } from "./saved-views-menu";
+import { useSettings } from "./use-settings";
 
 interface SavedViewsControlProps {
   lang: Lang;
@@ -15,6 +16,7 @@ interface SavedViewsControlProps {
 }
 
 export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedViewsControlProps) {
+  const { settings } = useSettings();
   const f = useFilters();
   const { views, addView, removeView } = useSavedViews();
 
@@ -25,6 +27,7 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
       assigneeFilter: f.assigneeFilter,
       groupFilter: f.groupFilter,
       labelFilter: f.labelFilter,
+      healthFilter: f.healthFilter,
       sortKey: f.sortKey,
       sortDir: f.sortDir,
       hiddenCols: [...hiddenCols],
@@ -37,11 +40,17 @@ export function SavedViewsControl({ lang, hiddenCols, setHiddenCols }: SavedView
     f.setAssigneeFilter(v.payload.assigneeFilter);
     f.setGroupFilter(v.payload.groupFilter);
     f.setLabelFilter(v.payload.labelFilter);
+    // Default a stale/absent health filter to "all" so applying a view saved
+    // without one clears a leftover RAG filter instead of silently keeping it.
+    f.setHealthFilter(v.payload.healthFilter ?? "all");
     f.setSortKey(v.payload.sortKey);
     f.setSortDir(v.payload.sortDir);
     f.setRaidFilterTaskId(null);
     setHiddenCols(new Set(v.payload.hiddenCols));
   }
+
+  // Global "Show saved views" opt-out (Settings → Appearance) hides the control.
+  if (settings.showSavedViews === false) return null;
 
   return (
     <SavedViewsMenu

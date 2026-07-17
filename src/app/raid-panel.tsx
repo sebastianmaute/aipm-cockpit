@@ -51,7 +51,7 @@ import { RAID_COL_WIDTHS, type RaidCol } from "./raid-panel-columns";
 
 const RAID_FILTER_DEFAULTS: PanelFiltersState = {
   search: "",
-  filters: { category: "All", severity: "All", status: "All" },
+  filters: { category: "All", severity: "All", status: "All", owner: "" },
   sort: null,
   hiddenCols: [],
 };
@@ -109,6 +109,9 @@ export type RaidPanelProps = {
   onAiEdit?: (item: RaidItem) => void;
   /** Gate the per-row ✨ button (e.g. AI enabled && not Jira-synced). */
   aiEditEnabled?: (item: RaidItem) => boolean;
+  /** Send a status-inquiry email to an item's owner. Absent in popouts (the
+   *  row + modal buttons hide when undefined). */
+  onSendInquiry?: (item: RaidItem) => void;
 };
 
 // --- Color palette -------------------------------------------------------
@@ -151,6 +154,7 @@ function RaidPanelBody({
   calendarPullBusy,
   onAiEdit,
   aiEditEnabled,
+  onSendInquiry,
 }: RaidPanelProps) {
   const pf = usePanelFilters();
   const { search, sort } = pf;
@@ -158,6 +162,9 @@ function RaidPanelBody({
   const categoryFilter = pf.filters.category;
   const severityFilter = pf.filters.severity;
   const statusFilter = pf.filters.status;
+  // Hoisted to a scalar local — exhaustive-deps rejects `pf.filters.owner` in a
+  // useMemo dep array.
+  const ownerFilter = pf.filters.owner ?? "";
   const toggleSort = (key: RaidSortKey) =>
     pf.setSort(
       pf.sort?.key !== key ? { key, dir: "asc" } : pf.sort.dir === "asc" ? { key, dir: "desc" } : null,
@@ -211,6 +218,11 @@ function RaidPanelBody({
         return false;
       if (statusFilter === "Closed" && !isTerminalStatus(r.status, r.category))
         return false;
+      if (
+        ownerFilter &&
+        effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById) !== ownerFilter
+      )
+        return false;
       if (q) {
         const hay = [
           r.title,
@@ -243,9 +255,19 @@ function RaidPanelBody({
           return a.id - b.id;
         });
     return ordered;
-  }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, search, sort, resourcesById]);
+  }, [raid, filterTaskId, categoryFilter, severityFilter, statusFilter, ownerFilter, search, sort, resourcesById]);
 
   const visibleIds = useMemo(() => visible.map((r) => r.id), [visible]);
+
+  // Distinct owners present (by LIVE name), for the toolbar owner filter.
+  const ownerOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of raid) {
+      const name = effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById).trim();
+      if (name) set.add(name);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [raid, resourcesById]);
 
   // Bulk-editable fields. Status is intentionally omitted: RAID status is
   // category-specific (sanitizeRaidItem silently defaults a mismatch), so a
@@ -403,6 +425,7 @@ function RaidPanelBody({
     categoryFilter !== "All" ||
     severityFilter !== "All" ||
     statusFilter !== "All" ||
+    ownerFilter !== "" ||
     filterTaskId !== null;
 
 
@@ -424,6 +447,8 @@ function RaidPanelBody({
           categoryFilter={categoryFilter}
           severityFilter={severityFilter}
           statusFilter={statusFilter}
+          ownerFilter={ownerFilter}
+          owners={ownerOptions}
           onSetFilter={pf.setFilter}
           onResetFilters={pf.resetFilters}
           onToggleColumn={pf.toggleColumn}
@@ -487,6 +512,7 @@ function RaidPanelBody({
               const target = raidById.get(id);
               if (target) openEdit(target);
             }}
+            onSendInquiry={onSendInquiry}
           />
         )
       }
@@ -512,6 +538,7 @@ function RaidPanelBody({
           flashId={flashId}
           onAiEdit={onAiEdit}
           aiEditEnabled={aiEditEnabled}
+          onSendInquiry={onSendInquiry}
         />
     </PanelTableScaffold>
   );

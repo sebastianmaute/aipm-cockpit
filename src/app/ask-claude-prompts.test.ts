@@ -20,7 +20,7 @@ describe("ask-claude-prompts", () => {
   });
 
   it("falls back to foundational-only for a view with no curated set", () => {
-    const { onPage, general } = promptsForView("edit");
+    const { onPage, general } = promptsForView("settings");
     expect(onPage).toEqual([]);
     expect(general).toEqual(FOUNDATIONAL_PROMPTS);
   });

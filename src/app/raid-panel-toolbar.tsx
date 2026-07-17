@@ -20,6 +20,10 @@ export interface RaidToolbarProps {
   categoryFilter: string;
   severityFilter: string;
   statusFilter: string;
+  /** Selected owner (LIVE name) or "" for all owners. */
+  ownerFilter: string;
+  /** Distinct owner names present in the register. */
+  owners: readonly string[];
   onSetFilter: (key: string, value: string) => void;
   onResetFilters: () => void;
   onToggleColumn: (key: string) => void;
@@ -47,6 +51,8 @@ export function RaidToolbar({
   categoryFilter,
   severityFilter,
   statusFilter,
+  ownerFilter,
+  owners,
   onSetFilter,
   onResetFilters,
   onToggleColumn,
@@ -123,6 +129,21 @@ export function RaidToolbar({
         <option value="Open">{t(lang, "raidStatusOpen")}</option>
         <option value="Closed">{t(lang, "raidStatusClosed")}</option>
       </select>
+      {owners.length > 0 && (
+        <select
+          value={ownerFilter}
+          onChange={(e) => onSetFilter("owner", e.target.value)}
+          aria-label={t(lang, "raidOwner")}
+          className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        >
+          <option value="">{t(lang, "raidOwnerAll")}</option>
+          {owners.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      )}
       {filterTaskId !== null && (
         <button
           type="button"

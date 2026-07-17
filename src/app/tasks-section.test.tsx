@@ -86,6 +86,7 @@ function stubFilters() {
     assigneeFilter: "All", setAssigneeFilter: vi.fn(),
     groupFilter: "All", setGroupFilter: vi.fn(),
     labelFilter: "All", setLabelFilter: vi.fn(),
+    healthFilter: "all", setHealthFilter: vi.fn(),
     sortKey: "taskName", sortDir: "asc",
     setSortKey: vi.fn(), setSortDir: vi.fn(),
     raidFilterTaskId: null, setRaidFilterTaskId: vi.fn(),
@@ -199,6 +200,7 @@ function makeProps(): TasksSectionProps {
     toggleSelectAllVisible: vi.fn(),
     clearSelection: vi.fn(),
     handleBulkSendInquiry: vi.fn(),
+    handleBulkDelete: vi.fn(),
     applyBulkEdit: vi.fn(),
     cancelBulkEdit: vi.fn(),
     // Inline "Ask Claude" task edit (SP1)
@@ -394,6 +396,7 @@ describe("TasksSection", () => {
       assigneeFilter: "All", setAssigneeFilter: vi.fn(),
       groupFilter: "All", setGroupFilter: vi.fn(),
       labelFilter: "All", setLabelFilter: vi.fn(),
+      healthFilter: "all", setHealthFilter: vi.fn(),
       sortKey: "taskName", sortDir: "asc",
       setSortKey, setSortDir: vi.fn(),
       raidFilterTaskId: null, setRaidFilterTaskId: vi.fn(),

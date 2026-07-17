@@ -3,6 +3,21 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { SteeringCommitteePanel } from "./steering-committee-panel";
 import { loadI18n, t } from "./i18n";
 import type { Resource, SteeringCommittee } from "./types";
+import type { MeetingReportBag } from "./use-meeting-report-actions";
+
+const reportBag: MeetingReportBag = {
+  m365Configured: false,
+  aiConfigured: false,
+  tursoActive: false,
+  onSaveReport: () => {},
+  onSendReport: () => {},
+  sendBusyMeetingId: null,
+  onGenerateReport: () => {},
+  generateBusyMeetingId: null,
+  loadVersions: async () => [],
+  onRestore: () => {},
+  restoreBusyId: null,
+};
 
 function res(id: number, firstName: string, lastName: string): Resource {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,6 +180,63 @@ describe("SteeringCommitteePanel", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "committeePushOutlook") })).toBeNull();
   });
 
+  it("pushes a single meeting row via onPushRow with a meeting-scoped target", () => {
+    const onPushRow = vi.fn();
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        outlookPush={{ onPush: () => {}, pushingTarget: null, onPushRow }}
+      />,
+    );
+    // Row-unique accessible name: "Push to Outlook – <meeting>".
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Kickoff` }),
+    );
+    expect(onPushRow).toHaveBeenCalledWith({ kind: "meeting", id: 1 });
+    // Distinct control per meeting row (WCAG 2.4.6).
+    expect(
+      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Review` }),
+    ).toBeInTheDocument();
+  });
+
+  it("pushes a single info-schedule row via onPushRow with a schedule-scoped target", () => {
+    const onPushRow = vi.fn();
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        outlookPush={{ onPush: () => {}, pushingTarget: null, onPushRow }}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Board pack` }),
+    );
+    expect(onPushRow).toHaveBeenCalledWith({ kind: "schedule", id: 1 });
+  });
+
+  it("hides per-row push buttons when onPushRow is absent", () => {
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        outlookPush={{ onPush: () => {}, pushingTarget: null }}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Kickoff` }),
+    ).toBeNull();
+  });
+
   it("shows the Outlook push button (disabled while busy) when the prop is provided", () => {
     render(
       <SteeringCommitteePanel
@@ -173,11 +245,68 @@ describe("SteeringCommitteePanel", () => {
         onChange={() => {}}
         resources={RESOURCES}
         today={TODAY}
-        outlookPush={{ onPush: () => {}, busy: true }}
+        outlookPush={{ onPush: () => {}, pushingTarget: "all" }}
       />,
     );
     const btn = screen.getByRole("button", { name: t("en-US", "committeePushBusy") });
     expect(btn).toBeDisabled();
+  });
+
+  it("disables every push affordance during an in-flight push; only the in-flight row shows busy", () => {
+    const onPushRow = vi.fn();
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        // Meeting id 1 ("Kickoff") is pushing. To avoid the concurrent-click
+        // silent no-op (the hook's inFlightRef guard bails without feedback),
+        // ALL push buttons are disabled — only the in-flight one shows busy.
+        outlookPush={{ onPush: () => {}, pushingTarget: "m:1", onPushRow }}
+      />,
+    );
+    const kickoff = screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Kickoff` });
+    const review = screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Review` });
+    const pushAll = screen.getByRole("button", { name: t("en-US", "committeePushOutlook") });
+    // Every affordance is disabled (not silently clickable) while any push runs.
+    expect(kickoff).toBeDisabled();
+    expect(review).toBeDisabled();
+    expect(pushAll).toBeDisabled();
+    // Busy label is TARGET-SCOPED: only the in-flight Kickoff row shows it.
+    expect(kickoff).toHaveTextContent(t("en-US", "committeePushBusy"));
+    expect(review).toHaveTextContent(t("en-US", "committeePushRow"));
+  });
+
+  it("wraps the status-report surface in resize/reset/print/cancel chrome; cancel closes it", async () => {
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        report={reportBag}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "reportStatusReport")} – Kickoff` }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    // Resizable content-pane container (native CSS `resize`).
+    const heading = within(dialog).getByRole("heading", {
+      name: `${t("en-US", "reportStatusReport")} – Kickoff`,
+    });
+    expect(heading.closest("div.resize")).not.toBeNull();
+    // Print + reset-size + cancel controls present, scoped to the dialog.
+    expect(within(dialog).getByRole("button", { name: t("en-US", "printHint") })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: t("en-US", "tableResetSizeHint") }),
+    ).toBeInTheDocument();
+    const cancel = within(dialog).getByRole("button", { name: t("en-US", "cancel") });
+    fireEvent.click(cancel);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 

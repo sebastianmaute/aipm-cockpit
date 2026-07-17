@@ -9,6 +9,7 @@
 
 import { riskSeverityFromMatrix } from "./raid";
 import { encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
+import { encodeNoteLog } from "./note-log";
 import {
   encodeAllocations,
   encodeDisciplineAllocations,
@@ -66,6 +67,7 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "timeSpentMinutes",
   "documentLinks",
   "outlookEventId",
+  "noteLog",
 ];
 
 // Whitelist parser shared by CSV and Markdown deserialization. Anything that
@@ -102,6 +104,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "stakeholderIds",
   "documentLinks",
   "outlookEventId",
+  "inquiriesSent",
 ];
 
 // Columns persisted for Absence items in CSV and Markdown. Order matches
@@ -336,6 +339,11 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
     documentLinks: decodeDocumentLinks(obj.documentLinks),
     outlookEventId: obj.outlookEventId || undefined,
+    // Sparse: absent/0/negative -> undefined so legacy rows stay byte-identical.
+    inquiriesSent: (() => {
+      const n = Number(obj.inquiriesSent);
+      return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+    })(),
   };
 }
 
@@ -446,6 +454,7 @@ export function fieldToString(t: Task, c: keyof Task): string {
   if (c === "labels") return Array.isArray(t.labels) ? t.labels.join("|") : "";
   if (c === "dependencies") return serializeDependencies(t.dependencies);
   if (c === "documentLinks") return encodeDocumentLinks(t.documentLinks);
+  if (c === "noteLog") return encodeNoteLog(t.noteLog);
   return String(t[c] ?? "");
 }
 

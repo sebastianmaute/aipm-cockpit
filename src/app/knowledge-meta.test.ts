@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter } from "./document-meta";
-import type { DocRef } from "./documents";
+import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter } from "./knowledge-meta";
+import type { DocRef } from "./knowledge";
 
 describe("hostLabel", () => {
   it("maps known SaaS hosts to stable labels", () => {
@@ -39,6 +39,14 @@ describe("fileTypeOf", () => {
   });
   it("always returns a non-empty icon", () => {
     expect(fileTypeOf({ name: "a.pdf", kind: "file" }).icon).not.toBe("");
+  });
+  it("link kind wins over the file heuristics", () => {
+    // a confluence page keeps its Confluence type even with a doc-looking name
+    expect(fileTypeOf({ name: "Spec.pdf", kind: "file", linkKind: "confluence" }).labelKey).toBe("Confluence");
+    // a plain web url is a Link, not File
+    expect(fileTypeOf({ name: "scratch", kind: "file", linkKind: "url" }).labelKey).toBe("Link");
+    // an explicit document falls back to the extension/mime logic
+    expect(fileTypeOf({ name: "a.pdf", kind: "file", linkKind: "document" }).labelKey).toBe("Pdf");
   });
 });
 

@@ -101,7 +101,7 @@ describe("applyUndoRestore", () => {
 
 describe("stack ops", () => {
   const mk = (id: number): UndoEntry => ({
-    meta: { id, kind: "task.deleted", count: 1, timestamp: "t" },
+    meta: { id, kind: "task.deleted", count: 1, timestamp: "t", label: "l" },
     restore: () => {},
   });
 

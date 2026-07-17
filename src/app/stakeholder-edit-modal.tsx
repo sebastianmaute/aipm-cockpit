@@ -24,7 +24,7 @@ import { useDraggable } from "./use-draggable";
 import { setRaciRole } from "./stakeholders";
 import { ResourcePicker } from "./resource-picker";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
@@ -34,6 +34,7 @@ import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
+import { useAutogrow } from "./use-autogrow";
 import { useSettings } from "./use-settings";
 
 export interface StakeholderEditModalProps {
@@ -96,6 +97,8 @@ export function StakeholderEditModal({
   const { settings } = useSettings();
   const draftRef = useRef(draft);
   useEffect(() => { draftRef.current = draft; });
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  useAutogrow(notesRef, draft.notes ?? "");
   const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
@@ -323,6 +326,7 @@ export function StakeholderEditModal({
                 {notesMic}
               </span>
               <textarea
+                ref={notesRef}
                 rows={2}
                 value={draft.notes ?? ""}
                 onChange={(e) => update("notes", e.target.value || undefined)}
@@ -333,7 +337,7 @@ export function StakeholderEditModal({
                   notesDictationReg.onBlur();
                 }}
                 aria-describedby="stakeholder-notes-counter"
-                className={INPUT_CLASS}
+                className={`resize-none ${INPUT_CLASS}`}
               />
               <CharCounter value={draft.notes ?? ""} max={TEXTAREA_MAX} id="stakeholder-notes-counter" lang={lang} />
               {notesDictationStatus}
@@ -343,7 +347,7 @@ export function StakeholderEditModal({
           {/* Document links */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <DocumentLinksFieldGated
+            <KnowledgeLinksFieldGated
               value={draft.documentLinks ?? []}
               onChange={(links) => update("documentLinks", links)}
               lang={lang}

@@ -54,6 +54,7 @@ function validForm(): TaskFormDraft {
     healthOverride: "",
     documentLinks: [],
     resourceId: undefined,
+    noteLog: [],
   };
 }
 

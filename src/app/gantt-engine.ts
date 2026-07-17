@@ -8,7 +8,7 @@
 
 import type { Lang } from "./i18n";
 import { isPlainObject } from "./sanitize";
-import { PRIORITIES, type AbsenceType, type DependencyType, type Priority, type Task } from "./types";
+import { PRIORITIES, type AbsenceType, type DependencyType, type Milestone, type Priority, type Task } from "./types";
 
 // --- preferences ----------------------------------------------------------
 
@@ -26,6 +26,13 @@ export type GanttSort = (typeof GANTT_SORTS)[number];
  *  array means "no status filter" (show all). */
 export const GANTT_STATUS_VALUES = ["open", "completed", "overdue"] as const;
 export type GanttStatus = (typeof GANTT_STATUS_VALUES)[number];
+
+/** Where milestone rows render relative to the task rows:
+ *  - "below" (default): all milestones as a block beneath the task rows.
+ *  - "inline": each non-achieved milestone spliced into the task rows at its
+ *    chronological (due-date) position. */
+export const GANTT_MILESTONE_PLACEMENTS = ["below", "inline"] as const;
+export type MilestonePlacement = (typeof GANTT_MILESTONE_PLACEMENTS)[number];
 
 export type GanttPrefs = {
   sort: GanttSort;
@@ -46,6 +53,9 @@ export type GanttPrefs = {
    *  baseline date (from the pinned snapshot) with a connector + slip label.
    *  Defaults on; only visible when baseline data exists (Turso). */
   showBaseline: boolean;
+  /** Where milestone rows render relative to the task rows. Defaults to
+   *  "below" (the historical block-beneath-tasks layout). */
+  milestonePlacement: MilestonePlacement;
 };
 
 const PREFS_KEY = "aipm-cockpit:gantt-prefs";
@@ -59,6 +69,7 @@ export const DEFAULT_PREFS: GanttPrefs = {
   customOrder: [],
   showCriticalPath: true,
   showBaseline: true,
+  milestonePlacement: "below",
 };
 
 /** De-duplicate while preserving first-seen order. */
@@ -150,6 +161,12 @@ export function loadPrefs(): GanttPrefs {
         typeof parsed.showBaseline === "boolean"
           ? parsed.showBaseline
           : DEFAULT_PREFS.showBaseline,
+      // Older saved prefs won't have this field; missing means "below".
+      milestonePlacement: (GANTT_MILESTONE_PLACEMENTS as readonly string[]).includes(
+        parsed.milestonePlacement as string,
+      )
+        ? (parsed.milestonePlacement as MilestonePlacement)
+        : DEFAULT_PREFS.milestonePlacement,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -326,6 +343,81 @@ export function naturalCompare(
   const de = ba.end.getTime() - bb.end.getTime();
   if (de !== 0) return de;
   return a.id - b.id;
+}
+
+// ---------- row assembly (task + milestone interleaving) ------------------
+
+/** One rendered Gantt row: either a task bar row or a milestone diamond row. */
+export type GanttRow =
+  | { kind: "task"; task: Task }
+  | { kind: "milestone"; milestone: Milestone };
+
+/**
+ * Assemble the ordered Gantt row list from the (already filtered + sorted)
+ * task list and the (already date-sorted) milestone list.
+ *
+ * - "below" (default): every task row, then every milestone row — the
+ *   historical layout, byte-for-byte the previous ordering.
+ * - "inline": each NON-achieved milestone is spliced into the task sequence at
+ *   its chronological position — before the first task whose bar end falls
+ *   on/after the milestone's date. Achieved milestones (and any milestone with
+ *   an unparseable date) fall to the end, matching the below layout so we never
+ *   place a diamond at a bad position or crash.
+ *
+ * Pure: `bars` supplies each task's end date; `sortedMilestones` must already be
+ * date-ascending (the caller sorts once). No React, DOM, or `new Date()` of now.
+ */
+export function buildGanttRows(
+  tasks: readonly Task[],
+  sortedMilestones: readonly Milestone[],
+  placement: MilestonePlacement,
+  bars: ReadonlyMap<number, { start: Date; end: Date }>,
+): GanttRow[] {
+  const taskRows: GanttRow[] = tasks.map((task) => ({ kind: "task", task }));
+  if (placement !== "inline") {
+    return [
+      ...taskRows,
+      ...sortedMilestones.map(
+        (milestone): GanttRow => ({ kind: "milestone", milestone }),
+      ),
+    ];
+  }
+
+  // Split into date-inlinable (non-achieved, parseable date) and trailing
+  // (achieved, or unparseable date). Both keep sortedMilestones' order, which
+  // is date-ascending for the inlinable set.
+  const inlineMs: Array<{ milestone: Milestone; end: number }> = [];
+  const trailingMs: Milestone[] = [];
+  for (const m of sortedMilestones) {
+    const d = m.achievedDate ? null : parseISO(m.date);
+    if (d) inlineMs.push({ milestone: m, end: d.getTime() });
+    else trailingMs.push(m);
+  }
+
+  const rows: GanttRow[] = [];
+  let i = 0;
+  for (const task of tasks) {
+    const bar = bars.get(task.id);
+    const taskEnd = bar ? bar.end.getTime() : null;
+    // Flush every pending milestone due on/before this task's end. Skipped when
+    // the task has no bar (taskEnd null) so those milestones flow further down.
+    while (
+      i < inlineMs.length &&
+      taskEnd !== null &&
+      inlineMs[i].end <= taskEnd
+    ) {
+      rows.push({ kind: "milestone", milestone: inlineMs[i].milestone });
+      i++;
+    }
+    rows.push({ kind: "task", task });
+  }
+  // Milestones later than every task (or anchored by a bar-less task).
+  for (; i < inlineMs.length; i++) {
+    rows.push({ kind: "milestone", milestone: inlineMs[i].milestone });
+  }
+  // Achieved / unparseable-date milestones stay at the very end.
+  for (const m of trailingMs) rows.push({ kind: "milestone", milestone: m });
+  return rows;
 }
 
 function anchorForType(

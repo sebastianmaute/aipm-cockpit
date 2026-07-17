@@ -25,6 +25,7 @@ export type GanttPrefsApi = {
   resetFilters: () => void;
   toggleCriticalPath: () => void;
   toggleBaseline: () => void;
+  toggleMilestonePlacement: () => void;
 };
 
 /** Toggle a value's membership in an array (add if absent, remove if present),
@@ -83,6 +84,12 @@ export function useGanttPrefs(): GanttPrefsApi {
   function toggleBaseline() {
     setPrefs((p) => ({ ...p, showBaseline: !p.showBaseline }));
   }
+  function toggleMilestonePlacement() {
+    setPrefs((p) => ({
+      ...p,
+      milestonePlacement: p.milestonePlacement === "inline" ? "below" : "inline",
+    }));
+  }
 
   return {
     prefs,
@@ -95,5 +102,6 @@ export function useGanttPrefs(): GanttPrefsApi {
     resetFilters,
     toggleCriticalPath,
     toggleBaseline,
+    toggleMilestonePlacement,
   };
 }

@@ -41,6 +41,12 @@ describe("sanitizeFeatures", () => {
   it("drops junk and orders by registry order", () => {
     expect(sanitizeFeatures(["raid", "nope", "budget", "raid"])).toEqual(["budget", "raid"]);
   });
+  it("migrates the legacy `documents` module id to `knowledge` (toggle preserved)", () => {
+    expect(sanitizeFeatures(["raid", "documents"])).toContain("knowledge");
+    expect(sanitizeFeatures(["raid", "documents"])).not.toContain("documents" as never);
+    // a project with documents off (id absent) stays off
+    expect(sanitizeFeatures(["raid"])).not.toContain("knowledge");
+  });
 });
 
 describe("deriveMode", () => {
@@ -84,7 +90,6 @@ describe("isModuleEnabled / moduleForView / enabledNavViews", () => {
     expect(views).toContain("budget");
     expect(views).toContain("budget-report");
     expect(views).not.toContain("raid");
-    expect(views).not.toContain("edit");
     expect(views).not.toContain("settings");
   });
 });

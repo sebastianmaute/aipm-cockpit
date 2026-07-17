@@ -22,6 +22,7 @@ import {
 } from "react";
 import { useDebounce } from "./use-debounce";
 import { type Priority } from "./types";
+import { type HealthFilter } from "./health";
 
 export type SortKey =
   | "id"
@@ -43,6 +44,7 @@ interface FiltersValue {
   assigneeFilter: string;
   groupFilter: string;
   labelFilter: string;
+  healthFilter: HealthFilter;
   sortKey: SortKey;
   sortDir: SortDir;
   raidFilterTaskId: number | null;
@@ -59,6 +61,7 @@ interface FiltersValue {
   setAssigneeFilter: Dispatch<SetStateAction<string>>;
   setGroupFilter: Dispatch<SetStateAction<string>>;
   setLabelFilter: Dispatch<SetStateAction<string>>;
+  setHealthFilter: Dispatch<SetStateAction<HealthFilter>>;
   setSortKey: Dispatch<SetStateAction<SortKey>>;
   setSortDir: Dispatch<SetStateAction<SortDir>>;
   setRaidFilterTaskId: Dispatch<SetStateAction<number | null>>;
@@ -93,6 +96,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   const [assigneeFilter, setAssigneeFilter] = useState("All");
   const [groupFilter, setGroupFilter] = useState("All");
   const [labelFilter, setLabelFilter] = useState("All");
+  const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("id");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [raidFilterTaskId, setRaidFilterTaskId] = useState<number | null>(null);
@@ -104,6 +108,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     setAssigneeFilter("All");
     setGroupFilter("All");
     setLabelFilter("All");
+    setHealthFilter("all");
     setSortKey("id");
     setSortDir("asc");
     setRaidFilterTaskId(null);
@@ -120,6 +125,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       assigneeFilter,
       groupFilter,
       labelFilter,
+      healthFilter,
       sortKey,
       sortDir,
       raidFilterTaskId,
@@ -129,6 +135,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       setAssigneeFilter,
       setGroupFilter,
       setLabelFilter,
+      setHealthFilter,
       setSortKey,
       setSortDir,
       setRaidFilterTaskId,
@@ -141,6 +148,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       assigneeFilter,
       groupFilter,
       labelFilter,
+      healthFilter,
       sortKey,
       sortDir,
       raidFilterTaskId,

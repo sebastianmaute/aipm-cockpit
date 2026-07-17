@@ -5,6 +5,8 @@ import { type Lang, t } from "../i18n";
 import { SegmentedControl } from "../segmented-control";
 import type { DashboardDensity } from "../dashboard-density";
 import { type BrandingConfig, type Settings, DEFAULT_FOOTER_SLOGAN } from "../settings-types";
+import type { Resource } from "../types";
+import { resourceDisplayName } from "../resource-foundation";
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
@@ -20,9 +22,12 @@ interface AppearanceSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
+  /** Resource directory for the "I am this resource" picker. Optional so the
+   *  section renders standalone (tests) with just the "Not set" option. */
+  resources?: readonly Resource[];
 }
 
-export function AppearanceSection({ lang, settings, onChange }: AppearanceSectionProps) {
+export function AppearanceSection({ lang, settings, onChange, resources = [] }: AppearanceSectionProps) {
   const { theme, setTheme } = useTheme();
   const config = getTursoConfig(
     settings.integrations?.turso?.databaseUrl,
@@ -156,6 +161,32 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
       </div>
 
       <div className="mb-4">
+        <label htmlFor="appearance-self-resource" className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "selfResourceLabel")}
+          <InfoTooltip text={t(lang, "selfResourceHint")} />
+        </label>
+        <select
+          id="appearance-self-resource"
+          value={settings.selfResourceId != null ? String(settings.selfResourceId) : ""}
+          aria-label={t(lang, "selfResourceLabel")}
+          onChange={(e) =>
+            onChange({
+              ...settings,
+              selfResourceId: e.target.value === "" ? undefined : Number(e.target.value),
+            })
+          }
+          className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        >
+          <option value="">{t(lang, "selfResourceNone")}</option>
+          {resources.map((r) => (
+            <option key={r.id} value={r.id}>
+              {resourceDisplayName(r)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-4">
         <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
           {t(lang, "showViewHintsLabel")}
           <InfoTooltip text={t(lang, "showViewHintsHint")} />
@@ -169,6 +200,40 @@ export function AppearanceSection({ lang, settings, onChange }: AppearanceSectio
             { value: "hidden", label: t(lang, "viewHintsHidden") },
           ]}
           onChange={(v) => onChange({ ...settings, showViewHints: v === "shown" })}
+        />
+      </div>
+
+      <div className="mb-4">
+        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "showFieldConfigLabel")}
+          <InfoTooltip text={t(lang, "showFieldConfigHint")} />
+        </span>
+        <SegmentedControl<"shown" | "hidden">
+          value={settings.showFieldConfig !== false ? "shown" : "hidden"}
+          ariaLabel={t(lang, "showFieldConfigLabel")}
+          className="w-full"
+          options={[
+            { value: "shown", label: t(lang, "viewHintsShown") },
+            { value: "hidden", label: t(lang, "viewHintsHidden") },
+          ]}
+          onChange={(v) => onChange({ ...settings, showFieldConfig: v === "shown" })}
+        />
+      </div>
+
+      <div className="mb-4">
+        <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
+          {t(lang, "showSavedViewsLabel")}
+          <InfoTooltip text={t(lang, "showSavedViewsHint")} />
+        </span>
+        <SegmentedControl<"shown" | "hidden">
+          value={settings.showSavedViews !== false ? "shown" : "hidden"}
+          ariaLabel={t(lang, "showSavedViewsLabel")}
+          className="w-full"
+          options={[
+            { value: "shown", label: t(lang, "viewHintsShown") },
+            { value: "hidden", label: t(lang, "viewHintsHidden") },
+          ]}
+          onChange={(v) => onChange({ ...settings, showSavedViews: v === "shown" })}
         />
       </div>
 

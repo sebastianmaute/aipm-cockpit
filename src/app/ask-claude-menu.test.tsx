@@ -32,7 +32,7 @@ describe("AskClaudeMenu", () => {
   });
 
   it("omits the on-page section when the view has no curated prompts", () => {
-    render(<AskClaudeMenu lang="en-US" currentView="edit" onAsk={() => {}} />);
+    render(<AskClaudeMenu lang="en-US" currentView="settings" onAsk={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiAskClaude") }));
     expect(screen.queryByText(t("en-US", "aiAskClaudeOnPage"))).toBeNull();
     expect(screen.getByText(t("en-US", "aiAskClaudeGeneral"))).toBeTruthy();

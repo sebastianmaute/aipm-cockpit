@@ -71,6 +71,8 @@ interface SettingsViewProps {
   onSectionConsumed?: () => void;
   /** When true (popout window) the "Run setup wizard" launch button is hidden. */
   isPopout?: boolean;
+  /** Resource directory for the Appearance "I am this resource" picker. */
+  resources?: readonly import("./types").Resource[];
 }
 
 type SectionId =
@@ -290,7 +292,7 @@ export function SettingsView(props: SettingsViewProps) {
           <LocalizationSection lang={lang} settings={settings} onChange={onChange} />
         )}
         {active === "appearance" && (
-          <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
+          <AppearanceSection lang={lang} settings={settings} onChange={onChange} resources={props.resources} />
         )}
         {active === "general" && (
           <>

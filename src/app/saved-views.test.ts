@@ -18,6 +18,7 @@ function mkPayload(over: Partial<SavedViewPayload> = {}): SavedViewPayload {
     assigneeFilter: "All",
     groupFilter: "All",
     labelFilter: "All",
+    healthFilter: "all",
     sortKey: "id",
     sortDir: "asc",
     hiddenCols: [],
@@ -106,5 +107,27 @@ describe("saved-views store", () => {
     const v: SavedView = { id: 1, name: "RT", payload: mkPayload({ hiddenCols: ["a", "b"] }) };
     saveSavedViews([v]);
     expect(loadSavedViews()).toEqual([v]);
+  });
+
+  it("round-trips a concrete healthFilter value", () => {
+    const v: SavedView = { id: 1, name: "Red", payload: mkPayload({ healthFilter: "red" }) };
+    saveSavedViews([v]);
+    expect(loadSavedViews()[0].payload.healthFilter).toBe("red");
+  });
+
+  it("keeps an OLD saved view that predates the healthFilter field (backward compat)", () => {
+    // Simulate a payload persisted before healthFilter existed (field absent).
+    const legacy = mkPayload();
+    delete (legacy as Partial<SavedViewPayload>).healthFilter;
+    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify([{ id: 1, name: "Old", payload: legacy }]));
+    const loaded = loadSavedViews();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].payload.healthFilter).toBeUndefined();
+  });
+
+  it("drops a saved view whose healthFilter is an unrecognised value", () => {
+    const bad = { ...mkPayload(), healthFilter: "purple" };
+    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify([{ id: 1, name: "Bad", payload: bad }]));
+    expect(loadSavedViews()).toHaveLength(0);
   });
 });

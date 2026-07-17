@@ -4,10 +4,10 @@ import {
   encodeDocumentLinks,
   decodeDocumentLinks,
   isSafeHttpUrl,
-  type DocumentLink,
+  type KnowledgeLink,
 } from "./document-link";
 
-const file: DocumentLink = {
+const file: KnowledgeLink = {
   id: "01ABC",
   name: "Spec.docx",
   url: "https://contoso.sharepoint.com/sites/proj/Shared%20Documents/Spec.docx",
@@ -62,6 +62,29 @@ describe("sanitizeDocumentLinks", () => {
       { name: "b", url: "https://y", kind: "file" },
     ]);
     expect(out[0].id).not.toBe(out[1].id);
+  });
+
+  test("keeps confluence/url linkKind and omits the document default (sparse, byte-stable)", () => {
+    const out = sanitizeDocumentLinks([
+      { name: "page", url: "https://x.atlassian.net/wiki/1", kind: "file", linkKind: "confluence" },
+      { name: "site", url: "https://example.com", kind: "file", linkKind: "url" },
+      { name: "doc", url: "https://contoso.sharepoint.com/a", kind: "file", linkKind: "document" },
+      { name: "legacy", url: "https://contoso.sharepoint.com/b", kind: "file" },
+      { name: "junk", url: "https://z", kind: "file", linkKind: "nonsense" },
+    ]);
+    expect(out[0].linkKind).toBe("confluence");
+    expect(out[1].linkKind).toBe("url");
+    // default "document", a legacy link, and an invalid value all omit linkKind
+    expect("linkKind" in out[2]).toBe(false);
+    expect("linkKind" in out[3]).toBe(false);
+    expect("linkKind" in out[4]).toBe(false);
+  });
+
+  test("confluence/url linkKind round-trips through encode/decode", () => {
+    const links: KnowledgeLink[] = [
+      { id: "c1", name: "Page", url: "https://x.atlassian.net/wiki/1", kind: "file", linkKind: "confluence" },
+    ];
+    expect(decodeDocumentLinks(encodeDocumentLinks(links))).toEqual(links);
   });
 });
 

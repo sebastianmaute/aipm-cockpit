@@ -26,9 +26,6 @@ interface ModernShellProps {
   sidebarFooter: React.ReactNode;
   tasksSection: React.ReactNode;
   workspace: React.ReactNode;
-  /** Phase 2: full-page task editor, shown when activeView === "edit". */
-  editView?: React.ReactNode;
-  editTitle?: string;
   /** Phase 4B: full-page Settings, shown when activeView === "settings". */
   settingsView?: React.ReactNode;
   /** Settings-launched learning insights, shown when activeView === "learning-insights". */
@@ -51,7 +48,6 @@ export function ModernShell({
   onOpenAiAssistant,
   search = null,
   topBarMenus, sidebarFooter, tasksSection, workspace,
-  editView = null, editTitle = "",
   settingsView = null,
   learningInsightsView = null,
   banners = null,
@@ -126,19 +122,16 @@ export function ModernShell({
     />
   );
 
-  const isEditing = activeView === "edit";
   const isSettings = activeView === "settings";
   const isLearningInsights = activeView === "learning-insights";
-  const title = isEditing ? editTitle : t(lang, navLabelKey(activeView));
-  const content = isEditing
-    ? editView
-    : isSettings
-      ? settingsView
-      : isLearningInsights
-        ? learningInsightsView
-        : activeView === "open-points"
-          ? tasksSection
-          : workspace;
+  const title = t(lang, navLabelKey(activeView));
+  const content = isSettings
+    ? settingsView
+    : isLearningInsights
+      ? learningInsightsView
+      : activeView === "open-points"
+        ? tasksSection
+        : workspace;
   return (
     <div className="flex h-screen w-full overflow-hidden bg-surface-muted pb-6 dark:bg-black">
       <a

@@ -4,10 +4,15 @@ import { AppearanceSection } from "./appearance-section";
 import { CiStyleProvider } from "../use-style";
 import { STYLE_STORAGE_KEY } from "../style-ci";
 import { defaultSettings, type Settings } from "../settings-types";
+import type { Resource } from "../types";
 import { addScheme, loadSchemes } from "../color-schemes";
 import { t } from "../i18n";
 
-function renderSection(overrides: Partial<Settings> = {}, initialStyle: "AIPM" | "mockup" | "custom" = "AIPM") {
+function renderSection(
+  overrides: Partial<Settings> = {},
+  initialStyle: "AIPM" | "mockup" | "custom" = "AIPM",
+  resources: readonly Resource[] = [],
+) {
   // A fresh provider defaults to "custom" (Harbor); set the key explicitly so
   // each case starts from a known style.
   localStorage.setItem(STYLE_STORAGE_KEY, initialStyle);
@@ -15,7 +20,7 @@ function renderSection(overrides: Partial<Settings> = {}, initialStyle: "AIPM" |
   const onChange = vi.fn();
   render(
     <CiStyleProvider>
-      <AppearanceSection lang="en-US" settings={settings} onChange={onChange} />
+      <AppearanceSection lang="en-US" settings={settings} onChange={onChange} resources={resources} />
     </CiStyleProvider>,
   );
   return { onChange };
@@ -23,6 +28,30 @@ function renderSection(overrides: Partial<Settings> = {}, initialStyle: "AIPM" |
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+const RESOURCES = [
+  { id: 5, firstName: "Alice", lastName: "Smith" },
+] as unknown as Resource[];
+
+describe("AppearanceSection 'I am' resource", () => {
+  it("renders a labeled directory select defaulting to 'Not set'", () => {
+    renderSection({}, "AIPM", RESOURCES);
+    const select = screen.getByLabelText(t("en-US", "selfResourceLabel"));
+    expect(select).toHaveValue("");
+    expect(screen.getByRole("option", { name: "Alice Smith" })).toBeInTheDocument();
+  });
+
+  it("writes settings.selfResourceId when a resource is picked", () => {
+    const { onChange } = renderSection({}, "AIPM", RESOURCES);
+    fireEvent.change(screen.getByLabelText(t("en-US", "selfResourceLabel")), { target: { value: "5" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ selfResourceId: 5 }));
+  });
+
+  it("reflects a stored selfResourceId", () => {
+    renderSection({ selfResourceId: 5 }, "AIPM", RESOURCES);
+    expect(screen.getByLabelText(t("en-US", "selfResourceLabel"))).toHaveValue("5");
+  });
 });
 
 describe("AppearanceSection density control", () => {

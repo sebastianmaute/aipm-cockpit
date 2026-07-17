@@ -11,9 +11,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEscapeKey } from "./use-escape-key";
 import { ModalFieldControls } from "./modal-field-controls";
+import { ModalHeader } from "./modal-header";
+import { useDraggable } from "./use-draggable";
+import { useResizable } from "./use-resizable";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { type Lang, t } from "./i18n";
 import {
   defaultStatusForCategory,
@@ -21,6 +24,7 @@ import {
   statusOptionsFor,
   wouldCreateCycle,
 } from "./raid";
+import { isRaidActiveForReview } from "./raid-review";
 import {
   RAID_CATEGORIES,
   RAID_SEVERITIES,
@@ -47,6 +51,7 @@ import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
+import { useAutogrow } from "./use-autogrow";
 import { useSettings } from "./use-settings";
 import { useConfirm } from "./confirm-dialog";
 
@@ -71,6 +76,9 @@ export type RaidEditModalProps = {
   /** Switch the panel's modal to a different RAID item. Used by the
    *  "Caused by" link and the "Items caused by this" chips. */
   onJumpToRaid: (id: number) => void;
+  /** Send a status-inquiry email to the item's owner. Absent in popouts; the
+   *  footer button only renders for a saved, review-active item. */
+  onSendInquiry?: (item: RaidItem) => void;
 };
 
 export function RaidEditModal({
@@ -92,6 +100,7 @@ export function RaidEditModal({
   onDelete,
   onCreateMitigationTask,
   onJumpToRaid,
+  onSendInquiry,
 }: RaidEditModalProps) {
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("raid");
@@ -119,6 +128,12 @@ export function RaidEditModal({
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [causePickerQuery, setCausePickerQuery] = useState("");
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const mitigationRef = useRef<HTMLTextAreaElement>(null);
+  useAutogrow(descriptionRef, draft.description ?? "");
+  useAutogrow(mitigationRef, draft.mitigation ?? "");
+  const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:raid-edit");
+  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:raid-edit");
   // Category is locked after creation by default (changing it can lose
   // status / matrix data). Users can unlock it with the inline "Advanced"
   // affordance. Re-locks whenever the user navigates to a different item.
@@ -253,32 +268,24 @@ export function RaidEditModal({
       onClick={onCancel}
     >
       <div
+        ref={sizeRef}
+        data-modal-panel
         onClick={(e) => e.stopPropagation()}
-        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+        className="relative flex max-h-[95vh] w-[720px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
-        <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
-          <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-            {isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)}
-          </h2>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label={t(lang, "cancel")}
-            className={`rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue ${INTERACTIVE}`}
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-              <path
-                fillRule="evenodd"
-                d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-        </header>
+        <ModalHeader
+          lang={lang}
+          title={isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)}
+          onClose={onCancel}
+          dragHandleProps={handleProps}
+          onResetLayout={() => {
+            dragReset();
+            sizeReset();
+          }}
+        />
 
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId="raid" lang={lang} />
-        </div>
+        <ModalFieldControls modalId="raid" lang={lang} />
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
           {isVisible("category") && (
@@ -396,6 +403,7 @@ export function RaidEditModal({
               {descriptionMic}
             </span>
             <textarea
+              ref={descriptionRef}
               rows={2}
               value={draft.description ?? ""}
               onChange={(e) =>
@@ -408,7 +416,7 @@ export function RaidEditModal({
               }}
               placeholder={t(lang, "raidPlaceholderDescription")}
               aria-describedby="raid-description-counter"
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+              className={`resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="raid-description-counter" lang={lang} />
             {descriptionDictationStatus}
@@ -546,6 +554,7 @@ export function RaidEditModal({
               <InfoTooltip text={t(lang, "raidFieldMitigationHint")} />
             </span>
             <textarea
+              ref={mitigationRef}
               rows={3}
               value={draft.mitigation ?? ""}
               onChange={(e) =>
@@ -554,7 +563,7 @@ export function RaidEditModal({
               onBlur={(e) => onChange({ ...draft, mitigation: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
               placeholder={t(lang, "raidPlaceholderMitigation")}
               aria-describedby="raid-mitigation-counter"
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+              className={`resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.mitigation ?? ""} max={TEXTAREA_MAX} id="raid-mitigation-counter" lang={lang} />
           </label>
@@ -562,7 +571,7 @@ export function RaidEditModal({
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <DocumentLinksFieldGated
+            <KnowledgeLinksFieldGated
               value={draft.documentLinks ?? []}
               onChange={(documentLinks) => onChange({ ...draft, documentLinks })}
               lang={lang}
@@ -612,19 +621,30 @@ export function RaidEditModal({
           {error && <ModalFieldError error={error} />}
 
           <div className="flex justify-between gap-2 sm:col-span-2">
-            <span className="inline-flex items-center gap-1">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (await confirm({ message: t(lang, "raidConfirmDelete") })) onDelete();
-                }}
-                disabled={isNew}
-                className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-              >
-                {t(lang, "raidDelete")}
-              </button>
-              <InfoTooltip text={t(lang, "raidFieldDeleteHint")} />
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (await confirm({ message: t(lang, "raidConfirmDelete") })) onDelete();
+                  }}
+                  disabled={isNew}
+                  className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                >
+                  {t(lang, "raidDelete")}
+                </button>
+                <InfoTooltip text={t(lang, "raidFieldDeleteHint")} />
+              </span>
+              {!isNew && onSendInquiry && isRaidActiveForReview(draft) && (
+                <button
+                  type="button"
+                  onClick={() => onSendInquiry(draft)}
+                  className={`rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
+                >
+                  {t(lang, "sendInquiry")}
+                </button>
+              )}
+            </div>
             <div className="flex gap-2">
               <button
                 type="button"

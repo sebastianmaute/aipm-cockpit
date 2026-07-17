@@ -43,7 +43,7 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "concept-task-status", group: "concepts", titleKey: "helpConceptTaskStatusTitle", bodyKey: "helpConceptTaskStatusBody", relatedViews: ["open-points"], relatedConcepts: ["concept-milestone"] },
   { id: "concept-baseline", group: "concepts", titleKey: "helpConceptBaselineTitle", bodyKey: "helpConceptBaselineBody", relatedViews: ["trends"], relatedConcepts: ["concept-milestone", "concept-budget"] },
   { id: "concept-dependency", group: "concepts", titleKey: "helpConceptDependencyTitle", bodyKey: "helpConceptDependencyBody", relatedViews: ["gantt", "open-points"], relatedConcepts: ["concept-milestone"] },
-  { id: "concept-document", group: "concepts", titleKey: "helpConceptDocumentTitle", bodyKey: "helpConceptDocumentBody", relatedViews: ["documents"], relatedConcepts: ["concept-stakeholder"] },
+  { id: "concept-knowledge", group: "concepts", titleKey: "helpConceptKnowledgeTitle", bodyKey: "helpConceptKnowledgeBody", relatedViews: ["knowledge"], relatedConcepts: ["concept-stakeholder"] },
 
   // ── Workflows (numbered guides) ──
   { id: "workflow-end-to-end", group: "workflows", titleKey: "helpWorkflowEndToEndTitle", bodyKey: "helpWorkflowEndToEndBody", relatedViews: ["dashboard", "open-points", "milestones"], relatedConcepts: ["concept-milestone", "concept-task-status"] },
@@ -71,7 +71,7 @@ export const HELP_ENTRIES: readonly HelpEntry[] = [
   { id: "feature-resources", group: "features", titleKey: "helpSecResourcesTitle", bodyKey: "helpSecResourcesBody" },
   { id: "feature-steering", group: "features", titleKey: "helpSecSteeringTitle", bodyKey: "helpSecSteeringBody" },
   { id: "feature-activity", group: "features", titleKey: "helpSecActivityTitle", bodyKey: "helpSecActivityBody" },
-  { id: "feature-documents", group: "features", titleKey: "helpSecDocumentsTitle", bodyKey: "helpSecDocumentsBody" },
+  { id: "feature-knowledge", group: "features", titleKey: "helpSecKnowledgeTitle", bodyKey: "helpSecKnowledgeBody" },
   { id: "feature-voice", group: "features", titleKey: "helpSecVoiceTitle", bodyKey: "helpSecVoiceBody" },
   { id: "feature-notif", group: "features", titleKey: "helpSecNotifTitle", bodyKey: "helpSecNotifBody" },
   { id: "feature-timezones", group: "features", titleKey: "helpSecTimezonesTitle", bodyKey: "helpSecTimezonesBody" },

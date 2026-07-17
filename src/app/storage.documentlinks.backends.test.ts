@@ -20,10 +20,10 @@ import {
   rowsToWorkspace,
   type PipelineResultLike,
 } from "./turso-schema";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 
 // Fixture – the canonical two-link shape used across Tasks 3-9.
-const links: DocumentLink[] = [
+const links: KnowledgeLink[] = [
   { id: "01", name: "Spec", url: "https://c.sharepoint.com/x", kind: "file" },
   { id: "02", name: "Folder", url: "https://c.sharepoint.com/y", kind: "folder" },
 ];

@@ -61,7 +61,7 @@ export const ASK_CLAUDE_PROMPTS: Partial<Record<AppView, PromptDef[]>> = {
     { labelKey: "aiPromptResOverloadLabel", bodyKey: "aiPromptResOverloadBody" },
     { labelKey: "aiPromptResGapsLabel", bodyKey: "aiPromptResGapsBody" },
   ],
-  documents: [
+  knowledge: [
     { labelKey: "aiPromptDocMissingLabel", bodyKey: "aiPromptDocMissingBody" },
     { labelKey: "aiPromptDocSummaryLabel", bodyKey: "aiPromptDocSummaryBody" },
   ],

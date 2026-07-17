@@ -5,11 +5,11 @@ import {
   workspaceToMarkdown, markdownToWorkspace,
   workspaceToJson, jsonToWorkspace,
 } from "./storage";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import type { Workspace } from "./storage";
 import type { RaidItem, ChangeItem, Stakeholder, Milestone, ProjectMeta } from "./types";
 
-const links: DocumentLink[] = [
+const links: KnowledgeLink[] = [
   { id: "01", name: "Spec, v2.docx", url: "https://c.sharepoint.com/sites/p/Docs/Spec.docx", kind: "file", driveId: "b!d", itemId: "01" },
   { id: "02", name: "Evidence folder", url: "https://c.sharepoint.com/sites/p/Docs/Evidence", kind: "folder" },
 ];

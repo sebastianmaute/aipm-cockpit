@@ -88,8 +88,8 @@ export const ActionsPanel = dynamic(
   () => import("./actions-panel").then((m) => m.ActionsPanel),
   { ssr: false, loading },
 );
-export const DocumentsPanel = dynamic(
-  () => import("./documents-panel").then((m) => m.DocumentsPanel),
+export const KnowledgePanel = dynamic(
+  () => import("./knowledge-panel").then((m) => m.KnowledgePanel),
   { ssr: false, loading },
 );
 export const TimelogPanel = dynamic(

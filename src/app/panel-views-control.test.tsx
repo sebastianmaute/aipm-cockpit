@@ -1,8 +1,9 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
 import { PanelViewsControl } from "./panel-views-control";
 import type { PanelFiltersState } from "./panel-views";
+import { SETTINGS_KEY } from "./use-settings";
 
 const DEFAULTS: PanelFiltersState = { search: "", filters: { status: "All" }, sort: null };
 
@@ -56,6 +57,14 @@ describe("PanelViewsControl", () => {
   it("disables Delete until a valid view is selected", () => {
     render(<Harness />);
     expect(screen.getByLabelText("Delete the selected saved view")).toBeDisabled();
+  });
+
+  it("renders null when the global Show-saved-views setting is off", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ showSavedViews: false }));
+    render(<Harness />);
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Apply a saved view")).toBeNull(),
+    );
   });
 
   it("invokes onApply when a preset is applied", () => {

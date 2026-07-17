@@ -9,6 +9,7 @@ import type React from "react";
 import { type Lang, t } from "./i18n";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { isTerminalStatus, severityRag, type RaidSortKey } from "./raid";
+import { isRaidActiveForReview } from "./raid-review";
 import type { RaidCategory, RaidItem, Resource, Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
 import { TABLE_HEAD_CLASS } from "./table-styles";
@@ -60,6 +61,9 @@ export interface RaidTableProps {
   onAiEdit?: (item: RaidItem) => void;
   /** Gate the per-row ✨ button (e.g. AI enabled && not Jira-synced). */
   aiEditEnabled?: (item: RaidItem) => boolean;
+  /** Send a status-inquiry email to the item's owner. Absent in popouts; the
+   *  button only renders for review-active items. */
+  onSendInquiry?: (item: RaidItem) => void;
 }
 
 export function RaidTable({
@@ -83,6 +87,7 @@ export function RaidTable({
   flashId,
   onAiEdit,
   aiEditEnabled,
+  onSendInquiry,
 }: RaidTableProps) {
   return (
     <table className="min-w-full text-left text-sm">
@@ -252,7 +257,22 @@ export function RaidTable({
               )}
               {!hiddenSet.has("owner") && (
               <td className="px-3 py-2 text-foreground">
-                {effectivePersonName(item.owner ?? "", item.ownerResourceId, resourcesById)}
+                <span className="inline-flex flex-col items-start gap-0.5">
+                  <span>{effectivePersonName(item.owner ?? "", item.ownerResourceId, resourcesById)}</span>
+                  {onSendInquiry && isRaidActiveForReview(item) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSendInquiry(item);
+                      }}
+                      aria-label={`${t(lang, "sendInquiry")} – ${item.title}`}
+                      className={`text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue ${INTERACTIVE}`}
+                    >
+                      {t(lang, "sendInquiry")}
+                    </button>
+                  )}
+                </span>
               </td>
               )}
               {!hiddenSet.has("targetDate") && (

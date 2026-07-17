@@ -69,7 +69,7 @@ export function useChangeLog(args: UseChangeLogArgs) {
         captureFieldChanges(args.captureFieldEdit, {
           setter: setChanges, kind: "change.updated", id,
           prev: previous, next: withStamp, groups: CHANGE_UNDO_GROUPS,
-          stampField: "localModifiedAt",
+          stampField: "localModifiedAt", name: item.title,
         });
       }
       if (args.logActivityChanges) {
@@ -83,7 +83,7 @@ export function useChangeLog(args: UseChangeLogArgs) {
 
   const handleDeleteChange = useCallback((id: number, title: string) => {
     const doomed = changes.find((c) => c.id === id);
-    if (doomed) args.capture?.({ setter: setChanges, kind: "change.deleted", removed: [doomed], fromArray: changes });
+    if (doomed) args.capture?.({ setter: setChanges, kind: "change.deleted", removed: [doomed], fromArray: changes, name: title });
     setChanges((prev) => prev.filter((c) => c.id !== id));
     args.logActivity?.("change.deleted", id, title);
   }, [changes, setChanges, args]);
@@ -92,7 +92,7 @@ export function useChangeLog(args: UseChangeLogArgs) {
   // per-row save handler; call BEFORE the loop mutates them.
   const captureBulkUndo = useCallback((ids: readonly number[]) => {
     const edited = changes.filter((c) => ids.includes(c.id));
-    if (edited.length) args.capture?.({ setter: setChanges, kind: "bulk.edit", edited, fromArray: changes });
+    if (edited.length) args.capture?.({ setter: setChanges, kind: "bulk.edit", edited, fromArray: changes, entityKey: "change" });
   }, [changes, setChanges, args]);
 
   return { changes, handleSaveChange, handleDeleteChange, captureBulkUndo };

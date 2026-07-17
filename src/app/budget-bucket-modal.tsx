@@ -230,9 +230,7 @@ export function BudgetBucketModal({
           }}
         />
 
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId="budget" lang={lang} />
-        </div>
+        <ModalFieldControls modalId="budget" lang={lang} />
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
           {/* Bucket name */}

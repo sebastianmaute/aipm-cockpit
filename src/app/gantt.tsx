@@ -40,6 +40,7 @@ import { effectivePersonName } from "./resource-foundation";
 import { sortMilestones } from "./milestones";
 import {
   addDays,
+  buildGanttRows,
   clampNameColWidth,
   computeCriticalPath,
   DAY_WIDTH_PX,
@@ -144,6 +145,7 @@ export function GanttPanel({
     resetFilters,
     toggleCriticalPath,
     toggleBaseline,
+    toggleMilestonePlacement,
   } = useGanttPrefs();
 
   // The Gantt shows the milestone baseline overlay only when the pinned snapshot
@@ -348,15 +350,35 @@ export function GanttPanel({
   // `layout.placeable` / `layout.bars`.
   const layout = { placeable: visible, bars: allBars };
 
-  // Row index by task id, rebuilt only when the visible list changes. The
-  // dependency-arrow and milestone-connector overlays need a row lookup per
-  // edge; `findIndex` there was O(n) per edge → O(n²) per render at scale.
-  // Misses read as -1 to keep the original findIndex semantics.
-  const rowIndexById = useMemo(() => {
+  // The ordered row list (tasks + milestones). In "below" mode this is every
+  // task row then every milestone row (the historical layout); in "inline" mode
+  // each non-achieved milestone is spliced into the task rows at its due-date
+  // position. Hoisted scalar for the dep array (exhaustive-deps bans
+  // `prefs.milestonePlacement`).
+  const milestonePlacement = prefs.milestonePlacement;
+  const rows = useMemo(
+    () => buildGanttRows(visible, sortedMilestones, milestonePlacement, allBars),
+    [visible, sortedMilestones, milestonePlacement, allBars],
+  );
+
+  // Row index lookups for the dependency-arrow + milestone-connector overlays.
+  // Keyed on the FULL row list so both task arrows and milestone connectors
+  // point at the right Y regardless of interleaving. Misses read as -1 to keep
+  // the original findIndex semantics.
+  const taskRowIndexById = useMemo(() => {
     const m = new Map<number, number>();
-    visible.forEach((task, idx) => m.set(task.id, idx));
+    rows.forEach((r, idx) => {
+      if (r.kind === "task") m.set(r.task.id, idx);
+    });
     return m;
-  }, [visible]);
+  }, [rows]);
+  const milestoneRowIndexById = useMemo(() => {
+    const m = new Map<number, number>();
+    rows.forEach((r, idx) => {
+      if (r.kind === "milestone") m.set(r.milestone.id, idx);
+    });
+    return m;
+  }, [rows]);
 
   // --- drag-and-drop reordering --------------------------------------
   // Track the id currently being dragged + the row we're hovering over.
@@ -499,10 +521,10 @@ export function GanttPanel({
   }, [scrollRef, todayOffsetPx]);
   const chartWidthPx = nameColWidth + timelineWidthPx;
   const rowsCount = layout.placeable.length;
-  // Total rows rendered in the chart body: task rows first, then one row per
-  // sorted milestone. The dependency-edge overlay must span all of them so
+  // Total rows rendered in the chart body (task rows + milestone rows, however
+  // they're interleaved). The dependency-edge overlay must span all of them so
   // linked-task -> milestone connectors aren't clipped at the task-row edge.
-  const totalRowsCount = rowsCount + sortedMilestones.length;
+  const totalRowsCount = rows.length;
 
   // Pre-compute month spans for the top header row.
   const monthGroups = useMemo(() => {
@@ -553,6 +575,8 @@ export function GanttPanel({
       toggleCriticalPath={toggleCriticalPath}
       toggleBaseline={toggleBaseline}
       hasBaseline={hasBaseline}
+      toggleMilestonePlacement={toggleMilestonePlacement}
+      hasMilestones={sortedMilestones.length > 0}
     />
   );
 
@@ -630,52 +654,55 @@ export function GanttPanel({
           <GanttDependencyLayer
             placeable={layout.placeable}
             bars={layout.bars}
-            rowIndexById={rowIndexById}
+            taskRowIndexById={taskRowIndexById}
             range={range}
             critical={critical}
             sortedMilestones={sortedMilestones}
-            rowsCount={rowsCount}
+            milestoneRowIndexById={milestoneRowIndexById}
             chartWidthPx={chartWidthPx}
             totalRowsCount={totalRowsCount}
             nameColWidth={nameColWidth}
           />
 
-          {layout.placeable.map((task) => {
-            const bar = layout.bars.get(task.id);
-            if (!bar) return null;
-            return (
-              <GanttTaskRow
-                key={task.id}
-                task={task}
-                bar={bar}
-                lang={lang}
-                today={today}
-                timelineWidthPx={timelineWidthPx}
-                nameColWidth={nameColWidth}
-                range={range}
-                absencesByAssigneeKey={absencesByAssigneeKey}
-                resourcesById={resourcesById}
-                critical={critical}
-                draggingId={draggingId}
-                dropTargetId={dropTargetId}
-                setDraggingId={setDraggingId}
-                setDropTargetId={setDropTargetId}
-                handleDrop={handleDrop}
-                interactingWithBarRef={interactingWithBarRef}
-                barDrag={barDrag}
-                barDragDeltaDays={barDragDeltaDays}
-                previewDates={previewDates}
-                startBarDrag={startBarDrag}
-                onUpdateBar={onUpdateBar}
-                onEditTask={onEditTask}
-              />
-            );
-          })}
-
-          {/* --- milestone rows: a diamond at each milestone's date ------
-              Separate from the task rows above; not part of the
-              critical-path / dependency math. Sorted by date then id. */}
-          {sortedMilestones.map((m) => {
+          {/* --- rows: task bars + milestone diamonds. In "below" mode all
+              task rows come first, then the milestone block; in "inline" mode
+              each non-achieved milestone is spliced into the task sequence at
+              its due-date position (buildGanttRows). Milestone rows aren't part
+              of the critical-path / dependency math. */}
+          {rows.map((row) => {
+            if (row.kind === "task") {
+              const task = row.task;
+              const bar = layout.bars.get(task.id);
+              if (!bar) return null;
+              return (
+                <GanttTaskRow
+                  key={`t-${task.id}`}
+                  task={task}
+                  bar={bar}
+                  lang={lang}
+                  today={today}
+                  timelineWidthPx={timelineWidthPx}
+                  nameColWidth={nameColWidth}
+                  range={range}
+                  absencesByAssigneeKey={absencesByAssigneeKey}
+                  resourcesById={resourcesById}
+                  critical={critical}
+                  draggingId={draggingId}
+                  dropTargetId={dropTargetId}
+                  setDraggingId={setDraggingId}
+                  setDropTargetId={setDropTargetId}
+                  handleDrop={handleDrop}
+                  interactingWithBarRef={interactingWithBarRef}
+                  barDrag={barDrag}
+                  barDragDeltaDays={barDragDeltaDays}
+                  previewDates={previewDates}
+                  startBarDrag={startBarDrag}
+                  onUpdateBar={onUpdateBar}
+                  onEditTask={onEditTask}
+                />
+              );
+            }
+            const m = row.milestone;
             return (
               <GanttMilestoneRow
                 key={`m-${m.id}`}

@@ -11,19 +11,49 @@ export interface CommitteeReconcile {
 }
 
 /**
+ * Scope a reconcile to a single meeting row or a single info-schedule row (the
+ * per-row "Push" button). Omit for the whole-committee "push all". A scoped
+ * push deliberately reconciles ONLY the target's keyed events and never emits
+ * cross-entry deletes (stale info ids for other schedules, or the pending
+ * orphaned-meeting `pendingDeleteEventIds`) — that accounting stays with the
+ * full push so a single-row push can't clobber it.
+ */
+export type CommitteeReconcileTarget =
+  | { kind: "meeting"; id: number }
+  | { kind: "schedule"; id: number };
+
+/** Stable per-target key for a scoped committee push (`"all"` for a full push).
+ *  Shared by the push hook (which target is in flight) and the panel (which row
+ *  shows the busy state) so the two never drift. */
+export function committeePushKey(target?: CommitteeReconcileTarget): string {
+  if (!target) return "all";
+  return `${target.kind === "meeting" ? "m" : "s"}:${target.id}`;
+}
+
+/**
  * Plan the Outlook reconcile for a steering committee. Meetings split into
  * create (no stored `outlookEventId`) vs update (1:1 by id, like milestones).
  * Info-schedule instances are keyed `"<meetingId>:<scheduleId>"` in
  * `infoReminderEventIds`: a desired instance with a stored id -> update, without
  * -> create; any stored id whose key is no longer desired (removed/past meeting
  * or removed schedule) lands in `deleteEventIds`. Pure; never throws.
+ *
+ * When `target` is given the plan is scoped to that one meeting / schedule (see
+ * CommitteeReconcileTarget) — its create/update only, no cross-entry deletes.
  */
-export function planCommitteeReconcile(committee: SteeringCommittee, today: string): CommitteeReconcile {
+export function planCommitteeReconcile(
+  committee: SteeringCommittee,
+  today: string,
+  target?: CommitteeReconcileTarget,
+): CommitteeReconcile {
   const meetingCreate: CommitteeMeeting[] = [];
   const meetingUpdate: { meeting: CommitteeMeeting; eventId: string }[] = [];
-  for (const m of committee.meetings) {
-    if (m.outlookEventId) meetingUpdate.push({ meeting: m, eventId: m.outlookEventId });
-    else meetingCreate.push(m);
+  if (target?.kind !== "schedule") {
+    for (const m of committee.meetings) {
+      if (target?.kind === "meeting" && m.id !== target.id) continue;
+      if (m.outlookEventId) meetingUpdate.push({ meeting: m, eventId: m.outlookEventId });
+      else meetingCreate.push(m);
+    }
   }
 
   const desired = dueInfoReminders(committee, today);
@@ -31,17 +61,33 @@ export function planCommitteeReconcile(committee: SteeringCommittee, today: stri
   const desiredKeys = new Set(desired.map((d) => `${d.meetingId}:${d.scheduleId}`));
   const infoCreate: CommitteeReconcile["infoCreate"] = [];
   const infoUpdate: CommitteeReconcile["infoUpdate"] = [];
-  for (const d of desired) {
-    const key = `${d.meetingId}:${d.scheduleId}`;
-    const eventId = stored[key];
-    if (eventId) infoUpdate.push({ key, eventId, label: d.label, dueDate: d.dueDate, meetingTitle: d.meetingTitle });
-    else infoCreate.push({ key, label: d.label, dueDate: d.dueDate, meetingTitle: d.meetingTitle });
+  if (target?.kind !== "meeting") {
+    for (const d of desired) {
+      if (target?.kind === "schedule" && d.scheduleId !== target.id) continue;
+      const key = `${d.meetingId}:${d.scheduleId}`;
+      const eventId = stored[key];
+      if (eventId) infoUpdate.push({ key, eventId, label: d.label, dueDate: d.dueDate, meetingTitle: d.meetingTitle });
+      else infoCreate.push({ key, label: d.label, dueDate: d.dueDate, meetingTitle: d.meetingTitle });
+    }
   }
 
-  // Stale info-instance ids (key no longer desired) + ids of deleted meetings
-  // (stashed in pendingDeleteEventIds — a deleted meeting is gone from
-  // `meetings`, so its event id can only be recovered from there). Dedup.
-  const staleInfoIds = Object.entries(stored).filter(([k]) => !desiredKeys.has(k)).map(([, v]) => v);
-  const deleteEventIds = [...new Set([...staleInfoIds, ...(committee.pendingDeleteEventIds ?? [])])];
+  // deleteEventIds:
+  //  • full push: stale info-instance ids (key no longer desired) + ids of
+  //    deleted meetings (stashed in pendingDeleteEventIds — a deleted meeting is
+  //    gone from `meetings`, so its event id can only be recovered from there),
+  //    deduped.
+  //  • scoped to a schedule: only that schedule's stale ids (NOT pending
+  //    orphaned-meeting events — those belong to the full push).
+  //  • scoped to a meeting: none (a single meeting row never carries deletes).
+  let deleteEventIds: string[] = [];
+  if (!target) {
+    const staleInfoIds = Object.entries(stored).filter(([k]) => !desiredKeys.has(k)).map(([, v]) => v);
+    deleteEventIds = [...new Set([...staleInfoIds, ...(committee.pendingDeleteEventIds ?? [])])];
+  } else if (target.kind === "schedule") {
+    const staleInfoIds = Object.entries(stored)
+      .filter(([k]) => !desiredKeys.has(k) && Number(k.split(":")[1]) === target.id)
+      .map(([, v]) => v);
+    deleteEventIds = [...new Set(staleInfoIds)];
+  }
   return { meetingCreate, meetingUpdate, infoCreate, infoUpdate, deleteEventIds };
 }

@@ -504,6 +504,9 @@ export type Settings = {
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
+  /** Per-device: the Resource id representing "me" (the current user). Drives
+   *  note-log author attribution etc. Undefined = not set. Positive integer. */
+  selfResourceId?: number;
   /** Per-device weekly status digest config (enable + cadence in days). Default
    *  disabled, 7-day. Rides the writeSettings spread (no allowlist edit). */
   digest?: import("./digest/digest-config").DigestConfig;
@@ -525,6 +528,12 @@ export type Settings = {
   /** Per-device: show the contextual per-view Help callouts. Default ON
    *  (read as `!== false`); individual callouts can also be dismissed per-view. */
   showViewHints?: boolean;
+  /** Per-device: show the edit-modal field-config controls (the Simple/Advanced/
+   *  Full tier switch + the per-field cog). Default ON (read as `!== false`). */
+  showFieldConfig?: boolean;
+  /** Per-device: show the saved-views controls (tasks + panel + reports).
+   *  Default ON (read as `!== false`). */
+  showSavedViews?: boolean;
   /** Per-device sidebar branding: a custom logo (data:image URL) and/or slogan
    *  overriding the default Acme logo + subtitle. */
   branding?: BrandingConfig;
@@ -562,6 +571,13 @@ export type Settings = {
   commTemplateSendMode?: CommTemplateSendMode;
 };
 
+/** Coerce a persisted `selfResourceId` to a positive integer, else undefined. */
+export function sanitizeSelfResourceId(raw: unknown): number | undefined {
+  return typeof raw === "number" && Number.isFinite(raw) && raw > 0
+    ? Math.floor(raw)
+    : undefined;
+}
+
 export const defaultSettings: Settings = {
   language: "en-US",
   holidayCountries: [],
@@ -580,6 +596,8 @@ export const defaultSettings: Settings = {
   digest: { enabled: false, cadenceDays: 7 },
   dictation: { engine: "web-speech", hotkey: "F4" },
   showViewHints: true,
+  showFieldConfig: true,
+  showSavedViews: true,
   branding: { footerSlogan: DEFAULT_FOOTER_SLOGAN },
   showDisplayTzSwitcher: false,
   reports: { extra: ["raid-report", "budget-report"] },

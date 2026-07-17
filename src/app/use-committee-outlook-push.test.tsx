@@ -155,6 +155,66 @@ describe("useCommitteeOutlookPush", () => {
     warn.mockRestore();
   });
 
+  it("scoped meeting push creates ONLY that meeting and preserves pendingDeleteEventIds", async () => {
+    createEvent.mockResolvedValueOnce("meet-evt");
+    // Two meetings + a pending orphaned event; a scoped push of meeting 1 must
+    // not touch the info instance, meeting 2, or the pending-delete accounting.
+    const c = committee({
+      meetings: [
+        { id: 1, date: "2026-07-15", title: "Q3 review" },
+        { id: 2, date: "2026-07-20", title: "Board", outlookEventId: "ev2" },
+      ],
+      pendingDeleteEventIds: ["orphan-evt"],
+    });
+    const setSteeringCommittee = vi.fn();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: c, committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true,
+      }));
+    await act(async () => { await result.current.pushToOutlook({ kind: "meeting", id: 1 }); });
+
+    expect(createEvent).toHaveBeenCalledTimes(1); // only meeting 1
+    expect(updateEvent).not.toHaveBeenCalled(); // meeting 2 untouched
+    expect(deleteEvent).not.toHaveBeenCalled(); // pending orphan NOT deleted
+    const updater = setSteeringCommittee.mock.calls.at(-1)![0];
+    const next = updater(c)! as SteeringCommittee;
+    expect(next.meetings.find((m) => m.id === 1)!.outlookEventId).toBe("meet-evt");
+    expect(next.pendingDeleteEventIds).toEqual(["orphan-evt"]); // preserved
+  });
+
+  it("tracks the in-flight target key and ignores a concurrent push (no double write)", async () => {
+    // Hold the token so the first push stays in flight while we fire a second.
+    let releaseToken!: (v: string) => void;
+    acquireToken.mockImplementationOnce(
+      () => new Promise<string>((res) => { releaseToken = res; }),
+    );
+    const setSteeringCommittee = vi.fn();
+    const c = committee();
+    const { result } = renderHook(() =>
+      useCommitteeOutlookPush({
+        committee: c, committeeName: "Board", projectId: "p", today: TODAY,
+        setSteeringCommittee, isPopout: false, lang: "en-US", enabled: true,
+      }));
+
+    // Start a scoped meeting push; it parks on the held token (do NOT await).
+    let firstPush!: Promise<void>;
+    act(() => { firstPush = result.current.pushToOutlook({ kind: "meeting", id: 1 }); });
+    expect(result.current.pushingTarget).toBe("m:1"); // only this row is busy
+
+    // A concurrent push while the first is in flight is a synchronous no-op:
+    // the in-flight ref guard bails before acquiring a second token/reconcile.
+    await act(async () => { await result.current.pushToOutlook({ kind: "schedule", id: 9 }); });
+    expect(acquireToken).toHaveBeenCalledTimes(1); // second call bailed
+    expect(createEvent).not.toHaveBeenCalled(); // first still parked on the token
+    expect(result.current.pushingTarget).toBe("m:1"); // still the first target
+
+    // Release the token → the first push finishes and clears the busy state.
+    await act(async () => { releaseToken("tok"); await firstPush; });
+    expect(result.current.pushingTarget).toBeNull();
+    expect(createEvent).toHaveBeenCalled(); // the first push ran its reconcile
+  });
+
   it("toasts and does nothing when no token", async () => {
     acquireToken.mockResolvedValueOnce(null);
     const setSteeringCommittee = vi.fn();

@@ -255,6 +255,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
           before: { status: prevRow.status, completedDate: prevRow.completedDate },
           after: { status: after.status, completedDate: after.completedDate },
           stampField: "localModifiedAt",
+          name: prevRow.taskName,
         });
       }
     },
@@ -280,7 +281,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
         tk.dependencies?.some((d) => d.taskId === id),
       );
       if (doomed) {
-        capture({ setter: setTasks, kind: "task.deleted", removed: [doomed], edited: dependents, fromArray: arr });
+        capture({ setter: setTasks, kind: "task.deleted", removed: [doomed], edited: dependents, fromArray: arr, name: deletedName });
       }
       setTasks((prev) =>
         prev

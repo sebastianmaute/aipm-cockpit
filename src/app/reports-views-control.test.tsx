@@ -1,7 +1,8 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ReportsViewsControl } from "./reports-views-control";
 import { type ReportsViewState } from "./reports-views";
+import { SETTINGS_KEY } from "./use-settings";
 
 const current: ReportsViewState = {
   assignee: { filter: "alice", sort: { key: "total", dir: "desc" } },
@@ -42,5 +43,13 @@ describe("ReportsViewsControl", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Delete the selected saved view" }));
     expect(screen.queryByRole("option", { name: "Mine" })).toBeNull();
+  });
+
+  it("renders null when the global Show-saved-views setting is off", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ showSavedViews: false }));
+    render(<ReportsViewsControl lang="en-US" currentState={current} onApply={() => {}} />);
+    await waitFor(() =>
+      expect(screen.queryByRole("combobox", { name: "Apply a saved view" })).toBeNull(),
+    );
   });
 });

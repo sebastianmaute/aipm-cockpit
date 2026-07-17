@@ -172,6 +172,21 @@ export function mergeImportedResources(
   return result;
 }
 
+/**
+ * Gate the directory "Pull contacts" button: shown whenever the M365 integration
+ * is LIVE, in the main window, and no fetch is already in flight. Deliberately
+ * does NOT require the `outlookContacts` settings sub-toggle or a signed-in
+ * account — the fetch path acquires the Contacts.Read token interactively, so a
+ * click with no account prompts sign-in rather than silently failing.
+ */
+export function canImportOutlookContacts(opts: {
+  m365Enabled: boolean;
+  isPopout: boolean;
+  importLoading: boolean;
+}): boolean {
+  return opts.m365Enabled && !opts.isPopout && !opts.importLoading;
+}
+
 /** Project selected contacts into address-book seed pairs (skip blank names). */
 export function contactsFromImported(
   selected: readonly OutlookContact[],

@@ -53,7 +53,7 @@ describe("mappers", () => {
     const s = mapSite({ id: "s1", displayName: "Proj", webUrl: "https://c.sharepoint.com/sites/proj" });
     expect(s).toEqual({ id: "s1", name: "Proj", webUrl: "https://c.sharepoint.com/sites/proj" });
   });
-  test("mapDriveItem (file) -> DocumentLink", () => {
+  test("mapDriveItem (file) -> KnowledgeLink", () => {
     const raw: GraphDriveItem = {
       id: "01", name: "Spec.docx",
       webUrl: "https://c.sharepoint.com/sites/proj/Docs/Spec.docx",
@@ -67,7 +67,7 @@ describe("mappers", () => {
       mimeType: "application/msword",
     });
   });
-  test("mapDriveItem (folder) -> DocumentLink kind folder", () => {
+  test("mapDriveItem (folder) -> KnowledgeLink kind folder", () => {
     const raw: GraphDriveItem = {
       id: "02", name: "Docs", webUrl: "https://c.sharepoint.com/sites/proj/Docs",
       folder: { childCount: 3 }, parentReference: { driveId: "d1" },

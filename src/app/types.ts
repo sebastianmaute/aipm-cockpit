@@ -1,4 +1,4 @@
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 
 export type Priority = "Low" | "Medium" | "High" | "Urgent";
 
@@ -27,6 +27,17 @@ export type TaskDependency = {
   /** Predecessor task id — the one this task is constrained by. */
   taskId: number;
   type: DependencyType;
+};
+
+/** A single dated note in a task's running note log. Author is best-effort:
+ *  `authorResourceId` links to a Resource; `authorName` is the display fallback.
+ *  `timestamp` is an ISO instant; `text` is the (control-char-stripped) body. */
+export type NoteLogEntry = {
+  authorResourceId?: number;
+  authorName?: string;
+  /** ISO timestamp when the note was recorded. */
+  timestamp: string;
+  text: string;
 };
 
 export type Task = {
@@ -83,7 +94,10 @@ export type Task = {
   healthOverride?: "R" | "A" | "G";
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
+  /** Running note log — dated free-text notes. Optional + sparse; absent on
+   *  legacy data. Persisted as a JSON-in-cell array across the text backends. */
+  noteLog?: NoteLogEntry[];
 };
 
 export const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Urgent"];
@@ -199,10 +213,13 @@ export type RaidItem = {
   stakeholderIds: number[];
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
   /** Outlook calendar event id for this item's review date (calendar write-back
    *  link, keyed on targetDate). App-managed; users never enter it. */
   outlookEventId?: string;
+  /** Total number of status-inquiry emails sent for this item (mirrors
+   *  Task.inquiriesSent). Optional + sparse; absent/0 on legacy data. */
+  inquiriesSent?: number;
 };
 
 /** A zero-duration key date, distinct from a task. `achievedDate` is a manual
@@ -220,7 +237,7 @@ export type Milestone = {
   outlookEventId?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
 };
 
 // ----------------------------------------------------------------------------
@@ -301,7 +318,7 @@ export type ChangeItem = {
   localModifiedAt?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
   /** Outlook calendar event id for this change's decision-date write-back
    *  (SP3). Set by the push; absent until first synced. */
   outlookEventId?: string;
@@ -343,7 +360,7 @@ export type Stakeholder = {
   localModifiedAt?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
 };
 
 /** Project-level status overrides + PM narrative for the health dashboard.
@@ -675,5 +692,5 @@ export type ProjectMeta = {
   notes?: string;
   /** SharePoint files/folders linked to this record. Always optional; absent
    *  on legacy data, defaults to [] at the editor boundary. */
-  documentLinks?: DocumentLink[];
+  documentLinks?: KnowledgeLink[];
 };

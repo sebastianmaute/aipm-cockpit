@@ -79,9 +79,7 @@ export function EditModalShell({
           }}
         />
 
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId={modalId} lang={lang} />
-        </div>
+        <ModalFieldControls modalId={modalId} lang={lang} />
 
         <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
           {children}

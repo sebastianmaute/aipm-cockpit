@@ -1,4 +1,5 @@
 import type { SortKey, SortDir } from "./filters-context";
+import type { HealthFilter } from "./health";
 import type { Priority } from "./types";
 
 export interface SavedViewPayload {
@@ -7,10 +8,13 @@ export interface SavedViewPayload {
   assigneeFilter: string;
   groupFilter: string;
   labelFilter: string;
+  healthFilter: HealthFilter;
   sortKey: SortKey;
   sortDir: SortDir;
   hiddenCols: string[];
 }
+
+const HEALTH_FILTERS: readonly HealthFilter[] = ["all", "red", "amber", "green"];
 
 export interface SavedView {
   id: number;
@@ -34,6 +38,12 @@ function isValidPayload(payload: unknown): payload is SavedViewPayload {
     typeof p.groupFilter === "string" &&
     typeof p.labelFilter === "string" &&
     typeof p.priorityFilter === "string" &&
+    // healthFilter is newer than the original payload: accept its absence so
+    // old saved views stay valid (applyView defaults it to "all"), but reject a
+    // present-yet-unrecognised value.
+    (p.healthFilter === undefined ||
+      (typeof p.healthFilter === "string" &&
+        (HEALTH_FILTERS as readonly string[]).includes(p.healthFilter))) &&
     typeof p.sortKey === "string" &&
     typeof p.sortDir === "string" &&
     isStringArray(p.hiddenCols)

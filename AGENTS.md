@@ -94,7 +94,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
   `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 13 named views and does NOT include chat/AI-Assistant,
-  Projects, or Documents — controls only on those surfaces aren't scanned, but anything in the
+  Projects, or Knowledge — controls only on those surfaces aren't scanned, but anything in the
   always-present top bar IS (scanned via every view). Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
@@ -285,13 +285,14 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   pending request. Seed `undefined`/sentinel + guard `!== undefined`; parent must CLEAR (consume) or
   monotonically bump the nonce so re-mounts don't re-fire stale. Bit settings-view learning deep-link AND
   milestones-panel `openCreateNonce` (Gantt "Add milestone").
-- **Task editor has TWO surfaces:** modern DEFAULT uses full-page `TaskEditView` (ModernShell `editView`
-  slot; `useEditView = layout==="modern" && !isPopout`); classic/popout use `TaskFormModal` (which has
-  its own `ModalHeader` title+✕). New editor controls/heading wire into the surface in play —
-  TaskEditView's control bar is SEPARATE from the modal's header. ★ The Delete button lives footer-LEFT +
-  pink/destructive (mirrors `change-edit-modal`), wired in BOTH surfaces: exported `TaskDeleteButton`
-  (`task-editor-actions.tsx`); `TaskFormModal` takes a `deleteAction` prop; `TaskEditView` takes a
-  `footerLeading` prop. Dark-mode hover uses `dark:hover:bg-AIPM-pink/5`.
+- **Task editor is ONE floating surface now:** ALL layouts (modern DEFAULT, classic, popout) use the shared
+  floating `TaskFormModal` (draggable/resizable/reset; its own `ModalHeader` title+✕). The former modern
+  full-page `TaskEditView` (ModernShell `editView` slot / `useEditView`) was RETIRED — modern no longer
+  replaces the shell with an edit page; the modal floats over the active view (which stays Open Points). New
+  editor controls/heading wire into the modal header/footer. ★ The Delete button lives footer-LEFT +
+  pink/destructive (mirrors `change-edit-modal`) via exported `TaskDeleteButton` (`task-editor-actions.tsx`);
+  `TaskFormModal` takes a `deleteAction` prop (the old `TaskEditView` `footerLeading` path is gone).
+  Dark-mode hover uses `dark:hover:bg-AIPM-pink/5`.
 - **Task status model:** `Task.status` (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the
   SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
   **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
@@ -556,18 +557,16 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `data-deeplink-row`+`flashOutlineClass` to each card `<article>` (card scroll works because the per-column
   vertical scroller is a descendant of the outer ref). ★ Graceful no-ops (no scroll/outline, never crashes;
   editor still opens): tasks **modern full-page edit** (list unmounted) + any row/card hidden by an active
-  filter/search (`hideFinishedTasks`, milestone filters). ★ By-design limit + modern-editor-return path: (a)
-  toggling tasks table↔board WITHIN the 1.8s window re-points the shared `containerRef` so the OUTLINE shows
-  on the new view, but the scroll won't re-fire (`flashId`/`flashSeq` unchanged); (b) every `open-points`
-  task deep-link ALSO opens the editor, which in the DEFAULT modern layout is full-page `TaskEditView`
-  (list/board unmounted) so the flash can't show WHILE editing — a modern full-page task deep-link flashes
-  the row/card ON EDITOR RETURN via a flash-only `pendingFlash` channel on `WorkspaceTabContext`:
-  `requestFlash(view,id)` sets `pendingFlash` ONLY (no `activeTab`/hash side-effects), `useDeepLinkRowFlash`
-  consumes it (the SAME parallel render-reconcile, sentinel-seeded `handledFlash`) and SELF-CLEARS via
-  `clearPendingFlash`; `task-manager`'s `flashOnEditReturnRef` is set when a deep-link opens the modern
-  full-page editor and fired in the view-switch close branch when returning to `open-points` (works for
-  cancel + save). Classic/popout uses the immediate path; the other four panels show the flash in modern as
-  before.
+  filter/search (`hideFinishedTasks`, milestone filters). ★ By-design limit: toggling tasks table↔board
+  WITHIN the 1.8s window re-points the shared `containerRef` so the OUTLINE shows on the new view, but the
+  scroll won't re-fire (`flashId`/`flashSeq` unchanged). ★★ v0.190.0: the modern task editor is now the
+  FLOATING `TaskFormModal` (the full-page `TaskEditView` was retired), so the list/board stays MOUNTED under
+  the editor and the IMMEDIATE `requestOpen`/`pendingOpen` render-reconcile + rAF scroll flash path covers
+  `open-points` deep-links too (no editor-return special case). The old flash-only `pendingFlash`/
+  `requestFlash`/`clearPendingFlash` return-path channel on `WorkspaceTabContext` + `task-manager`'s
+  `flashOnEditReturnRef` were REMOVED (dead once the editor became a modal) — do NOT reintroduce them; there
+  is no `pendingFlash` channel and no reserved `"edit"` AppView anymore. Classic/popout also uses the
+  immediate path; all five panels show the flash in modern the same way.
 - **Global search:** pure i18n-free `global-search.ts` (`searchWorkspace(ws, query)` → ranked
   `SearchResult[]`; id-exact > title-hit > body-hit tiers, per-type cap `SEARCH_MAX_PER_TYPE`
   round-robin-merged under `SEARCH_MAX_RESULTS`, `SEARCH_MIN_QUERY=2` with pure-numeric `#id` queries exempt
@@ -818,7 +817,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   the report date sits on the "Overall" line.
   • `settings.showDisplayTzSwitcher?` (per-device, default **false**) gates the top-bar `displayTzSwitcherEl`
   — both header mounts share the ONE gated element.
-  • Task-editor actions render ONLY in the editor surface (TaskEditView footer / TaskFormModal), NEVER the
+  • Task-editor actions render ONLY in the editor surface (the floating `TaskFormModal` footer), NEVER the
   top bar — `ModernShell` takes no `editActions`/`primaryAction` for the edit case.
   • `task-jira-badge.tsx` = SHARED Jira badge, TWO variants via `readOnlyProject?: boolean`: read-only project →
   padlock + `jiraSyncedReadOnlyProject` title/aria; two-way → sync-arrows glyph + `jiraSyncedTwoWay` (link variant
@@ -995,7 +994,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   RAG dots untouched). Guarded by `e2e/print.spec.ts` (print-media emulation: asserts 0 clipping scrollers, 0
   rounded boxes, box contains full content). Don't reintroduce `inset:0` or a per-pane print clip. Data views (tasks/milestones/changes/
   stakeholders/RAID/resources/
-  documents/history/steering/portfolio/RACI/timelog) + the ReportCard views are wired; Settings/Chat/Projects
+  knowledge/history/steering/portfolio/RACI/timelog) + the ReportCard views are wired; Settings/Chat/Projects
   are not (nothing to print).
 - **Branding (per-device `settings.branding {logo?, slogan?, footerSlogan?, favicon?}`):** rides the
   `writeSettings` spread (no allowlist edit); validated by `sanitizeBranding` — logo/favicon must be a
@@ -1022,6 +1021,23 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   SEPARATE `<span id>` linked via `aria-describedby` — do NOT nest it inside the `<label>` (that folds it
   into the checkbox's accessible name and breaks exact-name `getByRole` queries). The checkbox `id` +
   `aria-describedby` ids are `useId`-scoped so a settings pop-out can't collide.
+- **Knowledge view (renamed from Documents, v0.190.0):** the `documents` AppView + feature module were
+  renamed to `knowledge` across nav / help / operating-guide / i18n, and the files renamed
+  (`documents-panel`→`knowledge-panel`, `document-meta`→`knowledge-meta`, `documents.ts`→`knowledge.ts`,
+  `document-links-field`→`knowledge-links-field`; user strings read "Knowledge" / "Wissen"). ★★ The persisted
+  per-entity **`documentLinks`** field + its CSV/MD/Turso COLUMNS are INTENTIONALLY LEFT on the wire — the
+  rename is view/feature-only, NO serialization change, golden fixtures unchanged. Do NOT "fix" `documentLinks`
+  to `knowledgeLinks` (that's a six-write-path + golden-regen migration for zero benefit). ★ Two back-compat
+  migrations preserve existing users: `sanitizeFeatures` maps a stored `documents` module id → `knowledge`,
+  and `slugToView` maps the legacy `documents` hash slug → `knowledge` (canonical slug is now `knowledge`;
+  `#documents/<id>` deep-links still resolve). ★ The shared TS type is `KnowledgeLink` (was `DocumentLink`),
+  with an OPTIONAL `linkKind: "document" | "confluence" | "url"` emitted ONLY for confluence/url (a document
+  link — the default + every legacy link — omits it, so serialization stays byte-identical); `linkKindOf(link)`
+  resolves the effective kind (absent ⇒ "document"). NOTE the pre-existing `kind` field already means the
+  SharePoint item shape (file/folder) — the new field is `linkKind` to avoid that collision. The add-link form
+  has a type selector (Web URL / Confluence page / Document); confluence/url are stored as ordinary
+  `isSafeHttpUrl`-validated links (no fetch to store) with a kind-appropriate icon; `fileTypeOf` takes the kind
+  (kind wins over the file heuristics).
 - **Responsive metric grids:** a multi-column grid of CONTENT cards (KPI tiles, budget CCI cards, hours
   breakdown, checkbox lists) must carry a `grid-cols-1` (or `grid-cols-2`) mobile base and only widen at
   `sm:`/`lg:` — a bare `grid grid-cols-3`/`grid-cols-4` overflows a phone/narrow-tablet viewport (the
@@ -1071,7 +1087,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   removed. ★ FILTERED-empty + popout (no create handler) fall back to the plain text box (gantt) or the
   no-matches row (tables) — never a dead add affordance. ★ Test gotcha: the box's "+ Add X…" text collides
   with the header add-button on a `getByRole("button",{name:/add x/i})` query — render WITH one item when
-  asserting the header button. ★ Documents uses the clickable box too — it opens the add-document panel
+  asserting the header button. ★ Knowledge uses the clickable box too — it opens the add-link panel
   (`setAddOpen(true)`; manual-link entry needs no SharePoint). ★ Activity is fully FLAT: the data-view
   scroller has NO border (border dropped per request) and the empty/no-match states are natural-height dashed
   boxes (`flex-1` dropped) — read-only, no add affordance. ★ Steering
@@ -1099,7 +1115,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
 - **`useResizable(storageKey)` inline-size beats class width:** the hook writes a saved `{width,height}` as
   an INLINE style, which OVERRIDES class `w-full`/width. Changing a resizable pane's DEFAULT size silently
   no-ops for anyone with a persisted size — BUMP the storageKey (e.g. `…-size` → `…-size-full`) so the stale
-  size is discarded (pane stays resizable from the new baseline). Bit Milestones/Documents going full-width.
+  size is discarded (pane stays resizable from the new baseline). Bit Milestones/Knowledge going full-width.
 - **Rounded table headers:** `TABLE_HEAD_CLASS` carries a `.aipm-cockpit-thead` marker; the Dark-Blue fill lives on
   `<th>` (NOT `<thead>`) via `globals.css` so rounded first/last corners clip it, with `border-spacing:0`.
   Don't move bg back to `<thead>` — a rounded `th` only clips a fill it paints.
@@ -1186,6 +1202,20 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   proposal/confirm if the popover is reopened with a new instruction before the in-flight call resolves. Logs
   a new `ai.inlineEdit` activity kind. Wired into `task-row.tsx` (`RowContextValue`) + `task-kanban-card.tsx`
   (props — the board renders outside `RowContextProvider`, see the Kanban board bullet above).
+- **AI "Deduplicate & unify tasks" (Open Points):** a toolbar action that PROPOSES duplicate merge groups,
+  the user reviews/confirms, then it applies — plan-then-apply layered ON TOP of the existing task path (ZERO
+  new AI tools, Workspace fields, or backend write paths). Pure i18n-free contract in `task-dedup/dedup.ts`
+  (compact task digest → forced `propose_task_merges` tool schema → parse the UNTRUSTED model output →
+  ★★ `groundMergeGroups` RE-GROUNDS every keep/merge id against the LIVE task list, so a hallucinated id can
+  NEVER touch a real task); the non-hook `runDedupProposal` (`task-dedup-call.ts`) mirrors
+  `scheduled-job-analysis.ts` EXACTLY (ONE forced call, no agentic loop, NEVER logs/echoes the apiKey or
+  response body — thrown errors carry only HTTP-status + safe body tokens). `use-tasks-dedup.tsx` is the
+  propose→preview→confirm/cancel state machine (a `.tsx` glue hook, coverage-EXCLUDED like the other glue
+  hooks); `task-dedup-modal.tsx` is the review modal (per-group deselect). ★★ Confirm folds the duplicates +
+  applies the KEEP task's sanitized unified fields via a FUNCTIONAL `setTasks(prev=>…)` updater and records
+  ONE undo entry (removed duplicates + edited keeps). Gated `isAiEnabled && !isPopout && tasks.length >= 2`;
+  no duplicates → toast; usage-limit / API errors surface via the shared `classifyAiError`. New `ai.taskDedup`
+  activity kind + EN/DE strings. Wired into the Open Points toolbar (`tasks-section.tsx` → `task-manager`).
 - **AI doc ingestion / multimodal:** `chat-panel.tsx`'s `ContentBlock` union includes `AttachmentBlock`
   (image/document) from pure `chat-attachments.ts` (classify by mime+extension, 20 MB cap, build the Anthropic
   block — PDF/image as base64 `source`, text as `{type:"text"}` document source; NO parsing lib, Claude reads
@@ -1436,8 +1466,8 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
   rides `settings.jira` via the `writeSettings` spread — per-device, NOT a Workspace field: OUT of exports/Turso/CSV/MD,
   no six-write-path, no golden fixture. Settings UI = checkbox list + per-row read-only toggle + a degraded-state
   fallback (manage/remove configured extras when the project list isn't loaded); row-unique aria-labels (Settings is
-  axe-scanned). Editor read-only banner (`jira-readonly-banner.tsx`) threads to BOTH TaskEditView + TaskFormModal (the
-  latter via `app-modals.tsx`).
+  axe-scanned). Editor read-only banner (`jira-readonly-banner.tsx`) threads to the floating `TaskFormModal`
+  (via `app-modals.tsx`).
 
 ### Guided tour + demo
 

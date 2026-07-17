@@ -11,6 +11,7 @@ import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
 import { useTasksInlineAiEdit } from "./use-tasks-inline-ai-edit";
+import { useTasksDedup } from "./use-tasks-dedup";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityKind } from "./activity-log";
 import { BulkEditModal } from "./bulk-edit-modal";
@@ -18,6 +19,7 @@ import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { RowContextProvider, TaskRow, type RowContextValue } from "./task-row";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
+import { filterTasksByHealth, type HealthFilter } from "./health";
 import { sanitizeInlinePatch } from "./task-inline-patch";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { valuesDiffer } from "./undo/field-groups";
@@ -131,6 +133,7 @@ export interface TasksSectionProps {
   toggleSelectAllVisible: () => void;
   clearSelection: () => void;
   handleBulkSendInquiry: () => void;
+  handleBulkDelete: (ids: Set<number>) => void;
   applyBulkEdit: () => void;
   cancelBulkEdit: () => void;
   // Inline action chips (SP4): task-due actions surfaced atop the Open Points pane.
@@ -154,6 +157,8 @@ export interface TasksSectionProps {
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   /** Capture a field-level undo entry for an inline cell edit. */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Capture a single (removed + edited) undo entry for an AI dedup merge. */
+  captureMerge?: UndoStackApi["capture"];
 }
 
 export function TasksSection({
@@ -199,6 +204,7 @@ export function TasksSection({
   toggleSelectAllVisible,
   clearSelection,
   handleBulkSendInquiry,
+  handleBulkDelete,
   applyBulkEdit,
   cancelBulkEdit,
   nextActions = [],
@@ -212,6 +218,7 @@ export function TasksSection({
   dispatcher,
   logActivity,
   captureFieldEdit,
+  captureMerge,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -219,6 +226,7 @@ export function TasksSection({
     assigneeFilter, setAssigneeFilter,
     groupFilter, setGroupFilter,
     labelFilter, setLabelFilter,
+    healthFilter, setHealthFilter,
     sortKey, sortDir, setSortKey, setSortDir,
   } = useFilters();
 
@@ -249,6 +257,11 @@ export function TasksSection({
     lang,
     logActivity,
     workspaceCtx,
+  });
+  // "Deduplicate & unify" (plan-then-apply AI merge) — owns its trigger + modal.
+  const dedup = useTasksDedup({
+    settings, isPopout: isPopout ?? false, lang, tasks, setTasks,
+    capture: captureMerge, logActivity,
   });
 
   const hideFinished = settings.hideFinishedTasks ?? false;
@@ -293,9 +306,15 @@ export function TasksSection({
     lang,
     enabled: !!m365Configured && !isPopout,
   });
+  // RAG health filter (toolbar) applies to BOTH the table and the board; the
+  // separate hide-finished toggle stays table-only (below). "all" is a no-op.
+  const healthFilteredTasks = useMemo(
+    () => filterTasksByHealth(filteredSortedTasks, healthFilter, today, holidaySet),
+    [filteredSortedTasks, healthFilter, today, holidaySet],
+  );
   const visibleRows = hideFinished
-    ? filteredSortedTasks.filter((r) => !isTaskFinished(r))
-    : filteredSortedTasks;
+    ? healthFilteredTasks.filter((r) => !isTaskFinished(r))
+    : healthFilteredTasks;
 
   // Inline Open-Points cell edit: apply one sanitized field patch to a task via
   // a functional setter, stamping localModifiedAt. Mirrors the form-save
@@ -399,6 +418,7 @@ export function TasksSection({
   const visibleColumnCount = ALL_TASK_COLS.filter((col) => !hiddenCols.has(col)).length;
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [deleteSelectedConfirmOpen, setDeleteSelectedConfirmOpen] = useState(false);
   // Voice `clearAll` (from any view — task-manager navigates here first) sets a
   // non-null clearAllRequestNonce → open the type-to-confirm dialog (same
   // friction as the toolbar button). Render-time reconcile (react-hooks bans
@@ -487,6 +507,7 @@ export function TasksSection({
             {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
           </button>
         )}
+        {dedup.button}
         <label className="flex items-center gap-1 text-xs text-muted-foreground">
           <input
             type="checkbox"
@@ -581,6 +602,18 @@ export function TasksSection({
               {l}
             </option>
           ))}
+        </select>
+        <select
+          value={healthFilter}
+          onChange={(e) => setHealthFilter(e.target.value as HealthFilter)}
+          aria-label={t(lang, "healthFilterLabel")}
+          title={t(lang, "healthFilterHint")}
+          className={inputClass}
+        >
+          <option value="all">{t(lang, "allHealth")}</option>
+          <option value="red">{t(lang, "healthRed")}</option>
+          <option value="amber">{t(lang, "healthAmber")}</option>
+          <option value="green">{t(lang, "healthGreen")}</option>
         </select>
         <div ref={colConfigRef} className="relative">
           <button
@@ -741,6 +774,13 @@ export function TasksSection({
             </button>
             <button
               type="button"
+              onClick={() => setDeleteSelectedConfirmOpen(true)}
+              className={`rounded-md border border-AIPM-pink-strong bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/5 ${INTERACTIVE}`}
+            >
+              {t(lang, "deleteSelected")}
+            </button>
+            <button
+              type="button"
               onClick={clearSelection}
               className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
@@ -748,6 +788,21 @@ export function TasksSection({
             </button>
           </div>
         </div>
+      )}
+
+      {deleteSelectedConfirmOpen && (
+        <TypeToConfirmDialog
+          lang={lang}
+          title={t(lang, "tasksDeleteSelectedDialogTitle")}
+          message={t(lang, "tasksDeleteSelectedDialogMessage", selectedIds.size)}
+          confirmValue={`delete ${selectedIds.size} tasks`}
+          confirmLabel={t(lang, "tasksDeleteSelectedConfirmLabel")}
+          onConfirm={() => {
+            handleBulkDelete(selectedIds);
+            setDeleteSelectedConfirmOpen(false);
+          }}
+          onCancel={() => setDeleteSelectedConfirmOpen(false)}
+        />
       )}
 
       <BulkEditModal
@@ -769,7 +824,7 @@ export function TasksSection({
            stay populated. SP-B Task 6 swaps in the rich <TaskKanbanCard>. */
         <TaskKanban
           lang={lang}
-          tasks={filteredSortedTasks}
+          tasks={healthFilteredTasks}
           today={today}
           holidaySet={holidaySet}
           resourcesById={resourcesById}
@@ -814,7 +869,7 @@ export function TasksSection({
               {/* Leading gutter column matching the per-row hover Ask-Claude cell
                   and the leading <th> below — under table-layout:fixed a missing
                   <col> shifts every column's width to its left neighbour. */}
-              <col className="w-8" />
+              <col className="w-7" />
               {ALL_TASK_COLS
                 .filter((col) => !hiddenCols.has(col))
                 .map((col) => (
@@ -824,7 +879,7 @@ export function TasksSection({
             <thead className={TABLE_HEAD_CLASS}>
               <tr>
                 {/* Leading gutter matching the per-row hover Ask-Claude cell. */}
-                <th className="w-8" aria-hidden="true" />
+                <th className="w-7" aria-hidden="true" />
                 <Th onResize={(e) => startColResize("sel", e)}>
                   <input
                     type="checkbox"
@@ -915,6 +970,7 @@ export function TasksSection({
       })()}
 
       {inlineAiEditPopover}
+      {dedup.modal}
     </section>
   );
 }

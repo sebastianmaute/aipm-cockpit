@@ -75,6 +75,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "stakeholderIds", label: "StakeholderIds" },
   { key: "documentLinks", label: "DocumentLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
+  { key: "inquiriesSent", label: "Inquiries" },
 ];
 
 
@@ -313,6 +314,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "timeSpentMinutes", label: "TimeSpentMin" },
   { key: "documentLinks", label: "DocumentLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
+  { key: "noteLog", label: "NoteLog" },
 ];
 
 function mdEscape(value: string): string {

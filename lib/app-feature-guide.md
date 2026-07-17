@@ -4,7 +4,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 
 ## Overview
 
-- Covers portfolio and project delivery: open points (tasks), action center, dashboards, trends, RAID, change control, milestones and Gantt, stakeholders and RACI, steering committee, reports, budget, resources and capacity, calendar, documents, time bookings, version history, the portfolio-health rollup, and settings.
+- Covers portfolio and project delivery: open points (tasks), action center, dashboards, trends, RAID, change control, milestones and Gantt, stakeholders and RACI, steering committee, reports, budget, resources and capacity, calendar, knowledge links, time bookings, version history, the portfolio-health rollup, and settings.
 - Recent additions: task status model + Table/Board (Kanban) toggle, steering committee, guided tour with demo data, timezones (incl. the calendar world-clock strip), AI weight suggestions / report analysis / opt-in scheduled jobs, create-project from a description / file / SharePoint / Confluence, editable communication templates, the Timelog time-booking integration, and the Turso-only portfolio-health rollup. Newest: rate-card day rates, a planning capacity column with a hide-external toggle, dashboard tile tooltips, a RACI people-column filter, richer version-history compare, and advisory AI usage-limit notices.
 - Tip for the user: most views have an "Ask Claude" button (and an "Explain this" prompt) that opens this assistant with a view-aware question.
 
@@ -17,7 +17,8 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Tasks can link to RAID items (a task may resolve a risk, issue, or dependency).
 - Jira-synced tasks (those with a Jira key): tasks from the primary project are editable; tasks from read-only extra projects have their Jira fields locked until the next sync.
 - Inline "Ask Claude" edit: an in-place popover on a task row/card (or its row menu) takes a short instruction (e.g. "push this out a week and add a risk for the vendor delay"); it previews the proposed field changes and any related items it would create before anything is applied, and only writes them once the user confirms. Not available on Jira-synced tasks or in a pop-out window.
-- AI: create/update tasks including setting status; cannot toggle the Board view or change a Jira-synced task's status (explain + point to Jira). Via the inline edit popover specifically, it can change task fields and create a linked RAID item, change item, milestone, or stakeholder as part of one instruction — always preview-then-confirm, never applied without the user's confirmation.
+- Deduplicate & unify tasks: a toolbar action (shown when the AI assistant is enabled, outside pop-outs, with at least two tasks) asks the AI to propose which tasks look like duplicates and how to merge each group into one. You review every proposed group and can deselect any before confirming — nothing changes until you confirm, and a confirmed merge is a single undo step that folds the duplicates into the kept task and applies its unified fields.
+- AI: create/update tasks including setting status; cannot toggle the Board view or change a Jira-synced task's status (explain + point to Jira). Via the inline edit popover specifically, it can change task fields and create a linked RAID item, change item, milestone, or stakeholder as part of one instruction — always preview-then-confirm, never applied without the user's confirmation. Via the "Deduplicate & unify tasks" action it can propose task merges for your review, but merges are only applied after you confirm.
 
 ## Action Center
 
@@ -130,7 +131,7 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - Settings → AI also holds usage controls: a maximum number of assistant turns per message (how many tool-use rounds one request may take, default 12) and a token-counting multiplier (scales how heavily usage counts against your own caps, default 5), plus the optional session/weekly token caps themselves. These caps are your own advisory limits and never block a request; Claude's own weekly/rate limit is a separate notice.
 - Integrations panel holds storage, Turso, Microsoft 365, Timelog, and Jira together. Jira lives inside Integrations: its configuration fields appear only after the "Enable Jira sync" checkbox is ticked. Configure a primary Jira project (two-way sync) and optionally add extra projects to sync read-only (pull-only — edits never push back); each extra project has a per-project read-only toggle (default ON). The task Jira badge shows a padlock for read-only vs sync-arrows for two-way, and the task editor shows a read-only warning for watched projects.
 - A **guided backend setup wizard** (Settings → Integrations → "Run setup wizard") steps through Storage & connections (storage, Turso, M365, Timelog), AI, and Jira, then a Review step summarising what is configured. The same wizard is reachable from the new-project window. Steps are skippable, and the flat Integrations panel can be used to adjust any setting later.
-- **Settings → Functions** lists the feature modules (Dashboard, Trends, Gantt, Milestones, Resources, Budget, RAID, Changes, Stakeholders, History, Documents, Timelog) as toggles, with Simple / Modular / Advanced presets that flip whole sets at once. Each toggle now carries a short description of what the function does and when to enable it, so choosing what a project uses is self-explanatory. Enabling or disabling a module changes which views and automation appear, per project.
+- **Settings → Functions** lists the feature modules (Dashboard, Trends, Gantt, Milestones, Resources, Budget, RAID, Changes, Stakeholders, History, Knowledge, Timelog) as toggles, with Simple / Modular / Advanced presets that flip whole sets at once. Each toggle now carries a short description of what the function does and when to enable it, so choosing what a project uses is self-explanatory. Enabling or disabling a module changes which views and automation appear, per project.
 - AI: can explain where each setting lives and what it does; cannot open or run the setup wizard (it is a UI affordance only).
 - AI: can explain what each feature function does and recommend which to enable for a given project from those descriptions; it cannot toggle the functions for you (that is a Settings action).
 - AI: your session and weekly token caps in Settings → AI are advisory notices you set yourself — reaching one shows a notice but never blocks a request; the token multiplier (default 5) scales how usage is counted against those caps, and the max-turns-per-message setting (default 12) bounds how many tool-use rounds one request may take. Claude's own weekly/rate limit is separate: it shows a distinct notice and you retry after it resets.
@@ -155,13 +156,13 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 - The workload view is actionable: the "Util (now)" column edits a resource's near-term utilisation inline (the same period the over-allocation signal flags), and the overdue-task count opens a triage popover to reassign (owner) or reschedule (due date) that resource's overdue tasks in place. Jira-synced tasks are read-only there.
 - AI: can create/update/delete/list resources (name, contact fields, external flag, and a rate-card role via roleId). It CANNOT set day or hourly rate values, and cannot create or edit roles/disciplines/grades — assigning a resource to an existing role via roleId inherits that role's rates, but entering rates (including the new day rate) is a UI action. Allocation and utilisation edits are also UI actions.
 
-## Documents
+## Knowledge
 
-<!-- views: documents -->
+<!-- views: knowledge -->
 
-- A standalone register of project document links; entities (RAID, changes, milestones, stakeholders, etc.) can also carry their own document links.
-- SharePoint picker adds links when Microsoft 365 / SharePoint is configured; links are validated as safe http(s) URLs.
-- AI: no document write tool — it cannot add links here. In chat it can read documents you attach (PDF/image/text) natively and extract records from them.
+- A standalone register of project knowledge links — documents, Confluence pages, and general web URLs; entities (RAID, changes, milestones, stakeholders, etc.) can also carry their own knowledge links.
+- A link can be added three ways: a SharePoint document (when Microsoft 365 / SharePoint is configured), a Confluence page URL, or any general web URL; every link is validated as a safe http(s) URL and shows a kind-appropriate icon.
+- AI: no knowledge write tool — it cannot add links here. In chat it can read documents you attach (PDF/image/text) natively and extract records from them.
 
 ## Time bookings
 

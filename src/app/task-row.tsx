@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
@@ -17,6 +17,7 @@ import { effectiveAssignee } from "./resource-foundation";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { DependenciesEditor } from "./dependencies-editor";
 import { usePopoverDismiss } from "./use-popover-dismiss";
+import { PopoverPanel } from "./popover-panel";
 import type { Contact } from "./contacts";
 import { PRIORITIES, type ChangeItem, type Priority, type Resource, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
@@ -396,7 +397,7 @@ function TaskRowImpl({
       {/* Leading cell always renders (reserves width → no hover layout shift);
           the inline "Ask Claude" trigger is revealed on row hover / focus and
           only mounts when the row is AI-editable (not popout / not Jira-synced). */}
-      <Td className="w-8">
+      <Td className="w-7">
         {aiEditEnabled(task) && (
           <button
             type="button"
@@ -685,45 +686,79 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
     onEdit,
     onDelete,
   } = useTaskRowContext();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const stop = (e: MouseEvent) => e.stopPropagation();
+
+  const showSendInquiry = !task.completedDate;
+  const showPushToJira =
+    jiraEnabled && !!jiraProjectKey && !task.jiraKey && !task.completedDate;
+
+  // Edit stays inline; the secondary verbs (Send inquiry / Push to Jira / Delete)
+  // fold into a ⋮ overflow menu. The trigger's aria-label is row-unique
+  // (WCAG 2.4.6) so N rows don't share an identical "More actions" name.
   return (
-    <div className="flex flex-col gap-1 whitespace-nowrap">
-      <div className="flex flex-wrap gap-2">
-        {!task.completedDate && (
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      <button
+        type="button"
+        onClick={(e) => { stop(e); onEdit(task); }}
+        className={`text-xs font-medium text-foreground underline-offset-2 hover:underline ${INTERACTIVE}`}
+      >
+        {t(lang, "edit")}
+      </button>
+      <span className="relative">
+        <button
+          ref={menuBtnRef}
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label={`${t(lang, "actionMoreActions")} – ${task.taskName}`}
+          title={t(lang, "actionMoreActions")}
+          onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
+          className={`rounded-md border border-line px-2 py-0.5 text-xs font-medium text-muted-foreground hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 ${FOCUS_RING} ${TRANSITION}`}
+        >
+          ⋮
+        </button>
+        <PopoverPanel
+          open={menuOpen}
+          anchorRef={menuBtnRef}
+          onClose={closeMenu}
+          role="menu"
+          ariaLabel={t(lang, "actionMoreActions")}
+          className="flex w-max flex-col py-1"
+        >
+          {showSendInquiry && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={(e) => { stop(e); setMenuOpen(false); onSendInquiry(task); }}
+              className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted"
+            >
+              {t(lang, "sendInquiry")}
+            </button>
+          )}
+          {showPushToJira && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={isPushing}
+              onClick={(e) => { stop(e); setMenuOpen(false); onPushToJira(task.id); }}
+              className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isPushing ? t(lang, "jiraPushing") : t(lang, "jiraPushToJira")}
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => onSendInquiry(task)}
-            className={`text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue ${INTERACTIVE}`}
+            role="menuitem"
+            onClick={(e) => { stop(e); setMenuOpen(false); onDelete(task.id); }}
+            className="px-3 py-1 text-left text-xs text-AIPM-pink-strong hover:bg-AIPM-pink/5"
           >
-            {t(lang, "sendInquiry")}
+            {t(lang, "delete")}
           </button>
-        )}
-        {jiraEnabled && jiraProjectKey && !task.jiraKey && !task.completedDate && (
-          <button
-            type="button"
-            onClick={() => onPushToJira(task.id)}
-            disabled={isPushing}
-            className={`text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-blue ${INTERACTIVE}`}
-          >
-            {isPushing ? t(lang, "jiraPushing") : t(lang, "jiraPushToJira")}
-          </button>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => onEdit(task)}
-          className={`text-xs font-medium text-foreground underline-offset-2 hover:underline ${INTERACTIVE}`}
-        >
-          {t(lang, "edit")}
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(task.id)}
-          className={`text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
-        >
-          {t(lang, "delete")}
-        </button>
-      </div>
+        </PopoverPanel>
+      </span>
     </div>
   );
 }

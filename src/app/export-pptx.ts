@@ -299,7 +299,7 @@ function pptxTitleSubtitleShapes(titleText: string, subtitleText: string): strin
 function buildPptxTitleSlide(): string {
   const shapes =
     pptxBackgroundRect(COLOR_DARK_BLUE) +
-    pptxTitleSubtitleShapes("AIPM Cockpit", `Exported ${todayHuman()}`);
+    pptxTitleSubtitleShapes("AI PM Cockpit", `Exported ${todayHuman()}`);
 
   return wrapPptxSlide(shapes);
 }

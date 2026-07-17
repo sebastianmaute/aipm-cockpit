@@ -18,6 +18,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { CommitteeMeeting, InfoSchedule, Resource, SteeringCommittee } from "./types";
 import { Modal } from "./modal";
+import { committeePushKey, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
 import { MeetingReportPanel, type MeetingReportVersionUi } from "./meeting-report-panel";
 import { committeeMemberEmails } from "./committee-report/report-recipients";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
@@ -60,6 +61,39 @@ function DeleteCell({ lang, onClick, label }: { lang: Lang; onClick: () => void;
   );
 }
 
+/** Per-row "Push" cell — scopes an Outlook push to this one meeting/schedule.
+ *  Row-unique accessible name (WCAG 2.4.6): "Push to Outlook – <label>".
+ *  `busy` (this row is in-flight) drives the label; `disabled` (ANY push in
+ *  flight) blocks the click so a concurrent-target press can't hit the hook's
+ *  silent inFlightRef no-op. */
+function PushRowCell({
+  lang,
+  onClick,
+  label,
+  busy,
+  disabled,
+}: {
+  lang: Lang;
+  onClick: () => void;
+  label: string;
+  busy: boolean;
+  disabled: boolean;
+}) {
+  return (
+    <td className="text-right print:hidden">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={`${t(lang, "committeePushOutlook")} – ${label}`}
+        className={BTN_SECONDARY}
+      >
+        {t(lang, busy ? "committeePushBusy" : "committeePushRow")}
+      </button>
+    </td>
+  );
+}
+
 const REMINDER_TIER_KEY: Record<ReminderTier, "committeeReminderOverdue" | "committeeReminderSoon" | "committeeReminderUpcoming"> = {
   now: "committeeReminderOverdue",
   soon: "committeeReminderSoon",
@@ -73,8 +107,12 @@ export interface SteeringCommitteePanelProps {
   resources: readonly Resource[];
   today: string;
   /** Supplied by Task 7 (Outlook push). When absent the button is hidden.
-   *  Errors surface via toast (not inline), so no `error` field is threaded. */
-  outlookPush?: { onPush: () => void; busy: boolean };
+   *  Errors surface via toast (not inline), so no `error` field is threaded.
+   *  `onPushRow` (optional) scopes a push to a single meeting / info-schedule
+   *  row — when absent the per-row "Push" buttons are hidden. `pushingTarget` is
+   *  the `committeePushKey` of the row currently pushing (or null when idle), so
+   *  only the in-flight button shows busy — the rest stay enabled. */
+  outlookPush?: { onPush: () => void; pushingTarget: string | null; onPushRow?: (target: CommitteeReconcileTarget) => void };
   /** Per-meeting status-report actions (save/email + AI/versions). When absent
    *  the per-meeting "Status report" button is hidden. */
   report?: MeetingReportBag;
@@ -99,6 +137,11 @@ export function SteeringCommitteePanel({
   const [reportMeetingId, setReportMeetingId] = useState<number | null>(null);
   const [reportVersions, setReportVersions] = useState<readonly MeetingReportVersionUi[]>([]);
   const { ref: paneRef, reset: resetSize } = useResizable("aipm-cockpit:steering-size");
+  const { ref: reportPaneRef, reset: resetReportSize } = useResizable("aipm-cockpit:committee-report-size");
+  const closeReport = () => {
+    setReportMeetingId(null);
+    setReportVersions([]);
+  };
   const meetingCols = useColumnResize<MeetingCol>("committeeMeetings", MEETING_COL_WIDTHS);
   const scheduleCols = useColumnResize<ScheduleCol>("committeeSchedules", SCHEDULE_COL_WIDTHS);
   const startMeetingResize = meetingCols.startColResize as (col: string, e: React.MouseEvent) => void;
@@ -191,7 +234,7 @@ export function SteeringCommitteePanel({
   for (const r of reminders) byTier[r.tier].push(r);
 
   return (
-    <div ref={paneRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
+    <div ref={paneRef} className={`${reportMeetingId === null ? "print-root " : ""}${VIEW_PANE_RESIZABLE_CLASS}`}>
       {onLearnMore && (
         <ViewCallout
           view="steering-committee"
@@ -286,6 +329,7 @@ export function SteeringCommitteePanel({
                     <ColumnResizeHandle col="location" onMouseDown={startMeetingResize} />
                   </th>
                   {report && !isPopout && <th className="px-3 py-2" />}
+                  {outlookPush?.onPushRow && <th className="px-3 py-2 print:hidden" />}
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -335,6 +379,15 @@ export function SteeringCommitteePanel({
                           {t(lang, "reportStatusReport")}
                         </button>
                       </td>
+                    )}
+                    {outlookPush?.onPushRow && (
+                      <PushRowCell
+                        lang={lang}
+                        onClick={() => outlookPush.onPushRow!({ kind: "meeting", id: m.id })}
+                        label={m.title || m.date}
+                        busy={outlookPush.pushingTarget === committeePushKey({ kind: "meeting", id: m.id })}
+                        disabled={outlookPush.pushingTarget !== null}
+                      />
                     )}
                     <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={m.title || m.date} />
                   </tr>
@@ -389,6 +442,7 @@ export function SteeringCommitteePanel({
                     {t(lang, "committeeScheduleLeadDays")}
                     <ColumnResizeHandle col="leadDays" onMouseDown={startScheduleResize} />
                   </th>
+                  {outlookPush?.onPushRow && <th className="px-3 py-2 print:hidden" />}
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -415,6 +469,15 @@ export function SteeringCommitteePanel({
                         className={`${INPUT_CLASS} w-24`}
                       />
                     </td>
+                    {outlookPush?.onPushRow && (
+                      <PushRowCell
+                        lang={lang}
+                        onClick={() => outlookPush.onPushRow!({ kind: "schedule", id: s.id })}
+                        label={s.label || String(s.id)}
+                        busy={outlookPush.pushingTarget === committeePushKey({ kind: "schedule", id: s.id })}
+                        disabled={outlookPush.pushingTarget !== null}
+                      />
+                    )}
                     <DeleteCell lang={lang} onClick={() => deleteSchedule(s.id)} label={s.label || String(s.id)} />
                   </tr>
                 ))}
@@ -483,10 +546,10 @@ export function SteeringCommitteePanel({
             <button
               type="button"
               onClick={outlookPush.onPush}
-              disabled={outlookPush.busy}
+              disabled={outlookPush.pushingTarget !== null}
               className={BTN_SECONDARY}
             >
-              {t(lang, outlookPush.busy ? "committeePushBusy" : "committeePushOutlook")}
+              {t(lang, outlookPush.pushingTarget === committeePushKey() ? "committeePushBusy" : "committeePushOutlook")}
             </button>
           </section>
         ) : null}
@@ -499,33 +562,42 @@ export function SteeringCommitteePanel({
             if (!m) return null;
             const title = `${t(lang, "reportStatusReport")} – ${m.title || m.date}`;
             return (
-              <Modal
-                open
-                onClose={() => {
-                  setReportMeetingId(null);
-                  setReportVersions([]);
-                }}
-                ariaLabel={title}
-                align="center"
-              >
-                <div className="w-[min(90vw,720px)] rounded-lg border border-line bg-surface p-4">
-                  <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
-                  <MeetingReportPanel
-                    lang={lang}
-                    report={m.report}
-                    recipients={committeeMemberEmails(c, resources)}
-                    onSave={(html) => report.onSaveReport(m.id, html)}
-                    onSend={(recips) => report.onSendReport(m.id, recips)}
-                    m365Configured={report.m365Configured}
-                    sendBusy={report.sendBusyMeetingId === m.id}
-                    isPopout={isPopout}
-                    aiConfigured={report.aiConfigured}
-                    onGenerate={() => report.onGenerateReport(m.id)}
-                    generateBusy={report.generateBusyMeetingId === m.id}
-                    versions={reportVersions}
-                    onRestore={(versionId) => report.onRestore(m.id, versionId)}
-                    restoreBusyId={report.restoreBusyId}
-                  />
+              <Modal open onClose={closeReport} ariaLabel={title} align="center">
+                {/* print-root so @media print isn't blank; the panel behind drops
+                    its own print-root while this modal is open (see root div) so
+                    only the report prints. Resizable + reset/print/cancel chrome. */}
+                <div
+                  ref={reportPaneRef}
+                  className="print-root flex max-h-[85vh] min-w-[320px] w-[min(90vw,720px)] resize flex-col overflow-auto rounded-lg border border-line bg-surface p-4"
+                >
+                  <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+                    <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+                    <div className="flex items-center gap-2 print:hidden">
+                      <PrintButton lang={lang} />
+                      <ResetSizeButton onClick={resetReportSize} lang={lang} />
+                      <button type="button" onClick={closeReport} className={BTN_SECONDARY}>
+                        {t(lang, "cancel")}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-auto">
+                    <MeetingReportPanel
+                      lang={lang}
+                      report={m.report}
+                      recipients={committeeMemberEmails(c, resources)}
+                      onSave={(html) => report.onSaveReport(m.id, html)}
+                      onSend={(recips) => report.onSendReport(m.id, recips)}
+                      m365Configured={report.m365Configured}
+                      sendBusy={report.sendBusyMeetingId === m.id}
+                      isPopout={isPopout}
+                      aiConfigured={report.aiConfigured}
+                      onGenerate={() => report.onGenerateReport(m.id)}
+                      generateBusy={report.generateBusyMeetingId === m.id}
+                      versions={reportVersions}
+                      onRestore={(versionId) => report.onRestore(m.id, versionId)}
+                      restoreBusyId={report.restoreBusyId}
+                    />
+                  </div>
                 </div>
               </Modal>
             );

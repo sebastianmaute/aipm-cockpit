@@ -32,11 +32,6 @@ describe("nav-config", () => {
     }
   });
 
-  it("excludes the edit view from nav and labels it harmlessly", () => {
-    expect(allNavViews()).not.toContain("edit");
-    expect(navLabelKey("edit")).toBeTruthy();
-  });
-
   it("resources sub-menu = directory/workload/calendar/planning/manage-roles; no resource-report/address-book", () => {
     const views = allNavViews();
     expect(views).toEqual(expect.arrayContaining(["directory", "workload", "calendar", "planning", "manage-roles"]));
@@ -48,6 +43,14 @@ describe("nav-config", () => {
     expect(slugToView("address-book")).toBe("directory");
     expect(slugToView("resource-report")).toBe("resources");
     expect(slugToView("totally-unknown")).toBe("open-points");
+  });
+
+  it("legacy `documents` slug resolves to the renamed knowledge view (bookmark back-compat)", () => {
+    expect(slugToView("documents")).toBe("knowledge");
+    // deep-link bookmark #documents/12 still routes to knowledge with the id preserved
+    expect(parseHash("#documents/12")).toEqual({ view: "knowledge", itemId: 12 });
+    // the canonical slug is now `knowledge`
+    expect(viewToSlug("knowledge")).toBe("knowledge");
   });
 
   it("subTabsFor returns the containing section's children for a parent or child view", () => {

@@ -76,7 +76,7 @@ import {
   PortfolioHealthPanel,
   ProjectsPanel,
   ActionsPanel,
-  DocumentsPanel,
+  KnowledgePanel,
   TimelogPanel,
 } from "./workspace-panels";
 import { baselineMilestoneTargets } from "./snapshot";
@@ -103,6 +103,7 @@ export function WorkspaceSection({
   handleClearRaidTaskFilter,
   handleSaveRaidItem,
   handleDeleteRaidItem,
+  onSendRaidInquiry,
   onCaptureRaidBulk,
   onCaptureUndo,
   onCaptureFieldEdit,
@@ -415,6 +416,7 @@ export function WorkspaceSection({
             onClearTaskFilter={handleClearRaidTaskFilter}
             onSave={handleSaveRaidItem}
             onDelete={handleDeleteRaidItem}
+            onSendInquiry={onSendRaidInquiry}
             onCaptureBulk={onCaptureRaidBulk}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
@@ -651,6 +653,9 @@ export function WorkspaceSection({
               stakeholders={stakeholders}
               onOpenStakeholder={isPopout ? undefined : (id) => requestOpen("stakeholders", id)}
               onSaveStakeholder={isPopout ? undefined : handleSaveStakeholder}
+              showHints={settings.showViewHints !== false}
+              isPopout={isPopout}
+              onLearnMore={requestHelpConcept}
             />
           </div>
         )}
@@ -856,9 +861,9 @@ export function WorkspaceSection({
           </div>
         )}
 
-        {activeTab === "documents" && (
-          <div id="panel-documents" role="tabpanel" className={panelClass}>
-            <DocumentsPanel />
+        {activeTab === "knowledge" && (
+          <div id="panel-knowledge" role="tabpanel" className={panelClass}>
+            <KnowledgePanel />
           </div>
         )}
 

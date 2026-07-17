@@ -2,24 +2,24 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { isSafeHttpUrl, type DocumentLink } from "./document-link";
+import { isSafeHttpUrl, type KnowledgeLink } from "./document-link";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import type { AcquireToken } from "./use-sharepoint-browser";
 
-export interface DocumentLinksFieldProps {
-  value: DocumentLink[];
-  onChange: (next: DocumentLink[]) => void;
+export interface KnowledgeLinksFieldProps {
+  value: KnowledgeLink[];
+  onChange: (next: KnowledgeLink[]) => void;
   lang: Lang;
   acquireToken: AcquireToken;
   onLog?: (action: "added" | "removed", name: string) => void;
 }
 
-export function DocumentLinksField({ value, onChange, lang, acquireToken, onLog }: DocumentLinksFieldProps) {
+export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog }: KnowledgeLinksFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  function add(link: DocumentLink) {
+  function add(link: KnowledgeLink) {
     if (value.some((l) => l.url === link.url)) return;
-    const stamped: DocumentLink = link.addedAt ? link : { ...link, addedAt: new Date().toISOString() };
+    const stamped: KnowledgeLink = link.addedAt ? link : { ...link, addedAt: new Date().toISOString() };
     onChange([...value, stamped]);
     onLog?.("added", link.name);
   }
@@ -38,7 +38,9 @@ export function DocumentLinksField({ value, onChange, lang, acquireToken, onLog 
         <ul className="flex flex-col gap-1">
           {value.map((link) => (
             <li key={link.url} className="flex items-center gap-2 rounded border border-line bg-surface px-2 py-1 text-sm">
-              <span aria-hidden className="text-muted-foreground">{link.kind === "folder" ? "📁" : "📄"}</span>
+              <span aria-hidden className="text-muted-foreground">
+                {link.linkKind === "confluence" ? "🔷" : link.linkKind === "url" ? "🔗" : link.kind === "folder" ? "📁" : "📄"}
+              </span>
               {isSafeHttpUrl(link.url) ? (
                 <a
                   href={link.url}

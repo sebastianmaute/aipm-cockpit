@@ -267,8 +267,13 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
               void recordLearning(action, "acted");
               showToast("info", t(lang, "actionRescheduled"));
             },
+            currentDueDate: (action: SuggestedAction) => {
+              if (action.cta.kind !== "open" || action.cta.view !== "open-points") return undefined;
+              const id = Number(action.cta.id);
+              return tasks.find((tk) => tk.id === id)?.dueDate || undefined;
+            },
           },
-    [isPopout, setTasks, recordLearning, showToast, lang],
+    [isPopout, setTasks, tasks, recordLearning, showToast, lang],
   );
 
   return {

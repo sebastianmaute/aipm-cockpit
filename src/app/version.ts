@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.189.2";
-export const APP_BUILD_DATE = "2026-07-15"; // 0.189.2: UX fixes — Action-Center deep-links open the task editor, the resource-picker clear button works in inline editors, action popovers no longer clip the date picker, plus a "Process attachment" AI prompt (Bishop)
+export const APP_VERSION = "0.190.0";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.0: large UX batch — floating draggable/resizable task editor, Open-Points RAG-health filter + bulk delete + ⋮ row menu + AI "Deduplicate & unify tasks", RAID send-inquiry + owner filter, structured task note-log, Gantt inline-vs-below milestone toggle, undo/redo labels + preview, toast hover-pause, AI 400-detail + HTML/VTT ingestion, pull-contacts from Outlook, per-row steering push, the Documents→Knowledge rename with Confluence/URL links, and the rename to "AI PM Cockpit" (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.189.x line is "Bishop" (Michael Bishop). */
-export const APP_MILESTONE = "Bishop";
+ *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
+export const APP_MILESTONE = "Pinsker";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -213,4 +213,16 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightResourceClearFix",
   "versionHighlightPopoverClip",
   "versionHighlightProcessAttachment",
+  "versionHighlightFloatingEditor",
+  "versionHighlightOpenPointsActions",
+  "versionHighlightRaidInquiry",
+  "versionHighlightTaskNoteLog",
+  "versionHighlightGanttMilestonePlacement",
+  "versionHighlightUndoLabels",
+  "versionHighlightToastPause",
+  "versionHighlightAiErrorDetail",
+  "versionHighlightPullContacts",
+  "versionHighlightKnowledgeLinks",
+  "versionHighlightTaskDedup",
+  "versionHighlightAppRename",
 ] as const;

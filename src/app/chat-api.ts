@@ -3,7 +3,7 @@
 // i18n-free (per the repo's "engines live in plain modules; React surfaces import
 // them" pattern); `chat-panel.tsx` consumes everything here.
 import { TOOL_DEFS, type ToolDispatcher } from "./chat-tools";
-import { AiHttpError, safeAiErrorType } from "./ai-errors";
+import { AiHttpError, safeAiErrorType, safeAiErrorMessage } from "./ai-errors";
 import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
 import type { AttachmentBlock } from "./chat-attachments";
@@ -103,7 +103,7 @@ export function buildSystemPrompt(
   // state, plus the (large) guide text. Anthropic prompt-cache is prefix-based,
   // so this must come FIRST and contain only call-invariant content.
   const stableInstructions = [
-    "You are an assistant embedded in AIPM Cockpit, an AI-assisted project management app for tracking open project items (tasks, RAID, changes, milestones, budget).",
+    "You are an assistant embedded in AI PM Cockpit, an AI-assisted project management app for tracking open project items (tasks, RAID, changes, milestones, budget).",
     "The user is a project lead tracking open tasks. Each task has: id, taskName, assignee, assigneeEmail, dueDate (YYYY-MM-DD), lastUpdateDate, priority (Low/Medium/High/Urgent), status (To Do/In Progress/On Hold/In Review/Cancelled/Done), blockers, notes, group (single optional category), labels (zero or more tags).",
     "Use the provided tools to read and modify the app's state. Prefer calling tools over guessing. After modifying state, briefly confirm what changed.",
     "Beyond tasks you can also read and write RAID items (Risks/Assumptions/Issues/Dependencies), change-control items, milestones, and stakeholders via their list_/create_/update_/delete_ tools. RAID category is R/A/I/D; status must match the category. Dates are YYYY-MM-DD.",
@@ -236,15 +236,20 @@ export async function callClaude(
     signal,
   });
   if (!res.ok) {
-    // Read ONLY the safe `error.type` token from the body — never the body's
-    // message text (security: nothing but status + type may be surfaced/logged).
+    // Parse the RESPONSE body ONCE for two safe reads: the `error.type` token
+    // (classification) and the sanitized `error.message` (surfaced to the user).
+    // The response body carries NO secret — the api key lives only in the request
+    // header, which is never read here. safeMessage must be surfaced, not logged.
     let errorType: string | undefined;
+    let safeMessage: string | undefined;
     try {
-      errorType = safeAiErrorType(await res.json());
+      const body: unknown = await res.json();
+      errorType = safeAiErrorType(body);
+      safeMessage = safeAiErrorMessage(body);
     } catch {
       // Non-JSON / unreadable body — status alone is enough to classify.
     }
-    throw new AiHttpError(res.status, errorType);
+    throw new AiHttpError(res.status, errorType, safeMessage);
   }
   const json = await res.json() as { content: ContentBlock[]; stop_reason: string; usage?: ApiUsage };
   return {

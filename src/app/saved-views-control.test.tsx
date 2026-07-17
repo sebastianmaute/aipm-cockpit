@@ -1,9 +1,10 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
-import { FiltersProvider } from "./filters-context";
+import { FiltersProvider, useFilters } from "./filters-context";
 import { SavedViewsControl } from "./saved-views-control";
 import { loadSavedViews, saveSavedViews, type SavedViewPayload } from "./saved-views";
+import { SETTINGS_KEY } from "./use-settings";
 
 function basePayload(overrides: Partial<SavedViewPayload> = {}): SavedViewPayload {
   return {
@@ -12,11 +13,26 @@ function basePayload(overrides: Partial<SavedViewPayload> = {}): SavedViewPayloa
     assigneeFilter: "All",
     groupFilter: "All",
     labelFilter: "All",
+    healthFilter: "all",
     sortKey: "id",
     sortDir: "asc",
     hiddenCols: [],
     ...overrides,
   };
+}
+
+/** Drives + reports the provider's healthFilter so a test can set it before
+ *  saving and assert it after applying (the RAG select lives in tasks-section,
+ *  not this control). */
+function HealthProbe() {
+  const f = useFilters();
+  return (
+    <>
+      <button onClick={() => f.setHealthFilter("red")}>probe-red</button>
+      <button onClick={() => f.setHealthFilter("green")}>probe-green</button>
+      <span data-testid="hf">{f.healthFilter}</span>
+    </>
+  );
 }
 
 function renderControl(setHiddenCols = vi.fn()) {
@@ -122,11 +138,73 @@ describe("SavedViewsControl", () => {
     );
   });
 
+  function renderWithProbe() {
+    render(
+      <FiltersProvider>
+        <HealthProbe />
+        <SavedViewsControl lang="en-US" hiddenCols={new Set()} setHiddenCols={vi.fn()} />
+      </FiltersProvider>,
+    );
+  }
+
+  function saveCurrentView(name: string) {
+    fireEvent.click(screen.getByRole("button", { name: "Save current view" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "View name" }), { target: { value: name } });
+    fireEvent.click(screen.getByRole("button", { name: "Save current view" }));
+  }
+
+  it("captures the active health filter and restores it when the view is applied", () => {
+    renderWithProbe();
+
+    // Active RAG filter → red, then save it.
+    fireEvent.click(screen.getByText("probe-red"));
+    expect(screen.getByTestId("hf").textContent).toBe("red");
+    saveCurrentView("Red view");
+    expect(loadSavedViews()[0].payload.healthFilter).toBe("red");
+
+    // Change the live filter to green, then apply the saved view → back to red.
+    fireEvent.click(screen.getByText("probe-green"));
+    expect(screen.getByTestId("hf").textContent).toBe("green");
+    fireEvent.change(screen.getByRole("combobox", { name: "Apply a saved view" }), {
+      target: { value: String(loadSavedViews()[0].id) },
+    });
+    expect(screen.getByTestId("hf").textContent).toBe("red");
+  });
+
+  it("clears a stale health filter to 'all' when applying a view saved with the default", () => {
+    renderWithProbe();
+
+    // Save while no RAG filter is active (default "all").
+    saveCurrentView("Default view");
+    expect(loadSavedViews()[0].payload.healthFilter).toBe("all");
+
+    // Now set a stale red filter, then apply the default view → cleared to all.
+    fireEvent.click(screen.getByText("probe-red"));
+    expect(screen.getByTestId("hf").textContent).toBe("red");
+    fireEvent.change(screen.getByRole("combobox", { name: "Apply a saved view" }), {
+      target: { value: String(loadSavedViews()[0].id) },
+    });
+    expect(screen.getByTestId("hf").textContent).toBe("all");
+  });
+
   it("exposes accessible names for the select, save and delete controls", () => {
     renderControl();
 
     expect(screen.getByRole("combobox", { name: "Apply a saved view" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save current view" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Delete the selected saved view" })).toBeTruthy();
+  });
+
+  it("renders by default (Show saved views on)", () => {
+    renderControl();
+    expect(screen.getByRole("combobox", { name: "Apply a saved view" })).toBeTruthy();
+  });
+
+  it("renders null when the global Show-saved-views setting is off", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ showSavedViews: false }));
+    renderControl();
+    await waitFor(() =>
+      expect(screen.queryByRole("combobox", { name: "Apply a saved view" })).toBeNull(),
+    );
   });
 });

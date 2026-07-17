@@ -7,6 +7,7 @@
 // Re-exported via the ./csv-codecs barrel.
 
 import { decodeDocumentLinks } from "./document-link";
+import { decodeNoteLog } from "./note-log";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
@@ -438,6 +439,10 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
     timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
     documentLinks: decodeDocumentLinks(obj.documentLinks),
+    noteLog: (() => {
+      const nl = decodeNoteLog(obj.noteLog);
+      return nl.length ? nl : undefined;
+    })(),
   });
 }
 

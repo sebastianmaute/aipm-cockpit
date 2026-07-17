@@ -8,6 +8,78 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.0] - 2026-07-17 "Pinsker"
+
+A large user-experience batch. The application is now named **AI PM Cockpit**.
+
+### Added
+
+- **RAID: send an inquiry to the owner + filter by owner.** Send an inquiry to a
+  risk or issue owner directly from the register (tracked per item), and filter
+  the RAID list by owner to focus on a single person's items. The push-to-Outlook
+  control was restyled to match the other calendar toolbars.
+- **Open Points: RAG-health filter, bulk delete, and a ⋮ row menu.** Filter tasks
+  by RAG health, select and delete several tasks at once, and reach the per-row
+  actions through a single overflow menu; the first column width was tidied.
+- **Open Points: AI "Deduplicate & unify tasks".** From the Open Points toolbar,
+  the AI assistant proposes which tasks look like duplicates and how to merge each
+  group into one; you review every proposed group (deselecting any you disagree
+  with) and nothing changes until you confirm. Confirming folds the duplicates into
+  the kept task, applies its unified fields, and records a single undo step.
+  Available when the AI assistant is enabled, outside pop-outs, with at least two
+  tasks.
+- **Knowledge register (renamed from Documents) with Confluence and URL links.**
+  The Documents view is now **Knowledge**. A link can be a SharePoint document, a
+  Confluence page, or any general web URL, each shown with a kind-appropriate icon;
+  every link is validated as a safe http(s) URL. Existing document links, bookmarks
+  (`#documents/…`), and the stored data are unaffected — only the view and feature
+  module were renamed.
+- **Structured task note-log.** A task's notes are now a dated log of entries
+  showing who wrote what and when (persisted across all six write paths and both
+  codecs) instead of a single free-text field.
+- **Gantt milestone placement toggle.** Choose whether milestones render inline on
+  the task rows or on their own row below.
+- **Contextual tips on the stakeholder map**, a global tips on/off control, and
+  saved-views visibility toggles.
+- **Steering committee: per-row push to Outlook** and status-report chrome.
+- **Pull contacts from Outlook** with a dedicated button, plus manual push/pull
+  error feedback for the Microsoft 365 calendar sync.
+- **AI assistant reads HTML and subtitle (VTT) files** alongside the existing
+  attachment formats.
+
+### Changed
+
+- **Task editor is now a floating dialog.** In the modern layout, opening a task
+  shows a draggable, resizable dialog (reposition, resize from the corner, reset
+  to default) instead of the full-page editor, which was retired. Classic and
+  pop-out surfaces are unchanged. The editor and related dialogs gained textarea
+  autogrow, drag/resize/reset chrome, and a reset-icon audit; the field-config
+  control is hidden in this surface.
+- **Undo/redo now say what they will change** and preview the next step, so you
+  always know what you're reverting; an undo/redo toast confirms each step.
+- **Steadier toasts.** Notifications stay on screen longer (about 7s), pause while
+  hovered or focused, carry clearer success/error styling, and offer a reload
+  toast where relevant.
+- **Assorted polish:** the app rename to "AI PM Cockpit", clearer empty-state text,
+  a wider search input, reschedule honouring the due date, the new note-log editing
+  UI, and planner absence colouring.
+
+### Fixed
+
+- **AI assistant errors can be dismissed and show the real API detail** (including
+  the response body on a 400), instead of a generic, sticky message.
+- **Steering committee: pushing one row no longer disables every push button.**
+  Each "Push to Outlook" control now tracks its own in-flight state, so only the
+  button you clicked shows busy; overlapping pushes are still guarded so they can't
+  double-write.
+- **No empty band above modal fields.** When the field-config controls are hidden
+  (Settings → "Show field configuration" off), edit modals no longer show a stray
+  bordered strip where the controls would be.
+- **Internal cleanup:** removed the unused `pendingFlash` deep-link channel and the
+  never-routed reserved `edit` view left over from the retired full-page task editor
+  (the immediate row-flash path already covers deep-links now that the editor is a
+  floating dialog).
+
 ## [0.189.2] - 2026-07-15 "Bishop"
 
 ### Fixed

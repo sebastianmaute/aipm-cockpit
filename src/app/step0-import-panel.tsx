@@ -27,7 +27,7 @@ import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { fetchConfluencePage } from "./confluence-api";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import { Modal } from "./modal";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -205,7 +205,7 @@ export function Step0ImportPanel({
   // SharePoint picker yielded a file link → fetch its bytes via Graph + classify
   // (SOURCE step in try/catch), then ingest OUTSIDE the catch. Errors surface a
   // sanitized message only.
-  const onSharePointPick = async (link: DocumentLink) => {
+  const onSharePointPick = async (link: KnowledgeLink) => {
     setSpPickerOpen(false);
     setImportError(null);
     let content: ProposalContent;
@@ -225,11 +225,19 @@ export function Step0ImportPanel({
         setImportError(t(lang, "wizardImportErrorUnsupported"));
         return;
       }
+      // Derive the office format once (null for non-office kinds). classifyAttachment
+      // returning "office" implies officeKindOf is non-null, but branch on the captured
+      // value rather than a bare `!` assertion; an unexpected null reads as unsupported.
+      const officeFmt = kind === "office" ? officeKindOf(mime, name) : null;
+      if (kind === "office" && !officeFmt) {
+        setImportError(t(lang, "wizardImportErrorUnsupported"));
+        return;
+      }
       const data =
         kind === "text"
           ? new TextDecoder().decode(bytes)
-          : kind === "office"
-            ? await extractOfficeMarkdown(bytes, officeKindOf(mime, name)!)
+          : officeFmt
+            ? await extractOfficeMarkdown(bytes, officeFmt)
             : arrayBufferToBase64(bytes);
       content = [
         { type: "text", text: t(lang, "wizardImportFilePrompt") },
@@ -333,7 +341,7 @@ export function Step0ImportPanel({
               type="file"
               multiple
               aria-label={t(lang, "wizardImportFileLabel")}
-              accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv,.docx,.xlsx,.xlsm,.pptx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.md,.csv,.html,.htm,.vtt,.docx,.xlsx,.xlsm,.pptx,text/html,text/vtt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               disabled={reading || aiBusy}
               onChange={onFile}
               className="text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-surface-muted disabled:opacity-50"

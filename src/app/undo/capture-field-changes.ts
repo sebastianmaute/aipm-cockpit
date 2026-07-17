@@ -12,6 +12,8 @@ export interface CaptureFieldChangesOpts<T extends { id: number }> {
   next: T;
   groups: readonly FieldGroup<T>[];
   stampField?: keyof T & string;
+  /** Entity name/title for the undo label (e.g. the edited item's title). */
+  name?: string;
 }
 
 /**
@@ -24,8 +26,8 @@ export function captureFieldChanges<T extends { id: number }>(
   opts: CaptureFieldChangesOpts<T>,
 ): void {
   if (!captureFieldEdit) return;
-  const { setter, kind, id, prev, next, groups, stampField } = opts;
+  const { setter, kind, id, prev, next, groups, stampField, name } = opts;
   for (const { before, after } of changedFieldGroups(prev, next, groups)) {
-    captureFieldEdit({ setter, kind, id, before, after, stampField });
+    captureFieldEdit({ setter, kind, id, before, after, stampField, name });
   }
 }

@@ -4,11 +4,11 @@ import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
-import { DocumentsPanel } from "./documents-panel";
+import { KnowledgePanel } from "./knowledge-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 import type { Task } from "./types";
 
 afterEach(() => {
@@ -25,14 +25,14 @@ function enableSharePoint() {
   );
 }
 
-const LINK: DocumentLink = {
+const LINK: KnowledgeLink = {
   id: "dl-1",
   name: "Spec.docx",
   url: "https://example.sharepoint.com/Spec.docx",
   kind: "file",
 };
 
-function seededTask(documentLinks: DocumentLink[]): Task {
+function seededTask(documentLinks: KnowledgeLink[]): Task {
   return {
     id: 7,
     taskName: "Write spec",
@@ -80,13 +80,13 @@ function renderWithTasks(tasks: Task[]) {
     <>
       <SeedTasks tasks={tasks} />
       <TabProbe />
-      <DocumentsPanel />
+      <KnowledgePanel />
     </>,
     { wrapper },
   );
 }
 
-describe("DocumentsPanel", () => {
+describe("KnowledgePanel", () => {
   it("renders a card with the document name and a source button labeled by the task", () => {
     renderWithTasks([seededTask([LINK])]);
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
@@ -115,7 +115,7 @@ describe("DocumentsPanel", () => {
   });
 
   it("filters the grid when a source chip is selected", () => {
-    const raidDoc: DocumentLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
+    const raidDoc: KnowledgeLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
     const task = seededTask([LINK]);
     const taskWithRaid: Task = { ...task, raid: undefined } as Task;
     // Two docs from two different sources: one task link, one task link renamed.
@@ -128,7 +128,7 @@ describe("DocumentsPanel", () => {
   });
 
   it("narrows by the search box", () => {
-    const second: DocumentLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
+    const second: KnowledgeLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
     renderWithTasks([{ ...seededTask([LINK, second]) }]);
     fireEvent.change(screen.getByLabelText(t("en-US", "documentsSearchDocs")), { target: { value: "risk" } });
     expect(screen.queryByText(/Spec\.docx/)).not.toBeInTheDocument();
@@ -169,6 +169,26 @@ describe("DocumentsPanel", () => {
     expect(screen.getByText(/Plan/)).toBeInTheDocument();
     // Stamped addedAt renders an "Added …" line on the new card.
     expect(screen.getByText(new RegExp(t("en-US", "documentsAdded", ".*")))).toBeInTheDocument();
+  });
+
+  it("adds a Confluence-kind link and renders its Confluence type", () => {
+    renderWithTasks([seededTask([])]);
+    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
+    fireEvent.click(addBtn);
+    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }), { target: { value: "task:7" } });
+    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsManualKind") }), {
+      target: { value: "confluence" },
+    });
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualName")), { target: { value: "Runbook" } });
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualUrl")), {
+      target: { value: "https://acme.atlassian.net/wiki/spaces/OPS/pages/1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "documentsManualAdd") }));
+    expect(screen.getByText(/Runbook/)).toBeInTheDocument();
+    // The card renders the Confluence type icon (link kind wins over the URL heuristic).
+    expect(screen.getByText("🔷")).toBeInTheDocument();
+    // Type label + host badge both read "Confluence".
+    expect(screen.getAllByText(t("en-US", "documentsTypeConfluence")).length).toBeGreaterThanOrEqual(1);
   });
 
   it("closes the add panel when Cancel is clicked next to Add link", () => {

@@ -1,9 +1,10 @@
-// src/app/document-meta.ts
-// Pure, i18n-free display-metadata helpers for DocumentLink lists: host label
+// src/app/knowledge-meta.ts
+// Pure, i18n-free display-metadata helpers for KnowledgeLink lists: host label
 // (from URL), file type (icon + i18n key), and list filter/sort/counts for the
 // Documents card grid. Deterministic — no Date/Math.random.
 
-import type { DocRef, DocSourceKind } from "./documents";
+import { linkKindOf } from "./document-link";
+import type { DocRef, DocSourceKind } from "./knowledge";
 
 /** Host label from a URL: known SaaS hosts mapped to a stable name, else the
  *  bare hostname (www. stripped). Unparseable → "" (caller renders a fallback). */
@@ -23,14 +24,14 @@ export function hostLabel(url: string): string {
   return host.replace(/^www\./, "");
 }
 
-export type DocTypeKey = "Pdf" | "Word" | "Excel" | "Ppt" | "Image" | "Folder" | "Link" | "File";
+export type DocTypeKey = "Pdf" | "Word" | "Excel" | "Ppt" | "Image" | "Folder" | "Link" | "File" | "Confluence";
 export interface FileType {
   icon: string;
   labelKey: DocTypeKey;
 }
 
 const TYPE_ICON: Record<DocTypeKey, string> = {
-  Pdf: "📕", Word: "📘", Excel: "📗", Ppt: "📙", Image: "🖼️", Folder: "📁", Link: "🔗", File: "📄",
+  Pdf: "📕", Word: "📘", Excel: "📗", Ppt: "📙", Image: "🖼️", Folder: "📁", Link: "🔗", File: "📄", Confluence: "🔷",
 };
 
 const EXT_TYPE: Record<string, DocTypeKey> = {
@@ -51,8 +52,18 @@ function typeFromMime(mime: string | undefined): DocTypeKey | null {
   return null;
 }
 
-/** File-type descriptor: folder → extension → mimeType → link-vs-file fallback. */
-export function fileTypeOf(link: { name: string; url?: string; kind: "file" | "folder"; mimeType?: string }): FileType {
+/** File-type descriptor. The link kind wins first (a Confluence page or a plain
+ *  web URL is not a file), then folder → extension → mimeType → link-vs-file. */
+export function fileTypeOf(link: {
+  name: string;
+  url?: string;
+  kind: "file" | "folder";
+  mimeType?: string;
+  linkKind?: "document" | "confluence" | "url";
+}): FileType {
+  const kind = linkKindOf(link);
+  if (kind === "confluence") return { icon: TYPE_ICON.Confluence, labelKey: "Confluence" };
+  if (kind === "url") return { icon: TYPE_ICON.Link, labelKey: "Link" };
   if (link.kind === "folder") return { icon: TYPE_ICON.Folder, labelKey: "Folder" };
   const dot = link.name.lastIndexOf(".");
   const ext = dot >= 0 ? link.name.slice(dot + 1).toLowerCase() : "";

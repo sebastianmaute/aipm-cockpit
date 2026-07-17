@@ -273,7 +273,7 @@ export function ProjectSwitcher({
         type="button"
         onClick={onReload}
         aria-label={t(lang, "reloadProject")}
-        title={t(lang, "reloadProject")}
+        title={t(lang, "reloadProjectHint")}
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted text-AIPM-dark-blue hover:bg-surface focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-light-grey"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">

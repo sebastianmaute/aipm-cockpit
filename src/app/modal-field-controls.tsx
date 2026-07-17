@@ -5,12 +5,18 @@
 // It owns no persistence — every action delegates to `useModalVisibility`, which
 // reads from and writes to the workspace field-visibility config. Closing the cog
 // on outside-click is intentionally not implemented (a click-toggle is enough).
+//
+// The bordered header strip (`flex justify-end border-b border-line px-4 py-2`)
+// is OWNED here, so when the per-device opt-out hides the controls (return null)
+// the whole strip vanishes — no empty bordered band left behind. Callers render
+// <ModalFieldControls/> directly, never wrapping it in that strip themselves.
 
 import { useState } from "react";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import { MODAL_FIELDS, type FieldTier, type ModalId } from "./modal-fields";
 import { useModalVisibility } from "./use-modal-visibility";
+import { useSettings } from "./use-settings";
 
 interface ModalFieldControlsProps {
   modalId: ModalId;
@@ -31,10 +37,16 @@ const SEGMENT_INACTIVE = "text-foreground hover:bg-surface-muted";
 
 export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
   const { mode, isVisible, setMode, toggleField, reset } = useModalVisibility(modalId);
+  const { settings } = useSettings();
   const [cogOpen, setCogOpen] = useState(false);
 
+  // Per-device opt-out: hide the field-tier switch + per-field cog entirely.
+  // Returning null removes the bordered header strip too (owned below).
+  if (settings.showFieldConfig === false) return null;
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex justify-end border-b border-line px-4 py-2">
+      <div className="flex items-center gap-2">
       <div
         role="group"
         aria-label={t(lang, "fieldViewLabel")}
@@ -105,6 +117,7 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
             </button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

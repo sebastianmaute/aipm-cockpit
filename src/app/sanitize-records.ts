@@ -225,6 +225,11 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 1024) : "";
   if (outlookEventId) item.outlookEventId = outlookEventId;
 
+  // Sparse: only a positive integer count is kept (mirrors Task.inquiriesSent);
+  // zero/negative/absent -> undefined so legacy items stay byte-identical.
+  const inq = toNumber(o.inquiriesSent);
+  if (Number.isFinite(inq) && inq > 0) item.inquiriesSent = Math.floor(inq);
+
   return item;
 }
 

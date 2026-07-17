@@ -1,9 +1,9 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
-import { planCommitteeReconcile } from "./committee-calendar-reconcile";
+import { committeePushKey, planCommitteeReconcile, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
 import { logDiag } from "./diagnostics";
 import {
   CALENDAR_READWRITE_SCOPE, committeeMeetingToGraphEvent, committeeInfoToGraphEvent,
@@ -36,16 +36,30 @@ export function useCommitteeOutlookPush({
 }: Args) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
-  const [busy, setBusy] = useState(false);
+  // Which target (`committeePushKey`) is currently pushing, or null when idle —
+  // so only the clicked row's button shows busy, not every row. The ref is the
+  // SYNCHRONOUS overlap guard (state lags a tick): a second click while a push
+  // is in flight is a no-op, so concurrent Graph reconciles can't double-write.
+  const [pushingTarget, setPushingTarget] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
-  const pushToOutlook = useCallback(async () => {
+  /**
+   * Push the whole committee, or — when `target` is given — only that one
+   * meeting / info-schedule row (the per-row "Push" button). The scoped plan
+   * touches only the target's keyed events (see planCommitteeReconcile), so a
+   * single-row push never deletes another entry's events or clears the pending
+   * orphaned-meeting accounting.
+   */
+  const pushToOutlook = useCallback(async (target?: CommitteeReconcileTarget) => {
     if (isPopout || !committee) return;
-    setBusy(true);
+    if (inFlightRef.current) return; // a push is already running — ignore (no double-write)
+    inFlightRef.current = true;
+    setPushingTarget(committeePushKey(target));
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
       if (!token) { showToast("error", t(lang, "committeePushError")); return; }
 
-      const plan = planCommitteeReconcile(committee, today);
+      const plan = planCommitteeReconcile(committee, today, target);
       const newMeetingIds = new Map<number, string>(); // meetingId -> created eventId
       const newInfoIds = new Map<string, string>(); // "<meetingId>:<scheduleId>" -> created eventId
       const staleMeetingIds = new Set<number>(); // update hit 404 (deleted in Outlook) -> clear id, re-create next push
@@ -121,9 +135,10 @@ export function useCommitteeOutlookPush({
     } catch {
       showToast("error", t(lang, "committeePushError"));
     } finally {
-      setBusy(false);
+      inFlightRef.current = false;
+      setPushingTarget(null);
     }
   }, [isPopout, committee, acquireToken, showToast, lang, today, committeeName, projectId, setSteeringCommittee]);
 
-  return { pushToOutlook, busy };
+  return { pushToOutlook, pushingTarget };
 }

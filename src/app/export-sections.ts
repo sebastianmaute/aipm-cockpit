@@ -48,7 +48,7 @@ import type {
   ProjectStatus,
   ProjectMeta,
 } from "./types";
-import type { DocumentLink } from "./document-link";
+import type { KnowledgeLink } from "./document-link";
 
 export type ExportSection = {
   key: ExportSectionKey;
@@ -196,7 +196,7 @@ function projectSection(p: ProjectMeta, lang: Lang): ExportSection {
       if (persons.length === 0) continue;
       value = persons.map((cp) => `${cp.name} <${cp.email}>`).join(", ");
     } else if (key === "documentLinks") {
-      const links = raw as DocumentLink[];
+      const links = raw as KnowledgeLink[];
       if (links.length === 0) continue;
       value = links.map((l) => l.name).join(", ");
     } else if (Array.isArray(raw)) {

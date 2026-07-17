@@ -52,7 +52,7 @@ export interface UseStorageBackendArgs {
   isPopout: boolean;
   activityLog: ActivityEntry[];
   setActivityLog: React.Dispatch<React.SetStateAction<ActivityEntry[]>>;
-  showToast: (kind: "info" | "error", text: string) => void;
+  showToast: (kind: "info" | "error" | "success", text: string) => void;
   setStorageConfig: (config: StorageConfig) => void;
   /** Reports the outcome of a load/save so the caller can drive the storage
    *  status bubble + banner. `null` = success (clear any error); an error value
@@ -640,8 +640,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
       args.onStorageOutcome?.(null);
+      // Confirm the manual recovery action succeeded (a bare re-render gives no
+      // feedback that the reload actually re-read the backend).
+      args.showToast("success", t(langRef.current, "reloadProjectSuccess"));
     } catch (err) {
+      // onStorageOutcome raises the sticky banner; the toast is the transient
+      // acknowledgement of THIS click (reload has no other toast path).
       args.onStorageOutcome?.(err);
+      args.showToast("error", t(langRef.current, "reloadProjectError"));
     } finally {
       reloadInFlightRef.current = false;
     }

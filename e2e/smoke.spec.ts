@@ -8,7 +8,7 @@ test.describe("app smoke", () => {
     // create/load dialog — there is no <main> landmark on this screen (it's a
     // forced modal). The seeded app + its <main> are covered by app.spec.ts.
     await page.goto("/");
-    await expect(page).toHaveTitle(/AIPM Cockpit/);
+    await expect(page).toHaveTitle(/AI PM Cockpit/);
     await expect(page.getByRole("heading", { name: "No projects yet" })).toBeVisible();
   });
 });

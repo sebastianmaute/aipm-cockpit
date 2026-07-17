@@ -48,6 +48,14 @@ describe("classifyAttachment — mime type", () => {
     expect(classifyAttachment("text/csv", "data.csv")).toBe("text");
   });
 
+  it("classifies text/html as text", () => {
+    expect(classifyAttachment("text/html", "page.html")).toBe("text");
+  });
+
+  it("classifies text/vtt as text", () => {
+    expect(classifyAttachment("text/vtt", "transcript.vtt")).toBe("text");
+  });
+
   it("returns null for unsupported mime application/zip", () => {
     expect(classifyAttachment("application/zip", "archive.zip")).toBeNull();
   });
@@ -105,6 +113,18 @@ describe("classifyAttachment — extension fallback", () => {
 
   it("falls back to .csv extension → text", () => {
     expect(classifyAttachment(GENERIC, "data.csv")).toBe("text");
+  });
+
+  it("falls back to .html extension → text", () => {
+    expect(classifyAttachment(GENERIC, "page.HTML")).toBe("text");
+  });
+
+  it("falls back to .htm extension → text", () => {
+    expect(classifyAttachment(GENERIC, "page.htm")).toBe("text");
+  });
+
+  it("falls back to .vtt extension → text", () => {
+    expect(classifyAttachment(GENERIC, "captions.VTT")).toBe("text");
   });
 
   it("returns null for unknown extension .exe", () => {

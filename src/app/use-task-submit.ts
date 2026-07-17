@@ -10,6 +10,7 @@ import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem } from "./types";
 import { applyStatusChange } from "./task-status";
+import { sanitizeNoteLog } from "./note-log";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { TASK_UNDO_GROUPS } from "./undo/field-groups";
 import type { UndoStackApi } from "./undo/use-undo-stack";
@@ -164,6 +165,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         timeSpentMinutes: form.timeSpentMinutes,
         resourceId: form.resourceId ?? undefined,
         documentLinks: form.documentLinks,
+        noteLog: sanitizeNoteLog(form.noteLog),
       };
 
       if (adj.count() > 0) {
@@ -204,6 +206,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             next: nextTask,
             groups: TASK_UNDO_GROUPS,
             stampField: "localModifiedAt",
+            name: taskName,
           });
           if (logActivityChanges) {
             logActivityChanges("task.updated", diffFields(prevTask, nextTask), updatedId, taskName);
@@ -324,6 +327,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         pushToJira: false,
         healthOverride: task.healthOverride ?? "",
         documentLinks: task.documentLinks ?? [],
+        noteLog: task.noteLog ?? [],
       });
       if (typeof window !== "undefined") {
         window.scrollTo({ top: 0, behavior: "smooth" });

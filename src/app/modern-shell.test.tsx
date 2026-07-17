@@ -62,29 +62,6 @@ describe("ModernShell", () => {
     expect(status.className).toContain("sr-only");
   });
 
-  it("shows the edit view and edit title, but never surfaces edit actions in the top bar", () => {
-    // Editor actions render inside the editor (editView footer) only. ModernShell
-    // must NOT surface a duplicate copy in the top bar — there is no editActions
-    // prop and no top-bar primaryAction while editing.
-    setup({
-      activeView: "edit",
-      editView: (
-        <div data-testid="edit">
-          <button type="button">Save changes</button>
-        </div>
-      ),
-      editTitle: "Editing task #5",
-    });
-    expect(screen.getByTestId("edit")).toBeTruthy();
-    expect(screen.queryByTestId("tasks")).toBeNull();
-    expect(screen.queryByTestId("workspace")).toBeNull();
-    expect(screen.getByRole("heading", { name: "Editing task #5" })).toBeTruthy();
-    // The editor renders exactly one "Save changes"; the top bar adds no second copy.
-    expect(screen.getAllByRole("button", { name: "Save changes" })).toHaveLength(1);
-    // No top-bar primaryAction (New-task button) while editing.
-    expect(screen.queryByRole("button", { name: "New task" })).toBeNull();
-  });
-
   it("forwards collapsed to the sidebar (brand subtitle hidden, expand button shown)", () => {
     setup({ collapsed: true });
     expect(screen.queryByText("PROJECT MANAGEMENT TRACKER")).toBeNull();
@@ -257,11 +234,10 @@ describe("ModernShell banners slot", () => {
     expect(banners.compareDocumentPosition(tasks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("renders banners on the edit view too (all views)", () => {
+  it("renders banners on the settings view too (all views)", () => {
     setup({
-      activeView: "edit",
-      editView: <div data-testid="edit" />,
-      editTitle: "Editing task #1",
+      activeView: "settings",
+      settingsView: <div data-testid="settings-page" />,
       banners: <div data-testid="banners" />,
     });
     expect(screen.getByTestId("banners")).toBeInTheDocument();

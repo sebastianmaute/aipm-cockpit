@@ -31,7 +31,7 @@ export function encodeSharingUrl(shareUrl: string): string {
 }
 
 /** Fetch a SharePoint file's bytes via Graph from its share URL (what the
- *  picker yields as DocumentLink.url). Reuses the picker's delegated scopes so
+ *  picker yields as KnowledgeLink.url). Reuses the picker's delegated scopes so
  *  no extra consent is needed. Throws Error("no-token") when consent is denied
  *  and Error(<status>) on a non-OK response — errors carry status only, never
  *  the token or body. The caller turns the bytes into a chat-attachments block. */

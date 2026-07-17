@@ -1,22 +1,22 @@
 "use client";
 
 import { type Lang, t } from "./i18n";
-import type { DocumentLink } from "./document-link";
-import { DocumentLinksField } from "./document-links-field";
+import type { KnowledgeLink } from "./document-link";
+import { KnowledgeLinksField } from "./knowledge-links-field";
 import { useMsAuth } from "./use-ms-auth";
 import { useSettings } from "./use-settings";
 import { useActivityLogger } from "./activity-log-context";
 
-export interface DocumentLinksFieldGatedProps {
-  value: DocumentLink[];
-  onChange: (next: DocumentLink[]) => void;
+export interface KnowledgeLinksFieldGatedProps {
+  value: KnowledgeLink[];
+  onChange: (next: KnowledgeLink[]) => void;
   lang: Lang;
 }
 
-/** DocumentLinksField wrapped with the M365+SharePoint integration gate.
+/** KnowledgeLinksField wrapped with the M365+SharePoint integration gate.
  *  When the integration is off, shows a hint instead of the picker field.
  *  Centralizes auth + settings wiring so entity editors stay thin. */
-export function DocumentLinksFieldGated({ value, onChange, lang }: DocumentLinksFieldGatedProps) {
+export function KnowledgeLinksFieldGated({ value, onChange, lang }: KnowledgeLinksFieldGatedProps) {
   const { settings } = useSettings();
   const m365 = settings.integrations?.m365;
   const m365Enabled = m365?.enabled ?? false;
@@ -32,6 +32,6 @@ export function DocumentLinksFieldGated({ value, onChange, lang }: DocumentLinks
     return <p className="text-xs text-muted-foreground">{t(lang, "documentsNeedsSharePoint")}</p>;
   }
   return (
-    <DocumentLinksField value={value} onChange={onChange} lang={lang} acquireToken={auth.acquireToken} onLog={onLog} />
+    <KnowledgeLinksField value={value} onChange={onChange} lang={lang} acquireToken={auth.acquireToken} onLog={onLog} />
   );
 }

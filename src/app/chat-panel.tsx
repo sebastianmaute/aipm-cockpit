@@ -486,8 +486,13 @@ function ChatPanelInner({
             { kind: "notice", text: t(lang, "aiUsageLimitReached") },
           ]);
         } else {
+          // AiHttpError.message is status-only ("400"); its `safeMessage` (the
+          // sanitized RESPONSE error.message, e.g. "prompt is too long: N > M")
+          // is appended so a 400 isn't just a bare status digit. Never logged.
           const msg = err instanceof Error ? err.message : String(err);
-          setError(t(lang, "chatError", msg));
+          const base = t(lang, "chatError", msg);
+          const safeMessage = err instanceof AiHttpError ? err.safeMessage : undefined;
+          setError(safeMessage ? `${base} — ${safeMessage}` : base);
         }
       }
     } finally {
@@ -758,12 +763,21 @@ function ChatPanelInner({
       </div>
 
       {error && (
-        <p
+        <div
           role="alert"
-          className="mt-2 whitespace-pre-line rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15"
+          className="mt-2 flex items-start justify-between gap-2 rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15"
         >
-          {error}
-        </p>
+          <p className="min-w-0 whitespace-pre-line">{error}</p>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label={t(lang, "dismiss")}
+            title={t(lang, "dismiss")}
+            className={`shrink-0 rounded px-1 font-semibold hover:text-AIPM-pink ${INTERACTIVE}`}
+          >
+            ×
+          </button>
+        </div>
       )}
 
       {attachments.length > 0 && (
@@ -798,7 +812,7 @@ function ChatPanelInner({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.markdown,.csv,.docx,.xlsx,.xlsm,.pptx,application/pdf,image/*,text/plain,text/markdown,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.md,.markdown,.csv,.html,.htm,.vtt,.docx,.xlsx,.xlsm,.pptx,application/pdf,image/*,text/plain,text/markdown,text/csv,text/html,text/vtt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.presentationml.presentation"
           onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
           tabIndex={-1}

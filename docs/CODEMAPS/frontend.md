@@ -99,7 +99,7 @@ prerendered.
 | `colWidths`, `hiddenCols` | UI table prefs in `localStorage` (colWidths debounced 250 ms) |
 | `search` + `searchDebounced` + `taskSearchIndex` | 150 ms search debounce + precomputed lowercase index |
 | `selectedIds`, `bulkEdit`, `expandedNotes` | Per-session UI only |
-| `activeTab` (`AppView`, nav-config.ts) | `"projects"` (Portfolio group) \| `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"gantt"` \| `"resources"` (+ sub-views `"directory"` \| `"workload"` \| `"calendar"` \| `"planning"` \| `"manage-roles"`) \| `"budget"` \| `"budget-report"` \| `"raid"` \| `"raid-report"` \| `"changes"` \| `"change-report"` \| `"stakeholders"` \| `"raci"` \| `"stakeholder-map"` \| `"steering-committee"` (0.111.0+) \| `"documents"` \| `"reports"` \| `"activity"` \| `"actions"` \| `"history"` \| `"settings"` \| `"edit"` (main-only); synced to URL hash via `useHashView`. Nav groups: **Portfolio** (projects) / Overview / Plan / Registers / System |
+| `activeTab` (`AppView`, nav-config.ts) | `"projects"` (Portfolio group) \| `"open-points"` \| `"chat"` \| `"dashboard"` \| `"trends"` \| `"milestones"` \| `"gantt"` \| `"resources"` (+ sub-views `"directory"` \| `"workload"` \| `"calendar"` \| `"planning"` \| `"manage-roles"`) \| `"budget"` \| `"budget-report"` \| `"raid"` \| `"raid-report"` \| `"changes"` \| `"change-report"` \| `"stakeholders"` \| `"raci"` \| `"stakeholder-map"` \| `"steering-committee"` (0.111.0+) \| `"knowledge"` (0.190.0+, was `"documents"`) \| `"reports"` \| `"activity"` \| `"actions"` \| `"history"` \| `"settings"`; synced to URL hash via `useHashView`. Nav groups: **Portfolio** (projects) / Overview / Plan / Registers / System |
 | `budgets: BudgetBucket[]`, `fxRates: FxRates \| null` | Persisted via `StorageBackend.save()`; lives in `WorkspaceContext`; `fxRates` refreshed on demand via `useFxRates` (Refresh ECB rates button) |
 | `dueSnooze` / `birthdaySnooze` / `jiraTokenSnooze` | `useReminderSnooze("due")` / `useReminderSnooze("birthday")` / `useReminderSnooze("jiraToken")` — each yields `{ isSnoozed, snoozedUntil, snooze, clear }`; banners are gated on `!isSnoozed` |
 | `raidFilterTaskId` | Cross-tab nav: jump from a task row to RAID pre-filtered for that task |
@@ -231,9 +231,9 @@ prerendered.
 | `action-reasons.tsx` | Shared "+N more reasons" expander (always-mounted + `hidden`-toggled so the `aria-controls` target persists); used by row and hero | Component; 0.155.0+ |
 | `action-cta-styles.ts` | Pure `POPOVER_GHOST`/`POPOVER_PROMINENT`/`popoverTriggerClass(prominent)` — lets the escalate/rebaseline/reschedule popovers render a filled+larger trigger in the hero without an import cycle | Pure; 0.155.0+ |
 | `action-row.tsx` (action-first) | Rewritten to consume the shared controls: source label is a bold prefix in the why-line (icon/pill removed), numeric score is expert-mode only, and the row's real next-step verb is the inline primary (Open demoted to a ghost) | 0.155.0+ |
-| **Documents** | | |
-| `documents.ts` | Pure aggregator: `collectDocuments({tasks,raid,changes,milestones,stakeholders,project})` → flat `DocRef[]` (one per link) with its source `{kind,id,name,view}` and array index | No React; 0.81.0+ |
-| `documents-panel.tsx` | Documents view (`documents` AppView, Registers group): one table of every linked file across the 5 entities + project — open link, jump to source editor (`requestOpen`), remove, or attach a new link to any target via `DocumentLinksFieldGated` | Conditional mount; 0.81.0+ |
+| **Knowledge** (renamed from Documents, 0.190.0) | | |
+| `knowledge.ts` | Pure aggregator: `collectDocuments({tasks,raid,changes,milestones,stakeholders,project})` → flat `DocRef[]` (one per link) with its source `{kind,id,name,view}` and array index (symbol names kept; file renamed from `documents.ts`) | No React; 0.81.0+ |
+| `knowledge-panel.tsx` | Knowledge view (`knowledge` AppView, was `documents`, Registers group): one table of every linked document / Confluence page / URL across the 5 entities + project — open link, jump to source editor (`requestOpen`), remove, or attach a new link to any target via `KnowledgeLinksFieldGated` | Conditional mount; 0.81.0+, renamed 0.190.0 |
 | **Task status & Kanban (0.107.0–0.108.0)** | | |
 | `task-status.ts` | Pure i18n-free status engine: `TaskStatus` enum, `applyStatusChange(task,next,today)` (SOLE writer of status+completedDate, keeps the `Done ⟺ completedDate` invariant), `migrateTaskStatus` (run on all six load paths), `isTaskFinished` (Done\|Cancelled) | Pure; 0.107.0+ |
 | `task-status-ui.ts` | UI label/colour map for each status (AIPM palette tokens only) | Pure; 0.107.0+ |
@@ -421,8 +421,8 @@ URL hash (`#gantt`, `#raid`, etc.) drives the active view in modern mode via
 | Module | Description | Notes |
 |--------|-------------|-------|
 | `sharepoint-picker-modal.tsx` | Custom Microsoft Graph file/folder browser: search sites, navigate libraries and folders, select a file or folder. Returns a `DocumentLink`. | Lazy-loaded; requires M365 sign-in |
-| `document-links-field.tsx` | `DocumentLinksField` — renders the list of `DocumentLink[]` attachments with add/remove/open controls; hosts the picker trigger | Shared across all 6 editors |
-| `document-links-field-gated.tsx` | Thin gate wrapper: renders `DocumentLinksField` only when M365 integration is enabled; no-ops otherwise | Used by each entity editor |
+| `knowledge-links-field.tsx` | `KnowledgeLinksField` (was `DocumentLinksField`) — renders the list of `KnowledgeLink[]` attachments (`linkKind` document/confluence/url) with add/remove/open controls; hosts the picker trigger. The persisted field stays `documentLinks` | Shared across all 6 editors; renamed 0.190.0 |
+| `knowledge-links-field-gated.tsx` | Thin gate wrapper: renders `KnowledgeLinksField` only when M365 integration is enabled; no-ops otherwise | Used by each entity editor |
 | `use-sharepoint-browser.ts` | Hook encapsulating Graph site-search + drive/folder navigation state for the picker modal | Pure hook, no JSX |
 
 The gated field is embedded in the task editor (`task-edit-view.tsx` / `task-form-modal.tsx`), RAID editor (`raid-edit-modal.tsx`), change editor (`change-edit-modal.tsx`), stakeholder editor (`stakeholder-edit-modal.tsx`), milestone editor (`milestone-edit-modal.tsx`), and project form (`project-edit-form.tsx`).

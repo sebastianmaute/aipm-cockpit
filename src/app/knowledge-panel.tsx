@@ -4,15 +4,15 @@ import { t } from "./i18n";
 import { useSettings } from "./use-settings";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import { collectDocuments, type DocRef, type DocSource, type DocSourceKind } from "./documents";
-import { isSafeHttpUrl, type DocumentLink } from "./document-link";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { collectDocuments, type DocRef, type DocSource, type DocSourceKind } from "./knowledge";
+import { isSafeHttpUrl, type KnowledgeLink, type KnowledgeLinkKind } from "./document-link";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
-import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./document-meta";
+import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
 import { ViewCallout } from "./view-callout";
 
@@ -34,7 +34,15 @@ const DOC_TYPE_LABEL = {
   Folder: "documentsTypeFolder",
   Link: "documentsTypeLink",
   File: "documentsTypeFile",
+  Confluence: "documentsTypeConfluence",
 } as const satisfies Record<DocTypeKey, string>;
+
+const LINK_KIND_LABEL = {
+  document: "documentsManualKindDocument",
+  confluence: "documentsManualKindConfluence",
+  url: "documentsManualKindUrl",
+} as const satisfies Record<KnowledgeLinkKind, string>;
+const LINK_KIND_OPTIONS: KnowledgeLinkKind[] = ["url", "confluence", "document"];
 
 const SORT_LABEL = {
   name: "documentsSortName",
@@ -46,7 +54,7 @@ const SORT_LABEL = {
 const SORT_OPTIONS: DocSort[] = ["added", "name", "source", "type"];
 const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "change", "stakeholder"];
 
-export function DocumentsPanel() {
+export function KnowledgePanel() {
   const { settings } = useSettings();
   const lang = settings.language;
   const { ref, reset } = useResizable("aipm-cockpit:documents-size-full");
@@ -63,7 +71,7 @@ export function DocumentsPanel() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<DocSort>("added");
 
-  function linksOf(s: DocSource): DocumentLink[] {
+  function linksOf(s: DocSource): KnowledgeLink[] {
     if (s.kind === "project") return [...(project?.documentLinks ?? [])];
     const list =
       s.kind === "task"
@@ -76,12 +84,12 @@ export function DocumentsPanel() {
               ? milestones
               : stakeholders;
     return [
-      ...((list as readonly { id: number; documentLinks?: DocumentLink[] }[]).find((e) => e.id === s.id)
+      ...((list as readonly { id: number; documentLinks?: KnowledgeLink[] }[]).find((e) => e.id === s.id)
         ?.documentLinks ?? []),
     ];
   }
-  function setDocsForSource(s: DocSource, next: DocumentLink[]) {
-    const patch = <T extends { id: number; documentLinks?: DocumentLink[] }>(arr: readonly T[]): T[] =>
+  function setDocsForSource(s: DocSource, next: KnowledgeLink[]) {
+    const patch = <T extends { id: number; documentLinks?: KnowledgeLink[] }>(arr: readonly T[]): T[] =>
       arr.map((e) => (e.id === s.id ? { ...e, documentLinks: next } : e));
     if (s.kind === "task") ws.setTasks((p) => patch(p));
     else if (s.kind === "raid") ws.setRaid((p) => patch(p));
@@ -101,6 +109,7 @@ export function DocumentsPanel() {
   const [targetKey, setTargetKey] = useState("");
   const [manualName, setManualName] = useState("");
   const [manualUrl, setManualUrl] = useState("");
+  const [manualKind, setManualKind] = useState<KnowledgeLinkKind>("url");
   const manualValid = manualName.trim() !== "" && isSafeHttpUrl(manualUrl.trim());
   const targets: DocSource[] = useMemo(
     () => [
@@ -123,7 +132,9 @@ export function DocumentsPanel() {
   function addManualLink(s: DocSource) {
     if (!manualValid) return;
     const url = manualUrl.trim();
-    const link: DocumentLink = { id: url, kind: "file", name: manualName.trim(), url, addedAt: new Date().toISOString() };
+    const link: KnowledgeLink = { id: url, kind: "file", name: manualName.trim(), url, addedAt: new Date().toISOString() };
+    // linkKind is sparse: only stamp confluence/url; a plain document omits it.
+    if (manualKind !== "document") link.linkKind = manualKind;
     if (linksOf(s).some((l) => l.url === link.url)) return;
     setDocsForSource(s, [...linksOf(s), link]);
     setManualName("");
@@ -143,7 +154,7 @@ export function DocumentsPanel() {
     <div ref={ref} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {requestHelpConcept && (
         <ViewCallout
-          view="documents"
+          view="knowledge"
           lang={lang}
           showHints={settings.showViewHints !== false}
           isPopout={!!isPopout}
@@ -185,6 +196,21 @@ export function DocumentsPanel() {
             <>
               <div className="mb-2 flex flex-wrap items-end gap-2">
                 <label className="flex flex-col gap-1 text-xs text-foreground">
+                  <span>{t(lang, "documentsManualKind")}</span>
+                  <select
+                    value={manualKind}
+                    aria-label={t(lang, "documentsManualKind")}
+                    onChange={(e) => setManualKind(e.target.value as KnowledgeLinkKind)}
+                    className={`rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                  >
+                    {LINK_KIND_OPTIONS.map((k) => (
+                      <option key={k} value={k}>
+                        {t(lang, LINK_KIND_LABEL[k])}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-foreground">
                   <span>{t(lang, "documentsManualName")}</span>
                   <input
                     type="text"
@@ -218,7 +244,7 @@ export function DocumentsPanel() {
               </div>
               <p className="mb-2 text-xs text-muted-foreground">{t(lang, "documentsManualHint")}</p>
               {canAddDocument && (
-                <DocumentLinksFieldGated
+                <KnowledgeLinksFieldGated
                   value={linksOf(target)}
                   onChange={(next) => setDocsForSource(target, next)}
                   lang={lang}

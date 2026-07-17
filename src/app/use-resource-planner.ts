@@ -5,12 +5,13 @@ import { nextRaidId } from "./raid";
 import { resolveEntitySave } from "./entity-id-mint";
 import { reportSilentFailure } from "./guard-feedback";
 import { resourceDisplayName } from "./resource-foundation";
+import { buildRaidInquiryMailto, resolveRaidOwnerEmail } from "./raid-inquiry";
 import { mintId } from "./id-mint-session";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
-import { sanitizeResource } from "./sanitize";
+import { isValidEmail, sanitizeResource } from "./sanitize";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
@@ -241,7 +242,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         captureFieldChanges(captureFieldEditRef.current, {
           setter: setRaid, kind: "raid.updated", id,
           prev: previous, next: withStamp, groups: RAID_UNDO_GROUPS,
-          stampField: "localModifiedAt",
+          stampField: "localModifiedAt", name: item.title,
         });
       }
 
@@ -262,7 +263,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteRaidItem = useCallback(
     (id: number) => {
       const removed = raid.find((r) => r.id === id);
-      if (removed) captureRef.current?.({ setter: setRaid, kind: "raid.deleted", removed: [removed], fromArray: raid });
+      if (removed) captureRef.current?.({ setter: setRaid, kind: "raid.deleted", removed: [removed], fromArray: raid, name: removed.title });
       setRaid((prev) => prev.filter((r) => r.id !== id));
       if (removed) {
         logActivityRef.current("raid.deleted", id, removed.category, removed.title);
@@ -271,11 +272,40 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [raid, setRaid],
   );
 
+  // Send a status-inquiry email to a RAID item's owner (mirrors the task
+  // `onSendInquiry`): resolve the owner's LIVE email, open a mailto, and bump
+  // `inquiriesSent` via a FUNCTIONAL setter (the bulk-edit landmine — a stale
+  // closure value would drop concurrent bumps).
+  const handleSendRaidInquiry = useCallback(
+    (item: RaidItem) => {
+      const lang = langRef.current;
+      const byId = new Map(resources.map((r) => [r.id, r]));
+      let email = resolveRaidOwnerEmail(item, byId);
+      if (!email && isValidEmail(item.owner ?? "")) email = (item.owner ?? "").trim();
+      if (!email) {
+        const provided = window.prompt(t(lang, "promptEmail", item.owner || item.title), "");
+        if (provided === null) return;
+        const trimmed = provided.trim();
+        if (!isValidEmail(trimmed)) {
+          window.alert(t(lang, "errorInvalidEmail"));
+          return;
+        }
+        email = trimmed;
+        setRaid((prev) => prev.map((r) => (r.id === item.id ? { ...r, ownerEmail: trimmed } : r)));
+      }
+      window.location.href = buildRaidInquiryMailto(item, email, lang);
+      setRaid((prev) =>
+        prev.map((r) => (r.id === item.id ? { ...r, inquiriesSent: (r.inquiriesSent ?? 0) + 1 } : r)),
+      );
+    },
+    [resources, setRaid],
+  );
+
   // Snapshot the selected RAID rows' pre-edit images before a bulk apply loops
   // the per-row save handler; call BEFORE the loop mutates them.
   const captureRaidBulkUndo = useCallback((ids: readonly number[]) => {
     const edited = raid.filter((r) => ids.includes(r.id));
-    if (edited.length) captureRef.current?.({ setter: setRaid, kind: "bulk.edit", edited, fromArray: raid });
+    if (edited.length) captureRef.current?.({ setter: setRaid, kind: "bulk.edit", edited, fromArray: raid, entityKey: "raid" });
   }, [raid, setRaid]);
 
   const handleOpenAddAbsence = useCallback(
@@ -347,7 +377,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteAbsence = useCallback(
     (id: number) => {
       const removed = absences.find((a) => a.id === id);
-      if (removed) captureRef.current?.({ setter: setAbsences, kind: "absence.deleted", removed: [removed], fromArray: absences });
+      if (removed) captureRef.current?.({ setter: setAbsences, kind: "absence.deleted", removed: [removed], fromArray: absences, name: removed.assignee });
       setAbsences((prev) => prev.filter((a) => a.id !== id));
       if (removed) {
         logActivityRef.current("absence.deleted", id, removed.assignee);
@@ -400,7 +430,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const handleDeleteShift = useCallback(
     (id: number) => {
       const removed = shifts.find((s) => s.id === id);
-      if (removed) captureRef.current?.({ setter: setShifts, kind: "shift.deleted", removed: [removed], fromArray: shifts });
+      if (removed) captureRef.current?.({ setter: setShifts, kind: "shift.deleted", removed: [removed], fromArray: shifts, name: removed.assignee });
       setShifts((prev) => prev.filter((s) => s.id !== id));
       if (removed) {
         logActivityRef.current("shift.deleted", id, removed.assignee);
@@ -472,7 +502,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         captureFieldChanges(captureFieldEditRef.current, {
           setter: setResources, kind: "resource.updated", id: next.id,
           prev: previous, next: withStamp, groups: RESOURCE_UNDO_GROUPS,
-          stampField: "localModifiedAt",
+          stampField: "localModifiedAt", name,
         });
         logUpdate("resource.updated", previous, withStamp, next.id, name);
       }
@@ -529,16 +559,17 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         // rows — a single-array undo would resurrect the person but lose their
         // absences/shifts. Empty purge parts collapse to null (skipped).
         const { purgedAbsences, purgedShifts } = purgeCalendarFor([removed], surviving);
+        const name = `${removed.firstName} ${removed.lastName}`.trim();
         captureCompositeRef.current?.({
           kind: "resource.deleted",
           primaryCount: 1,
+          name,
           parts: [
             capturePart({ setter: setResources, removed: [removed], fromArray: resources, isPrimary: true }),
             capturePart({ setter: setAbsences, removed: purgedAbsences, fromArray: absences, fkRemapField: "resourceId" }),
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
         });
-        const name = `${removed.firstName} ${removed.lastName}`.trim();
         logActivityRef.current("resource.deleted", id, name);
       }
     },
@@ -553,7 +584,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       const idSet = new Set(ids);
       const stamp = new Date().toISOString();
       const affected = resources.filter((r) => idSet.has(r.id));
-      if (affected.length > 0) captureRef.current?.({ setter: setResources, kind: "bulk.edit", edited: affected, fromArray: resources });
+      if (affected.length > 0) captureRef.current?.({ setter: setResources, kind: "bulk.edit", edited: affected, fromArray: resources, entityKey: "resource" });
       setResources((prev) =>
         prev.map((r) => {
           if (!idSet.has(r.id)) return r;
@@ -658,6 +689,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         captureCompositeRef.current?.({
           kind: "role.deleted",
           primaryCount: 1,
+          name: `${removed.disciplineId}/${removed.gradeId}`,
           parts: [
             capturePart({ setter: setRoles, removed: [removed], fromArray: roles, isPrimary: true }),
             capturePart({ setter: setResources, edited: affected, fromArray: resources, fkRemapField: "roleId" }),
@@ -773,6 +805,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       captureCompositeRef.current?.({
         kind: "discipline.deleted",
         primaryCount: 1,
+        name: removed.name,
         parts: [
           capturePart({ setter: setDisciplines, removed: [removed], fromArray: disciplines, isPrimary: true }),
           capturePart({ setter: setRoles, edited: affected, fromArray: roles, fkRemapField: "disciplineId" }),
@@ -793,6 +826,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       captureCompositeRef.current?.({
         kind: "grade.deleted",
         primaryCount: 1,
+        name: removed.name,
         parts: [
           capturePart({ setter: setGrades, removed: [removed], fromArray: grades, isPrimary: true }),
           capturePart({ setter: setRoles, edited: affected, fromArray: roles, fkRemapField: "gradeId" }),
@@ -960,6 +994,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleImportResources,
     handleSaveRaidItem,
     handleDeleteRaidItem,
+    handleSendRaidInquiry,
     captureRaidBulkUndo,
     handleOpenAddAbsence,
     handleImportAbsences,
