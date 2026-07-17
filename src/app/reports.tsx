@@ -8,7 +8,7 @@ import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { ReportCard } from "./report-table";
+import { ReportCard, Section, Tile } from "./report-table";
 import {
   computeGroupHealth,
   type GroupHealth,
@@ -27,9 +27,7 @@ import {
   type ReportsAssigneeCol,
   type ReportsByXCol,
   type ReportsInquiryCol,
-  Section,
   StackedBar,
-  Tile,
 } from "./reports-tables";
 import { type Lang, t } from "./i18n";
 import { PRIORITIES, type Task } from "./types";
@@ -286,16 +284,20 @@ export function ReportsPanel({
   return (
     <ReportCard lang={lang} sizeRef={reportsRef} onResetSize={resetReportsSize} onResetCols={resetAllReports} leading={<>{addReportControl}{removeReportControl}</>} toolbarExtra={<ReportsViewsControl lang={lang} currentState={reportsViewState} onApply={applyReportsView} />}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label={t(lang, "reportsTotal")} value={stats.total} />
-        <Tile label={t(lang, "reportsOpen")} value={stats.open} />
+        <Tile label={t(lang, "reportsTotal")} value={stats.total} size="2xl" flat />
+        <Tile label={t(lang, "reportsOpen")} value={stats.open} size="2xl" flat />
         <Tile
           label={t(lang, "reportsCompleted")}
           value={stats.completed}
+          size="2xl"
+          flat
         />
         <Tile
           label={t(lang, "reportsOverdue")}
           value={stats.overdue}
           danger={stats.overdue > 0}
+          size="2xl"
+          flat
         />
       </div>
 
@@ -394,14 +396,20 @@ export function ReportsPanel({
           <Tile
             label={t(lang, "reportsInquiriesTotal")}
             value={stats.inquiriesTotal}
+            size="2xl"
+            flat
           />
           <Tile
             label={t(lang, "reportsInquiriesAvg")}
             value={stats.inquiriesAvg.toFixed(1)}
+            size="2xl"
+            flat
           />
           <Tile
             label={t(lang, "reportsInquiriesTasks")}
             value={stats.topInquiries.length}
+            size="2xl"
+            flat
           />
         </div>
         {stats.topInquiries.length > 0 && (
@@ -458,7 +466,7 @@ export function ReportsPanel({
       <Section title={t(lang, "reportsByPriority")}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {PRIORITIES.map((p) => (
-            <Tile key={p} label={p} value={stats.byPriority[p] ?? 0} />
+            <Tile key={p} label={p} value={stats.byPriority[p] ?? 0} size="2xl" flat />
           ))}
         </div>
       </Section>
