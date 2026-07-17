@@ -54,6 +54,25 @@ describe("Banner", () => {
     expect(cls).not.toContain("text-[var(--rag-amber");
   });
 
+  it("adds dark-mode tint bumps for parity (border /40→/50-60, bg /10→/15-20)", () => {
+    render(
+      <>
+        <Banner severity="error">E</Banner>
+        <Banner severity="success">S</Banner>
+        <Banner severity="info">I</Banner>
+        <Banner severity="warn">W</Banner>
+      </>,
+    );
+    expect(screen.getByText("E").className).toContain("dark:bg-AIPM-pink/15");
+    expect(screen.getByText("E").className).toContain("dark:border-AIPM-pink/60");
+    expect(screen.getByText("S").className).toContain("dark:bg-AIPM-green/15");
+    expect(screen.getByText("I").className).toContain("dark:bg-AIPM-dark-blue/15");
+    expect(screen.getByText("W").className).toContain("dark:bg-[var(--rag-amber)]/20");
+    expect(screen.getByText("W").className).toContain("dark:border-[var(--rag-amber)]/50");
+    // ★ still no amber on text, even in dark mode
+    expect(screen.getByText("W").className).not.toContain("text-[var(--rag-amber");
+  });
+
   it("appends caller className AFTER the severity classes", () => {
     render(
       <Banner severity="error" className="mb-6 flex extra-class">
