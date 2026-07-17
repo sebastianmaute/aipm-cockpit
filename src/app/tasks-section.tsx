@@ -35,6 +35,7 @@ import { ActionChips, chipsForView } from "./action-chips";
 import { ViewCallout } from "./view-callout";
 import { SavedViewsControl } from "./saved-views-control";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { AddFirstItemButton } from "./add-first-item-button";
 import type { SuggestedAction } from "./next-actions/types";
 import {
   EraserIcon,
@@ -848,17 +849,15 @@ export function TasksSection({
         {tasks.length === 0 ? (
           // Empty → clickable dashed box (budget/gantt empty-state convention):
           // descriptive text + "+ Add task…", the box opens the task editor.
-          <button
-            type="button"
-            onClick={() => {
+          <AddFirstItemButton
+            onAdd={() => {
               handleCancelEdit();
               setTaskModalOpen(true);
             }}
-            className={`flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            <span>{t(lang, "noTasks")}</span>
-            <span className="font-medium">+ {t(lang, "addTaskButton")}…</span>
-          </button>
+            text={t(lang, "noTasks")}
+            addLabel={`+ ${t(lang, "addTaskButton")}…`}
+            rounded="xl"
+          />
         ) : (
         <RowContextProvider value={rowContextValue} tasksById={tasksById}>
           <table
