@@ -15,6 +15,7 @@
 
 import { useId, useMemo, useRef, useState } from "react";
 import { usePopoverDismiss } from "./use-popover-dismiss";
+import { Checkbox } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import type { ProjectTemplate } from "./templates";
 import type { SaveTemplateInput } from "./templates";
@@ -107,13 +108,11 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
               className={FIELD_CLASS}
             />
             <label htmlFor={checkboxId} className="flex items-center gap-2 text-sm text-foreground">
-              <input
+              <Checkbox
                 id={checkboxId}
-                type="checkbox"
                 aria-label={t(lang, "templateIncludeContent")}
                 checked={includeContent}
                 onChange={(e) => setIncludeContent(e.target.checked)}
-                className="h-4 w-4 rounded border-line text-AIPM-green-strong focus:ring-AIPM-green"
               />
               <span>{t(lang, "templateIncludeContent")}</span>
             </label>

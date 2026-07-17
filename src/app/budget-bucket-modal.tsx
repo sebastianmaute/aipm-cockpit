@@ -27,7 +27,8 @@ import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Checkbox, fieldClass } from "./form-controls";
 import { useConfirm } from "./confirm-dialog";
 
 interface BudgetBucketModalProps {
@@ -42,8 +43,7 @@ interface BudgetBucketModalProps {
   onClose: () => void;
 }
 
-const inputClass =
-  `w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`;
+const inputClass = fieldClass();
 
 export function BudgetBucketModal({
   lang,
@@ -570,11 +570,9 @@ export function BudgetBucketModal({
                           key={r.id}
                           className="flex items-center gap-1 text-xs"
                         >
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={a.resourceIds.includes(r.id)}
                             onChange={() => toggleResource(a.roleId, r.id)}
-                            className={`${FOCUS_RING} ${TRANSITION}`}
                           />
                           {resourceDisplayName(r)}
                         </label>
@@ -648,11 +646,9 @@ export function BudgetBucketModal({
                       <div className="flex flex-wrap gap-2">
                         {resources.map((r) => (
                           <label key={r.id} className="flex items-center gap-1 text-xs">
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={a.resourceIds.includes(r.id)}
                               onChange={() => toggleDisciplineResource(a.disciplineId, r.id)}
-                              className={`${FOCUS_RING} ${TRANSITION}`}
                             />
                             {resourceDisplayName(r)}
                           </label>

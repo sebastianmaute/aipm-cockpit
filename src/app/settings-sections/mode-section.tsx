@@ -16,6 +16,7 @@ import {
   sanitizeVersionRetention,
 } from "../version-history";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { Checkbox } from "../form-controls";
 
 interface ModeSectionProps {
   lang: Lang;
@@ -97,13 +98,12 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
         </legend>
         {FEATURE_MODULES.map((m) => (
           <div key={m.id} className="flex items-start gap-2 text-sm">
-            <input
+            <Checkbox
               id={`${idBase}-${m.id}`}
-              type="checkbox"
               checked={draft.includes(m.id)}
               onChange={() => toggle(m.id)}
               aria-describedby={m.descKey ? `${idBase}-desc-${m.id}` : undefined}
-              className={`mt-0.5 h-4 w-4 shrink-0 accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
+              className="mt-0.5 shrink-0"
             />
             <span className="flex flex-col">
               <label htmlFor={`${idBase}-${m.id}`} className="font-medium">

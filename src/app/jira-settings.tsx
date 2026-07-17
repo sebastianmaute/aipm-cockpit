@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { FieldNotice } from "./field-feedback";
+import { fieldClass } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 import {
   type JiraIssueType,
@@ -26,8 +27,9 @@ import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
 
-const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
+// Canonical field shell, single-sourced from the shared primitive (was a
+// copy-declared ring-1 string; now the ring-2 AIPM-green standard).
+const inputClass = fieldClass();
 
 type Status =
   | { kind: "idle" }

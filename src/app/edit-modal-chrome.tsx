@@ -8,7 +8,8 @@
  */
 import type { ReactNode } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Checkbox } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ModalFieldControls } from "./modal-field-controls";
@@ -142,12 +143,10 @@ export function StakeholderChipPicker({
               key={sh.id}
               className="inline-flex items-center gap-1.5 rounded border border-line bg-surface px-2 py-1 text-xs text-foreground"
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={selectedIds.includes(sh.id)}
                 onChange={() => onToggle(sh.id)}
                 aria-label={sh.name}
-                className={`accent-AIPM-green ${FOCUS_RING} ${TRANSITION}`}
               />
               <span className="max-w-[200px] truncate">{sh.name}</span>
             </label>
