@@ -98,7 +98,7 @@ export function useBroadcastSync<T>(
 
 // Popout-capable subset of the `AppView` union in nav-config.ts. Kept in
 // sync manually: AppView also contains main-window-only views ("open-points",
-// "settings", "edit") that must never be offered as popout targets.
+// "settings") that must never be offered as popout targets.
 export const POPOUT_TABS = [
   "chat",
   "reports",

@@ -203,7 +203,7 @@ function TaskManagerInner() {
   useEffect(() => {
     if (
       settings.layout === "classic" &&
-      (activeTab === "open-points" || activeTab === "settings" || activeTab === "edit")
+      (activeTab === "open-points" || activeTab === "settings")
     ) {
       setActiveTab("chat");
     }

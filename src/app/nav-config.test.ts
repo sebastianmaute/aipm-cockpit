@@ -32,11 +32,6 @@ describe("nav-config", () => {
     }
   });
 
-  it("excludes the edit view from nav and labels it harmlessly", () => {
-    expect(allNavViews()).not.toContain("edit");
-    expect(navLabelKey("edit")).toBeTruthy();
-  });
-
   it("resources sub-menu = directory/workload/calendar/planning/manage-roles; no resource-report/address-book", () => {
     const views = allNavViews();
     expect(views).toEqual(expect.arrayContaining(["directory", "workload", "calendar", "planning", "manage-roles"]));

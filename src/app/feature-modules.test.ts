@@ -84,7 +84,6 @@ describe("isModuleEnabled / moduleForView / enabledNavViews", () => {
     expect(views).toContain("budget");
     expect(views).toContain("budget-report");
     expect(views).not.toContain("raid");
-    expect(views).not.toContain("edit");
     expect(views).not.toContain("settings");
   });
 });

@@ -1,9 +1,8 @@
 import type { TranslationKey } from "./i18n";
 import { isViewEnabled, type FeatureModuleId } from "./feature-modules";
 
-// Superset of the popout tab union (POPOUT_TABS in broadcast-sync.ts). "open-points", "settings"
-// and "edit" are main-window-only views. "edit" is reserved for Phase 2
-// (full-page task editor) and intentionally has no nav entry yet.
+// Superset of the popout tab union (POPOUT_TABS in broadcast-sync.ts). "open-points"
+// and "settings" are main-window-only views.
 export type AppView =
   | "projects"
   | "open-points"
@@ -37,8 +36,7 @@ export type AppView =
   | "learning-insights"
   | "steering-committee"
   | "timelog"
-  | "portfolio-health"
-  | "edit";
+  | "portfolio-health";
 
 export interface NavItem {
   view: AppView;
@@ -99,7 +97,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-const LABEL_KEYS: Record<Exclude<AppView, "edit" | "learning-insights">, TranslationKey> = {
+const LABEL_KEYS: Record<Exclude<AppView, "learning-insights">, TranslationKey> = {
   projects: "navProjects",
   "portfolio-health": "navPortfolioHealth",
   dashboard: "navDashboard",
@@ -138,7 +136,7 @@ const ALL_NAV_VIEWS: AppView[] = NAV_GROUPS.flatMap((g) =>
   g.items.flatMap((item) => [item.view, ...(item.children ?? []).map((c) => c.view)]),
 );
 
-/** Flat list of all views that appear in the sidebar (excludes "edit"). */
+/** Flat list of all views that appear in the sidebar. */
 export function allNavViews(): AppView[] {
   return ALL_NAV_VIEWS;
 }
@@ -201,10 +199,9 @@ export function subTabsFor(
 }
 
 export function navLabelKey(view: AppView): TranslationKey {
-  // The "edit" view (Phase 2 full-page editor) and "learning-insights" (a
-  // settings-launched insights surface) have no sidebar label and never appear
-  // in NAV_GROUPS; give them a harmless valid key rather than masking it.
-  if (view === "edit") return "navOpenPoints";
+  // "learning-insights" (a settings-launched insights surface) has no sidebar
+  // label and never appears in NAV_GROUPS; give it a harmless valid key rather
+  // than masking it.
   if (view === "learning-insights") return "learningInsightsTitle";
   return LABEL_KEYS[view];
 }

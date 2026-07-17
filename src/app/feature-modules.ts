@@ -62,7 +62,6 @@ export const CORE_VIEWS: readonly AppView[] = [
   "activity",
   "settings",
   "help",
-  "edit",
 ] as const;
 
 export const ALL_MODULE_IDS: readonly FeatureModuleId[] = FEATURE_MODULES.map((m) => m.id);
@@ -123,10 +122,9 @@ export function disabledViewRedirect(
 }
 
 /** Views to render in navigation: core sidebar views (excluding the non-navigable
- *  `edit` full-page editor and `settings`, which are reached by other means) plus
- *  every enabled module's views. */
+ *  `settings`, which is reached by other means) plus every enabled module's views. */
 export function enabledNavViews(features: readonly FeatureModuleId[]): AppView[] {
-  const core = CORE_VIEWS.filter((v) => v !== "edit" && v !== "settings");
+  const core = CORE_VIEWS.filter((v) => v !== "settings");
   const moduleViews = features.flatMap((id) => MODULE_BY_ID.get(id)?.views ?? []);
   return [...core, ...moduleViews];
 }

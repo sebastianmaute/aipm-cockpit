@@ -85,11 +85,11 @@ export function useHashView(enabled: boolean = true, features?: readonly Feature
   }, [enabled, isPopout, features, setActiveTab, requestOpen]);
 
   // View change: write the hash, but only when the BASE view differs — so an
-  // existing "#raid/123" is not clobbered while we stay on RAID. Skip "edit".
+  // existing "#raid/123" is not clobbered while we stay on RAID.
   // Uses replaceState (not `location.hash =`) so the write does NOT re-enter
   // the hashchange listener above — see the hook doc comment.
   useEffect(() => {
-    if (!enabled || typeof window === "undefined" || isPopout || activeTab === "edit") return;
+    if (!enabled || typeof window === "undefined" || isPopout) return;
     if (isAuthResponseHash(window.location.hash)) return; // don't clobber an MSAL response
     const current = parseHash(window.location.hash);
     if (current.view !== activeTab) {

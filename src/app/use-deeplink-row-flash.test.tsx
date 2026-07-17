@@ -16,16 +16,12 @@ function Providers({ children }: { children: ReactNode }) {
 /** Probe: mounts the hook for `view` and exposes flashId + request triggers. */
 function Probe({ view }: { view: AppView }) {
   const { flashId, containerRef } = useDeepLinkRowFlash(view);
-  const { requestOpen, clearPendingOpen, requestFlash, activeTab } =
-    useWorkspaceTab();
+  const { requestOpen, clearPendingOpen } = useWorkspaceTab();
   return (
     <div>
       <span data-testid="flash">{String(flashId)}</span>
-      <span data-testid="active-tab">{activeTab}</span>
       <button onClick={() => requestOpen("changes", 5)}>go</button>
       <button onClick={() => requestOpen("changes", -1)}>go-sentinel</button>
-      <button onClick={() => requestFlash("changes", 5)}>flash</button>
-      <button onClick={() => requestFlash("changes", -1)}>flash-sentinel</button>
       {/* Forces an unrelated re-render without touching any pending request. */}
       <button onClick={() => clearPendingOpen()}>clear</button>
       <div ref={containerRef}>
@@ -185,97 +181,6 @@ describe("useDeepLinkRowFlash", () => {
     fireEvent.click(getByText("go"));
 
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
-  });
-
-  it("requestFlash flashes the matching row without requestOpen", () => {
-    const { getByText, getByTestId } = render(
-      <Providers>
-        <Probe view="changes" />
-      </Providers>,
-    );
-    expect(getByTestId("flash").textContent).toBe("null");
-
-    fireEvent.click(getByText("flash"));
-
-    expect(getByTestId("flash").textContent).toBe("5");
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
-      block: "center",
-      behavior: "auto",
-    });
-  });
-
-  it("requestFlash self-clears so it does not re-fire on an unrelated re-render", () => {
-    vi.useFakeTimers();
-    try {
-      const { getByText, getByTestId } = render(
-        <Providers>
-          <Probe view="changes" />
-        </Providers>,
-      );
-
-      fireEvent.click(getByText("flash"));
-      expect(getByTestId("flash").textContent).toBe("5");
-
-      // Timer clears the flash.
-      act(() => {
-        vi.advanceTimersByTime(DEEPLINK_FLASH_MS);
-      });
-      expect(getByTestId("flash").textContent).toBe("null");
-
-      // The hook consumed pendingFlash (cleared it via clearPendingFlash), so an
-      // unrelated re-render must NOT resurrect the flash. With pendingFlash still
-      // set, the parallel reconcile would re-detect handledFlash !== pendingFlash
-      // is FALSE (both null) and stay quiet; the regression would be a stale
-      // pendingFlash re-firing flashId back to 5.
-      fireEvent.click(getByText("clear"));
-      expect(getByTestId("flash").textContent).toBe("null");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("ignores a requestFlash for a different view", () => {
-    const { getByText, getByTestId } = render(
-      <Providers>
-        <Probe view="raid" />
-      </Providers>,
-    );
-
-    fireEvent.click(getByText("flash"));
-
-    expect(getByTestId("flash").textContent).toBe("null");
-    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
-  });
-
-  it("ignores a requestFlash sentinel/aggregate id (< 0)", () => {
-    const { getByText, getByTestId } = render(
-      <Providers>
-        <Probe view="changes" />
-      </Providers>,
-    );
-
-    fireEvent.click(getByText("flash-sentinel"));
-
-    expect(getByTestId("flash").textContent).toBe("null");
-    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
-  });
-
-  it("requestFlash is pure-flash: no hash write, no active-tab change", () => {
-    const { getByText, getByTestId } = render(
-      <Providers>
-        <Probe view="changes" />
-      </Providers>,
-    );
-
-    const hashBefore = window.location.hash;
-    const tabBefore = getByTestId("active-tab").textContent;
-
-    fireEvent.click(getByText("flash"));
-
-    // requestOpen writes the hash + switches the active tab; requestFlash must not.
-    expect(window.location.hash).toBe(hashBefore);
-    expect(getByTestId("active-tab").textContent).toBe(tabBefore);
   });
 
   it("flashOutlineClass returns outline classes only when flashed", () => {

@@ -62,8 +62,6 @@ const ICON_PATHS: Record<AppView, string> = {
   "steering-committee": "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   // timelog: clock face (time-tracking)
   timelog: "M12 6v6l4 2M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z",
-  // "edit" has no sidebar entry; provide a harmless glyph so the map is total.
-  edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z",
 };
 
 export function NavIcon({ view, className = "h-5 w-5 shrink-0" }: NavIconProps) {

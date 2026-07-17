@@ -30,7 +30,7 @@ export function useDeepLinkRowFlash(view: AppView): {
   flashId: number | null;
   containerRef: React.RefObject<HTMLDivElement | null>;
 } {
-  const { pendingOpen, pendingFlash, clearPendingFlash } = useWorkspaceTab();
+  const { pendingOpen } = useWorkspaceTab();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [flashId, setFlashId] = useState<number | null>(null);
   // Monotonic nonce: bumped on every fresh matching request so the side-effect
@@ -56,33 +56,6 @@ export function useDeepLinkRowFlash(view: AppView): {
       setFlashSeq((s) => s + 1);
     }
   }
-
-  // Parallel reconcile for the FLASH-ONLY signal: same render-time pattern.
-  // Seeded `undefined` so a fresh mount that already sees pendingFlash still
-  // fires (do NOT seed from the live prop).
-  const [handledFlash, setHandledFlash] = useState<
-    { view: AppView; id: number } | null | undefined
-  >(undefined);
-  if (pendingFlash !== handledFlash) {
-    setHandledFlash(pendingFlash);
-    const flashTarget = targetIdFor(pendingFlash, view);
-    if (flashTarget !== null) {
-      setFlashId(flashTarget);
-      setFlashSeq((s) => s + 1);
-    }
-  }
-
-  // Consume the flash signal POST-render. clearPendingFlash runs setPendingFlash
-  // on the PROVIDER, so calling it during render would trigger React's "Cannot
-  // update a component while rendering a different component" warning — it MUST
-  // run in an effect (mirrors how panels clear pendingOpen in an effect, not
-  // render). clearPendingFlash is an opaque context callback so the
-  // `set-state-in-effect` lint rule does not flag it. Converges: this clears
-  // pendingFlash→null → re-render reconcile sets handledFlash=null (target null,
-  // no flash change) → effect sees pendingFlash===null → skips.
-  useEffect(() => {
-    if (pendingFlash !== null && pendingFlash === handledFlash) clearPendingFlash();
-  }, [pendingFlash, handledFlash, clearPendingFlash]);
 
   // Keyed on flashId, NOT pendingOpen: the destination panel clears pendingOpen
   // (object→null) almost immediately after a deep-link lands, and a pendingOpen
