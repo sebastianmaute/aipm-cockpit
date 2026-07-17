@@ -139,7 +139,7 @@ export function SharePointPickerModal({
       <div
         ref={sizeRef}
         data-modal-panel
-        className="flex w-[640px] min-w-[360px] max-w-[95vw] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-lg"
+        className="flex w-[640px] min-w-[360px] max-w-[95vw] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)]"
         style={{ maxHeight: "80vh", transform: `translate(${offset.x}px, ${offset.y}px)` }}
       >
         <ModalHeader

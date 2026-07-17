@@ -91,7 +91,7 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
           <div
             role="group"
             aria-label={t(lang, "configureFields")}
-            className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-line bg-surface p-3 shadow-sm"
+            className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-control)]"
           >
             <ul className="max-h-64 space-y-1 overflow-auto text-sm">
               {MODAL_FIELDS[modalId].map((f) => (

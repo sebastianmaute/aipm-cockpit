@@ -245,7 +245,7 @@ export function AppModals({
           // Tinted style matching the app's inline error boxes: a colored tint +
           // left-accent border + AA-contrast accent text in both themes.
           // (white-on-pink — even on pink-strong — fails AA in dark mode.)
-          className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md border border-l-4 px-4 py-2.5 text-sm shadow-lg ${
+          className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md border border-l-4 px-4 py-2.5 text-sm shadow-[var(--shadow-card)] ${
             toast.kind === "error"
               ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink-strong dark:bg-AIPM-pink/15"
               : toast.kind === "success"

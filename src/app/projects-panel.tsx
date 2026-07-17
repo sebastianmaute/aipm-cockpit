@@ -288,7 +288,7 @@ export function ProjectsPanel({
                             {exportMenuId === p.id && (
                               <ul
                                 role="menu"
-                                className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-md border border-line bg-surface shadow-md"
+                                className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-md border border-line bg-surface shadow-[var(--shadow-control)]"
                               >
                                 {EXPORT_FORMATS.map((fmt) => (
                                   <li key={fmt} role="none">
