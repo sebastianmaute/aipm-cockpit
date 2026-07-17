@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.16] - 2026-07-18 "Pinsker"
+
+Design-system dedup (Phase 3b).
+
+### Changed
+- The Changes, Stakeholders and RAID registers drew their scrollable table area with a
+  slightly different card than the rest of the app (tighter corners, no surface fill). They
+  now use the same shared table-card as the Open Points and Resources tables, so every
+  register reads consistently — rounded corners and a surface background to match.
+
 ## [0.190.15] - 2026-07-17 "Pinsker"
 
 Design-system dedup (Phase 3a).

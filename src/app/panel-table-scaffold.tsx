@@ -3,7 +3,7 @@
 import type { ReactNode, Ref } from "react";
 import type { Lang } from "./i18n";
 import type { AppView } from "./nav-config";
-import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
 import { BulkEditBar } from "./bulk-edit-bar";
@@ -48,8 +48,9 @@ interface PanelTableScaffoldProps {
  * panels: pane container + optional ViewCallout + toolbar slot + bulk edit bar/panel +
  * scroll container that switches between a clickable dashed "add first item" empty
  * state and the panel's own <table> (children), plus a trailing slot for the edit
- * modal. Byte-identical to the inline shell each panel used before — every className
- * is a literal here, so the DOM is unchanged across all three callers.
+ * modal. The data-view scroller uses the shared INNER_TABLE_CLASS so the three
+ * register panels read identically to the tasks / resources tables (rounded-xl
+ * bordered surface card), not a divergent rounded-md inset.
  */
 export function PanelTableScaffold({
   paneRef,
@@ -91,7 +92,7 @@ export function PanelTableScaffold({
 
       {bulkPrintHidden === false ? bulkBlock : <div className="print:hidden">{bulkBlock}</div>}
 
-      <div ref={containerRef} className={count === 0 ? undefined : "min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"}>
+      <div ref={containerRef} className={count === 0 ? undefined : INNER_TABLE_CLASS}>
         {count === 0 ? (
           <AddFirstItemButton
             onAdd={empty.onAdd}

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.15";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.15: design-system dedup (P3a) — the RAG status dot (~15 hand-rolled sites, 3 private red/amber/green colour maps) is now a single shared <RagDot> atom over the one healthDot token source; no visible change (Pinsker)
+export const APP_VERSION = "0.190.16";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.16: design-system dedup (P3b) — the change/stakeholders/RAID register scrollers were folded onto the shared INNER_TABLE_CLASS, so they read as the same rounded-xl surface card as the tasks/resources tables (rounded-md→xl + bg-surface) (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
