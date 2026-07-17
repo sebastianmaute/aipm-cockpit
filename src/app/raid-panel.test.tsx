@@ -330,7 +330,7 @@ describe("RaidPanel — document links", () => {
     ).toBeInTheDocument();
   });
 
-  it("new RAID draft initialised with documentLinks: []", () => {
+  it("new RAID draft initialised with knowledgeLinks: []", () => {
     const onSave = vi.fn();
     renderPanel(makeProps({ onSave }));
     const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
@@ -341,7 +341,7 @@ describe("RaidPanel — document links", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "raidSave") }));
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ documentLinks: [] }),
+      expect.objectContaining({ knowledgeLinks: [] }),
       true,
     );
   });

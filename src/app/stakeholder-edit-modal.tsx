@@ -348,8 +348,8 @@ export function StakeholderEditModal({
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
             <KnowledgeLinksFieldGated
-              value={draft.documentLinks ?? []}
-              onChange={(links) => update("documentLinks", links)}
+              value={draft.knowledgeLinks ?? []}
+              onChange={(links) => update("knowledgeLinks", links)}
               lang={lang}
             />
           </label>

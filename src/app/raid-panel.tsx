@@ -330,7 +330,7 @@ function RaidPanelBody({
       linkedTaskIds: [],
       causedByRaidIds: [],
       stakeholderIds: [],
-      documentLinks: [],
+      knowledgeLinks: [],
       raisedDate: today,
     });
     setIsNew(true);

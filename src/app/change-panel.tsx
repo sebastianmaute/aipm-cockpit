@@ -293,7 +293,7 @@ function ChangePanelBody({
       linkedTaskIds: [],
       linkedRaidIds: [],
       stakeholderIds: [],
-      documentLinks: [],
+      knowledgeLinks: [],
     });
     setIsNew(true);
   }
@@ -304,7 +304,7 @@ function ChangePanelBody({
       linkedTaskIds: [...item.linkedTaskIds],
       linkedRaidIds: [...item.linkedRaidIds],
       stakeholderIds: [...(item.stakeholderIds ?? [])],
-      documentLinks: [...(item.documentLinks ?? [])],
+      knowledgeLinks: [...(item.knowledgeLinks ?? [])],
     });
     setIsNew(false);
   }

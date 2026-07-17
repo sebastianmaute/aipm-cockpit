@@ -16,7 +16,7 @@ import {
   decodeRatesMap,
 } from "./csv-codecs";
 import {
-  emptyWorkspace, migrateWorkspaceV9, sanitizeProjectStatus, type Workspace,
+  emptyWorkspace, migrateWorkspaceV10, sanitizeProjectStatus, type Workspace,
 } from "./workspace";
 import { sanitizeFieldVisibility } from "./field-visibility";
 import { sanitizeFeatures } from "./feature-modules";
@@ -166,7 +166,7 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave undefined
     }
   }
-  return migrateWorkspaceV9(ws);
+  return migrateWorkspaceV10(ws);
 }
 
 // Bump on any schema/column change. NOTE: there is no ALTER-migration runner —

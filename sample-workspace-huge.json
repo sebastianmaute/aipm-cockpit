@@ -24,7 +24,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -61,7 +61,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 3,
@@ -88,7 +88,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 4,
@@ -119,7 +119,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 5,
@@ -147,7 +147,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 6,
@@ -175,7 +175,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 7,
@@ -202,7 +202,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 8,
@@ -233,7 +233,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 9,
@@ -258,7 +258,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -295,7 +295,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 11,
@@ -316,7 +316,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 12,
@@ -342,7 +342,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 13,
@@ -368,7 +368,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 14,
@@ -396,7 +396,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100001,
@@ -421,7 +421,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -458,7 +458,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100003,
@@ -485,7 +485,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100004,
@@ -516,7 +516,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100005,
@@ -544,7 +544,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100006,
@@ -572,7 +572,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100007,
@@ -599,7 +599,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100008,
@@ -630,7 +630,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100009,
@@ -655,7 +655,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -692,7 +692,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100011,
@@ -713,7 +713,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100012,
@@ -739,7 +739,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100013,
@@ -765,7 +765,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100014,
@@ -793,7 +793,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200001,
@@ -818,7 +818,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -855,7 +855,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200003,
@@ -882,7 +882,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200004,
@@ -913,7 +913,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200005,
@@ -941,7 +941,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200006,
@@ -969,7 +969,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200007,
@@ -996,7 +996,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200008,
@@ -1027,7 +1027,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200009,
@@ -1052,7 +1052,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -1089,7 +1089,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200011,
@@ -1110,7 +1110,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200012,
@@ -1136,7 +1136,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200013,
@@ -1162,7 +1162,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200014,
@@ -1190,7 +1190,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300001,
@@ -1215,7 +1215,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -1252,7 +1252,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300003,
@@ -1279,7 +1279,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300004,
@@ -1310,7 +1310,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300005,
@@ -1338,7 +1338,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300006,
@@ -1366,7 +1366,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300007,
@@ -1393,7 +1393,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300008,
@@ -1424,7 +1424,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300009,
@@ -1449,7 +1449,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -1486,7 +1486,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300011,
@@ -1507,7 +1507,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300012,
@@ -1533,7 +1533,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300013,
@@ -1559,7 +1559,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300014,
@@ -1587,7 +1587,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400001,
@@ -1612,7 +1612,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -1649,7 +1649,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400003,
@@ -1676,7 +1676,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400004,
@@ -1707,7 +1707,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400005,
@@ -1735,7 +1735,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400006,
@@ -1763,7 +1763,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400007,
@@ -1790,7 +1790,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400008,
@@ -1821,7 +1821,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400009,
@@ -1846,7 +1846,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -1883,7 +1883,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400011,
@@ -1904,7 +1904,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400012,
@@ -1930,7 +1930,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400013,
@@ -1956,7 +1956,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400014,
@@ -1984,7 +1984,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500001,
@@ -2009,7 +2009,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -2046,7 +2046,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500003,
@@ -2073,7 +2073,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500004,
@@ -2104,7 +2104,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500005,
@@ -2132,7 +2132,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500006,
@@ -2160,7 +2160,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500007,
@@ -2187,7 +2187,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500008,
@@ -2218,7 +2218,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500009,
@@ -2243,7 +2243,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -2280,7 +2280,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500011,
@@ -2301,7 +2301,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500012,
@@ -2327,7 +2327,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500013,
@@ -2353,7 +2353,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500014,
@@ -2381,7 +2381,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600001,
@@ -2406,7 +2406,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -2443,7 +2443,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600003,
@@ -2470,7 +2470,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600004,
@@ -2501,7 +2501,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600005,
@@ -2529,7 +2529,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600006,
@@ -2557,7 +2557,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600007,
@@ -2584,7 +2584,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600008,
@@ -2615,7 +2615,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600009,
@@ -2640,7 +2640,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -2677,7 +2677,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600011,
@@ -2698,7 +2698,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600012,
@@ -2724,7 +2724,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600013,
@@ -2750,7 +2750,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600014,
@@ -2778,7 +2778,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700001,
@@ -2803,7 +2803,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -2840,7 +2840,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700003,
@@ -2867,7 +2867,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700004,
@@ -2898,7 +2898,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700005,
@@ -2926,7 +2926,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700006,
@@ -2954,7 +2954,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700007,
@@ -2981,7 +2981,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700008,
@@ -3012,7 +3012,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700009,
@@ -3037,7 +3037,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -3074,7 +3074,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700011,
@@ -3095,7 +3095,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700012,
@@ -3121,7 +3121,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700013,
@@ -3147,7 +3147,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700014,
@@ -3175,7 +3175,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800001,
@@ -3200,7 +3200,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -3237,7 +3237,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800003,
@@ -3264,7 +3264,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800004,
@@ -3295,7 +3295,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800005,
@@ -3323,7 +3323,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800006,
@@ -3351,7 +3351,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800007,
@@ -3378,7 +3378,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800008,
@@ -3409,7 +3409,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800009,
@@ -3434,7 +3434,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -3471,7 +3471,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800011,
@@ -3492,7 +3492,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800012,
@@ -3518,7 +3518,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800013,
@@ -3544,7 +3544,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800014,
@@ -3572,7 +3572,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900001,
@@ -3597,7 +3597,7 @@
       "jiraKey": "LOP-101",
       "jiraIssueType": "Story",
       "resourceId": 1,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-1",
           "name": "OIDC Architecture Decision.docx",
@@ -3634,7 +3634,7 @@
       "jiraKey": "LOP-102",
       "jiraIssueType": "Story",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900003,
@@ -3661,7 +3661,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900004,
@@ -3692,7 +3692,7 @@
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "localModifiedAt": "2026-05-13T10:35:12.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900005,
@@ -3720,7 +3720,7 @@
       ],
       "localModifiedAt": "2026-05-14T16:20:00.000Z",
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900006,
@@ -3748,7 +3748,7 @@
       ],
       "healthOverride": "R",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900007,
@@ -3775,7 +3775,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900008,
@@ -3806,7 +3806,7 @@
         }
       ],
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900009,
@@ -3831,7 +3831,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-2",
           "name": "API Docs (Confluence export)",
@@ -3868,7 +3868,7 @@
         }
       ],
       "resourceId": 1,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900011,
@@ -3889,7 +3889,7 @@
       ],
       "dependencies": [],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900012,
@@ -3915,7 +3915,7 @@
         }
       ],
       "resourceId": 3,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900013,
@@ -3941,7 +3941,7 @@
       "jiraIssueType": "Task",
       "lastSyncedAt": "2026-05-13T10:30:00.000Z",
       "resourceId": 2,
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900014,
@@ -3969,7 +3969,7 @@
         }
       ],
       "resourceId": 4,
-      "documentLinks": []
+      "knowledgeLinks": []
     }
   ],
   "raid": [
@@ -3993,7 +3993,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -4022,7 +4022,7 @@
         1,
         6
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 3,
@@ -4043,7 +4043,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 4,
@@ -4065,7 +4065,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 5,
@@ -4081,7 +4081,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 6,
@@ -4100,7 +4100,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 7,
@@ -4118,7 +4118,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 8,
@@ -4141,7 +4141,7 @@
         3
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 9,
@@ -4161,7 +4161,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 10,
@@ -4181,7 +4181,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 11,
@@ -4203,7 +4203,7 @@
         1,
         5
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 12,
@@ -4224,7 +4224,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 13,
@@ -4247,7 +4247,7 @@
       "stakeholderIds": [
         5
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100001,
@@ -4269,7 +4269,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -4298,7 +4298,7 @@
         100001,
         100006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100003,
@@ -4319,7 +4319,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100004,
@@ -4341,7 +4341,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100005,
@@ -4357,7 +4357,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100006,
@@ -4376,7 +4376,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100007,
@@ -4394,7 +4394,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100008,
@@ -4417,7 +4417,7 @@
         100003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100009,
@@ -4437,7 +4437,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100010,
@@ -4457,7 +4457,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100011,
@@ -4479,7 +4479,7 @@
         100001,
         100005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100012,
@@ -4500,7 +4500,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 100013,
@@ -4523,7 +4523,7 @@
       "stakeholderIds": [
         100005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200001,
@@ -4545,7 +4545,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -4574,7 +4574,7 @@
         200001,
         200006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200003,
@@ -4595,7 +4595,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200004,
@@ -4617,7 +4617,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200005,
@@ -4633,7 +4633,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200006,
@@ -4652,7 +4652,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200007,
@@ -4670,7 +4670,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200008,
@@ -4693,7 +4693,7 @@
         200003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200009,
@@ -4713,7 +4713,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200010,
@@ -4733,7 +4733,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200011,
@@ -4755,7 +4755,7 @@
         200001,
         200005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200012,
@@ -4776,7 +4776,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 200013,
@@ -4799,7 +4799,7 @@
       "stakeholderIds": [
         200005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300001,
@@ -4821,7 +4821,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -4850,7 +4850,7 @@
         300001,
         300006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300003,
@@ -4871,7 +4871,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300004,
@@ -4893,7 +4893,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300005,
@@ -4909,7 +4909,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300006,
@@ -4928,7 +4928,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300007,
@@ -4946,7 +4946,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300008,
@@ -4969,7 +4969,7 @@
         300003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300009,
@@ -4989,7 +4989,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300010,
@@ -5009,7 +5009,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300011,
@@ -5031,7 +5031,7 @@
         300001,
         300005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300012,
@@ -5052,7 +5052,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 300013,
@@ -5075,7 +5075,7 @@
       "stakeholderIds": [
         300005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400001,
@@ -5097,7 +5097,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -5126,7 +5126,7 @@
         400001,
         400006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400003,
@@ -5147,7 +5147,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400004,
@@ -5169,7 +5169,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400005,
@@ -5185,7 +5185,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400006,
@@ -5204,7 +5204,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400007,
@@ -5222,7 +5222,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400008,
@@ -5245,7 +5245,7 @@
         400003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400009,
@@ -5265,7 +5265,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400010,
@@ -5285,7 +5285,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400011,
@@ -5307,7 +5307,7 @@
         400001,
         400005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400012,
@@ -5328,7 +5328,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 400013,
@@ -5351,7 +5351,7 @@
       "stakeholderIds": [
         400005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500001,
@@ -5373,7 +5373,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -5402,7 +5402,7 @@
         500001,
         500006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500003,
@@ -5423,7 +5423,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500004,
@@ -5445,7 +5445,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500005,
@@ -5461,7 +5461,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500006,
@@ -5480,7 +5480,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500007,
@@ -5498,7 +5498,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500008,
@@ -5521,7 +5521,7 @@
         500003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500009,
@@ -5541,7 +5541,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500010,
@@ -5561,7 +5561,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500011,
@@ -5583,7 +5583,7 @@
         500001,
         500005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500012,
@@ -5604,7 +5604,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 500013,
@@ -5627,7 +5627,7 @@
       "stakeholderIds": [
         500005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600001,
@@ -5649,7 +5649,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -5678,7 +5678,7 @@
         600001,
         600006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600003,
@@ -5699,7 +5699,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600004,
@@ -5721,7 +5721,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600005,
@@ -5737,7 +5737,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600006,
@@ -5756,7 +5756,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600007,
@@ -5774,7 +5774,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600008,
@@ -5797,7 +5797,7 @@
         600003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600009,
@@ -5817,7 +5817,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600010,
@@ -5837,7 +5837,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600011,
@@ -5859,7 +5859,7 @@
         600001,
         600005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600012,
@@ -5880,7 +5880,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 600013,
@@ -5903,7 +5903,7 @@
       "stakeholderIds": [
         600005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700001,
@@ -5925,7 +5925,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -5954,7 +5954,7 @@
         700001,
         700006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700003,
@@ -5975,7 +5975,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700004,
@@ -5997,7 +5997,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700005,
@@ -6013,7 +6013,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700006,
@@ -6032,7 +6032,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700007,
@@ -6050,7 +6050,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700008,
@@ -6073,7 +6073,7 @@
         700003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700009,
@@ -6093,7 +6093,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700010,
@@ -6113,7 +6113,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700011,
@@ -6135,7 +6135,7 @@
         700001,
         700005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700012,
@@ -6156,7 +6156,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 700013,
@@ -6179,7 +6179,7 @@
       "stakeholderIds": [
         700005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800001,
@@ -6201,7 +6201,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -6230,7 +6230,7 @@
         800001,
         800006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800003,
@@ -6251,7 +6251,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800004,
@@ -6273,7 +6273,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800005,
@@ -6289,7 +6289,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800006,
@@ -6308,7 +6308,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800007,
@@ -6326,7 +6326,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800008,
@@ -6349,7 +6349,7 @@
         800003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800009,
@@ -6369,7 +6369,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800010,
@@ -6389,7 +6389,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800011,
@@ -6411,7 +6411,7 @@
         800001,
         800005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800012,
@@ -6432,7 +6432,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 800013,
@@ -6455,7 +6455,7 @@
       "stakeholderIds": [
         800005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900001,
@@ -6477,7 +6477,7 @@
       "targetDate": "2026-06-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-3",
           "name": "Migration Runbook.pdf",
@@ -6506,7 +6506,7 @@
         900001,
         900006
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900003,
@@ -6527,7 +6527,7 @@
       "raisedDate": "2026-05-08",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900004,
@@ -6549,7 +6549,7 @@
       "targetDate": "2026-06-01",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900005,
@@ -6565,7 +6565,7 @@
       "raisedDate": "2026-05-05",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900006,
@@ -6584,7 +6584,7 @@
       "closedDate": "2026-05-15",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900007,
@@ -6602,7 +6602,7 @@
       "targetDate": "2026-06-03",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900008,
@@ -6625,7 +6625,7 @@
         900003
       ],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900009,
@@ -6645,7 +6645,7 @@
       "targetDate": "2026-05-24",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900010,
@@ -6665,7 +6665,7 @@
       "closedDate": "2026-05-16",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900011,
@@ -6687,7 +6687,7 @@
         900001,
         900005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900012,
@@ -6708,7 +6708,7 @@
       "closedDate": "2026-05-10",
       "causedByRaidIds": [],
       "stakeholderIds": [],
-      "documentLinks": []
+      "knowledgeLinks": []
     },
     {
       "id": 900013,
@@ -6731,7 +6731,7 @@
       "stakeholderIds": [
         900005
       ],
-      "documentLinks": []
+      "knowledgeLinks": []
     }
   ],
   "absences": [
@@ -10267,7 +10267,7 @@
       "name": "Design Sign-off",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10293,7 +10293,7 @@
       "name": "Design Sign-off — Payments",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10319,7 +10319,7 @@
       "name": "Design Sign-off — Mobile App",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10345,7 +10345,7 @@
       "name": "Design Sign-off — Data Migration",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10371,7 +10371,7 @@
       "name": "Design Sign-off — Partner API",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10397,7 +10397,7 @@
       "name": "Design Sign-off — Compliance",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10423,7 +10423,7 @@
       "name": "Design Sign-off — Analytics",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10449,7 +10449,7 @@
       "name": "Design Sign-off — Infrastructure",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10475,7 +10475,7 @@
       "name": "Design Sign-off — Support Portal",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -10501,7 +10501,7 @@
       "name": "Design Sign-off — Reporting",
       "date": "2026-04-20",
       "linkedTaskIds": [],
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-4",
           "name": "Design Sign-off Minutes.docx",
@@ -11018,7 +11018,7 @@
         "3": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11116,7 +11116,7 @@
         "100003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11211,7 +11211,7 @@
         "200003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11306,7 +11306,7 @@
         "300003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11401,7 +11401,7 @@
         "400003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11496,7 +11496,7 @@
         "500003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11591,7 +11591,7 @@
         "600003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11686,7 +11686,7 @@
         "700003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11781,7 +11781,7 @@
         "800003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",
@@ -11876,7 +11876,7 @@
         "900003": "C"
       },
       "organization": "Acme",
-      "documentLinks": [
+      "knowledgeLinks": [
         {
           "id": "dl-5",
           "name": "Steering Committee Deck Q2.pptx",

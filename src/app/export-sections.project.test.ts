@@ -240,14 +240,14 @@ describe("buildExportSections – project section", () => {
     expect(sections.find((s) => s.key === "project")).toBeUndefined();
   });
 
-  it("documentLinks are rendered as readable names, not '[object Object]'", () => {
+  it("knowledgeLinks are rendered as readable names, not '[object Object]'", () => {
     const links: KnowledgeLink[] = [
       { id: "dl-1", name: "Spec.docx", url: "https://sp.example.com/spec.docx", kind: "file" },
       { id: "dl-2", name: "Evidence", url: "https://sp.example.com/evidence", kind: "folder" },
     ];
     const meta: ProjectMeta = {
       ...makeProjectMeta(),
-      documentLinks: links,
+      knowledgeLinks: links,
     };
     const ws = { ...emptyWorkspace(), project: meta };
     const cfg = { ...defaultExportConfig, project: true };
@@ -259,10 +259,10 @@ describe("buildExportSections – project section", () => {
     expect(values.join("")).not.toContain("[object Object]");
   });
 
-  it("documentLinks row is omitted when documentLinks is empty or absent", () => {
+  it("knowledgeLinks row is omitted when knowledgeLinks is empty or absent", () => {
     // absent
     const metaNoLinks: ProjectMeta = { ...makeProjectMeta() };
-    delete (metaNoLinks as Record<string, unknown>).documentLinks;
+    delete (metaNoLinks as Record<string, unknown>).knowledgeLinks;
     const ws1 = { ...emptyWorkspace(), project: metaNoLinks };
     const cfg = { ...defaultExportConfig, project: true };
     const rows1 = buildExportSections(ws1, cfg, "en-US").find((s) => s.key === "project")!.rows;
@@ -270,7 +270,7 @@ describe("buildExportSections – project section", () => {
     expect(labels1).not.toContain("Document links");
 
     // empty array
-    const metaEmptyLinks: ProjectMeta = { ...makeProjectMeta(), documentLinks: [] };
+    const metaEmptyLinks: ProjectMeta = { ...makeProjectMeta(), knowledgeLinks: [] };
     const ws2 = { ...emptyWorkspace(), project: metaEmptyLinks };
     const rows2 = buildExportSections(ws2, cfg, "en-US").find((s) => s.key === "project")!.rows;
     const labels2 = rows2.map((r) => r[0] as string);

@@ -6,7 +6,7 @@
 // config/project decoders) and the build*FromObj decoders from ./csv-codecs.
 // Re-exported via the ./markdown-codecs barrel.
 
-import { decodeDocumentLinks } from "./document-link";
+import { decodeKnowledgeLinks } from "./document-link";
 import { decodeNoteLog } from "./note-log";
 import { migrateTaskStatus } from "./task-status";
 import { defaultResourcePlan } from "./resource-foundation";
@@ -41,7 +41,7 @@ import {
   type Shift,
   type Task,
 } from "./types";
-import { type Workspace, migrateWorkspaceV9 } from "./workspace";
+import { type Workspace, migrateWorkspaceV10 } from "./workspace";
 import { type ImportDiag, buildRaidItemFromObj, decodeRatesMap, parseHealthOverride } from "./csv-codecs";
 import {
   decodeMdTable,
@@ -265,7 +265,7 @@ const RAID_ALIASES: Record<string, string> = {
   causedbyids: "causedByRaidIds", causedbyraidids: "causedByRaidIds",
   causedby: "causedByRaidIds", causedbyraidid: "causedByRaidIds",
   stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
-  documentlinks: "documentLinks", outlookeventid: "outlookEventId",
+  documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks", outlookeventid: "outlookEventId",
   inquiries: "inquiriesSent", inquiriessent: "inquiriesSent",
 };
 
@@ -304,7 +304,7 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   if (sc) ws.steeringCommittee = sc;
   const tl = markdownToTimelogLinks(md);
   if (tl) ws.timelogLinks = tl;
-  return migrateWorkspaceV9(ws);
+  return migrateWorkspaceV10(ws);
 }
 
 function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
@@ -361,7 +361,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       colMap[idx] = "originalEstimateMinutes";
     else if (norm === "timespentmin" || norm === "timespentminutes")
       colMap[idx] = "timeSpentMinutes";
-    else if (norm === "documentlinks") colMap[idx] = "documentLinks";
+    else if (norm === "documentlinks" || norm === "knowledgelinks") colMap[idx] = "knowledgeLinks";
     else if (norm === "outlookeventid") colMap[idx] = "outlookEventId";
     else if (norm === "notelog") colMap[idx] = "noteLog";
   });
@@ -408,7 +408,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       resourceId: fkIdOrUndefined(obj.resourceId),
       originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
       timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
-      documentLinks: decodeDocumentLinks(obj.documentLinks),
+      knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
       noteLog: (() => {
         const nl = decodeNoteLog(obj.noteLog);
         return nl.length ? nl : undefined;

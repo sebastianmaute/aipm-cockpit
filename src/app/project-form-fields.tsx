@@ -51,7 +51,7 @@ export type ProjectFormDraft = ProjectDraft & {
   quotes: string;
   docRepoLocation: string;
   notes: string;
-  documentLinks: KnowledgeLink[];
+  knowledgeLinks: KnowledgeLink[];
   operatingTimezone: string;
 };
 
@@ -85,7 +85,7 @@ export function emptyProjectDraft(): ProjectFormDraft {
     docRepoLocation: "",
     regulatory: [],
     notes: "",
-    documentLinks: [],
+    knowledgeLinks: [],
     operatingTimezone: "",
   };
 }
@@ -582,8 +582,8 @@ export function OptionalDetailsFields({
 
       <Field lang={lang} label={t(lang,"documents")} className="sm:col-span-2">
         <KnowledgeLinksFieldGated
-          value={draft.documentLinks}
-          onChange={(documentLinks) => setDraft((p) => ({ ...p, documentLinks }))}
+          value={draft.knowledgeLinks}
+          onChange={(knowledgeLinks) => setDraft((p) => ({ ...p, knowledgeLinks }))}
           lang={lang}
         />
       </Field>

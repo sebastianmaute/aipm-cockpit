@@ -215,7 +215,7 @@ function MilestonesPanelBody({
 
   function openNew() {
     setIsNew(true);
-    setEditing({ id: mintId("milestone", milestones), name: "", date: today, linkedTaskIds: [], documentLinks: [] });
+    setEditing({ id: mintId("milestone", milestones), name: "", date: today, linkedTaskIds: [], knowledgeLinks: [] });
   }
 
   // One-way signal from the parent (Gantt "Add milestone"): when the nonce

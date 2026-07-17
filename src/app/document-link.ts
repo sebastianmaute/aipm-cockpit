@@ -2,9 +2,10 @@
 //
 // Shared model for a referenced knowledge link (a SharePoint document/folder, a
 // Confluence page, or a general web URL) plus the lossless JSON-in-cell codec
-// used by the CSV/Markdown/Turso serializers. The persisted field is still named
-// `documentLinks` on every entity (byte-stable wire format); only the TS type was
-// renamed to KnowledgeLink when the Documents view became Knowledge.
+// used by the CSV/Markdown/Turso serializers. The persisted field is named
+// `knowledgeLinks` on every entity (renamed from the legacy `documentLinks`
+// wire name when the Documents view became Knowledge; decoders still accept the
+// old column/key as an alias — see the codecs + workspace load migration).
 // Leaf module: imports nothing from the app so any entity type can depend on it.
 
 /** What kind of knowledge a link points at. Absent ⇒ "document" — kept sparse so
@@ -63,17 +64,17 @@ export function isSafeHttpUrl(url: string): boolean {
   }
 }
 
-export function isValidDocumentLink(v: unknown): v is { name: string; url: string } {
+export function isValidKnowledgeLink(v: unknown): v is { name: string; url: string } {
   if (typeof v !== "object" || v === null) return false;
   const rec = v as Record<string, unknown>;
   return asTrimmedString(rec.name) !== "" && asTrimmedString(rec.url) !== "";
 }
 
-export function sanitizeDocumentLinks(raw: unknown): KnowledgeLink[] {
+export function sanitizeKnowledgeLinks(raw: unknown): KnowledgeLink[] {
   if (!Array.isArray(raw)) return [];
   const out: KnowledgeLink[] = [];
   for (const entry of raw) {
-    if (!isValidDocumentLink(entry)) continue;
+    if (!isValidKnowledgeLink(entry)) continue;
     const rec = entry as Record<string, unknown>;
     const link: KnowledgeLink = {
       id: optionalString(rec.id) ?? nextGeneratedId(),
@@ -100,15 +101,15 @@ export function sanitizeDocumentLinks(raw: unknown): KnowledgeLink[] {
 
 /** Encode for a single CSV/MD/Turso cell. Empty/undefined -> "" so entities
  *  with no links stay byte-identical to legacy serialized data. */
-export function encodeDocumentLinks(links: readonly KnowledgeLink[] | undefined): string {
+export function encodeKnowledgeLinks(links: readonly KnowledgeLink[] | undefined): string {
   return links && links.length ? JSON.stringify(links) : "";
 }
 
-/** Inverse of encodeDocumentLinks; tolerates empty/malformed cells. */
-export function decodeDocumentLinks(cell: string | null | undefined): KnowledgeLink[] {
+/** Inverse of encodeKnowledgeLinks; tolerates empty/malformed cells. */
+export function decodeKnowledgeLinks(cell: string | null | undefined): KnowledgeLink[] {
   if (!cell) return [];
   try {
-    return sanitizeDocumentLinks(JSON.parse(cell));
+    return sanitizeKnowledgeLinks(JSON.parse(cell));
   } catch {
     return [];
   }

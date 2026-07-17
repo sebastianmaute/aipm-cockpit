@@ -13,7 +13,7 @@ function makeItem(overrides?: Partial<RaidItem>): RaidItem {
     linkedTaskIds: [],
     causedByRaidIds: [],
     stakeholderIds: [],
-    documentLinks: [],
+    knowledgeLinks: [],
     raisedDate: "2026-06-01",
     targetDate: "2026-07-01",
     owner: "Alice Owner",

@@ -73,7 +73,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "causedByRaidIds", label: "CausedByIds" },
   { key: "stakeholderIds", label: "StakeholderIds" },
-  { key: "documentLinks", label: "DocumentLinks" },
+  { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
   { key: "inquiriesSent", label: "Inquiries" },
 ];
@@ -312,7 +312,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "resourceId", label: "ResourceId" },
   { key: "originalEstimateMinutes", label: "OrigEstimateMin" },
   { key: "timeSpentMinutes", label: "TimeSpentMin" },
-  { key: "documentLinks", label: "DocumentLinks" },
+  { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
   { key: "noteLog", label: "NoteLog" },
 ];
@@ -427,7 +427,7 @@ const MILESTONES_MD_COLUMNS: Array<{ key: keyof Milestone; label: string }> = [
   { key: "achievedDate", label: "Achieved" },
   { key: "linkedTaskIds", label: "LinkedTasks" },
   { key: "localModifiedAt", label: "LocalModified" },
-  { key: "documentLinks", label: "DocumentLinks" },
+  { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
 ];
 
@@ -449,7 +449,7 @@ const MILESTONE_ALIASES: Record<string, string> = {
   achieved: "achievedDate", achieveddate: "achievedDate",
   linkedtasks: "linkedTaskIds", linkedtaskids: "linkedTaskIds",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
-  documentlinks: "documentLinks", outlookeventid: "outlookEventId",
+  documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks", outlookeventid: "outlookEventId",
 };
 
 export function markdownToMilestones(md: string, diag?: ImportDiag): Milestone[] {
@@ -475,7 +475,7 @@ const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string }[] = 
   { key: "linkedRaidIds", label: "LinkedRaid" },
   { key: "stakeholderIds", label: "StakeholderIds" },
   { key: "localModifiedAt", label: "LocalModified" },
-  { key: "documentLinks", label: "DocumentLinks" },
+  { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
 ];
 
@@ -502,7 +502,7 @@ const CHANGE_ALIASES: Record<string, string> = {
   linkedraid: "linkedRaidIds", linkedraidids: "linkedRaidIds",
   stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
-  documentlinks: "documentLinks", outlookeventid: "outlookEventId",
+  documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks", outlookeventid: "outlookEventId",
 };
 
 export function markdownToChanges(md: string, diag?: ImportDiag): ChangeItem[] {
@@ -522,7 +522,7 @@ const STAKEHOLDERS_MD_COLUMNS: readonly { key: keyof Stakeholder; label: string 
   { key: "resourceId", label: "ResourceId" },
   { key: "raci", label: "RACI" },
   { key: "localModifiedAt", label: "LocalModified" },
-  { key: "documentLinks", label: "DocumentLinks" },
+  { key: "knowledgeLinks", label: "KnowledgeLinks" },
 ];
 
 function stakeholdersToMarkdown(stakeholders: readonly Stakeholder[]): string {
@@ -543,7 +543,7 @@ const STAKEHOLDER_ALIASES: Record<string, string> = {
   email: "email", category: "category", influence: "influence",
   interest: "interest", notes: "notes", resourceid: "resourceId", raci: "raci",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
-  documentlinks: "documentLinks",
+  documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks",
 };
 
 export function markdownToStakeholders(md: string, diag?: ImportDiag): Stakeholder[] {
