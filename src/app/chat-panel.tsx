@@ -28,6 +28,7 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { useChatModels } from "./use-chat-models";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
+import { Banner } from "./banner";
 import { unlockSecret } from "./use-secrets";
 import { useConfirm } from "./confirm-dialog";
 import { isPassphraseLocked } from "./secrets-store";
@@ -763,10 +764,7 @@ function ChatPanelInner({
       </div>
 
       {error && (
-        <div
-          role="alert"
-          className="mt-2 flex items-start justify-between gap-2 rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15"
-        >
+        <Banner severity="error" role="alert" className="mt-2 flex items-start justify-between gap-2">
           <p className="min-w-0 whitespace-pre-line">{error}</p>
           <button
             type="button"
@@ -777,7 +775,7 @@ function ChatPanelInner({
           >
             ×
           </button>
-        </div>
+        </Banner>
       )}
 
       {attachments.length > 0 && (

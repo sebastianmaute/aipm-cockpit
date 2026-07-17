@@ -16,6 +16,7 @@ import { useConfirm } from "./confirm-dialog";
 import type { ModalId } from "./modal-fields";
 import type { Offset, DragHandleProps } from "./use-draggable";
 import { useResizable } from "./use-resizable";
+import { Banner } from "./banner";
 
 interface EditModalShellProps {
   lang: Lang;
@@ -99,12 +100,9 @@ interface ModalFieldErrorProps {
  */
 export function ModalFieldError({ error }: ModalFieldErrorProps) {
   return (
-    <p
-      role="alert"
-      className="rounded-md bg-AIPM-pink/10 px-3 py-2 text-sm text-AIPM-pink-strong dark:bg-AIPM-pink/15 sm:col-span-2"
-    >
+    <Banner severity="error" role="alert" className="sm:col-span-2">
       {error}
-    </p>
+    </Banner>
   );
 }
 
