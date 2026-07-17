@@ -40,6 +40,14 @@ describe("fileTypeOf", () => {
   it("always returns a non-empty icon", () => {
     expect(fileTypeOf({ name: "a.pdf", kind: "file" }).icon).not.toBe("");
   });
+  it("link kind wins over the file heuristics", () => {
+    // a confluence page keeps its Confluence type even with a doc-looking name
+    expect(fileTypeOf({ name: "Spec.pdf", kind: "file", linkKind: "confluence" }).labelKey).toBe("Confluence");
+    // a plain web url is a Link, not File
+    expect(fileTypeOf({ name: "scratch", kind: "file", linkKind: "url" }).labelKey).toBe("Link");
+    // an explicit document falls back to the extension/mime logic
+    expect(fileTypeOf({ name: "a.pdf", kind: "file", linkKind: "document" }).labelKey).toBe("Pdf");
+  });
 });
 
 const ref = (over: Partial<DocRef["link"]>, kind: DocRef["source"]["kind"], sourceName = "S"): DocRef => ({

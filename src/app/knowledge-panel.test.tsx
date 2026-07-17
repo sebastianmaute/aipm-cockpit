@@ -171,6 +171,26 @@ describe("KnowledgePanel", () => {
     expect(screen.getByText(new RegExp(t("en-US", "documentsAdded", ".*")))).toBeInTheDocument();
   });
 
+  it("adds a Confluence-kind link and renders its Confluence type", () => {
+    renderWithTasks([seededTask([])]);
+    const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
+    fireEvent.click(addBtn);
+    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }), { target: { value: "task:7" } });
+    fireEvent.change(screen.getByRole("combobox", { name: t("en-US", "documentsManualKind") }), {
+      target: { value: "confluence" },
+    });
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualName")), { target: { value: "Runbook" } });
+    fireEvent.change(screen.getByLabelText(t("en-US", "documentsManualUrl")), {
+      target: { value: "https://acme.atlassian.net/wiki/spaces/OPS/pages/1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "documentsManualAdd") }));
+    expect(screen.getByText(/Runbook/)).toBeInTheDocument();
+    // The card renders the Confluence type icon (link kind wins over the URL heuristic).
+    expect(screen.getByText("🔷")).toBeInTheDocument();
+    // Type label + host badge both read "Confluence".
+    expect(screen.getAllByText(t("en-US", "documentsTypeConfluence")).length).toBeGreaterThanOrEqual(1);
+  });
+
   it("closes the add panel when Cancel is clicked next to Add link", () => {
     renderWithTasks([seededTask([])]);
     const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];

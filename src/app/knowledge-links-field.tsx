@@ -38,7 +38,9 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
         <ul className="flex flex-col gap-1">
           {value.map((link) => (
             <li key={link.url} className="flex items-center gap-2 rounded border border-line bg-surface px-2 py-1 text-sm">
-              <span aria-hidden className="text-muted-foreground">{link.kind === "folder" ? "📁" : "📄"}</span>
+              <span aria-hidden className="text-muted-foreground">
+                {link.linkKind === "confluence" ? "🔷" : link.linkKind === "url" ? "🔗" : link.kind === "folder" ? "📁" : "📄"}
+              </span>
               {isSafeHttpUrl(link.url) ? (
                 <a
                   href={link.url}

@@ -5,7 +5,7 @@ import { useSettings } from "./use-settings";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { collectDocuments, type DocRef, type DocSource, type DocSourceKind } from "./knowledge";
-import { isSafeHttpUrl, type KnowledgeLink } from "./document-link";
+import { isSafeHttpUrl, type KnowledgeLink, type KnowledgeLinkKind } from "./document-link";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
@@ -34,7 +34,15 @@ const DOC_TYPE_LABEL = {
   Folder: "documentsTypeFolder",
   Link: "documentsTypeLink",
   File: "documentsTypeFile",
+  Confluence: "documentsTypeConfluence",
 } as const satisfies Record<DocTypeKey, string>;
+
+const LINK_KIND_LABEL = {
+  document: "documentsManualKindDocument",
+  confluence: "documentsManualKindConfluence",
+  url: "documentsManualKindUrl",
+} as const satisfies Record<KnowledgeLinkKind, string>;
+const LINK_KIND_OPTIONS: KnowledgeLinkKind[] = ["url", "confluence", "document"];
 
 const SORT_LABEL = {
   name: "documentsSortName",
@@ -101,6 +109,7 @@ export function KnowledgePanel() {
   const [targetKey, setTargetKey] = useState("");
   const [manualName, setManualName] = useState("");
   const [manualUrl, setManualUrl] = useState("");
+  const [manualKind, setManualKind] = useState<KnowledgeLinkKind>("url");
   const manualValid = manualName.trim() !== "" && isSafeHttpUrl(manualUrl.trim());
   const targets: DocSource[] = useMemo(
     () => [
@@ -124,6 +133,8 @@ export function KnowledgePanel() {
     if (!manualValid) return;
     const url = manualUrl.trim();
     const link: KnowledgeLink = { id: url, kind: "file", name: manualName.trim(), url, addedAt: new Date().toISOString() };
+    // linkKind is sparse: only stamp confluence/url; a plain document omits it.
+    if (manualKind !== "document") link.linkKind = manualKind;
     if (linksOf(s).some((l) => l.url === link.url)) return;
     setDocsForSource(s, [...linksOf(s), link]);
     setManualName("");
@@ -184,6 +195,21 @@ export function KnowledgePanel() {
           {target && (
             <>
               <div className="mb-2 flex flex-wrap items-end gap-2">
+                <label className="flex flex-col gap-1 text-xs text-foreground">
+                  <span>{t(lang, "documentsManualKind")}</span>
+                  <select
+                    value={manualKind}
+                    aria-label={t(lang, "documentsManualKind")}
+                    onChange={(e) => setManualKind(e.target.value as KnowledgeLinkKind)}
+                    className={`rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                  >
+                    {LINK_KIND_OPTIONS.map((k) => (
+                      <option key={k} value={k}>
+                        {t(lang, LINK_KIND_LABEL[k])}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="flex flex-col gap-1 text-xs text-foreground">
                   <span>{t(lang, "documentsManualName")}</span>
                   <input
