@@ -45,6 +45,19 @@ import { resourceDisplayName } from "./resource-foundation";
 export const inputClass =
   `w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none dark:border-line dark:bg-surface dark:text-foreground ${FOCUS_RING} ${TRANSITION}`;
 
+// Active manual-health-override chip tint. RAG-semantic: border + background
+// ride the canonical --rag-* role tokens (amber = warning orange, never purple)
+// so the active RAG choice matches every RAG dot and reflows per scheme. Text
+// stays dark-blue/light-grey (AA-safe) — the amber tint is a background only,
+// never small text (--rag-amber-text fails AA on dark/mockup). Exported so the
+// mapping is guarded against a raw-brand revert without rendering the gated,
+// click-to-activate picker.
+export const HEALTH_CHIP_ACTIVE_CLASS: Record<Health, string> = {
+  R: "border-[var(--rag-red)] bg-[var(--rag-red)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-red)]/15 dark:text-AIPM-light-grey",
+  A: "border-[var(--rag-amber)] bg-[var(--rag-amber)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-amber)]/15 dark:text-AIPM-light-grey",
+  G: "border-[var(--rag-green)] bg-[var(--rag-green)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-green)]/15 dark:text-AIPM-light-grey",
+};
+
 export interface TaskFormFieldsProps {
   lang: Lang;
   today: string;
@@ -527,16 +540,7 @@ export function TaskFormFields({
               `inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium ${INTERACTIVE}`;
             const chipInactive =
               "border-line bg-surface text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted";
-            // RAG-semantic override chips: border + tint ride the canonical
-            // --rag-* role tokens (amber = warning orange, never purple) so the
-            // active RAG choice matches every RAG dot and reflows per scheme.
-            // Text stays dark-blue/light-grey (AA-safe) — the amber tint is a
-            // background only, never small text.
-            const chipActive: Record<Health, string> = {
-              R: "border-[var(--rag-red)] bg-[var(--rag-red)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-red)]/15 dark:text-AIPM-light-grey",
-              A: "border-[var(--rag-amber)] bg-[var(--rag-amber)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-amber)]/15 dark:text-AIPM-light-grey",
-              G: "border-[var(--rag-green)] bg-[var(--rag-green)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-green)]/15 dark:text-AIPM-light-grey",
-            };
+            const chipActive = HEALTH_CHIP_ACTIVE_CLASS;
             return (
               <div className="flex flex-wrap items-center gap-2">
                 <button

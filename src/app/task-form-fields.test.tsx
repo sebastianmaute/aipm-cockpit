@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
 import { ModalFieldControls } from "./modal-field-controls";
-import { TaskFormFields } from "./task-form-fields";
+import { TaskFormFields, HEALTH_CHIP_ACTIVE_CLASS } from "./task-form-fields";
 import { SETTINGS_KEY } from "./use-settings";
 import type { Resource } from "./types";
 import { t } from "./i18n";
@@ -35,6 +35,19 @@ function Harness() {
     </form>
   );
 }
+
+describe("HEALTH_CHIP_ACTIVE_CLASS (manual health-override chip tint)", () => {
+  it("uses canonical --rag-* tokens (R=red, A=amber, G=green), not raw brand classes", () => {
+    expect(HEALTH_CHIP_ACTIVE_CLASS.R).toContain("bg-[var(--rag-red)]");
+    expect(HEALTH_CHIP_ACTIVE_CLASS.A).toContain("bg-[var(--rag-amber)]");
+    expect(HEALTH_CHIP_ACTIVE_CLASS.G).toContain("bg-[var(--rag-green)]");
+    for (const cls of Object.values(HEALTH_CHIP_ACTIVE_CLASS)) {
+      expect(cls).not.toContain("bg-AIPM-purple");
+      expect(cls).not.toContain("bg-AIPM-pink");
+      expect(cls).not.toContain("bg-AIPM-green");
+    }
+  });
+});
 
 describe("TaskFormFields", () => {
   it("renders the core task fields", () => {
