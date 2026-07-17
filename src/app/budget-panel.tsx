@@ -15,7 +15,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./tas
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
-import { TableFilter, SortHeaderButton, nextSortDir, type SortDir } from "./report-table";
+import { TableFilter, SortResizeTh, nextSortDir, type SortDir } from "./report-table";
 import { ratioHealth, marginHealth, costPerformanceHealth, winLossHealth } from "./budget-health";
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
@@ -476,18 +476,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   <thead className={TABLE_HEAD_CLASS}>
                     <tr>
                       <th className="px-1 py-1 text-left font-medium" style={{ width: 28, minWidth: 28 }}>{t(lang, "budgetRoleStatus")}</th>
-                      <th
-                        className="relative px-2 py-1 text-left font-medium"
-                        style={{ width: colWidths.role, minWidth: colWidths.role }}
-                      >
-                        <SortHeaderButton
-                          label={t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
-                          active={roleSort !== "off"}
-                          dir={roleSort}
-                          onClick={() => setRoleSort((d) => nextSortDir(d))}
-                        />
-                        <ColumnResizeHandle col="role" onMouseDown={startResize} />
-                      </th>
+                      <SortResizeTh
+                        label={t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
+                        sortCol="role"
+                        width={colWidths.role}
+                        sortKey="role"
+                        sortDir={roleSort}
+                        onSort={() => setRoleSort((d) => nextSortDir(d))}
+                        onResize={startResize}
+                      />
                       {periods.map((p) => (
                         <th
                           key={p.key}

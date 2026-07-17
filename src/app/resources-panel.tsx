@@ -46,7 +46,7 @@ import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
-import { useSortableFilter, TableFilter, SortHeaderButton, type SortDir } from "./report-table";
+import { useSortableFilter, TableFilter, SortResizeTh, type SortDir } from "./report-table";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { CalendarSyncControls } from "./calendar-sync-controls";
@@ -512,62 +512,18 @@ function ResourcesPanelInner({
             <table className="w-full text-left text-sm">
               <thead className={TABLE_HEAD_CLASS}>
                 <tr>
-                  <th
-                    className="relative px-3 py-2 font-medium"
-                    style={{ width: planning.colWidths.assignee, minWidth: planning.colWidths.assignee }}
-                  >
-                    <SortHeaderButton label={t(lang, "assignee")} active={planSort.key === "assignee" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("assignee")} />
-                    <ColumnResizeHandle col="assignee" onMouseDown={planningStartResize} />
-                  </th>
+                  <SortResizeTh label={t(lang, "assignee")} sortCol="assignee" width={planning.colWidths.assignee} sortKey={planSort.key} sortDir={planSort.dir} onSort={planClick} onResize={planningStartResize} />
                   {periods.map((p) => (
-                    <th
-                      key={p.key}
-                      className="relative px-3 py-2 font-medium tabular-nums"
-                      style={{ width: planning.colWidths.period, minWidth: planning.colWidths.period }}
-                    >
+                    <th key={p.key} className="relative px-3 py-2 font-medium tabular-nums" style={{ width: planning.colWidths.period, minWidth: planning.colWidths.period }}>
                       {p.key}
                       <ColumnResizeHandle col="period" onMouseDown={planningStartResize} />
                     </th>
                   ))}
-                  <th
-                    className="relative px-3 py-2 text-right font-medium"
-                    style={{ width: planning.colWidths.capacityHours, minWidth: planning.colWidths.capacityHours }}
-                  >
-                    <SortHeaderButton label={t(lang, "planningCapacityHours")} active={planSort.key === "capacityHours" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("capacityHours")} />
-                    <ColumnResizeHandle col="capacityHours" onMouseDown={planningStartResize} />
-                  </th>
-                  <th
-                    className="relative px-3 py-2 text-right font-medium"
-                    style={{ width: planning.colWidths.capacityDays, minWidth: planning.colWidths.capacityDays }}
-                  >
-                    <SortHeaderButton label={t(lang, "resourcesCapacityDays")} active={planSort.key === "capacityDays" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("capacityDays")} />
-                    <InfoTooltip text={t(lang, "resourcesCapacityDaysHint")} />
-                    <ColumnResizeHandle col="capacityDays" onMouseDown={planningStartResize} />
-                  </th>
-                  <th
-                    className="relative px-3 py-2 text-right font-medium"
-                    style={{ width: planning.colWidths.internalCost, minWidth: planning.colWidths.internalCost }}
-                  >
-                    <SortHeaderButton label={t(lang, "resourcesInternalCost")} active={planSort.key === "internalCost" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("internalCost")} />
-                    <InfoTooltip text={t(lang, "resourcesInternalCostHint")} />
-                    <ColumnResizeHandle col="internalCost" onMouseDown={planningStartResize} />
-                  </th>
-                  <th
-                    className="relative px-3 py-2 text-right font-medium"
-                    style={{ width: planning.colWidths.externalCost, minWidth: planning.colWidths.externalCost }}
-                  >
-                    <SortHeaderButton label={t(lang, "resourcesExternalCost")} active={planSort.key === "externalCost" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("externalCost")} />
-                    <InfoTooltip text={t(lang, "resourcesExternalCostHint")} />
-                    <ColumnResizeHandle col="externalCost" onMouseDown={planningStartResize} />
-                  </th>
-                  <th
-                    className="relative px-3 py-2 text-right font-medium"
-                    style={{ width: planning.colWidths.margin, minWidth: planning.colWidths.margin }}
-                  >
-                    <SortHeaderButton label={t(lang, "resourcesMargin")} active={planSort.key === "margin" && planSort.dir !== "off"} dir={planSort.dir} onClick={() => planClick("margin")} />
-                    <InfoTooltip text={t(lang, "resourcesMarginHint")} />
-                    <ColumnResizeHandle col="margin" onMouseDown={planningStartResize} />
-                  </th>
+                  <SortResizeTh label={t(lang, "planningCapacityHours")} sortCol="capacityHours" width={planning.colWidths.capacityHours} sortKey={planSort.key} sortDir={planSort.dir} onSort={planClick} onResize={planningStartResize} align="right" />
+                  <SortResizeTh label={t(lang, "resourcesCapacityDays")} sortCol="capacityDays" width={planning.colWidths.capacityDays} sortKey={planSort.key} sortDir={planSort.dir} onSort={planClick} onResize={planningStartResize} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
+                  <SortResizeTh label={t(lang, "resourcesInternalCost")} sortCol="internalCost" width={planning.colWidths.internalCost} sortKey={planSort.key} sortDir={planSort.dir} onSort={planClick} onResize={planningStartResize} align="right" hint={t(lang, "resourcesInternalCostHint")} />
+                  <SortResizeTh label={t(lang, "resourcesExternalCost")} sortCol="externalCost" width={planning.colWidths.externalCost} sortKey={planSort.key} sortDir={planSort.dir} onSort={planClick} onResize={planningStartResize} align="right" hint={t(lang, "resourcesExternalCostHint")} />
+                  <SortResizeTh label={t(lang, "resourcesMargin")} sortCol="margin" width={planning.colWidths.margin} sortKey={planSort.key} sortDir={planSort.dir} onSort={planClick} onResize={planningStartResize} align="right" hint={t(lang, "resourcesMarginHint")} />
                 </tr>
               </thead>
               {(() => {
