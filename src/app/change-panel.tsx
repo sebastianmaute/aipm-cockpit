@@ -50,6 +50,7 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
+import { RagDot } from "./rag-dot";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useRowSelection } from "./use-row-selection";
 import { selectField, textField, type BulkField } from "./bulk-edit-panel";
@@ -122,15 +123,6 @@ export type ChangePanelProps = {
 };
 
 // --- Color palette -------------------------------------------------------
-
-// Impact RAG dot — canonical --rag-* role tokens (same mapping as RaidPanel's
-// severity dot + health.ts `healthDot`), so amber is the warning orange (never
-// purple) and the dot reflows with the active scheme.
-const impactDotClass: Record<"R" | "A" | "G", string> = {
-  R: "bg-[var(--rag-red)]",
-  A: "bg-[var(--rag-amber)]",
-  G: "bg-[var(--rag-green)]",
-};
 
 // --- Translation lookups -------------------------------------------------
 
@@ -597,10 +589,7 @@ function ChangePanelBody({
                   {!hiddenSet.has("impact") && (
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-1.5">
-                      <span
-                        aria-hidden
-                        className={`inline-block h-2 w-2 rounded-full ${impactDotClass[rag]}`}
-                      />
+                      <RagDot level={rag} />
                       <span>{item.impact ? impactLabel(item.impact, lang) : "—"}</span>
                     </span>
                   </td>

@@ -18,8 +18,8 @@ import {
   computeTaskHealth,
   HEALTH_VALUES,
   healthColorName,
-  healthDot,
 } from "./health";
+import { RagDot } from "./rag-dot";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { LabelsInput } from "./labels-input";
@@ -552,10 +552,7 @@ export function TaskFormFields({
                       form.healthOverride === h ? chipActive[h] : chipInactive
                     }`}
                   >
-                    <span
-                      aria-hidden
-                      className={`inline-block h-2 w-2 rounded-full ${healthDot[h]}`}
-                    />
+                    <RagDot level={h} />
                     {healthColorName(h, lang)}
                   </button>
                 ))}

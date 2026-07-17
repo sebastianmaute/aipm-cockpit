@@ -4,14 +4,8 @@ import { type Lang, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
 import { FOCUS_RING } from "./interaction-styles";
+import { TIER_RAG } from "./next-actions/action-cta";
 
-// Canonical --rag-* role tokens — mirror `TIER_RAG` (action-cta.ts) so the
-// chip tier dot matches the action-row/hero stripes: now = red, soon = the
-// warning amber/orange (never purple), reflowing with the active scheme.
-const TIER_DOT: Record<"now" | "soon", string> = {
-  now: "bg-[var(--rag-red)]",
-  soon: "bg-[var(--rag-amber)]",
-};
 const MAX_CHIPS = 3;
 
 /** Open-CTA actions targeting `view` (used by the data-view strip + report cards). */
@@ -46,7 +40,7 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
           title={t(lang, action.why.key, ...(action.why.params ?? []))}
           className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
         >
-          <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${TIER_DOT[action.tier as "now" | "soon"]}`} />
+          <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${TIER_RAG[action.tier as "now" | "soon"].dot}`} />
           <span className="max-w-[16rem] truncate">
             {t(lang, action.title.key, ...(action.title.params ?? []))}
           </span>

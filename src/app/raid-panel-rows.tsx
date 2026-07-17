@@ -16,6 +16,7 @@ import { effectivePersonName } from "./resource-foundation";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
+import { RagDot } from "./rag-dot";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
@@ -29,15 +30,6 @@ const categoryPillClass: Record<RaidCategory, string> = {
   D: "bg-AIPM-green/15 text-AIPM-dark-blue dark:bg-AIPM-green/20 dark:text-AIPM-light-grey",
 };
 
-// Canonical RAG role tokens (--rag-red/amber/green) — same mapping as
-// health.ts `healthDot`, so severity dots reflow with the active scheme and a
-// given RAG letter renders identically here and everywhere else (amber = the
-// warning orange, never purple).
-const severityDotClass: Record<"R" | "A" | "G", string> = {
-  R: "bg-[var(--rag-red)]",
-  A: "bg-[var(--rag-amber)]",
-  G: "bg-[var(--rag-green)]",
-};
 
 type SortState = { key: string; dir: string } | null;
 
@@ -243,10 +235,7 @@ export function RaidTable({
               {!hiddenSet.has("severity") && (
               <td className="px-3 py-2">
                 <span className="inline-flex items-center gap-1.5">
-                  <span
-                    aria-hidden
-                    className={`inline-block h-2 w-2 rounded-full ${severityDotClass[rag]}`}
-                  />
+                  <RagDot level={rag} />
                   <span>
                     {item.severity ? severityLabel(item.severity, lang) : "—"}
                     {item.category === "R" && item.probability && item.impact
