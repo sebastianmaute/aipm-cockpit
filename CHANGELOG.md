@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.2] - 2026-07-17 "Pinsker"
+
+Design-system consistency — Phase 0 (accessibility).
+
+### Fixed
+- Added visible keyboard focus rings to ~15 buttons that had none (secondary/Cancel
+  buttons across several modals + action chips + overflow menu items).
+- Normalized bespoke primary-CTA focus rings (dark-blue + offset) to the canonical
+  green `ring-2`, and widened weak `ring-1` rings to the `ring-2` standard.
+- Per-row delete buttons in the roles editor now have row-unique accessible names (WCAG 2.4.6).
+
 ## [0.190.1] - 2026-07-17 "Pinsker"
 
 ### Changed
