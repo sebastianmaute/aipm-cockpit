@@ -1,6 +1,6 @@
 # Runbook
 
-Operational notes for deploying and supporting AIPM Cockpit.
+Operational notes for deploying and supporting AI PM Cockpit.
 Architecture detail lives in [CODEMAPS/architecture.md](CODEMAPS/architecture.md);
 this file covers what to do when the app needs to ship or starts misbehaving.
 
