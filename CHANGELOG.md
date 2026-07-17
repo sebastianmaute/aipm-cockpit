@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.14] - 2026-07-17 "Pinsker"
+
+Design-system dedup.
+
+### Changed
+- The Open Points table used its own sort-header cell (the last one outside the shared
+  component); it now composes the same sortable/resizable header as every other table.
+- Data-table column headers now render in normal case instead of all-caps, applied once in
+  the shared header style so every table matches.
+
 ## [0.190.13] - 2026-07-17 "Pinsker"
 
 Design-system dedup (Phase 2c).
