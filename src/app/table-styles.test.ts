@@ -11,7 +11,11 @@ describe("TABLE_HEAD_CLASS", () => {
     expect(TABLE_HEAD_CLASS).toContain("sticky");
     expect(TABLE_HEAD_CLASS).toContain("top-0");
     expect(TABLE_HEAD_CLASS).toContain("z-10");
-    expect(TABLE_HEAD_CLASS).toContain("uppercase");
+  });
+
+  it("renders headers in normal case (no global uppercase transform)", () => {
+    expect(TABLE_HEAD_CLASS).not.toContain("uppercase");
+    expect(TABLE_HEAD_CLASS).not.toContain("tracking-wide");
   });
 
   it("drops the old muted-grey header tokens", () => {
@@ -21,7 +25,7 @@ describe("TABLE_HEAD_CLASS", () => {
 
   it("matches the exact expected class string", () => {
     expect(TABLE_HEAD_CLASS).toBe(
-      "aipm-cockpit-thead sticky top-0 z-10 text-xs uppercase tracking-wide text-[var(--table-head-fg)]",
+      "aipm-cockpit-thead sticky top-0 z-10 text-xs text-[var(--table-head-fg)]",
     );
   });
 });
