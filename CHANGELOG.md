@@ -1,12 +1,27 @@
 # Changelog
 
-All notable changes to **AIPM Cockpit** are recorded here.
+All notable changes to **AI PM Cockpit** are recorded here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
 This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
+
+## [0.190.1] - 2026-07-17 "Pinsker"
+
+### Changed
+- Renamed the internal persisted embedded-links field `documentLinks` → `knowledgeLinks`
+  at the wire level (CSV/Markdown/Turso columns) to match the Documents→Knowledge rename.
+  No user-visible change.
+
+### Migrations (backward-compatible — existing data is preserved)
+- **Turso:** existing databases self-heal via `ALTER TABLE … RENAME COLUMN documentLinks TO knowledgeLinks`
+  (guarded, idempotent, inside the write-lock transaction); the tenant `projects` table was added to
+  the column-ensure pass so ProjectMeta links migrate too.
+- **CSV/Markdown:** the decoders still accept the legacy `documentLinks` / `DocumentLinks` column headers.
+- **JSON/IndexedDB:** a load-time migration maps the legacy `documentLinks` key → `knowledgeLinks` on
+  every entity (task, milestone, change, RAID, stakeholder, project).
 
 ## [0.190.0] - 2026-07-17 "Pinsker"
 
