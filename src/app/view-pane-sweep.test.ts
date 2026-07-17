@@ -25,11 +25,13 @@ const RESIZABLE_FILES = [
   "budget-panel.tsx",
 ];
 
-// Forbidden: a divergent rounded-md inset card on the resources inner tables.
+// Forbidden: a divergent rounded-md inset card on the resources inner tables or
+// the change/stakeholders/RAID register scroller (rendered via PanelTableScaffold).
 const INNER_FILES = [
   "resources-panel.tsx",
   "resource-directory.tsx",
   "resource-workload.tsx",
+  "panel-table-scaffold.tsx",
 ];
 
 describe("view-pane sweep", () => {
