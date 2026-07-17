@@ -6,6 +6,7 @@
 import { type Lang, t } from "./i18n";
 import type { TourCatalogEntry } from "./app-tour";
 import { INTERACTIVE } from "./interaction-styles";
+import { Badge } from "./badge";
 import { NavIcon } from "./nav-icons";
 
 export interface TourCatalogProps {
@@ -41,10 +42,10 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
               <span className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-foreground">{t(lang, tour.titleKey)}</span>
                 {isDone && (
-                  <span className="shrink-0 rounded-full bg-AIPM-green/15 px-2 py-0.5 text-[10px] font-medium text-AIPM-green-strong">
+                  <Badge pill className="shrink-0 bg-AIPM-green/15 font-medium text-AIPM-green-strong">
                     <span aria-hidden="true">✓ </span>
                     {t(lang, "tourDoneBadge")}
-                  </span>
+                  </Badge>
                 )}
               </span>
               <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-muted-foreground">

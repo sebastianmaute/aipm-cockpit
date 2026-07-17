@@ -6,6 +6,7 @@ import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
 import { isReadOnlyIssue } from "./jira-projects";
 import type { JiraExtraProject } from "./settings-types";
+import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
@@ -497,12 +498,9 @@ function TaskRowImpl({
               </span>
             )}
             {(task.labels ?? []).map((l) => (
-              <span
-                key={l}
-                className="inline-flex rounded-full bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground"
-              >
+              <Badge key={l} pill size="sm" className="bg-surface-muted font-medium text-foreground">
                 {l}
-              </span>
+              </Badge>
             ))}
           </div>
         )}
@@ -583,9 +581,9 @@ function TaskRowImpl({
               aria-label={`${t(lang, "priority")} – ${task.taskName}`}
               className={`rounded-md border border-transparent p-0.5 hover:border-AIPM-dark-blue ${INTERACTIVE}`}
             >
-              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>
+              <Badge pill className={`font-medium ${priorityStyle[task.priority]}`}>
                 {priorityLabel(lang, task.priority)}
-              </span>
+              </Badge>
             </button>
           ) : (
             <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>

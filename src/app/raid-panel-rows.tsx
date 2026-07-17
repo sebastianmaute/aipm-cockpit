@@ -7,6 +7,7 @@
 // reproduced verbatim.
 import type React from "react";
 import { type Lang, t } from "./i18n";
+import { Badge } from "./badge";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { isTerminalStatus, severityRag, type RaidSortKey } from "./raid";
 import { isRaidActiveForReview } from "./raid-review";
@@ -220,12 +221,13 @@ export function RaidTable({
               )}
               {!hiddenSet.has("category") && (
               <td className="px-3 py-2">
-                <span
-                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${categoryPillClass[item.category]}`}
+                <Badge
+                  size="sm"
+                  className={`font-medium ${categoryPillClass[item.category]}`}
                   title={categoryLabel(item.category, lang)}
                 >
                   {item.category}
-                </span>
+                </Badge>
               </td>
               )}
               {!hiddenSet.has("title") && (
