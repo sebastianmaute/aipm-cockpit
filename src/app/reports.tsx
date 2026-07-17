@@ -7,6 +7,7 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
+import { RagDot } from "./rag-dot";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { ReportCard, Section, Tile } from "./report-table";
 import {
@@ -191,15 +192,6 @@ export function ReportsPanel({
 
   const completedTotal = stats.completedOnTime + stats.completedLate;
 
-  // Canonical --rag-* role tokens (same mapping as health.ts `healthDot`), so
-  // the group RAG dot matches the StackedBar segments below + every other RAG
-  // dot: amber is the warning orange (never purple), and it reflows per scheme.
-  const groupDotClass: Record<Health, string> = {
-    R: "bg-[var(--rag-red)]",
-    A: "bg-[var(--rag-amber)]",
-    G: "bg-[var(--rag-green)]",
-  };
-
   // Stable mapping from internal driver token to i18n key so the steering
   // line ("3 overdue, 1 blocked") translates correctly. "manual" / "onTrack"
   // / "completed" aren't shown on the cards — the color itself communicates
@@ -308,10 +300,7 @@ export function ReportsPanel({
               key={row.name}
               className="flex items-start gap-3 rounded-lg border border-line bg-surface p-3"
             >
-              <span
-                aria-hidden
-                className={`mt-1 inline-block h-3 w-3 shrink-0 rounded-full ${groupDotClass[row.health.color]}`}
-              />
+              <RagDot level={row.health.color} size="lg" className="mt-1" />
               <div className="min-w-0 flex-1">
                 <div
                   className={`truncate text-sm font-medium ${

@@ -5,7 +5,7 @@ import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { healthDot } from "./health";
+import { RagDot } from "./rag-dot";
 import {
   ReportCard,
   Section,
@@ -142,7 +142,7 @@ export function ChangeReportPanel({ lang, items, embedded = false }: Props) {
         <Tile
           label={t(lang, "changeReportPending")}
           value={String(pending)}
-          rag={pending > 0 ? <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${healthDot.A}`} aria-hidden /> : undefined}
+          rag={pending > 0 ? <RagDot level="A" size="md" /> : undefined}
         />
         <Tile label={t(lang, "changeReportApproved")} value={String(byStatus.Approved)} />
         <Tile label={t(lang, "changeReportImplemented")} value={String(byStatus.Implemented)} />
@@ -322,7 +322,7 @@ function ImpactTable({ lang, items, colResize }: { lang: Lang; items: readonly C
           <tr key={row.key}>
             <td className="px-3 py-2 font-medium text-foreground">
               <span className="inline-flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${healthDot[changeImpactRag(row.key)]}`} aria-hidden />
+                <RagDot level={changeImpactRag(row.key)} size="md" />
                 {row.name}
               </span>
             </td>
@@ -414,7 +414,7 @@ function TopPendingTable({ lang, items, colResize }: { lang: Lang; items: readon
                 <td className="px-3 py-2 text-muted-foreground">
                   {row.impact ? (
                     <span className="inline-flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${healthDot[changeImpactRag(row.impact)]}`} aria-hidden />
+                      <RagDot level={changeImpactRag(row.impact)} size="md" />
                       {t(lang, IMPACT_KEY[row.impact])}
                     </span>
                   ) : (

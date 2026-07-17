@@ -2,7 +2,7 @@
 // slot family as the other dashboard-sections cards; self-hides when no digest.
 import { t, type Lang } from "../i18n";
 import { INTERACTIVE } from "../interaction-styles";
-import { healthDot } from "../health";
+import { RagDot } from "../rag-dot";
 import type { DensityClasses } from "../dashboard-density";
 import type { DigestModel } from "../digest/digest-model";
 
@@ -23,11 +23,7 @@ export function DigestCard({ lang, digest, dc, m365Configured, busy, onGenerate,
     <div className={`rounded-xl border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-AIPM-dark-blue">{t(lang, "digestTitle")}</h3>
-        <span
-          className={`inline-block h-3 w-3 rounded-full ${healthDot[digest.rag]}`}
-          role="img"
-          aria-label={t(lang, ragLabelKey)}
-        />
+        <RagDot level={digest.rag} size="lg" label={t(lang, ragLabelKey)} />
       </div>
       {digest.narrative ? <p className="mt-2 text-sm text-muted-foreground">{digest.narrative}</p> : null}
       <p className="mt-2 text-sm text-muted-foreground">

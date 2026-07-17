@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
+import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
+import { RagDot } from "./rag-dot";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
 import { isReadOnlyIssue } from "./jira-projects";
@@ -427,7 +428,7 @@ function TaskRowImpl({
           {isComplete && !task.healthOverride ? (
             <span role="img" title={label} aria-label={label} className="text-AIPM-green-strong">✓</span>
           ) : (
-            <span role="img" title={label} aria-label={label} className={`inline-block h-2.5 w-2.5 rounded-full ${healthDot[health.color]}`} />
+            <RagDot level={health.color} size="md" label={label} />
           )}
         </Td>
       )}

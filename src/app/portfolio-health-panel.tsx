@@ -11,8 +11,9 @@ import { type Lang, t } from "./i18n";
 import { getTursoConfig } from "./turso-config";
 import { type Settings } from "./settings-types";
 import type { ProjectRegistryEntry } from "./projects-registry";
-import { healthDot, healthColorName } from "./health";
+import { healthColorName } from "./health";
 import type { Health } from "./health";
+import { RagDot } from "./rag-dot";
 import type { SubStatus } from "./dashboard";
 import { usePortfolioHealth, PORTFOLIO_LOAD_FAILED } from "./use-portfolio-health";
 import type { MilestoneHealthBucket } from "./portfolio-rollup";
@@ -42,7 +43,7 @@ function RagCell({ lang, value }: { lang: Lang; value: SubStatus }) {
   if (!value) return <span className="text-muted-foreground">—</span>;
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span aria-hidden className={`inline-block h-2.5 w-2.5 rounded-full ${healthDot[value]}`} />
+      <RagDot level={value} size="md" />
       <span>{healthColorName(value, lang)}</span>
     </span>
   );

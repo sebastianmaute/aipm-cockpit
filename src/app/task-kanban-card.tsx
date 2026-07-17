@@ -5,7 +5,8 @@
 // <select> and badges are shared with the row via TaskStatusSelect / RaidBadge.
 import { type Lang, priorityLabel, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
-import { computeTaskHealth, formatHealthTooltip, healthDot, type TaskHealth } from "./health";
+import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
+import { RagDot } from "./rag-dot";
 import { isTaskFinished } from "./task-status";
 import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
@@ -70,12 +71,7 @@ export function TaskKanbanCard({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-start gap-1.5">
-        <span
-          role="img"
-          title={healthTip}
-          aria-label={healthTip}
-          className={`mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-full ${healthDot[health.color]}`}
-        />
+        <RagDot level={health.color} size="md" className="mt-1" label={healthTip} />
         <button
           type="button"
           onClick={() => onEdit(task)}
