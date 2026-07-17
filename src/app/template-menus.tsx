@@ -246,14 +246,12 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
               </p>
             )}
             <label htmlFor={checkboxId} className="flex items-center gap-2 text-sm text-foreground">
-              <input
+              <Checkbox
                 id={checkboxId}
-                type="checkbox"
                 aria-label={t(lang, "templateIncludeSeed")}
                 aria-describedby={count > 0 ? seedDescId : undefined}
                 checked={includeSeed}
                 onChange={(e) => setIncludeSeed(e.target.checked)}
-                className="h-4 w-4 rounded border-line text-AIPM-green-strong focus:ring-AIPM-green"
               />
               <span>{t(lang, "templateIncludeSeed")}</span>
             </label>
