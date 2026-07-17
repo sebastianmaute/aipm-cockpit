@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.7] - 2026-07-17 "Pinsker"
+
+Design-system consistency — Phase 1e (Banner primitive).
+
+### Changed
+- Added a canonical `<Banner severity>` component (info/warn/success/error) using
+  sanctioned colour tokens.
+
+### Fixed
+- The shared notice banner no longer renders every message in the error colour:
+  birthday reminders now read as info and token-expiry notices as warnings, instead
+  of all looking like errors.
+
 ## [0.190.6] - 2026-07-17 "Pinsker"
 
 Design-system consistency — Phase 1d (Badge + palette hygiene).

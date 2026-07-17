@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.6";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.6: design-system Badge primitive + palette hygiene (P1d) — canonical <Badge>; generic pills migrated; off-palette amber (bg-amber-500) and red (text-AIPM-red) leaks replaced with sanctioned --rag-amber / AIPM-pink-strong tokens so they switch under alternate schemes (Pinsker)
+export const APP_VERSION = "0.190.7";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.7: design-system Banner primitive (P1e) — canonical <Banner severity> (info/warn/success/error); the shared notice banner no longer paints every message error-red (birthday reminders now read as info, token warnings as warn); migrated the clean error banners (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
