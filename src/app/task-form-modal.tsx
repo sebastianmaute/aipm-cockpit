@@ -7,7 +7,7 @@ import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import type { listContacts } from "./contacts";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
+import { Button } from "./button";
 import { JiraReadOnlyBanner } from "./jira-readonly-banner";
 import { Modal } from "./modal";
 import { useTaskForm } from "./task-form-context";
@@ -152,20 +152,12 @@ export function TaskFormModal({
             <div>{deleteAction}</div>
             <div className="flex items-center gap-2">
               {leadingActions}
-              <button
-                type="button"
-                onClick={onCancel}
-                className={`rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
-              >
+              <Button variant="secondary" onClick={onCancel}>
                 {t(lang, "cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={saveDisabled}
-                className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`}
-              >
+              </Button>
+              <Button type="submit" variant="primary" disabled={saveDisabled}>
                 {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
-              </button>
+              </Button>
             </div>
           </div>
         </form>

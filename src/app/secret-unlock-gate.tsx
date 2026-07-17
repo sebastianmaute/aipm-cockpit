@@ -12,7 +12,7 @@ import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { FOCUS_RING } from "./interaction-styles";
+import { Button } from "./button";
 
 export interface SecretUnlockGateProps {
   lang: Lang;
@@ -79,14 +79,13 @@ export function SecretUnlockGate({ lang, messageKey, onUnlock }: SecretUnlockGat
             </p>
           )}
           <div className="flex justify-end">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={() => void submit()}
               disabled={!passphrase || busy}
-              className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               {t(lang, "secretUnlock")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
