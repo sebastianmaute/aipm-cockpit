@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.9] - 2026-07-17 "Pinsker"
+
+Design-system consistency — Phase 2b (loading + menu primitives).
+
+### Changed
+- Added a canonical `<Spinner>` loading indicator, replacing three hand-rolled copies of the
+  same rotating ring (AI analysis, file import, time-log fetch).
+- The suggestion input's focus outline now matches every other field (the standard green ring).
+- The toolbar filter and column-picker dropdowns now float above the page so they are no longer
+  clipped by a scrolling table, and their tick-boxes use the shared brand checkbox (one that
+  previously rendered a browser-default tick).
+
 ## [0.190.8] - 2026-07-17 "Pinsker"
 
 Design-system consistency — Phase 2a (form-field primitives).

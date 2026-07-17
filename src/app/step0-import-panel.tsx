@@ -31,6 +31,7 @@ import type { KnowledgeLink } from "./document-link";
 import { Modal } from "./modal";
 import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
+import { Spinner } from "./spinner";
 
 /** Cap on files accepted in a single multi-upload (extras → "too-many" skip). */
 const MAX_IMPORT_FILES = 10;
@@ -452,10 +453,7 @@ export function Step0ImportPanel({
             aria-live="polite"
             className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
           >
-            <span
-              aria-hidden="true"
-              className="h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue border-t-transparent"
-            />
+            <Spinner />
             <span className="text-sm font-medium">
               {t(lang, reading ? "wizardImportReadingFiles" : "wizardImportAnalyzing")}
             </span>

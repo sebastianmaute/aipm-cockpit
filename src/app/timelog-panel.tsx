@@ -21,6 +21,7 @@ import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { defaultTimelogConfig, type TimelogLinks } from "./timelog-types";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Spinner } from "./spinner";
 import { useConfirm } from "./confirm-dialog";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { Tile } from "./report-table";
@@ -941,10 +942,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
             aria-live="polite"
             className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
           >
-            <span
-              aria-hidden="true"
-              className="h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue border-t-transparent"
-            />
+            <Spinner />
             <span className="text-sm font-medium">{t(lang, "loadingTimelog")}</span>
             <button
               type="button"

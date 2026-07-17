@@ -115,17 +115,24 @@ export function Textarea({
 }
 
 // ONE checkbox accent for the whole app (see header note on why `accent-*`).
-const CHECKBOX_CLASS = `h-4 w-4 rounded border-line accent-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
+// Size is a SEPARATE axis (kept out of the base so a `size` variant can't
+// collide with a hard-coded `h-4 w-4`): `md` (default) matches the original
+// primitive; `sm` is the compact size the toolbar filter/column popovers use.
+const CHECKBOX_BASE = `rounded border-line accent-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
+const CHECKBOX_SIZE: Record<"sm" | "md", string> = { sm: "h-3.5 w-3.5", md: "h-4 w-4" };
 
-export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
+// Omit the native numeric `size` attribute — we repurpose `size` as the variant.
+export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> {
+  size?: "sm" | "md";
+}
 
 /** Canonical checkbox. Always `type="checkbox"`; caller owns the label /
  *  aria-label (an unlabeled checkbox is an axe-critical fail). */
-export function Checkbox({ className, ...props }: CheckboxProps) {
+export function Checkbox({ className, size = "md", ...props }: CheckboxProps) {
   return (
     <input
       type="checkbox"
-      className={`${CHECKBOX_CLASS}${className ? ` ${className}` : ""}`}
+      className={`${CHECKBOX_SIZE[size]} ${CHECKBOX_BASE}${className ? ` ${className}` : ""}`}
       {...props}
     />
   );

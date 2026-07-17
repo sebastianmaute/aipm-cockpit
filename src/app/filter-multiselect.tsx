@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { usePopoverDismiss } from "./use-popover-dismiss";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { PopoverPanel } from "./popover-panel";
+import { Checkbox } from "./form-controls";
+import { INTERACTIVE, TRANSITION } from "./interaction-styles";
 
 export interface FilterOption<T extends string = string> {
   value: T;
@@ -44,8 +45,11 @@ export function FilterMultiSelect<T extends string>({
   onToggle,
 }: FilterMultiSelectProps<T>) {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(open, wrapRef, () => setOpen(false));
+  // PopoverPanel portals the checkbox list to <body> so it escapes the toolbar's
+  // `overflow-auto` clip; it owns outside-click / Escape / scroll dismiss (needs
+  // a STABLE onClose) and anchors off the trigger button's rect.
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
 
   // Fold any stale selection (selected but absent from options) into the list so
   // every selected value has a togglable checkbox — keeps the count honest.
@@ -62,8 +66,9 @@ export function FilterMultiSelect<T extends string>({
     count > 0 ? `${label} – ${t(lang, "filterSelectedCount", count)}` : label;
 
   return (
-    <div ref={wrapRef} className="relative inline-block">
+    <div className="relative inline-block">
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
@@ -90,29 +95,29 @@ export function FilterMultiSelect<T extends string>({
           />
         </svg>
       </button>
-      {open && (
-        <div
-          role="dialog"
-          aria-label={label}
-          className="absolute left-0 top-full z-40 mt-1 max-h-72 w-56 overflow-auto rounded-lg border border-line bg-surface p-3"
-        >
-          <ul className="space-y-1">
-            {allOptions.map((opt) => (
-              <li key={opt.value}>
-                <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-surface-muted">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(opt.value)}
-                    onChange={() => onToggle(opt.value)}
-                    className={`h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue ${FOCUS_RING}`}
-                  />
-                  <span className="truncate">{opt.label}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <PopoverPanel
+        open={open}
+        anchorRef={buttonRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={label}
+        className="max-h-72 w-56 overflow-auto p-3"
+      >
+        <ul className="space-y-1">
+          {allOptions.map((opt) => (
+            <li key={opt.value}>
+              <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-surface-muted">
+                <Checkbox
+                  size="sm"
+                  checked={selected.includes(opt.value)}
+                  onChange={() => onToggle(opt.value)}
+                />
+                <span className="truncate">{opt.label}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </PopoverPanel>
     </div>
   );
 }
