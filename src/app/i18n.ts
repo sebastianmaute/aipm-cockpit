@@ -3378,6 +3378,8 @@ const enUS = {
   versionHighlightToastPause: "Steadier notifications: toasts linger longer and pause while you hover or focus them, with clearer success and error styling.",
   versionHighlightAiErrorDetail: "AI assistant errors are clearer: messages can be dismissed and show the real API detail, and the assistant can now read HTML and subtitle (VTT) files alongside your other attachments.",
   versionHighlightPullContacts: "Pull contacts from Outlook: import your Microsoft 365 contacts into the resource directory with one click, now with clear success and error feedback.",
+  versionHighlightKnowledgeLinks: "The Documents view is now \"Knowledge\", and a link can be a SharePoint document, a Confluence page, or any web URL — each shown with a kind-appropriate icon. Existing document links are unaffected.",
+  versionHighlightTaskDedup: "Deduplicate & unify tasks: from Open Points, let the AI assistant propose which tasks look like duplicates and how to merge them; you review each group and confirm before anything is combined, and the merge can be undone in one step.",
   versionHighlightAppRename: "The application is now called AI PM Cockpit.",
 } as const;
 
