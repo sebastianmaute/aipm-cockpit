@@ -3,7 +3,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { TABLE_HEAD_CLASS } from "./table-styles";
-import { ColumnResizeHandle } from "./task-manager-ui";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import {
@@ -11,7 +10,7 @@ import {
   Section,
   Tile,
   TableFilter,
-  SortHeaderButton,
+  SortResizeTh,
   useSortableFilter,
   type SortDir,
 } from "./report-table";
@@ -243,20 +242,19 @@ function BucketDetailTable({
             <tr>
               <th className="px-2 py-2 text-left font-medium" style={{ width: 32, minWidth: 32 }}>{t(lang, "budgetRoleStatus")}</th>
               {cols.map((c) => (
-                <th
+                <SortResizeTh
                   key={c.col}
-                  className={`relative px-3 py-2 font-medium ${c.align === "right" ? "text-right" : ""}`}
-                  style={{ width: w[c.col], minWidth: w[c.col] }}
-                >
-                  <SortHeaderButton
-                    label={c.label}
-                    active={sort.key === c.key && sort.dir !== "off"}
-                    dir={sort.dir}
-                    onClick={() => click(c.key)}
-                  />
-                  {c.hint && <span className="print:hidden ml-1 inline-flex align-middle"><InfoTooltip text={c.hint} /></span>}
-                  <ColumnResizeHandle col={c.col} onMouseDown={sr} />
-                </th>
+                  label={c.label}
+                  sortCol={c.key}
+                  resizeCol={c.col}
+                  width={w[c.col]}
+                  sortKey={sort.key}
+                  sortDir={sort.dir}
+                  onSort={click}
+                  onResize={sr}
+                  align={c.align === "right" ? "right" : "left"}
+                  hint={c.hint}
+                />
               ))}
             </tr>
           </thead>

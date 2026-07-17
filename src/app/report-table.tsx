@@ -105,7 +105,10 @@ export function TableFilter({
   );
 }
 
-export function SortHeaderButton({
+// Internal to SortResizeTh — the sort button + ↑↓ indicator (+ optional hint
+// tooltip). Not exported: every panel now composes SortResizeTh, and SortableTh
+// (task-manager-ui, the tasks table) deliberately keeps its own styled button.
+function SortHeaderButton({
   label,
   active,
   dir,

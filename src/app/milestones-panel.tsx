@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  SortHeaderButton,
+  SortResizeTh,
   useSortableFilter,
   type SortDir,
 } from "./report-table";
@@ -406,36 +406,30 @@ function MilestonesPanelBody({
                 />
               </th>
               {!hiddenSet.has("name") && (
-                <th
-                  className="relative py-1"
-                  style={{ width: colWidths.name, minWidth: colWidths.name }}
-                >
-                  <SortHeaderButton
-                    label={t(lang, "milestonesColName")}
-                    active={sort.key === "name"}
-                    dir={sort.dir}
-                    onClick={() => click("name")}
-                  />
-                  <ColumnResizeHandle col="name" onMouseDown={startResize} />
-                </th>
+                <SortResizeTh
+                  label={t(lang, "milestonesColName")}
+                  sortCol="name"
+                  width={colWidths.name}
+                  sortKey={sort.key}
+                  sortDir={sort.dir}
+                  onSort={click}
+                  onResize={startResize}
+                />
               )}
               {!hiddenSet.has("date") && (
-                <th
-                  className="relative"
-                  style={{ width: colWidths.date, minWidth: colWidths.date }}
-                >
-                  <SortHeaderButton
-                    label={t(lang, "milestonesColDate")}
-                    active={sort.key === "date"}
-                    dir={sort.dir}
-                    onClick={() => click("date")}
-                  />
-                  <ColumnResizeHandle col="date" onMouseDown={startResize} />
-                </th>
+                <SortResizeTh
+                  label={t(lang, "milestonesColDate")}
+                  sortCol="date"
+                  width={colWidths.date}
+                  sortKey={sort.key}
+                  sortDir={sort.dir}
+                  onSort={click}
+                  onResize={startResize}
+                />
               )}
               {!hiddenSet.has("status") && (
                 <th
-                  className="relative"
+                  className="relative px-3 py-2 font-medium"
                   style={{ width: colWidths.status, minWidth: colWidths.status }}
                 >
                   {t(lang, "milestonesColStatus")}
@@ -444,7 +438,7 @@ function MilestonesPanelBody({
               )}
               {!hiddenSet.has("achieved") && (
                 <th
-                  className="relative"
+                  className="relative px-3 py-2 font-medium"
                   style={{ width: colWidths.achieved, minWidth: colWidths.achieved }}
                 >
                   <ColumnResizeHandle col="achieved" onMouseDown={startResize} />
@@ -471,7 +465,7 @@ function MilestonesPanelBody({
                     />
                   </td>
                   {!hiddenSet.has("name") && (
-                    <td className="py-1" style={{ width: colWidths.name }}>
+                    <td className="px-3 py-2" style={{ width: colWidths.name }}>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
@@ -490,15 +484,15 @@ function MilestonesPanelBody({
                       </div>
                     </td>
                   )}
-                  {!hiddenSet.has("date") && <td>{m.date}</td>}
+                  {!hiddenSet.has("date") && <td className="px-3 py-2">{m.date}</td>}
                   {!hiddenSet.has("status") && (
-                    <td>
+                    <td className="px-3 py-2">
                       {s === "achieved" ? "✓ " : s === "at-risk" ? "⚠ " : ""}
                       {t(lang, STATUS_KEY[s])}
                     </td>
                   )}
                   {!hiddenSet.has("achieved") && (
-                    <td>
+                    <td className="px-3 py-2">
                       <label className="flex items-center gap-1 text-xs">
                         <input
                           type="checkbox"
