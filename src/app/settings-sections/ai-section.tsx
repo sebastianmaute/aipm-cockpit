@@ -16,6 +16,7 @@ import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { Checkbox } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
@@ -194,8 +195,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
         <div className="flex flex-wrap gap-3">
           {APP_MODES.map((mode) => (
             <label key={mode} className="flex items-center gap-1 text-xs text-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 aria-label={mode}
                 checked={draft.scopeModes.includes(mode)}
                 onChange={() => toggleMode(mode)}
@@ -210,8 +210,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
         <div className="flex flex-wrap gap-3">
           {FEATURE_MODULES.map((m) => (
             <label key={m.id} className="flex items-center gap-1 text-xs text-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 aria-label={t(lang, m.labelKey)}
                 checked={draft.scopeModules.includes(m.id)}
                 onChange={() => toggleModule(m.id)}
@@ -226,8 +225,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
         <div className="flex flex-wrap gap-3">
           {SCOPE_VIEWS.map((view) => (
             <label key={view} className="flex items-center gap-1 text-xs text-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 aria-label={t(lang, navLabelKey(view))}
                 checked={draft.scopeViews.includes(view)}
                 onChange={() => toggleView(view)}
@@ -403,8 +401,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         <InfoTooltip text={t(lang, "aiAssistantTooltip")} />
       </span>
       <label className="mt-2 flex items-center gap-2">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={settings.ai.enabled === true}
           onChange={(e) => {
             if (e.target.checked) notifyEnable();
@@ -434,8 +431,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
       </label>
       <div className="mt-2">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={t(lang, "secretLockPassphrase")}
             checked={keyWrap === "passphrase"}
             onChange={(e) => handleLockToggle(e.target.checked)}
@@ -596,8 +592,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
 
         {/* Master toggle */}
         <label className="mt-3 flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={t(lang, "aiGroundInGuides")}
             checked={settings.ai.groundInGuides}
             onChange={() =>
@@ -612,8 +607,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
 
         {/* Action Center AI suggestions toggle (default ON; undefined = on) */}
         <label className="mt-3 flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={t(lang, "settingsAiActionSuggestions")}
             checked={settings.ai.actionSuggestions !== false}
             onChange={() =>
@@ -664,8 +658,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
                         </span>
                       )}
                       <label className="flex items-center gap-1 text-xs text-foreground">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           aria-label={`${t(lang, "aiGuideEnabled")} – ${g.name}`}
                           checked={g.enabled}
                           onChange={() => { void og.update({ ...g, enabled: !g.enabled }); }}
