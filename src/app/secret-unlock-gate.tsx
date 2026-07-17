@@ -12,6 +12,7 @@ import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
+import { FOCUS_RING } from "./interaction-styles";
 
 export interface SecretUnlockGateProps {
   lang: Lang;
@@ -82,7 +83,7 @@ export function SecretUnlockGate({ lang, messageKey, onUnlock }: SecretUnlockGat
               type="button"
               onClick={() => void submit()}
               disabled={!passphrase || busy}
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               {t(lang, "secretUnlock")}
             </button>

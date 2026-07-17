@@ -26,6 +26,7 @@ import {
   type ProjectErrorField,
 } from "./project-validation";
 import { sanitizeProjectMeta } from "./sanitize";
+import { FOCUS_RING } from "./interaction-styles";
 import { type ProjectMeta, type Resource } from "./types";
 
 export interface ProjectFormProps {
@@ -203,7 +204,7 @@ export function ProjectForm({
         <button
           type="submit"
           disabled={saveDisabled}
-          className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`}
         >
           {submitLabel ?? t(lang, initial ? "projectsEdit" : "projectsNew")}
         </button>

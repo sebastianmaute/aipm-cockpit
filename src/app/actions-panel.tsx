@@ -2,6 +2,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
+import { FOCUS_RING } from "./interaction-styles";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -92,7 +93,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               aria-busy={aiAnalysis.busy}
               aria-label={t(lang, "actionAiAnalyze")}
               title={t(lang, "actionAiAnalyze")}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:opacity-50 print:hidden"
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:opacity-50 print:hidden`}
             >
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
                 <path d="M10 1.5l1.6 4.3 4.3 1.6-4.3 1.6L10 13.3 8.4 9 4.1 7.4l4.3-1.6L10 1.5zM15.5 12l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />

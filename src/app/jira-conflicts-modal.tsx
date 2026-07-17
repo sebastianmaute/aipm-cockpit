@@ -10,6 +10,7 @@ import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { FOCUS_RING } from "./interaction-styles";
 
 const JIRA_CONFLICTS_COL_WIDTHS = {
   field: 128,
@@ -167,14 +168,14 @@ export function JiraConflictsModal({
           <button
             type="button"
             onClick={() => applyAll("local")}
-            className="rounded-md border border-AIPM-medium-grey/30 bg-surface px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-surface-muted"
+            className={`rounded-md border border-AIPM-medium-grey/30 bg-surface px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-surface-muted ${FOCUS_RING}`}
           >
             {t(lang, "jiraConflictAllLocal")}
           </button>
           <button
             type="button"
             onClick={() => applyAll("remote")}
-            className="rounded-md border border-AIPM-medium-grey/30 bg-surface px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-surface-muted"
+            className={`rounded-md border border-AIPM-medium-grey/30 bg-surface px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-surface-muted ${FOCUS_RING}`}
           >
             {t(lang, "jiraConflictAllRemote")}
           </button>
@@ -276,14 +277,14 @@ export function JiraConflictsModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
           >
             {t(lang, "jiraConflictDefer")}
           </button>
           <button
             type="button"
             onClick={handleResolve}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
+            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${FOCUS_RING}`}
           >
             {t(lang, "jiraConflictApply")}
           </button>

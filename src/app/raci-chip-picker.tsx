@@ -28,7 +28,7 @@ const ROLE_LABEL_KEY: Record<RaciRole, Parameters<typeof t>[1]> = {
 };
 
 const CHIP_BASE =
-  "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors focus:outline-none focus:ring-1 focus:ring-AIPM-green";
+  "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-AIPM-green";
 
 export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPickerProps) {
   const [open, setOpen] = useState(false);

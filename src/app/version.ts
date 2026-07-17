@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.1";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.1: internal storage rename of the embedded links field documentLinks -> knowledgeLinks (wire-level: CSV/MD/Turso columns + Turso RENAME COLUMN self-heal + CSV/MD/JSON back-compat aliases; no user-visible change) (Pinsker)
+export const APP_VERSION = "0.190.2";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.2: design-system a11y pass (P0) — added keyboard focus rings to buttons that lacked them, normalized bespoke primary-CTA focus rings to the canonical green ring-2, widened weak ring-1 rings, and gave per-row delete buttons row-unique accessible names (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

@@ -164,7 +164,7 @@ export function GanttToolbar({
         onClick={toggleCriticalPath}
         aria-pressed={prefs.showCriticalPath}
         title={t(lang, "ganttCriticalPathHint")}
-        className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 ${
+        className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 ${
           prefs.showCriticalPath
             ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-dark-blue hover:bg-AIPM-pink/20 focus:ring-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey"
             : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
@@ -193,7 +193,7 @@ export function GanttToolbar({
           onClick={toggleBaseline}
           aria-pressed={prefs.showBaseline}
           title={t(lang, "ganttBaselineHint")}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 ${
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 ${
             prefs.showBaseline
               ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
               : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
@@ -223,7 +223,7 @@ export function GanttToolbar({
           // tracks THAT state, so "Inline milestones, pressed" ⇒ inline is on.
           aria-pressed={prefs.milestonePlacement === "inline"}
           title={t(lang, "ganttMilestonesInlineHint")}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 ${
+          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 ${
             prefs.milestonePlacement === "inline"
               ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
               : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"

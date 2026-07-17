@@ -240,4 +240,25 @@ describe("RolesEditor rate-card table", () => {
     expect(screen.getByRole("radio", { name: "Engineering / Senior — Hours" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Design / Junior — Hours" })).toBeInTheDocument();
   });
+
+  it("gives each row's delete button a row-unique accessible name (WCAG 2.4.6)", () => {
+    render(
+      <RolesEditor
+        lang="en-US" currency="EUR" workdayHours={8}
+        roles={[
+          { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 200 },
+          { id: 2, disciplineId: 2, gradeId: 2, internalRate: 50, externalRate: 90 },
+        ]}
+        disciplines={[{ id: 1, name: "Engineering" }, { id: 2, name: "Design" }]}
+        grades={[{ id: 1, name: "Senior" }, { id: 2, name: "Junior" }]}
+        onSaveRole={noop} onDeleteRole={noop} onResolveOrCreateRole={() => 0} onReorderRoles={noop}
+        onAddDiscipline={() => 0} onRenameDiscipline={noop} onDeleteDiscipline={noop} onReorderDisciplines={noop}
+        onAddGrade={() => 0} onRenameGrade={noop} onDeleteGrade={noop} onReorderGrades={noop}
+      />,
+    );
+    // A bare "Delete" repeated per row is a WCAG 2.4.6 fail; each is now qualified
+    // by its discipline / grade row context.
+    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering / Senior` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Design / Junior` })).toBeInTheDocument();
+  });
 });

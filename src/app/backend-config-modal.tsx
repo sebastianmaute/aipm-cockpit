@@ -17,6 +17,7 @@ import { ModalHeader } from "./modal-header";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { type Settings } from "./settings-types";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
+import { FOCUS_RING } from "./interaction-styles";
 
 export interface BackendConfigModalProps {
   lang: Lang;
@@ -35,7 +36,7 @@ export interface BackendConfigModalProps {
 }
 
 const SECONDARY_BUTTON_CLASS =
-  "rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted";
+  `rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`;
 
 export function BackendConfigModal({
   lang,
