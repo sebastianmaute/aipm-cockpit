@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ReportCard, Section, Tile } from "./report-table";
+import { Card } from "./card";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { RaidRegisterCard, UpcomingCard } from "./dashboard-sections/registers-band";
 import { DashboardKpiStrip } from "./dashboard-sections/dashboard-kpi-strip";
@@ -336,9 +337,9 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     {trendsBody}
                   </button>
                 ) : (
-                  <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
+                  <Card boxed className={dc.cardPad}>
                     {trendsBody}
-                  </div>
+                  </Card>
                 );
               })()}
             </div>

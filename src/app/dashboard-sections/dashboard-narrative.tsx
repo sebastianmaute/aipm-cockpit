@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { type Lang, t } from "../i18n";
 import { TRANSITION, FOCUS_RING, INTERACTIVE } from "../interaction-styles";
 import { useAutogrow } from "../use-autogrow";
+import { Card } from "../card";
 import type { ProjectStatus } from "../types";
 
 /** Read-only exec-summary of the saved status narrative (Tier 0). Renders null
@@ -14,14 +15,14 @@ export function NarrativeSummary({ lang, status }: { lang: Lang; status: Project
   const text = (status.narrative ?? "").trim();
   if (!text) return null;
   return (
-    <div className="rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-card)]">
+    <Card boxed className="p-3">
       <p className="whitespace-pre-wrap text-sm text-foreground">{text}</p>
       {status.narrativeUpdatedAt ? (
         <p className="mt-1 text-xs text-muted-foreground">
           {t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))}
         </p>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
