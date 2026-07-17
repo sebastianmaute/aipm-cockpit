@@ -8,6 +8,7 @@ import { resourceDisplayName } from "./resource-foundation";
 import { formatExpiryDate } from "./date-format";
 import type { JiraTokenAlert } from "./jira-token-status";
 import type { StorageErrorKind } from "./storage-error";
+import { Banner, type BannerSeverity } from "./banner";
 
 function DismissButton({ lang, onClick }: { lang: Lang; onClick: () => void }) {
   return (
@@ -19,15 +20,15 @@ function DismissButton({ lang, onClick }: { lang: Lang; onClick: () => void }) {
 }
 
 function AlertBanner({
-  ariaLabel, icon, children, actions,
-}: { ariaLabel: string; icon: string; children: ReactNode; actions: ReactNode }) {
+  severity, ariaLabel, icon, children, actions,
+}: { severity: BannerSeverity; ariaLabel: string; icon: string; children: ReactNode; actions: ReactNode }) {
   return (
-    <div role="region" aria-label={ariaLabel}
-      className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-AIPM-pink/40 bg-AIPM-pink/10 px-4 py-3 dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15">
+    <Banner severity={severity} role="region" aria-label={ariaLabel}
+      className="mb-6 flex flex-wrap items-center gap-3">
       <span aria-hidden className="text-lg">{icon}</span>
       <div className="min-w-0 flex-1">{children}</div>
       <div className="flex gap-2">{actions}</div>
-    </div>
+    </Banner>
   );
 }
 
@@ -63,7 +64,7 @@ export function BirthdayBanner({
     .map((b) => `${resourceDisplayName(b.resource)} (${b.daysUntil === 0 ? t(lang, "birthdayToday") : t(lang, "birthdayInDays", b.daysUntil)})`)
     .join(", ");
   return (
-    <AlertBanner ariaLabel={t(lang, "birthdayBannerAria")} icon="🎂"
+    <AlertBanner severity="info" ariaLabel={t(lang, "birthdayBannerAria")} icon="🎂"
       actions={<><SnoozeMenu lang={lang} onSnooze={onSnooze} /><DismissButton lang={lang} onClick={onDismiss} /></>}>
       <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "birthdayBannerTitle", items.length)}</p>
       <p className="text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">{summary}</p>
@@ -79,7 +80,7 @@ export function JiraTokenBanner({
     : alert.state === "expired" ? t(lang, "jiraTokenExpiredBanner", formatExpiryDate(alert.date, lang))
     : t(lang, "jiraTokenExpiringBanner", alert.daysLeft, formatExpiryDate(alert.date, lang));
   return (
-    <AlertBanner ariaLabel={t(lang, "jiraTokenBannerAria")} icon="⚠"
+    <AlertBanner severity="warn" ariaLabel={t(lang, "jiraTokenBannerAria")} icon="⚠"
       actions={<><SnoozeMenu lang={lang} onSnooze={onSnooze} /><DismissButton lang={lang} onClick={onDismiss} /></>}>
       <p className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{msg}</p>
     </AlertBanner>
@@ -96,7 +97,7 @@ export function StorageBanner({
         ? t(lang, "storageSaveFailedBanner")
         : t(lang, "storageUnreachableBanner");
   return (
-    <AlertBanner ariaLabel={t(lang, "storageBannerAria")} icon="⚠"
+    <AlertBanner severity="error" ariaLabel={t(lang, "storageBannerAria")} icon="⚠"
       actions={<>
         <button type="button" onClick={onOpenSettings}
           className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90">
