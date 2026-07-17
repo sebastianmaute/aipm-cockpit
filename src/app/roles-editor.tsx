@@ -296,7 +296,7 @@ export function RolesEditor({
                     />
                   </td>
                   <td className="px-3 py-2 text-right print:hidden">
-                    <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={t(lang, "delete")}
+                    <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={`${t(lang, "delete")} – ${rowCtx}`}
                       className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink">×</button>
                   </td>
                 </tr>
@@ -399,7 +399,7 @@ function RefList({
               className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
             <button
               type="button"
-              aria-label={t(lang, "delete")}
+              aria-label={`${t(lang, "delete")} – ${it.name}`}
               onClick={async () => {
                 if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}
