@@ -115,7 +115,7 @@ function HoursTd({
   readOnly?: boolean;
 }) {
   return (
-    <td className="px-1 py-1">
+    <td className="px-3 py-2">
       <HoursCell
         ariaPrefix={ariaPrefix}
         budget={budget}
@@ -488,7 +488,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       {periods.map((p) => (
                         <th
                           key={p.key}
-                          className="relative px-1 py-1"
+                          className="relative px-3 py-2 font-medium"
                           style={{ width: colWidths.period, minWidth: colWidths.period }}
                         >
                           {p.key}
@@ -507,7 +507,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       return (
                       <tr key={a.roleId} className="border-t border-line">
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
-                        <td className="px-2 py-1">{roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}</td>
+                        <td className="px-3 py-2">{roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`}</td>
                         {periods.map((p) => (
                           <HoursTd
                             key={p.key}
@@ -535,7 +535,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       return (
                       <tr key={a.disciplineId} className="border-t border-line">
                         <td className="px-1 py-1"><RagBadge value={ratioHealth(totActual, totBudget)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
-                        <td className="px-2 py-1">{props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}</td>
+                        <td className="px-3 py-2">{props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`}</td>
                         {periods.map((p) => (
                           <HoursTd
                             key={p.key}
