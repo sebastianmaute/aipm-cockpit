@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.10";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.10: a11y + palette defect sweep — toggle labels now announce the correct pressed state (WCAG 4.1.2 pin-the-enabled-label on show-archived + voice-command), 4 modal validation errors + a wizard notice regain role="alert", and 4 edit modals drop an off-palette bg-black/40 backdrop for the canonical AIPM tint (Pinsker)
+export const APP_VERSION = "0.190.11";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.11: design-system palette cleanup (P2c) — five floating surfaces (toast, SharePoint picker, column-config / project-row / RACI popovers) now use the sanctioned --shadow-* tokens instead of raw Tailwind shadow-lg/md/sm, so their elevation themes per colour scheme (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

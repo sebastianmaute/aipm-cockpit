@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.11] - 2026-07-17 "Pinsker"
+
+Design-system palette cleanup (Phase 2c).
+
+### Changed
+- Five floating surfaces (the toast, the SharePoint picker, and the column-config /
+  project-row / RACI popovers) now use the standard elevation tokens instead of ad-hoc
+  drop shadows, so their shadow follows the active colour scheme.
+
 ## [0.190.10] - 2026-07-17 "Pinsker"
 
 Accessibility and palette defect sweep (from the design-system audit).
