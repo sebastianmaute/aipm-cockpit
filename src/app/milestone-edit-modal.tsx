@@ -133,7 +133,8 @@ export function MilestoneEditModal({
           ? t(lang, "milestoneNew")
           : t(lang, "milestoneEdit", draft.id)
       }
-      align="center"      zIndex={50}
+      align="center"
+      zIndex={50}
     >
       <div
         ref={sizeRef}

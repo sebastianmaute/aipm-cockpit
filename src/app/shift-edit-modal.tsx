@@ -162,7 +162,8 @@ export function ShiftEditModal({
       ariaLabel={
         isNew ? t(lang, "shiftNewItem") : t(lang, "shiftEditItem", draft.id)
       }
-      align="center"      zIndex={50}
+      align="center"
+      zIndex={50}
     >
       <div
         ref={sizeRef}

@@ -122,7 +122,8 @@ export function AbsenceEditModal({
           ? t(lang, "absenceNewItem")
           : t(lang, "absenceEditItem", draft.id)
       }
-      align="center"      zIndex={50}
+      align="center"
+      zIndex={50}
     >
       <div
         ref={sizeRef}

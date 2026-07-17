@@ -3312,7 +3312,6 @@ const enUS = {
   portfolioModeSwitchConfirm: "Save & switch portfolio",
   projectsArchived: "Archived projects",
   projectsShowArchived: "Show archived",
-  projectsHideArchived: "Hide archived",
   projectsArchive: "Archive",
   projectsArchiveHint: "Archives the project (it stops appearing in the switcher). Once archived, a project can be permanently deleted from the archived list.",
   projectsRestore: "Restore",

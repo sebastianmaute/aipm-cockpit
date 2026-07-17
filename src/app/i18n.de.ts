@@ -3293,7 +3293,6 @@ export const de: Record<TranslationKey, string> = {
   portfolioModeSwitchConfirm: "Speichern & Portfolio wechseln",
   projectsArchived: "Archivierte Projekte",
   projectsShowArchived: "Archiv anzeigen",
-  projectsHideArchived: "Archiv ausblenden",
   projectsArchive: "Archivieren",
   projectsArchiveHint: "Archiviert das Projekt (es erscheint nicht mehr im Umschalter). Nach dem Archivieren kann ein Projekt aus der Archivliste endgültig gelöscht werden.",
   projectsRestore: "Wiederherstellen",

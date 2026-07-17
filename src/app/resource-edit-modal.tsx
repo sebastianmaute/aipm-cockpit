@@ -135,7 +135,8 @@ export function ResourceEditModal({
       open
       onClose={onClose}
       ariaLabel={isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle")}
-      align="center"      zIndex={50}
+      align="center"
+      zIndex={50}
     >
       <div
         ref={sizeRef}
