@@ -16,7 +16,7 @@ import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
-import { Checkbox } from "../form-controls";
+import { Checkbox, Input, Select } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
@@ -418,14 +418,13 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           {t(lang, "aiApiKey")}
           <InfoTooltip text={t(lang, "aiApiKeyTooltip")} />
         </span>
-        <input
+        <Input
           type="password"
           autoComplete="off"
           value={settings.ai.apiKey}
           onChange={(e) => handleApiKeyChange(e.target.value)}
           onBlur={handleApiKeyBlur}
           placeholder={t(lang, "aiApiKeyPlaceholder")}
-          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
         <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
       </label>
@@ -440,23 +439,21 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         </label>
         {keyWrap === "passphrase" && (
           <div className="mt-2 flex flex-col gap-2">
-            <input
+            <Input
               type="password"
               autoComplete="off"
               aria-label={t(lang, "secretPassphrasePlaceholder")}
               placeholder={t(lang, "secretPassphrasePlaceholder")}
               value={keyPassphrase}
               onChange={(e) => setKeyPassphrase(e.target.value)}
-              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
-            <input
+            <Input
               type="password"
               autoComplete="off"
               aria-label={t(lang, "secretPassphraseConfirm")}
               placeholder={t(lang, "secretPassphraseConfirm")}
               value={keyConfirm}
               onChange={(e) => setKeyConfirm(e.target.value)}
-              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
             {keyPassphraseMismatch && (
               <p className="text-xs text-AIPM-pink-strong">{t(lang, "secretPassphraseMismatch")}</p>
@@ -488,7 +485,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           {t(lang, "aiModel")}
           <InfoTooltip text={t(lang, "aiModelTooltip")} />
         </span>
-        <select
+        <Select
           value={settings.ai.model}
           onChange={(e) =>
             onChange({
@@ -499,14 +496,13 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               },
             })
           }
-          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
           {modelOptions.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
             </option>
           ))}
-        </select>
+        </Select>
         {!modelsLoaded && (
           <span className="mt-1 block text-xs text-muted-foreground">
             {t(lang, "aiModelNeedsKey")}
