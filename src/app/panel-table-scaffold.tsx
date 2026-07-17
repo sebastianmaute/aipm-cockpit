@@ -4,7 +4,7 @@ import type { ReactNode, Ref } from "react";
 import type { Lang } from "./i18n";
 import type { AppView } from "./nav-config";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { INTERACTIVE } from "./interaction-styles";
+import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, type BulkField } from "./bulk-edit-panel";
@@ -93,15 +93,13 @@ export function PanelTableScaffold({
 
       <div ref={containerRef} className={count === 0 ? undefined : "min-h-[240px] flex-1 overflow-auto rounded-md border border-line pr-2"}>
         {count === 0 ? (
-          <button
-            type="button"
-            onClick={empty.onAdd}
-            aria-label={empty.ariaLabel}
-            className={`flex w-full flex-col items-center gap-2 rounded-md border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            <span>{empty.text}</span>
-            <span className="font-medium">{empty.addLabel}</span>
-          </button>
+          <AddFirstItemButton
+            onAdd={empty.onAdd}
+            ariaLabel={empty.ariaLabel}
+            text={empty.text}
+            addLabel={empty.addLabel}
+            rounded="md"
+          />
         ) : (
           children
         )}

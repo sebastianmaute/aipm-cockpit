@@ -12,6 +12,7 @@ import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { AddFirstItemButton } from "./add-first-item-button";
 import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
 import { ViewCallout } from "./view-callout";
@@ -256,14 +257,12 @@ export function KnowledgePanel() {
       )}
 
       {docs.length === 0 ? (
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className={`flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
-        >
-          <span>{t(lang, "documentsTabEmpty")}</span>
-          <span className="font-medium">+ {t(lang, "documentsTabAdd")}…</span>
-        </button>
+        <AddFirstItemButton
+          onAdd={() => setAddOpen(true)}
+          text={t(lang, "documentsTabEmpty")}
+          addLabel={`+ ${t(lang, "documentsTabAdd")}…`}
+          rounded="xl"
+        />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-auto pr-2">
           <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">

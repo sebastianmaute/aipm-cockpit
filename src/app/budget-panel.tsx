@@ -20,6 +20,7 @@ import { ratioHealth, marginHealth, costPerformanceHealth, winLossHealth } from 
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
 import { useConfirm } from "./confirm-dialog";
 
@@ -589,13 +590,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           <p className="text-sm text-muted-foreground">{t(lang, "reportsNoMatches")}</p>
         )}
         {report.buckets.length === 0 && (
-          <button
-            type="button"
-            onClick={addBucket}
-            className={`w-full rounded-lg border border-dashed border-line p-6 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
-          >
-            + {t(lang, "budgetAddBucket")}…
-          </button>
+          <AddFirstItemButton onAdd={addBucket} addLabel={`+ ${t(lang, "budgetAddBucket")}…`} padding={6} />
         )}
       </section>
       {editingBucketId != null && bucketById.get(editingBucketId) && (

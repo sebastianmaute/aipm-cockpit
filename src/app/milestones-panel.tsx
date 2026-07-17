@@ -39,6 +39,7 @@ import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { AddFirstItemButton } from "./add-first-item-button";
 import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, dateField, type BulkField } from "./bulk-edit-panel";
@@ -383,14 +384,11 @@ function MilestonesPanelBody({
       {milestones.length === 0 ? (
         // Truly empty → clickable dashed box (mirrors the budget "+ add bucket"
         // empty state): descriptive text + "+ New milestone…", the box adds one.
-        <button
-          type="button"
-          onClick={openNew}
-          className={`flex w-full flex-col items-center gap-2 rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
-        >
-          <span>{t(lang, "milestonesEmpty")}</span>
-          <span className="font-medium">+ {t(lang, "milestoneNew")}…</span>
-        </button>
+        <AddFirstItemButton
+          onAdd={openNew}
+          text={t(lang, "milestonesEmpty")}
+          addLabel={`+ ${t(lang, "milestoneNew")}…`}
+        />
       ) : sorted.length === 0 ? (
         // Filtered to no matches → message inside the bordered scroller (not the add box).
         <p className="p-10 text-center text-sm text-muted-foreground">{t(lang, "milestonesNoMatches")}</p>
