@@ -1,11 +1,11 @@
 /**
  * Shared header styling for every primary data table (the `table.png`
- * treatment): a sticky Dark-Blue header row with white, uppercase, tracked
- * labels. Single source of truth — change the table header look here.
+ * treatment): a sticky Dark-Blue header row with white, normal-case labels.
+ * Single source of truth — change the table header look here.
  *
  * Palette note: Dark Blue (#004159) header + White (#FFFFFF) text are both
  * permitted AIPM brand colors; button/sort hovers inside the header use the
- * Green accent (see SortableTh / per-table header buttons).
+ * Green accent (see the SortResizeTh / per-table header buttons).
  *
  * The `aipm-cockpit-thead` marker drives the rounded-header treatment in globals.css:
  * the Dark-Blue fill lives on the `<th>` cells (not the `<thead>`) and the
@@ -15,4 +15,4 @@
  * rounded `<th>` can only clip a fill it actually paints.
  */
 export const TABLE_HEAD_CLASS =
-  "aipm-cockpit-thead sticky top-0 z-10 text-xs uppercase tracking-wide text-[var(--table-head-fg)]";
+  "aipm-cockpit-thead sticky top-0 z-10 text-xs text-[var(--table-head-fg)]";

@@ -1,6 +1,5 @@
 "use client";
 import type React from "react";
-import { type SortDir, type SortKey } from "./filters-context";
 import { type Lang, t } from "./i18n";
 import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 
@@ -214,45 +213,6 @@ export function Th({
   return (
     <th className="relative px-4 py-2 font-medium">
       {children}
-      {onResize && (
-        <ColumnResizeHandle col="" onMouseDown={(_col, e) => onResize(e)} />
-      )}
-    </th>
-  );
-}
-
-export function SortableTh({
-  label,
-  sortKey,
-  currentKey,
-  dir,
-  onClick,
-  onResize,
-  lang,
-}: {
-  label: string;
-  sortKey: SortKey;
-  currentKey: SortKey;
-  dir: SortDir;
-  onClick: (k: SortKey) => void;
-  onResize?: (e: React.MouseEvent) => void;
-  lang: Lang;
-}) {
-  const isActive = currentKey === sortKey;
-  const indicator = isActive ? (dir === "asc" ? "↑" : "↓") : "";
-  return (
-    <th className="relative px-4 py-2 font-medium">
-      <button
-        type="button"
-        onClick={() => onClick(sortKey)}
-        title={t(lang, "sortBy", label)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-[var(--table-head-accent)] ${INTERACTIVE} ${isActive ? "text-[var(--table-head-accent)]" : ""}`}
-      >
-        {label}
-        <span aria-hidden className="text-[0.65rem]">
-          {indicator}
-        </span>
-      </button>
       {onResize && (
         <ColumnResizeHandle col="" onMouseDown={(_col, e) => onResize(e)} />
       )}

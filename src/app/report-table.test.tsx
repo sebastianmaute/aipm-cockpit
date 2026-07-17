@@ -1,12 +1,43 @@
 import { describe, expect, it, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useRef } from "react";
-import { KpiGradientBar, ReportCard, Section, Tile } from "./report-table";
+import { KpiGradientBar, ReportCard, Section, SortResizeTh, Tile } from "./report-table";
 
 function Harness() {
   const ref = useRef<HTMLDivElement | null>(null);
   return <ReportCard lang="en-US" sizeRef={ref} onResetSize={() => {}}><p>body</p></ReportCard>;
 }
+
+describe("SortResizeTh", () => {
+  it("renders a native 'Sort by' title tooltip and fires onSort with the column key", () => {
+    const onSort = vi.fn();
+    render(
+      <table><thead><tr>
+        <SortResizeTh label="Due" sortCol="dueDate" sortKey="dueDate" sortDir="asc" onSort={onSort} onResize={() => {}} title="Sort by Due" />
+      </tr></thead></table>,
+    );
+    const btn = screen.getByRole("button", { name: /due/i });
+    expect(btn).toHaveAttribute("title", "Sort by Due");
+    // Active column shows the accent color + ascending arrow.
+    expect(btn.className).toContain("text-[var(--table-head-accent)]");
+    expect(btn.textContent).toContain("↑");
+    fireEvent.click(btn);
+    expect(onSort).toHaveBeenCalledWith("dueDate");
+  });
+
+  it("omits the inline width when width is undefined (colgroup-sized tables)", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh label="Task" sortCol="taskName" sortKey="id" sortDir="asc" onSort={() => {}} onResize={() => {}} />
+      </tr></thead></table>,
+    );
+    const th = screen.getByRole("columnheader");
+    expect(th.style.width).toBe("");
+    // Not the active column (sortKey "id" ≠ sortCol "taskName") → no arrow.
+    expect(th.textContent).not.toContain("↑");
+    expect(th.textContent).not.toContain("↓");
+  });
+});
 
 describe("ReportCard", () => {
   test("renders content inside a resizable print-root card", () => {

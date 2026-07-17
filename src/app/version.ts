@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.13";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.13: design-system dedup (P2c) — the duplicated data-table sort-header markup (reports, resources planning, budget report + role column, milestones) now routes through the shared SortResizeTh, deleting reports-tables' local clones; header padding on those tables is normalized to the canonical rhythm (Pinsker)
+export const APP_VERSION = "0.190.14";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.14: design-system dedup — the Open Points table's bespoke SortableTh header was retired into the shared SortResizeTh (now the single sort-header cell for every table); data-table column headers also drop the global uppercase treatment and render in normal case (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

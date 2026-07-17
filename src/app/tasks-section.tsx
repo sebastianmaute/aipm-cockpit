@@ -42,9 +42,9 @@ import {
   PrintButton,
   ResetColWidthsButton,
   ResetSizeIcon,
-  SortableTh,
   Th,
 } from "./task-manager-ui";
+import { SortResizeTh } from "./report-table";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
  *  reference-stable (a fresh `[]` each render would bust it). */
@@ -889,19 +889,19 @@ export function TasksSection({
                   />
                 </Th>
                 {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
-                {!hiddenCols.has("id") && <SortableTh label={t(lang, "id")} sortKey="id" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("id", e)} lang={lang} />}
-                <SortableTh label={t(lang, "task")} sortKey="taskName" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("taskName", e)} lang={lang} />
-                {!hiddenCols.has("assignee") && <SortableTh label={t(lang, "assignee")} sortKey="assignee" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("assignee", e)} lang={lang} />}
-                {!hiddenCols.has("startDate") && <SortableTh label={t(lang, "start")} sortKey="startDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("startDate", e)} lang={lang} />}
-                {!hiddenCols.has("dueDate") && <SortableTh label={t(lang, "due")} sortKey="dueDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("dueDate", e)} lang={lang} />}
-                {!hiddenCols.has("lastUpdateDate") && <SortableTh label={t(lang, "lastUpdate")} sortKey="lastUpdateDate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("lastUpdateDate", e)} lang={lang} />}
-                {!hiddenCols.has("priority") && <SortableTh label={t(lang, "priority")} sortKey="priority" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("priority", e)} lang={lang} />}
-                {!hiddenCols.has("taskStatus") && <SortableTh label={t(lang, "colTaskStatus")} sortKey="taskStatus" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("taskStatus", e)} lang={lang} />}
+                {!hiddenCols.has("id") && <SortResizeTh label={t(lang, "id")} sortCol="id" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "id"))} />}
+                <SortResizeTh label={t(lang, "task")} sortCol="taskName" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "task"))} />
+                {!hiddenCols.has("assignee") && <SortResizeTh label={t(lang, "assignee")} sortCol="assignee" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "assignee"))} />}
+                {!hiddenCols.has("startDate") && <SortResizeTh label={t(lang, "start")} sortCol="startDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "start"))} />}
+                {!hiddenCols.has("dueDate") && <SortResizeTh label={t(lang, "due")} sortCol="dueDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "due"))} />}
+                {!hiddenCols.has("lastUpdateDate") && <SortResizeTh label={t(lang, "lastUpdate")} sortCol="lastUpdateDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "lastUpdate"))} />}
+                {!hiddenCols.has("priority") && <SortResizeTh label={t(lang, "priority")} sortCol="priority" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "priority"))} />}
+                {!hiddenCols.has("taskStatus") && <SortResizeTh label={t(lang, "colTaskStatus")} sortCol="taskStatus" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colTaskStatus"))} />}
                 {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
                 {!hiddenCols.has("notes") && <Th onResize={(e) => startColResize("notes", e)}>{t(lang, "notes")}</Th>}
                 {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
-                {!hiddenCols.has("estimate") && <SortableTh label={t(lang, "colEstimate")} sortKey="estimate" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("estimate", e)} lang={lang} />}
-                {!hiddenCols.has("spent") && <SortableTh label={t(lang, "colSpent")} sortKey="spent" currentKey={sortKey} dir={sortDir} onClick={toggleSort} onResize={(e) => startColResize("spent", e)} lang={lang} />}
+                {!hiddenCols.has("estimate") && <SortResizeTh label={t(lang, "colEstimate")} sortCol="estimate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colEstimate"))} />}
+                {!hiddenCols.has("spent") && <SortResizeTh label={t(lang, "colSpent")} sortCol="spent" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colSpent"))} />}
                 <Th>
                   <span className="sr-only">Actions</span>
                 </Th>

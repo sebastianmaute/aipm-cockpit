@@ -114,6 +114,7 @@ function SortHeaderButton({
   dir,
   onClick,
   hint,
+  title,
 }: {
   label: string;
   active: boolean;
@@ -121,12 +122,15 @@ function SortHeaderButton({
   onClick: () => void;
   /** Optional one-line explanation shown as an InfoTooltip beside the label. */
   hint?: string;
+  /** Optional native tooltip on the button itself (e.g. "Sort by Due"). */
+  title?: string;
 }) {
   const indicator = active ? (dir === "asc" ? " ↑" : " ↓") : "";
   const button = (
     <button
       type="button"
       onClick={onClick}
+      title={title}
       className={`inline-flex items-center gap-1 ${active ? "text-[var(--table-head-accent)]" : ""} hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}
     >
       {label}
@@ -153,10 +157,14 @@ function SortHeaderButton({
  * `sortCol`) drives the resize handle + is the width key — they diverge on the
  * name/label column where the sort key differs from the stored width key.
  *
- * Header-cell abstractions, by domain: this `SortResizeTh` = generic REPORT
- * tables (own sort-state union per panel); `SortableTh` (task-manager-ui) = the
- * TASKS table (bound to its `SortKey`, takes `lang`); `Th` (task-manager-ui) =
- * a bare resizable cell with no sort button.
+ * The single sortable/resizable data-table header cell. Used by every report
+ * panel AND the Open Points table (`tasks-section`). `Th` (task-manager-ui) is
+ * the bare, non-sortable resizable sibling.
+ *
+ * `width` is optional: report tables pass an inline width; colgroup-sized tables
+ * (Open Points) omit it. `title` renders a native "Sort by …" tooltip on the
+ * button; `hint` renders an InfoTooltip beside the label — panels use one or the
+ * other.
  */
 export function SortResizeTh<K extends string>({
   label,
@@ -169,12 +177,14 @@ export function SortResizeTh<K extends string>({
   onResize,
   align = "left",
   hint,
+  title,
 }: {
   label: string;
   sortCol: K;
   /** Resize/width key; defaults to `sortCol`. */
   resizeCol?: string;
-  width: number;
+  /** Inline column width; omit for colgroup-sized tables. */
+  width?: number;
   /** The table's active sort key — also fixes `K` so `sortCol` must be valid. */
   sortKey: K;
   sortDir: SortDir;
@@ -182,6 +192,7 @@ export function SortResizeTh<K extends string>({
   onResize: (col: string, e: React.MouseEvent) => void;
   align?: "left" | "right";
   hint?: string;
+  title?: string;
 }) {
   return (
     <th
@@ -190,7 +201,7 @@ export function SortResizeTh<K extends string>({
           ? "relative px-3 py-2 text-right font-medium"
           : "relative px-3 py-2 font-medium"
       }
-      style={{ width, minWidth: width }}
+      style={width === undefined ? undefined : { width, minWidth: width }}
     >
       <SortHeaderButton
         label={label}
@@ -198,6 +209,7 @@ export function SortResizeTh<K extends string>({
         dir={sortDir}
         onClick={() => onSort(sortCol)}
         hint={hint}
+        title={title}
       />
       <ColumnResizeHandle col={resizeCol ?? sortCol} onMouseDown={onResize} />
     </th>
