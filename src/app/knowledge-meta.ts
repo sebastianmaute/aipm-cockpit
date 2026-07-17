@@ -1,8 +1,9 @@
-// src/app/document-meta.ts
+// src/app/knowledge-meta.ts
 // Pure, i18n-free display-metadata helpers for KnowledgeLink lists: host label
 // (from URL), file type (icon + i18n key), and list filter/sort/counts for the
 // Documents card grid. Deterministic — no Date/Math.random.
 
+import { linkKindOf } from "./document-link";
 import type { DocRef, DocSourceKind } from "./knowledge";
 
 /** Host label from a URL: known SaaS hosts mapped to a stable name, else the
@@ -60,8 +61,9 @@ export function fileTypeOf(link: {
   mimeType?: string;
   linkKind?: "document" | "confluence" | "url";
 }): FileType {
-  if (link.linkKind === "confluence") return { icon: TYPE_ICON.Confluence, labelKey: "Confluence" };
-  if (link.linkKind === "url") return { icon: TYPE_ICON.Link, labelKey: "Link" };
+  const kind = linkKindOf(link);
+  if (kind === "confluence") return { icon: TYPE_ICON.Confluence, labelKey: "Confluence" };
+  if (kind === "url") return { icon: TYPE_ICON.Link, labelKey: "Link" };
   if (link.kind === "folder") return { icon: TYPE_ICON.Folder, labelKey: "Folder" };
   const dot = link.name.lastIndexOf(".");
   const ext = dot >= 0 ? link.name.slice(dot + 1).toLowerCase() : "";

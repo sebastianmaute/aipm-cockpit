@@ -1,4 +1,4 @@
-// src/app/documents.ts — pure aggregator of every document link in a workspace.
+// src/app/knowledge.ts — pure aggregator of every document link in a workspace.
 import type { KnowledgeLink } from "./document-link";
 import type { AppView } from "./nav-config";
 import type { Task, RaidItem, ChangeItem, Milestone, Stakeholder, ProjectMeta } from "./types";

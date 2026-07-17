@@ -252,7 +252,7 @@ describe("SteeringCommitteePanel", () => {
     expect(btn).toBeDisabled();
   });
 
-  it("marks only the in-flight row busy; other rows stay enabled", () => {
+  it("disables every push affordance during an in-flight push; only the in-flight row shows busy", () => {
     const onPushRow = vi.fn();
     render(
       <SteeringCommitteePanel
@@ -261,20 +261,22 @@ describe("SteeringCommitteePanel", () => {
         onChange={() => {}}
         resources={RESOURCES}
         today={TODAY}
-        // Meeting id 1 ("Kickoff") is pushing; the panel-level + other rows stay enabled.
+        // Meeting id 1 ("Kickoff") is pushing. To avoid the concurrent-click
+        // silent no-op (the hook's inFlightRef guard bails without feedback),
+        // ALL push buttons are disabled — only the in-flight one shows busy.
         outlookPush={{ onPush: () => {}, pushingTarget: "m:1", onPushRow }}
       />,
     );
-    expect(
-      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Kickoff` }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Review` }),
-    ).toBeEnabled();
-    // The panel-level "Push all" button is busy only for pushingTarget "all".
-    expect(
-      screen.getByRole("button", { name: t("en-US", "committeePushOutlook") }),
-    ).toBeEnabled();
+    const kickoff = screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Kickoff` });
+    const review = screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Review` });
+    const pushAll = screen.getByRole("button", { name: t("en-US", "committeePushOutlook") });
+    // Every affordance is disabled (not silently clickable) while any push runs.
+    expect(kickoff).toBeDisabled();
+    expect(review).toBeDisabled();
+    expect(pushAll).toBeDisabled();
+    // Busy label is TARGET-SCOPED: only the in-flight Kickoff row shows it.
+    expect(kickoff).toHaveTextContent(t("en-US", "committeePushBusy"));
+    expect(review).toHaveTextContent(t("en-US", "committeePushRow"));
   });
 
   it("wraps the status-report surface in resize/reset/print/cancel chrome; cancel closes it", async () => {

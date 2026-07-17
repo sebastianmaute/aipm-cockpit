@@ -62,18 +62,33 @@ function DeleteCell({ lang, onClick, label }: { lang: Lang; onClick: () => void;
 }
 
 /** Per-row "Push" cell — scopes an Outlook push to this one meeting/schedule.
- *  Row-unique accessible name (WCAG 2.4.6): "Push to Outlook – <label>". */
-function PushRowCell({ lang, onClick, label, busy }: { lang: Lang; onClick: () => void; label: string; busy: boolean }) {
+ *  Row-unique accessible name (WCAG 2.4.6): "Push to Outlook – <label>".
+ *  `busy` (this row is in-flight) drives the label; `disabled` (ANY push in
+ *  flight) blocks the click so a concurrent-target press can't hit the hook's
+ *  silent inFlightRef no-op. */
+function PushRowCell({
+  lang,
+  onClick,
+  label,
+  busy,
+  disabled,
+}: {
+  lang: Lang;
+  onClick: () => void;
+  label: string;
+  busy: boolean;
+  disabled: boolean;
+}) {
   return (
     <td className="text-right print:hidden">
       <button
         type="button"
         onClick={onClick}
-        disabled={busy}
+        disabled={disabled}
         aria-label={`${t(lang, "committeePushOutlook")} – ${label}`}
         className={BTN_SECONDARY}
       >
-        {t(lang, "committeePushRow")}
+        {t(lang, busy ? "committeePushBusy" : "committeePushRow")}
       </button>
     </td>
   );
@@ -371,6 +386,7 @@ export function SteeringCommitteePanel({
                         onClick={() => outlookPush.onPushRow!({ kind: "meeting", id: m.id })}
                         label={m.title || m.date}
                         busy={outlookPush.pushingTarget === committeePushKey({ kind: "meeting", id: m.id })}
+                        disabled={outlookPush.pushingTarget !== null}
                       />
                     )}
                     <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={m.title || m.date} />
@@ -459,6 +475,7 @@ export function SteeringCommitteePanel({
                         onClick={() => outlookPush.onPushRow!({ kind: "schedule", id: s.id })}
                         label={s.label || String(s.id)}
                         busy={outlookPush.pushingTarget === committeePushKey({ kind: "schedule", id: s.id })}
+                        disabled={outlookPush.pushingTarget !== null}
                       />
                     )}
                     <DeleteCell lang={lang} onClick={() => deleteSchedule(s.id)} label={s.label || String(s.id)} />
@@ -529,7 +546,7 @@ export function SteeringCommitteePanel({
             <button
               type="button"
               onClick={outlookPush.onPush}
-              disabled={outlookPush.pushingTarget === committeePushKey()}
+              disabled={outlookPush.pushingTarget !== null}
               className={BTN_SECONDARY}
             >
               {t(lang, outlookPush.pushingTarget === committeePushKey() ? "committeePushBusy" : "committeePushOutlook")}
