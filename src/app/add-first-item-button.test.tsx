@@ -7,6 +7,8 @@ describe("AddFirstItemButton", () => {
     const onAdd = vi.fn();
     render(<AddFirstItemButton onAdd={onAdd} text="No milestones yet" addLabel="+ New milestone…" />);
     expect(screen.getByText("No milestones yet")).toBeInTheDocument();
+    // Two-line variant uses the centred flex-col layout.
+    expect(screen.getByRole("button", { name: /new milestone/i }).className).toContain("flex-col");
     fireEvent.click(screen.getByRole("button", { name: /new milestone/i }));
     expect(onAdd).toHaveBeenCalledOnce();
   });
