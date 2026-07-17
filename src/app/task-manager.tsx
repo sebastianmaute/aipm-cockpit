@@ -1916,6 +1916,7 @@ function TaskManagerInner() {
       dispatcher={dispatcher}
       logActivity={logActivity}
       captureFieldEdit={undoApi.captureFieldEdit}
+      captureMerge={undoApi.capture}
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}

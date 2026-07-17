@@ -11,6 +11,7 @@ import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
 import { useTaskForm } from "./task-form-context";
 import { useTasksInlineAiEdit } from "./use-tasks-inline-ai-edit";
+import { useTasksDedup } from "./use-tasks-dedup";
 import type { ToolDispatcher } from "./chat-tools";
 import type { ActivityKind } from "./activity-log";
 import { BulkEditModal } from "./bulk-edit-modal";
@@ -156,6 +157,8 @@ export interface TasksSectionProps {
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   /** Capture a field-level undo entry for an inline cell edit. */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Capture a single (removed + edited) undo entry for an AI dedup merge. */
+  captureMerge?: UndoStackApi["capture"];
 }
 
 export function TasksSection({
@@ -215,6 +218,7 @@ export function TasksSection({
   dispatcher,
   logActivity,
   captureFieldEdit,
+  captureMerge,
 }: TasksSectionProps) {
   const {
     search, setSearch,
@@ -253,6 +257,11 @@ export function TasksSection({
     lang,
     logActivity,
     workspaceCtx,
+  });
+  // "Deduplicate & unify" (plan-then-apply AI merge) — owns its trigger + modal.
+  const dedup = useTasksDedup({
+    settings, isPopout: isPopout ?? false, lang, tasks, setTasks,
+    capture: captureMerge, logActivity,
   });
 
   const hideFinished = settings.hideFinishedTasks ?? false;
@@ -498,6 +507,7 @@ export function TasksSection({
             {jiraSyncing ? t(lang, "jiraSyncing") : t(lang, "jiraSync")}
           </button>
         )}
+        {dedup.button}
         <label className="flex items-center gap-1 text-xs text-muted-foreground">
           <input
             type="checkbox"
@@ -960,6 +970,7 @@ export function TasksSection({
       })()}
 
       {inlineAiEditPopover}
+      {dedup.modal}
     </section>
   );
 }
