@@ -184,7 +184,10 @@ export function ProjectsPanel({
               onClick={() => setShowArchived((v) => !v)}
               aria-pressed={showArchived}
             >
-              {t(lang, showArchived ? "projectsHideArchived" : "projectsShowArchived")}
+              {/* Label PINNED to what pressed=true enables (archived shown), so
+                  aria-pressed announces the correct state — WCAG 4.1.2 (AGENTS.md
+                  pin-the-enabled-label rule). Do NOT flip the label with state. */}
+              {t(lang, "projectsShowArchived")}
             </Button>
           )}
           {!isTurso && (

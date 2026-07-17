@@ -99,14 +99,16 @@ export function VoiceCommandButton({
     });
   }
 
+  // Accessible name is PINNED to the enabled action (voice command); the
+  // pressed state conveys listening, so it announces "Voice command, pressed"
+  // — not "Listening, pressed" (WCAG 4.1.2 pin-the-enabled-label). The visible
+  // title still flips for sighted hover.
   return (
     <button
       type="button"
       onClick={handleClick}
       aria-pressed={listening}
-      aria-label={
-        listening ? t(lang, "voiceListening") : t(lang, "voiceCommand")
-      }
+      aria-label={t(lang, "voiceCommand")}
       title={
         supported
           ? listening

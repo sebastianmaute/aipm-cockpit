@@ -135,9 +135,7 @@ export function ResourceEditModal({
       open
       onClose={onClose}
       ariaLabel={isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle")}
-      align="center"
-      backdropClassName="bg-black/40"
-      zIndex={50}
+      align="center"      zIndex={50}
     >
       <div
         ref={sizeRef}
@@ -396,7 +394,7 @@ export function ResourceEditModal({
           )}
 
           {error && (
-            <p className="text-sm text-AIPM-pink-strong sm:col-span-2">
+            <p role="alert" className="text-sm text-AIPM-pink-strong sm:col-span-2">
               {error}
             </p>
           )}
