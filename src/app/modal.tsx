@@ -55,9 +55,9 @@ interface BaseProps {
   open: boolean;
   /** Fired by Escape, backdrop click, and (if the caller wires it) the X button. */
   onClose: () => void;
-  /** Override the backdrop classes (e.g. `bg-black/40` for the absence/shift
-   *  modals which historically used a darker overlay). Default matches the
-   *  task / Jira / due-dates modals. */
+  /** Override the backdrop classes. Default is the canonical AIPM dark-blue
+   *  tint shared by every modal; callers should almost never override it
+   *  (an off-palette override was removed in the DS defect sweep). */
   backdropClassName?: string;
   /** Vertical alignment of the panel within the viewport. */
   align?: "start" | "center";

@@ -134,7 +134,6 @@ export function MilestoneEditModal({
           : t(lang, "milestoneEdit", draft.id)
       }
       align="center"
-      backdropClassName="bg-black/40"
       zIndex={50}
     >
       <div
@@ -274,7 +273,7 @@ export function MilestoneEditModal({
           )}
 
           {error && (
-            <p className="text-sm text-AIPM-pink-strong">{error}</p>
+            <p role="alert" className="text-sm text-AIPM-pink-strong">{error}</p>
           )}
 
           <ModalEditFooter

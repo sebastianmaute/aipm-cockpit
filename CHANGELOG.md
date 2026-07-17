@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.10] - 2026-07-17 "Pinsker"
+
+Accessibility and palette defect sweep (from the design-system audit).
+
+### Fixed
+- Toggle controls now announce the correct state to screen readers: the "Show archived"
+  projects toggle and the voice-command mic no longer flip their label under the pressed
+  state (which could announce the opposite mode as active).
+- Four modal validation messages (milestone, resource, absence, shift editors) and a
+  create-project notice are announced again as alerts.
+- Four edit modals dropped an off-brand dark backdrop in favour of the standard tint.
+
 ## [0.190.9] - 2026-07-17 "Pinsker"
 
 Design-system consistency — Phase 2b (loading + menu primitives).

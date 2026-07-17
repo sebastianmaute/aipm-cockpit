@@ -163,7 +163,6 @@ export function ShiftEditModal({
         isNew ? t(lang, "shiftNewItem") : t(lang, "shiftEditItem", draft.id)
       }
       align="center"
-      backdropClassName="bg-black/40"
       zIndex={50}
     >
       <div
@@ -276,7 +275,7 @@ export function ShiftEditModal({
           </label>
 
           {error && (
-            <p className="sm:col-span-2 text-sm text-AIPM-pink-strong">
+            <p role="alert" className="sm:col-span-2 text-sm text-AIPM-pink-strong">
               {error}
             </p>
           )}
