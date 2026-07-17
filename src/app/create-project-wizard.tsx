@@ -41,6 +41,7 @@ import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { FOCUS_RING } from "./interaction-styles";
+import { Checkbox } from "./form-controls";
 import { Badge } from "./badge";
 import { Button } from "./button";
 
@@ -408,11 +409,9 @@ export function CreateProjectWizard({
               </legend>
               {FEATURE_MODULES.map((m) => (
                 <label key={m.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={features.includes(m.id)}
                     onChange={() => toggleModule(m.id)}
-                    className="h-4 w-4 accent-AIPM-green"
                   />
                   <span>{t(lang, m.labelKey)}</span>
                 </label>
@@ -421,11 +420,9 @@ export function CreateProjectWizard({
 
             {offerSeed && (
               <label className="flex items-center gap-2 border-t border-line pt-4 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={includeSeed}
                   onChange={(e) => setIncludeSeed(e.target.checked)}
-                  className="h-4 w-4 accent-AIPM-green"
                 />
                 <span>{t(lang, aiSeedActive ? "aiCreateIncludeContent" : "wizardIncludeContent")}</span>
               </label>

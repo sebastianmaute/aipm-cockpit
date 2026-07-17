@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { INTERACTIVE } from "../interaction-styles";
+import { Checkbox } from "../form-controls";
 import { EmptyState } from "../empty-state";
 import { deriveMode } from "../feature-modules";
 import { templateFromWorkspace, type ProjectTemplate } from "../templates";
@@ -82,12 +83,10 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
           className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
         />
         <label className="flex items-center gap-2 text-sm text-foreground">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={includeContent}
             aria-label={t(lang, "templateIncludeContent")}
             onChange={(e) => setIncludeContent(e.target.checked)}
-            className={`h-4 w-4 rounded border-line text-AIPM-green-strong ${FOCUS_RING} ${TRANSITION}`}
           />
           <span>{t(lang, "templateIncludeContent")}</span>
         </label>

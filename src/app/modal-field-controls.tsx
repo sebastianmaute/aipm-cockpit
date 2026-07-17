@@ -15,6 +15,7 @@ import { useState } from "react";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import { MODAL_FIELDS, type FieldTier, type ModalId } from "./modal-fields";
+import { Checkbox } from "./form-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { useSettings } from "./use-settings";
 
@@ -96,12 +97,10 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
               {MODAL_FIELDS[modalId].map((f) => (
                 <li key={f.id}>
                   <label className="flex items-center gap-2 text-foreground">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={isVisible(f.id)}
                       disabled={f.required}
                       onChange={() => toggleField(f.id)}
-                      className="accent-AIPM-green"
                     />
                     <span>{t(lang, f.labelKey)}</span>
                   </label>

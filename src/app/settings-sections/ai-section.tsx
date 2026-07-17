@@ -16,6 +16,7 @@ import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { Checkbox, Input, Select } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
@@ -194,8 +195,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
         <div className="flex flex-wrap gap-3">
           {APP_MODES.map((mode) => (
             <label key={mode} className="flex items-center gap-1 text-xs text-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 aria-label={mode}
                 checked={draft.scopeModes.includes(mode)}
                 onChange={() => toggleMode(mode)}
@@ -210,8 +210,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
         <div className="flex flex-wrap gap-3">
           {FEATURE_MODULES.map((m) => (
             <label key={m.id} className="flex items-center gap-1 text-xs text-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 aria-label={t(lang, m.labelKey)}
                 checked={draft.scopeModules.includes(m.id)}
                 onChange={() => toggleModule(m.id)}
@@ -226,8 +225,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
         <div className="flex flex-wrap gap-3">
           {SCOPE_VIEWS.map((view) => (
             <label key={view} className="flex items-center gap-1 text-xs text-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 aria-label={t(lang, navLabelKey(view))}
                 checked={draft.scopeViews.includes(view)}
                 onChange={() => toggleView(view)}
@@ -403,8 +401,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         <InfoTooltip text={t(lang, "aiAssistantTooltip")} />
       </span>
       <label className="mt-2 flex items-center gap-2">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={settings.ai.enabled === true}
           onChange={(e) => {
             if (e.target.checked) notifyEnable();
@@ -421,21 +418,19 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           {t(lang, "aiApiKey")}
           <InfoTooltip text={t(lang, "aiApiKeyTooltip")} />
         </span>
-        <input
+        <Input
           type="password"
           autoComplete="off"
           value={settings.ai.apiKey}
           onChange={(e) => handleApiKeyChange(e.target.value)}
           onBlur={handleApiKeyBlur}
           placeholder={t(lang, "aiApiKeyPlaceholder")}
-          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
         <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
       </label>
       <div className="mt-2">
         <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={t(lang, "secretLockPassphrase")}
             checked={keyWrap === "passphrase"}
             onChange={(e) => handleLockToggle(e.target.checked)}
@@ -444,23 +439,21 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         </label>
         {keyWrap === "passphrase" && (
           <div className="mt-2 flex flex-col gap-2">
-            <input
+            <Input
               type="password"
               autoComplete="off"
               aria-label={t(lang, "secretPassphrasePlaceholder")}
               placeholder={t(lang, "secretPassphrasePlaceholder")}
               value={keyPassphrase}
               onChange={(e) => setKeyPassphrase(e.target.value)}
-              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
-            <input
+            <Input
               type="password"
               autoComplete="off"
               aria-label={t(lang, "secretPassphraseConfirm")}
               placeholder={t(lang, "secretPassphraseConfirm")}
               value={keyConfirm}
               onChange={(e) => setKeyConfirm(e.target.value)}
-              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
             {keyPassphraseMismatch && (
               <p className="text-xs text-AIPM-pink-strong">{t(lang, "secretPassphraseMismatch")}</p>
@@ -492,7 +485,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           {t(lang, "aiModel")}
           <InfoTooltip text={t(lang, "aiModelTooltip")} />
         </span>
-        <select
+        <Select
           value={settings.ai.model}
           onChange={(e) =>
             onChange({
@@ -503,14 +496,13 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               },
             })
           }
-          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
           {modelOptions.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
             </option>
           ))}
-        </select>
+        </Select>
         {!modelsLoaded && (
           <span className="mt-1 block text-xs text-muted-foreground">
             {t(lang, "aiModelNeedsKey")}
@@ -596,8 +588,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
 
         {/* Master toggle */}
         <label className="mt-3 flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={t(lang, "aiGroundInGuides")}
             checked={settings.ai.groundInGuides}
             onChange={() =>
@@ -612,8 +603,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
 
         {/* Action Center AI suggestions toggle (default ON; undefined = on) */}
         <label className="mt-3 flex items-center gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={t(lang, "settingsAiActionSuggestions")}
             checked={settings.ai.actionSuggestions !== false}
             onChange={() =>
@@ -664,8 +654,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
                         </span>
                       )}
                       <label className="flex items-center gap-1 text-xs text-foreground">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           aria-label={`${t(lang, "aiGuideEnabled")} – ${g.name}`}
                           checked={g.enabled}
                           onChange={() => { void og.update({ ...g, enabled: !g.enabled }); }}

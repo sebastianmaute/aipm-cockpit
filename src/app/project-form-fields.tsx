@@ -14,6 +14,7 @@
 import { useState } from "react";
 import type React from "react";
 import { FieldError } from "./field-feedback";
+import { fieldClass } from "./form-controls";
 import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { KnowledgeLink } from "./document-link";
@@ -90,10 +91,9 @@ export function emptyProjectDraft(): ProjectFormDraft {
   };
 }
 
-// Same compact input class the task form uses (declared locally to avoid a
-// cross-form import).
-export const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green dark:border-line dark:bg-surface dark:text-foreground";
+// Canonical field shell, single-sourced from the shared primitive (was a
+// copy-declared ring-1 string; now the ring-2 AIPM-green standard).
+export const inputClass = fieldClass();
 
 // IANA zone list for the operating-timezone select (shared with the settings
 // picker via timezone.ts; guarded fallback for older runtimes inside tzZones).

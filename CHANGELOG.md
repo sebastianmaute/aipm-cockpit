@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.8] - 2026-07-17 "Pinsker"
+
+Design-system consistency — Phase 2a (form-field primitives).
+
+### Changed
+- Added canonical `<Input>`/`<Select>`/`<Textarea>`/`<Checkbox>` components. Checkboxes now
+  share ONE brand accent colour (they previously rendered a browser-default or inconsistent
+  mix), and form fields share the standard green focus ring.
+
 ## [0.190.7] - 2026-07-17 "Pinsker"
 
 Design-system consistency — Phase 1e (Banner primitive).

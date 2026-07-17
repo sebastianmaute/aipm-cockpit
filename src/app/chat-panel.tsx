@@ -28,6 +28,7 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { useChatModels } from "./use-chat-models";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
+import { Checkbox } from "./form-controls";
 import { Banner } from "./banner";
 import { unlockSecret } from "./use-secrets";
 import { useConfirm } from "./confirm-dialog";
@@ -925,11 +926,10 @@ function ConsentScreen({
         </a>
       </p>
       <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-AIPM-purple-strong">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={policyAccepted}
           onChange={(e) => setPolicyAccepted(e.target.checked)}
-          className="mt-0.5 h-4 w-4 cursor-pointer rounded border-AIPM-purple/40 text-AIPM-purple focus:ring-AIPM-purple dark:border-AIPM-purple/50 dark:bg-AIPM-purple/15"
+          className="mt-0.5 cursor-pointer"
         />
         <span>{t(lang, "aiConsentPolicyCheckbox")}</span>
       </label>

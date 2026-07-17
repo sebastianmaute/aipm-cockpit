@@ -26,6 +26,7 @@ import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { Checkbox } from "../form-controls";
 import { TimelogSettings } from "../timelog-settings";
 import { JiraSettingsSection } from "../jira-settings";
 import { defaultTimelogConfig } from "../timelog-types";
@@ -80,25 +81,21 @@ function CalendarSyncEntityRow({
       <p className="text-sm font-medium text-foreground">{label}</p>
       <div className="mt-1 flex flex-col gap-1 pl-1">
         <label className="flex items-center gap-2 text-sm text-foreground">
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={`${t(lang, "calendarSyncEnable")} – ${label}`}
             checked={sync.enabled}
             onChange={(e) => write(e.target.checked, e.target.checked ? sync.auto : false)}
-            className={`h-4 w-4 ${FOCUS_RING} ${TRANSITION}`}
           />
           <span>{t(lang, "calendarSyncEnable")}</span>
         </label>
         <label
           className={`flex items-center gap-2 text-sm ${sync.enabled ? "text-foreground" : "text-muted-foreground"}`}
         >
-          <input
-            type="checkbox"
+          <Checkbox
             aria-label={`${t(lang, "calendarSyncAuto")} – ${label}`}
             disabled={!sync.enabled}
             checked={sync.auto}
             onChange={(e) => write(sync.enabled, e.target.checked)}
-            className={`h-4 w-4 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
           />
           <span>{t(lang, "calendarSyncAuto")}</span>
         </label>
@@ -264,14 +261,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       <div className="flex items-center gap-1">
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={m365.enabled}
             onChange={(e) => {
               if (e.target.checked) notifyEnable();
               updateM365({ enabled: e.target.checked });
             }}
-            className="h-4 w-4"
           />
           <span>{t(lang, "integrationsM365")}</span>
         </label>
@@ -366,8 +361,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   className={`flex items-center gap-2 text-sm ${comingSoon ? "text-muted-foreground" : "text-foreground"}`}
                   title={comingSoon ? t(lang, "integrationsComingSoon") : undefined}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     disabled={comingSoon}
                     checked={comingSoon ? false : m365[key]}
                     onChange={
@@ -375,7 +369,6 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                         ? undefined
                         : (e) => updateM365({ [key]: e.target.checked })
                     }
-                    className={comingSoon ? "h-4 w-4 cursor-not-allowed" : "h-4 w-4"}
                   />
                   <span>{t(lang, labelKey)}</span>
                 </label>
@@ -421,14 +414,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
       <div className="mt-3 flex items-center gap-1">
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={turso.enabled}
             onChange={(e) => {
               if (e.target.checked) notifyEnable();
               updateTurso({ enabled: e.target.checked });
             }}
-            className="h-4 w-4"
           />
           <span>{t(lang, "integrationsTurso")}</span>
         </label>
@@ -489,8 +480,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           {!envTursoTokenSet && (
             <div className="mt-1">
               <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   aria-label={t(lang, "secretLockPassphrase")}
                   checked={tokenWrap === "passphrase"}
                   onChange={(e) => handleTokenLockToggle(e.target.checked)}
@@ -558,12 +548,10 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           )}
           <div className="mt-2 border-t border-line pt-2">
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={snapshots.enabled}
                 disabled={!onTurso}
                 onChange={(e) => updateSnapshots({ enabled: e.target.checked })}
-                className="h-4 w-4 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <span className={onTurso ? undefined : "text-muted-foreground"}>
                 {t(lang, "snapshotRecordingLabel")}
@@ -631,8 +619,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
       )}
       <div className="mt-3 border-t border-line pt-3">
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={settings.digest?.enabled ?? false}
             onChange={(e) => {
               if (e.target.checked) notifyEnable();
@@ -641,7 +628,6 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 digest: { enabled: e.target.checked, cadenceDays: settings.digest?.cadenceDays ?? 7 },
               });
             }}
-            className="h-4 w-4"
           />
           <span>{t(lang, "digestEnableLabel")}</span>
         </label>

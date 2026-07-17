@@ -2,6 +2,7 @@
 
 import { cloneElement, isValidElement, type ReactElement } from "react";
 import { ComboInput } from "./combo-input";
+import { fieldClass } from "./form-controls";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { LabelsInput } from "./labels-input";
 import {
@@ -15,10 +16,9 @@ import { FOCUS_RING } from "./interaction-styles";
 import { statusLabelKey } from "./task-status-ui";
 import { PRIORITIES, TASK_STATUSES, type Priority, type TaskStatus } from "./types";
 
-// Same compact input class the rest of the form uses. Duplicated here to
-// avoid a circular import back into task-manager.tsx.
-const inputClass =
-  "w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green";
+// Canonical field shell, single-sourced from the shared primitive (was a
+// copy-declared ring-1 string; now the ring-2 AIPM-green standard).
+const inputClass = fieldClass();
 
 export interface BulkEditModalProps {
   lang: Lang;
