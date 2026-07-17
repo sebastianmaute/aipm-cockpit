@@ -19,8 +19,8 @@ import {
   HEALTH_VALUES,
   healthColorName,
   healthDot,
-  type Health,
 } from "./health";
+import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { LabelsInput } from "./labels-input";
 import {
@@ -44,19 +44,6 @@ import { resourceDisplayName } from "./resource-foundation";
 // a circular import back into task-form-modal.tsx.
 export const inputClass =
   `w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none dark:border-line dark:bg-surface dark:text-foreground ${FOCUS_RING} ${TRANSITION}`;
-
-// Active manual-health-override chip tint. RAG-semantic: border + background
-// ride the canonical --rag-* role tokens (amber = warning orange, never purple)
-// so the active RAG choice matches every RAG dot and reflows per scheme. Text
-// stays dark-blue/light-grey (AA-safe) — the amber tint is a background only,
-// never small text (--rag-amber-text fails AA on dark/mockup). Exported so the
-// mapping is guarded against a raw-brand revert without rendering the gated,
-// click-to-activate picker.
-export const HEALTH_CHIP_ACTIVE_CLASS: Record<Health, string> = {
-  R: "border-[var(--rag-red)] bg-[var(--rag-red)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-red)]/15 dark:text-AIPM-light-grey",
-  A: "border-[var(--rag-amber)] bg-[var(--rag-amber)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-amber)]/15 dark:text-AIPM-light-grey",
-  G: "border-[var(--rag-green)] bg-[var(--rag-green)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-green)]/15 dark:text-AIPM-light-grey",
-};
 
 export interface TaskFormFieldsProps {
   lang: Lang;
