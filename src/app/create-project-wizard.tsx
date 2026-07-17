@@ -363,7 +363,7 @@ export function CreateProjectWizard({
               })}
             </fieldset>
             {seedHasContent(aiSeed) && selectedTemplate !== null && (
-              <p role="status" className="text-xs text-AIPM-red">
+              <p role="status" className="text-xs text-AIPM-pink-strong">
                 {t(lang, "aiCreateTemplateReplacesSeed")}
               </p>
             )}

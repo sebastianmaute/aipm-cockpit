@@ -382,7 +382,7 @@ export function Step0ImportPanel({
         )}
 
         {(aiError || importError) && (
-          <p role="alert" className="text-sm text-AIPM-red">
+          <p role="alert" className="text-sm text-AIPM-pink-strong">
             {importError ??
               t(
                 lang,
