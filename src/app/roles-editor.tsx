@@ -11,6 +11,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { dayFromHour, materializeRoleRates } from "./role-rates";
 import { SegmentedControl } from "./segmented-control";
+import { FOCUS_RING } from "./interaction-styles";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -297,7 +298,7 @@ export function RolesEditor({
                   </td>
                   <td className="px-3 py-2 text-right print:hidden">
                     <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={`${t(lang, "delete")} – ${rowCtx}`}
-                      className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink">×</button>
+                      className={`rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink ${FOCUS_RING}`}>×</button>
                   </td>
                 </tr>
                 );
@@ -403,7 +404,7 @@ function RefList({
               onClick={async () => {
                 if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}
-              className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink"
+              className={`rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink ${FOCUS_RING}`}
             >×</button>
           </li>
         ))}

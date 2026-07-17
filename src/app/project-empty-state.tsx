@@ -41,7 +41,7 @@ const PRIMARY_BUTTON_CLASS =
   `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING}`;
 
 const SECONDARY_BUTTON_CLASS =
-  "rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted";
+  `rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`;
 
 export interface ProjectEmptyStateProps {
   lang: Lang;
