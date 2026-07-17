@@ -123,11 +123,13 @@ export type ChangePanelProps = {
 
 // --- Color palette -------------------------------------------------------
 
-// Impact RAG dot — same three-colour mapping as RaidPanel's severity dot.
+// Impact RAG dot — canonical --rag-* role tokens (same mapping as RaidPanel's
+// severity dot + health.ts `healthDot`), so amber is the warning orange (never
+// purple) and the dot reflows with the active scheme.
 const impactDotClass: Record<"R" | "A" | "G", string> = {
-  R: "bg-AIPM-pink",
-  A: "bg-AIPM-purple",
-  G: "bg-AIPM-green",
+  R: "bg-[var(--rag-red)]",
+  A: "bg-[var(--rag-amber)]",
+  G: "bg-[var(--rag-green)]",
 };
 
 // --- Translation lookups -------------------------------------------------

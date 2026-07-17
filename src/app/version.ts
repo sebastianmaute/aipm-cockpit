@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.2";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.2: design-system a11y pass (P0) — added keyboard focus rings to buttons that lacked them, normalized bespoke primary-CTA focus rings to the canonical green ring-2, widened weak ring-1 rings, and gave per-row delete buttons row-unique accessible names (Pinsker)
+export const APP_VERSION = "0.190.3";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.3: design-system RAG-color unification (P1a) — RAG "amber" now renders as the canonical orange --rag-amber token everywhere (was inconsistently purple on RAID severity / Change impact / reports / tier dots); all RAG dots/stripes switch correctly under alternate schemes (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.3] - 2026-07-17 "Pinsker"
+
+Design-system consistency — Phase 1a (RAG colors).
+
+### Changed
+- RAG "amber" now renders consistently as the canonical orange `--rag-amber` token
+  everywhere. Previously RAID severity, Change impact, reports group dots, and tier
+  dots showed amber as **purple** while task-health dots showed it as orange.
+- All RAG-semantic dots/stripes now use the `--rag-red`/`--rag-amber`/`--rag-green`
+  tokens, so they recolor correctly under the Mockup and custom colour schemes.
+  (RAID/Change "red" dots shift from magenta-pink to true red to match — intended.)
+
 ## [0.190.2] - 2026-07-17 "Pinsker"
 
 Design-system consistency — Phase 0 (accessibility).

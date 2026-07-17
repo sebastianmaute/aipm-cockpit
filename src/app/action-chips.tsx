@@ -5,9 +5,12 @@ import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
 import { FOCUS_RING } from "./interaction-styles";
 
+// Canonical --rag-* role tokens — mirror `TIER_RAG` (action-cta.ts) so the
+// chip tier dot matches the action-row/hero stripes: now = red, soon = the
+// warning amber/orange (never purple), reflowing with the active scheme.
 const TIER_DOT: Record<"now" | "soon", string> = {
-  now: "bg-AIPM-pink",
-  soon: "bg-AIPM-purple",
+  now: "bg-[var(--rag-red)]",
+  soon: "bg-[var(--rag-amber)]",
 };
 const MAX_CHIPS = 3;
 

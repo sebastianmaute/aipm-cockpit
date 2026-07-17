@@ -46,4 +46,13 @@ describe("ActionChips", () => {
     const chip = getByText(/Item 1/).closest("button");
     expect(chip?.getAttribute("title")).toMatch(/Critical/);
   });
+  it("tier dots use the canonical --rag-* tokens (now=red, soon=amber), not raw brand classes", () => {
+    const { container } = render(
+      <ActionChips lang="en-US" actions={[mk("1", "now"), mk("2", "soon")]} onOpen={() => {}} onShowMore={() => {}} />,
+    );
+    const dots = Array.from(container.querySelectorAll("span[aria-hidden]"));
+    expect(dots[0].className).toContain("bg-[var(--rag-red)]");
+    expect(dots[1].className).toContain("bg-[var(--rag-amber)]");
+    expect(dots.some((d) => d.className.includes("bg-AIPM-purple"))).toBe(false);
+  });
 });

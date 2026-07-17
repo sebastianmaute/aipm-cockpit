@@ -28,10 +28,14 @@ const categoryPillClass: Record<RaidCategory, string> = {
   D: "bg-AIPM-green/15 text-AIPM-dark-blue dark:bg-AIPM-green/20 dark:text-AIPM-light-grey",
 };
 
+// Canonical RAG role tokens (--rag-red/amber/green) — same mapping as
+// health.ts `healthDot`, so severity dots reflow with the active scheme and a
+// given RAG letter renders identically here and everywhere else (amber = the
+// warning orange, never purple).
 const severityDotClass: Record<"R" | "A" | "G", string> = {
-  R: "bg-AIPM-pink",
-  A: "bg-AIPM-purple",
-  G: "bg-AIPM-green",
+  R: "bg-[var(--rag-red)]",
+  A: "bg-[var(--rag-amber)]",
+  G: "bg-[var(--rag-green)]",
 };
 
 type SortState = { key: string; dir: string } | null;
