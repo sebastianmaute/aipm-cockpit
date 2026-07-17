@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.12";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.12: design-system dedup (P2c) — the clickable dashed "add first item" empty-state box, duplicated verbatim across budget/gantt/milestones/knowledge/open-points (+ the change/stakeholders/RAID table shell), is now one AddFirstItemButton component; each site keeps its exact radius/padding, only the duplicated markup was removed (Pinsker)
+export const APP_VERSION = "0.190.13";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.13: design-system dedup (P2c) — the duplicated data-table sort-header markup (reports, resources planning, budget report + role column, milestones) now routes through the shared SortResizeTh, deleting reports-tables' local clones; header padding on those tables is normalized to the canonical rhythm (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

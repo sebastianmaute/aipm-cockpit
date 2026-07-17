@@ -8,9 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.190.12] - 2026-07-17 "Pinsker"
+## [0.190.13] - 2026-07-17 "Pinsker"
 
 Design-system dedup (Phase 2c).
+
+### Changed
+- The duplicated data-table sort-header markup — the Reports, resource-planning,
+  budget-report and budget role-column, and milestone tables each repeated their own
+  `<th>` + sort-button + resize-handle trio, and the Reports view carried a private clone
+  of the shared header cell — now all route through the one shared sortable/resizable
+  header component. Header padding on those tables is normalized to the standard rhythm
+  (the milestone and budget bucket tables were tightened before and are now the standard
+  looser spacing).
+
+### Fixed
+- The milestone name/date column headers no longer keep a highlight/arrow after their sort
+  is cycled off; the header now clears like every other sortable table.
 
 ### Changed
 - The clickable dashed "add the first item" empty-state box — previously duplicated
