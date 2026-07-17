@@ -891,8 +891,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
   dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-AIPM-green`/`-pink-strong`, or it
   won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
-  ★★ Data-table header sort buttons (`report-table` SortHeaderButton AND `task-manager-ui` SortableTh)
-  use `text-[var(--table-head-accent)]` for active/hover — raw `text-AIPM-green` is sub-AA (2.03:1) on the
+  ★★ Data-table header sort buttons (`report-table` SortHeaderButton, used by every `SortResizeTh` — now
+  the Open Points table too, `SortableTh` was RETIRED into it) use `text-[var(--table-head-accent)]` for
+  active/hover — raw `text-AIPM-green` is sub-AA (2.03:1) on the
   Mockup light header AND a blanket `.aipm-cockpit-thead button{color}` rule silently kills the sort affordance.
   ★★ A TRANSLUCENT role-token tint (`rgba(...)`) over a parent whose bg CHANGES on hover (e.g. a `Tile`
   button's `hover:bg-surface-muted`) RE-composites darker → its TEXT can drop below AA on hover. The axe

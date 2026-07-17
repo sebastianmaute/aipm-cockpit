@@ -1,21 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { SortableTh, PrintButton, ResetSizeButton, ColumnResizeHandle } from "./task-manager-ui";
-
-describe("SortableTh", () => {
-  it("shows a 'Sort by <label>' tooltip and an accent hover for the Dark-Blue header", () => {
-    render(
-      <table><thead><tr>
-        <SortableTh label="Task" sortKey="taskName" currentKey="taskName" dir="asc" onClick={vi.fn()} lang="en-US" />
-      </tr></thead></table>,
-    );
-    const btn = screen.getByRole("button", { name: /task/i });
-    expect(btn).toHaveAttribute("title", "Sort by Task");
-    expect(btn.className).toContain("hover:text-[var(--table-head-accent)]");
-    expect(btn.className).not.toContain("text-foreground");
-  });
-});
+import { PrintButton, ResetSizeButton, ColumnResizeHandle } from "./task-manager-ui";
 
 describe("PrintButton", () => {
   it("renders the Print label", () => {
