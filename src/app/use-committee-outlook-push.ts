@@ -1,9 +1,9 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMsAuth } from "./use-ms-auth";
 import { useToastContext } from "./toast-context";
 import { t, type Lang } from "./i18n";
-import { planCommitteeReconcile, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
+import { committeePushKey, planCommitteeReconcile, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
 import { logDiag } from "./diagnostics";
 import {
   CALENDAR_READWRITE_SCOPE, committeeMeetingToGraphEvent, committeeInfoToGraphEvent,
@@ -36,7 +36,12 @@ export function useCommitteeOutlookPush({
 }: Args) {
   const { acquireToken } = useMsAuth(enabled);
   const showToast = useToastContext();
-  const [busy, setBusy] = useState(false);
+  // Which target (`committeePushKey`) is currently pushing, or null when idle —
+  // so only the clicked row's button shows busy, not every row. The ref is the
+  // SYNCHRONOUS overlap guard (state lags a tick): a second click while a push
+  // is in flight is a no-op, so concurrent Graph reconciles can't double-write.
+  const [pushingTarget, setPushingTarget] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
   /**
    * Push the whole committee, or — when `target` is given — only that one
@@ -47,7 +52,9 @@ export function useCommitteeOutlookPush({
    */
   const pushToOutlook = useCallback(async (target?: CommitteeReconcileTarget) => {
     if (isPopout || !committee) return;
-    setBusy(true);
+    if (inFlightRef.current) return; // a push is already running — ignore (no double-write)
+    inFlightRef.current = true;
+    setPushingTarget(committeePushKey(target));
     try {
       const token = await acquireToken(CALENDAR_READWRITE_SCOPE, { interactive: true }).catch(() => null);
       if (!token) { showToast("error", t(lang, "committeePushError")); return; }
@@ -128,9 +135,10 @@ export function useCommitteeOutlookPush({
     } catch {
       showToast("error", t(lang, "committeePushError"));
     } finally {
-      setBusy(false);
+      inFlightRef.current = false;
+      setPushingTarget(null);
     }
   }, [isPopout, committee, acquireToken, showToast, lang, today, committeeName, projectId, setSteeringCommittee]);
 
-  return { pushToOutlook, busy };
+  return { pushToOutlook, pushingTarget };
 }

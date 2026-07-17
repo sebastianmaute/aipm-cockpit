@@ -1890,7 +1890,7 @@ function TaskManagerInner() {
     calendarPullBusy: calendarPushEnabled ? calendarPull.busy : undefined,
     committeeOutlookPush:
       calendarPushEnabled && !isPopout
-        ? { onPush: committeePush.pushToOutlook, busy: committeePush.busy, onPushRow: committeePush.pushToOutlook }
+        ? { onPush: committeePush.pushToOutlook, pushingTarget: committeePush.pushingTarget, onPushRow: committeePush.pushToOutlook }
         : undefined,
     committeeReport: meetingReportActions,
     guides: operatingGuides.guides,

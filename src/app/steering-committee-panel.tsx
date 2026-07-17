@@ -18,7 +18,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import type { CommitteeMeeting, InfoSchedule, Resource, SteeringCommittee } from "./types";
 import { Modal } from "./modal";
-import type { CommitteeReconcileTarget } from "./committee-calendar-reconcile";
+import { committeePushKey, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
 import { MeetingReportPanel, type MeetingReportVersionUi } from "./meeting-report-panel";
 import { committeeMemberEmails } from "./committee-report/report-recipients";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
@@ -94,8 +94,10 @@ export interface SteeringCommitteePanelProps {
   /** Supplied by Task 7 (Outlook push). When absent the button is hidden.
    *  Errors surface via toast (not inline), so no `error` field is threaded.
    *  `onPushRow` (optional) scopes a push to a single meeting / info-schedule
-   *  row — when absent the per-row "Push" buttons are hidden. */
-  outlookPush?: { onPush: () => void; busy: boolean; onPushRow?: (target: CommitteeReconcileTarget) => void };
+   *  row — when absent the per-row "Push" buttons are hidden. `pushingTarget` is
+   *  the `committeePushKey` of the row currently pushing (or null when idle), so
+   *  only the in-flight button shows busy — the rest stay enabled. */
+  outlookPush?: { onPush: () => void; pushingTarget: string | null; onPushRow?: (target: CommitteeReconcileTarget) => void };
   /** Per-meeting status-report actions (save/email + AI/versions). When absent
    *  the per-meeting "Status report" button is hidden. */
   report?: MeetingReportBag;
@@ -368,7 +370,7 @@ export function SteeringCommitteePanel({
                         lang={lang}
                         onClick={() => outlookPush.onPushRow!({ kind: "meeting", id: m.id })}
                         label={m.title || m.date}
-                        busy={outlookPush.busy}
+                        busy={outlookPush.pushingTarget === committeePushKey({ kind: "meeting", id: m.id })}
                       />
                     )}
                     <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={m.title || m.date} />
@@ -456,7 +458,7 @@ export function SteeringCommitteePanel({
                         lang={lang}
                         onClick={() => outlookPush.onPushRow!({ kind: "schedule", id: s.id })}
                         label={s.label || String(s.id)}
-                        busy={outlookPush.busy}
+                        busy={outlookPush.pushingTarget === committeePushKey({ kind: "schedule", id: s.id })}
                       />
                     )}
                     <DeleteCell lang={lang} onClick={() => deleteSchedule(s.id)} label={s.label || String(s.id)} />
@@ -527,10 +529,10 @@ export function SteeringCommitteePanel({
             <button
               type="button"
               onClick={outlookPush.onPush}
-              disabled={outlookPush.busy}
+              disabled={outlookPush.pushingTarget === committeePushKey()}
               className={BTN_SECONDARY}
             >
-              {t(lang, outlookPush.busy ? "committeePushBusy" : "committeePushOutlook")}
+              {t(lang, outlookPush.pushingTarget === committeePushKey() ? "committeePushBusy" : "committeePushOutlook")}
             </button>
           </section>
         ) : null}

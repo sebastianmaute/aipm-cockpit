@@ -220,7 +220,12 @@ export interface WorkspaceSectionProps {
   calendarPushBusy?: boolean;
   onPullMilestonesFromOutlook?: () => void;
   calendarPullBusy?: boolean;
-  committeeOutlookPush?: { onPush: () => void; busy: boolean };
+  committeeOutlookPush?: {
+    onPush: () => void;
+    /** `committeePushKey` of the target currently pushing, or null when idle. */
+    pushingTarget: string | null;
+    onPushRow?: (target: import("./committee-calendar-reconcile").CommitteeReconcileTarget) => void;
+  };
   /** Per-meeting status-report bag (save/email; AI + versions via extended fields). */
   committeeReport?: import("./use-meeting-report-actions").MeetingReportBag;
   /** M365 configured — gates the calendar toggle/button (hidden otherwise). */

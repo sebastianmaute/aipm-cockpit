@@ -189,7 +189,7 @@ describe("SteeringCommitteePanel", () => {
         onChange={() => {}}
         resources={RESOURCES}
         today={TODAY}
-        outlookPush={{ onPush: () => {}, busy: false, onPushRow }}
+        outlookPush={{ onPush: () => {}, pushingTarget: null, onPushRow }}
       />,
     );
     // Row-unique accessible name: "Push to Outlook – <meeting>".
@@ -212,7 +212,7 @@ describe("SteeringCommitteePanel", () => {
         onChange={() => {}}
         resources={RESOURCES}
         today={TODAY}
-        outlookPush={{ onPush: () => {}, busy: false, onPushRow }}
+        outlookPush={{ onPush: () => {}, pushingTarget: null, onPushRow }}
       />,
     );
     fireEvent.click(
@@ -229,7 +229,7 @@ describe("SteeringCommitteePanel", () => {
         onChange={() => {}}
         resources={RESOURCES}
         today={TODAY}
-        outlookPush={{ onPush: () => {}, busy: false }}
+        outlookPush={{ onPush: () => {}, pushingTarget: null }}
       />,
     );
     expect(
@@ -245,11 +245,36 @@ describe("SteeringCommitteePanel", () => {
         onChange={() => {}}
         resources={RESOURCES}
         today={TODAY}
-        outlookPush={{ onPush: () => {}, busy: true }}
+        outlookPush={{ onPush: () => {}, pushingTarget: "all" }}
       />,
     );
     const btn = screen.getByRole("button", { name: t("en-US", "committeePushBusy") });
     expect(btn).toBeDisabled();
+  });
+
+  it("marks only the in-flight row busy; other rows stay enabled", () => {
+    const onPushRow = vi.fn();
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        // Meeting id 1 ("Kickoff") is pushing; the panel-level + other rows stay enabled.
+        outlookPush={{ onPush: () => {}, pushingTarget: "m:1", onPushRow }}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Kickoff` }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: `${t("en-US", "committeePushOutlook")} – Review` }),
+    ).toBeEnabled();
+    // The panel-level "Push all" button is busy only for pushingTarget "all".
+    expect(
+      screen.getByRole("button", { name: t("en-US", "committeePushOutlook") }),
+    ).toBeEnabled();
   });
 
   it("wraps the status-report surface in resize/reset/print/cancel chrome; cancel closes it", async () => {

@@ -22,6 +22,14 @@ export type CommitteeReconcileTarget =
   | { kind: "meeting"; id: number }
   | { kind: "schedule"; id: number };
 
+/** Stable per-target key for a scoped committee push (`"all"` for a full push).
+ *  Shared by the push hook (which target is in flight) and the panel (which row
+ *  shows the busy state) so the two never drift. */
+export function committeePushKey(target?: CommitteeReconcileTarget): string {
+  if (!target) return "all";
+  return `${target.kind === "meeting" ? "m" : "s"}:${target.id}`;
+}
+
 /**
  * Plan the Outlook reconcile for a steering committee. Meetings split into
  * create (no stored `outlookEventId`) vs update (1:1 by id, like milestones).
