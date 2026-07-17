@@ -93,7 +93,7 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
         <span
           ref={popRef}
           style={{ top: pos.top, left: pos.left }}
-          className="fixed z-[100] flex w-max items-center gap-1 rounded-md border border-line bg-surface p-1 shadow-sm"
+          className="fixed z-[100] flex w-max items-center gap-1 rounded-md border border-line bg-surface p-1 shadow-[var(--shadow-control)]"
         >
           {RACI_ROLES.map((role) => {
             const c = CHIP[role];
