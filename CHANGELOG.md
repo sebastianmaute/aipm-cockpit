@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.12] - 2026-07-17 "Pinsker"
+
+Design-system dedup (Phase 2c).
+
+### Changed
+- The clickable dashed "add the first item" empty-state box — previously duplicated
+  across the budget, Gantt, milestones, knowledge and Open Points panels (and the shared
+  change / stakeholders / RAID table shell) — is now a single component. Each panel keeps
+  its exact look; only the duplicated markup was removed.
+
 ## [0.190.11] - 2026-07-17 "Pinsker"
 
 Design-system palette cleanup (Phase 2c).
