@@ -193,10 +193,13 @@ export function ReportsPanel({
 
   const completedTotal = stats.completedOnTime + stats.completedLate;
 
+  // Canonical --rag-* role tokens (same mapping as health.ts `healthDot`), so
+  // the group RAG dot matches the StackedBar segments below + every other RAG
+  // dot: amber is the warning orange (never purple), and it reflows per scheme.
   const groupDotClass: Record<Health, string> = {
-    R: "bg-AIPM-pink",
-    A: "bg-AIPM-purple",
-    G: "bg-AIPM-green",
+    R: "bg-[var(--rag-red)]",
+    A: "bg-[var(--rag-amber)]",
+    G: "bg-[var(--rag-green)]",
   };
 
   // Stable mapping from internal driver token to i18n key so the steering

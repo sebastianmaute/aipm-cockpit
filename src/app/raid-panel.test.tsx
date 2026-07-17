@@ -589,3 +589,19 @@ describe("RaidPanel owner filter", () => {
     expect(rowIds(container)).toEqual(["#3"]);
   });
 });
+
+describe("RAID severity dot RAG tokens", () => {
+  it("uses canonical --rag-* tokens (Critical=red, Medium=amber, Low=green), not raw brand classes", () => {
+    const raid: RaidItem[] = [
+      makeRaidItem({ id: 1, title: "Crit", severity: "Critical" }),
+      makeRaidItem({ id: 2, title: "Med", severity: "Medium" }),
+      makeRaidItem({ id: 3, title: "Lo", severity: "Low" }),
+    ];
+    const { container } = renderPanel(makeProps({ raid }));
+    const cls = Array.from(container.querySelectorAll("tbody span.rounded-full")).map((d) => d.className);
+    expect(cls.some((c) => c.includes("bg-[var(--rag-red)]"))).toBe(true);
+    expect(cls.some((c) => c.includes("bg-[var(--rag-amber)]"))).toBe(true);
+    expect(cls.some((c) => c.includes("bg-[var(--rag-green)]"))).toBe(true);
+    expect(cls.some((c) => c.includes("bg-AIPM-purple"))).toBe(false);
+  });
+});

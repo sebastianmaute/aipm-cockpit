@@ -69,6 +69,14 @@ describe("ChangePanel", () => {
     fireEvent.click(getByText("Alpha scope"));
     expect(getByDisplayValue("Alpha scope")).toBeTruthy();
   });
+  it("impact RAG dot uses canonical --rag-* tokens (High=red, Medium=amber), not raw brand classes", () => {
+    const changes = [ci({ id: 1, title: "A", impact: "High" }), ci({ id: 2, title: "B", impact: "Medium" })];
+    const { container } = render(<ChangePanel {...base} changes={changes} />, { wrapper: Providers });
+    const cls = Array.from(container.querySelectorAll("span.rounded-full")).map((d) => d.className);
+    expect(cls.some((c) => c.includes("bg-[var(--rag-red)]"))).toBe(true);
+    expect(cls.some((c) => c.includes("bg-[var(--rag-amber)]"))).toBe(true);
+    expect(cls.some((c) => c.includes("bg-AIPM-purple"))).toBe(false);
+  });
   it("tags every change row with its id via data-deeplink-row (deep-link flash wiring)", () => {
     const { container } = render(<ChangePanel {...base} />, { wrapper: Providers });
     const rows = container.querySelectorAll("[data-deeplink-row]");
