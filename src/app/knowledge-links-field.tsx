@@ -6,7 +6,7 @@ import { isSafeHttpUrl, type DocumentLink } from "./document-link";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import type { AcquireToken } from "./use-sharepoint-browser";
 
-export interface DocumentLinksFieldProps {
+export interface KnowledgeLinksFieldProps {
   value: DocumentLink[];
   onChange: (next: DocumentLink[]) => void;
   lang: Lang;
@@ -14,7 +14,7 @@ export interface DocumentLinksFieldProps {
   onLog?: (action: "added" | "removed", name: string) => void;
 }
 
-export function DocumentLinksField({ value, onChange, lang, acquireToken, onLog }: DocumentLinksFieldProps) {
+export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog }: KnowledgeLinksFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   function add(link: DocumentLink) {

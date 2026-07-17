@@ -4,15 +4,15 @@ import { t } from "./i18n";
 import { useSettings } from "./use-settings";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import { collectDocuments, type DocRef, type DocSource, type DocSourceKind } from "./documents";
+import { collectDocuments, type DocRef, type DocSource, type DocSourceKind } from "./knowledge";
 import { isSafeHttpUrl, type DocumentLink } from "./document-link";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
-import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./document-meta";
+import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
 import { ViewCallout } from "./view-callout";
 
@@ -46,7 +46,7 @@ const SORT_LABEL = {
 const SORT_OPTIONS: DocSort[] = ["added", "name", "source", "type"];
 const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "change", "stakeholder"];
 
-export function DocumentsPanel() {
+export function KnowledgePanel() {
   const { settings } = useSettings();
   const lang = settings.language;
   const { ref, reset } = useResizable("aipm-cockpit:documents-size-full");
@@ -143,7 +143,7 @@ export function DocumentsPanel() {
     <div ref={ref} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {requestHelpConcept && (
         <ViewCallout
-          view="documents"
+          view="knowledge"
           lang={lang}
           showHints={settings.showViewHints !== false}
           isPopout={!!isPopout}
@@ -218,7 +218,7 @@ export function DocumentsPanel() {
               </div>
               <p className="mb-2 text-xs text-muted-foreground">{t(lang, "documentsManualHint")}</p>
               {canAddDocument && (
-                <DocumentLinksFieldGated
+                <KnowledgeLinksFieldGated
                   value={linksOf(target)}
                   onChange={(next) => setDocsForSource(target, next)}
                   lang={lang}

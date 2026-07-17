@@ -16,7 +16,7 @@ import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { type Lang, t } from "./i18n";
 import {
   defaultStatusForCategory,
@@ -571,7 +571,7 @@ export function RaidEditModal({
 
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <DocumentLinksFieldGated
+            <KnowledgeLinksFieldGated
               value={draft.documentLinks ?? []}
               onChange={(documentLinks) => onChange({ ...draft, documentLinks })}
               lang={lang}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter } from "./document-meta";
-import type { DocRef } from "./documents";
+import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter } from "./knowledge-meta";
+import type { DocRef } from "./knowledge";
 
 describe("hostLabel", () => {
   it("maps known SaaS hosts to stable labels", () => {

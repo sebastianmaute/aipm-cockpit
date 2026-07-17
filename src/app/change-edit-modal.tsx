@@ -28,7 +28,7 @@ import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import {
@@ -537,7 +537,7 @@ export function ChangeEditModal({
           {/* Document links ------------------------------------------ */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <DocumentLinksFieldGated
+            <KnowledgeLinksFieldGated
               value={draft.documentLinks ?? []}
               onChange={(links) => update("documentLinks", links)}
               lang={lang}

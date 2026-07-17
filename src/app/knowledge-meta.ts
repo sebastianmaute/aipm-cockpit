@@ -3,7 +3,7 @@
 // (from URL), file type (icon + i18n key), and list filter/sort/counts for the
 // Documents card grid. Deterministic — no Date/Math.random.
 
-import type { DocRef, DocSourceKind } from "./documents";
+import type { DocRef, DocSourceKind } from "./knowledge";
 
 /** Host label from a URL: known SaaS hosts mapped to a stable name, else the
  *  bare hostname (www. stripped). Unparseable → "" (caller renders a fallback). */

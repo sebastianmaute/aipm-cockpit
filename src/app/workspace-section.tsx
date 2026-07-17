@@ -76,7 +76,7 @@ import {
   PortfolioHealthPanel,
   ProjectsPanel,
   ActionsPanel,
-  DocumentsPanel,
+  KnowledgePanel,
   TimelogPanel,
 } from "./workspace-panels";
 import { baselineMilestoneTargets } from "./snapshot";
@@ -861,9 +861,9 @@ export function WorkspaceSection({
           </div>
         )}
 
-        {activeTab === "documents" && (
-          <div id="panel-documents" role="tabpanel" className={panelClass}>
-            <DocumentsPanel />
+        {activeTab === "knowledge" && (
+          <div id="panel-knowledge" role="tabpanel" className={panelClass}>
+            <KnowledgePanel />
           </div>
         )}
 

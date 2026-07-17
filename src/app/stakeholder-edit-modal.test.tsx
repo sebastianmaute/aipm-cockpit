@@ -8,7 +8,7 @@ import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import type { Stakeholder, Milestone, Resource } from "./types";
 
-// Mock M365 hooks consumed by DocumentLinksFieldGated — default: SharePoint off.
+// Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
 vi.mock("./use-settings", () => ({
   useSettings: () => ({ settings: { integrations: { m365: { enabled: false, sharepoint: false } } }, setSettings: vi.fn(), hydrated: true, i18nReady: true, lang: "en-US" }),
 }));

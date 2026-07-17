@@ -11,7 +11,7 @@ import { ModalHeader } from "./modal-header";
 import { ModalEditFooter } from "./modal-edit-fields";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
@@ -217,7 +217,7 @@ export function MilestoneEditModal({
           {isVisible("documentLinks") && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <DocumentLinksFieldGated
+            <KnowledgeLinksFieldGated
               value={draft.documentLinks ?? []}
               onChange={(links) => update("documentLinks", links)}
               lang={lang}

@@ -24,7 +24,7 @@ import { useDraggable } from "./use-draggable";
 import { setRaciRole } from "./stakeholders";
 import { ResourcePicker } from "./resource-picker";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { describeTextCap } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
@@ -347,7 +347,7 @@ export function StakeholderEditModal({
           {/* Document links */}
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
-            <DocumentLinksFieldGated
+            <KnowledgeLinksFieldGated
               value={draft.documentLinks ?? []}
               onChange={(links) => update("documentLinks", links)}
               lang={lang}

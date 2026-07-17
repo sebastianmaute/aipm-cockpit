@@ -18,7 +18,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { t, type Lang } from "./i18n";
 import type { DocumentLink } from "./document-link";
 import { tzZones } from "./timezone";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import {
   IDENTITY_TYPES,
   DEPLOYMENTS,
@@ -581,7 +581,7 @@ export function OptionalDetailsFields({
       </Field>
 
       <Field lang={lang} label={t(lang,"documents")} className="sm:col-span-2">
-        <DocumentLinksFieldGated
+        <KnowledgeLinksFieldGated
           value={draft.documentLinks}
           onChange={(documentLinks) => setDraft((p) => ({ ...p, documentLinks }))}
           lang={lang}

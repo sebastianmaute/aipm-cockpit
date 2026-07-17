@@ -28,7 +28,7 @@ export type AppView =
   | "stakeholders"
   | "raci"
   | "stakeholder-map"
-  | "documents"
+  | "knowledge"
   | "reports"
   | "activity"
   | "settings"
@@ -87,7 +87,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { view: "stakeholders", children: [{ view: "raci" }, { view: "stakeholder-map" }] },
       { view: "steering-committee" },
       { view: "timelog" },
-      { view: "documents" },
+      { view: "knowledge" },
       { view: "reports", children: [{ view: "budget-report" }, { view: "raid-report" }, { view: "change-report" }] },
     ],
   },
@@ -123,7 +123,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "learning-insights">, TranslationKey> 
   stakeholders: "navStakeholders",
   raci: "stakeholderRaciTitle",
   "stakeholder-map": "stakeholderMapTitle",
-  documents: "navDocuments",
+  knowledge: "navKnowledge",
   reports: "tabReports",
   activity: "tabActivity",
   settings: "settings",
@@ -213,6 +213,9 @@ export function viewToSlug(view: AppView): string {
 export function slugToView(slug: string): AppView {
   if (slug === "address-book") return "directory";
   if (slug === "resource-report") return "resources";
+  // Back-compat: the Documents view was renamed to Knowledge (v0.190). Old
+  // `#documents/...` bookmarks still resolve to the Knowledge view.
+  if (slug === "documents") return "knowledge";
   const found = allNavViews().find((v) => viewToSlug(v) === slug);
   return found ?? "open-points";
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { collectDocuments } from "./documents";
+import { collectDocuments } from "./knowledge";
 
 const doc = (name: string) => ({ name, url: `https://x/${name}`, kind: "file" as const });
 

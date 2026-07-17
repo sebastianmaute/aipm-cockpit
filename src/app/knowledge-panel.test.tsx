@@ -4,7 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
-import { DocumentsPanel } from "./documents-panel";
+import { KnowledgePanel } from "./knowledge-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
@@ -80,13 +80,13 @@ function renderWithTasks(tasks: Task[]) {
     <>
       <SeedTasks tasks={tasks} />
       <TabProbe />
-      <DocumentsPanel />
+      <KnowledgePanel />
     </>,
     { wrapper },
   );
 }
 
-describe("DocumentsPanel", () => {
+describe("KnowledgePanel", () => {
   it("renders a card with the document name and a source button labeled by the task", () => {
     renderWithTasks([seededTask([LINK])]);
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();

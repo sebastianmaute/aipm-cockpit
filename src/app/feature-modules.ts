@@ -13,7 +13,7 @@ export type FeatureModuleId =
   | "changes"
   | "stakeholders"
   | "history"
-  | "documents"
+  | "knowledge"
   | "timelog";
 
 export interface FeatureModule {
@@ -49,7 +49,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
     report: "stakeholder-report",
   },
   { id: "history", labelKey: "navHistory", descKey: "historyModuleDesc", views: ["history"] },
-  { id: "documents", labelKey: "navDocuments", descKey: "documentsModuleDesc", views: ["documents"] },
+  { id: "knowledge", labelKey: "navKnowledge", descKey: "knowledgeModuleDesc", views: ["knowledge"] },
   { id: "timelog", labelKey: "navTimelog", descKey: "timelogModuleDesc", views: ["timelog"] },
 ] as const;
 
@@ -77,11 +77,13 @@ const VIEW_TO_MODULE = new Map<AppView, FeatureModuleId>(
 );
 
 /** undefined (legacy, no key) -> all modules; a non-array (junk) -> []; arrays kept
- *  (incl. []), filtered to valid ids only, unique, in registry order. */
+ *  (incl. []), filtered to valid ids only, unique, in registry order.
+ *  Legacy migration: the "documents" module was renamed to "knowledge" (v0.190);
+ *  a stored `"documents"` id maps forward so an existing user's toggle survives. */
 export function sanitizeFeatures(raw: unknown): FeatureModuleId[] {
   if (raw === undefined) return [...ALL_MODULE_IDS];
   if (!Array.isArray(raw)) return [];
-  const wanted = new Set(raw);
+  const wanted = new Set(raw.map((id) => (id === "documents" ? "knowledge" : id)));
   return ALL_MODULE_IDS.filter((id) => wanted.has(id));
 }
 

@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { ComboInput } from "./combo-input";
-import { DocumentLinksFieldGated } from "./document-links-field-gated";
+import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { ResourcePicker } from "./resource-picker";
 import type { listContacts } from "./contacts";
 import { DependenciesEditor } from "./dependencies-editor";
@@ -656,7 +656,7 @@ export function TaskFormFields({
         </div>
 
         <Field label={t(lang, "documents")} className="sm:col-span-2">
-          <DocumentLinksFieldGated
+          <KnowledgeLinksFieldGated
             value={form.documentLinks}
             onChange={(documentLinks) => setForm((prev) => ({ ...prev, documentLinks }))}
             lang={lang}

@@ -16,7 +16,7 @@ function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-// Mock M365 hooks consumed by DocumentLinksFieldGated — default: SharePoint off.
+// Mock M365 hooks consumed by KnowledgeLinksFieldGated — default: SharePoint off.
 vi.mock("./use-settings", () => ({
   useSettings: () => ({ settings: { integrations: { m365: { enabled: false, sharepoint: false } } } }),
 }));
