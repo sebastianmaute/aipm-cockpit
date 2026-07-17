@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Button } from "./button";
+import { Spinner } from "./spinner";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -235,10 +236,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             aria-live="polite"
             className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
           >
-            <span
-              aria-hidden="true"
-              className="h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue border-t-transparent"
-            />
+            <Spinner />
             <span className="text-sm font-medium">{t(lang, "actionAiAnalyzing")}</span>
             <button
               type="button"

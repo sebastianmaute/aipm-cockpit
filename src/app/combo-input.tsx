@@ -4,9 +4,12 @@ import { useId } from "react";
 import type React from "react";
 import { type Lang, t } from "./i18n";
 import { ComboboxChevron, ComboboxOptions, useCombobox } from "./combobox-shared";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
-const baseInputClass =
-  "w-full rounded-md border border-line bg-surface pl-3 pr-10 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
+// Canonical field shell: same ring-2 AIPM-green focus as the form-controls
+// `fieldClass` and the resource-picker / global-search comboboxes (was a weak
+// ring-1 — the design-system Phase 2b focus-ring normalisation).
+const baseInputClass = `w-full rounded-md border border-line bg-surface pl-3 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
 
 /**
  * Single-value combobox: shows existing suggestions in a dropdown but also accepts
