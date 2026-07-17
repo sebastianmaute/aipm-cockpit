@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.9";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.9: design-system menu/loading consistency (P2b) — canonical <Spinner> primitive (dedups 3 inline spinners); combo-input focus ring ring-1 -> canonical ring-2; toolbar filter/column dropdowns portal via PopoverPanel (escape overflow-clip) + render the canonical <Checkbox> (fixes an inert text-* checkbox class) (Pinsker)
+export const APP_VERSION = "0.190.10";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.10: a11y + palette defect sweep — toggle labels now announce the correct pressed state (WCAG 4.1.2 pin-the-enabled-label on show-archived + voice-command), 4 modal validation errors + a wizard notice regain role="alert", and 4 edit modals drop an off-palette bg-black/40 backdrop for the canonical AIPM tint (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
