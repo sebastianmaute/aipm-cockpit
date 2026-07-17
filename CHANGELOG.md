@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.6] - 2026-07-17 "Pinsker"
+
+Design-system consistency — Phase 1d (Badge + palette hygiene).
+
+### Changed
+- Added a canonical `<Badge>` chip primitive and migrated the generic pills onto it
+  (consistent radius + size scale).
+
+### Fixed
+- Replaced off-palette raw colours with sanctioned tokens so they recolour under the
+  Mockup/custom schemes: amber warning chips (`bg-amber-500` → `--rag-amber`) and two
+  error-text strings (`text-AIPM-red` → `AIPM-pink-strong`).
+
 ## [0.190.5] - 2026-07-17 "Pinsker"
 
 Design-system consistency — Phase 1c (Card/Tile/Section).
