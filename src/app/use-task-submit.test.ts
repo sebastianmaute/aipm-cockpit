@@ -52,7 +52,7 @@ function validForm(): TaskFormDraft {
     timeSpentMinutes: undefined,
     pushToJira: false,
     healthOverride: "",
-    documentLinks: [],
+    knowledgeLinks: [],
     resourceId: undefined,
     noteLog: [],
   };

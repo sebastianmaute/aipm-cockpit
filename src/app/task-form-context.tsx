@@ -40,7 +40,7 @@ export function emptyForm() {
     pushToJira: false,
     // Empty string = "Auto" (no override). Mapped to undefined on save.
     healthOverride: "" as "" | Health,
-    documentLinks: [] as KnowledgeLink[],
+    knowledgeLinks: [] as KnowledgeLink[],
     // Running note log — appended in-form, persisted on save. Separate from the
     // freeform `notes` field. Timestamps are stamped in the add handler.
     noteLog: [] as NoteLogEntry[],

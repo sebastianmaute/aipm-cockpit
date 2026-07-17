@@ -1,5 +1,5 @@
 # TASKS
-id,taskName,assignee,assigneeEmail,startDate,dueDate,lastUpdateDate,priority,status,blockers,notes,completedDate,inquiriesSent,group,labels,dependencies,jiraKey,jiraIssueType,lastSyncedAt,localModifiedAt,healthOverride,resourceId,originalEstimateMinutes,timeSpentMinutes,documentLinks,outlookEventId,noteLog
+id,taskName,assignee,assigneeEmail,startDate,dueDate,lastUpdateDate,priority,status,blockers,notes,completedDate,inquiriesSent,group,labels,dependencies,jiraKey,jiraIssueType,lastSyncedAt,localModifiedAt,healthOverride,resourceId,originalEstimateMinutes,timeSpentMinutes,knowledgeLinks,outlookEventId,noteLog
 1,Design SSO architecture,Alex Example,Sample.Dummy@example.com,2026-04-01,2026-04-20,2026-04-22,High,Done,,Reviewed OIDC vs SAML; OIDC selected based on partner roadmap.,2026-04-22,0,Auth Migration,design|architecture,,LOP-101,Story,,,,1,,,"[{""id"":""dl-1"",""name"":""OIDC Architecture Decision.docx"",""url"":""https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/OIDC-Architecture-Decision.docx"",""kind"":""file""}]",,
 2,POC OIDC integration,Sam Placeholder,Fictional.Jordan@example.com,2026-04-15,2026-04-30,2026-05-04,High,Done,,Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main.,2026-05-04,1,Auth Migration,poc|backend,FS:1,LOP-102,Story,,,,2,,,,,
 3,Stakeholder workshop,Taylor Specimen,aria.patel@example.com,,2026-05-05,2026-05-05,Medium,Done,,"Workshop with security, legal, product. Action items captured in Confluence: SSO-2026-Q2.",2026-05-05,0,Auth Migration,planning|stakeholder,SS:2,,,,,,3,,,,,
@@ -16,7 +16,7 @@ id,taskName,assignee,assigneeEmail,startDate,dueDate,lastUpdateDate,priority,sta
 14,Risk & compliance kick-off,Morgan Standin,Invented.Riley@example.com,2026-04-08,2026-04-10,2026-04-10,Medium,Done,,Identified 4 risk items. RAID log bootstrapped. SOC2 evidence tracker set up in Confluence.,2026-04-10,0,Auth Migration,planning|compliance,FS:1,,,,,,4,,,,,
 
 # RAID
-id,category,title,description,severity,probability,impact,status,owner,ownerEmail,ownerResourceId,mitigation,linkedTaskIds,raisedDate,targetDate,closedDate,localModifiedAt,causedByRaidIds,stakeholderIds,documentLinks,outlookEventId,inquiriesSent
+id,category,title,description,severity,probability,impact,status,owner,ownerEmail,ownerResourceId,mitigation,linkedTaskIds,raisedDate,targetDate,closedDate,localModifiedAt,causedByRaidIds,stakeholderIds,knowledgeLinks,outlookEventId,inquiriesSent
 1,R,Legacy user data corruption during migration,50k bcrypt-hashed passwords; corruption could lock users out of all services.,High,3,5,Mitigated,Sam Placeholder,Fictional.Jordan@example.com,2,Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week.,6,2026-04-25,2026-06-15,,,,,"[{""id"":""dl-3"",""name"":""Migration Runbook.pdf"",""url"":""https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Migration-Runbook.pdf"",""kind"":""file""}]",,
 2,R,SSO provider outage during peak hours,Vendor-side downtime would block all logins for all users.,Medium,2,4,Open,Morgan Standin,Invented.Riley@example.com,4,"Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed).",,2026-05-01,,,,,1|6,,,
 3,R,Performance regression on login under load,Auth path adds 200ms p95 latency vs baseline; could degrade homepage TTFB.,High,4,3,Realized,Sam Placeholder,Fictional.Jordan@example.com,2,Token verification cached; index added on session lookup. Still monitoring.,4,2026-05-08,,,,,,,,
@@ -97,18 +97,18 @@ narrative,Migration on track for the September go-live; design sign-off is compl
 narrativeUpdatedAt,2026-05-28T09:00:00.000Z
 
 # MILESTONES
-id,name,date,description,achievedDate,linkedTaskIds,localModifiedAt,documentLinks,outlookEventId
+id,name,date,description,achievedDate,linkedTaskIds,localModifiedAt,knowledgeLinks,outlookEventId
 1,Design Sign-off,2026-04-20,,,,,"[{""id"":""dl-4"",""name"":""Design Sign-off Minutes.docx"",""url"":""https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx"",""kind"":""file""}]",
 2,Go-Live,2026-09-01,,,,,,
 3,Hypercare Exit,2026-12-15,,,,,,
 
 # CHANGES
-id,title,description,type,status,impact,impactDescription,scheduleImpactDays,costImpact,requestedBy,raisedDate,decisionBy,decisionDate,resolutionNotes,linkedTaskIds,linkedRaidIds,stakeholderIds,localModifiedAt,documentLinks,outlookEventId
+id,title,description,type,status,impact,impactDescription,scheduleImpactDays,costImpact,requestedBy,raisedDate,decisionBy,decisionDate,resolutionNotes,linkedTaskIds,linkedRaidIds,stakeholderIds,localModifiedAt,knowledgeLinks,outlookEventId
 1,Add MFA to SSO scope,Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20.,Scope,Under Review,High,Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.,21,18000,Morgan Standin,2026-05-21,Elena Fischer,,,2,4,1|5,2026-05-21T09:00:00.000Z,,
 2,Extend go-live by two weeks,Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.,Schedule,Proposed,Medium,Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.,14,6000,Alex Example,2026-05-28,Elena Fischer,,,,2,1|4,2026-05-28T14:30:00.000Z,,
 
 # STAKEHOLDERS
-id,name,organization,title,email,category,influence,interest,notes,resourceId,raci,localModifiedAt,documentLinks
+id,name,organization,title,email,category,influence,interest,notes,resourceId,raci,localModifiedAt,knowledgeLinks
 1,Elena Fischer,Acme,,,Sponsor,High,High,,,1=A|2=A|3=C,,"[{""id"":""dl-5"",""name"":""Steering Committee Deck Q2.pptx"",""url"":""https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Steering-Deck-Q2.pptx"",""kind"":""file""}]"
 2,Sam Placeholder,Acme,,,Internal,High,Medium,,2,1=R|2=A|3=R,,
 3,Taylor Specimen,Acme,,,Internal,Medium,High,,3,1=C|2=R|3=I,,

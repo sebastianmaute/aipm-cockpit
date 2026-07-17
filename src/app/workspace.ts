@@ -269,6 +269,61 @@ export function migrateWorkspaceV9(ws: Workspace): Workspace {
   return { ...base, absences: filled.absences, raid: filled.raid, shifts: filled.shifts };
 }
 
+/**
+ * v10 migration: rename the legacy embedded `documentLinks` field to
+ * `knowledgeLinks` on every entity that carries it (task / raid / change /
+ * milestone / stakeholder + ProjectMeta). ONLY the field NAME changed — the
+ * value shape (KnowledgeLink[]) is identical — so an old JSON export or an old
+ * IndexedDB record keeps all of its links. Runs after v9.
+ *
+ * The CSV / Markdown / Turso decoders already alias the old column at decode
+ * time (so those paths arrive with `knowledgeLinks` set and this is a no-op);
+ * this migration exists for the WHOLE-OBJECT pass-through backends (JSON file +
+ * IndexedDB), which store the raw entity object and never touch a codec.
+ *
+ * Immutable + idempotent: an item/array is reused by reference when it has no
+ * legacy key, so a re-run (or an already-migrated workspace) allocates nothing.
+ */
+export function migrateWorkspaceV10(ws: Workspace): Workspace {
+  const base = migrateWorkspaceV9(ws);
+  const LEGACY = "documentLinks";
+  const NEW = "knowledgeLinks";
+  const renameItem = <T>(item: T): T => {
+    const rec = item as Record<string, unknown>;
+    if (!(LEGACY in rec)) return item;
+    const { [LEGACY]: legacy, ...rest } = rec;
+    // Never clobber an already-present knowledgeLinks; just drop the legacy key.
+    return (NEW in rec ? rest : { ...rest, [NEW]: legacy }) as T;
+  };
+  const renameArr = <T>(arr: readonly T[] | undefined): readonly T[] | undefined => {
+    if (!arr) return arr;
+    let touched = false;
+    const out = arr.map((it) => {
+      const next = renameItem(it);
+      if (next !== it) touched = true;
+      return next;
+    });
+    return touched ? out : arr;
+  };
+  const tasks = renameArr(base.tasks) as Task[];
+  const raid = renameArr(base.raid) as RaidItem[];
+  const changes = renameArr(base.changes) as ChangeItem[] | undefined;
+  const milestones = renameArr(base.milestones) as Milestone[] | undefined;
+  const stakeholders = renameArr(base.stakeholders) as Stakeholder[] | undefined;
+  const project = base.project ? renameItem(base.project) : base.project;
+  if (
+    tasks === base.tasks &&
+    raid === base.raid &&
+    changes === base.changes &&
+    milestones === base.milestones &&
+    stakeholders === base.stakeholders &&
+    project === base.project
+  ) {
+    return base;
+  }
+  return { ...base, tasks, raid, changes, milestones, stakeholders, project };
+}
+
 // --- Storage configuration -------------------------------------------------
 
 export type StorageKind =
@@ -474,7 +529,7 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
       const links = sanitizeTimelogLinks(p.timelogLinks);
       if (links) raw.timelogLinks = links;
     }
-    return migrateWorkspaceV9(raw);
+    return migrateWorkspaceV10(raw);
   } catch (err) {
     if (err instanceof WorkspaceParseError) throw err;
     if (strict) throw new WorkspaceParseError("shape");

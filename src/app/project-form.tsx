@@ -81,7 +81,7 @@ function draftFromMeta(meta: ProjectMeta): ProjectFormDraft {
     docRepoLocation: meta.docRepoLocation ?? "",
     regulatory: [...meta.regulatory],
     notes: meta.notes ?? "",
-    documentLinks: meta.documentLinks ?? [],
+    knowledgeLinks: meta.knowledgeLinks ?? [],
     operatingTimezone: meta.operatingTimezone ?? "",
   };
 }
@@ -153,7 +153,7 @@ export function ProjectForm({
       docRepoLocation: draft.docRepoLocation,
       regulatory: draft.regulatory,
       notes: draft.notes,
-      documentLinks: draft.documentLinks,
+      knowledgeLinks: draft.knowledgeLinks,
       operatingTimezone: draft.operatingTimezone || undefined,
     });
 

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.0";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.0: large UX batch — floating draggable/resizable task editor, Open-Points RAG-health filter + bulk delete + ⋮ row menu + AI "Deduplicate & unify tasks", RAID send-inquiry + owner filter, structured task note-log, Gantt inline-vs-below milestone toggle, undo/redo labels + preview, toast hover-pause, AI 400-detail + HTML/VTT ingestion, pull-contacts from Outlook, per-row steering push, the Documents→Knowledge rename with Confluence/URL links, and the rename to "AI PM Cockpit" (Pinsker)
+export const APP_VERSION = "0.190.1";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.1: internal storage rename of the embedded links field documentLinks -> knowledgeLinks (wire-level: CSV/MD/Turso columns + Turso RENAME COLUMN self-heal + CSV/MD/JSON back-compat aliases; no user-visible change) (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

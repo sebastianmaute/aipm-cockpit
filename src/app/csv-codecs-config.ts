@@ -5,7 +5,7 @@
 // the `workspaceToCsv` encoder assembler. Depends only on ./csv-codecs-core.
 // Re-exported via the ./csv-codecs barrel.
 
-import { encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
+import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
@@ -178,7 +178,7 @@ export const PROJECT_CSV_COLUMNS: Array<keyof ProjectMeta> = [
   "profitCenter", "quotes", "salesforceUrl", "sharepointUrl", "confluenceUrl", "jiraUrl",
   "operatingTimezone",
   "contactPersons", "docRepoLocation", "regulatory", "notes",
-  "documentLinks",
+  "knowledgeLinks",
 ];
 
 /** The list delimiter used across this file for joined string arrays. */
@@ -318,7 +318,7 @@ const PROJECT_ARRAY_COLUMNS = new Set<keyof ProjectMeta>([
 
 /** Single-line, reversible string form for one ProjectMeta field. */
 export function projectFieldToString(p: ProjectMeta, col: keyof ProjectMeta): string {
-  if (col === "documentLinks") return encodeDocumentLinks(p.documentLinks);
+  if (col === "knowledgeLinks") return encodeKnowledgeLinks(p.knowledgeLinks);
   if (col === "contactPersons") return encodeContactPersons(p.contactPersons);
   if (PROJECT_ARRAY_COLUMNS.has(col)) {
     const arr = p[col] as string[] | undefined;
@@ -369,7 +369,7 @@ function decodeProjectObj(obj: Record<string, string>): Record<string, unknown> 
     docRepoLocation: scalar("docRepoLocation"),
     regulatory: decodeProjectList(obj.regulatory ?? ""),
     notes: scalar("notes"),
-    documentLinks: decodeDocumentLinks(obj.documentLinks ?? ""),
+    knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks ?? ""),
   };
 }
 

@@ -34,16 +34,16 @@ function push(out: DocRef[], links: readonly KnowledgeLink[] | undefined, source
 export function collectDocuments(a: CollectDocumentsArgs): DocRef[] {
   const out: DocRef[] = [];
   for (const t of a.tasks)
-    push(out, t.documentLinks, { kind: "task", id: t.id, name: t.taskName, view: "open-points" });
+    push(out, t.knowledgeLinks, { kind: "task", id: t.id, name: t.taskName, view: "open-points" });
   for (const r of a.raid)
-    push(out, r.documentLinks, { kind: "raid", id: r.id, name: r.title, view: "raid" });
+    push(out, r.knowledgeLinks, { kind: "raid", id: r.id, name: r.title, view: "raid" });
   for (const c of a.changes)
-    push(out, c.documentLinks, { kind: "change", id: c.id, name: c.title, view: "changes" });
+    push(out, c.knowledgeLinks, { kind: "change", id: c.id, name: c.title, view: "changes" });
   for (const m of a.milestones)
-    push(out, m.documentLinks, { kind: "milestone", id: m.id, name: m.name, view: "milestones" });
+    push(out, m.knowledgeLinks, { kind: "milestone", id: m.id, name: m.name, view: "milestones" });
   for (const s of a.stakeholders)
-    push(out, s.documentLinks, { kind: "stakeholder", id: s.id, name: s.name, view: "stakeholders" });
+    push(out, s.knowledgeLinks, { kind: "stakeholder", id: s.id, name: s.name, view: "stakeholders" });
   if (a.project)
-    push(out, a.project.documentLinks, { kind: "project", id: 0, name: a.project.name, view: "projects" });
+    push(out, a.project.knowledgeLinks, { kind: "project", id: 0, name: a.project.name, view: "projects" });
   return out;
 }

@@ -3,6 +3,7 @@ import {
   pragmaStatements,
   existingColumnsFromPragma,
   missingColumnAlters,
+  columnRenameAlters,
   buildColumnEnsureAlters,
   singleTenantTableColumns,
   tenantTableColumns,
@@ -168,13 +169,82 @@ describe("column-set sources", () => {
     expect(milestones?.columns).not.toContain("project_id");
   });
 
-  it("tenantTableColumns appends project_id to every entity table, plus the plan table", () => {
+  it("tenantTableColumns appends project_id to every entity table, plus the plan and projects tables", () => {
     const cols = tenantTableColumns();
-    expect(cols.map((c) => c.table)).toEqual([...ENTITY_SPECS.map((s) => s.table), "plan"]);
-    expect(cols.every((c) => c.columns.includes("project_id"))).toBe(true);
+    expect(cols.map((c) => c.table)).toEqual([...ENTITY_SPECS.map((s) => s.table), "plan", "projects"]);
+    // Every table EXCEPT the shared projects table carries project_id.
+    expect(cols.filter((c) => c.table !== "projects").every((c) => c.columns.includes("project_id"))).toBe(true);
     const milestones = cols.find((c) => c.table === "milestones");
     expect(milestones?.columns).toContain("outlookEventId");
     expect(milestones?.columns).toContain("project_id");
+    // The projects table holds ProjectMeta columns (incl. knowledgeLinks), no project_id.
+    const projects = cols.find((c) => c.table === "projects");
+    expect(projects?.columns).toContain("id");
+    expect(projects?.columns).toContain("knowledgeLinks");
+    expect(projects?.columns).not.toContain("project_id");
+  });
+});
+
+// Regression / data-safety: the persisted embedded links column was renamed
+// `documentLinks` → `knowledgeLinks`. An existing Turso DB must RENAME the column
+// in place (never drop it) so no user loses their links, and a second migration
+// run must be a no-op (idempotent).
+describe("documentLinks → knowledgeLinks column rename", () => {
+  it("emits RENAME COLUMN when the old column is present and the new one absent", () => {
+    const { alters, renamed } = columnRenameAlters(
+      "tasks",
+      ["id", "taskName", "documentLinks"],
+      ["id", "taskName", "knowledgeLinks"],
+    );
+    expect(alters).toEqual([
+      { sql: 'ALTER TABLE "tasks" RENAME COLUMN "documentLinks" TO "knowledgeLinks"' },
+    ]);
+    expect([...renamed]).toEqual(["knowledgeLinks"]);
+  });
+
+  it("emits nothing once already renamed (idempotent)", () => {
+    const { alters, renamed } = columnRenameAlters(
+      "tasks",
+      ["id", "taskName", "knowledgeLinks"],
+      ["id", "taskName", "knowledgeLinks"],
+    );
+    expect(alters).toEqual([]);
+    expect(renamed.size).toBe(0);
+  });
+
+  it("does NOT rename a legacy column on a table that does not expect the new name", () => {
+    const { alters } = columnRenameAlters("other", ["id", "documentLinks"], ["id", "somethingElse"]);
+    expect(alters).toEqual([]);
+  });
+
+  it("renames in place — the just-renamed column is NOT also ADDed (no empty-column data loss)", () => {
+    const specs: TableColumns[] = [{ table: "tasks", columns: ["id", "taskName", "knowledgeLinks"] }];
+    // Existing DB: old documentLinks column present, new knowledgeLinks absent.
+    const results = [pragmaResult(["id", "taskName", "documentLinks"])];
+    const sql = buildColumnEnsureAlters(specs, results).map((s) => s.sql);
+    expect(sql).toEqual([
+      'ALTER TABLE "tasks" RENAME COLUMN "documentLinks" TO "knowledgeLinks"',
+    ]);
+    // Critically: NO `ADD COLUMN "knowledgeLinks"` (that would overwrite the data).
+    expect(sql.some((s) => /ADD COLUMN "knowledgeLinks"/.test(s))).toBe(false);
+  });
+
+  it("is a no-op on a fresh/up-to-date DB that already has knowledgeLinks", () => {
+    const specs: TableColumns[] = [{ table: "tasks", columns: ["id", "taskName", "knowledgeLinks"] }];
+    const results = [pragmaResult(["id", "taskName", "knowledgeLinks"])];
+    expect(buildColumnEnsureAlters(specs, results)).toEqual([]);
+  });
+
+  it("renames the tenant projects table's legacy documentLinks column", () => {
+    const specs = tenantTableColumns();
+    const results = specs.map((s) =>
+      s.table === "projects"
+        ? pragmaResult(["id", "archived", "name", "documentLinks"])
+        : pragmaResult([...s.columns]),
+    );
+    const sql = buildColumnEnsureAlters(specs, results).map((s) => s.sql);
+    expect(sql).toContain('ALTER TABLE "projects" RENAME COLUMN "documentLinks" TO "knowledgeLinks"');
+    expect(sql.some((s) => /ADD COLUMN "knowledgeLinks"/.test(s))).toBe(false);
   });
 });
 

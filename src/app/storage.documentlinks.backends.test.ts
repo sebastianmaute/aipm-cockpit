@@ -1,13 +1,13 @@
 // src/app/storage.documentlinks.backends.test.ts
 //
-// Round-trip tests proving documentLinks survives the BrowserBackend (IndexedDB)
+// Round-trip tests proving knowledgeLinks survives the BrowserBackend (IndexedDB)
 // and Turso single-tenant statement save→load paths.
 //
 // Multi-tenant path: the existing turso-tenant-schema.test.ts already confirms
 // the DDL column exists for every TABLE_NAMES entry (incl. tasks). The
 // single-tenant path below is sufficient as a round-trip guard because
 // tenantWorkspaceToStatements delegates to the same TASK_CSV_COLUMNS constant
-// and encodeDocumentLinks codec, so if the single-tenant path passes the
+// and encodeKnowledgeLinks codec, so if the single-tenant path passes the
 // multi-tenant serialisation is also correct.
 
 import "fake-indexeddb/auto";
@@ -59,7 +59,7 @@ function resultsFromStatements(
 // ---------------------------------------------------------------------------
 // BrowserBackend (IndexedDB) round-trip
 // ---------------------------------------------------------------------------
-describe("BrowserBackend documentLinks round-trip", () => {
+describe("BrowserBackend knowledgeLinks round-trip", () => {
   beforeEach(() => {
     globalThis.indexedDB = new IDBFactory();
   });
@@ -67,7 +67,7 @@ describe("BrowserBackend documentLinks round-trip", () => {
     globalThis.indexedDB = new IDBFactory();
   });
 
-  it("Task.documentLinks survives save → load", async () => {
+  it("Task.knowledgeLinks survives save → load", async () => {
     const ws = {
       ...emptyWorkspace(),
       tasks: [
@@ -84,7 +84,7 @@ describe("BrowserBackend documentLinks round-trip", () => {
           notes: "",
           labels: [],
           dependencies: [],
-          documentLinks: links,
+          knowledgeLinks: links,
         },
       ],
     };
@@ -93,15 +93,15 @@ describe("BrowserBackend documentLinks round-trip", () => {
     const loaded = await createBackend({ kind: "browser" }).load();
 
     expect(loaded.tasks).toHaveLength(1);
-    expect(loaded.tasks[0].documentLinks).toEqual(links);
+    expect(loaded.tasks[0].knowledgeLinks).toEqual(links);
   });
 });
 
 // ---------------------------------------------------------------------------
 // Turso single-tenant round-trip
 // ---------------------------------------------------------------------------
-describe("Turso single-tenant documentLinks round-trip", () => {
-  it("Task.documentLinks survives workspaceToStatements → rowsToWorkspace", () => {
+describe("Turso single-tenant knowledgeLinks round-trip", () => {
+  it("Task.knowledgeLinks survives workspaceToStatements → rowsToWorkspace", () => {
     const ws = {
       ...emptyWorkspace(),
       tasks: [
@@ -118,7 +118,7 @@ describe("Turso single-tenant documentLinks round-trip", () => {
           notes: "",
           labels: [],
           dependencies: [],
-          documentLinks: links,
+          knowledgeLinks: links,
         },
       ],
     };
@@ -126,6 +126,6 @@ describe("Turso single-tenant documentLinks round-trip", () => {
     const out = rowsToWorkspace(resultsFromStatements(workspaceToStatements(ws)));
 
     expect(out.tasks).toHaveLength(1);
-    expect(out.tasks[0].documentLinks).toEqual(links);
+    expect(out.tasks[0].knowledgeLinks).toEqual(links);
   });
 });

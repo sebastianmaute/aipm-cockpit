@@ -299,21 +299,21 @@ describe("sanitizeRaidItem", () => {
     expect(sanitizeRaidItem({ ...VALID, ownerResourceId: -1 })!.ownerResourceId).toBeUndefined();
   });
 
-  // --- documentLinks ---
+  // --- knowledgeLinks ---
 
-  it("omits documentLinks when none provided", () => {
-    const result = sanitizeRaidItem({ ...VALID, documentLinks: undefined });
-    expect(result!.documentLinks).toBeUndefined();
+  it("omits knowledgeLinks when none provided", () => {
+    const result = sanitizeRaidItem({ ...VALID, knowledgeLinks: undefined });
+    expect(result!.knowledgeLinks).toBeUndefined();
   });
 
-  it("includes documentLinks when valid", () => {
+  it("includes knowledgeLinks when valid", () => {
     const input = {
       ...VALID,
-      documentLinks: [{ name: "Spec", url: "https://example.com/doc" }],
+      knowledgeLinks: [{ name: "Spec", url: "https://example.com/doc" }],
     };
     const result = sanitizeRaidItem(input);
-    expect(result!.documentLinks).toHaveLength(1);
-    expect(result!.documentLinks![0].url).toBe("https://example.com/doc");
+    expect(result!.knowledgeLinks).toHaveLength(1);
+    expect(result!.knowledgeLinks![0].url).toBe("https://example.com/doc");
   });
 
   // --- outlookEventId ---

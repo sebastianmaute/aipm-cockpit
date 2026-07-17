@@ -225,7 +225,7 @@ function StakeholdersPanelBody({
       influence: "Medium",
       interest: "Medium",
       raci: {},
-      documentLinks: [],
+      knowledgeLinks: [],
     });
     setIsNew(true);
   }

@@ -72,7 +72,7 @@ export function KnowledgePanel() {
   const [sort, setSort] = useState<DocSort>("added");
 
   function linksOf(s: DocSource): KnowledgeLink[] {
-    if (s.kind === "project") return [...(project?.documentLinks ?? [])];
+    if (s.kind === "project") return [...(project?.knowledgeLinks ?? [])];
     const list =
       s.kind === "task"
         ? tasks
@@ -84,19 +84,19 @@ export function KnowledgePanel() {
               ? milestones
               : stakeholders;
     return [
-      ...((list as readonly { id: number; documentLinks?: KnowledgeLink[] }[]).find((e) => e.id === s.id)
-        ?.documentLinks ?? []),
+      ...((list as readonly { id: number; knowledgeLinks?: KnowledgeLink[] }[]).find((e) => e.id === s.id)
+        ?.knowledgeLinks ?? []),
     ];
   }
   function setDocsForSource(s: DocSource, next: KnowledgeLink[]) {
-    const patch = <T extends { id: number; documentLinks?: KnowledgeLink[] }>(arr: readonly T[]): T[] =>
-      arr.map((e) => (e.id === s.id ? { ...e, documentLinks: next } : e));
+    const patch = <T extends { id: number; knowledgeLinks?: KnowledgeLink[] }>(arr: readonly T[]): T[] =>
+      arr.map((e) => (e.id === s.id ? { ...e, knowledgeLinks: next } : e));
     if (s.kind === "task") ws.setTasks((p) => patch(p));
     else if (s.kind === "raid") ws.setRaid((p) => patch(p));
     else if (s.kind === "change") ws.setChanges((p) => patch(p));
     else if (s.kind === "milestone") ws.setMilestones((p) => patch(p));
     else if (s.kind === "stakeholder") ws.setStakeholders((p) => patch(p));
-    else ws.setProject((p) => (p ? { ...p, documentLinks: next } : p));
+    else ws.setProject((p) => (p ? { ...p, knowledgeLinks: next } : p));
   }
   function remove(r: DocRef) {
     setDocsForSource(

@@ -657,8 +657,8 @@ export function TaskFormFields({
 
         <Field label={t(lang, "documents")} className="sm:col-span-2">
           <KnowledgeLinksFieldGated
-            value={form.documentLinks}
-            onChange={(documentLinks) => setForm((prev) => ({ ...prev, documentLinks }))}
+            value={form.knowledgeLinks}
+            onChange={(knowledgeLinks) => setForm((prev) => ({ ...prev, knowledgeLinks }))}
             lang={lang}
           />
         </Field>

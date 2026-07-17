@@ -164,7 +164,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         originalEstimateMinutes: form.originalEstimateMinutes,
         timeSpentMinutes: form.timeSpentMinutes,
         resourceId: form.resourceId ?? undefined,
-        documentLinks: form.documentLinks,
+        knowledgeLinks: form.knowledgeLinks,
         noteLog: sanitizeNoteLog(form.noteLog),
       };
 
@@ -326,7 +326,7 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         resourceId: task.resourceId,
         pushToJira: false,
         healthOverride: task.healthOverride ?? "",
-        documentLinks: task.documentLinks ?? [],
+        knowledgeLinks: task.knowledgeLinks ?? [],
         noteLog: task.noteLog ?? [],
       });
       if (typeof window !== "undefined") {

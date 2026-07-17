@@ -8,7 +8,7 @@
 // from the config/decode siblings. Re-exported via the ./csv-codecs barrel.
 
 import { riskSeverityFromMatrix } from "./raid";
-import { encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
+import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 import { encodeNoteLog } from "./note-log";
 import {
   encodeAllocations,
@@ -65,7 +65,7 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "resourceId",
   "originalEstimateMinutes",
   "timeSpentMinutes",
-  "documentLinks",
+  "knowledgeLinks",
   "outlookEventId",
   "noteLog",
 ];
@@ -102,7 +102,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "localModifiedAt",
   "causedByRaidIds",
   "stakeholderIds",
-  "documentLinks",
+  "knowledgeLinks",
   "outlookEventId",
   "inquiriesSent",
 ];
@@ -152,7 +152,7 @@ export const ROLES_CSV_COLUMNS = ["id", "disciplineId", "gradeId", "internalRate
 export const REF_CSV_COLUMNS = ["id", "name", "localModifiedAt"] as const;
 
 export const MILESTONES_CSV_COLUMNS: Array<keyof Milestone> = [
-  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "documentLinks", "outlookEventId",
+  "id", "name", "date", "description", "achievedDate", "linkedTaskIds", "localModifiedAt", "knowledgeLinks", "outlookEventId",
 ];
 
 export const BUDGETS_CSV_COLUMNS = [
@@ -264,7 +264,7 @@ export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
       : "";
   if (c === "stakeholderIds")
     return Array.isArray(r.stakeholderIds) ? r.stakeholderIds.join("|") : "";
-  if (c === "documentLinks") return encodeDocumentLinks(r.documentLinks);
+  if (c === "knowledgeLinks") return encodeKnowledgeLinks(r.knowledgeLinks);
   return String(r[c] ?? "");
 }
 
@@ -337,7 +337,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     localModifiedAt: obj.localModifiedAt || undefined,
     causedByRaidIds,
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
-    documentLinks: decodeDocumentLinks(obj.documentLinks),
+    knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
     outlookEventId: obj.outlookEventId || undefined,
     // Sparse: absent/0/negative -> undefined so legacy rows stay byte-identical.
     inquiriesSent: (() => {
@@ -349,7 +349,7 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
 
 export function milestoneFieldToString(m: Milestone, c: keyof Milestone): string {
   if (c === "linkedTaskIds") return Array.isArray(m.linkedTaskIds) ? m.linkedTaskIds.join("|") : "";
-  if (c === "documentLinks") return encodeDocumentLinks(m.documentLinks);
+  if (c === "knowledgeLinks") return encodeKnowledgeLinks(m.knowledgeLinks);
   return String(m[c] ?? "");
 }
 
@@ -364,7 +364,7 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
   if (obj.description) m.description = obj.description;
   if (obj.achievedDate) m.achievedDate = obj.achievedDate;
   if (obj.localModifiedAt) m.localModifiedAt = obj.localModifiedAt;
-  const dl = decodeDocumentLinks(obj.documentLinks); if (dl.length) m.documentLinks = dl;
+  const dl = decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks); if (dl.length) m.knowledgeLinks = dl;
   if (obj.outlookEventId) m.outlookEventId = obj.outlookEventId;
   return m;
 }
@@ -372,14 +372,14 @@ export function buildMilestoneFromObj(obj: Record<string, string>): Milestone | 
 export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
   "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
   "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
-  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "documentLinks", "outlookEventId",
+  "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "knowledgeLinks", "outlookEventId",
 ];
 
 export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {
   if (col === "linkedTaskIds") return Array.isArray(c.linkedTaskIds) ? c.linkedTaskIds.join("|") : "";
   if (col === "linkedRaidIds") return Array.isArray(c.linkedRaidIds) ? c.linkedRaidIds.join("|") : "";
   if (col === "stakeholderIds") return Array.isArray(c.stakeholderIds) ? c.stakeholderIds.join("|") : "";
-  if (col === "documentLinks") return encodeDocumentLinks(c.documentLinks);
+  if (col === "knowledgeLinks") return encodeKnowledgeLinks(c.knowledgeLinks);
   const v = c[col];
   return v === undefined || v === null ? "" : String(v);
 }
@@ -393,19 +393,19 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
     linkedTaskIds: parseLinkedTaskIds(obj.linkedTaskIds),
     linkedRaidIds: parseLinkedTaskIds(obj.linkedRaidIds),
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
-    documentLinks: decodeDocumentLinks(obj.documentLinks),
+    knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
   });
 }
 
 export const STAKEHOLDERS_CSV_COLUMNS: Array<keyof Stakeholder> = [
   "id", "name", "organization", "title", "email", "category",
-  "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt", "documentLinks",
+  "influence", "interest", "notes", "resourceId", "raci", "localModifiedAt", "knowledgeLinks",
 ];
 
 export function stakeholderFieldToString(s: Stakeholder, col: keyof Stakeholder): string {
   if (col === "raci") return encodeRaciMap(s.raci);
   if (col === "resourceId") return s.resourceId == null ? "" : String(s.resourceId);
-  if (col === "documentLinks") return encodeDocumentLinks(s.documentLinks);
+  if (col === "knowledgeLinks") return encodeKnowledgeLinks(s.knowledgeLinks);
   const v = s[col];
   return v === undefined || v === null ? "" : String(v);
 }
@@ -416,7 +416,7 @@ export function buildStakeholderFromObj(obj: Record<string, string>): Stakeholde
     id: obj.id ? Number(obj.id) : undefined,
     resourceId: obj.resourceId ? Number(obj.resourceId) : null,
     raci: decodeRaciMap(obj.raci),
-    documentLinks: decodeDocumentLinks(obj.documentLinks),
+    knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
   });
 }
 
@@ -453,7 +453,7 @@ export function csvCellEscape(value: string, neutralize: boolean): string {
 export function fieldToString(t: Task, c: keyof Task): string {
   if (c === "labels") return Array.isArray(t.labels) ? t.labels.join("|") : "";
   if (c === "dependencies") return serializeDependencies(t.dependencies);
-  if (c === "documentLinks") return encodeDocumentLinks(t.documentLinks);
+  if (c === "knowledgeLinks") return encodeKnowledgeLinks(t.knowledgeLinks);
   if (c === "noteLog") return encodeNoteLog(t.noteLog);
   return String(t[c] ?? "");
 }

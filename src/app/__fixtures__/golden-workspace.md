@@ -1,6 +1,6 @@
 # LOP Tasks
 
-| ID | Task | Assignee | Email | Start | Due | Last update | Priority | Status | Blockers | Notes | Completed | Inquiries | Group | Labels | Dependencies | Jira | JiraType | LastSynced | LocalModified | Health | ResourceId | OrigEstimateMin | TimeSpentMin | DocumentLinks | OutlookEventId | NoteLog |
+| ID | Task | Assignee | Email | Start | Due | Last update | Priority | Status | Blockers | Notes | Completed | Inquiries | Group | Labels | Dependencies | Jira | JiraType | LastSynced | LocalModified | Health | ResourceId | OrigEstimateMin | TimeSpentMin | KnowledgeLinks | OutlookEventId | NoteLog |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Design SSO architecture | Alex Example | Sample.Dummy@example.com | 2026-04-01 | 2026-04-20 | 2026-04-22 | High | Done |  | Reviewed OIDC vs SAML; OIDC selected based on partner roadmap. | 2026-04-22 | 0 | Auth Migration | design\|architecture |  | LOP-101 | Story |  |  |  | 1 |  |  | [{"id":"dl-1","name":"OIDC Architecture Decision.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/OIDC-Architecture-Decision.docx","kind":"file"}] |  |  |
 | 2 | POC OIDC integration | Sam Placeholder | Fictional.Jordan@example.com | 2026-04-15 | 2026-04-30 | 2026-05-04 | High | Done |  | Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main. | 2026-05-04 | 1 | Auth Migration | poc\|backend | FS:1 | LOP-102 | Story |  |  |  | 2 |  |  |  |  |  |
@@ -19,7 +19,7 @@
 
 # RAID Log
 
-| ID | Category | Title | Description | Severity | Probability | Impact | Status | Owner | OwnerEmail | OwnerResourceId | Mitigation | LinkedTasks | Raised | Target | Closed | LocalModified | CausedByIds | StakeholderIds | DocumentLinks | OutlookEventId | Inquiries |
+| ID | Category | Title | Description | Severity | Probability | Impact | Status | Owner | OwnerEmail | OwnerResourceId | Mitigation | LinkedTasks | Raised | Target | Closed | LocalModified | CausedByIds | StakeholderIds | KnowledgeLinks | OutlookEventId | Inquiries |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | R | Legacy user data corruption during migration | 50k bcrypt-hashed passwords; corruption could lock users out of all services. | High | 3 | 5 | Mitigated | Sam Placeholder | Fictional.Jordan@example.com | 2 | Pre-migration backup + 5k-batch dry-runs with rollback markers. Weekly integrity checks during cutover week. | 6 | 2026-04-25 | 2026-06-15 |  |  |  |  | [{"id":"dl-3","name":"Migration Runbook.pdf","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Migration-Runbook.pdf","kind":"file"}] |  |  |
 | 2 | R | SSO provider outage during peak hours | Vendor-side downtime would block all logins for all users. | Medium | 2 | 4 | Open | Morgan Standin | Invented.Riley@example.com | 4 | Provider SLA: 99.95%. Fallback: temporary local-account bypass for ops accounts (documented, time-boxed). |  | 2026-05-01 |  |  |  |  | 1\|6 |  |  |  |
@@ -116,7 +116,7 @@
 
 ## Milestones
 
-| ID | Name | Date | Description | Achieved | LinkedTasks | LocalModified | DocumentLinks | OutlookEventId |
+| ID | Name | Date | Description | Achieved | LinkedTasks | LocalModified | KnowledgeLinks | OutlookEventId |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Design Sign-off | 2026-04-20 |  |  |  |  | [{"id":"dl-4","name":"Design Sign-off Minutes.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Design-Signoff-Minutes.docx","kind":"file"}] |  |
 | 2 | Go-Live | 2026-09-01 |  |  |  |  |  |  |
@@ -124,14 +124,14 @@
 
 ## Changes
 
-| ID | Title | Description | Type | Status | Impact | ImpactDescription | ScheduleImpactDays | CostImpact | RequestedBy | RaisedDate | DecisionBy | DecisionDate | ResolutionNotes | LinkedTasks | LinkedRaid | StakeholderIds | LocalModified | DocumentLinks | OutlookEventId |
+| ID | Title | Description | Type | Status | Impact | ImpactDescription | ScheduleImpactDays | CostImpact | RequestedBy | RaisedDate | DecisionBy | DecisionDate | ResolutionNotes | LinkedTasks | LinkedRaid | StakeholderIds | LocalModified | KnowledgeLinks | OutlookEventId |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Add MFA to SSO scope | Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20. | Scope | Under Review | High | Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios. | 21 | 18000 | Morgan Standin | 2026-05-21 | Elena Fischer |  |  | 2 | 4 | 1\|5 | 2026-05-21T09:00:00.000Z |  |  |
 | 2 | Extend go-live by two weeks | Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal. | Schedule | Proposed | Medium | Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued. | 14 | 6000 | Alex Example | 2026-05-28 | Elena Fischer |  |  |  | 2 | 1\|4 | 2026-05-28T14:30:00.000Z |  |  |
 
 ## Stakeholders
 
-| ID | Name | Organization | Title | Email | Category | Influence | Interest | Notes | ResourceId | RACI | LocalModified | DocumentLinks |
+| ID | Name | Organization | Title | Email | Category | Influence | Interest | Notes | ResourceId | RACI | LocalModified | KnowledgeLinks |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Elena Fischer | Acme |  |  | Sponsor | High | High |  |  | 1=A\|2=A\|3=C |  | [{"id":"dl-5","name":"Steering Committee Deck Q2.pptx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/Steering-Deck-Q2.pptx","kind":"file"}] |
 | 2 | Sam Placeholder | Acme |  |  | Internal | High | Medium |  | 2 | 1=R\|2=A\|3=R |  |  |

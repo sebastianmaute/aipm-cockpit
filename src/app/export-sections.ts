@@ -171,7 +171,7 @@ const PROJECT_FIELD_I18N_KEYS: Readonly<Record<keyof ProjectMeta, TranslationKey
   docRepoLocation:           "projectDocRepo",
   regulatory:                "projectRegulatory",
   notes:                     "projectNotes",
-  documentLinks:             "projectDocumentLinks",
+  knowledgeLinks:            "projectDocumentLinks",
 };
 
 /**
@@ -195,7 +195,7 @@ function projectSection(p: ProjectMeta, lang: Lang): ExportSection {
       const persons = raw as ProjectMeta["contactPersons"];
       if (persons.length === 0) continue;
       value = persons.map((cp) => `${cp.name} <${cp.email}>`).join(", ");
-    } else if (key === "documentLinks") {
+    } else if (key === "knowledgeLinks") {
       const links = raw as KnowledgeLink[];
       if (links.length === 0) continue;
       value = links.map((l) => l.name).join(", ");

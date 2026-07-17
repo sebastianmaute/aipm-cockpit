@@ -572,8 +572,8 @@ export function RaidEditModal({
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="font-medium text-foreground">{t(lang, "documents")}</span>
             <KnowledgeLinksFieldGated
-              value={draft.documentLinks ?? []}
-              onChange={(documentLinks) => onChange({ ...draft, documentLinks })}
+              value={draft.knowledgeLinks ?? []}
+              onChange={(knowledgeLinks) => onChange({ ...draft, knowledgeLinks })}
               lang={lang}
             />
           </label>

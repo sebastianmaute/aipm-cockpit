@@ -47,7 +47,7 @@ import {
 } from "./nace-sections";
 
 import {
-  sanitizeDocumentLinks,
+  sanitizeKnowledgeLinks,
 } from "./document-link";
 import {
   isValidTimeZone,
@@ -89,8 +89,8 @@ export function sanitizeMilestone(input: unknown): Milestone | null {
   if (description) m.description = description;
   const localModifiedAt = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
   if (localModifiedAt) m.localModifiedAt = localModifiedAt;
-  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
-  if (dl.length) m.documentLinks = dl;
+  const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
+  if (dl.length) m.knowledgeLinks = dl;
   // Microsoft Graph event ids are long base64 (>300 chars); a tighter cap truncates
   // them and yields a 404 on PATCH/DELETE. Cap at 1024 to be safe.
   const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 1024) : "";
@@ -136,8 +136,8 @@ export function sanitizeChangeItem(input: unknown): ChangeItem | null {
   const decDate = sanitizeIsoDate(o.decisionDate); if (decDate) item.decisionDate = decDate;
   const notes = sanitizeText(o.resolutionNotes, TEXTAREA_MAX); if (notes) item.resolutionNotes = notes;
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
-  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
-  if (dl.length) item.documentLinks = dl;
+  const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
+  if (dl.length) item.knowledgeLinks = dl;
   const oeid = sanitizeText(o.outlookEventId, 1024); if (oeid) item.outlookEventId = oeid;
   return item;
 }
@@ -219,8 +219,8 @@ export function sanitizeRaidItem(input: unknown): RaidItem | null {
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX);
   if (lma) item.localModifiedAt = lma;
 
-  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
-  if (dl.length) item.documentLinks = dl;
+  const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
+  if (dl.length) item.knowledgeLinks = dl;
 
   const outlookEventId = typeof o.outlookEventId === "string" ? o.outlookEventId.slice(0, 1024) : "";
   if (outlookEventId) item.outlookEventId = outlookEventId;
@@ -306,8 +306,8 @@ export function sanitizeStakeholder(input: unknown): Stakeholder | null {
   const rid = toNumber(o.resourceId);
   if (Number.isFinite(rid) && rid > 0) item.resourceId = Math.floor(rid);
   const lma = sanitizeText(o.localModifiedAt, TEXTAREA_MAX); if (lma) item.localModifiedAt = lma;
-  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
-  if (dl.length) item.documentLinks = dl;
+  const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
+  if (dl.length) item.knowledgeLinks = dl;
   return item;
 }
 
@@ -470,9 +470,9 @@ export function sanitizeProjectMeta(
     if (Number.isFinite(n) && n >= 0) meta.stakeholderCount = Math.floor(n);
   }
 
-  // Optional documentLinks — pass through sanitized array (empty → omit).
-  const dl = sanitizeDocumentLinks((input as Record<string, unknown>).documentLinks);
-  if (dl.length) meta.documentLinks = dl;
+  // Optional knowledgeLinks — pass through sanitized array (empty → omit).
+  const dl = sanitizeKnowledgeLinks((input as Record<string, unknown>).knowledgeLinks ?? (input as Record<string, unknown>).documentLinks);
+  if (dl.length) meta.knowledgeLinks = dl;
 
   return meta;
 }

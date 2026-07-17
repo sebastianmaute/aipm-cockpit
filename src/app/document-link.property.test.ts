@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import fc from "fast-check";
-import { sanitizeDocumentLinks, encodeDocumentLinks, decodeDocumentLinks } from "./document-link";
+import { sanitizeKnowledgeLinks, encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 
 const linkArb = fc.record({
   id: fc.string({ minLength: 1 }),
@@ -14,10 +14,10 @@ const linkArb = fc.record({
 });
 
 describe("document-link properties", () => {
-  test("sanitizeDocumentLinks never throws and always returns an array", () => {
+  test("sanitizeKnowledgeLinks never throws and always returns an array", () => {
     fc.assert(
       fc.property(fc.anything(), (input) => {
-        expect(Array.isArray(sanitizeDocumentLinks(input))).toBe(true);
+        expect(Array.isArray(sanitizeKnowledgeLinks(input))).toBe(true);
       }),
     );
   });
@@ -25,8 +25,8 @@ describe("document-link properties", () => {
   test("encode -> decode is a fixed point on sanitized input", () => {
     fc.assert(
       fc.property(fc.array(linkArb), (links) => {
-        const clean = sanitizeDocumentLinks(links);
-        expect(decodeDocumentLinks(encodeDocumentLinks(clean))).toEqual(clean);
+        const clean = sanitizeKnowledgeLinks(links);
+        expect(decodeKnowledgeLinks(encodeKnowledgeLinks(clean))).toEqual(clean);
       }),
     );
   });

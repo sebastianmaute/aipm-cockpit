@@ -19,11 +19,37 @@
 import {
   ENTITY_SPECS, PLAN_COLUMNS, type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
+import { PROJECT_CSV_COLUMNS } from "./csv-codecs";
 
 /** Column added to every workspace table in multi-tenant mode (see
  *  turso-tenant-schema.ts tenantColDdl). Included in the tenant expected-column
  *  set so an old tenant DB self-heals the same way as the entity columns. */
 const TENANT_PROJECT_ID_COLUMN = "project_id";
+
+/** The shared multi-tenant `projects` table (ProjectMeta rows). Mirrors
+ *  turso-tenant-schema.ts PROJECTS_TABLE; duplicated as a local literal to keep
+ *  this pure module free of a tenant-schema import cycle. */
+const PROJECTS_TABLE = "projects";
+
+/**
+ * Legacy→new column renames applied BEFORE the add-missing pass. When a table
+ * carries the OLD column and NOT the new one, `ALTER TABLE … RENAME COLUMN …`
+ * moves the data in place with zero loss (SQLite ≥3.25 / libSQL both support
+ * RENAME COLUMN). Gated on the new name being an EXPECTED column of that table,
+ * so a coincidental legacy column on an unrelated table is never touched.
+ *
+ * Idempotent: after the rename the old column is gone and the new one present,
+ * so a second migration run finds nothing to rename and the add-missing pass
+ * sees the column already there — no duplicate ADD, no data churn.
+ *
+ * `documentLinks` → `knowledgeLinks`: the per-entity KnowledgeLink[] JSON-in-cell
+ * column, renamed when the Documents view became Knowledge. It lives on the five
+ * entity tables (tasks/raid/changes/milestones/stakeholders) AND the tenant
+ * `projects` table (ProjectMeta), all of which now expect `knowledgeLinks`.
+ */
+const COLUMN_RENAMES: readonly { readonly from: string; readonly to: string }[] = [
+  { from: "documentLinks", to: "knowledgeLinks" },
+];
 
 export interface TableColumns {
   table: string;
@@ -49,12 +75,18 @@ export function singleTenantTableColumns(): TableColumns[] {
 }
 
 /** Multi-tenant expected columns: the entity + plan columns PLUS the
- *  `project_id` column the tenant DDL appends to every workspace table. */
+ *  `project_id` column the tenant DDL appends to every workspace table, PLUS the
+ *  shared `projects` table (ProjectMeta rows — NOT project_id-scoped) so its
+ *  column set self-heals too. Including `projects` here is what lets an existing
+ *  tenant DB pick up the documentLinks→knowledgeLinks rename (and any newly
+ *  added ProjectMeta column) instead of erroring on the next project upsert. */
 export function tenantTableColumns(): TableColumns[] {
-  return singleTenantTableColumns().map((t) => ({
+  const scoped = singleTenantTableColumns().map((t) => ({
     table: t.table,
     columns: [...t.columns, TENANT_PROJECT_ID_COLUMN],
   }));
+  scoped.push({ table: PROJECTS_TABLE, columns: ["id", ...(PROJECT_CSV_COLUMNS as readonly string[])] });
+  return scoped;
 }
 
 /** One `PRAGMA table_info("<table>")` statement per table, in input order. */
@@ -113,10 +145,37 @@ export function missingColumnAlters(
 }
 
 /**
+ * For each configured rename whose NEW name is an expected column of `table`,
+ * the OLD column is present and the NEW column is absent, emit an
+ * `ALTER TABLE "<table>" RENAME COLUMN "<from>" TO "<to>"`. Returns the alters
+ * plus the set of new column names that were renamed-into, so the add-missing
+ * pass can treat them as already present (and not spuriously ADD a fresh empty
+ * column over the just-renamed data).
+ */
+export function columnRenameAlters(
+  table: string,
+  existing: readonly string[],
+  expected: readonly string[],
+): { alters: SqlStmt[]; renamed: Set<string> } {
+  const present = new Set(existing);
+  const want = new Set(expected);
+  const alters: SqlStmt[] = [];
+  const renamed = new Set<string>();
+  for (const { from, to } of COLUMN_RENAMES) {
+    if (want.has(to) && present.has(from) && !present.has(to)) {
+      alters.push({ sql: `ALTER TABLE "${table}" RENAME COLUMN "${from}" TO "${to}"` });
+      renamed.add(to);
+    }
+  }
+  return { alters, renamed };
+}
+
+/**
  * Combine the per-table (table, expectedColumns) list with the PRAGMA results
  * (parallel by index) into all the ALTER statements needed to bring every table
- * up to its expected column set. Returns [] when nothing is missing — the
- * common case for fresh / up-to-date databases.
+ * up to its expected column set. Renames run FIRST (preserving data in place),
+ * then any genuinely-missing column is ADDed. Returns [] when nothing is missing
+ * — the common case for fresh / up-to-date databases.
  */
 export function buildColumnEnsureAlters(
   specs: readonly TableColumns[],
@@ -126,7 +185,12 @@ export function buildColumnEnsureAlters(
   specs.forEach((spec, i) => {
     const existing = existingColumnsFromPragma(pragmaResults[i]);
     if (existing === null) return; // unknown schema for this table — do not ALTER
-    out.push(...missingColumnAlters(spec.table, existing, spec.columns));
+    const { alters, renamed } = columnRenameAlters(spec.table, existing, spec.columns);
+    out.push(...alters);
+    // A just-renamed column now holds its data under the new name; treat it as
+    // present so missingColumnAlters does not ADD an empty column over it.
+    const effectiveExisting = renamed.size ? [...existing, ...renamed] : existing;
+    out.push(...missingColumnAlters(spec.table, effectiveExisting, spec.columns));
   });
   return out;
 }

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
-  sanitizeDocumentLinks,
-  encodeDocumentLinks,
-  decodeDocumentLinks,
+  sanitizeKnowledgeLinks,
+  encodeKnowledgeLinks,
+  decodeKnowledgeLinks,
   isSafeHttpUrl,
   type KnowledgeLink,
 } from "./document-link";
@@ -18,16 +18,16 @@ const file: KnowledgeLink = {
   addedAt: "2026-06-10T00:00:00.000Z",
 };
 
-describe("sanitizeDocumentLinks", () => {
+describe("sanitizeKnowledgeLinks", () => {
   test("returns [] for non-arrays / nullish", () => {
-    expect(sanitizeDocumentLinks(undefined)).toEqual([]);
-    expect(sanitizeDocumentLinks(null)).toEqual([]);
-    expect(sanitizeDocumentLinks("nope")).toEqual([]);
-    expect(sanitizeDocumentLinks({})).toEqual([]);
+    expect(sanitizeKnowledgeLinks(undefined)).toEqual([]);
+    expect(sanitizeKnowledgeLinks(null)).toEqual([]);
+    expect(sanitizeKnowledgeLinks("nope")).toEqual([]);
+    expect(sanitizeKnowledgeLinks({})).toEqual([]);
   });
 
   test("drops entries missing a usable url or name", () => {
-    const out = sanitizeDocumentLinks([
+    const out = sanitizeKnowledgeLinks([
       { name: "", url: "https://x", kind: "file" },
       { name: "ok", url: "", kind: "file" },
       { name: "keep", url: "https://contoso.sharepoint.com/a", kind: "folder" },
@@ -38,7 +38,7 @@ describe("sanitizeDocumentLinks", () => {
   });
 
   test("clamps kind to the union and trims strings", () => {
-    const out = sanitizeDocumentLinks([
+    const out = sanitizeKnowledgeLinks([
       { name: "  trimmed  ", url: "  https://contoso.sharepoint.com/a  ", kind: "weird" },
     ]);
     expect(out[0].name).toBe("trimmed");
@@ -47,17 +47,17 @@ describe("sanitizeDocumentLinks", () => {
   });
 
   test("preserves a fully-formed link verbatim", () => {
-    expect(sanitizeDocumentLinks([file])).toEqual([file]);
+    expect(sanitizeKnowledgeLinks([file])).toEqual([file]);
   });
 
   test("generates an id when missing", () => {
-    const out = sanitizeDocumentLinks([{ name: "n", url: "https://contoso.sharepoint.com/a", kind: "file" }]);
+    const out = sanitizeKnowledgeLinks([{ name: "n", url: "https://contoso.sharepoint.com/a", kind: "file" }]);
     expect(typeof out[0].id).toBe("string");
     expect(out[0].id.length).toBeGreaterThan(0);
   });
 
   test("generates distinct ids for multiple id-less entries", () => {
-    const out = sanitizeDocumentLinks([
+    const out = sanitizeKnowledgeLinks([
       { name: "a", url: "https://x", kind: "file" },
       { name: "b", url: "https://y", kind: "file" },
     ]);
@@ -65,7 +65,7 @@ describe("sanitizeDocumentLinks", () => {
   });
 
   test("keeps confluence/url linkKind and omits the document default (sparse, byte-stable)", () => {
-    const out = sanitizeDocumentLinks([
+    const out = sanitizeKnowledgeLinks([
       { name: "page", url: "https://x.atlassian.net/wiki/1", kind: "file", linkKind: "confluence" },
       { name: "site", url: "https://example.com", kind: "file", linkKind: "url" },
       { name: "doc", url: "https://contoso.sharepoint.com/a", kind: "file", linkKind: "document" },
@@ -84,13 +84,13 @@ describe("sanitizeDocumentLinks", () => {
     const links: KnowledgeLink[] = [
       { id: "c1", name: "Page", url: "https://x.atlassian.net/wiki/1", kind: "file", linkKind: "confluence" },
     ];
-    expect(decodeDocumentLinks(encodeDocumentLinks(links))).toEqual(links);
+    expect(decodeKnowledgeLinks(encodeKnowledgeLinks(links))).toEqual(links);
   });
 });
 
-describe("sanitizeDocumentLinks url-scheme guard", () => {
+describe("sanitizeKnowledgeLinks url-scheme guard", () => {
   test("drops javascript: and data: and relative urls", () => {
-    const out = sanitizeDocumentLinks([
+    const out = sanitizeKnowledgeLinks([
       { name: "evil", url: "javascript:alert(1)", kind: "file" },
       { name: "data", url: "data:text/html,x", kind: "file" },
       { name: "rel", url: "/sites/x", kind: "file" },
@@ -112,21 +112,21 @@ describe("isSafeHttpUrl", () => {
 
 describe("encode/decode round-trip (JSON-in-cell)", () => {
   test("empty/undefined encodes to empty string (byte-stable)", () => {
-    expect(encodeDocumentLinks(undefined)).toBe("");
-    expect(encodeDocumentLinks([])).toBe("");
+    expect(encodeKnowledgeLinks(undefined)).toBe("");
+    expect(encodeKnowledgeLinks([])).toBe("");
   });
 
   test("decode of empty string is []", () => {
-    expect(decodeDocumentLinks("")).toEqual([]);
-    expect(decodeDocumentLinks(undefined)).toEqual([]);
+    expect(decodeKnowledgeLinks("")).toEqual([]);
+    expect(decodeKnowledgeLinks(undefined)).toEqual([]);
   });
 
   test("round-trips through encode -> decode", () => {
     const links = [file, { ...file, id: "02", name: "Folder", kind: "folder" as const }];
-    expect(decodeDocumentLinks(encodeDocumentLinks(links))).toEqual(links);
+    expect(decodeKnowledgeLinks(encodeKnowledgeLinks(links))).toEqual(links);
   });
 
   test("decode tolerates malformed JSON", () => {
-    expect(decodeDocumentLinks("{not json")).toEqual([]);
+    expect(decodeKnowledgeLinks("{not json")).toEqual([]);
   });
 });

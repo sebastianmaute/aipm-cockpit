@@ -6,7 +6,7 @@
 // build*FromObj) and ./csv-codecs-config (config/project decoders).
 // Re-exported via the ./csv-codecs barrel.
 
-import { decodeDocumentLinks } from "./document-link";
+import { decodeKnowledgeLinks } from "./document-link";
 import { decodeNoteLog } from "./note-log";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
@@ -43,7 +43,7 @@ import {
   type Stakeholder,
   type Task,
 } from "./types";
-import { type Workspace, migrateWorkspaceV9 } from "./workspace";
+import { type Workspace, migrateWorkspaceV10 } from "./workspace";
 import { migrateTaskStatus } from "./task-status";
 import {
   CSV_SECTION_ABSENCES,
@@ -400,7 +400,7 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
     const tl = csvToTimelogLinks(s.timelogLinksText);
     if (tl) ws.timelogLinks = tl;
   }
-  return migrateWorkspaceV9(ws);
+  return migrateWorkspaceV10(ws);
 }
 
 /**
@@ -438,7 +438,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     resourceId: fkIdOrUndefined(obj.resourceId),
     originalEstimateMinutes: sanitizeOptionalMinutes(obj.originalEstimateMinutes),
     timeSpentMinutes: sanitizeOptionalMinutes(obj.timeSpentMinutes),
-    documentLinks: decodeDocumentLinks(obj.documentLinks),
+    knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
     noteLog: (() => {
       const nl = decodeNoteLog(obj.noteLog);
       return nl.length ? nl : undefined;

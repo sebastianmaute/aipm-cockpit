@@ -32,7 +32,7 @@ const LINK: KnowledgeLink = {
   kind: "file",
 };
 
-function seededTask(documentLinks: KnowledgeLink[]): Task {
+function seededTask(knowledgeLinks: KnowledgeLink[]): Task {
   return {
     id: 7,
     taskName: "Write spec",
@@ -44,7 +44,7 @@ function seededTask(documentLinks: KnowledgeLink[]): Task {
     priority: "Medium",
     blockers: "",
     notes: "",
-    documentLinks,
+    knowledgeLinks,
   };
 }
 
@@ -119,7 +119,7 @@ describe("KnowledgePanel", () => {
     const task = seededTask([LINK]);
     const taskWithRaid: Task = { ...task, raid: undefined } as Task;
     // Two docs from two different sources: one task link, one task link renamed.
-    renderWithTasks([{ ...taskWithRaid, documentLinks: [LINK, raidDoc] }]);
+    renderWithTasks([{ ...taskWithRaid, knowledgeLinks: [LINK, raidDoc] }]);
     expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
     expect(screen.getByText(/Risk\.pdf/)).toBeInTheDocument();
     // The "All" chip is present and pressed by default.
