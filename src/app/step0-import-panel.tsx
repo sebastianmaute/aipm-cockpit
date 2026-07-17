@@ -225,11 +225,19 @@ export function Step0ImportPanel({
         setImportError(t(lang, "wizardImportErrorUnsupported"));
         return;
       }
+      // Derive the office format once (null for non-office kinds). classifyAttachment
+      // returning "office" implies officeKindOf is non-null, but branch on the captured
+      // value rather than a bare `!` assertion; an unexpected null reads as unsupported.
+      const officeFmt = kind === "office" ? officeKindOf(mime, name) : null;
+      if (kind === "office" && !officeFmt) {
+        setImportError(t(lang, "wizardImportErrorUnsupported"));
+        return;
+      }
       const data =
         kind === "text"
           ? new TextDecoder().decode(bytes)
-          : kind === "office"
-            ? await extractOfficeMarkdown(bytes, officeKindOf(mime, name)!)
+          : officeFmt
+            ? await extractOfficeMarkdown(bytes, officeFmt)
             : arrayBufferToBase64(bytes);
       content = [
         { type: "text", text: t(lang, "wizardImportFilePrompt") },
