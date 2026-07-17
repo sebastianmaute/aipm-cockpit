@@ -7,7 +7,7 @@ import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import type { listContacts } from "./contacts";
 import { type Lang, t } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
 import { JiraReadOnlyBanner } from "./jira-readonly-banner";
 import { Modal } from "./modal";
 import { useTaskForm } from "./task-form-context";
@@ -162,7 +162,7 @@ export function TaskFormModal({
               <button
                 type="submit"
                 disabled={saveDisabled}
-                className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`}
               >
                 {isEditing ? t(lang, "updateTask") : t(lang, "addTask")}
               </button>

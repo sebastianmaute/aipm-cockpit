@@ -6,7 +6,7 @@
 // to the chat tab and auto-sends.
 import { useRef, useState } from "react";
 import { usePopoverDismiss } from "./use-popover-dismiss";
-import { INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import { promptsForView, type PromptDef } from "./ask-claude-prompts";
@@ -74,7 +74,7 @@ export function AskClaudeMenu({
         aria-haspopup="dialog"
         aria-expanded={open}
         title={t(lang, "aiAskClaude")}
-        className="inline-flex items-center gap-1.5 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2"
+        className={`inline-flex items-center gap-1.5 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING}`}
       >
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
           <path d="M10 1.5l1.6 4.3 4.3 1.6-4.3 1.6L10 13.3 8.4 9 4.1 7.4l4.3-1.6L10 1.5zM15.5 12l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />

@@ -11,6 +11,7 @@ import {
   TEXTAREA_MAX,
 } from "./sanitize";
 import { useTaskForm } from "./task-form-context";
+import { FOCUS_RING } from "./interaction-styles";
 import { statusLabelKey } from "./task-status-ui";
 import { PRIORITIES, TASK_STATUSES, type Priority, type TaskStatus } from "./types";
 
@@ -333,14 +334,14 @@ export function BulkEditModal({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
         >
           {t(lang, "cancel")}
         </button>
         <button
           type="button"
           onClick={onApply}
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
+          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${FOCUS_RING}`}
         >
           {selectedIds.size === 1
             ? t(lang, "bulkApplyOne")

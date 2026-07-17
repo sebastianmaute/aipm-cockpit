@@ -3,6 +3,7 @@
 import { type Lang, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
+import { FOCUS_RING } from "./interaction-styles";
 
 const TIER_DOT: Record<"now" | "soon", string> = {
   now: "bg-AIPM-pink",
@@ -40,7 +41,7 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
           type="button"
           onClick={() => onOpen(action)}
           title={t(lang, action.why.key, ...(action.why.params ?? []))}
-          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground hover:bg-surface-muted"
+          className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
         >
           <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${TIER_DOT[action.tier as "now" | "soon"]}`} />
           <span className="max-w-[16rem] truncate">
@@ -52,7 +53,7 @@ export function ActionChips({ lang, actions, onOpen, onShowMore, className }: Ac
         <button
           type="button"
           onClick={onShowMore}
-          className="inline-flex items-center rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
+          className={`inline-flex items-center rounded-md border border-line bg-surface px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted ${FOCUS_RING}`}
         >
           {t(lang, "actionChipsMore", extra)}
         </button>

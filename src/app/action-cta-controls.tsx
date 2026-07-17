@@ -134,7 +134,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
   const item = (label: string, onClick: () => void) => (
     <button key={label} type="button"
       onClick={(e) => { stop(e); setMenuOpen(false); onClick(); }}
-      className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted">{label}</button>
+      className={`px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted ${FOCUS_RING}`}>{label}</button>
   );
   return (
     <span className="relative">

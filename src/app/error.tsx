@@ -12,6 +12,7 @@
 //   node_modules/next/dist/docs/01-app/01-getting-started/10-error-handling.md
 
 import { useEffect } from "react";
+import { FOCUS_RING } from "./interaction-styles";
 
 interface ErrorPageProps {
   error: Error & { digest?: string };
@@ -49,14 +50,14 @@ export default function ErrorPage({ error, unstable_retry }: ErrorPageProps) {
           <button
             type="button"
             onClick={() => unstable_retry()}
-            className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 focus:outline-none focus:ring-2 focus:ring-AIPM-green focus:ring-offset-2"
+            className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${FOCUS_RING}`}
           >
             Try again
           </button>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green focus:ring-offset-2 dark:text-AIPM-light-grey"
+            className={`rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted ${FOCUS_RING} dark:text-AIPM-light-grey`}
           >
             Reload page
           </button>

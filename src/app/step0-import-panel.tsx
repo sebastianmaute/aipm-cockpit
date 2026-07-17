@@ -29,13 +29,13 @@ import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
 import type { KnowledgeLink } from "./document-link";
 import { Modal } from "./modal";
-import { INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
 
 /** Cap on files accepted in a single multi-upload (extras → "too-many" skip). */
 const MAX_IMPORT_FILES = 10;
 
 const PRIMARY_BUTTON_CLASS =
-  "rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`;
 
 const SECONDARY_BUTTON_CLASS =
   "rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted";

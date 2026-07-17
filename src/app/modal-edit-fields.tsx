@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { type Lang, t } from "./i18n";
 import { InfoTooltip } from "./info-tooltip";
+import { FOCUS_RING } from "./interaction-styles";
 
 type AssigneeOption = { name: string; email?: string };
 
@@ -140,7 +141,7 @@ export function ModalEditFooter({
           <button
             type="button"
             onClick={onDelete}
-            className="rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50"
+            className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50 ${FOCUS_RING}`}
           >
             {t(lang, "delete")}
           </button>
@@ -150,13 +151,13 @@ export function ModalEditFooter({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
+          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
         >
           {t(lang, "cancel")}
         </button>
         <button
           type="submit"
-          className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90"
+          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${FOCUS_RING}`}
         >
           {saveLabel}
         </button>

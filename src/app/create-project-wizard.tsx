@@ -40,6 +40,7 @@ import { Step0ImportPanel } from "./step0-import-panel";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { WizardStepIndicator } from "./wizard-step-indicator";
+import { FOCUS_RING } from "./interaction-styles";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -50,10 +51,10 @@ const MODE_LABEL_KEY = {
 } as const;
 
 const PRIMARY_BUTTON_CLASS =
-  "rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`;
 
 const SECONDARY_BUTTON_CLASS =
-  "rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted";
+  `rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`;
 
 // Pinned nav footer shared by steps 2 and 3 (Back · optional Cancel · primary CTA).
 function WizardNavFooter({
@@ -391,7 +392,7 @@ export function CreateProjectWizard({
                 type="button"
                 aria-label="Apply Simple preset"
                 onClick={() => setFeatures([])}
-                className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
+                className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${FOCUS_RING}`}
               >
                 {t(lang, "modePresetSimple")}
               </button>
@@ -399,7 +400,7 @@ export function CreateProjectWizard({
                 type="button"
                 aria-label="Apply Advanced preset"
                 onClick={() => setFeatures([...ALL_MODULE_IDS])}
-                className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted"
+                className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${FOCUS_RING}`}
               >
                 {t(lang, "modePresetAdvanced")}
               </button>

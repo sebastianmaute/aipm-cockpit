@@ -26,6 +26,7 @@ import { BackendSetupWizard } from "./backend-setup-wizard";
 import { AiSection } from "./settings-sections/ai-section";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
+import { FOCUS_RING } from "./interaction-styles";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
@@ -37,7 +38,7 @@ import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
 
 const PRIMARY_BUTTON_CLASS =
-  "rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2";
+  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING}`;
 
 const SECONDARY_BUTTON_CLASS =
   "rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted";

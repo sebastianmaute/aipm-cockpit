@@ -36,7 +36,7 @@ import { useConfirm } from "./confirm-dialog";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
-import { INTERACTIVE, TRANSITION, PRESS } from "./interaction-styles";
+import { INTERACTIVE, TRANSITION, PRESS, FOCUS_RING } from "./interaction-styles";
 import { type ProjectMeta, type Resource } from "./types";
 
 /** File formats a brand-new project's workspace can be created in.
@@ -56,7 +56,7 @@ const EXPORT_FORMAT_LABEL: Record<ExportFormat, string> = {
 };
 
 const PRIMARY_BUTTON_CLASS =
-  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue focus:ring-offset-2 ${TRANSITION} ${PRESS}`;
+  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} ${TRANSITION} ${PRESS}`;
 
 const SECONDARY_BUTTON_CLASS =
   `rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`;

@@ -5,6 +5,7 @@ import { type Lang, t } from "./i18n";
 import { isSafeHttpUrl, type KnowledgeLink } from "./document-link";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import type { AcquireToken } from "./use-sharepoint-browser";
+import { FOCUS_RING } from "./interaction-styles";
 
 export interface KnowledgeLinksFieldProps {
   value: KnowledgeLink[];
@@ -58,7 +59,7 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
                 type="button"
                 onClick={() => remove(link.url)}
                 aria-label={t(lang, "documentsRemove")}
-                className="rounded px-1 text-AIPM-pink-strong hover:bg-surface-muted"
+                className={`rounded px-1 text-AIPM-pink-strong hover:bg-surface-muted ${FOCUS_RING}`}
               >
                 ✕
               </button>
@@ -70,7 +71,7 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
+          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
         >
           {t(lang, "documentsAdd")}
         </button>
