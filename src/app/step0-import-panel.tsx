@@ -29,16 +29,11 @@ import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useMsAuth } from "./use-ms-auth";
 import type { KnowledgeLink } from "./document-link";
 import { Modal } from "./modal";
-import { INTERACTIVE, FOCUS_RING } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 
 /** Cap on files accepted in a single multi-upload (extras → "too-many" skip). */
 const MAX_IMPORT_FILES = 10;
-
-const PRIMARY_BUTTON_CLASS =
-  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`;
-
-const SECONDARY_BUTTON_CLASS =
-  "rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted";
 
 /** Step-0 source picker: describe (default), file upload, SharePoint, Confluence. */
 type ImportMethod = "describe" | "file" | "sharepoint" | "confluence";
@@ -351,14 +346,13 @@ export function Step0ImportPanel({
 
         {method === "sharepoint" && (
           <div className="flex flex-col gap-2 text-sm">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => setSpPickerOpen(true)}
               disabled={reading || aiBusy}
-              className={SECONDARY_BUTTON_CLASS}
             >
               {t(lang, "wizardImportSharePointBrowse")}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -376,14 +370,13 @@ export function Step0ImportPanel({
               />
             </label>
             <div>
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={onConfluenceFetch}
                 disabled={reading || aiBusy || !confluenceUrl.trim()}
-                className={PRIMARY_BUTTON_CLASS}
               >
                 {reading || aiBusy ? t(lang, "aiCreateBusy") : t(lang, "wizardImportFetch")}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -422,25 +415,24 @@ export function Step0ImportPanel({
       {/* Pinned footer: Skip / Cancel / Generate. */}
       <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
         <div className="flex gap-2">
-          <button type="button" onClick={() => { onResetAi(); onSkip(); }} className={SECONDARY_BUTTON_CLASS}>
+          <Button variant="secondary" onClick={() => { onResetAi(); onSkip(); }}>
             {t(lang, "aiCreateSkip")}
-          </button>
+          </Button>
         </div>
         <div className="flex gap-2">
           {onCancel && (
-            <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
+            <Button variant="secondary" onClick={onCancel}>
               {t(lang, "cancel")}
-            </button>
+            </Button>
           )}
           {method === "describe" && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={handleGenerate}
               disabled={reading || aiBusy || !description.trim()}
-              className={PRIMARY_BUTTON_CLASS}
             >
               {reading || aiBusy ? t(lang, "aiCreateBusy") : t(lang, "aiCreateGenerate")}
-            </button>
+            </Button>
           )}
         </div>
       </div>

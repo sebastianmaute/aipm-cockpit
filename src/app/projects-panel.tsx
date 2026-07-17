@@ -36,7 +36,8 @@ import { useConfirm } from "./confirm-dialog";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
-import { INTERACTIVE, TRANSITION, PRESS, FOCUS_RING } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { type ProjectMeta, type Resource } from "./types";
 
 /** File formats a brand-new project's workspace can be created in.
@@ -54,16 +55,6 @@ const EXPORT_FORMAT_LABEL: Record<ExportFormat, string> = {
   xlsx: "Excel (.xlsx)",
   pptx: "PowerPoint (.pptx)",
 };
-
-const PRIMARY_BUTTON_CLASS =
-  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} ${TRANSITION} ${PRESS}`;
-
-const SECONDARY_BUTTON_CLASS =
-  `rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`;
-
-/** Destructive (pink) action button — delete / archive / permanent-delete. */
-const DESTRUCTIVE_BUTTON_CLASS =
-  `rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50 ${INTERACTIVE}`;
 
 export interface ProjectsPanelProps {
   projects: ProjectRegistryEntry[];
@@ -187,33 +178,33 @@ export function ProjectsPanel({
         </h2>
         <div className="flex items-center gap-2">
           {isTurso && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setShowArchived((v) => !v)}
               aria-pressed={showArchived}
-              className={SECONDARY_BUTTON_CLASS}
             >
               {t(lang, showArchived ? "projectsHideArchived" : "projectsShowArchived")}
-            </button>
+            </Button>
           )}
           {!isTurso && (
-            <button type="button" onClick={onLoadFromFile} className={SECONDARY_BUTTON_CLASS}>
+            <Button variant="secondary" size="sm" onClick={onLoadFromFile}>
               {t(lang, "projectSwitcherLoadFile")}
-            </button>
+            </Button>
           )}
           {!isTurso && tursoConfigured && currentProject && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={onMigrateToTurso}
               title={t(lang, "projectMigrateToTursoHint")}
-              className={SECONDARY_BUTTON_CLASS}
             >
               {t(lang, "projectMigrateToTurso")}
-            </button>
+            </Button>
           )}
-          <button type="button" onClick={openCreate} className={PRIMARY_BUTTON_CLASS}>
+          <Button variant="primary" onClick={openCreate}>
             + {t(lang, "projectsNew")}
-          </button>
+          </Button>
           <ResetSizeButton onClick={resetPaneSize} lang={lang} />
         </div>
       </header>
@@ -271,26 +262,26 @@ export function ProjectsPanel({
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
                       {isCurrent ? (
                         <>
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => setModal({ mode: "edit" })}
-                            className={SECONDARY_BUTTON_CLASS}
                           >
                             {t(lang, "projectsEdit")}
-                          </button>
+                          </Button>
 
                           <div className="relative">
-                            <button
-                              type="button"
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() =>
                                 setExportMenuId((cur) => (cur === p.id ? null : p.id))
                               }
                               aria-haspopup="menu"
                               aria-expanded={exportMenuId === p.id}
-                              className={SECONDARY_BUTTON_CLASS}
                             >
                               {t(lang, "projectsExport")}
-                            </button>
+                            </Button>
                             {exportMenuId === p.id && (
                               <ul
                                 role="menu"
@@ -315,36 +306,36 @@ export function ProjectsPanel({
                         </>
                       ) : (
                         <>
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => onSwitch(p.id)}
                             aria-label={`${t(lang, "projectsSwitch")} – ${p.name}`}
-                            className={SECONDARY_BUTTON_CLASS}
                           >
                             {t(lang, "projectsSwitch")}
-                          </button>
+                          </Button>
                           {/* Destructive actions live on NON-current rows only: the
                               active/non-archived project you are in must not be
                               archivable/deletable from under you (switch away first). */}
                           {isTurso ? (
-                            <button
-                              type="button"
+                            <Button
+                              variant="destructive"
+                              size="sm"
                               onClick={() => handleArchive(p.id)}
                               aria-label={`${t(lang, "projectsArchive")} – ${p.name}`}
                               title={t(lang, "projectsArchiveHint")}
-                              className={DESTRUCTIVE_BUTTON_CLASS}
                             >
                               {t(lang, "projectsArchive")}
-                            </button>
+                            </Button>
                           ) : (
-                            <button
-                              type="button"
+                            <Button
+                              variant="destructive"
+                              size="sm"
                               onClick={() => handleDelete(p.id)}
                               aria-label={`${t(lang, "projectsDelete")} – ${p.name}`}
-                              className={DESTRUCTIVE_BUTTON_CLASS}
                             >
                               {t(lang, "projectsDelete")}
-                            </button>
+                            </Button>
                           )}
                         </>
                       )}
@@ -378,20 +369,20 @@ export function ProjectsPanel({
                       </span>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2">
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => onRestore?.(p.id)}
-                        className={SECONDARY_BUTTON_CLASS}
                       >
                         {t(lang, "projectsRestore")}
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
                         onClick={() => setHardDeleteTarget(p)}
-                        className={DESTRUCTIVE_BUTTON_CLASS}
                       >
                         {t(lang, "projectsDeletePermanently")}
-                      </button>
+                      </Button>
                     </div>
                   </li>
                 ))}

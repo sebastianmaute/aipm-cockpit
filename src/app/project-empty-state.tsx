@@ -26,7 +26,7 @@ import { BackendSetupWizard } from "./backend-setup-wizard";
 import { AiSection } from "./settings-sections/ai-section";
 import { type Contact } from "./contacts";
 import { CreateProjectWizard } from "./create-project-wizard";
-import { FOCUS_RING } from "./interaction-styles";
+import { Button } from "./button";
 import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
@@ -36,12 +36,6 @@ import { type Settings } from "./settings-types";
 import { ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { type ProjectMeta, type Resource } from "./types";
-
-const PRIMARY_BUTTON_CLASS =
-  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING}`;
-
-const SECONDARY_BUTTON_CLASS =
-  `rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`;
 
 export interface ProjectEmptyStateProps {
   lang: Lang;
@@ -156,32 +150,20 @@ export function ProjectEmptyState({
                 {t(lang, "projectsEmptyTitle")}
               </p>
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={handleOpenCreate}
-                  className={PRIMARY_BUTTON_CLASS}
-                >
+                <Button variant="primary" onClick={handleOpenCreate}>
                   {t(lang, "projectsEmptyCreate")}
-                </button>
+                </Button>
                 {/* Load from file is offered in BOTH modes. In Turso mode the host
                     handler switches the portfolio to file mode and reloads. */}
-                <button
-                  type="button"
-                  onClick={onLoadFromFile}
-                  className={SECONDARY_BUTTON_CLASS}
-                >
+                <Button variant="secondary" onClick={onLoadFromFile}>
                   {t(lang, "projectsEmptyLoad")}
-                </button>
+                </Button>
                 {/* Explore a demo project — guided-tour entry point. Rendered
                     only when a demo-load handler is wired (empty-state only). */}
                 {onLoadDemo && (
-                  <button
-                    type="button"
-                    onClick={onLoadDemo}
-                    className={SECONDARY_BUTTON_CLASS}
-                  >
+                  <Button variant="secondary" onClick={onLoadDemo}>
                     {t(lang, "tourLoadDemo")}
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -201,23 +183,21 @@ export function ProjectEmptyState({
                       >
                         <span className="min-w-0 truncate text-foreground">{p.name}</span>
                         <span className="flex shrink-0 items-center gap-2">
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
                             onClick={() => onRestore(p.id)}
                             aria-label={`${t(lang, "projectsRestore")} – ${p.name}`}
-                            className={SECONDARY_BUTTON_CLASS}
                           >
                             {t(lang, "projectsRestore")}
-                          </button>
+                          </Button>
                           {onDeleteArchived && (
-                            <button
-                              type="button"
+                            <Button
+                              variant="destructive"
                               onClick={() => setDeleteTarget({ id: p.id, name: p.name })}
                               aria-label={`${t(lang, "projectsDeletePermanently")} – ${p.name}`}
-                              className="rounded-md border border-AIPM-pink/50 bg-surface px-4 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10"
                             >
                               {t(lang, "delete")}
-                            </button>
+                            </Button>
                           )}
                         </span>
                       </li>
@@ -233,28 +213,19 @@ export function ProjectEmptyState({
                   {t(lang, "backendSetup")}
                 </h3>
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => setConfigOpen(true)}
                     title={t(lang, "emptyStateConfigDbM365Tip")}
-                    className={SECONDARY_BUTTON_CLASS}
                   >
                     {t(lang, "emptyStateConfigDbM365")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWizardOpen(true)}
-                    className={SECONDARY_BUTTON_CLASS}
-                  >
+                  </Button>
+                  <Button variant="secondary" onClick={() => setWizardOpen(true)}>
                     {t(lang, "setupWizardRun")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAiConfigOpen(true)}
-                    className={SECONDARY_BUTTON_CLASS}
-                  >
+                  </Button>
+                  <Button variant="secondary" onClick={() => setAiConfigOpen(true)}>
                     {t(lang, "emptyStateConfigAi")}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

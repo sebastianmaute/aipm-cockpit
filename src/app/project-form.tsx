@@ -26,7 +26,7 @@ import {
   type ProjectErrorField,
 } from "./project-validation";
 import { sanitizeProjectMeta } from "./sanitize";
-import { FOCUS_RING } from "./interaction-styles";
+import { Button } from "./button";
 import { type ProjectMeta, type Resource } from "./types";
 
 export interface ProjectFormProps {
@@ -194,20 +194,12 @@ export function ProjectForm({
       <div className="flex items-center justify-between gap-2 border-t border-line pt-4">
         <div className="flex items-center gap-2">{footerLeft}</div>
         <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
-        >
+        <Button variant="secondary" onClick={onCancel}>
           {t(lang, "cancel")}
-        </button>
-        <button
-          type="submit"
-          disabled={saveDisabled}
-          className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`}
-        >
+        </Button>
+        <Button type="submit" variant="primary" disabled={saveDisabled}>
           {submitLabel ?? t(lang, initial ? "projectsEdit" : "projectsNew")}
-        </button>
+        </Button>
         </div>
       </div>
     </form>

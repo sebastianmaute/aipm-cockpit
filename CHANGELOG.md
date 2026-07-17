@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.4] - 2026-07-17 "Pinsker"
+
+Design-system consistency — Phase 1b (Button primitive).
+
+### Changed
+- Added a canonical `<Button>` component (`primary`/`secondary`/`ghost`/`destructive`
+  variants, `sm`/`md` sizes) wrapping the shared interaction styles (hover/press/focus-ring).
+- Migrated the duplicated CTA button class strings and the clearest hand-rolled CTAs onto it
+  (visual parity). Several secondary/destructive buttons that previously had no keyboard focus
+  ring now gain the canonical one.
+
 ## [0.190.3] - 2026-07-17 "Pinsker"
 
 Design-system consistency — Phase 1a (RAG colors).

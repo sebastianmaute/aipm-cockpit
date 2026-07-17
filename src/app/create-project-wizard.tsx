@@ -41,6 +41,7 @@ import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { FOCUS_RING } from "./interaction-styles";
+import { Button } from "./button";
 
 type CreateFormat = "json" | "csv" | "md";
 
@@ -49,12 +50,6 @@ const MODE_LABEL_KEY = {
   modular: "modeModular",
   advanced: "modeAdvanced",
 } as const;
-
-const PRIMARY_BUTTON_CLASS =
-  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-50`;
-
-const SECONDARY_BUTTON_CLASS =
-  `rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`;
 
 // Pinned nav footer shared by steps 2 and 3 (Back · optional Cancel · primary CTA).
 function WizardNavFooter({
@@ -69,19 +64,19 @@ function WizardNavFooter({
   return (
     <div className="flex shrink-0 justify-between gap-2 border-t border-line pt-4">
       <div className="flex gap-2">
-        <button type="button" onClick={onBack} className={SECONDARY_BUTTON_CLASS}>
+        <Button variant="secondary" onClick={onBack}>
           {t(lang, "wizardBack")}
-        </button>
+        </Button>
       </div>
       <div className="flex gap-2">
         {onCancel && (
-          <button type="button" onClick={onCancel} className={SECONDARY_BUTTON_CLASS}>
+          <Button variant="secondary" onClick={onCancel}>
             {t(lang, "cancel")}
-          </button>
+          </Button>
         )}
-        <button type="button" onClick={onPrimary} className={PRIMARY_BUTTON_CLASS}>
+        <Button variant="primary" onClick={onPrimary}>
           {t(lang, primaryKey)}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -236,9 +231,9 @@ export function CreateProjectWizard({
   // no way back to re-describe — only Cancel.
   const step1FooterLeft =
     aiEnabled && !meta ? (
-      <button type="button" onClick={() => setStep(0)} className={SECONDARY_BUTTON_CLASS}>
+      <Button variant="secondary" onClick={() => setStep(0)}>
         {t(lang, "wizardBack")}
-      </button>
+      </Button>
     ) : undefined;
 
   return (
