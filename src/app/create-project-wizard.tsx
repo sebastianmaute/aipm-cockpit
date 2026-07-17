@@ -41,6 +41,7 @@ import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { FOCUS_RING } from "./interaction-styles";
+import { Badge } from "./badge";
 import { Button } from "./button";
 
 type CreateFormat = "json" | "csv" | "md";
@@ -341,13 +342,13 @@ export function CreateProjectWizard({
                       <span className="font-medium text-foreground">{tpl.name}</span>
                       <span className="flex items-center gap-1">
                         {suggestion?.templateId === tpl.id && (
-                          <span className="rounded-full bg-AIPM-dark-blue px-2 py-0.5 text-xs font-semibold text-white">
+                          <Badge pill className="bg-AIPM-dark-blue font-semibold text-white">
                             {t(lang, "templateSuggested")}
-                          </span>
+                          </Badge>
                         )}
-                        <span className="rounded-full bg-AIPM-green/15 px-2 py-0.5 text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                        <Badge pill className="bg-AIPM-green/15 font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
                           {t(lang, MODE_LABEL_KEY[tplMode])}
-                        </span>
+                        </Badge>
                       </span>
                     </div>
                     {tpl.description && (
@@ -363,7 +364,7 @@ export function CreateProjectWizard({
               })}
             </fieldset>
             {seedHasContent(aiSeed) && selectedTemplate !== null && (
-              <p role="status" className="text-xs text-AIPM-red">
+              <p role="status" className="text-xs text-AIPM-pink-strong">
                 {t(lang, "aiCreateTemplateReplacesSeed")}
               </p>
             )}

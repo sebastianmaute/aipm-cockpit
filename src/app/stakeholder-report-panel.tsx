@@ -45,7 +45,7 @@ const QUADRANTS: { id: StakeholderQuadrant; labelKey: TranslationKey }[] = [
 ];
 
 const AMBER_CHIP =
-  "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-amber-500/20 text-AIPM-purple";
+  "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-AIPM-dark-blue dark:text-AIPM-light-grey";
 
 export interface StakeholderReportPanelProps {
   lang: Lang;

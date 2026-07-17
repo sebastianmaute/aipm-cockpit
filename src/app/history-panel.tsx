@@ -15,6 +15,7 @@ import { VersionDiffView } from "./version-diff-view";
 import { changeKey, type RestoreSelection } from "./version-restore";
 import { useToastContext } from "./toast-context";
 import { useConfirm } from "./confirm-dialog";
+import { Badge } from "./badge";
 import { EmptyState } from "./empty-state";
 import { PrintButton } from "./task-manager-ui";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
@@ -265,9 +266,9 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}`}
                   className="accent-AIPM-dark-blue"
                 />
-                <span className={`rounded px-1.5 py-0.5 text-xs ${v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-dark-blue dark:text-AIPM-light-grey" : "bg-surface-muted text-muted-foreground"}`}>
+                <Badge size="md" className={v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-dark-blue dark:text-AIPM-light-grey" : "bg-surface-muted text-muted-foreground"}>
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
-                </span>
+                </Badge>
                 <span className="text-foreground">{v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
                 {v.summary && (
                   <>

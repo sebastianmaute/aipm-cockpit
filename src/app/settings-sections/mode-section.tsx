@@ -120,7 +120,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
       </fieldset>
 
       {removesModules && (
-        <p className="rounded-md bg-amber-500/20 px-3 py-2 text-xs text-AIPM-purple">
+        <p className="rounded-md bg-[var(--rag-amber)]/20 px-3 py-2 text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">
           {t(lang, "modeRetentionNote")}
         </p>
       )}

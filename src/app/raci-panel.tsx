@@ -225,12 +225,12 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
                     <span className="inline-flex items-center gap-2">
                       {row.milestone.name}
                       {warning === "missing" && (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-amber-500/20 text-AIPM-purple">
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-AIPM-dark-blue dark:text-AIPM-light-grey">
                           {t(lang, "raciAccountableMissing")}
                         </span>
                       )}
                       {warning === "multiple" && (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-amber-500/20 text-AIPM-purple">
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-AIPM-dark-blue dark:text-AIPM-light-grey">
                           {t(lang, "raciAccountableMultiple")}
                         </span>
                       )}
