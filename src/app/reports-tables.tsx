@@ -311,46 +311,6 @@ export function AssigneeTable({
   );
 }
 
-export function Tile({
-  label,
-  value,
-  danger,
-}: {
-  label: string;
-  value: number | string;
-  danger?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-line bg-surface p-3">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p
-        className={`mt-1 text-2xl font-semibold ${danger ? "text-[var(--rag-red-text)]" : "text-AIPM-dark-blue dark:text-AIPM-light-grey"}`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-export function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
-        {title}
-      </h3>
-      {children}
-    </div>
-  );
-}
-
 export function StackedBar({
   segments,
   total,

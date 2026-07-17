@@ -1,6 +1,7 @@
 "use client";
 
 import { KpiGradientBar, Tile } from "../report-table";
+import { Card } from "../card";
 import { type Lang, t } from "../i18n";
 import { TrendArrow } from "../trend-arrow";
 import type { DashboardModel } from "../dashboard";
@@ -20,7 +21,7 @@ interface DashboardKpiStripProps {
  *  Extracted from DashboardHero so it can be a first-class masonry item. */
 export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: DashboardKpiStripProps) {
   return (
-    <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
+    <Card boxed className={dc.cardPad}>
       <div className={`grid grid-cols-1 sm:grid-cols-3 ${dc.kpiGap}`}>
         <Tile
           label={t(lang, "dashboardKpiComplete")}
@@ -48,6 +49,6 @@ export function DashboardKpiStrip({ lang, model, trends, onNavigate, dc }: Dashb
           activateLabel={`${t(lang, "dashboardKpiOpenRaid")} – ${t(lang, "dashboardOpenRaidView")}`}
         />
       </div>
-    </div>
+    </Card>
   );
 }

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.4";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.4: design-system Button primitive (P1b) — canonical <Button variant> (primary/secondary/ghost/destructive) wrapping the shared interaction styles; migrated the duplicated CTA button strings + key hand-rolled CTAs to it (visual parity; some gained a missing keyboard focus ring) (Pinsker)
+export const APP_VERSION = "0.190.5";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.5: design-system Card primitive + Tile/Section dedup (P1c) — canonical <Card> shell; the three divergent Tile copies and two Section copies collapsed to one each (visual parity via size/danger/flat props); dashboard cards migrated (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

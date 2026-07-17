@@ -12,6 +12,7 @@ import {
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 import { InfoTooltip } from "./info-tooltip";
+import { Card } from "./card";
 
 export type SortDir = "asc" | "desc" | "off";
 
@@ -200,8 +201,20 @@ export function SortResizeTh<K extends string>({
   );
 }
 
+/**
+ * Canonical metric tile — the SINGLE Tile shared across the dashboard, reports,
+ * resources report, portfolio + timelog panels (design-system Phase 1c dedup of
+ * three near-identical local copies). Divergence between the old copies is
+ * preserved via props, not by forcing one look:
+ *  - `size`   → value font size (`"xl"` default; the reports summary tiles use
+ *    `"2xl"`).
+ *  - `danger` → red value text for a "bad" metric (the reports overdue tile).
+ *  - `flat`   → suppress the elevation shadow (the plain report/resource tiles
+ *    are intentionally un-elevated; the dashboard tiles are raised).
+ */
 export function Tile({
   label, value, rag, trend, bar, onActivate, activateLabel, hint,
+  danger = false, size = "xl", flat = false,
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
@@ -214,11 +227,21 @@ export function Tile({
    *  as a SIBLING of the (possibly clickable) tile, never nested inside the
    *  button — a tooltip trigger inside a button is a nested-interactive axe fail. */
   hint?: string;
+  /** Red value text for a "bad" metric (e.g. an overdue count). */
+  danger?: boolean;
+  /** Value font size. Default `"xl"`; reports summary tiles use `"2xl"`. */
+  size?: "xl" | "2xl";
+  /** Suppress the elevation shadow (plain report/resource tiles have none). */
+  flat?: boolean;
 }) {
+  const valueColor = danger
+    ? "text-[var(--rag-red-text)]"
+    : "text-AIPM-dark-blue dark:text-AIPM-light-grey";
+  const sizeClass = size === "2xl" ? "text-2xl" : "text-xl";
   const inner = (
     <>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="mt-1 flex items-center justify-between gap-1.5 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">
+      <div className={`mt-1 flex items-center justify-between gap-1.5 ${sizeClass} font-semibold ${valueColor} tabular-nums`}>
         <span>{value}</span>
         {rag}
       </div>
@@ -231,12 +254,12 @@ export function Tile({
       type="button"
       aria-label={activateLabel}
       onClick={onActivate}
-      className={`w-full rounded-lg border border-line bg-surface p-3 text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue hover:bg-surface-muted hover:shadow-[var(--shadow-card-hover)] ${INTERACTIVE}`}
+      className={`w-full rounded-lg border border-line bg-surface p-3 text-left${flat ? "" : " shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"} hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
     >
       {inner}
     </button>
   ) : (
-    <div className="rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-card)]">{inner}</div>
+    <Card boxed={!flat} className="p-3">{inner}</Card>
   );
   if (!hint) return tile;
   return (
@@ -284,7 +307,7 @@ export function Section({
     </>
   );
   return boxed ? (
-    <div className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">{body}</div>
+    <Card boxed padded>{body}</Card>
   ) : (
     <div>{body}</div>
   );

@@ -11,6 +11,8 @@ import { useResizable } from "./use-resizable";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import {
   ReportCard,
+  Section,
+  Tile,
   TableFilter,
   SortResizeTh,
   useSortableFilter,
@@ -122,10 +124,10 @@ export function ResourcesReportPanel({
   const content = (
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Tile label={t(lang, "resourcesReportTotalCapacity")} value={`${days(rep.totalCapacityHours)} d`} />
-        <Tile label={t(lang, "resourcesInternalCost")} value={money(rep.totalInternal)} />
-        <Tile label={t(lang, "resourcesExternalCost")} value={money(rep.totalExternal)} />
-        <Tile label={t(lang, "resourcesMargin")} value={money(rep.totalMargin)} />
+        <Tile label={t(lang, "resourcesReportTotalCapacity")} value={`${days(rep.totalCapacityHours)} d`} flat />
+        <Tile label={t(lang, "resourcesInternalCost")} value={money(rep.totalInternal)} flat />
+        <Tile label={t(lang, "resourcesExternalCost")} value={money(rep.totalExternal)} flat />
+        <Tile label={t(lang, "resourcesMargin")} value={money(rep.totalMargin)} flat />
       </div>
 
       {/* By Period — sortable by columns; no filter (rows are time-ordered periods
@@ -383,24 +385,3 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Shared sub-components
-// ---------------------------------------------------------------------------
-
-function Tile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-line bg-surface p-3">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey tabular-nums">{value}</p>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h3>
-      {children}
-    </div>
-  );
-}

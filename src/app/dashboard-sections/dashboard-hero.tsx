@@ -6,6 +6,7 @@ import { healthColorName, healthText, type Health } from "../health";
 import { RagBadge } from "../rag-badge";
 import { InfoTooltip } from "../info-tooltip";
 import { TRANSITION, FOCUS_RING } from "../interaction-styles";
+import { Card } from "../card";
 import type { DashboardModel } from "../dashboard";
 import type { ProjectStatus } from "../types";
 
@@ -54,7 +55,7 @@ export function DashboardHero(props: DashboardHeroProps) {
   const { lang, today, model, status, setStatus, showBudget, showChanges } = props;
   return (
     // Single Overall band — the panel already wraps the hero in its dc.outer flow.
-    <div className="flex flex-wrap items-center gap-4 rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
+    <Card boxed padded className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2 text-2xl font-bold">
           <RagBadge value={model.overall.effective} lang={lang} />
           {t(lang, "dashboardOverall")}:{" "}
@@ -82,6 +83,6 @@ export function DashboardHero(props: DashboardHeroProps) {
           </div>
         </details>
         <p className="basis-full text-xs text-muted-foreground">{t(lang, "dashboardRagThresholds")}</p>
-    </div>
+    </Card>
   );
 }

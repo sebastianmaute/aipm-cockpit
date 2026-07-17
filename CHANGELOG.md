@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.5] - 2026-07-17 "Pinsker"
+
+Design-system consistency — Phase 1c (Card/Tile/Section).
+
+### Changed
+- Added a canonical `<Card>` shell primitive and consolidated the three divergent `Tile`
+  components and two `Section` components into one each (visual parity preserved via
+  `size`/`danger`/`flat` props). Migrated the dashboard cockpit cards onto `<Card>`.
+
 ## [0.190.4] - 2026-07-17 "Pinsker"
 
 Design-system consistency — Phase 1b (Button primitive).
