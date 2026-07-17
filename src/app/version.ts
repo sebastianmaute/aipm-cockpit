@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.7";
-export const APP_BUILD_DATE = "2026-07-17"; // 0.190.7: design-system Banner primitive (P1e) — canonical <Banner severity> (info/warn/success/error); the shared notice banner no longer paints every message error-red (birthday reminders now read as info, token warnings as warn); migrated the clean error banners (Pinsker)
+export const APP_VERSION = "0.190.8";
+export const APP_BUILD_DATE = "2026-07-17"; // 0.190.8: design-system form-field primitives (P2a) — canonical <Input>/<Select>/<Textarea>/<Checkbox>; checkboxes now share ONE brand accent (previously an inert/6-way mix) and form fields share the ring-2 green focus ring (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
