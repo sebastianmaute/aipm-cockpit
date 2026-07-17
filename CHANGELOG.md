@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.15] - 2026-07-17 "Pinsker"
+
+Design-system dedup (Phase 3a).
+
+### Changed
+- The little coloured RAG status dot (before a health/severity/impact label) was hand-built
+  in ~15 places, with three panels each keeping their own private copy of the red/amber/green
+  colour map. It is now one shared dot component drawing from the single colour source, so a
+  given status renders identically everywhere and reflows with the active colour scheme. No
+  visible change.
+
 ## [0.190.14] - 2026-07-17 "Pinsker"
 
 Design-system dedup.

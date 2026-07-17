@@ -192,7 +192,6 @@ export function ReportsPanel({
 
   const completedTotal = stats.completedOnTime + stats.completedLate;
 
-
   // Stable mapping from internal driver token to i18n key so the steering
   // line ("3 overdue, 1 blocked") translates correctly. "manual" / "onTrack"
   // / "completed" aren't shown on the cards — the color itself communicates

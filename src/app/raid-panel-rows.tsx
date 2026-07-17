@@ -30,7 +30,6 @@ const categoryPillClass: Record<RaidCategory, string> = {
   D: "bg-AIPM-green/15 text-AIPM-dark-blue dark:bg-AIPM-green/20 dark:text-AIPM-light-grey",
 };
 
-
 type SortState = { key: string; dir: string } | null;
 
 export interface RaidTableProps {
