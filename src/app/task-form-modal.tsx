@@ -116,9 +116,7 @@ export function TaskFormModal({
             sizeReset();
           }}
         />
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId="task" lang={lang} />
-        </div>
+        <ModalFieldControls modalId="task" lang={lang} />
         <form
           onSubmit={onSubmit}
           className="min-h-0 flex-1 overflow-y-auto space-y-6 p-6"

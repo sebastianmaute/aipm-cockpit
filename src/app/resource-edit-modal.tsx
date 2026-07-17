@@ -156,9 +156,7 @@ export function ResourceEditModal({
           }}
         />
 
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId="resource" lang={lang} />
-        </div>
+        <ModalFieldControls modalId="resource" lang={lang} />
 
         <form
           onSubmit={handleSubmit}

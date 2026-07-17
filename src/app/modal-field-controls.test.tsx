@@ -38,6 +38,12 @@ describe("ModalFieldControls", () => {
     expect(nameBox).toBeDisabled();
     expect(nameBox).toBeChecked();
   });
+  it("wraps the controls in the bordered header strip when shown", () => {
+    // The strip is owned here (not by each modal), so hiding the controls
+    // removes the whole bordered band — no empty strip left behind.
+    const { container } = renderControls();
+    expect(container.querySelector(".border-b")).not.toBeNull();
+  });
 
   describe("showFieldConfig opt-out", () => {
     afterEach(() => window.localStorage.removeItem(SETTINGS_KEY));

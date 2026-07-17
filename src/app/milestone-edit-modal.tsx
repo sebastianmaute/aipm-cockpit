@@ -158,9 +158,7 @@ export function MilestoneEditModal({
           }}
         />
 
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId="milestone" lang={lang} />
-        </div>
+        <ModalFieldControls modalId="milestone" lang={lang} />
 
         <form
           onSubmit={handleSubmit}

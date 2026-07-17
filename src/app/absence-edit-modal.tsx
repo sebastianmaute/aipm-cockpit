@@ -143,9 +143,7 @@ export function AbsenceEditModal({
           }}
         />
 
-        <div className="flex justify-end border-b border-line px-4 py-2">
-          <ModalFieldControls modalId="absence" lang={lang} />
-        </div>
+        <ModalFieldControls modalId="absence" lang={lang} />
 
         <form
           onSubmit={handleSubmit}
