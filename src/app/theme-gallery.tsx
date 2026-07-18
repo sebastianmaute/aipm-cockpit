@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { importScheme, addScheme, updateScheme } from "./color-schemes";
+import { importScheme, addScheme, updateScheme, loadSchemes } from "./color-schemes";
 import { upsertSchemeAsync } from "./color-schemes-store";
 import type { TursoConfig } from "./turso-config";
 import { Button } from "./button";
@@ -47,6 +47,13 @@ export function ThemeGallery({ lang, config = null, onImported }: ThemeGalleryPr
       if (!res.ok) throw new Error("fetch");
       const parsed = importScheme(await res.text());
       if (!parsed) throw new Error("parse");
+      // Dedup: if a user scheme with this name already exists, just activate it
+      // rather than creating a second identical copy on repeat clicks.
+      const existing = loadSchemes().schemes.find((s) => !s.builtIn && s.name === parsed.name);
+      if (existing) {
+        onImported(existing.id);
+        return;
+      }
       let store = addScheme(parsed.name, parsed.light, parsed.branding);
       const newId = store.activeId;
       if (!newId) throw new Error("add");

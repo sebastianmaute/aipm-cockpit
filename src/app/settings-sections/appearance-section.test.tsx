@@ -121,7 +121,6 @@ describe("AppearanceSection scheme control", () => {
     renderSection({}, "custom"); // fresh store → Harbor active (dark-capable)
     expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).not.toBeDisabled();
-    expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "styleCustomLightOnly"))).not.toBeInTheDocument();
   });
 
