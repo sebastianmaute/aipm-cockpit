@@ -45,6 +45,7 @@ import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
+import { Button } from "./button";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useAutogrow } from "./use-autogrow";
@@ -623,19 +624,12 @@ export function RaidEditModal({
               )}
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onCancel}
-                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-              >
+              <Button variant="secondary" size="sm" onClick={onCancel}>
                 {t(lang, "cancel")}
-              </button>
-              <button
-                type="submit"
-                className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
-              >
+              </Button>
+              <Button type="submit" size="sm">
                 {t(lang, "raidSave")}
-              </button>
+              </Button>
             </div>
           </div>
     </EditModalShell>

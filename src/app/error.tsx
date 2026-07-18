@@ -12,7 +12,7 @@
 //   node_modules/next/dist/docs/01-app/01-getting-started/10-error-handling.md
 
 import { useEffect } from "react";
-import { FOCUS_RING } from "./interaction-styles";
+import { Button } from "./button";
 
 interface ErrorPageProps {
   error: Error & { digest?: string };
@@ -47,20 +47,13 @@ export default function ErrorPage({ error, unstable_retry }: ErrorPageProps) {
           </p>
         )}
         <div className="mt-5 flex justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => unstable_retry()}
-            className={`rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-ui-dark-blue/90 ${FOCUS_RING}`}
-          >
-            Try again
-          </button>
-          <button
-            type="button"
+          <Button onClick={() => unstable_retry()}>Try again</Button>
+          <Button
+            variant="secondary"
             onClick={() => window.location.reload()}
-            className={`rounded-md border border-line px-4 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted ${FOCUS_RING} dark:text-ui-light-grey`}
           >
             Reload page
-          </button>
+          </Button>
         </div>
       </div>
     </div>

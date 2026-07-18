@@ -28,6 +28,7 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { useChatModels } from "./use-chat-models";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
+import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { Banner } from "./banner";
 import { FieldError } from "./field-feedback";
@@ -655,13 +656,9 @@ function ChatPanelInner({
                     }}
                     className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
                   />
-                  <button
-                    type="button"
-                    onClick={unlockApiKey}
-                    className={`rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
-                  >
+                  <Button onClick={unlockApiKey}>
                     {t(lang, "secretUnlock")}
-                  </button>
+                  </Button>
                 </div>
                 {unlockError && (
                   <FieldError>{t(lang, "secretUnlockFailed")}</FieldError>
@@ -827,16 +824,15 @@ function ChatPanelInner({
           className={`min-w-0 flex-1 self-stretch resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
         />
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy || apiKeyMissing || guidesPending}
             aria-label={t(lang, "chatAttach")}
             title={t(lang, "chatAttach")}
-            className={`rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             📎
-          </button>
+          </Button>
           {mic}
           {busy ? (
             <button
@@ -848,26 +844,23 @@ function ChatPanelInner({
               {t(lang, "chatStop")}
             </button>
           ) : (
-            <button
-              type="button"
+            <Button
               onClick={() => submitPrompt()}
               disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending}
-              className={`rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "chatSend")}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={async () => {
               if (await confirm({ message: t(lang, "chatClearConfirm") }))
                 clearChat();
             }}
             disabled={busy || display.length === 0}
-            className={`rounded-md border border-line bg-surface px-4 py-2 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "chatClear")}
-          </button>
+          </Button>
         </div>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{t(lang, "chatAttachmentHint")}</p>

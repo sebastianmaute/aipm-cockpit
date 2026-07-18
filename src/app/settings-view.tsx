@@ -9,6 +9,7 @@ import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { VersionInfoModal } from "./version-info";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { Button } from "./button";
 import { AppearanceSection } from "./settings-sections/appearance-section";
 import { LocalizationSection } from "./settings-sections/localization-section";
 import { GeneralSection } from "./settings-sections/general-section";
@@ -353,13 +354,9 @@ export function SettingsView(props: SettingsViewProps) {
           <div>
             {!props.isPopout && (
               <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => setWizardOpen(true)}
-                  className={`rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-                >
+                <Button variant="secondary" onClick={() => setWizardOpen(true)}>
                   {t(lang, "setupWizardRun")}
-                </button>
+                </Button>
               </div>
             )}
             <IntegrationsSection lang={lang} settings={settings} onChange={onChange} onMigrateToTurso={props.onMigrateToTurso} />

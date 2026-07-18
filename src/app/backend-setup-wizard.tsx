@@ -29,7 +29,7 @@ import { IntegrationsSection } from "./settings-sections/integrations-section";
 import { AiSection } from "./settings-sections/ai-section";
 import { JiraSettingsSection } from "./jira-settings";
 import { type Settings } from "./settings-types";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { WizardStepIndicator } from "./wizard-step-indicator";
 import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
@@ -39,11 +39,6 @@ import { IntegrationDisclaimerProvider } from "./integration-disclaimer";
 
 const TITLE_ID = "backend-setup-wizard-title";
 const TOTAL = BACKEND_SETUP_STEPS.length;
-
-const SECONDARY_BTN =
-  `rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`;
-const PRIMARY_BTN =
-  `rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-50 ${INTERACTIVE}`;
 
 // ---------------------------------------------------------------------------
 // ReviewStep
@@ -206,38 +201,28 @@ export function BackendSetupWizard({
         {/* Footer */}
         <div className="flex shrink-0 items-center justify-between border-t border-line p-4">
           {/* Back */}
-          <button
-            type="button"
-            onClick={handleBack}
-            disabled={isFirst}
-            className={SECONDARY_BTN}
-          >
+          <Button variant="secondary" onClick={handleBack} disabled={isFirst}>
             {t(lang, "wizardBack")}
-          </button>
+          </Button>
 
           {/* Right cluster: Skip (integration steps) + Next / Finish */}
           <div className="flex items-center gap-2">
             {currentStep.skippable && (
-              <button
-                type="button"
-                onClick={handleNext}
-                className={SECONDARY_BTN}
-              >
+              <Button variant="secondary" onClick={handleNext}>
                 {t(lang, "setupWizardSkip")}
-              </button>
+              </Button>
             )}
 
             {/* ONE persistent primary button across all steps (label + handler
                 swap on the last step) — a stable element so focusing it after a
                 Skip survives the re-render. */}
-            <button
+            <Button
               ref={nextButtonRef}
-              type="button"
+              variant="primary"
               onClick={isLast ? handleClose : handleNext}
-              className={PRIMARY_BTN}
             >
               {t(lang, isLast ? "setupWizardFinish" : "wizardNext")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

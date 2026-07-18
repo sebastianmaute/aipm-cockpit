@@ -41,7 +41,6 @@ import { Step0ImportPanel } from "./step0-import-panel";
 import type { ProjectFormDraft } from "./project-form-fields";
 import type { TemplateSeed } from "./templates";
 import { WizardStepIndicator } from "./wizard-step-indicator";
-import { FOCUS_RING } from "./interaction-styles";
 import { Checkbox } from "./form-controls";
 import { Badge } from "./badge";
 import { Button } from "./button";
@@ -384,22 +383,22 @@ export function CreateProjectWizard({
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 aria-label="Apply Simple preset"
                 onClick={() => setFeatures([])}
-                className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${FOCUS_RING}`}
               >
                 {t(lang, "modePresetSimple")}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 aria-label="Apply Advanced preset"
                 onClick={() => setFeatures([...ALL_MODULE_IDS])}
-                className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${FOCUS_RING}`}
               >
                 {t(lang, "modePresetAdvanced")}
-              </button>
+              </Button>
             </div>
 
             <fieldset className="flex flex-col gap-2">

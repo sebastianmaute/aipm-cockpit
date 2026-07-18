@@ -12,17 +12,13 @@ import { sanitizeTemplateHtml } from "./sanitize-html";
 import { htmlToPlainText } from "./html-to-text";
 import { diffLines } from "./text-diff";
 import { CommTemplateDiffView } from "./comm-template-diff-view";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Button } from "./button";
 
 const RichTextEditor = dynamic(() => import("./rich-text-editor").then((m) => m.RichTextEditor), {
   ssr: false,
   loading: () => <div className="min-h-40 rounded-md border border-line bg-surface-muted" />,
 });
-
-const BTN_PRIMARY =
-  "rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-60";
-const BTN_SECONDARY =
-  "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60";
 
 function rteLabels(lang: Lang) {
   return {
@@ -132,14 +128,14 @@ export function MeetingReportPanel({
     <div className="flex flex-col gap-3">
       {aiConfigured && onGenerate && !readOnly && (
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={onGenerate}
             disabled={generateBusy}
-            className={`${BTN_SECONDARY} ${INTERACTIVE}`}
           >
             {t(lang, generateBusy ? "reportGenerating" : "reportDraftWithAi")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -172,24 +168,24 @@ export function MeetingReportPanel({
                   {v.capturedAt} · {t(lang, v.isAuto ? "reportVersionAuto" : "reportVersionManual")}
                 </span>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="xs"
                     onClick={() => setCompareVersionId((cur) => (cur === v.id ? null : v.id))}
                     aria-expanded={compareVersionId === v.id}
-                    className={`${BTN_SECONDARY} ${INTERACTIVE}`}
                     aria-label={`${t(lang, "reportDiff")} – ${v.capturedAt}`}
                   >
                     {t(lang, "reportDiff")}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="xs"
                     onClick={() => onRestore(v.id)}
                     disabled={restoreBusyId === v.id}
-                    className={`${BTN_SECONDARY} ${INTERACTIVE}`}
                     aria-label={`${t(lang, "reportRestore")} – ${v.capturedAt}`}
                   >
                     {t(lang, "reportRestore")}
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}
@@ -223,17 +219,16 @@ export function MeetingReportPanel({
 
       {!readOnly && (
         <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={() => onSave(draft)} className={`${BTN_SECONDARY} ${INTERACTIVE}`}>
+          <Button variant="secondary" size="xs" onClick={() => onSave(draft)}>
             {t(lang, "reportSave")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            size="xs"
             onClick={() => onSend(parsedRecipients)}
             disabled={!m365Configured || sendBusy || noRecipients}
-            className={`${BTN_PRIMARY} ${INTERACTIVE}`}
           >
             {t(lang, sendBusy ? "reportSending" : "reportSend")}
-          </button>
+          </Button>
         </div>
       )}
     </div>

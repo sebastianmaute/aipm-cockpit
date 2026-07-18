@@ -10,6 +10,7 @@ import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { DataTable } from "./data-table";
+import { Button } from "./button";
 import { FOCUS_RING } from "./interaction-styles";
 
 const JIRA_CONFLICTS_COL_WIDTHS = {
@@ -274,20 +275,12 @@ export function JiraConflictsModal({
         </ul>
 
         <footer className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-line bg-surface px-6 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${FOCUS_RING}`}
-          >
+          <Button variant="secondary" size="sm" onClick={onClose}>
             {t(lang, "jiraConflictDefer")}
-          </button>
-          <button
-            type="button"
-            onClick={handleResolve}
-            className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 ${FOCUS_RING}`}
-          >
+          </Button>
+          <Button variant="primary" size="sm" onClick={handleResolve}>
             {t(lang, "jiraConflictApply")}
-          </button>
+          </Button>
         </footer>
       </div>
     </Modal>

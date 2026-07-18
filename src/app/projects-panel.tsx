@@ -36,7 +36,6 @@ import { useConfirm } from "./confirm-dialog";
 import { useResizable } from "./use-resizable";
 import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
-import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { type ProjectMeta, type Resource } from "./types";
@@ -288,14 +287,15 @@ export function ProjectsPanel({
                               >
                                 {EXPORT_FORMATS.map((fmt) => (
                                   <li key={fmt} role="none">
-                                    <button
-                                      type="button"
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
                                       role="menuitem"
                                       onClick={() => handleExport(fmt)}
-                                      className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
+                                      className="block w-full text-left"
                                     >
                                       {EXPORT_FORMAT_LABEL[fmt]}
-                                    </button>
+                                    </Button>
                                   </li>
                                 ))}
                               </ul>

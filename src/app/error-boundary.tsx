@@ -2,6 +2,7 @@
 "use client";
 
 import { Component, type ReactNode } from "react";
+import { Button } from "./button";
 import { t } from "./i18n";
 import { quarantineConfig, readPersistedLang } from "./recovery-config";
 
@@ -52,13 +53,12 @@ export class ErrorBoundary extends Component<Props, State> {
           >
             {t(lang, "errorBoundaryRecover")}
           </a>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={this.handleReset}
-            className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey"
           >
             {t(lang, "errorBoundaryReset")}
-          </button>
+          </Button>
         </div>
       </div>
     );

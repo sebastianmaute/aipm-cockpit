@@ -21,6 +21,7 @@ import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 
 interface HistoryPanelProps {
   lang: Lang;
@@ -195,24 +196,24 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
       <div className="mb-3 flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">{t(lang, "historyTitle")}</h2>
         <span className="flex items-center gap-2 print:hidden">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => compareSelected("inline")}
             disabled={selected.length !== 2 || comparing}
             title={t(lang, "historyCompareSelectedHint")}
-            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-ui-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "historyCompareSelected")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => compareSelected("sideBySide")}
             disabled={selected.length !== 2 || comparing}
             title={t(lang, "historyCompareSideBySideHint")}
-            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-ui-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "historyCompareSideBySide")}
-          </button>
+          </Button>
           {naming ? (
             <span className="flex items-center gap-2">
               <input
@@ -224,14 +225,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 placeholder={t(lang, "historyManualLabelPrompt")}
                 className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
               />
-              <button
-                type="button"
+              <Button
+                size="sm"
                 onClick={confirmSave}
                 disabled={busy}
-                className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "add")}
-              </button>
+              </Button>
               <button
                 type="button"
                 onClick={cancelSave}
@@ -242,14 +242,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               </button>
             </span>
           ) : (
-            <button
-              type="button"
+            <Button
+              size="sm"
               onClick={() => setNaming(true)}
               disabled={busy}
-              className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "historySaveNow")}
-            </button>
+            </Button>
           )}
           <PrintButton lang={lang} />
           <ResetSizeButton onClick={resetSize} lang={lang} />

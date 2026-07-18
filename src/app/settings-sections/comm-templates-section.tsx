@@ -13,6 +13,7 @@ import { InfoTooltip } from "../info-tooltip";
 import { EmptyState } from "../empty-state";
 import { FieldHint } from "../field-hint";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { Button } from "../button";
 import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
 import dynamic from "next/dynamic";
@@ -179,14 +180,15 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
             className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
           />
         </label>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="sm"
+          className="shrink-0"
           onClick={createTemplate}
           disabled={!newName.trim()}
-          className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "commTplCreate")}
-        </button>
+        </Button>
       </div>
 
       <div>

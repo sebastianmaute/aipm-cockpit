@@ -22,6 +22,7 @@ import { committeePushKey, type CommitteeReconcileTarget } from "./committee-cal
 import { MeetingReportPanel, type MeetingReportVersionUi } from "./meeting-report-panel";
 import { committeeMemberEmails } from "./committee-report/report-recipients";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
+import { Button } from "./button";
 
 const MEETING_COL_WIDTHS = { date: 150, title: 240, location: 200 } as const;
 type MeetingCol = keyof typeof MEETING_COL_WIDTHS;
@@ -39,24 +40,20 @@ function nextMaxId(items: ReadonlyArray<{ id: number }>): number {
   return items.reduce((max, x) => Math.max(max, x.id), 0) + 1;
 }
 
-const BTN_PRIMARY =
-  "rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90";
-const BTN_SECONDARY =
-  "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60";
 const INPUT_CLASS =
   "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green";
 
 function DeleteCell({ lang, onClick, label }: { lang: Lang; onClick: () => void; label: string }) {
   return (
     <td className="text-right">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="xs"
         onClick={onClick}
         aria-label={`${t(lang, "delete")} – ${label}`}
-        className={BTN_SECONDARY}
       >
         {t(lang, "delete")}
-      </button>
+      </Button>
     </td>
   );
 }
@@ -81,15 +78,15 @@ function PushRowCell({
 }) {
   return (
     <td className="text-right print:hidden">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="xs"
         onClick={onClick}
         disabled={disabled}
         aria-label={`${t(lang, "committeePushOutlook")} – ${label}`}
-        className={BTN_SECONDARY}
       >
         {t(lang, busy ? "committeePushBusy" : "committeePushRow")}
-      </button>
+      </Button>
     </td>
   );
 }
@@ -281,14 +278,14 @@ export function SteeringCommitteePanel({
                 return (
                   <li key={r.id} className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5">
                     <span className="text-sm text-foreground">{name}</span>
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="xs"
                       onClick={() => removeMember(r.id)}
                       aria-label={`${t(lang, "remove")} – ${name}`}
-                      className={BTN_SECONDARY}
                     >
                       {t(lang, "remove")}
-                    </button>
+                    </Button>
                   </li>
                 );
               })}
@@ -365,17 +362,17 @@ export function SteeringCommitteePanel({
                     </td>
                     {report && !isPopout && (
                       <td className="text-right">
-                        <button
-                          type="button"
+                        <Button
+                          variant="secondary"
+                          size="xs"
                           onClick={async () => {
                             setReportMeetingId(m.id);
                             setReportVersions(report.tursoActive ? await report.loadVersions(m.id) : []);
                           }}
-                          className={BTN_SECONDARY}
                           aria-label={`${t(lang, "reportStatusReport")} – ${m.title || m.date}`}
                         >
                           {t(lang, "reportStatusReport")}
-                        </button>
+                        </Button>
                       </td>
                     )}
                     {outlookPush?.onPushRow && (
@@ -418,9 +415,9 @@ export function SteeringCommitteePanel({
               aria-label={t(lang, "committeeMeetingLocation")}
               className={`${INPUT_CLASS} min-w-[10rem]`}
             />
-            <button type="button" onClick={addMeeting} className={BTN_PRIMARY}>
+            <Button size="xs" onClick={addMeeting}>
               + {t(lang, "committeeAddMeeting")}
-            </button>
+            </Button>
           </div>
         </section>
 
@@ -496,9 +493,9 @@ export function SteeringCommitteePanel({
               aria-label={t(lang, "committeeScheduleLeadDays")}
               className={`${INPUT_CLASS} w-24`}
             />
-            <button type="button" onClick={addSchedule} className={BTN_PRIMARY}>
+            <Button size="xs" onClick={addSchedule}>
               + {t(lang, "committeeAddSchedule")}
-            </button>
+            </Button>
           </div>
         </section>
 
@@ -537,14 +534,14 @@ export function SteeringCommitteePanel({
         {/* Push to Outlook (Task 7 supplies the prop; hidden until then) */}
         {outlookPush ? (
           <section>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="xs"
               onClick={outlookPush.onPush}
               disabled={outlookPush.pushingTarget !== null}
-              className={BTN_SECONDARY}
             >
               {t(lang, outlookPush.pushingTarget === committeePushKey() ? "committeePushBusy" : "committeePushOutlook")}
-            </button>
+            </Button>
           </section>
         ) : null}
         </div>
@@ -569,9 +566,9 @@ export function SteeringCommitteePanel({
                     <div className="flex items-center gap-2 print:hidden">
                       <PrintButton lang={lang} />
                       <ResetSizeButton onClick={resetReportSize} lang={lang} />
-                      <button type="button" onClick={closeReport} className={BTN_SECONDARY}>
+                      <Button variant="secondary" size="xs" onClick={closeReport}>
                         {t(lang, "cancel")}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   <div className="min-h-0 flex-1 overflow-auto">

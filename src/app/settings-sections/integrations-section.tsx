@@ -28,6 +28,7 @@ import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { Button } from "../button";
 import { Checkbox } from "../form-controls";
 import { TimelogSettings } from "../timelog-settings";
 import { JiraSettingsSection } from "../jira-settings";
@@ -538,13 +539,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           {/* Primary action: carry the current project into Turso. */}
           {canMoveToTurso && (
             <div className="mt-2 border-t border-line pt-2">
-              <button
-                type="button"
-                onClick={onMigrateToTurso}
-                className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
-              >
+              <Button size="sm" onClick={onMigrateToTurso}>
                 {t(lang, "projectMigrateToTurso")}
-              </button>
+              </Button>
               <FieldHint className="mt-1">{t(lang, "projectMigrateToTursoHint")}</FieldHint>
             </div>
           )}
@@ -604,15 +601,15 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             {portfolioModeDirty && (
               <div className="mt-2 rounded-md border border-ui-purple/40 bg-ui-purple/5 p-2">
                 <p className="text-xs text-foreground">{t(lang, "portfolioModeSwitchNote")}</p>
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  className="mt-2"
                   onClick={confirmPortfolioModeSwitch}
                   disabled={switchBusy}
                   aria-busy={switchBusy}
-                  className={`mt-2 rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "portfolioModeSwitchConfirm")}
-                </button>
+                </Button>
               </div>
             )}
           </div>

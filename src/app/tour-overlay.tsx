@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { clampStep, type TourStep } from "./app-tour";
+import { Button } from "./button";
 
 export interface TourOverlayProps {
   lang: Lang;
@@ -98,23 +99,23 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
         <p className="mt-1 text-xs leading-relaxed text-foreground">{t(lang, step.bodyKey)}</p>
         <p className="mt-2 text-[11px] text-muted-foreground">{i + 1} / {total}</p>
         <div className="mt-3 flex items-center justify-between gap-2">
-          <button type="button" onClick={onSkip} className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
+          <Button variant="secondary" size="xs" onClick={onSkip}>
             {t(lang, "tourSkip")}
-          </button>
+          </Button>
           <div className="flex items-center gap-2">
             {step.view && (
-              <button type="button" onClick={() => onShowMe(step)} className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey">
+              <Button variant="secondary" size="xs" onClick={() => onShowMe(step)}>
                 {t(lang, "tourShowMe")}
-              </button>
+              </Button>
             )}
             {i > 0 && (
-              <button type="button" onClick={onBack} className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
+              <Button variant="secondary" size="xs" onClick={onBack}>
                 {t(lang, "tourBack")}
-              </button>
+              </Button>
             )}
-            <button type="button" onClick={isLast ? onDone : onNext} className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90">
+            <Button size="xs" onClick={isLast ? onDone : onNext}>
               {t(lang, isLast ? "tourDone" : "tourNext")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

@@ -8,7 +8,7 @@
  */
 import type { ReactNode } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { Checkbox } from "./form-controls";
 import { Modal, MODAL_BACKDROP_CLASS } from "./modal";
 import { ModalHeader } from "./modal-header";
@@ -219,8 +219,9 @@ export function ModalEditFooter({
     <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
       <div className="flex items-center gap-2">
         {!hideDelete && (
-          <button
-            type="button"
+          <Button
+            variant="destructive"
+            size="sm"
             onClick={async () => {
               if (deleteConfirmKey) {
                 if (await confirm({ message: t(lang, deleteConfirmKey) })) onDelete();
@@ -230,28 +231,19 @@ export function ModalEditFooter({
             }}
             disabled={deleteDisabled}
             aria-label={deleteAriaLabelKey ? t(lang, deleteAriaLabelKey) : undefined}
-            className={`rounded-md border border-ui-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-ui-pink/50 ${INTERACTIVE}`}
           >
             {t(lang, deleteLabelKey ?? "delete")}
-          </button>
+          </Button>
         )}
         {middle}
       </div>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-        >
+        <Button variant="secondary" size="sm" onClick={onCancel}>
           {t(lang, "cancel")}
-        </button>
-        <button
-          type="submit"
-          disabled={saveDisabled}
-          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-        >
+        </Button>
+        <Button type="submit" size="sm" disabled={saveDisabled}>
           {t(lang, saveLabelKey)}
-        </button>
+        </Button>
       </div>
     </footer>
   );

@@ -9,7 +9,7 @@
 
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";
-import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { type GroundedMergeGroup } from "./task-dedup/dedup";
 
 interface TaskDedupModalProps {
@@ -24,9 +24,6 @@ interface TaskDedupModalProps {
   /** True while the merge is being applied (disables the controls). */
   busy: boolean;
 }
-
-const BUTTON_CLASS =
-  "rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50";
 
 export function TaskDedupModal({
   lang,
@@ -95,17 +92,17 @@ export function TaskDedupModal({
         </ul>
 
         <div className="flex items-center justify-end gap-2 border-t border-line px-6 py-4">
-          <button type="button" onClick={onCancel} disabled={busy} className={`${BUTTON_CLASS} ${INTERACTIVE}`}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
             {t(lang, "taskDedupCancel")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={onConfirm}
             disabled={busy || selectedCount === 0}
-            className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "taskDedupConfirm")}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

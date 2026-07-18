@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Banner } from "./banner";
+import { Button } from "./button";
 import { Modal } from "./modal";
 import type { OutlookContact } from "./outlook-contacts";
 
@@ -136,21 +137,17 @@ export function OutlookImportModal({
         </div>
 
         <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-6 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted"
-          >
+          <Button variant="secondary" size="sm" onClick={onClose}>
             {t(lang, "outlookImportCancel")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={confirm}
             disabled={selectedCount === 0 || loading || !!error}
-            className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t(lang, "outlookImportConfirm", selectedCount)}
-          </button>
+          </Button>
         </footer>
       </div>
     </Modal>

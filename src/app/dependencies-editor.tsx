@@ -14,6 +14,7 @@
 
 import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { Button } from "./button";
 import { wouldCreateDependencyCycle } from "./sanitize";
 import {
   DEPENDENCY_TYPES,
@@ -166,14 +167,9 @@ export function DependenciesEditor({
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          onClick={add}
-          disabled={pendingTaskId === ""}
-          className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <Button size="sm" onClick={add} disabled={pendingTaskId === ""}>
           {t(lang, "depAdd")}
-        </button>
+        </Button>
       </div>
 
       <p className="text-xs text-muted-foreground">
