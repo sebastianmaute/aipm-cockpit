@@ -43,12 +43,12 @@ import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
+import { Input, Textarea } from "./form-controls";
 import { Button } from "./button";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import { useAutogrow } from "./use-autogrow";
 import { useSettings } from "./use-settings";
 import { useConfirm } from "./confirm-dialog";
 
@@ -125,10 +125,6 @@ export function RaidEditModal({
   const [error, setError] = useState<string | null>(null);
   const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [causePickerQuery, setCausePickerQuery] = useState("");
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const mitigationRef = useRef<HTMLTextAreaElement>(null);
-  useAutogrow(descriptionRef, draft.description ?? "");
-  useAutogrow(mitigationRef, draft.mitigation ?? "");
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:raid-edit");
   // Category is locked after creation by default (changing it can lose
   // status / matrix data). Users can unlock it with the inline "Advanced"
@@ -358,7 +354,7 @@ export function RaidEditModal({
               <InfoTooltip text={t(lang, "raidFieldTitleHint")} />
               {titleMic}
             </span>
-            <input
+            <Input
               type="text"
               required
               value={draft.title}
@@ -367,7 +363,6 @@ export function RaidEditModal({
               onBlur={(e) => { onChange({ ...draft, title: describeTextCap(e.target.value, TASK_NAME_MAX).value.trim() }); titleDictationReg.onBlur(); }}
               placeholder={t(lang, "raidPlaceholderTitle")}
               aria-describedby="raid-title-counter"
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.title} max={TASK_NAME_MAX} id="raid-title-counter" lang={lang} />
             {titleDictationStatus}
@@ -380,8 +375,8 @@ export function RaidEditModal({
               <InfoTooltip text={t(lang, "raidFieldDescriptionHint")} />
               {descriptionMic}
             </span>
-            <textarea
-              ref={descriptionRef}
+            <Textarea
+              autoGrow
               rows={2}
               value={draft.description ?? ""}
               onChange={(e) =>
@@ -394,7 +389,6 @@ export function RaidEditModal({
               }}
               placeholder={t(lang, "raidPlaceholderDescription")}
               aria-describedby="raid-description-counter"
-              className={`resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="raid-description-counter" lang={lang} />
             {descriptionDictationStatus}
@@ -482,13 +476,12 @@ export function RaidEditModal({
               {t(lang, "email")}
               <InfoTooltip text={t(lang, "raidFieldOwnerEmailHint")} />
             </span>
-            <input
+            <Input
               type="email"
               value={draft.ownerEmail ?? ""}
               onChange={(e) =>
                 onChange({ ...draft, ownerEmail: e.target.value || undefined })
               }
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -499,11 +492,10 @@ export function RaidEditModal({
               {t(lang, "raidRaisedDate")}
               <InfoTooltip text={t(lang, "raidFieldRaisedDateHint")} />
             </span>
-            <input
+            <Input
               type="date"
               value={draft.raisedDate}
               onChange={(e) => onChange({ ...draft, raisedDate: e.target.value })}
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -514,13 +506,12 @@ export function RaidEditModal({
               {t(lang, "raidTargetDate")}
               <InfoTooltip text={t(lang, "raidFieldTargetDateHint")} />
             </span>
-            <input
+            <Input
               type="date"
               value={draft.targetDate ?? ""}
               onChange={(e) =>
                 onChange({ ...draft, targetDate: e.target.value || undefined })
               }
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -531,8 +522,8 @@ export function RaidEditModal({
               {t(lang, "raidMitigation")}
               <InfoTooltip text={t(lang, "raidFieldMitigationHint")} />
             </span>
-            <textarea
-              ref={mitigationRef}
+            <Textarea
+              autoGrow
               rows={3}
               value={draft.mitigation ?? ""}
               onChange={(e) =>
@@ -541,7 +532,6 @@ export function RaidEditModal({
               onBlur={(e) => onChange({ ...draft, mitigation: describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined })}
               placeholder={t(lang, "raidPlaceholderMitigation")}
               aria-describedby="raid-mitigation-counter"
-              className={`resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.mitigation ?? ""} max={TEXTAREA_MAX} id="raid-mitigation-counter" lang={lang} />
           </label>

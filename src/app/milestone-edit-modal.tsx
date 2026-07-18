@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { Input, Textarea } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
@@ -168,13 +169,12 @@ export function MilestoneEditModal({
               {t(lang, "milestoneName")} *
               {nameMic}
             </span>
-            <input
+            <Input
               required
               value={draft.name}
               onChange={(e) => update("name", e.target.value)}
               onFocus={nameDictationReg.onFocus}
               onBlur={nameDictationReg.onBlur}
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             {nameDictationStatus}
           </label>
@@ -184,12 +184,11 @@ export function MilestoneEditModal({
             <span className="font-medium text-foreground">
               {t(lang, "milestoneDate")} *
             </span>
-            <input
+            <Input
               type="date"
               required
               value={draft.date}
               onChange={(e) => update("date", e.target.value)}
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           )}
@@ -200,14 +199,15 @@ export function MilestoneEditModal({
               {t(lang, "milestoneDescription")}
               {descriptionMic}
             </span>
-            <textarea
+            <Textarea
+              autoGrow
               value={draft.description ?? ""}
               onChange={(e) =>
                 update("description", e.target.value || undefined)
               }
               onFocus={descriptionDictationReg.onFocus}
               onBlur={descriptionDictationReg.onBlur}
-              className={`min-h-16 rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+              className="min-h-16"
             />
             {descriptionDictationStatus}
           </label>

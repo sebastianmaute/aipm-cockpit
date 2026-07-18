@@ -52,6 +52,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton 
 import { InfoTooltip } from "./info-tooltip";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Select } from "./form-controls";
 import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { selectField, textField, type BulkField } from "./bulk-edit-panel";
@@ -359,11 +360,12 @@ function ChangePanelBody({
         onChange={pf.setSearch}
         ariaLabel={t(lang, "changeFilterSearch")}
       />
-      <select
+      <Select
         value={typeFilter}
         onChange={(e) => pf.setFilter("type", e.target.value)}
         aria-label={t(lang, "changeFieldType")}
-        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        size="xs"
+        className="h-[30px]"
       >
         <option value="All">{t(lang, "changeFilterTypeAll")}</option>
         {CHANGE_TYPES.map((ty) => (
@@ -371,12 +373,13 @@ function ChangePanelBody({
             {typeLabel(ty, lang)}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         value={statusFilter}
         onChange={(e) => pf.setFilter("status", e.target.value)}
         aria-label={t(lang, "changeFieldStatus")}
-        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        size="xs"
+        className="h-[30px]"
       >
         <option value="All">{t(lang, "changeFilterStatusAll")}</option>
         {CHANGE_STATUSES.map((st) => (
@@ -384,7 +387,7 @@ function ChangePanelBody({
             {statusLabel(st, lang)}
           </option>
         ))}
-      </select>
+      </Select>
       <ColumnConfigPopover lang={lang} cols={CHANGE_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
       <PanelViewsControl lang={lang} view="changes" />
       <CalendarSyncControls

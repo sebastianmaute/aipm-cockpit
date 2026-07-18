@@ -7,7 +7,8 @@ import { type Lang, t } from "./i18n";
 import { categoryLabel, severityLabel } from "./raid-labels";
 import { RAID_CATEGORIES, RAID_SEVERITIES } from "./types";
 import { PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Select } from "./form-controls";
 import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { PanelViewsControl } from "./panel-views-control";
 import { ColumnConfigPopover } from "./column-config-popover";
@@ -82,12 +83,13 @@ export function RaidToolbar({
         ariaLabel={t(lang, "raidSearchPlaceholder")}
         title={t(lang, "raidSearchHint")}
       />
-      <select
+      <Select
         value={categoryFilter}
         onChange={(e) => onSetFilter("category", e.target.value)}
         aria-label={t(lang, "raidCategory")}
         title={t(lang, "raidCategoryFilterHint")}
-        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        size="xs"
+        className="h-[30px]"
       >
         <option value="All">{t(lang, "raidCategoryAll")}</option>
         {RAID_CATEGORIES.map((c) => (
@@ -95,13 +97,14 @@ export function RaidToolbar({
             {categoryLabel(c, lang)}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         value={severityFilter}
         onChange={(e) => onSetFilter("severity", e.target.value)}
         aria-label={t(lang, "raidSeverity")}
         title={t(lang, "raidSeverityFilterHint")}
-        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        size="xs"
+        className="h-[30px]"
       >
         <option value="All">{t(lang, "raidSeverityAll")}</option>
         {RAID_SEVERITIES.map((s) => (
@@ -109,24 +112,26 @@ export function RaidToolbar({
             {severityLabel(s, lang)}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         value={statusFilter}
         onChange={(e) => onSetFilter("status", e.target.value)}
         aria-label={t(lang, "raidStatus")}
         title={t(lang, "raidStatusFilterHint")}
-        className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+        size="xs"
+        className="h-[30px]"
       >
         <option value="All">{t(lang, "raidStatusAll")}</option>
         <option value="Open">{t(lang, "raidStatusOpen")}</option>
         <option value="Closed">{t(lang, "raidStatusClosed")}</option>
-      </select>
+      </Select>
       {owners.length > 0 && (
-        <select
+        <Select
           value={ownerFilter}
           onChange={(e) => onSetFilter("owner", e.target.value)}
           aria-label={t(lang, "raidOwner")}
-          className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
+          size="xs"
+          className="h-[30px]"
         >
           <option value="">{t(lang, "raidOwnerAll")}</option>
           {owners.map((name) => (
@@ -134,7 +139,7 @@ export function RaidToolbar({
               {name}
             </option>
           ))}
-        </select>
+        </Select>
       )}
       {filterTaskId !== null && (
         <button

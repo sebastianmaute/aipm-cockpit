@@ -11,6 +11,7 @@
 import { useId, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { Input, Textarea } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ResourcePicker } from "./resource-picker";
@@ -203,11 +204,10 @@ export function ShiftEditModal({
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">{t(lang, "shiftAssigneeEmail")}</span>
-            <input
+            <Input
               type="email"
               value={draft.assigneeEmail ?? ""}
               onChange={(e) => update("assigneeEmail", e.target.value || undefined)}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 
@@ -263,14 +263,14 @@ export function ShiftEditModal({
             <span className="font-medium text-foreground">
               {t(lang, "shiftNote")}
             </span>
-            <textarea
+            <Textarea
+              autoGrow
               rows={2}
               value={draft.note ?? ""}
               onChange={(e) =>
                 update("note", e.target.value || undefined)
               }
               placeholder={t(lang, "shiftPlaceholderNote")}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
 

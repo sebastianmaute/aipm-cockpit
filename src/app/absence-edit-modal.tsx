@@ -9,12 +9,12 @@
 // HTML5 datalist autocomplete of known assignees so the user can either
 // pick an existing person or type a new one.
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { Input, Textarea } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { useAutogrow } from "./use-autogrow";
 import { AssigneeField } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
@@ -57,8 +57,6 @@ export function AbsenceEditModal({
 
   const { isVisible } = useModalVisibility("absence");
   const confirm = useConfirm();
-  const noteRef = useRef<HTMLTextAreaElement>(null);
-  useAutogrow(noteRef, draft?.note ?? "");
 
   if (prevAbsence !== absence) {
     setPrevAbsence(absence);
@@ -171,12 +169,11 @@ export function AbsenceEditModal({
                 <span className="flex items-center gap-1 font-medium text-foreground">
                   {t(lang, "absenceStart")} *<InfoTooltip text={t(lang, "absenceStartHint")} />
                 </span>
-                <input
+                <Input
                   type="date"
                   required
                   value={draft.startDate}
                   onChange={(e) => update("startDate", e.target.value)}
-                  className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
                 />
               </label>
 
@@ -184,12 +181,11 @@ export function AbsenceEditModal({
                 <span className="flex items-center gap-1 font-medium text-foreground">
                   {t(lang, "absenceEnd")} *<InfoTooltip text={t(lang, "absenceEndHint")} />
                 </span>
-                <input
+                <Input
                   type="date"
                   required
                   value={draft.endDate}
                   onChange={(e) => update("endDate", e.target.value)}
-                  className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
                 />
               </label>
             </>
@@ -224,15 +220,14 @@ export function AbsenceEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "absenceNote")}<InfoTooltip text={t(lang, "absenceNoteHint")} />
               </span>
-              <textarea
-                ref={noteRef}
+              <Textarea
+                autoGrow
                 rows={2}
                 value={draft.note ?? ""}
                 onChange={(e) =>
                   update("note", e.target.value || undefined)
                 }
                 placeholder={t(lang, "absencePlaceholderNote")}
-                className="resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm"
               />
             </label>
           )}

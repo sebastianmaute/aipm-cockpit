@@ -7,7 +7,8 @@
 import { type Lang, t } from "./i18n";
 import { InfoTooltip } from "./info-tooltip";
 import { type RaidItem, type Task } from "./types";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Input } from "./form-controls";
 
 export function RaidLinkedTasksField({
   lang,
@@ -78,12 +79,12 @@ export function RaidLinkedTasksField({
         })}
       </div>
       <div className="relative">
-        <input
+        <Input
           type="text"
           value={taskPickerQuery}
           onChange={(e) => setTaskPickerQuery(e.target.value)}
           placeholder={t(lang, "raidLinkPickerPlaceholder")}
-          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+          className="w-full"
         />
         {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
           <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
@@ -174,12 +175,12 @@ export function RaidCausedByField({
           ))}
         </div>
         <div className="relative">
-          <input
+          <Input
             type="text"
             value={causePickerQuery}
             onChange={(e) => setCausePickerQuery(e.target.value)}
             placeholder={t(lang, "raidCausedByPlaceholder")}
-            className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+            className="w-full"
           />
           {causePickerQuery.trim() !== "" && availableCauses.length > 0 && (
             <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">

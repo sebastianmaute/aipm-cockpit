@@ -30,11 +30,10 @@ import { BUDGET_NAME_MAX, TEXTAREA_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { Input, Select, Textarea } from "./form-controls";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import { useAutogrow } from "./use-autogrow";
 import { useSettings } from "./use-settings";
 
 export interface StakeholderEditModalProps {
@@ -75,8 +74,6 @@ const RACI_LABEL_KEYS: Record<RaciRole, TranslationKey> = {
   I: "raciRoleI",
 };
 
-const INPUT_CLASS = `rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`;
-
 export function StakeholderEditModal({
   lang,
   draft,
@@ -97,8 +94,6 @@ export function StakeholderEditModal({
   const { settings } = useSettings();
   const draftRef = useRef(draft);
   useEffect(() => { draftRef.current = draft; });
-  const notesRef = useRef<HTMLTextAreaElement>(null);
-  useAutogrow(notesRef, draft.notes ?? "");
   const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
@@ -207,7 +202,7 @@ export function StakeholderEditModal({
                 {t(lang, "stakeholderFieldOrganization")}<InfoTooltip text={t(lang, "stakeholderFieldOrganizationHint")} />
                 {orgMic}
               </span>
-              <input
+              <Input
                 type="text"
                 value={draft.organization ?? ""}
                 onChange={(e) => update("organization", e.target.value || undefined)}
@@ -218,7 +213,6 @@ export function StakeholderEditModal({
                   orgDictationReg.onBlur();
                 }}
                 aria-describedby="stakeholder-organization-counter"
-                className={INPUT_CLASS}
               />
               <CharCounter value={draft.organization ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-organization-counter" lang={lang} />
               {orgDictationStatus}
@@ -234,7 +228,7 @@ export function StakeholderEditModal({
                   {t(lang, "stakeholderFieldTitle")}<InfoTooltip text={t(lang, "stakeholderFieldTitleHint")} />
                   {titleMic}
                 </span>
-                <input
+                <Input
                   type="text"
                   value={draft.title ?? ""}
                   onChange={(e) => update("title", e.target.value || undefined)}
@@ -245,7 +239,6 @@ export function StakeholderEditModal({
                     titleDictationReg.onBlur();
                   }}
                   aria-describedby="stakeholder-title-counter"
-                  className={INPUT_CLASS}
                 />
                 <CharCounter value={draft.title ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-title-counter" lang={lang} />
                 {titleDictationStatus}
@@ -256,7 +249,7 @@ export function StakeholderEditModal({
                 <span className="flex items-center gap-1 font-medium text-foreground">
                   {t(lang, "stakeholderFieldEmail")}<InfoTooltip text={t(lang, "stakeholderFieldEmailHint")} />
                 </span>
-                <input
+                <Input
                   type="text"
                   value={draft.email ?? ""}
                   onChange={(e) => update("email", e.target.value || undefined)}
@@ -265,7 +258,6 @@ export function StakeholderEditModal({
                     update("email", trimmed || undefined);
                   }}
                   aria-describedby="stakeholder-email-counter"
-                  className={INPUT_CLASS}
                 />
                 <CharCounter value={draft.email ?? ""} max={BUDGET_NAME_MAX} id="stakeholder-email-counter" lang={lang} />
               </label>
@@ -278,18 +270,17 @@ export function StakeholderEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "stakeholderFieldCategory")}<InfoTooltip text={t(lang, "stakeholderFieldCategoryHint")} />
               </span>
-              <select
+              <Select
                 aria-label={t(lang, "stakeholderFieldCategory")}
                 value={draft.category}
                 onChange={(e) => update("category", e.target.value as StakeholderCategory)}
-                className={INPUT_CLASS}
               >
                 {STAKEHOLDER_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
                     {t(lang, CATEGORY_LABEL_KEYS[cat])}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           )}
 
@@ -325,8 +316,8 @@ export function StakeholderEditModal({
                 {t(lang, "stakeholderFieldNotes")}<InfoTooltip text={t(lang, "stakeholderFieldNotesHint")} />
                 {notesMic}
               </span>
-              <textarea
-                ref={notesRef}
+              <Textarea
+                autoGrow
                 rows={2}
                 value={draft.notes ?? ""}
                 onChange={(e) => update("notes", e.target.value || undefined)}
@@ -337,7 +328,6 @@ export function StakeholderEditModal({
                   notesDictationReg.onBlur();
                 }}
                 aria-describedby="stakeholder-notes-counter"
-                className={`resize-none ${INPUT_CLASS}`}
               />
               <CharCounter value={draft.notes ?? ""} max={TEXTAREA_MAX} id="stakeholder-notes-counter" lang={lang} />
               {notesDictationStatus}
@@ -369,7 +359,7 @@ export function StakeholderEditModal({
                   {milestones.map((m) => (
                     <div key={m.id} className="flex items-center gap-3 text-sm">
                       <span className="w-40 truncate text-foreground">{m.name}</span>
-                      <select
+                      <Select
                         aria-label={`${m.name} (RACI)`}
                         value={draft.raci[String(m.id)] ?? ""}
                         onChange={(e) => {
@@ -378,7 +368,6 @@ export function StakeholderEditModal({
                             setRaciRole(draft, m.id, val === "" ? null : (val as RaciRole)),
                           );
                         }}
-                        className={INPUT_CLASS}
                       >
                         <option value="">{t(lang, "raciNone")}</option>
                         {RACI_ROLES.map((role) => (
@@ -386,7 +375,7 @@ export function StakeholderEditModal({
                             {t(lang, RACI_LABEL_KEYS[role])}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </div>
                   ))}
                 </div>

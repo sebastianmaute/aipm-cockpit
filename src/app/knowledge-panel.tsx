@@ -11,7 +11,8 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Input, Select } from "./form-controls";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
@@ -174,11 +175,12 @@ export function KnowledgePanel() {
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <label className="text-sm text-foreground">
               {t(lang, "documentsTarget")}
-              <select
+              <Select
                 value={targetKey}
                 aria-label={t(lang, "documentsTarget")}
                 onChange={(e) => setTargetKey(e.target.value)}
-                className={`ml-2 rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
+                size="xs"
+                className="ml-2"
               >
                 <option value="">—</option>
                 {targets.map((s) => (
@@ -186,7 +188,7 @@ export function KnowledgePanel() {
                     {t(lang, SOURCE_LABEL[s.kind])}: {s.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <Button
               variant="secondary"
@@ -201,32 +203,32 @@ export function KnowledgePanel() {
               <div className="mb-2 flex flex-wrap items-end gap-2">
                 <label className="flex flex-col gap-1 text-xs text-foreground">
                   <span>{t(lang, "documentsManualKind")}</span>
-                  <select
+                  <Select
                     value={manualKind}
                     aria-label={t(lang, "documentsManualKind")}
                     onChange={(e) => setManualKind(e.target.value as KnowledgeLinkKind)}
-                    className={`rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                    size="xs"
                   >
                     {LINK_KIND_OPTIONS.map((k) => (
                       <option key={k} value={k}>
                         {t(lang, LINK_KIND_LABEL[k])}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </label>
                 <label className="flex flex-col gap-1 text-xs text-foreground">
                   <span>{t(lang, "documentsManualName")}</span>
-                  <input
+                  <Input
                     type="text"
                     value={manualName}
                     aria-label={t(lang, "documentsManualName")}
                     onChange={(e) => setManualName(e.target.value)}
-                    className={`rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+                    size="xs"
                   />
                 </label>
                 <label className="flex flex-1 flex-col gap-1 text-xs text-foreground">
                   <span>{t(lang, "documentsManualUrl")}</span>
-                  <input
+                  <Input
                     type="url"
                     value={manualUrl}
                     aria-label={t(lang, "documentsManualUrl")}
@@ -234,7 +236,8 @@ export function KnowledgePanel() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") addManualLink(target);
                     }}
-                    className={`w-full min-w-[12rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+                    size="xs"
+                    className="w-full min-w-[12rem]"
                   />
                 </label>
                 <Button
@@ -297,28 +300,30 @@ export function KnowledgePanel() {
                 );
               })}
             </div>
-            <input
+            <Input
               type="search"
               value={query}
               aria-label={t(lang, "documentsSearchDocs")}
               placeholder={t(lang, "documentsSearchDocs")}
               onChange={(e) => setQuery(e.target.value)}
-              className={`min-w-[8rem] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+              size="xs"
+              className="min-w-[8rem] flex-1"
             />
             <label className="shrink-0 text-xs text-muted-foreground">
               {t(lang, "documentsSortBy")}
-              <select
+              <Select
                 value={sort}
                 aria-label={t(lang, "documentsSortBy")}
                 onChange={(e) => setSort(e.target.value as DocSort)}
-                className={`ml-1 rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
+                size="xs"
+                className="ml-1"
               >
                 {SORT_OPTIONS.map((s) => (
                   <option key={s} value={s}>
                     {t(lang, SORT_LABEL[s])}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <PrintButton lang={lang} />
             <ResetSizeButton onClick={reset} lang={lang} />

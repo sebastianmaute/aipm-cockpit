@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.29";
-export const APP_BUILD_DATE = "2026-07-18"; // 0.190.29: design-system form-field sweep (2/3) — settings-section + settings fields migrated to Input/Select/Textarea (14 files); compact fields normalized to size xs (Pinsker)
+export const APP_VERSION = "0.190.30";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.30: design-system form-field sweep (3a/3) — edit-modal + register-panel fields migrated to Input/Select/Textarea (13 files); edit-modal validation wired via `invalid`; notes textareas use primitive autoGrow (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
