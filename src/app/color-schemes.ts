@@ -161,6 +161,7 @@ export function updateScheme(id: string, patch: Partial<Omit<ColorScheme, "id">>
           ...(patch.light !== undefined ? { light: cleanColors(patch.light) } : {}),
           ...(patch.supportsDark !== undefined ? { supportsDark: patch.supportsDark === true } : {}),
           ...(patch.dark !== undefined ? { dark: cleanColors(patch.dark) } : {}),
+          ...(patch.structural !== undefined ? { structural: cleanStructural(patch.structural) } : {}),
           ...(patch.branding !== undefined ? { branding: sanitizeBranding(patch.branding) ?? {} } : {}),
         },
   );

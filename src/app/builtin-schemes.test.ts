@@ -1,4 +1,4 @@
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   BUILTIN_SCHEMES,
   BUILTIN_SCHEME_IDS,
@@ -6,19 +6,17 @@ import {
   activeSchemeOf,
   reconcileBuiltins,
   resolveActiveScheme,
-  resolveActiveStructural,
   HARBOR_DARK,
   HARBOR_LIGHT,
 } from "./builtin-schemes";
 import type { ColorScheme, SchemeStore } from "./color-schemes";
-import { CORE_TOKENS, ADVANCED_TOKENS, resolveSchemeColors } from "./scheme-tokens";
+import { CORE_TOKENS, ADVANCED_TOKENS } from "./scheme-tokens";
 import { checkSchemePairs } from "./scheme-contrast";
 
-// Pure-seed built-ins (exactly the 21 editable tokens, dark-capable, designed
-// AA-clean). AIPM/Mockup add pinned AA variants + structural tokens and are
-// handled separately.
-const PURE_SEED_IDS = ["harbor", "meridian", "umber"] as const;
-const isPureSeed = (s: ColorScheme) => (PURE_SEED_IDS as readonly string[]).includes(s.id);
+// The three code-owned built-ins are pure-seed (exactly the 21 editable tokens,
+// dark-capable, designed AA-clean). AIPM/Mockup are no longer code built-ins —
+// they ship as importable theme files.
+const BUILTIN_IDS = ["harbor", "meridian", "umber"] as const;
 
 const ALL_TOKENS = [...CORE_TOKENS, ...ADVANCED_TOKENS].map((t) => t.token);
 
@@ -31,17 +29,19 @@ const userScheme = (id: string, name: string): ColorScheme => ({
 });
 
 describe("BUILTIN_SCHEMES", () => {
-  it("ships AIPM, mockup, harbor, meridian, umber — all code-owned; harbor is default", () => {
-    expect(BUILTIN_SCHEMES.map((s) => s.id)).toEqual(["AIPM", "mockup", "harbor", "meridian", "umber"]);
+  it("ships harbor, meridian, umber — all code-owned, dark-capable; harbor is default", () => {
+    expect(BUILTIN_SCHEMES.map((s) => s.id)).toEqual(["harbor", "meridian", "umber"]);
     for (const s of BUILTIN_SCHEMES) expect(s.builtIn).toBe(true);
-    // Mockup is light-only; the other four are dark-capable with a dark map.
-    expect(BUILTIN_SCHEMES.filter((s) => s.supportsDark).map((s) => s.id)).toEqual(["AIPM", "harbor", "meridian", "umber"]);
-    for (const s of BUILTIN_SCHEMES) expect(Boolean(s.dark)).toBe(s.supportsDark);
+    for (const s of BUILTIN_SCHEMES) expect(s.supportsDark).toBe(true);
+    for (const s of BUILTIN_SCHEMES) expect(Boolean(s.dark)).toBe(true);
     expect(DEFAULT_SCHEME_ID).toBe("harbor");
-    expect([...BUILTIN_SCHEME_IDS].sort()).toEqual(["harbor", "AIPM", "meridian", "mockup", "umber"]);
+    expect([...BUILTIN_SCHEME_IDS].sort()).toEqual(["harbor", "meridian", "umber"]);
+    // AIPM / Mockup are no longer code built-ins.
+    expect(BUILTIN_SCHEME_IDS.has("AIPM")).toBe(false);
+    expect(BUILTIN_SCHEME_IDS.has("mockup")).toBe(false);
   });
 
-  it("every built-in map (light + dark where present) includes all 21 editable tokens", () => {
+  it("every built-in map (light + dark) includes all 21 editable tokens", () => {
     for (const s of BUILTIN_SCHEMES) {
       for (const map of [s.light, ...(s.dark ? [s.dark] : [])]) {
         for (const token of ALL_TOKENS) {
@@ -51,20 +51,17 @@ describe("BUILTIN_SCHEMES", () => {
     }
   });
 
-  it("harbor/meridian/umber maps contain EXACTLY the 21 editable tokens (no extras)", () => {
-    for (const s of BUILTIN_SCHEMES.filter(isPureSeed)) {
+  it("built-in maps contain EXACTLY the 21 editable tokens (no extras)", () => {
+    for (const s of BUILTIN_SCHEMES) {
       for (const map of [s.light, s.dark!]) {
         expect(Object.keys(map).sort()).toEqual([...ALL_TOKENS].sort());
       }
     }
   });
 
-  it("harbor/meridian/umber maps (light AND dark) pass WCAG AA on all checked pairs", () => {
-    // AIPM + Mockup are pinned to today's shipping look (a documented sub-AA
-    // token exists on dark/mockup); their AA tuning is a later task, so the
-    // blanket-AA guarantee applies only to the AA-clean pure-seed schemes.
+  it("built-in maps (light AND dark) pass WCAG AA on all checked pairs", () => {
     const failures: string[] = [];
-    for (const s of BUILTIN_SCHEMES.filter(isPureSeed)) {
+    for (const s of BUILTIN_SCHEMES) {
       for (const [mode, map] of [["light", s.light], ["dark", s.dark!]] as const) {
         for (const pair of checkSchemePairs(map)) {
           if (!pair.passesAa) failures.push(`${s.id}/${mode}/${pair.id}=${pair.ratio}`);
@@ -73,25 +70,34 @@ describe("BUILTIN_SCHEMES", () => {
     }
     expect(failures).toEqual([]);
   });
+
+  it("BUILTIN_IDS matches the shipped built-in ids", () => {
+    expect(BUILTIN_SCHEMES.map((s) => s.id)).toEqual([...BUILTIN_IDS]);
+  });
 });
 
 describe("reconcileBuiltins", () => {
   it("seeds all built-ins into an empty store and defaults activeId to harbor", () => {
     const out = reconcileBuiltins({ schemes: [], activeId: null });
-    expect(out.schemes.map((s) => s.id)).toEqual(["AIPM", "mockup", "harbor", "meridian", "umber"]);
+    expect(out.schemes.map((s) => s.id)).toEqual(["harbor", "meridian", "umber"]);
     expect(out.activeId).toBe("harbor");
   });
 
   it("keeps user schemes and preserves a still-valid user activeId", () => {
     const store: SchemeStore = { schemes: [userScheme("u-1", "Mine")], activeId: "u-1" };
     const out = reconcileBuiltins(store);
-    expect(out.schemes.map((s) => s.id)).toEqual(["AIPM", "mockup", "harbor", "meridian", "umber", "u-1"]);
+    expect(out.schemes.map((s) => s.id)).toEqual(["harbor", "meridian", "umber", "u-1"]);
     expect(out.activeId).toBe("u-1");
   });
 
   it("preserves a built-in activeId", () => {
     const out = reconcileBuiltins({ schemes: [], activeId: "umber" });
     expect(out.activeId).toBe("umber");
+  });
+
+  it("falls back to harbor for an orphaned AIPM activeId", () => {
+    const out = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
+    expect(out.activeId).toBe("harbor");
   });
 
   it("falls back to harbor when activeId no longer resolves", () => {
@@ -140,49 +146,5 @@ describe("resolveActiveScheme / activeSchemeOf", () => {
   it("falls back to Harbor when activeId is unknown", () => {
     const store: SchemeStore = { schemes: [...BUILTIN_SCHEMES], activeId: "nope" };
     expect(activeSchemeOf(store).id).toBe("harbor");
-  });
-});
-
-describe("AIPM + Mockup built-ins", () => {
-  test("AIPM and Mockup are built-ins (5 total, undeletable)", () => {
-    const ids = BUILTIN_SCHEMES.map((s) => s.id);
-    expect(ids).toEqual(["AIPM", "mockup", "harbor", "meridian", "umber"]);
-    expect(BUILTIN_SCHEME_IDS.has("AIPM")).toBe(true);
-  });
-  test("AIPM light resolves to the shipped AIPM palette (pinned -strong survive)", () => {
-    const store = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
-    const c = resolveSchemeColors(resolveActiveScheme(store, false));
-    expect(c["--AIPM-green"]).toBe("#84bd00");
-    expect(c["--AIPM-green-strong"]).toBe("#4d7000");
-    expect(c["--rag-red-text"]).toBe("#c41e5a");
-  });
-  test("AIPM dark keeps dimmer muted-foreground + dark -strong", () => {
-    const store = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
-    const c = resolveSchemeColors(resolveActiveScheme(store, true));
-    expect(c["--surface"]).toBe("#121619");
-    expect(c["--muted-foreground"]).toBe("#9ca3a9");
-    expect(c["--AIPM-pink-strong"]).toBe("#e96089");
-  });
-  test("AIPM dark segment track follows the dark surface (AA-safe)", () => {
-    const store = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
-    const c = resolveSchemeColors(resolveActiveScheme(store, true));
-    expect(c["--segment-track-bg"]).toBe("#121619");
-  });
-  test("Mockup light pins the shipped -strong values (not re-derived)", () => {
-    const store = reconcileBuiltins({ schemes: [], activeId: "mockup" });
-    const c = resolveSchemeColors(resolveActiveScheme(store, false));
-    expect(c["--AIPM-green-strong"]).toBe("#4d7000");
-    expect(c["--AIPM-pink-strong"]).toBe("#c41e5a");
-    expect(c["--AIPM-purple-strong"]).toBe("#7a2d72");
-  });
-  test("Mockup is light-only with structural shadows + gradient", () => {
-    const m = BUILTIN_SCHEMES.find((s) => s.id === "mockup")!;
-    expect(m.supportsDark).toBe(false);
-    const store = reconcileBuiltins({ schemes: [], activeId: "mockup" });
-    expect(resolveActiveStructural(store)["--shadow-card"]).toContain("rgba");
-  });
-  test("resolveActiveStructural for AIPM = all none", () => {
-    const store = reconcileBuiltins({ schemes: [], activeId: "AIPM" });
-    expect(resolveActiveStructural(store)["--shadow-card"]).toBe("none");
   });
 });

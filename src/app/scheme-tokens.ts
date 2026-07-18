@@ -1,8 +1,11 @@
 // Editable-token registry for custom color schemes + AA-variant derivation.
-// Pure (no DOM). The AIPM hex values mirror globals.css :root; the Mockup values
-// are the code-owned seed for the built-in Mockup scheme (the old
-// :root[data-style="mockup"] CSS block was removed — Mockup is now a scheme).
-import type { SchemeColorMap, SchemeStructuralMap } from "./scheme-apply";
+// Pure (no DOM). Code-owned built-in schemes (Harbor/Meridian/Umber) live in
+// builtin-schemes.ts; AIPM/Mockup ship as importable theme files.
+import type { SchemeColorMap } from "./scheme-apply";
+
+// Neutral surface fallback for AA-variant derivation when a scheme omits
+// --surface(-muted). (Was ICC_SEED["--surface"].)
+const FALLBACK_SURFACE = "#ffffff";
 
 export interface TokenSpec {
   token: string;
@@ -35,61 +38,6 @@ export const ADVANCED_TOKENS: readonly TokenSpec[] = [
   { token: "--segment-active-bg", labelKey: "schemeTokenSegmentActiveBg" },
   { token: "--segment-active-fg", labelKey: "schemeTokenSegmentActiveFg" },
 ] as const;
-
-export const ICC_SEED: SchemeColorMap = {
-  "--AIPM-dark-blue": "#004159",
-  "--AIPM-green": "#84bd00",
-  "--background": "#ffffff",
-  "--surface": "#ffffff",
-  "--foreground": "#636362",
-  "--rag-red": "#ef4444",
-  "--rag-amber": "#f59e0b",
-  "--rag-green": "#10b981",
-  "--AIPM-pink": "#e5497c",
-  "--AIPM-purple": "#aa4899",
-  "--AIPM-blue": "#60c0dd",
-  "--AIPM-medium-grey": "#939598",
-  "--AIPM-light-grey": "#e3e6e6",
-  "--surface-muted": "#e3e6e6",
-  "--line": "#e3e6e6",
-  "--table-head-bg": "#004159",
-  "--table-head-fg": "#ffffff",
-  "--table-head-accent": "#84bd00",
-  "--segment-track-bg": "#ffffff",
-  "--segment-active-bg": "#004159",
-  "--segment-active-fg": "#ffffff",
-};
-
-// Mockup overrides over the AIPM base — the code-owned seed for the built-in
-// Mockup scheme. Tokens it does not override keep their AIPM value.
-export const MOCKUP_SEED: SchemeColorMap = {
-  ...ICC_SEED,
-  "--rag-red": "#d64545",
-  "--rag-amber": "#f0a020",
-  "--rag-green": "#5aa700",
-  "--table-head-bg": "#f1f3f4",
-  "--table-head-fg": "#3f4448",
-  "--table-head-accent": "#3d7a00",
-  "--segment-track-bg": "#eef1f3",
-  "--segment-active-bg": "#ffffff",
-  "--segment-active-fg": "#3d7a00",
-};
-
-// Structural (non-color) tokens: shadows, the KPI gradient, delta-chip padding,
-// and the opaque RAG chip fills. AIPM reproduces the flat look (no shadow/gradient);
-// Mockup adds depth + the red→amber→green gauge gradient.
-export const ICC_STRUCTURAL: SchemeStructuralMap = {
-  "--shadow-card": "none", "--shadow-control": "none", "--shadow-card-hover": "none",
-  "--gradient-kpi": "var(--AIPM-green)", "--delta-chip-pad": "0",
-  "--rag-green-chip": "transparent", "--rag-red-chip": "transparent",
-};
-export const MOCKUP_STRUCTURAL: SchemeStructuralMap = {
-  "--shadow-card": "0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08)",
-  "--shadow-control": "0 1px 2px rgba(0, 65, 89, 0.10)",
-  "--shadow-card-hover": "0 4px 10px rgba(0, 65, 89, 0.14), 0 2px 4px rgba(0, 65, 89, 0.10)",
-  "--gradient-kpi": "linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green))",
-  "--delta-chip-pad": "0.125rem 0.375rem", "--rag-green-chip": "#e6f2d8", "--rag-red-chip": "#fae9e9",
-};
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
@@ -132,7 +80,7 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
   // is the "card" background (bg-surface-muted, e.g. Kanban cards) and is always
   // the HARDER of the two (darker than --surface in light schemes, lighter in
   // dark ones), so clearing AA there guarantees AA on the plain --surface too.
-  const surface = colors["--surface-muted"] ?? colors["--surface"] ?? ICC_SEED["--surface"];
+  const surface = colors["--surface-muted"] ?? colors["--surface"] ?? FALLBACK_SURFACE;
   const out: SchemeColorMap = {};
   if (colors["--AIPM-green"]) out["--AIPM-green-strong"] = nudgeToAa(colors["--AIPM-green"], surface);
   if (colors["--AIPM-pink"]) out["--AIPM-pink-strong"] = nudgeToAa(colors["--AIPM-pink"], surface);

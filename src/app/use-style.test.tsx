@@ -5,9 +5,8 @@ import { CiStyleProvider } from "./use-style";
 import { THEME_STORAGE_KEY } from "./theme";
 import { STYLE_STORAGE_KEY } from "./style-ci";
 import { HARBOR_DARK, HARBOR_LIGHT } from "./builtin-schemes";
-import { loadSchemes, addScheme, setActive } from "./color-schemes";
+import { loadSchemes, addScheme, setActive, updateScheme } from "./color-schemes";
 import { ACTIVE_SCHEME_STRUCTURAL_KEY } from "./scheme-apply";
-import { MOCKUP_STRUCTURAL } from "./scheme-tokens";
 
 // jsdom has no matchMedia — install a controllable mock (mirrors use-theme.test.tsx).
 beforeAll(() => {
@@ -45,9 +44,9 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     render(tree());
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
 
-    // A raw scheme switch (light-only mockup) must not change data-style.
+    // A raw scheme switch must not change data-style.
     act(() => {
-      setActive("mockup");
+      setActive("meridian");
       window.dispatchEvent(new Event("aipm-cockpit-scheme-change"));
     });
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
@@ -56,7 +55,7 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
   it("pins light on a light-only active scheme and honours dark on a dark-capable one", () => {
     localStorage.setItem(THEME_STORAGE_KEY, "dark");
     localStorage.setItem(STYLE_STORAGE_KEY, "custom");
-    setActive("mockup"); // light-only built-in scheme
+    addScheme("LightOnly", { "--surface": "#eeeeee" }, {}); // light-only user scheme, becomes active
     render(tree());
     // Light-only scheme pins light even under a dark theme.
     expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("0");
@@ -133,14 +132,15 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     // STALE data-scheme-dark → the final .dark would be wrong.
     localStorage.setItem(THEME_STORAGE_KEY, "dark");
     localStorage.setItem(STYLE_STORAGE_KEY, "custom");
+    addScheme("LightOnly", { "--surface": "#eeeeee" }, {}); // → u-1 (light-only)
     setActive("harbor"); // dark-capable start
     render(tree());
     expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("1");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
 
-    // Prior switch → a light-only scheme (mockup) pins light under the dark theme.
+    // Prior switch → a light-only scheme pins light under the dark theme.
     act(() => {
-      setActive("mockup");
+      setActive("u-1");
       window.dispatchEvent(new Event("aipm-cockpit-scheme-change"));
     });
     expect(document.documentElement.getAttribute("data-scheme-dark")).toBe("0");
@@ -188,14 +188,14 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
 
   it("syncScheme applies + mirrors the active scheme's structural map", () => {
     localStorage.setItem(STYLE_STORAGE_KEY, "custom");
-    setActive("mockup"); // mockup carries MOCKUP_STRUCTURAL (shadows + gradient)
+    const shadow = "0 1px 3px rgba(0,65,89,0.12)";
+    addScheme("Shadowed", { "--surface": "#ffffff" }, {}); // → u-1, active
+    updateScheme("u-1", { structural: { "--shadow-card": shadow } }); // user scheme carries structural
     render(tree());
     // Inline structural override applied on <html>.
-    expect(document.documentElement.style.getPropertyValue("--shadow-card")).toBe(
-      MOCKUP_STRUCTURAL["--shadow-card"],
-    );
+    expect(document.documentElement.style.getPropertyValue("--shadow-card")).toBe(shadow);
     // Mirrored to the pre-paint boot key.
     const mirrored = JSON.parse(localStorage.getItem(ACTIVE_SCHEME_STRUCTURAL_KEY) ?? "{}");
-    expect(mirrored["--shadow-card"]).toBe(MOCKUP_STRUCTURAL["--shadow-card"]);
+    expect(mirrored["--shadow-card"]).toBe(shadow);
   });
 });
