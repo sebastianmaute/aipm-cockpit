@@ -909,6 +909,16 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
   e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
   "var(--delta-chip-pad)"} : undefined}` — so AIPM is untouched AND a chip-less (flat) trend gets no empty bubble.
+  • **★★ RELEASE B (token rename, 0.190.23):** the palette token NAMES were renamed `AIPM-*`→`ui-*`
+  everywhere — Tailwind classes (`bg-AIPM-green`→`bg-ui-green`), CSS var names (`--AIPM-green`→`--ui-green`),
+  the `@theme` map (`--color-AIPM-*`→`--color-ui-*`), scheme registries (`CORE_TOKENS`/`VALID_TOKENS`/
+  `DERIVED_TOKENS`), the shipped `public/themes/*.json` color KEYS, and the palette guards. The 12 base
+  tokens are `ui-{dark-blue,green,green-strong,pink,pink-strong,purple,purple-strong,blue,white,dark-grey,
+  light-grey,medium-grey}`. The var NAMES + `@theme` MECHANISM are otherwise unchanged (only the prefix);
+  Phase-2 text below that says `--AIPM-*` now means `--ui-*`. PRESERVED (NOT renamed): `AIPM` (company /
+  theme display name), `Acme`/`AIPM-consult` (host/email), `public/themes/AIPM.json` + gallery id
+  `"AIPM"` (the AIPM THEME identity), `AIPM-logo`/`AIPM-icon` (asset classes). NO key migration — a stored/
+  exported scheme with legacy `--AIPM-*` color keys drops to the Harbor fallback (no active users).
   • **★★ RELEASE A (theme decouple, 0.190.22) SUPERSEDES the "FIVE built-ins" claim below:** AIPM + Mockup
   LEFT the code built-ins and now ship as self-contained importable theme files `public/themes/AIPM.json` +
   `mockup.json` (full portable format — light/dark/`structural`/branding/pinned AA tokens). `BUILTIN_SCHEMES` =
@@ -918,8 +928,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   AIPM/Dashboard are opt-in imports. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
   Harbor-falls-back via reconcile. `ICC_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
   `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
-  **Harbor-resolved-light** no-JS fallback (the `--AIPM-*` var NAMES + `@theme` map are UNCHANGED — a neutral
-  rename is the deferred Release B). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
+  **Harbor-resolved-light** no-JS fallback (the var NAMES are now `--ui-*` after Release B; `@theme` map
+  structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
   (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
   `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
   "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` now READS

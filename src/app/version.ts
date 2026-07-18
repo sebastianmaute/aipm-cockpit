@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.22";
-export const APP_BUILD_DATE = "2026-07-18"; // 0.190.22: theme decouple (Release A) — AIPM + Mockup leave the code built-ins and ship as importable /public/themes/*.json (Theme gallery import); Harbor is now the base seed, globals.css :root fallback and brand default; portable theme format carries structural + pinned AA tokens (Pinsker)
+export const APP_VERSION = "0.190.23";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.23: palette token rename (Release B) — the 12 base tokens renamed AIPM-*→ui-* across Tailwind classes, CSS vars, @theme map, scheme registries, shipped themes JSON keys, guards, tests, docs; pure rename, no visual change; AIPM theme identity preserved (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
@@ -226,4 +226,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTaskDedup",
   "versionHighlightAppRename",
   "versionHighlightThemeDecouple",
+  "versionHighlightUiTokenRename",
 ] as const;

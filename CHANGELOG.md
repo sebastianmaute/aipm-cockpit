@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.23] - 2026-07-18 "Pinsker"
+
+Palette token rename (Release B): the internal palette token names lose the brand
+word now that AIPM is just one pluggable theme.
+
+### Changed
+- **Palette tokens renamed `AIPM-*` → `ui-*`** across the whole codebase — Tailwind
+  utility classes (`bg-AIPM-green` → `bg-ui-green`), CSS variables (`--AIPM-green` →
+  `--ui-green`), the Tailwind `@theme` map, the scheme registries, the shipped theme
+  JSON keys, and the palette guards. This is a pure rename with **no visual or
+  behavioral change**. The AIPM theme identity (its display name, `themes/AIPM.json`,
+  and logo) is unchanged; it remains importable from the Theme gallery.
+
 ## [0.190.22] - 2026-07-18 "Pinsker"
 
 Theme decoupling (Release A): AIPM and Dashboard are no longer baked-in built-in
