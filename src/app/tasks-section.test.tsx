@@ -478,8 +478,8 @@ describe("TasksSection", () => {
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} />);
     expect(
-      screen.getByRole("button", { name: t("en-US", "tasksViewBoard") }),
-    ).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("radio", { name: t("en-US", "tasksViewBoard") }),
+    ).toHaveAttribute("aria-checked", "true");
     // A status column header is present in board mode.
     expect(
       screen.getByRole("heading", { name: new RegExp(t("en-US", "statusToDo")) }),
@@ -492,8 +492,8 @@ describe("TasksSection", () => {
     stubWorkspace([task], [task]);
     render(<TasksSection {...makeProps()} />);
     expect(
-      screen.getByRole("button", { name: t("en-US", "tasksViewTable") }),
-    ).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("radio", { name: t("en-US", "tasksViewTable") }),
+    ).toHaveAttribute("aria-checked", "true");
     // The task table renders the row in table mode.
     expect(screen.getByText("T1")).toBeInTheDocument();
   });

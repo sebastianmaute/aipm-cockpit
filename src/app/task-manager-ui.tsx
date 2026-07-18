@@ -32,6 +32,9 @@ export function TabButton({
         role="tab"
         aria-selected={active}
         aria-controls={controls}
+        // Roving tabindex: only the selected tab is a Tab-stop; arrow keys move
+        // focus among tabs via the tablist's `useTablistRoving` handler (APG).
+        tabIndex={active ? 0 : -1}
         onClick={onClick}
         className={`py-2 pl-4 text-sm font-medium ${FOCUS_RING} ${onPopout ? "pr-1" : "pr-4"}`}
       >

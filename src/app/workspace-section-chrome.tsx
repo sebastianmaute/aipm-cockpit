@@ -12,6 +12,7 @@ import type React from "react";
 import { t } from "./i18n";
 import { openPopoutWindow } from "./broadcast-sync";
 import { TabButton, ResetSizeIcon } from "./task-manager-ui";
+import { useTablistRoving } from "./use-tablist-roving";
 import { navLabelKey } from "./nav-config";
 import { isModuleEnabled } from "./feature-modules";
 import type { Lang } from "./i18n";
@@ -47,11 +48,13 @@ export function WorkspaceTabStrip({
   handleClearRaidTaskFilter,
   subTabs,
 }: WorkspaceTabStripProps) {
+  const roving = useTablistRoving();
   return (
     <>
       <div
         role="tablist"
         aria-label="Workspace tabs"
+        onKeyDown={roving}
         className={
           workspaceCollapsed
             ? "-mx-2 -mt-2 flex shrink-0 items-end gap-1 px-2"
@@ -197,6 +200,7 @@ export function WorkspaceTabStrip({
         <div
           role="tablist"
           aria-label="Workspace sub-tabs"
+          onKeyDown={roving}
           className="mb-2 flex flex-wrap items-center gap-1 border-b border-line pb-1"
         >
           {subTabs.map((child) => (

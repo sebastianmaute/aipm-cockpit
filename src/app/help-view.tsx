@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { HELP_ENTRIES } from "./help-content";
 import { type AppView } from "./nav-config";
@@ -13,6 +13,7 @@ import type { TourCatalogEntry } from "./app-tour";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
+import { useTablistRoving } from "./use-tablist-roving";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 type HelpTab = "help" | "tours" | "connects" | "flows";
@@ -88,12 +89,7 @@ export function HelpView({
     onHelpConceptConsumed?.();
   }, [scrollSeq, scrollTarget, onHelpConceptConsumed]);
 
-  const onTabKeyDown = (e: ReactKeyboardEvent<HTMLButtonElement>, idx: number) => {
-    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    e.preventDefault();
-    const dir = e.key === "ArrowRight" ? 1 : -1;
-    setTab(tabs[(idx + dir + tabs.length) % tabs.length].key);
-  };
+  const roving = useTablistRoving();
 
   return (
     <div ref={ref} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
@@ -101,9 +97,10 @@ export function HelpView({
         <div
           role="tablist"
           aria-label={t(lang, "navHelp")}
+          onKeyDown={roving}
           className="flex flex-wrap items-center gap-1 print:hidden"
         >
-          {tabs.map((tb, idx) => {
+          {tabs.map((tb) => {
             const isActive = tb.key === activeTab;
             return (
               <button
@@ -115,7 +112,6 @@ export function HelpView({
                 aria-controls="help-view-panel"
                 tabIndex={isActive ? 0 : -1}
                 onClick={() => setTab(tb.key)}
-                onKeyDown={(e) => onTabKeyDown(e, idx)}
                 className={
                   isActive
                     ? `rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-semibold text-white ${FOCUS_RING}`

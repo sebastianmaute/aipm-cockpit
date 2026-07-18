@@ -8,7 +8,9 @@
 //   • task-manager.tsx — Priority in the add/edit task modal
 //   • raid-panel.tsx   — Category, Status, Severity in the RAID edit modal
 
-import type { ReactNode } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+
+const NAV_KEYS = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"];
 
 interface SegmentedControlOption<T extends string> {
   value: T;
@@ -42,12 +44,36 @@ export function SegmentedControl<T extends string>({
   title,
   className = "",
 }: SegmentedControlProps<T>) {
+  // APG radiogroup roving: arrows (and Home/End) move selection + focus to the
+  // adjacent radio and wrap; the checked radio is the sole Tab-stop.
+  function handleKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!NAV_KEYS.includes(e.key)) return;
+    e.preventDefault();
+    const cur = options.findIndex((o) => o.value === value);
+    const last = options.length - 1;
+    const next =
+      e.key === "Home"
+        ? 0
+        : e.key === "End"
+          ? last
+          : e.key === "ArrowRight" || e.key === "ArrowDown"
+            ? cur >= last
+              ? 0
+              : cur + 1
+            : cur <= 0
+              ? last
+              : cur - 1;
+    onChange(options[next].value);
+    const radios = e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]');
+    radios[next]?.focus();
+  }
   return (
     <div
       role="radiogroup"
       aria-label={ariaLabel}
       title={title}
       aria-disabled={disabled || undefined}
+      onKeyDown={disabled ? undefined : handleKeyDown}
       className={`inline-flex flex-wrap rounded-md border border-line bg-[var(--segment-track-bg)] ${
         disabled ? "opacity-60" : ""
       } ${className}`}
@@ -63,10 +89,11 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={selected}
             aria-label={optionAriaLabel ? optionAriaLabel(opt.value) : undefined}
+            tabIndex={selected ? 0 : -1}
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={[
-              "px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-1 focus:ring-AIPM-green",
+              "px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-AIPM-green",
               first ? "rounded-l-md" : "",
               last ? "rounded-r-md" : "",
               idx > 0 ? "border-l border-line" : "",
