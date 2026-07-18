@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.17";
-export const APP_BUILD_DATE = "2026-07-18"; // 0.190.17: design-system dedup (P3c) — a shared <ToggleButton> primitive (accent-on-press + baked WCAG name/state coherence) now backs the 6 on/off toggles (gantt critical-path/baseline/inline + bulk-edit + show-archived); gantt DOM byte-identical, the bulk/archived toggles gain the shared accent-on-press (Pinsker)
+export const APP_VERSION = "0.190.18";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.18: design-system dedup + a11y (P3d) — shared useTablistRoving hook gives the workspace + Help tabs arrow/Home/End keyboard roving; SegmentedControl gains radiogroup arrow-roving + ring-2; the Open Points Table/Board toggle now uses the shared SegmentedControl (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
