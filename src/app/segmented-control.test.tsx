@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SegmentedControl } from "./segmented-control";
 
@@ -78,6 +78,45 @@ describe("SegmentedControl", () => {
       <SegmentedControl value="Low" options={PRIORITIES} onChange={() => {}} ariaLabel="Priority" />,
     );
     expect(screen.getByRole("radio", { name: "High" })).toBeInTheDocument();
+  });
+
+  test("roving tabindex: only the checked radio is a tab-stop", () => {
+    render(
+      <SegmentedControl value="Medium" options={PRIORITIES} onChange={() => {}} ariaLabel="Priority" />,
+    );
+    expect(screen.getByRole("radio", { name: "Medium" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("radio", { name: "Low" })).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("radio", { name: "High" })).toHaveAttribute("tabindex", "-1");
+  });
+
+  test("falls back to the first radio as tab-stop when value matches no option", () => {
+    render(
+      // Deliberately out-of-range value (cast) to prove the group stays reachable.
+      <SegmentedControl value={"Nope" as "Low"} options={PRIORITIES} onChange={() => {}} ariaLabel="Priority" />,
+    );
+    expect(screen.getByRole("radio", { name: "Low" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("radio", { name: "Medium" })).toHaveAttribute("tabindex", "-1");
+  });
+
+  test("ArrowRight selects + focuses the next radio, wrapping at the end", () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl value="High" options={PRIORITIES} onChange={onChange} ariaLabel="Priority" />,
+    );
+    const group = screen.getByRole("radiogroup");
+    fireEvent.keyDown(group, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenLastCalledWith("Low"); // wrapped from High → Low
+    fireEvent.keyDown(group, { key: "ArrowLeft" });
+    expect(onChange).toHaveBeenLastCalledWith("Medium"); // High − 1
+  });
+
+  test("does not rove when disabled", () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl value="Low" options={PRIORITIES} onChange={onChange} disabled ariaLabel="Priority" />,
+    );
+    fireEvent.keyDown(screen.getByRole("radiogroup"), { key: "ArrowRight" });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   test("applies the title attribute to the radiogroup root", () => {

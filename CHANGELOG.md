@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.18] - 2026-07-18 "Pinsker"
+
+Design-system dedup + keyboard accessibility (Phase 3d).
+
+### Changed
+- The Open Points Table / Board switch now uses the same segmented control as the other
+  in-app switches (Priority, density, RAID fields), so it looks and behaves consistently.
+
+### Accessibility
+- The workspace tab strips and the Help view tabs now respond to arrow keys (and Home / End)
+  to move between tabs, via one shared keyboard helper.
+- Segmented controls are now fully arrow-key operable and keep a consistent focus outline.
+
 ## [0.190.17] - 2026-07-18 "Pinsker"
 
 Design-system dedup (Phase 3c).

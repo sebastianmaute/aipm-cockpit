@@ -32,6 +32,11 @@ export function TabButton({
         role="tab"
         aria-selected={active}
         aria-controls={controls}
+        // NOTE: intentionally NO roving tabindex here. This strip can render
+        // while the app's active view is not one of its own tabs (classic
+        // layout shows it for every view), so `active ? 0 : -1` would leave the
+        // whole tablist with zero Tab-stops → keyboard-unreachable. Tabs stay
+        // natively tabbable; arrow keys still rove via `useTablistRoving`.
         onClick={onClick}
         className={`py-2 pl-4 text-sm font-medium ${FOCUS_RING} ${onPopout ? "pr-1" : "pr-4"}`}
       >

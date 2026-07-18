@@ -6,6 +6,7 @@ import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resourc
 import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { ToggleButton } from "./toggle-button";
+import { SegmentedControl } from "./segmented-control";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
@@ -519,28 +520,15 @@ export function TasksSection({
           />
           {t(lang, "hideFinishedTasks")}
         </label>
-        <div
-          className="inline-flex overflow-hidden rounded-md border border-line"
-          role="group"
-          aria-label={t(lang, "tasksViewModeLabel")}
-        >
-          <button
-            type="button"
-            aria-pressed={tasksViewMode === "table"}
-            onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "table" }))}
-            className={`px-2 py-1 text-xs ${tasksViewMode === "table" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"} ${INTERACTIVE}`}
-          >
-            {t(lang, "tasksViewTable")}
-          </button>
-          <button
-            type="button"
-            aria-pressed={tasksViewMode === "board"}
-            onClick={() => setSettings((s) => ({ ...s, tasksViewMode: "board" }))}
-            className={`px-2 py-1 text-xs ${tasksViewMode === "board" ? "bg-AIPM-dark-blue text-white" : "text-muted-foreground hover:bg-surface-muted"} ${INTERACTIVE}`}
-          >
-            {t(lang, "tasksViewBoard")}
-          </button>
-        </div>
+        <SegmentedControl
+          value={tasksViewMode}
+          options={[
+            { value: "table", label: t(lang, "tasksViewTable") },
+            { value: "board", label: t(lang, "tasksViewBoard") },
+          ]}
+          onChange={(mode) => setSettings((s) => ({ ...s, tasksViewMode: mode }))}
+          ariaLabel={t(lang, "tasksViewModeLabel")}
+        />
         <input
           type="search"
           value={search}
