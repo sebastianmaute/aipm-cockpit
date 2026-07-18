@@ -2,6 +2,7 @@
 
 import { t, type Lang } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
+import { ToggleButton } from "./toggle-button";
 
 interface BulkEditBarProps {
   lang: Lang;
@@ -19,14 +20,9 @@ export function BulkEditBar({ lang, count, open, onToggleOpen, onClear }: BulkEd
   return (
     <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5">
       <span className="text-xs font-medium text-foreground">{t(lang, "selectionCount", String(count))}</span>
-      <button
-        type="button"
-        onClick={onToggleOpen}
-        aria-pressed={open}
-        className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-      >
+      <ToggleButton pressed={open} onToggle={onToggleOpen}>
         {t(lang, "bulkEdit")}
-      </button>
+      </ToggleButton>
       <button
         type="button"
         onClick={onClear}

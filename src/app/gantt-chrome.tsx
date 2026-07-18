@@ -6,6 +6,7 @@ import { type Lang, t } from "./i18n";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { PrintButton, ResetSizeButton, ResetSizeIcon } from "./task-manager-ui";
+import { ToggleButton } from "./toggle-button";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
 import {
   addDays,
@@ -159,93 +160,82 @@ export function GanttToolbar({
           {t(lang, "ganttResetFilters")}
         </button>
       )}
-      <button
-        type="button"
-        onClick={toggleCriticalPath}
-        aria-pressed={prefs.showCriticalPath}
+      <ToggleButton
+        pressed={prefs.showCriticalPath}
+        onToggle={toggleCriticalPath}
+        accent="pink"
         title={t(lang, "ganttCriticalPathHint")}
-        className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 ${
-          prefs.showCriticalPath
-            ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-dark-blue hover:bg-AIPM-pink/20 focus:ring-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey"
-            : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
-        }`}
-      >
-        {/* Diverging-paths glyph — two lines branching from a common origin. */}
-        <svg
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          className="h-3.5 w-3.5"
-        >
-          <path d="M4 16 L8 10 L12 13 L16 4" />
-          <circle cx="4" cy="16" r="1.2" fill="currentColor" />
-          <circle cx="16" cy="4" r="1.2" fill="currentColor" />
-        </svg>
-        <span>{t(lang, "ganttCriticalPath")}</span>
-      </button>
-      {hasBaseline && (
-        <button
-          type="button"
-          onClick={toggleBaseline}
-          aria-pressed={prefs.showBaseline}
-          title={t(lang, "ganttBaselineHint")}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 ${
-            prefs.showBaseline
-              ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
-              : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
-          }`}
-        >
-          {/* ghost + solid diamond glyph — baseline vs current */}
+        icon={
+          /* Diverging-paths glyph — two lines branching from a common origin. */
           <svg
             viewBox="0 0 20 20"
             fill="none"
             stroke="currentColor"
-            strokeWidth={1.6}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
             aria-hidden="true"
             className="h-3.5 w-3.5"
           >
-            <rect x={2} y={7} width={5} height={5} transform="rotate(45 4.5 9.5)" />
-            <rect x={11} y={7} width={5} height={5} transform="rotate(45 13.5 9.5)" fill="currentColor" />
+            <path d="M4 16 L8 10 L12 13 L16 4" />
+            <circle cx="4" cy="16" r="1.2" fill="currentColor" />
+            <circle cx="16" cy="4" r="1.2" fill="currentColor" />
           </svg>
-          <span>{t(lang, "ganttBaseline")}</span>
-        </button>
+        }
+      >
+        {t(lang, "ganttCriticalPath")}
+      </ToggleButton>
+      {hasBaseline && (
+        <ToggleButton
+          pressed={prefs.showBaseline}
+          onToggle={toggleBaseline}
+          title={t(lang, "ganttBaselineHint")}
+          icon={
+            /* ghost + solid diamond glyph — baseline vs current */
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+            >
+              <rect x={2} y={7} width={5} height={5} transform="rotate(45 4.5 9.5)" />
+              <rect x={11} y={7} width={5} height={5} transform="rotate(45 13.5 9.5)" fill="currentColor" />
+            </svg>
+          }
+        >
+          {t(lang, "ganttBaseline")}
+        </ToggleButton>
       )}
       {hasMilestones && (
-        <button
-          type="button"
-          onClick={toggleMilestonePlacement}
-          // Toggle-button name/state coherence: the visible label is pinned to
-          // what the toggle ENABLES ("Inline milestones") and aria-pressed
-          // tracks THAT state, so "Inline milestones, pressed" ⇒ inline is on.
-          aria-pressed={prefs.milestonePlacement === "inline"}
+        <ToggleButton
+          // Name/state coherence: the visible label is pinned to what the toggle
+          // ENABLES ("Inline milestones") and aria-pressed tracks THAT state, so
+          // "Inline milestones, pressed" ⇒ inline is on.
+          pressed={prefs.milestonePlacement === "inline"}
+          onToggle={toggleMilestonePlacement}
           title={t(lang, "ganttMilestonesInlineHint")}
-          className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 ${
-            prefs.milestonePlacement === "inline"
-              ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
-              : "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green"
-          }`}
+          icon={
+            /* Diamond-between-rows glyph — a milestone marker interleaved among
+               horizontal task rows. */
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.6}
+              strokeLinecap="round"
+              aria-hidden="true"
+              className="h-3.5 w-3.5"
+            >
+              <line x1={3} y1={5} x2={17} y2={5} />
+              <line x1={3} y1={15} x2={17} y2={15} />
+              <rect x={8} y={8} width={4} height={4} transform="rotate(45 10 10)" fill="currentColor" stroke="none" />
+            </svg>
+          }
         >
-          {/* Diamond-between-rows glyph — a milestone marker interleaved among
-              horizontal task rows. */}
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.6}
-            strokeLinecap="round"
-            aria-hidden="true"
-            className="h-3.5 w-3.5"
-          >
-            <line x1={3} y1={5} x2={17} y2={5} />
-            <line x1={3} y1={15} x2={17} y2={15} />
-            <rect x={8} y={8} width={4} height={4} transform="rotate(45 10 10)" fill="currentColor" stroke="none" />
-          </svg>
-          <span>{t(lang, "ganttMilestonesInline")}</span>
-        </button>
+          {t(lang, "ganttMilestonesInline")}
+        </ToggleButton>
       )}
       <button
         type="button"

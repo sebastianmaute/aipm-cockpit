@@ -38,6 +38,7 @@ import { CENTERED_HALF_PANE_CLASS } from "./view-styles";
 import { EmptyState } from "./empty-state";
 import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
+import { ToggleButton } from "./toggle-button";
 import { type ProjectMeta, type Resource } from "./types";
 
 /** File formats a brand-new project's workspace can be created in.
@@ -178,17 +179,12 @@ export function ProjectsPanel({
         </h2>
         <div className="flex items-center gap-2">
           {isTurso && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowArchived((v) => !v)}
-              aria-pressed={showArchived}
-            >
-              {/* Label PINNED to what pressed=true enables (archived shown), so
-                  aria-pressed announces the correct state — WCAG 4.1.2 (AGENTS.md
-                  pin-the-enabled-label rule). Do NOT flip the label with state. */}
+            // Label PINNED to what pressed=true enables (archived shown), so
+            // aria-pressed announces the correct state — WCAG 4.1.2 (the
+            // pin-the-enabled-label rule ToggleButton bakes in).
+            <ToggleButton pressed={showArchived} onToggle={() => setShowArchived((v) => !v)}>
               {t(lang, "projectsShowArchived")}
-            </Button>
+            </ToggleButton>
           )}
           {!isTurso && (
             <Button variant="secondary" size="sm" onClick={onLoadFromFile}>

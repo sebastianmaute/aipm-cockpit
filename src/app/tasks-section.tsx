@@ -5,6 +5,7 @@ import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
+import { ToggleButton } from "./toggle-button";
 import { useSettings } from "./use-settings";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
@@ -765,14 +766,9 @@ export function TasksSection({
             >
               {t(lang, "bulkSendInquiries")}
             </button>
-            <button
-              type="button"
-              onClick={() => setBulkEditOpen((o) => !o)}
-              aria-pressed={bulkEditOpen}
-              className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-            >
+            <ToggleButton pressed={bulkEditOpen} onToggle={() => setBulkEditOpen((o) => !o)}>
               {t(lang, "bulkEdit")}
-            </button>
+            </ToggleButton>
             <button
               type="button"
               onClick={() => setDeleteSelectedConfirmOpen(true)}
