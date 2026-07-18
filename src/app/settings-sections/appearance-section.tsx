@@ -14,6 +14,7 @@ import { FieldHint } from "../field-hint";
 import { useColorSchemes } from "../use-color-schemes";
 import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { ColorSchemeEditor } from "../color-scheme-editor";
+import { ThemeGallery } from "../theme-gallery";
 import { BrandingImageInput } from "../branding-image-input";
 import { applySchemeColors, writeActiveSchemeColors } from "../scheme-apply";
 import { mergeAppliedBranding } from "../color-schemes";
@@ -101,6 +102,7 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
         {config ? (
           <p className="mt-2 text-sm text-muted-foreground">{t(lang, "schemeStoredInDb")}</p>
         ) : null}
+        <ThemeGallery lang={lang} onImported={(id) => selectScheme(id)} />
       </div>
 
       <div className="mb-4">
