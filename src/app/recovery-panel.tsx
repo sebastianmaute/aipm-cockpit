@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { t } from "./i18n";
+import { FieldError } from "./field-feedback";
 import {
   exportConfig,
   listBackups,
@@ -120,7 +121,7 @@ export function RecoveryPanel() {
         {t(lang, "recoveryPageTitle")}
       </h1>
       <p className="text-sm text-muted-foreground">{t(lang, "recoveryPageIntro")}</p>
-      {!storageOk && <p className="text-sm text-AIPM-pink-strong">{t(lang, "recoveryError")}</p>}
+      {!storageOk && <FieldError>{t(lang, "recoveryError")}</FieldError>}
 
       <section className="rounded-lg border border-line bg-surface p-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

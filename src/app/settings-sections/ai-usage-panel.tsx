@@ -3,6 +3,7 @@
 // Usage bars sub-component for AiSection. Reads from the shared AiUsageProvider.
 
 import { useAiUsageContext } from "../ai-usage-context";
+import { ProgressTrack } from "../progress-track";
 import { type Lang, t, localeFor } from "../i18n";
 import {
   DEFAULT_SESSION_TOKEN_CAP,
@@ -35,7 +36,7 @@ function UsageBar({ label, used, cap }: UsageBarProps) {
           {used.toLocaleString()} / {cap.toLocaleString()} ({pct}%)
         </span>
       </div>
-      <div className="h-3 w-full overflow-hidden rounded-full bg-surface-muted">
+      <ProgressTrack height="h-3">
         <div
           role="progressbar"
           aria-valuenow={used}
@@ -45,7 +46,7 @@ function UsageBar({ label, used, cap }: UsageBarProps) {
           className={`${BAR_BASE} ${barColor(ratio)}`}
           style={{ width: `${pct}%` }}
         />
-      </div>
+      </ProgressTrack>
     </div>
   );
 }

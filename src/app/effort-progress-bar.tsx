@@ -2,6 +2,7 @@
 
 import { type Lang, t } from "./i18n";
 import { effortProgress, formatDuration } from "./duration";
+import { ProgressTrack } from "./progress-track";
 
 interface EffortProgressBarProps {
   lang: Lang;
@@ -16,15 +17,14 @@ export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgres
   const labelPct = Math.round(pct * 100);
   return (
     <div className="sm:col-span-2">
-      <div
+      <ProgressTrack
+        height="h-2.5"
         role="progressbar"
         aria-label={t(lang, "taskEffortProgressLabel")}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={hasEstimate ? Math.min(labelPct, 100) : 0}
-        className={`h-2.5 w-full overflow-hidden rounded-full ${
-          hasEstimate ? "bg-surface-muted" : "bg-surface-muted opacity-60"
-        }`}
+        className={hasEstimate ? undefined : "opacity-60"}
       >
         {hasEstimate && (
           <div
@@ -32,7 +32,7 @@ export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgres
             style={{ width: `${fillPct}%` }}
           />
         )}
-      </div>
+      </ProgressTrack>
       <p className={`mt-1 text-xs ${over ? "text-AIPM-pink-strong" : "text-muted-foreground"}`}>
         {hasEstimate
           ? `${formatDuration(spentMin ?? 0) || "0m"} / ${formatDuration(estimateMin ?? 0)} · ${labelPct}%`

@@ -11,6 +11,7 @@
 
 import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { ModalFieldError } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { useAutogrow } from "./use-autogrow";
@@ -236,11 +237,7 @@ export function AbsenceEditModal({
             </label>
           )}
 
-          {error && (
-            <p role="alert" className="sm:col-span-2 text-sm text-AIPM-pink-strong">
-              {error}
-            </p>
-          )}
+          {error && <ModalFieldError error={error} />}
 
           <ModalEditFooter
             lang={lang}

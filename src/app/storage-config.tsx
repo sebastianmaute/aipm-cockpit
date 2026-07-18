@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
+import { Banner } from "./banner";
 import {
   type StorageConfig,
   type StorageKind,
@@ -222,9 +223,9 @@ export function StorageConfigSection({
                 )}
               </div>
               {error && (
-                <p className="text-xs text-AIPM-pink-strong">
+                <Banner severity="error">
                   {error}
-                </p>
+                </Banner>
               )}
             </>
           )}
@@ -232,11 +233,11 @@ export function StorageConfigSection({
       )}
 
       {isSp && !spGateOk && (
-        <p className="mt-2 text-xs text-AIPM-pink-strong">
+        <Banner severity="error" className="mt-2">
           {!m365Enabled
             ? t(lang, "spStorageNeedsM365")
             : t(lang, "spStorageNeedsToggle")}
-        </p>
+        </Banner>
       )}
 
       {isSp && spGateOk && !auth.account && (
@@ -269,7 +270,7 @@ export function StorageConfigSection({
           </label>
           <p className="text-xs text-muted-foreground">{t(lang, "spStorageHint")}</p>
           {spUrlError && (
-            <p className="text-xs text-AIPM-pink-strong">{spUrlError}</p>
+            <Banner severity="error">{spUrlError}</Banner>
           )}
           <button
             type="button"
@@ -302,10 +303,10 @@ export function StorageConfigSection({
       )}
 
       {isTurso && !tursoEnabled && (
-        <p className="mt-2 text-xs text-AIPM-pink-strong">{t(lang, "storageTursoNeedsToggle")}</p>
+        <Banner severity="error" className="mt-2">{t(lang, "storageTursoNeedsToggle")}</Banner>
       )}
       {isTurso && tursoEnabled && !ready && (
-        <p className="mt-2 text-xs text-AIPM-pink-strong">{t(lang, "storageTursoNeedsConfig")}</p>
+        <Banner severity="error" className="mt-2">{t(lang, "storageTursoNeedsConfig")}</Banner>
       )}
       {isTurso && tursoEnabled && ready && description && (
         <p className="mt-2 text-xs text-muted-foreground">✓ {description}</p>

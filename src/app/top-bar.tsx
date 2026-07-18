@@ -1,6 +1,7 @@
 "use client";
 import { type Lang, t } from "./i18n";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
+import { CountBadge } from "./count-badge";
 
 interface TopBarProps {
   lang: Lang;
@@ -76,9 +77,9 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
             <path d="M10 2a6 6 0 00-6 6v2.586l-.707.707A1 1 0 004 13h12a1 1 0 00.707-1.707L16 10.586V8a6 6 0 00-6-6zM8 15a2 2 0 104 0H8z" />
           </svg>
           {bannerCount > 0 && (
-            <span aria-hidden className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-AIPM-white">
+            <CountBadge variant="pink" aria-hidden className="absolute -right-0.5 -top-0.5">
               {bannerCount}
-            </span>
+            </CountBadge>
           )}
         </button>
         {children}

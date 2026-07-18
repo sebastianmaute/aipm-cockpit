@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { FieldError } from "./field-feedback";
 import { type EditPlan } from "./inline-ai-edit/plan";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
@@ -91,7 +92,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
           <p className="mt-3 text-xs text-foreground"><span className="font-medium">{t(lang, "inlineAiEditClarify")}</span> {clarifyText}</p>
         )}
 
-        {phase === "error" && errorText && <p role="alert" className="mt-3 text-xs text-AIPM-pink-strong">{errorText}</p>}
+        {phase === "error" && errorText && <FieldError>{errorText}</FieldError>}
 
         {phase === "preview" && plan && (
           <div className="mt-1">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { FieldNotice } from "../field-feedback";
+import { Banner } from "../banner";
 import {
   type M365IntegrationsSettings,
   type TursoIntegrationsSettings,
@@ -455,9 +456,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
               />
               {isLikelyRegionQualifiedTursoUrl(turso.databaseUrl ?? "") && (
-                <p className="mt-1 text-xs text-AIPM-pink-strong">
+                <Banner severity="error" className="mt-1">
                   {t(lang, "tursoUrlRegionWarning")}
-                </p>
+                </Banner>
               )}
             </label>
           )}
@@ -508,7 +509,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     className={`w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
                   />
                   {tokenPassphraseMismatch && (
-                    <p className="text-xs text-AIPM-pink-strong">{t(lang, "secretPassphraseMismatch")}</p>
+                    <Banner severity="error">{t(lang, "secretPassphraseMismatch")}</Banner>
                   )}
                   <button
                     type="button"
@@ -574,7 +575,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               </select>
             </label>
             {snapshots.enabled && !(envTursoUrlSet || turso.databaseUrl) && (
-              <p className="mt-1 text-xs text-AIPM-pink-strong">{t(lang, "snapshotConfigIncomplete")}</p>
+              <Banner severity="error" className="mt-1">{t(lang, "snapshotConfigIncomplete")}</Banner>
             )}
           </div>
           {!hidePortfolioSwitch && (
@@ -597,7 +598,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             </label>
             <p className="mt-1 text-xs text-muted-foreground">{t(lang, "portfolioModeHelp")}</p>
             {!tursoConfigured && (
-              <p className="mt-1 text-xs text-AIPM-pink-strong">{t(lang, "portfolioModeTursoNeedsConfig")}</p>
+              <Banner severity="error" className="mt-1">{t(lang, "portfolioModeTursoNeedsConfig")}</Banner>
             )}
             {portfolioModeDirty && (
               <div className="mt-2 rounded-md border border-AIPM-purple/40 bg-AIPM-purple/5 p-2">

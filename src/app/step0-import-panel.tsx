@@ -14,6 +14,7 @@
 
 import { useRef, useState } from "react";
 import { t, type Lang } from "./i18n";
+import { FieldError } from "./field-feedback";
 import { type Settings } from "./settings-types";
 import { type ProposalContent } from "./use-project-proposal";
 import {
@@ -383,7 +384,7 @@ export function Step0ImportPanel({
         )}
 
         {(aiError || importError) && (
-          <p role="alert" className="text-sm text-AIPM-pink-strong">
+          <FieldError>
             {importError ??
               t(
                 lang,
@@ -393,7 +394,7 @@ export function Step0ImportPanel({
                     ? "aiUsageLimitReached"
                     : "aiCreateError",
               )}
-          </p>
+          </FieldError>
         )}
 
         {skipped.length > 0 && (

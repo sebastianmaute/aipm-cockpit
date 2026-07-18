@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.19] - 2026-07-18 "Pinsker"
+
+Design-system dedup (Phases 3e + 3f).
+
+### Changed
+- Validation errors, field notices and config warnings across the app now render through
+  the shared error/notice components, so they look consistent everywhere — form-field errors
+  as small inline messages, and modal / settings errors as the same tinted alert box.
+- The little round notification-count badge (top bar, sidebar, classic header) is now one
+  shared component, fixing a subtle text-colour inconsistency between the copies.
+- Progress and usage bars (completion gauge, effort bar, AI-usage bar, report bars) now share
+  one bar-track component. No visual change.
+
 ## [0.190.18] - 2026-07-18 "Pinsker"
 
 Design-system dedup + keyboard accessibility (Phase 3d).

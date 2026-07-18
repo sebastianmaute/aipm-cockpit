@@ -6,6 +6,7 @@ import { type Settings } from "../settings-types";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, DEFAULT_TOKEN_MULTIPLIER } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
+import { Banner } from "../banner";
 import { AiUsagePanel } from "./ai-usage-panel";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
 import type { OperatingGuide, GuideScope } from "../operating-guide";
@@ -456,7 +457,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               onChange={(e) => setKeyConfirm(e.target.value)}
             />
             {keyPassphraseMismatch && (
-              <p className="text-xs text-AIPM-pink-strong">{t(lang, "secretPassphraseMismatch")}</p>
+              <Banner severity="error">{t(lang, "secretPassphraseMismatch")}</Banner>
             )}
             <button
               type="button"
@@ -627,9 +628,9 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         {og != null && (
           <>
             {overBudget && (
-              <p className="mt-2 text-xs text-AIPM-pink-strong">
+              <Banner severity="error" className="mt-2">
                 {t(lang, "aiGuideBudgetWarning")}
-              </p>
+              </Banner>
             )}
 
             {/* Guide list */}
