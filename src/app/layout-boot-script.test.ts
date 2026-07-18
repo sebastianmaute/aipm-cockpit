@@ -22,9 +22,12 @@ describe("no-flash boot script — source shape (pinned)", () => {
       expect(src).toContain(`mv("${oldK}","${newK}")`);
     }
   });
-  it("reads aipm-cockpit-style and ALWAYS sets data-style to custom", () => {
-    expect(src).toContain('localStorage.getItem("aipm-cockpit-style")');
+  it("ALWAYS sets data-style to custom (no legacy style branch)", () => {
     expect(src).toContain('setAttribute("data-style","custom")');
+    // AIPM/Mockup are importable built-in schemes now — no embedded maps or
+    // legacy style-value special-casing remain in the boot string.
+    expect(src).not.toContain("legacyIcc");
+    expect(src).not.toContain("legacyMockup");
   });
   it("reads + stamps the dark-capable signal", () => {
     expect(src).toContain('localStorage.getItem("aipm-cockpit-scheme-supports-dark")');
@@ -74,6 +77,7 @@ describe("no-flash boot script — runtime behaviour", () => {
     expect(root().getAttribute("data-scheme-dark")).toBe("1");
     expect(root().classList.contains("dark")).toBe(false);
     expect(root().style.getPropertyValue("--surface")).toBe(resolveSchemeColors(HARBOR_LIGHT)["--surface"]);
+    expect(root().style.getPropertyValue("--AIPM-dark-blue")).toBe("#153a5c"); // Harbor light base
   });
 
   it("fresh install with system dark → Harbor dark + .dark", () => {
@@ -84,27 +88,22 @@ describe("no-flash boot script — runtime behaviour", () => {
     expect(root().style.getPropertyValue("--surface")).toBe(resolveSchemeColors(HARBOR_DARK)["--surface"]);
   });
 
-  it("legacy mockup (no boot keys) → custom, pins light under dark theme, paints Mockup color + structural", () => {
+  it("legacy style value 'mockup' (no color key) is ignored → Harbor base paint", () => {
+    // AIPM/Mockup are no longer embedded/special-cased; the legacy style value
+    // has no effect and the base fallback (no mirrored color key) is Harbor.
     localStorage.setItem("lop-style", "mockup");
-    localStorage.setItem("lop-theme", "dark");
     runBoot();
     expect(root().getAttribute("data-style")).toBe("custom");
-    expect(root().getAttribute("data-scheme-dark")).toBe("0");
     expect(root().classList.contains("dark")).toBe(false);
-    // Mockup light color (from MOCKUP_SEED)
-    expect(root().style.getPropertyValue("--table-head-bg")).toBe("#f1f3f4");
-    // Mockup structural token (a shadow → contains rgba)
-    expect(root().style.getPropertyValue("--shadow-card")).toContain("rgba");
+    expect(root().style.getPropertyValue("--AIPM-dark-blue")).toBe("#153a5c"); // Harbor light, NOT Mockup
   });
 
-  it("legacy AIPM (no boot keys) under dark theme → custom, dark-capable, paints AIPM dark color", () => {
+  it("legacy style value 'AIPM' (no color key) is ignored → Harbor base paint", () => {
     localStorage.setItem("lop-style", "AIPM");
-    localStorage.setItem("lop-theme", "dark");
     runBoot();
     expect(root().getAttribute("data-style")).toBe("custom");
-    expect(root().getAttribute("data-scheme-dark")).toBe("1");
-    expect(root().classList.contains("dark")).toBe(true);
-    expect(root().style.getPropertyValue("--surface")).toBe("#121619");
+    expect(root().classList.contains("dark")).toBe(false);
+    expect(root().style.getPropertyValue("--AIPM-dark-blue")).toBe("#153a5c"); // Harbor light, NOT AIPM
   });
 
   it("light-only custom (supports-dark unset) pins light and applies the mirrored map", () => {
