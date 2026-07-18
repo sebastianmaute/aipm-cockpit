@@ -51,6 +51,9 @@ export function ThemeGallery({ lang, config = null, onImported }: ThemeGalleryPr
       // rather than creating a second identical copy on repeat clicks.
       const existing = loadSchemes().schemes.find((s) => !s.builtIn && s.name === parsed.name);
       if (existing) {
+        // Ensure it's DB-persisted too — covers a file-mode import later reopened
+        // with Turso configured (idempotent INSERT OR REPLACE; no-op if no config).
+        await upsertSchemeAsync(config, existing);
         onImported(existing.id);
         return;
       }
