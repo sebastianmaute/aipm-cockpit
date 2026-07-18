@@ -8,6 +8,7 @@ import { filterDiag, summarizeDiag } from "./diagnostics-filter";
 import { EmptyState } from "./empty-state";
 import { DataTable } from "./data-table";
 import { reportSilentFailure } from "./guard-feedback";
+import { Input } from "./form-controls";
 import { INTERACTIVE } from "./interaction-styles";
 import { useToastContext } from "./toast-context";
 
@@ -106,13 +107,14 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
                 {labelFor(lv)}
               </label>
             ))}
-            <input
+            <Input
               type="text"
+              size="xs"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t(lang, "diagnosticsSearchCode")}
               aria-label={t(lang, "diagnosticsSearchCode")}
-              className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs"
+              className="min-w-0 flex-1"
             />
           </div>
           {shown.length === 0 ? (

@@ -6,6 +6,7 @@ import type { Milestone, Task } from "./types";
 import { milestoneRebaselineDate, isValidIsoDate } from "./action-rebaseline";
 import { PopoverPanel } from "./popover-panel";
 import { popoverTriggerClass } from "./action-cta-styles";
+import { Input } from "./form-controls";
 
 export interface RebaselineBundle {
   // Milestone (B) path — all backends:
@@ -90,12 +91,11 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
               </p>
               <label className="flex flex-col gap-1 text-xs text-foreground">
                 <span className="font-medium">{t(lang, "actionRebaselineNewDate")}</span>
-                <input
+                <Input
                   type="date"
                   aria-label={t(lang, "actionRebaselineNewDate")}
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
                 />
               </label>
               <div className="mt-2 flex justify-end">

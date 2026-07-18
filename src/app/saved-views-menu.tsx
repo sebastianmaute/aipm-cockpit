@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { type Lang, t } from "./i18n";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Input, Select } from "./form-controls";
 
 /** The minimal shape the menu needs from any saved-view record. The three
  *  stores (tasks `SavedView`, generic `PanelView`, `ReportsSavedView`) all carry
@@ -23,8 +24,6 @@ interface SavedViewsMenuProps {
   onDeleteView: (id: number) => void;
 }
 
-const INPUT_CLASS =
-  `rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`;
 const BTN_CLASS =
   `rounded-md border border-line bg-surface px-2 py-1 text-sm text-muted-foreground hover:bg-surface-muted hover:text-foreground disabled:opacity-50 ${INTERACTIVE}`;
 
@@ -47,7 +46,8 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
 
   return (
     <div className="inline-flex items-center gap-1">
-      <select
+      <Select
+        size="xs"
         aria-label={t(lang, "savedViewsApply")}
         value={selectValue}
         onChange={(e) => {
@@ -60,7 +60,6 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
           setSelectedId(id);
           onApplyView(id);
         }}
-        className={INPUT_CLASS}
       >
         <option value="">{t(lang, "savedViewsPlaceholder")}</option>
         {views.map((v) => (
@@ -68,15 +67,15 @@ export function SavedViewsMenu({ lang, views, onApplyView, onSaveView, onDeleteV
             {v.name}
           </option>
         ))}
-      </select>
+      </Select>
 
       {saving ? (
         <>
-          <input
+          <Input
+            size="xs"
             aria-label={t(lang, "savedViewsName")}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={INPUT_CLASS}
           />
           <button
             type="button"

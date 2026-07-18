@@ -30,7 +30,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
-import { Checkbox } from "./form-controls";
+import { Checkbox, Input, Select } from "./form-controls";
 import { Banner } from "./banner";
 import { FieldError } from "./field-feedback";
 import { unlockSecret } from "./use-secrets";
@@ -619,19 +619,20 @@ function ChatPanelInner({
     // (persisted via useResizable); ResetSizeButton restores the default.
     <div ref={chatRef} className={CHAT_PANE_CLASS}>
       <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
-        <select
+        <Select
+          size="xs"
           aria-label={t(lang, "aiModel")}
           value={ai.model}
           onChange={(e) => onChangeModel?.(e.target.value)}
           disabled={!onChangeModel}
-          className={`min-w-0 max-w-[18rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
+          className="min-w-0 max-w-[18rem]"
         >
           {modelOptions.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label}
             </option>
           ))}
-        </select>
+        </Select>
         <ResetSizeButton onClick={resetChatSize} lang={lang} />
       </div>
       <div
@@ -646,7 +647,7 @@ function ChatPanelInner({
                   {t(lang, "secretUnlockApiKey")}
                 </p>
                 <div className="flex items-stretch gap-2">
-                  <input
+                  <Input
                     type="password"
                     aria-label={t(lang, "secretPassphrasePlaceholder")}
                     placeholder={t(lang, "secretPassphrasePlaceholder")}
@@ -655,7 +656,7 @@ function ChatPanelInner({
                       setUnlockPass(e.target.value);
                       setUnlockError(false);
                     }}
-                    className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+                    className="min-w-0 flex-1"
                   />
                   <Button onClick={unlockApiKey}>
                     {t(lang, "secretUnlock")}

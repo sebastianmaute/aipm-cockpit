@@ -12,8 +12,8 @@ import { sanitizeTemplateHtml } from "./sanitize-html";
 import { htmlToPlainText } from "./html-to-text";
 import { diffLines } from "./text-diff";
 import { CommTemplateDiffView } from "./comm-template-diff-view";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Button } from "./button";
+import { Input } from "./form-controls";
 
 const RichTextEditor = dynamic(() => import("./rich-text-editor").then((m) => m.RichTextEditor), {
   ssr: false,
@@ -206,12 +206,13 @@ export function MeetingReportPanel({
       {readOnly ? null : (
         <label className="flex flex-col gap-1 text-xs text-muted-foreground">
           {t(lang, "reportTo")}
-          <input
+          <Input
             type="text"
+            size="xs"
+            className="w-full"
             value={toList}
             onChange={(e) => setToList(e.target.value)}
             aria-label={t(lang, "reportTo")}
-            className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
           />
           {noRecipients && <span className="text-ui-pink-strong">{t(lang, "reportNoRecipients")}</span>}
         </label>

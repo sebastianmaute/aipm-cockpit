@@ -7,6 +7,7 @@ import { RagBadge } from "../rag-badge";
 import { InfoTooltip } from "../info-tooltip";
 import { TRANSITION, FOCUS_RING } from "../interaction-styles";
 import { Card } from "../card";
+import { Select } from "../form-controls";
 import type { DashboardModel } from "../dashboard";
 import type { ProjectStatus } from "../types";
 
@@ -24,8 +25,9 @@ function OverrideSelect({
     <label className="inline-flex items-center gap-1.5 text-sm">
       <RagBadge value={effective} lang={lang} title={`${label}: ${effective ? healthColorName(effective, lang) : "—"}`} />
       <span className="font-medium">{label}</span>
-      <select
-        className={`rounded border border-line bg-surface px-1.5 py-0.5 text-sm print:hidden ${TRANSITION} ${FOCUS_RING}`}
+      <Select
+        size="xs"
+        className="print:hidden"
         value={value ?? ""}
         onChange={(e) => onChange((e.target.value || undefined) as "R" | "A" | "G" | undefined)}
       >
@@ -33,7 +35,7 @@ function OverrideSelect({
         <option value="R">{healthColorName("R", lang)}</option>
         <option value="A">{healthColorName("A", lang)}</option>
         <option value="G">{healthColorName("G", lang)}</option>
-      </select>
+      </Select>
       <span className="hidden text-muted-foreground print:inline">
         {effective ? healthColorName(effective, lang) : "—"}
       </span>

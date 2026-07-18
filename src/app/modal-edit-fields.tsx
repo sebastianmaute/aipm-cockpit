@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { InfoTooltip } from "./info-tooltip";
+import { Input } from "./form-controls";
 
 type AssigneeOption = { name: string; email?: string };
 
@@ -70,7 +71,7 @@ export function AssigneeField({
         <span className={tooltip ? "flex items-center gap-1 font-medium text-foreground" : "font-medium text-foreground"}>
           {assigneeLabel} *{tooltip && <InfoTooltip text={tooltip} />}
         </span>
-        <input
+        <Input
           type="text"
           required
           value={assignee}
@@ -87,7 +88,6 @@ export function AssigneeField({
           }}
           list={datalistId}
           placeholder={assigneePlaceholder}
-          className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
         />
         <datalist id={datalistId}>
           {options.map((o) => (
@@ -101,11 +101,10 @@ export function AssigneeField({
       {showEmail && (
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">
           <span className="font-medium text-foreground">{assigneeEmailLabel}</span>
-          <input
+          <Input
             type="email"
             value={assigneeEmail ?? ""}
             onChange={(e) => onEmailChange(e.target.value || undefined)}
-            className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
           />
         </label>
       )}

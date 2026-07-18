@@ -4,11 +4,8 @@ import type React from "react";
 import { useState } from "react";
 import { t, type Lang } from "./i18n";
 import { Button } from "./button";
+import { Input, Select } from "./form-controls";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
-
-/** Standard compact control class shared by the bulk-edit field controls. */
-const CONTROL_CLASS =
-  `w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-ui-dark-blue disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`;
 
 export interface BulkFieldOption {
   value: string;
@@ -34,20 +31,21 @@ export function selectField(key: string, label: string, options: readonly BulkFi
     label,
     default: options[0]?.value ?? "",
     render: ({ value, onChange, disabled, id }) => (
-      <select
+      <Select
         id={id}
+        size="xs"
         aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={CONTROL_CLASS}
+        className="w-full"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-      </select>
+      </Select>
     ),
   };
 }
@@ -59,15 +57,16 @@ export function dateField(key: string, label: string, opts?: { min?: string }): 
     label,
     default: "",
     render: ({ value, onChange, disabled, id }) => (
-      <input
+      <Input
         id={id}
         type="date"
+        size="xs"
         aria-label={label}
         min={opts?.min}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={CONTROL_CLASS}
+        className="w-full"
       />
     ),
   };
@@ -80,16 +79,17 @@ export function textField(key: string, label: string, opts?: { placeholder?: str
     label,
     default: "",
     render: ({ value, onChange, disabled, id }) => (
-      <input
+      <Input
         id={id}
         type="text"
+        size="xs"
         aria-label={label}
         maxLength={opts?.maxLength}
         placeholder={opts?.placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={CONTROL_CLASS}
+        className="w-full"
       />
     ),
   };

@@ -19,6 +19,7 @@ import { BackendConfigModal } from "./backend-config-modal";
 import { type Contact } from "./contacts";
 import { t, type Lang } from "./i18n";
 import { ProjectForm } from "./project-form";
+import { Select } from "./form-controls";
 import { type Settings } from "./settings-types";
 import { type ProjectMeta, type Resource } from "./types";
 
@@ -109,13 +110,12 @@ export function CreateProjectForm({
           <span className="font-medium text-foreground">
             {t(lang, "projectStorage")}
           </span>
-          <select
+          <Select
             aria-label={t(lang, "projectStorage")}
             value={selection}
             onChange={(e) =>
               handleSelectionChange(e.target.value as StorageSelection)
             }
-            className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
           >
             {FILE_FORMATS.map((fmt) => (
               <option key={fmt} value={fmt}>
@@ -125,7 +125,7 @@ export function CreateProjectForm({
             <option value="turso" title={t(lang, "storageOptionConfigure")}>
               {t(lang, "storageTurso")}
             </option>
-          </select>
+          </Select>
           <p className="text-xs text-muted-foreground">
             {t(lang, "wizardStorageTursoRecommended")}
           </p>

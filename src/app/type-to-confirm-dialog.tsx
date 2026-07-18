@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { t, type Lang } from "./i18n";
+import { Input } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 
@@ -56,13 +57,12 @@ export function TypeToConfirmDialog({
             <span className="text-muted-foreground">
               {t(lang, "typeToConfirmPrompt", confirmValue)}
             </span>
-            <input
+            <Input
               type="text"
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               aria-label={t(lang, "typeToConfirmPrompt", confirmValue)}
               autoComplete="off"
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm"
             />
           </label>
           <div className="flex justify-end gap-2">

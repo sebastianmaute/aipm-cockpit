@@ -14,6 +14,7 @@ import {
 import { loadSchemesAsync, upsertSchemeAsync, deleteSchemeAsync } from "./color-schemes-store";
 import { reconcileBuiltins, HARBOR_LIGHT } from "./builtin-schemes";
 import { BrandingImageInput } from "./branding-image-input";
+import { Input } from "./form-controls";
 import type { BrandingConfig } from "./settings-types";
 import type { TursoConfig } from "./turso-config";
 
@@ -186,14 +187,14 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
         <p className="mb-2 text-xs text-muted-foreground">{t(lang, "schemeBuiltinReadonly")}</p>
       )}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <input
+        <Input
           type="text"
+          size="xs"
           aria-label={t(lang, "schemeNamePlaceholder")}
           placeholder={t(lang, "schemeNamePlaceholder")}
           maxLength={60}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
         />
         <button type="button" className={btn} onClick={saveNew}>{t(lang, "schemeNew")}</button>
         <button type="button" className={btn} onClick={rename} disabled={!active || isBuiltin}>{t(lang, "schemeRename")}</button>
@@ -226,22 +227,24 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <label className="text-xs text-muted-foreground">
               {t(lang, "brandingAppName")}
-              <input
+              <Input
                 type="text"
+                size="xs"
                 maxLength={60}
                 value={branding.slogan ?? ""}
                 onChange={(e) => setBranding((b) => ({ ...b, slogan: e.target.value }))}
-                className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-1 w-full"
               />
             </label>
             <label className="text-xs text-muted-foreground">
               {t(lang, "brandingFooterSlogan")}
-              <input
+              <Input
                 type="text"
+                size="xs"
                 maxLength={120}
                 value={branding.footerSlogan ?? ""}
                 onChange={(e) => setBranding((b) => ({ ...b, footerSlogan: e.target.value }))}
-                className={`mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-1 w-full"
               />
             </label>
           </div>

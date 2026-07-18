@@ -4,7 +4,7 @@
 // the booking fetch to that customer's projects. Pure — filter/selection state +
 // the lazy customer load are owned by the panel and passed as props.
 import { t, type Lang } from "./i18n";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Input, Select } from "./form-controls";
 
 export type CustomerOption = { id: number; name: string };
 
@@ -32,23 +32,25 @@ export function TimelogCustomerScope({
 }: TimelogCustomerScopeProps) {
   return (
     <>
-      <input
+      <Input
         type="search"
+        size="xs"
         aria-label={t(lang, "timelogCustomerFilter")}
         placeholder={t(lang, "timelogCustomerFilter")}
         value={filter}
         disabled={disabled}
         onFocus={onFocusLoad}
         onChange={(e) => onFilterChange(e.target.value)}
-        className={`w-28 rounded border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
+        className="w-28 print:hidden"
       />
-      <select
+      <Select
+        size="xs"
         aria-label={t(lang, "timelogCustomerLabel")}
         value={value === "" ? "" : String(value)}
         disabled={disabled}
         onFocus={onFocusLoad}
         onChange={(e) => onSelectChange(e.target.value === "" ? "" : Number(e.target.value))}
-        className={`max-w-[14rem] rounded border border-line bg-surface px-2 py-1 text-xs text-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
+        className="max-w-[14rem] print:hidden"
       >
         <option value="">{t(lang, "timelogCustomerAll")}</option>
         {options.map((c) => (
@@ -56,7 +58,7 @@ export function TimelogCustomerScope({
             {c.name}
           </option>
         ))}
-      </select>
+      </Select>
     </>
   );
 }
