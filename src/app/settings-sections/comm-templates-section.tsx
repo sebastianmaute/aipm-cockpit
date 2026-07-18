@@ -14,6 +14,7 @@ import { EmptyState } from "../empty-state";
 import { FieldHint } from "../field-hint";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 import { Button } from "../button";
+import { Input, Select } from "../form-controls";
 import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
 import dynamic from "next/dynamic";
@@ -155,29 +156,31 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
 
       <label className="flex flex-col gap-1 text-sm text-foreground">
         <span className="font-medium">{t(lang, "commTplCategory")}</span>
-        <select
+        <Select
+          size="xs"
           value={category}
           aria-label={t(lang, "commTplCategory")}
           onChange={(e) => { setCategory(e.target.value as CommTemplateCategory); setSelectedId(null); setBodyDraft(""); setCompareIds([]); }}
-          className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+          className="w-full"
         >
           {COMM_TEMPLATE_CATEGORIES.map((c) => (
             <option key={c} value={c}>{t(lang, CAT_LABEL_KEY[c])}</option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <div className="flex items-end gap-2">
         <label className="flex flex-1 flex-col gap-1 text-sm text-foreground">
           <span className="font-medium">{t(lang, "commTplName")}</span>
-          <input
+          <Input
+            size="xs"
             type="text"
             value={newName}
             aria-label={t(lang, "commTplName")}
             placeholder={t(lang, "commTplNew")}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") createTemplate(); }}
-            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+            className="w-full"
           />
         </label>
         <Button
@@ -247,8 +250,9 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
         <div className="flex flex-col gap-2 rounded-md border border-line bg-surface px-3 py-3">
           <label className="flex flex-col gap-1 text-sm text-foreground">
             <span className="font-medium">{t(lang, "commTplRename")}</span>
-            <input
+            <Input
               key={selected.id}
+              size="xs"
               type="text"
               defaultValue={selected.name}
               aria-label={t(lang, "commTplRename")}
@@ -261,7 +265,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   );
                 }
               }}
-              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+              className="w-full"
             />
           </label>
 

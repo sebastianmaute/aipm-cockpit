@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { INTERACTIVE } from "../interaction-styles";
-import { Checkbox } from "../form-controls";
+import { Checkbox, Input } from "../form-controls";
 import { EmptyState } from "../empty-state";
 import { deriveMode } from "../feature-modules";
 import { templateFromWorkspace, type ProjectTemplate } from "../templates";
@@ -71,8 +71,10 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
         <h3 className="text-sm font-semibold text-foreground">
           {t(lang, "templatesSaveCurrent")}
         </h3>
-        <input
+        <Input
           type="text"
+          size="xs"
+          className="w-full"
           value={name}
           aria-label={t(lang, "templateSaveName")}
           placeholder={t(lang, "templateSaveName")}
@@ -80,7 +82,6 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
           onKeyDown={(e) => {
             if (e.key === "Enter") saveCurrent();
           }}
-          className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
         />
         <label className="flex items-center gap-2 text-sm text-foreground">
           <Checkbox
@@ -135,8 +136,10 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                 className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2"
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <input
+                  <Input
                     type="text"
+                    size="xs"
+                    className="w-full"
                     defaultValue={tpl.name}
                     aria-label={t(lang, "templatesRename")}
                     onKeyDown={(e) => {
@@ -146,7 +149,6 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                       const name = e.target.value.trim();
                       if (name && name !== tpl.name) updateTemplate(tpl.id, { name });
                     }}
-                    className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
                   />
                   <span className="text-xs text-muted-foreground">{modeSummary(lang, tpl)}</span>
                 </span>

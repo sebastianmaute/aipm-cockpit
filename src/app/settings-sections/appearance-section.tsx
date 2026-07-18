@@ -12,7 +12,7 @@ import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { useColorSchemes } from "../use-color-schemes";
-import { FOCUS_RING, TRANSITION } from "../interaction-styles";
+import { Input, Select } from "../form-controls";
 import { ColorSchemeEditor } from "../color-scheme-editor";
 import { ThemeGallery } from "../theme-gallery";
 import { BrandingImageInput } from "../branding-image-input";
@@ -67,11 +67,12 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
         <label htmlFor="appearance-scheme" className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
           {t(lang, "schemeAppearanceLabel")}
         </label>
-        <select
+        <Select
+          size="xs"
           id="appearance-scheme"
           value={schemeValue}
           onChange={(e) => selectScheme(e.target.value)}
-          className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+          className="w-full"
         >
           {builtinSchemes.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
@@ -83,7 +84,7 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
               ))}
             </optgroup>
           )}
-        </select>
+        </Select>
       </div>
 
       <div className="mb-4">
@@ -165,7 +166,8 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
           {t(lang, "selfResourceLabel")}
           <InfoTooltip text={t(lang, "selfResourceHint")} />
         </label>
-        <select
+        <Select
+          size="xs"
           id="appearance-self-resource"
           value={settings.selfResourceId != null ? String(settings.selfResourceId) : ""}
           aria-label={t(lang, "selfResourceLabel")}
@@ -175,7 +177,7 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
               selfResourceId: e.target.value === "" ? undefined : Number(e.target.value),
             })
           }
-          className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+          className="w-full"
         >
           <option value="">{t(lang, "selfResourceNone")}</option>
           {resources.map((r) => (
@@ -183,7 +185,7 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
               {resourceDisplayName(r)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div className="mb-4">
@@ -289,14 +291,15 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
             <label htmlFor="branding-appname" className="mb-1 block text-xs font-medium text-muted-foreground">
               {t(lang, "brandingAppName")}
             </label>
-            <input
+            <Input
+              size="xs"
               id="branding-appname"
               type="text"
               maxLength={60}
               value={branding?.slogan ?? ""}
               placeholder={t(lang, "sidebarBrandSubtitle")}
               onChange={(e) => setBranding({ ...branding, slogan: e.target.value })}
-              className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
+              className="w-full"
             />
           </div>
 
@@ -305,14 +308,15 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
             <label htmlFor="branding-footer-slogan" className="mb-1 block text-xs font-medium text-muted-foreground">
               {t(lang, "brandingFooterSlogan")}
             </label>
-            <input
+            <Input
+              size="xs"
               id="branding-footer-slogan"
               type="text"
               maxLength={120}
               value={branding?.footerSlogan ?? ""}
               placeholder={DEFAULT_FOOTER_SLOGAN}
               onChange={(e) => setBranding({ ...branding, footerSlogan: e.target.value })}
-              className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION}`}
+              className="w-full"
             />
           </div>
         </div>

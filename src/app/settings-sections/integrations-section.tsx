@@ -27,9 +27,8 @@ import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
-import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { Button } from "../button";
-import { Checkbox } from "../form-controls";
+import { Checkbox, Input, Select } from "../form-controls";
 import { TimelogSettings } from "../timelog-settings";
 import { JiraSettingsSection } from "../jira-settings";
 import { defaultTimelogConfig } from "../timelog-types";
@@ -287,12 +286,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 {t(lang, "integrationsM365ClientId")}
                 <InfoTooltip text={t(lang, "integrationsM365ClientIdTooltip")} />
               </span>
-              <input
+              <Input
+                size="xs"
                 type="text"
                 value={m365.clientId ?? ""}
                 onChange={(e) => updateM365({ clientId: e.target.value })}
                 placeholder={t(lang, "integrationsM365ClientIdPlaceholder")}
-                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-1 w-full"
               />
             </label>
           )}
@@ -302,12 +302,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 {t(lang, "integrationsM365TenantId")}
                 <InfoTooltip text={t(lang, "integrationsM365TenantIdTooltip")} />
               </span>
-              <input
+              <Input
+                size="xs"
                 type="text"
                 value={m365.tenantId ?? ""}
                 onChange={(e) => updateM365({ tenantId: e.target.value })}
                 placeholder={t(lang, "integrationsM365TenantIdPlaceholder")}
-                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-1 w-full"
               />
             </label>
           )}
@@ -450,12 +451,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 {t(lang, "integrationsTursoUrl")}
                 <InfoTooltip text={t(lang, "integrationsTursoUrlTooltip")} />
               </span>
-              <input
+              <Input
+                size="xs"
                 type="text"
                 value={turso.databaseUrl ?? ""}
                 onChange={(e) => updateTurso({ databaseUrl: e.target.value })}
                 placeholder={t(lang, "integrationsTursoUrlPlaceholder")}
-                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-1 w-full"
               />
               {isLikelyRegionQualifiedTursoUrl(turso.databaseUrl ?? "") && (
                 <Banner severity="error" className="mt-1">
@@ -470,12 +472,13 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 {t(lang, "integrationsTursoToken")}
                 <InfoTooltip text={t(lang, "integrationsTursoTokenTooltip")} />
               </span>
-              <input
+              <Input
+                size="xs"
                 type="password"
                 value={turso.authToken ?? ""}
                 onChange={(e) => handleAuthTokenChange(e.target.value)}
                 placeholder={t(lang, "integrationsTursoTokenPlaceholder")}
-                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-1 w-full"
               />
               <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
             </label>
@@ -492,23 +495,25 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               </label>
               {tokenWrap === "passphrase" && (
                 <div className="mt-2 flex flex-col gap-2">
-                  <input
+                  <Input
+                    size="xs"
                     type="password"
                     autoComplete="off"
                     aria-label={t(lang, "secretPassphrasePlaceholder")}
                     placeholder={t(lang, "secretPassphrasePlaceholder")}
                     value={tokenPassphrase}
                     onChange={(e) => setTokenPassphrase(e.target.value)}
-                    className={`w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                    className="w-full"
                   />
-                  <input
+                  <Input
+                    size="xs"
                     type="password"
                     autoComplete="off"
                     aria-label={t(lang, "secretPassphraseConfirm")}
                     placeholder={t(lang, "secretPassphraseConfirm")}
                     value={tokenConfirm}
                     onChange={(e) => setTokenConfirm(e.target.value)}
-                    className={`w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                    className="w-full"
                   />
                   {tokenPassphraseMismatch && (
                     <Banner severity="error">{t(lang, "secretPassphraseMismatch")}</Banner>
@@ -563,16 +568,17 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
             </FieldHint>
             <label className="mt-2 block text-xs">
               <span className="text-muted-foreground">{t(lang, "snapshotCadenceLabel")}</span>
-              <select
+              <Select
+                size="xs"
                 aria-label={t(lang, "snapshotCadenceLabel")}
                 value={snapshots.cadence}
                 onChange={(e) => updateSnapshots({ cadence: e.target.value as SnapshotCadence })}
-                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-1 w-full"
               >
                 <option value="weekly">{t(lang, "snapshotCadenceWeekly")}</option>
                 <option value="daily">{t(lang, "snapshotCadenceDaily")}</option>
                 <option value="monthly">{t(lang, "snapshotCadenceMonthly")}</option>
-              </select>
+              </Select>
             </label>
             {snapshots.enabled && !(envTursoUrlSet || turso.databaseUrl) && (
               <Banner severity="error" className="mt-1">{t(lang, "snapshotConfigIncomplete")}</Banner>
@@ -584,17 +590,18 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 {t(lang, "portfolioModeLabel")}
               </span>
-              <select
+              <Select
+                size="xs"
                 aria-label={t(lang, "portfolioModeLabel")}
                 value={pendingMode}
                 onChange={(e) => setPendingMode(e.target.value as PortfolioMode)}
-                className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
+                className="mt-1 w-full"
               >
                 <option value="file">{t(lang, "portfolioModeFile")}</option>
                 <option value="turso" disabled={!tursoConfigured}>
                   {t(lang, "portfolioModeTurso")}
                 </option>
-              </select>
+              </Select>
             </label>
             <FieldHint className="mt-1">{t(lang, "portfolioModeHelp")}</FieldHint>
             {!tursoConfigured && (
@@ -634,7 +641,8 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         </label>
         <label className="mt-2 block text-xs">
           <span className="text-muted-foreground">{t(lang, "digestCadenceLabel")}</span>
-          <select
+          <Select
+            size="xs"
             aria-label={t(lang, "digestCadenceLabel")}
             value={settings.digest?.cadenceDays ?? 7}
             onChange={(e) =>
@@ -643,12 +651,12 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 digest: { enabled: settings.digest?.enabled ?? false, cadenceDays: Number(e.target.value) },
               })
             }
-            className={`mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            className="mt-1 w-full"
           >
             <option value={7}>{t(lang, "digestCadenceWeekly")}</option>
             <option value={14}>{t(lang, "digestCadenceBiweekly")}</option>
             <option value={30}>{t(lang, "digestCadenceMonthly")}</option>
-          </select>
+          </Select>
         </label>
       </div>
       <TimelogSettings

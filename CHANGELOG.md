@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.29] - 2026-07-18 "Pinsker"
+
+### Changed
+
+Design-system **form-field sweep (2 of 3)** — Settings surfaces. Migrated the hand-rolled `<input>`/`<select>`/`<textarea>` fields across 14 settings files to the shared `Input`/`Select`/`Textarea` primitives:
+
+- settings-sections: ai, appearance, comm-templates, dictation, general, integrations, localization, mode, next-actions, scheduled-jobs, templates, timezone.
+- top-level: storage-config, timelog-settings.
+- Compact fields normalized to `size="xs"` (minor text-size tightening); width kept per-caller; error-state fields (SharePoint URL) now wire `invalid` for the pink semantic ring. Local `inputClass`/`INPUT_CLASS`/`field` consts + orphaned imports removed.
+- Left as-is: `jira-settings`/`budget-bucket`/`bulk-edit`/`project-form-fields` (already single-sourced via `fieldClass()`), checkboxes/radios (Checkbox), SegmentedControl, PaneSearchInput.
+
+Panels/modals (3/3) follows.
+
 ## [0.190.28] - 2026-07-18 "Pinsker"
 
 ### Changed

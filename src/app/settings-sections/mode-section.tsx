@@ -15,8 +15,8 @@ import {
   VERSION_RETENTION_STEP,
   sanitizeVersionRetention,
 } from "../version-history";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
-import { Checkbox } from "../form-controls";
+import { INTERACTIVE } from "../interaction-styles";
+import { Checkbox, Input } from "../form-controls";
 import { FieldHint } from "../field-hint";
 
 interface ModeSectionProps {
@@ -129,7 +129,8 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
       <div className="border-t border-line pt-4">
         <label className="flex items-center gap-2 text-sm text-foreground">
           <span className="font-medium">{t(lang, "versionRetentionLabel")}</span>
-          <input
+          <Input
+            size="xs"
             type="number"
             min={MIN_VERSION_RETENTION}
             max={MAX_VERSION_RETENTION}
@@ -142,7 +143,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
                 versionHistoryRetention: sanitizeVersionRetention(e.target.value),
               })
             }
-            className={`w-20 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+            className="w-20 text-right tabular-nums"
           />
           <span className="text-xs text-muted-foreground">{t(lang, "versionRetentionUnit")}</span>
         </label>

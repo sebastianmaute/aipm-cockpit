@@ -6,6 +6,7 @@ import type { Settings } from "../settings-types";
 import { browserTimeZone, isValidTimeZone, tzZones } from "../timezone";
 import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { Button } from "../button";
+import { Select } from "../form-controls";
 import { RemovableChipRow } from "./removable-chip-row";
 import { FieldHint } from "../field-hint";
 
@@ -45,11 +46,11 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
         <span className="mb-1 block text-sm font-medium text-foreground">
           {t(lang, "tzDefaultLabel")}
         </span>
-        <select
+        <Select
+          className="w-full"
           value={settings.timezone ?? ""}
           aria-label={t(lang, "tzDefaultLabel")}
           onChange={(e) => setDefault(e.target.value)}
-          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="">{`${t(lang, "tzSystemDefault")} (${browserTimeZone()})`}</option>
           {zones.map((z) => (
@@ -57,7 +58,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
               {z}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <div>
@@ -65,11 +66,11 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
           {t(lang, "tzAdditionalLabel")}
         </span>
         <div className="flex gap-2">
-          <select
+          <Select
+            className="min-w-0 flex-1"
             value={pending}
             aria-label={t(lang, "tzAddLabel")}
             onChange={(e) => setPending(e.target.value)}
-            className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
           >
             <option value="">{t(lang, "tzAddLabel")}</option>
             {zones
@@ -79,7 +80,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
                   {z}
                 </option>
               ))}
-          </select>
+          </Select>
           <Button
             variant="primary"
             size="sm"

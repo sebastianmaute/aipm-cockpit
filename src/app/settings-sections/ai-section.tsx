@@ -18,8 +18,8 @@ import type { AppMode, FeatureModuleId } from "../feature-modules";
 import { allNavViews, navLabelKey, type AppView } from "../nav-config";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
-import { Checkbox, Input, Select } from "../form-controls";
+import { INTERACTIVE } from "../interaction-styles";
+import { Checkbox, Input, Select, Textarea } from "../form-controls";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
 import { useConfirm } from "../confirm-dialog";
 import { useToastContext } from "../toast-context";
@@ -64,7 +64,7 @@ function CapInput({
         {label}
         {hint ? <InfoTooltip text={hint} /> : null}
       </span>
-      <input
+      <Input
         type="number"
         aria-label={label}
         min={min}
@@ -81,7 +81,7 @@ function CapInput({
           // spinner hints; a typed value ignores them).
           onChange(Math.min(max ?? Infinity, Math.max(min, n)));
         }}
-        className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+        className="w-full"
       />
     </div>
   );
@@ -157,26 +157,29 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
     <div className="mt-2 flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
       <label className="block">
         <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiGuideName")}</span>
-        <input
+        <Input
           type="text"
+          size="xs"
           value={draft.name}
           onChange={(e) => onChange({ ...draft, name: e.target.value })}
-          className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+          className="w-full"
         />
       </label>
       <label className="block">
         <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiGuideContent")}</span>
-        <textarea
+        <Textarea
           value={draft.content}
           rows={6}
+          size="xs"
           onChange={(e) => onChange({ ...draft, content: e.target.value })}
-          className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+          className="w-full"
         />
       </label>
       <label className="block">
         <span className="mb-1 block text-xs text-muted-foreground">{t(lang, "aiGuidePriority")}</span>
-        <input
+        <Input
           type="number"
+          size="xs"
           min={1}
           step={1}
           value={draft.priority}
@@ -184,7 +187,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
             const n = parseInt(e.target.value, 10);
             onChange({ ...draft, priority: Number.isFinite(n) && n > 0 ? n : draft.priority });
           }}
-          className={`w-24 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+          className="w-24"
         />
       </label>
       <fieldset>

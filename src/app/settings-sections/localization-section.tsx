@@ -6,8 +6,8 @@ import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { EmptyState } from "../empty-state";
-import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { Button } from "../button";
+import { Select } from "../form-controls";
 import { RemovableChipRow } from "./removable-chip-row";
 
 interface LocalizationSectionProps {
@@ -52,17 +52,17 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
           {t(lang, "language")}
           <InfoTooltip text={t(lang, "languageTooltip")} />
         </span>
-        <select
+        <Select
+          className="w-full"
           value={settings.language}
           onChange={(e) =>
             onChange({ ...settings, language: e.target.value as Lang })
           }
-          className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="en-US">English (US)</option>
           <option value="en-GB">English (UK)</option>
           <option value="de">Deutsch</option>
-        </select>
+        </Select>
       </label>
 
       <div>
@@ -71,10 +71,10 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
           <InfoTooltip text={t(lang, "holidayCountriesTooltip")} />
         </span>
         <div className="flex gap-2">
-          <select
+          <Select
+            className="min-w-0 flex-1"
             value={pending}
             onChange={(e) => setPending(e.target.value)}
-            className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
           >
             <option value="">{t(lang, "selectCountry")}</option>
             {available.map((c) => (
@@ -82,7 +82,7 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
                 {lang === "de" ? c.nameDe : c.nameEn}
               </option>
             ))}
-          </select>
+          </Select>
           <Button
             variant="primary"
             size="sm"

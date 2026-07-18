@@ -14,7 +14,8 @@ import { isAiEnabled, type Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
 import type { JobCadence, ScheduledJob } from "../scheduled-jobs/types";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { INTERACTIVE } from "../interaction-styles";
+import { Input, Select } from "../form-controls";
 
 export interface ScheduledJobsSectionProps {
   lang: Lang;
@@ -22,9 +23,6 @@ export interface ScheduledJobsSectionProps {
   onChange: (s: Settings) => void;
   config: TursoConfig | null;
 }
-
-const INPUT_CLASS =
-  `rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`;
 
 // Weekday short labels by index (0=Sun..6=Sat), reusing the existing shift keys.
 const WEEKDAY_KEYS: TranslationKey[] = [
@@ -82,12 +80,13 @@ function JobRow({
   return (
     <li className="flex flex-col gap-2 rounded-md border border-line bg-surface p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <input
+        <Input
+          size="xs"
           type="text"
           value={job.name}
           aria-label={`${t(lang, "scheduledJobName")} – ${job.name}`}
           onChange={(e) => onUpdate(job.id, { name: e.target.value })}
-          className={`flex-1 ${INPUT_CLASS}`}
+          className="flex-1"
         />
 
         <label className="flex items-center gap-1 text-xs text-foreground">
@@ -112,42 +111,42 @@ function JobRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
+          size="xs"
           value={cadence.kind}
           aria-label={`${t(lang, "scheduledJobsTitle")} – ${job.name}`}
           onChange={(e) => setCadenceKind(e.target.value as JobCadence["kind"])}
-          className={INPUT_CLASS}
         >
           <option value="daily">{t(lang, "cadenceDaily")}</option>
           <option value="weekly">{t(lang, "cadenceWeekly")}</option>
-        </select>
+        </Select>
 
         <label className="flex items-center gap-1 text-xs text-foreground">
           <span>{t(lang, "cadenceTime")}</span>
-          <input
+          <Input
+            size="xs"
             type="time"
             value={cadence.timeOfDay}
             aria-label={`${t(lang, "cadenceTime")} – ${job.name}`}
             onChange={(e) => setTime(e.target.value)}
-            className={INPUT_CLASS}
           />
         </label>
 
         {cadence.kind === "weekly" && (
           <label className="flex items-center gap-1 text-xs text-foreground">
             <span>{t(lang, "cadenceDay")}</span>
-            <select
+            <Select
+              size="xs"
               value={cadence.dayOfWeek}
               aria-label={`${t(lang, "cadenceDay")} – ${job.name}`}
               onChange={(e) => setDay(Number(e.target.value))}
-              className={INPUT_CLASS}
             >
               {WEEKDAY_KEYS.map((key, idx) => (
                 <option key={key} value={idx}>
                   {t(lang, key)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
       </div>

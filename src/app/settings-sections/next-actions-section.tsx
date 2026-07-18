@@ -18,7 +18,8 @@ import { InfoTooltip } from "../info-tooltip";
 import { useConfirm } from "../confirm-dialog";
 import { useWeightSuggestions } from "../use-weight-suggestions";
 import { applyWeightSuggestion, type SuggestionScope, type WeightSuggestion } from "../next-actions-tuning";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { INTERACTIVE } from "../interaction-styles";
+import { Input, Select } from "../form-controls";
 
 interface NextActionsSectionProps {
   lang: Lang;
@@ -213,7 +214,8 @@ export function NextActionsSection({
                   </button>
                 </span>
               )}
-              <input
+              <Input
+                size="xs"
                 type="number"
                 min={f.min ?? (f.kind === "ratio" ? 0.1 : 1)}
                 max={f.kind === "ratio" ? 2 : 100000}
@@ -226,7 +228,7 @@ export function NextActionsSection({
                   const next = f.kind === "ratio" ? raw : Math.round(raw);
                   patch({ [f.key]: next } as Partial<NextActionsConfig>);
                 }}
-                className={`w-24 rounded-md border border-line px-2 py-1 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+                className="w-24 text-right tabular-nums"
               />
             </span>
           </label>
@@ -270,20 +272,20 @@ export function NextActionsSection({
 
           <label className="mb-2 flex items-center justify-between gap-2 text-sm text-foreground">
             <span>{t(lang, "settingsLearningStore")}</span>
-            <select
+            <Select
+              size="xs"
               aria-label={t(lang, "settingsLearningStore")}
               value={learningConfig.store}
               onChange={(e) =>
                 onChangeLearningConfig({ ...learningConfig, store: e.target.value as LearningStoreKind })
               }
-              className={`rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
             >
               {LEARNING_STORE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {t(lang, o.labelKey)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
           <div className="mt-2 flex flex-wrap gap-2">

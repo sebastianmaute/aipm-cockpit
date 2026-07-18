@@ -8,8 +8,9 @@ import { InfoTooltip } from "../info-tooltip";
 import { FieldHint } from "../field-hint";
 import { saveSecretValue } from "../use-secrets";
 import { loadSealed, removeSealed } from "../secrets-store";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { INTERACTIVE } from "../interaction-styles";
 import { eventToCombo, eventComboFromMouse, mouseButtonToToken } from "../dictation-hotkey";
+import { Input } from "../form-controls";
 
 const IGNORED_MODIFIER_KEYS = ["Control", "Shift", "Alt", "Meta"];
 
@@ -101,25 +102,25 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
             <span className="mb-1 block text-xs text-muted-foreground">
               {t(lang, "dictationSttBaseUrl")}
             </span>
-            <input
+            <Input
               type="text"
+              className="w-full"
               aria-label={t(lang, "dictationSttBaseUrl")}
               value={dictation?.sttBaseUrl ?? ""}
               onChange={(e) => setDictation({ sttBaseUrl: e.target.value })}
-              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs text-muted-foreground">
               {t(lang, "dictationSttModel")}
             </span>
-            <input
+            <Input
               type="text"
+              className="w-full"
               aria-label={t(lang, "dictationSttModel")}
               placeholder="whisper-1"
               value={dictation?.sttModel ?? ""}
               onChange={(e) => setDictation({ sttModel: e.target.value })}
-              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           <label className="block">
@@ -127,14 +128,14 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
               {t(lang, "dictationSttKey")}
               <InfoTooltip text={t(lang, "dictationSttNote")} />
             </span>
-            <input
+            <Input
               type="password"
+              className="w-full"
               autoComplete="off"
               aria-label={t(lang, "dictationSttKey")}
               value={dictation?.sttApiKey ?? ""}
               onChange={(e) => handleSttKeyChange(e.target.value)}
               onBlur={handleSttKeyBlur}
-              className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
           <FieldHint>{t(lang, "dictationSttNote")}</FieldHint>
