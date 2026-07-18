@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { Checkbox } from "./form-controls";
-import { Modal } from "./modal";
+import { Modal, MODAL_BACKDROP_CLASS } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useConfirm } from "./confirm-dialog";
@@ -32,6 +32,14 @@ interface EditModalShellProps {
   onDragReset: () => void;
   /** localStorage key for the persisted panel size (see `useResizable`). */
   sizeKey: string;
+  /** Panel alignment. Default "center"; "start" (top-aligned) for tall modals
+   *  (raid) that pair with `backdropScroll`. */
+  align?: "start" | "center";
+  /** Let the backdrop scroll when the panel exceeds the viewport (tall modals). */
+  backdropScroll?: boolean;
+  /** Extra panel classes appended after the shared panel chrome (e.g. a
+   *  `max-h-[95vh]` cap on a tall start-aligned modal). */
+  panelClassName?: string;
   children: ReactNode;
 }
 
@@ -52,6 +60,9 @@ export function EditModalShell({
   dragHandleProps,
   onDragReset,
   sizeKey,
+  align = "center",
+  backdropScroll = false,
+  panelClassName,
   children,
 }: EditModalShellProps) {
   const { ref: sizeRef, reset: sizeReset } = useResizable(sizeKey);
@@ -60,15 +71,16 @@ export function EditModalShell({
       open
       onClose={onClose}
       ariaLabel={title}
-      align="center"
-      backdropClassName="bg-AIPM-dark-blue/40"
+      align={align}
+      backdropScroll={backdropScroll}
+      backdropClassName={MODAL_BACKDROP_CLASS}
       zIndex={50}
     >
       <div
         ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex w-[720px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className={`relative flex w-[720px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface${panelClassName ? ` ${panelClassName}` : ""}`}
       >
         <ModalHeader
           lang={lang}
@@ -159,23 +171,35 @@ export function StakeholderChipPicker({
 
 interface ModalEditFooterProps {
   lang: Lang;
-  /** Delete button: branded `useConfirm()` gate, then `onDelete`. */
+  /** Delete button. If `deleteConfirmKey` is set it is gated behind a branded
+   *  `useConfirm()`; otherwise it fires `onDelete` immediately (caller
+   *  pre-confirms or none needed). */
   onDelete: () => void;
-  deleteConfirmKey: TranslationKey;
-  deleteLabelKey: TranslationKey;
+  /** When set, delete goes through `useConfirm({ message })`. */
+  deleteConfirmKey?: TranslationKey;
+  /** Visible delete label. Default `"delete"`. */
+  deleteLabelKey?: TranslationKey;
   /** Row-unique accessible name where the visible label collides (a11y). */
   deleteAriaLabelKey?: TranslationKey;
-  /** New item can't be deleted. */
-  deleteDisabled: boolean;
+  /** Hide the delete button entirely (e.g. a new item that can't be deleted).
+   *  Takes precedence over `deleteDisabled`. */
+  hideDelete?: boolean;
+  /** Render delete but disabled (new item, when the modal shows it greyed). */
+  deleteDisabled?: boolean;
   onCancel: () => void;
-  saveDisabled: boolean;
-  saveLabelKey: TranslationKey;
+  saveDisabled?: boolean;
+  /** Save label. Default `"raidSave"` (the generic "Save"). */
+  saveLabelKey?: TranslationKey;
+  /** Extra actions rendered in the left group, after delete (raid: an
+   *  InfoTooltip + a conditional "Send inquiry" button). */
+  middle?: ReactNode;
 }
 
 /**
  * The bordered footer with a destructive delete on the left and cancel + submit
- * on the right (change + stakeholder edit modals). The submit is a native
- * `type="submit"` — the caller's `<form onSubmit>` handles it.
+ * on the right (all entity edit modals). The submit is a native `type="submit"`
+ * — the caller's `<form onSubmit>` handles it. `middle` slots extra left-group
+ * actions in for the raid modal (which formerly hand-rolled its own footer).
  */
 export function ModalEditFooter({
   lang,
@@ -183,26 +207,35 @@ export function ModalEditFooter({
   deleteConfirmKey,
   deleteLabelKey,
   deleteAriaLabelKey,
-  deleteDisabled,
+  hideDelete = false,
+  deleteDisabled = false,
   onCancel,
-  saveDisabled,
-  saveLabelKey,
+  saveDisabled = false,
+  saveLabelKey = "raidSave",
+  middle,
 }: ModalEditFooterProps) {
   const confirm = useConfirm();
   return (
     <footer className="flex items-center justify-between gap-2 border-t border-line pt-3 sm:col-span-2">
-      <div>
-        <button
-          type="button"
-          onClick={async () => {
-            if (await confirm({ message: t(lang, deleteConfirmKey) })) onDelete();
-          }}
-          disabled={deleteDisabled}
-          aria-label={deleteAriaLabelKey ? t(lang, deleteAriaLabelKey) : undefined}
-          className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 ${INTERACTIVE}`}
-        >
-          {t(lang, deleteLabelKey)}
-        </button>
+      <div className="flex items-center gap-2">
+        {!hideDelete && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (deleteConfirmKey) {
+                if (await confirm({ message: t(lang, deleteConfirmKey) })) onDelete();
+              } else {
+                onDelete();
+              }
+            }}
+            disabled={deleteDisabled}
+            aria-label={deleteAriaLabelKey ? t(lang, deleteAriaLabelKey) : undefined}
+            className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 ${INTERACTIVE}`}
+          >
+            {t(lang, deleteLabelKey ?? "delete")}
+          </button>
+        )}
+        {middle}
       </div>
       <div className="flex items-center gap-2">
         <button

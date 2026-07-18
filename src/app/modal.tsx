@@ -39,6 +39,12 @@ import { type Lang } from "./i18n";
 // otherwise close BOTH and discard the underlying draft.
 const modalStack: symbol[] = [];
 
+/** Canonical modal backdrop tint — the AIPM dark-blue scrim every modal shares.
+ *  `Modal` defaults to it; hand-rolled overlays (popovers that can't use `Modal`)
+ *  import it so the whole app dims consistently. Emphasis tiers (confirm/empty)
+ *  intentionally use a stronger variant and are not folded onto this. */
+export const MODAL_BACKDROP_CLASS = "bg-AIPM-dark-blue/40";
+
 // Standard "focusable element" selector. Excludes negative-tabindex (which
 // the dialog root itself uses) and disabled inputs/buttons/etc.
 const FOCUSABLE_SELECTOR = [
@@ -61,6 +67,10 @@ interface BaseProps {
   backdropClassName?: string;
   /** Vertical alignment of the panel within the viewport. */
   align?: "start" | "center";
+  /** Let the backdrop scroll when a tall panel exceeds the viewport (used by
+   *  start-aligned edit modals whose panel can be taller than the screen).
+   *  Default off so centered modals are unchanged. */
+  backdropScroll?: boolean;
   /** Override the z-index. Default 40 matches the existing app shell. */
   zIndex?: number;
   /** Optional element to focus when the modal opens. Falls back to the
@@ -84,8 +94,9 @@ export function Modal({
   onClose,
   ariaLabel,
   ariaLabelledby,
-  backdropClassName = "bg-AIPM-dark-blue/40",
+  backdropClassName = MODAL_BACKDROP_CLASS,
   align = "start",
+  backdropScroll = false,
   zIndex = 40,
   initialFocusRef,
   children,
@@ -222,7 +233,7 @@ export function Modal({
       }}
       className={`fixed inset-0 flex ${
         align === "center" ? "items-center" : "items-start"
-      } justify-center p-4 sm:p-10 ${backdropClassName}`}
+      } justify-center ${backdropScroll ? "overflow-y-auto " : ""}p-4 sm:p-10 ${backdropClassName}`}
       style={{ zIndex }}
     >
       {children}

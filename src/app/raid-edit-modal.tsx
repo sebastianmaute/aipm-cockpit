@@ -9,11 +9,7 @@
 // draft state and passes it down with change callbacks.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useEscapeKey } from "./use-escape-key";
-import { ModalFieldControls } from "./modal-field-controls";
-import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
-import { useResizable } from "./use-resizable";
 import { useModalVisibility } from "./use-modal-visibility";
 import { SegmentedControl } from "./segmented-control";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
@@ -48,7 +44,7 @@ import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
+import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useAutogrow } from "./use-autogrow";
@@ -133,7 +129,6 @@ export function RaidEditModal({
   useAutogrow(descriptionRef, draft.description ?? "");
   useAutogrow(mitigationRef, draft.mitigation ?? "");
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:raid-edit");
-  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:raid-edit");
   // Category is locked after creation by default (changing it can lose
   // status / matrix data). Users can unlock it with the inline "Advanced"
   // affordance. Re-locks whenever the user navigates to a different item.
@@ -143,8 +138,6 @@ export function RaidEditModal({
     setPrevDraftId(draft.id);
     setCategoryUnlocked(false);
   }
-
-  useEscapeKey(onCancel);
 
   const statusOpts = statusOptionsFor(draft.category);
 
@@ -258,36 +251,20 @@ export function RaidEditModal({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={
-        isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)
-      }
-      className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-AIPM-dark-blue/40 p-4 sm:p-10"
-      onClick={onCancel}
+    <EditModalShell
+      lang={lang}
+      title={isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)}
+      modalId="raid"
+      onClose={onCancel}
+      onSubmit={handleSubmit}
+      offset={offset}
+      dragHandleProps={handleProps}
+      onDragReset={dragReset}
+      sizeKey="aipm-cockpit:modal-size:raid-edit"
+      align="start"
+      backdropScroll
+      panelClassName="max-h-[95vh]"
     >
-      <div
-        ref={sizeRef}
-        data-modal-panel
-        onClick={(e) => e.stopPropagation()}
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex max-h-[95vh] w-[720px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
-      >
-        <ModalHeader
-          lang={lang}
-          title={isNew ? t(lang, "raidNewItem") : t(lang, "raidEditItem", draft.id)}
-          onClose={onCancel}
-          dragHandleProps={handleProps}
-          onResetLayout={() => {
-            dragReset();
-            sizeReset();
-          }}
-        />
-
-        <ModalFieldControls modalId="raid" lang={lang} />
-
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
           {isVisible("category") && (
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex flex-col gap-1">
@@ -661,8 +638,6 @@ export function RaidEditModal({
               </button>
             </div>
           </div>
-        </form>
-      </div>
-    </div>
+    </EditModalShell>
   );
 }

@@ -17,6 +17,7 @@ import {
 } from "../version-history";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 import { Checkbox } from "../form-controls";
+import { FieldHint } from "../field-hint";
 
 interface ModeSectionProps {
   lang: Lang;
@@ -110,9 +111,9 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
                 {t(lang, m.labelKey)}
               </label>
               {m.descKey && (
-                <span id={`${idBase}-desc-${m.id}`} className="text-xs text-muted-foreground">
+                <FieldHint as="span" id={`${idBase}-desc-${m.id}`}>
                   {t(lang, m.descKey)}
-                </span>
+                </FieldHint>
               )}
             </span>
           </div>
@@ -145,7 +146,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
           />
           <span className="text-xs text-muted-foreground">{t(lang, "versionRetentionUnit")}</span>
         </label>
-        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "versionRetentionHelp")}</p>
+        <FieldHint className="mt-1">{t(lang, "versionRetentionHelp")}</FieldHint>
       </div>
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-4">

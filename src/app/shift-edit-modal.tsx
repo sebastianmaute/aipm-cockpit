@@ -10,10 +10,9 @@
 
 import { useId, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { ModalFieldError } from "./edit-modal-chrome";
+import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { ModalEditFooter } from "./modal-edit-fields";
 import { ResourcePicker } from "./resource-picker";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
@@ -279,10 +278,10 @@ export function ShiftEditModal({
 
           <ModalEditFooter
             lang={lang}
-            isNew={isNew}
+            hideDelete={isNew}
             onDelete={handleDeleteClick}
-            onClose={onClose}
-            saveLabel={t(lang, "shiftSave")}
+            onCancel={onClose}
+            saveLabelKey="shiftSave"
           />
         </form>
       </div>

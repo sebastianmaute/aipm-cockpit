@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "../i18n";
+import { FieldHint } from "../field-hint";
 import { isAiEnabled, type Settings } from "../settings-types";
 import type { TursoConfig } from "../turso-config";
 import { useScheduledJobs } from "../use-scheduled-jobs";
@@ -220,7 +221,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
     <div className="flex flex-col gap-3">
       <div>
         <p className="text-sm font-medium text-foreground">{t(lang, "scheduledJobsTitle")}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "scheduledJobsHelp")}</p>
+        <FieldHint className="mt-1">{t(lang, "scheduledJobsHelp")}</FieldHint>
       </div>
 
       {!hasKey ? (
@@ -238,7 +239,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
             />
             <span className="text-xs text-foreground">{t(lang, "scheduledJobsToggle")}</span>
           </label>
-          <p className="text-xs text-muted-foreground">{t(lang, "scheduledJobsCostNote")}</p>
+          <FieldHint>{t(lang, "scheduledJobsCostNote")}</FieldHint>
 
           {enabled && (
             <>
@@ -264,7 +265,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                 {t(lang, "scheduledJobsAdd")}
               </button>
 
-              <p className="text-xs text-muted-foreground">{t(lang, "scheduledJobsBgNote")}</p>
+              <FieldHint>{t(lang, "scheduledJobsBgNote")}</FieldHint>
             </>
           )}
         </>

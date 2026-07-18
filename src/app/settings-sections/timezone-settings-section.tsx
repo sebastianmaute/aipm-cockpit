@@ -6,6 +6,7 @@ import type { Settings } from "../settings-types";
 import { browserTimeZone, isValidTimeZone, tzZones } from "../timezone";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 import { RemovableChipRow } from "./removable-chip-row";
+import { FieldHint } from "../field-hint";
 
 interface TimezoneSettingsSectionProps {
   lang: Lang;
@@ -112,7 +113,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
           />
           {t(lang, "tzShowSwitcher")}
         </label>
-        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "tzShowSwitcherHint")}</p>
+        <FieldHint className="mt-1">{t(lang, "tzShowSwitcherHint")}</FieldHint>
       </div>
     </>
   );

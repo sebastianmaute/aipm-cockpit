@@ -8,6 +8,21 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.21] - 2026-07-18 "Pinsker"
+
+Design-system dedup (Phases 3i + 3j).
+
+### Changed
+- Static help text under settings and form fields now renders through one shared
+  building block, so hints read identically everywhere. No visual change.
+- All entity edit modals (Absence, Shift, Resource, Milestone, Change, Stakeholder,
+  RAID) now share one footer with a consistent Delete / Cancel / Save layout; a
+  duplicate footer implementation was removed.
+- The RAID edit modal now uses the same shared modal frame as the other edit
+  dialogs, so it gains proper focus-trapping and focus-restore on close. Its layout
+  and controls are unchanged.
+- Modal backdrops now come from one shared value, keeping the overlay tint uniform.
+
 ## [0.190.20] - 2026-07-18 "Pinsker"
 
 Design-system dedup (Phases 3g + 3h).

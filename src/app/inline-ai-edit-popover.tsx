@@ -5,6 +5,7 @@ import { FieldError } from "./field-feedback";
 import { type EditPlan } from "./inline-ai-edit/plan";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
+import { MODAL_BACKDROP_CLASS } from "./modal";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export interface InlineAiEditPopoverProps {
@@ -51,7 +52,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
   const busy = phase === "thinking" || phase === "applying";
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-AIPM-dark-blue/40 p-4">
+    <div className={`fixed inset-0 z-[70] flex items-center justify-center ${MODAL_BACKDROP_CLASS} p-4`}>
       <div
         ref={ref}
         role="dialog"

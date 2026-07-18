@@ -1,6 +1,7 @@
 "use client";
 
 import { type Lang, t } from "../i18n";
+import { FieldHint } from "../field-hint";
 import { NodeGraph } from "../node-graph";
 import type { NodeGraphNode, NodeGraphEdge, NodeGraphZone } from "../node-graph-layout";
 
@@ -89,7 +90,7 @@ export function InformationFlowsSection({ lang, maxWidth = 480 }: InformationFlo
 
   return (
     <div className="mb-4">
-      <p className="mb-4 text-xs text-muted-foreground">{t(lang, "infoFlowsIntro")}</p>
+      <FieldHint className="mb-4">{t(lang, "infoFlowsIntro")}</FieldHint>
 
       <NodeGraph
         viewBox={{ w: 480, h: 300 }}

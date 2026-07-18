@@ -10,6 +10,7 @@ import { resourceDisplayName } from "../resource-foundation";
 import type { Theme } from "../theme";
 import { useTheme } from "../use-theme";
 import { InfoTooltip } from "../info-tooltip";
+import { FieldHint } from "../field-hint";
 import { useColorSchemes } from "../use-color-schemes";
 import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { ColorSchemeEditor } from "../color-scheme-editor";
@@ -120,9 +121,9 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
           onChange={setTheme}
         />
         {pinsLight && (
-          <p className="mt-1 text-xs text-muted-foreground">
+          <FieldHint className="mt-1">
             {t(lang, isMockupActive ? "styleMockupLightOnly" : "styleCustomLightOnly")}
-          </p>
+          </FieldHint>
         )}
       </div>
 
