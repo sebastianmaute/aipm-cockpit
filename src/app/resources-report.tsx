@@ -8,7 +8,7 @@ import { formatCurrency } from "./resource-cost";
 import type { Absence, Discipline, Grade, Resource, ResourcePlan, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import {
   ReportCard,
   Section,
@@ -222,8 +222,9 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
   return (
     <Section title={t(lang, "resourcesReportByPeriod")}>
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable
+          className="min-w-full text-left text-sm"
+          head={
             <tr>
               <SortResizeTh label={t(lang, "resourcesReportByPeriod")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "resourcesCapacityDays")} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
@@ -231,8 +232,9 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
               <SortResizeTh label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "resourcesMargin")} sortCol="margin" width={w.margin} align="right" hint={t(lang, "resourcesMarginHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          }
+          tbodyClassName="divide-y divide-line"
+        >
             {sorted.map((p) => (
               <tr key={p.key}>
                 <td className="px-3 py-2 font-medium text-foreground">{p.key}</td>
@@ -247,8 +249,7 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
                 </td>
               </tr>
             ))}
-          </tbody>
-        </table>
+        </DataTable>
       </div>
     </Section>
   );
@@ -292,8 +293,9 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
     <Section title={title}>
       <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="reportsFilterLabel" />
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable
+          className="min-w-full text-left text-sm"
+          head={
             <tr>
               <SortResizeTh label={title} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "resourcesReportHeadcount")} sortCol="headcount" width={w.headcount} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
@@ -301,8 +303,9 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
               <SortResizeTh label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          }
+          tbodyClassName="divide-y divide-line"
+        >
             {sorted.map((row) => (
               <tr key={row.key}>
                 <td className="px-3 py-2 font-medium text-foreground">{row.label}</td>
@@ -312,8 +315,7 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
                 <td className="px-3 py-2 text-right tabular-nums">{money(row.external)}</td>
               </tr>
             ))}
-          </tbody>
-        </table>
+        </DataTable>
       </div>
     </Section>
   );
@@ -351,8 +353,9 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
     <Section title={t(lang, "resourcesReportByResource")}>
       <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="reportsFilterAssignee" />
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable
+          className="min-w-full text-left text-sm"
+          head={
             <tr>
               <SortResizeTh label={t(lang, "assignee")} sortCol="name" width={w.name} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "resourcesRole")} sortCol="role" width={w.role} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
@@ -361,8 +364,9 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
               <SortResizeTh label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          }
+          tbodyClassName="divide-y divide-line"
+        >
             {sorted.map((r) => (
               <tr key={r.id}>
                 <td className="px-3 py-2 font-medium text-foreground">{r.name}</td>
@@ -378,8 +382,7 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
                 <td className="px-3 py-2 text-right tabular-nums">{money(r.external)}</td>
               </tr>
             ))}
-          </tbody>
-        </table>
+        </DataTable>
       </div>
     </Section>
   );

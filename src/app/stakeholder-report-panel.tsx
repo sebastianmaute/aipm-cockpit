@@ -7,7 +7,7 @@
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { EmptyState } from "./empty-state";
 import { InfoTooltip } from "./info-tooltip";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import {
   quadrantFor,
   accountableCountByMilestone,
@@ -140,8 +140,9 @@ export function StakeholderReportPanel({
             <EmptyState compact title={t(lang, "raciNoMilestones")} />
           ) : (
             <div className="overflow-x-auto rounded-md border border-line">
-              <table className="min-w-full text-left text-sm">
-                <thead className={TABLE_HEAD_CLASS}>
+              <DataTable
+                className="min-w-full text-left text-sm"
+                head={
                   <tr>
                     <th className="px-3 py-2 font-medium">
                       {t(lang, "navMilestones")}
@@ -149,8 +150,9 @@ export function StakeholderReportPanel({
                     <th className="px-3 py-2 font-medium text-right">A</th>
                     <th className="px-3 py-2 font-medium">&nbsp;</th>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
+                }
+                tbodyClassName="divide-y divide-line"
+              >
                   {milestones.map((m) => {
                     const count = accountableCountByMilestone(
                       stakeholders,
@@ -178,8 +180,7 @@ export function StakeholderReportPanel({
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
+              </DataTable>
             </div>
           )}
         </div>
@@ -190,8 +191,9 @@ export function StakeholderReportPanel({
             {t(lang, "navStakeholders")}
           </h3>
           <div className="overflow-x-auto rounded-md border border-line">
-            <table className="min-w-full text-left text-sm">
-              <thead className={TABLE_HEAD_CLASS}>
+            <DataTable
+              className="min-w-full text-left text-sm"
+              head={
                 <tr>
                   <th className="px-3 py-2 font-medium">
                     {t(lang, "stakeholderFieldName")}
@@ -215,8 +217,9 @@ export function StakeholderReportPanel({
                     </span>
                   </th>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
+              }
+              tbodyClassName="divide-y divide-line"
+            >
                 {stakeholders.map((s) => (
                   <tr key={s.id}>
                     <td className="px-3 py-2 font-medium text-foreground">
@@ -236,8 +239,7 @@ export function StakeholderReportPanel({
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </DataTable>
           </div>
         </div>
       </div>

@@ -31,7 +31,7 @@ import { SegmentedControl } from "./segmented-control";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 import { useConfirm } from "./confirm-dialog";
@@ -249,8 +249,10 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto pr-2">
-          <table className="w-full text-left text-sm">
-            <thead className={TABLE_HEAD_CLASS}>
+          <DataTable
+            className="w-full text-left text-sm"
+            tbodyClassName="divide-y divide-line"
+            head={<>
               <tr>
                 <th
                   className="relative px-3 py-2 font-medium"
@@ -298,8 +300,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   <ColumnResizeHandle col="message" onMouseDown={startResize} />
                 </th>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
+            </>}
+          >
               {visible.map(({ entry, message }) => (
                 <tr key={entry.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -330,8 +332,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+          </DataTable>
         </div>
       )}
     </section>

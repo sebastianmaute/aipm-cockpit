@@ -33,7 +33,7 @@ import {
 } from "./change-log";
 import { applyChangeStatus } from "./use-change-log";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import {
   CHANGE_STATUSES,
   CHANGE_TYPES,
@@ -459,8 +459,10 @@ function ChangePanelBody({
         )
       }
     >
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable
+          className="min-w-full text-left text-sm"
+          tbodyClassName="divide-y divide-line"
+          head={<>
             <tr>
               <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
                 <input
@@ -529,8 +531,8 @@ function ChangePanelBody({
               </th>
               )}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          </>}
+        >
             {visible.length === 0 && (
               <tr>
                 <td colSpan={1 + CHANGE_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length} className="p-10 text-center text-sm text-muted-foreground">
@@ -604,8 +606,7 @@ function ChangePanelBody({
                 </tr>
               );
             })}
-          </tbody>
-        </table>
+        </DataTable>
     </PanelTableScaffold>
   );
 }

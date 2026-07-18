@@ -16,7 +16,7 @@ import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
 import { PanelViewsControl } from "./panel-views-control";
 import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 import type { PanelFiltersState } from "./panel-views";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import {
   INFLUENCE_INTEREST_LEVELS,
   STAKEHOLDER_CATEGORIES,
@@ -353,8 +353,7 @@ function StakeholdersPanelBody({
         )
       }
     >
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
               <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
                 <input
@@ -481,8 +480,7 @@ function StakeholdersPanelBody({
               </th>
               )}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          </>} tbodyClassName="divide-y divide-line">
             {visible.length === 0 && (
               <tr>
                 <td colSpan={1 + STAKEHOLDER_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length} className="p-10 text-center text-sm text-muted-foreground">
@@ -562,8 +560,7 @@ function StakeholdersPanelBody({
                 </tr>
               );
             })}
-          </tbody>
-        </table>
+        </DataTable>
     </PanelTableScaffold>
   );
 }

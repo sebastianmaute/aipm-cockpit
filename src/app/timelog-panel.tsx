@@ -23,7 +23,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Spinner } from "./spinner";
 import { useConfirm } from "./confirm-dialog";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { Tile } from "./report-table";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
@@ -668,8 +668,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                 whole People section (heading toggle) is how a big org directory
                 is kept from burying Projects. */}
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className={TABLE_HEAD_CLASS}>
+              <DataTable className="w-full text-sm" head={<>
                   <tr>
                     <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.select, minWidth: colWidths.select }}>
                       <input
@@ -702,8 +701,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                       {t(lang, "remove")}
                     </th>
                   </tr>
-                </thead>
-                <tbody>
+              </>}>
                   {filteredUsers.map((u) => {
                     const link = effectiveUserLinks.find((l) => l.timelogUserId === u.userId);
                     const displayId = u.email || String(u.userId);
@@ -784,8 +782,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
+              </DataTable>
             </div>
           </>
         )}
@@ -829,16 +826,14 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           <p className="text-sm text-muted-foreground">{t(lang, "timelogMatchNone")}</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className={TABLE_HEAD_CLASS}>
+            <DataTable className="w-full text-sm" head={<>
                 <tr>
                   <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchProjects")}</th>
                   <th scope="col" className="px-2 py-1 text-left">{t(lang, "tabBudget")}</th>
                   <th scope="col" className="px-2 py-1 text-left">{t(lang, "status")}</th>
                   <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchClear")}</th>
                 </tr>
-              </thead>
-              <tbody>
+              </>}>
                 {knownProjectRefs.map((p) => {
                   const pLink = effectiveProjectLinks.find((l) => l.timelogProjectId === p.id);
                   const displayId = p.name;
@@ -889,8 +884,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
+            </DataTable>
           </div>
         )}
       </section>

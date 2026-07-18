@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TABLE_HEAD_CLASS } from "./table-styles";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { DataTable } from "./data-table";
 import { VIEW_PANE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { type Lang, t } from "./i18n";
 import {
@@ -204,8 +204,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
               <th className="px-3 py-2 font-medium">{t(lang, "navMilestones")}</th>
               {visibleStakeholders.map((s) => (
@@ -214,8 +213,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
                 </th>
               ))}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          </>} tbodyClassName="divide-y divide-line">
             {rows.map((row) => {
               const count = accountableCountByMilestone(stakeholders, row.milestone.id);
               const warning = raciWarningFor(count);
@@ -257,8 +255,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
                 </tr>
               );
             })}
-          </tbody>
-        </table>
+        </DataTable>
       </div>
 
       <RaciLegend lang={lang} />

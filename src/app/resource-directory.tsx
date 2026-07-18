@@ -18,7 +18,7 @@ import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, selectField, textField, type BulkField } from "./bulk-edit-panel";
 import { useConfirm } from "./confirm-dialog";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
 
@@ -285,8 +285,7 @@ function ResourceDirectoryInner({
         </div>
       ) : (
         <div className={INNER_TABLE_CLASS}>
-          <table className="w-full text-left text-sm">
-            <thead className={TABLE_HEAD_CLASS}>
+          <DataTable className="w-full text-left text-sm" head={<>
               <tr>
                 {bulkEnabled && (
                   <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
@@ -342,8 +341,7 @@ function ResourceDirectoryInner({
                   <ColumnResizeHandle col="birthday" onMouseDown={startColResize} />
                 </th>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
+            </>} tbodyClassName="divide-y divide-line">
               {rows.map((r) => (
                 <tr key={r.id} className="cursor-pointer align-middle hover:bg-surface-muted" onClick={() => onEditResource(r)}>
                   {bulkEnabled && (
@@ -404,8 +402,7 @@ function ResourceDirectoryInner({
                   <td className="px-3 py-2 text-muted-foreground" title={r.birthday ?? ""}>{r.birthday ?? "—"}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+          </DataTable>
         </div>
       )}
     </div>

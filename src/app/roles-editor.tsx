@@ -5,7 +5,7 @@ import { type Lang, t, localeFor } from "./i18n";
 import { currencySymbol } from "./resource-cost";
 import type { Discipline, Grade, Role } from "./types";
 import { ResetSizeButton, PrintButton } from "./task-manager-ui";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
@@ -188,8 +188,7 @@ export function RolesEditor({
         ) : (
           <>
           <div className={INNER_TABLE_CLASS}>
-          <table className="w-full text-left text-sm">
-            <thead className={TABLE_HEAD_CLASS}>
+          <DataTable className="w-full text-left text-sm" head={<>
               <tr>
                 <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.discipline, minWidth: ROLES_COL_WIDTHS.discipline }}>
                   <span className="inline-flex items-center gap-1">
@@ -243,8 +242,7 @@ export function RolesEditor({
                 </th>
                 <th className="px-3 py-2" />
               </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
+            </>} tbodyClassName="divide-y divide-line">
               {sortedRoles.map((r) => {
                 const disciplineName = disciplines.find((d) => d.id === r.disciplineId)?.name ?? "n/a";
                 const gradeName = grades.find((g) => g.id === r.gradeId)?.name ?? "n/a";
@@ -303,8 +301,7 @@ export function RolesEditor({
                 </tr>
                 );
               })}
-            </tbody>
-          </table>
+          </DataTable>
           </div>
           <hr className="my-3 border-t border-line" />
           </>

@@ -8,7 +8,7 @@ import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { RagDot } from "./rag-dot";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { ReportCard, Section, Tile } from "./report-table";
 import {
   computeGroupHealth,
@@ -403,8 +403,9 @@ export function ReportsPanel({
         </div>
         {stats.topInquiries.length > 0 && (
           <div className="mt-3 overflow-x-auto rounded-md border border-line">
-            <table className="min-w-full text-left text-xs">
-              <thead className={TABLE_HEAD_CLASS}>
+            <DataTable
+              className="min-w-full text-left text-xs"
+              head={
                 <tr>
                   <th className="relative px-3 py-2" style={{ width: inquiry.colWidths.id, minWidth: inquiry.colWidths.id }}>
                     #
@@ -420,8 +421,9 @@ export function ReportsPanel({
                     <ColumnResizeHandle col="count" onMouseDown={inquiryStartResize} />
                   </th>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
+              }
+              tbodyClassName="divide-y divide-line"
+            >
                 {stats.topInquiries.map((row) => (
                   <tr key={row.id}>
                     <td className="px-3 py-2 font-mono text-muted-foreground">
@@ -433,8 +435,7 @@ export function ReportsPanel({
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </DataTable>
           </div>
         )}
       </Section>

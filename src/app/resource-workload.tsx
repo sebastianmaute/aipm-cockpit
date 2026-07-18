@@ -9,8 +9,8 @@ import { absenceBg, absenceLegendBg } from "./absence-style";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
-import { TABLE_HEAD_CLASS } from "./table-styles";
 import { WorkloadOverdueTriage } from "./resource-workload-triage";
+import { DataTable } from "./data-table";
 import { useConfirm } from "./confirm-dialog";
 
 function absenceTypeLabel(type: AbsenceType, lang: Lang): string {
@@ -117,8 +117,7 @@ export function ResourceWorkload({
     // the viewport; it still scrolls if the list ever exceeds the pane.
     <div className="flex max-h-full min-h-0 flex-col">
       <div className={INNER_TABLE_CLASS}>
-      <table className="w-full text-left text-sm">
-        <thead className={TABLE_HEAD_CLASS}>
+      <DataTable className="w-full text-left text-sm" head={<>
           <tr>
             <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.assignee, minWidth: colWidths.assignee }}>
               {t(lang, "assignee")}
@@ -155,8 +154,7 @@ export function ResourceWorkload({
               <ColumnResizeHandle col="upcoming" onMouseDown={startColResize} />
             </th>
           </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
+        </>} tbodyClassName="divide-y divide-line">
           {managed.map((row) => (
             <tr key={`res-${row.resource.id}`} className="cursor-pointer align-top hover:bg-surface-muted" onClick={() => onEditResource(row.resource)}>
               <td className="px-3 py-2 font-medium text-foreground">
@@ -385,8 +383,7 @@ export function ResourceWorkload({
               ))}
             </>
           )}
-        </tbody>
-      </table>
+      </DataTable>
     </div>
       <ul
         className="mt-2 flex flex-wrap items-center gap-3 px-1 text-xs text-muted-foreground"

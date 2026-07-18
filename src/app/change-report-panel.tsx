@@ -29,6 +29,7 @@ import {
   type ChangeImpact,
   type ChangeItem,
 } from "./types";
+import { DataTable } from "./data-table";
 
 // ---------------------------------------------------------------------------
 // Label maps (reuse existing RAID severity + change i18n keys)
@@ -395,16 +396,14 @@ function TopPendingTable({ lang, items, colResize }: { lang: Lang; items: readon
   return (
     <Section title={t(lang, "changeReportTopPending")}>
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
               <SortResizeTh label={t(lang, "id")} sortCol="id" width={w.id} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "changeFieldTitle")} sortCol="name" resizeCol="title" width={w.title} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "changeFieldImpact")} sortCol="impact" width={w.impact} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
               <SortResizeTh label={t(lang, "changeFieldRaisedDate")} sortCol="raised" width={w.raised} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          </>} tbodyClassName="divide-y divide-line">
             {sorted.map((row) => (
               <tr key={row.id}>
                 <td className="px-3 py-2 text-muted-foreground tabular-nums">{row.id}</td>
@@ -424,8 +423,7 @@ function TopPendingTable({ lang, items, colResize }: { lang: Lang; items: readon
                 <td className="px-3 py-2 text-muted-foreground tabular-nums">{row.raisedDate}</td>
               </tr>
             ))}
-          </tbody>
-        </table>
+        </DataTable>
       </div>
     </Section>
   );

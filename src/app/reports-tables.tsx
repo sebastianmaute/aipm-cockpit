@@ -9,8 +9,8 @@ import {
   SortResizeTh,
   type SortDir,
 } from "./report-table";
-import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t } from "./i18n";
+import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { ProgressTrack } from "./progress-track";
 import { type GroupOrLabelRow, type Stats } from "./reports-stats";
@@ -120,8 +120,9 @@ export function GroupOrLabelTable({
     <div>
       <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey={filterPlaceholderKey} />
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-xs">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable
+          className="min-w-full text-left text-xs"
+          head={
             <tr>
               <SortResizeTh
                 label={t(lang, headerKey)}
@@ -147,8 +148,9 @@ export function GroupOrLabelTable({
                 />
               ))}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          }
+          tbodyClassName="divide-y divide-line"
+        >
             {sorted.length === 0 && filter !== "" ? (
               <NoMatchesRow lang={lang} colSpan={6} />
             ) : (
@@ -163,8 +165,7 @@ export function GroupOrLabelTable({
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
+        </DataTable>
       </div>
     </div>
   );
@@ -202,8 +203,9 @@ export function AssigneeTable({
         <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="reportsFilterAssignee" />
       )}
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-xs">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable
+          className="min-w-full text-left text-xs"
+          head={
             <tr>
               <SortResizeTh
                 label={t(lang, "assignee")}
@@ -228,8 +230,9 @@ export function AssigneeTable({
                 />
               ))}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          }
+          tbodyClassName="divide-y divide-line"
+        >
             {sorted.length === 0 && filter !== "" ? (
               <NoMatchesRow lang={lang} colSpan={7} />
             ) : (
@@ -245,8 +248,7 @@ export function AssigneeTable({
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
+        </DataTable>
       </div>
     </div>
   );

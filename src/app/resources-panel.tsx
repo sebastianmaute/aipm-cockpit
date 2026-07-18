@@ -43,6 +43,7 @@ import { useSettings } from "./use-settings";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
@@ -638,8 +639,7 @@ function ResourcesPanelInner({
                 </button>
                 {showRollup && (
                   <div className="mt-2 overflow-auto rounded-md border border-line pr-2">
-                    <table className="w-full text-left text-sm">
-                      <thead className={TABLE_HEAD_CLASS}>
+                    <DataTable className="w-full text-left text-sm" head={<>
                         <tr>
                           <th
                             className="relative px-3 py-2 font-medium"
@@ -659,8 +659,7 @@ function ResourcesPanelInner({
                             </th>
                           ))}
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-line">
+                      </>} tbodyClassName="divide-y divide-line">
                         {visiblePlanResources.map((r) => {
                           const resAbs2 = absencesForResource(absences, r);
                           return (
@@ -674,8 +673,7 @@ function ResourcesPanelInner({
                             </tr>
                           );
                         })}
-                      </tbody>
-                    </table>
+                    </DataTable>
                   </div>
                 )}
               </div>

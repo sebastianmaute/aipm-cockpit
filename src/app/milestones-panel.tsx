@@ -37,7 +37,7 @@ import { ColumnResizeHandle, ResetSizeButton, ResetColWidthsButton, PrintButton 
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
@@ -392,8 +392,9 @@ function MilestonesPanelBody({
         // Filtered to no matches → message inside the bordered scroller (not the add box).
         <p className="p-10 text-center text-sm text-muted-foreground">{t(lang, "milestonesNoMatches")}</p>
       ) : (
-        <table className="w-full text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable
+          className="w-full text-sm"
+          head={<>
             <tr className="text-left">
               <th className="px-3 py-1" style={{ width: 36, minWidth: 36 }}>
                 <input
@@ -444,8 +445,8 @@ function MilestonesPanelBody({
                 </th>
               )}
             </tr>
-          </thead>
-          <tbody>
+          </>}
+        >
             {sorted.map((m) => {
               const s = milestoneStatus(m, tasksById, today, holidaySet);
               return (
@@ -505,8 +506,7 @@ function MilestonesPanelBody({
                 </tr>
               );
             })}
-          </tbody>
-        </table>
+        </DataTable>
       )}
       </div>
       {editing ? (
