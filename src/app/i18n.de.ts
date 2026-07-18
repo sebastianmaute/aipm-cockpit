@@ -3364,4 +3364,5 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightKnowledgeLinks: "Die Dokumente-Ansicht heißt jetzt \"Wissen\", und ein Link kann ein SharePoint-Dokument, eine Confluence-Seite oder eine beliebige Web-URL sein — jeweils mit einem passenden Symbol. Bestehende Dokumentlinks bleiben unverändert.",
   versionHighlightTaskDedup: "Aufgaben entdoppeln und zusammenführen: Lass den KI-Assistenten in den Offenen Punkten vorschlagen, welche Aufgaben Duplikate zu sein scheinen und wie sie zusammengeführt werden — du prüfst jede Gruppe und bestätigst, bevor etwas kombiniert wird, und die Zusammenführung lässt sich in einem Schritt rückgängig machen.",
   versionHighlightAppRename: "Die Anwendung heißt jetzt AI PM Cockpit.",
+  versionHighlightThemeDecouple: "AIPM und Dashboard sind jetzt optionale importierbare Designs (Einstellungen - Darstellung - Design-Galerie); Harbor ist die Standardoptik.",
 };

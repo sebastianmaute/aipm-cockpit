@@ -3383,6 +3383,7 @@ const enUS = {
   versionHighlightKnowledgeLinks: "The Documents view is now \"Knowledge\", and a link can be a SharePoint document, a Confluence page, or any web URL — each shown with a kind-appropriate icon. Existing document links are unaffected.",
   versionHighlightTaskDedup: "Deduplicate & unify tasks: from Open Points, let the AI assistant propose which tasks look like duplicates and how to merge them; you review each group and confirm before anything is combined, and the merge can be undone in one step.",
   versionHighlightAppRename: "The application is now called AI PM Cockpit.",
+  versionHighlightThemeDecouple: "AIPM and Dashboard are now optional importable themes (Settings - Appearance - Theme gallery); Harbor is the default look.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
