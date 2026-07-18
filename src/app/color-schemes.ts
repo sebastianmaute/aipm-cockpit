@@ -28,6 +28,11 @@ const MAX_SCHEMES = 30;
 const NAME_MAX = 60;
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const USER_ID_RE = /^u-(\d+)$/;
+// Pinned AA/derived tokens a portable theme (AIPM/Mockup) may carry so its exact
+// look survives import; the editor still edits only CORE+ADVANCED. Trade-off: a
+// scheme seeded from an imported theme keeps these pins on save (base-wins
+// resolveSchemeColors never re-derives them), so editing a base colour won't
+// refresh the pin — accepted for the faithful-copy intent.
 const DERIVED_TOKENS = [
   "--AIPM-green-strong", "--AIPM-pink-strong", "--AIPM-purple-strong",
   "--rag-red-text", "--rag-amber-text", "--rag-green-text", "--muted-foreground",

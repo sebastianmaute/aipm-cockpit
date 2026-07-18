@@ -10,6 +10,8 @@
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { importScheme, addScheme, updateScheme } from "./color-schemes";
+import { upsertSchemeAsync } from "./color-schemes-store";
+import type { TursoConfig } from "./turso-config";
 import { Button } from "./button";
 
 interface ShippedTheme {
@@ -25,11 +27,15 @@ const SHIPPED: readonly ShippedTheme[] = [
 
 interface ThemeGalleryProps {
   lang: Lang;
+  /** Turso config → persist the imported scheme to the cross-device DB too (else
+   *  the localStorage sync-cache only). Optional (defaults null) for file mode +
+   *  tests. */
+  config?: TursoConfig | null;
   /** Called with the new user-scheme id after a successful import (parent applies it). */
   onImported: (newId: string) => void;
 }
 
-export function ThemeGallery({ lang, onImported }: ThemeGalleryProps) {
+export function ThemeGallery({ lang, config = null, onImported }: ThemeGalleryProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,17 +47,23 @@ export function ThemeGallery({ lang, onImported }: ThemeGalleryProps) {
       if (!res.ok) throw new Error("fetch");
       const parsed = importScheme(await res.text());
       if (!parsed) throw new Error("parse");
-      const store = addScheme(parsed.name, parsed.light, parsed.branding);
+      let store = addScheme(parsed.name, parsed.light, parsed.branding);
       const newId = store.activeId;
       if (!newId) throw new Error("add");
       // addScheme creates a color-only scheme; carry over dark + structural.
       if (parsed.supportsDark || parsed.dark || parsed.structural) {
-        updateScheme(newId, {
+        store = updateScheme(newId, {
           supportsDark: parsed.supportsDark,
           dark: parsed.dark,
           structural: parsed.structural,
         });
       }
+      // Persist to the cross-device DB when Turso is configured (mirrors the
+      // editor). Without this the import lives only in the localStorage cache and
+      // the next DB refresh drops it, orphaning activeId -> Harbor. No-op in file
+      // mode (upsertSchemeAsync early-returns on null config).
+      const created = store.schemes.find((s) => s.id === newId);
+      if (created) await upsertSchemeAsync(config, created);
       onImported(newId);
     } catch {
       setError(t(lang, "themeGalleryImportError"));

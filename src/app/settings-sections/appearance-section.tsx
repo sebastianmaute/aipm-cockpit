@@ -99,7 +99,7 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
         {config ? (
           <p className="mt-2 text-sm text-muted-foreground">{t(lang, "schemeStoredInDb")}</p>
         ) : null}
-        <ThemeGallery lang={lang} onImported={(id) => selectScheme(id)} />
+        <ThemeGallery lang={lang} config={config} onImported={(id) => selectScheme(id)} />
       </div>
 
       <div className="mb-4">
