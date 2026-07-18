@@ -4,7 +4,7 @@
 // logo/favicon re-run through sanitizeBranding, unknown token keys are dropped.
 import { type BrandingConfig, sanitizeBranding } from "./settings-types";
 import { CORE_TOKENS, ADVANCED_TOKENS } from "./scheme-tokens";
-import type { SchemeColorMap } from "./scheme-apply";
+import { type SchemeColorMap, type SchemeStructuralMap, STRUCTURAL_TOKENS, isSafeRawCssValue } from "./scheme-apply";
 
 export interface ColorScheme {
   id: string; // user schemes: "u-<n>"; built-in schemes carry a code-owned string id
@@ -15,7 +15,7 @@ export interface ColorScheme {
   dark?: SchemeColorMap; // present iff supportsDark
   // Built-in schemes may carry a code-owned structural map (padding/radius/etc);
   // user schemes stay color-only and never persist this through the editor.
-  structural?: import("./scheme-apply").SchemeStructuralMap;
+  structural?: SchemeStructuralMap;
   branding: BrandingConfig;
 }
 export interface SchemeStore {
@@ -28,7 +28,25 @@ const MAX_SCHEMES = 30;
 const NAME_MAX = 60;
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const USER_ID_RE = /^u-(\d+)$/;
-const VALID_TOKENS = new Set([...CORE_TOKENS, ...ADVANCED_TOKENS].map((t) => t.token));
+const DERIVED_TOKENS = [
+  "--AIPM-green-strong", "--AIPM-pink-strong", "--AIPM-purple-strong",
+  "--rag-red-text", "--rag-amber-text", "--rag-green-text", "--muted-foreground",
+] as const;
+const VALID_TOKENS = new Set([
+  ...CORE_TOKENS.map((t) => t.token),
+  ...ADVANCED_TOKENS.map((t) => t.token),
+  ...DERIVED_TOKENS,
+]);
+const STRUCTURAL_SET = new Set(STRUCTURAL_TOKENS);
+
+function cleanStructural(raw: unknown): SchemeStructuralMap | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: SchemeStructuralMap = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (STRUCTURAL_SET.has(k) && typeof v === "string" && isSafeRawCssValue(v)) out[k] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 
 function cleanColors(raw: unknown): SchemeColorMap {
   const out: SchemeColorMap = {};
@@ -53,6 +71,7 @@ export function cleanScheme(raw: unknown, id: string): ColorScheme | null {
     supportsDark = false;
     dark = undefined;
   }
+  const structural = cleanStructural(o.structural);
   return {
     id,
     name,
@@ -60,6 +79,7 @@ export function cleanScheme(raw: unknown, id: string): ColorScheme | null {
     supportsDark,
     light,
     ...(dark ? { dark } : {}),
+    ...(structural ? { structural } : {}),
     branding: sanitizeBranding(o.branding) ?? {},
   };
 }
@@ -194,6 +214,7 @@ export function exportScheme(scheme: ColorScheme): string {
       light: scheme.light,
       ...(scheme.dark ? { dark: scheme.dark } : {}),
       supportsDark: scheme.supportsDark,
+      ...(scheme.structural ? { structural: scheme.structural } : {}),
       branding: scheme.branding,
     },
     null,

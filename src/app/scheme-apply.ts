@@ -36,6 +36,13 @@ export function applySchemeColors(colors: SchemeColorMap | null): void {
 export type SchemeStructuralMap = Record<string, string>;
 export const ACTIVE_SCHEME_STRUCTURAL_KEY = "aipm-cockpit-active-scheme-structural";
 
+/** The 7 structural (non-color) tokens a scheme may carry. Import validation +
+ *  the boot mirror use this allowlist; runtime apply also value-gates each. */
+export const STRUCTURAL_TOKENS: readonly string[] = [
+  "--shadow-card", "--shadow-control", "--shadow-card-hover",
+  "--gradient-kpi", "--delta-chip-pad", "--rag-green-chip", "--rag-red-chip",
+] as const;
+
 // Raw (non-hex) CSS VALUE guard for structural tokens (shadows/gradient/length/
 // keyword). setProperty applies a property VALUE only — it cannot inject a rule/
 // selector — so this is defense-in-depth + boot-key tamper hygiene. Allowlist

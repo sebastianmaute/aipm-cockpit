@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, test, expect, beforeEach } from "vitest";
 import {
   loadSchemes, saveSchemes, addScheme, updateScheme, removeScheme, nextUserId, setActive,
-  exportScheme, importScheme, mergeAppliedBranding, type ColorScheme,
+  exportScheme, importScheme, mergeAppliedBranding, cleanScheme, type ColorScheme,
 } from "./color-schemes";
 
 function sample(name = "Acme"): ColorScheme {
@@ -234,5 +234,44 @@ describe("color-schemes store", () => {
     // An unknown id is persisted as-is here (reconcileBuiltins maps it to Harbor),
     // not nulled — otherwise a built-in id would be stripped the same way.
     expect(setActive("nope").activeId).toBe("nope");
+  });
+});
+
+describe("portable theme format (structural + pins)", () => {
+  const themeJson = JSON.stringify({
+    name: "Test",
+    supportsDark: false,
+    light: {
+      "--AIPM-dark-blue": "#004159",
+      "--AIPM-green": "#84bd00",
+      "--AIPM-green-strong": "#4d7000",
+      "--rag-red-text": "#c41e5a",
+    },
+    structural: {
+      "--shadow-card": "0 1px 3px rgba(0,65,89,0.12)",
+      "--gradient-kpi": "linear-gradient(90deg, var(--rag-red), var(--rag-green))",
+      "--bogus": "x",
+    },
+    branding: {},
+  });
+  test("import preserves pinned AA tokens + valid structural, drops unknown", () => {
+    const s = cleanScheme(JSON.parse(themeJson), "u-1");
+    expect(s).not.toBeNull();
+    expect(s!.light["--AIPM-green-strong"]).toBe("#4d7000");
+    expect(s!.light["--rag-red-text"]).toBe("#c41e5a");
+    expect(s!.structural?.["--shadow-card"]).toBe("0 1px 3px rgba(0,65,89,0.12)");
+    expect(s!.structural?.["--gradient-kpi"]).toContain("linear-gradient");
+    expect(s!.structural?.["--bogus"]).toBeUndefined();
+  });
+  test("import rejects dangerous structural value", () => {
+    const evil = JSON.parse(themeJson);
+    evil.structural = { "--shadow-card": "url(http://x)" };
+    const s = cleanScheme(evil, "u-2");
+    expect(s!.structural?.["--shadow-card"]).toBeUndefined();
+  });
+  test("export round-trips structural", () => {
+    const s = cleanScheme(JSON.parse(themeJson), "u-3")!;
+    const round = cleanScheme(JSON.parse(exportScheme(s)), "u-4")!;
+    expect(round.structural?.["--shadow-card"]).toBe("0 1px 3px rgba(0,65,89,0.12)");
   });
 });
