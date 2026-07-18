@@ -3,7 +3,8 @@
 import type React from "react";
 import { useState } from "react";
 import { t, type Lang } from "./i18n";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { Button } from "./button";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 /** Standard compact control class shared by the bulk-edit field controls. */
 const CONTROL_CLASS =
@@ -155,21 +156,12 @@ export function BulkEditPanel({ lang, count, fields, onApply, onCancel }: BulkEd
       </div>
       {!anyEnabled && <p className="mt-2 text-xs text-muted-foreground">{t(lang, "bulkEditNoFields")}</p>}
       <div className="mt-4 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-        >
+        <Button variant="secondary" size="sm" onClick={onCancel}>
           {t(lang, "cancel")}
-        </button>
-        <button
-          type="button"
-          onClick={apply}
-          disabled={!anyEnabled}
-          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-        >
+        </Button>
+        <Button size="sm" onClick={apply} disabled={!anyEnabled}>
           {t(lang, "bulkApplyCount", String(count))}
-        </button>
+        </Button>
       </div>
     </div>
   );

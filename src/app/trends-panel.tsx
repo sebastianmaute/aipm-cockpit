@@ -18,6 +18,7 @@ import { useDisplayTimezone } from "./display-timezone-context";
 import { formatDisplayTimestamp } from "./tz-display";
 import { EmptyState } from "./empty-state";
 import { INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { useConfirm } from "./confirm-dialog";
 
 const VARIANCE_COL_WIDTHS = {
@@ -99,14 +100,13 @@ export function TrendsPanel(props: TrendsPanelProps) {
   const gapLabel = gaps.length > 0 ? t(lang, gaps.length === 1 ? "trendsGapOne" : "trendsGapMany", gaps.length) : undefined;
 
   const captureButton = (
-    <button
-      type="button"
+    <Button
+      size="sm"
       onClick={() => { void captureNow(); }}
       disabled={busy}
-      className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
     >
       {t(lang, "trendsCaptureNow")}
-    </button>
+    </Button>
   );
 
   return (

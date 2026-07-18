@@ -33,6 +33,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
 import { Checkbox, fieldClass } from "./form-controls";
 import { useConfirm } from "./confirm-dialog";
+import { Button } from "./button";
 
 interface BudgetBucketModalProps {
   lang: Lang;
@@ -688,20 +689,12 @@ export function BudgetBucketModal({
         </div>
 
         <footer className="flex shrink-0 justify-end gap-2 border-t border-line px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-          >
+          <Button variant="secondary" size="sm" onClick={onClose}>
             {t(lang, "cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
-          >
+          </Button>
+          <Button size="sm" onClick={save}>
             {t(lang, "budgetSave")}
-          </button>
+          </Button>
         </footer>
       </div>
     </Modal>

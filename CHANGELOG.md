@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.25] - 2026-07-18 "Pinsker"
+
+### Changed
+
+Design-system: **`Button` primitive adoption** — the follow-up carved out of 0.190.24. Migrated ~70 hand-rolled call-to-action buttons (modals, wizards, settings sections, panels, editors) to the shared `<Button>` primitive, giving one canonical source of truth for the primary/secondary/destructive/ghost look and unifying the two divergent primary-hover styles (`hover:bg-ui-dark-blue/90` → the canonical `hover:opacity-90`) plus the shared focus-ring / press feedback.
+
+- `AddButton` (toolbar "+ Add X") now delegates to `<Button size="xs">` — one primary look everywhere.
+- `Button` gained an `xs` size (toolbar padding) and `ref` forwarding (React 19 ref-as-prop).
+- Intentionally left as-is: toggle/`aria-pressed` buttons, segmented controls, icon-only controls, chips/pills, buttons with a bespoke semantic focus ring, and buttons whose padding maps to no standard size.
+
 ## [0.190.24] - 2026-07-18 "Pinsker"
 
 ### Fixed

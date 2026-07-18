@@ -24,6 +24,7 @@ import {
 import { saveSecretValue } from "./use-secrets";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
 import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { Button } from "./button";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
 
@@ -321,16 +322,15 @@ export function JiraSettingsSection({
             </label>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
+              <Button
+                size="sm"
                 onClick={handleTest}
                 disabled={!credsReady || status.kind === "loading"}
-                className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {status.kind === "loading"
                   ? status.label
                   : t(lang, "jiraTest")}
-              </button>
+              </Button>
               {status.kind === "ok" && (
                 <span className="text-xs text-ui-green-strong">
                   ✓ {status.message}

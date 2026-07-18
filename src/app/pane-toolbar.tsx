@@ -6,7 +6,8 @@
 // the migration is pixel-neutral.
 
 import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Button } from "./button";
 
 /** The wrapping toolbar row: a wrapping flex line above a pane's data area.
  *  `print:hidden` by default (toolbars don't print); pass `className` to tweak
@@ -57,16 +58,14 @@ export function PaneSearchInput({
 }
 
 /** The primary `+ Add X` toolbar button (dark-blue filled). The `+ ` prefix and
- *  label are the caller's children. Distinct from the dashed empty-state
+ *  label are the caller's children. A thin wrapper over the shared `<Button>`
+ *  primitive at `xs` size, so the toolbar-add control shares the one canonical
+ *  primary look (hover/focus/press). Distinct from the dashed empty-state
  *  `AddFirstItemButton`. */
 export function AddButton({ className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button
-      type="button"
-      className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}${className ? ` ${className}` : ""}`}
-      {...props}
-    >
+    <Button variant="primary" size="xs" className={className} {...props}>
       {children}
-    </button>
+    </Button>
   );
 }

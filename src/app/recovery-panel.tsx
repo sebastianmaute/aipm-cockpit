@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { t } from "./i18n";
+import { Button } from "./button";
 import { FieldError } from "./field-feedback";
 import {
   exportConfig,
@@ -149,30 +150,23 @@ export function RecoveryPanel() {
       {message && <p className="text-sm text-ui-green-strong">{message}</p>}
 
       <div className="flex flex-col gap-3">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={onDownload}
           disabled={!storageOk}
-          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-ui-light-grey"
         >
           {t(lang, "recoveryDownload")}
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={!storageOk}
-          className="rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
+        </Button>
+        <Button onClick={onReset} disabled={!storageOk}>
           {t(lang, "recoveryReset")}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
           onClick={onRestore}
           disabled={backups.length === 0 || !storageOk}
-          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-ui-light-grey"
         >
           {t(lang, "recoveryRestore")}
-        </button>
+        </Button>
         {/* Plain anchor (not next/link) on purpose: the recovery page is
             provider-light and must do a full document navigation so it works
             even when the main app tree is bricked. */}

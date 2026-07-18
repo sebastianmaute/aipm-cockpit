@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "./button";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
@@ -165,13 +166,9 @@ export function SharePointPickerModal({
               placeholder={t(lang, "spPickerSearchPlaceholder")}
               className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             />
-            <button
-              type="button"
-              onClick={handleSearch}
-              className="rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
-            >
+            <Button variant="primary" onClick={handleSearch}>
               {t(lang, "spPickerSearchButton")}
-            </button>
+            </Button>
           </div>
 
           {/* Paste URL row */}

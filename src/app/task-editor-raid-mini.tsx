@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { Button } from "./button";
 import { RAID_CATEGORIES, type RaidCategory } from "./types";
 import type { RaidSpec } from "./use-task-editor-buffer";
 
@@ -83,13 +84,9 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
               className={`min-w-[10rem] ${fieldClass}`}
             />
           </label>
-          <button
-            type="button"
-            onClick={handleAdd}
-            className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
-          >
+          <Button size="sm" onClick={handleAdd}>
             {t(lang, "add")}
-          </button>
+          </Button>
         </div>
       )}
       {pending.length > 0 && (

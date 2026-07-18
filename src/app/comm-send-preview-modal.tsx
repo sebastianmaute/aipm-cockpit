@@ -2,7 +2,7 @@
 import { useEffect, useRef } from "react";
 import { sanitizeTemplateHtml } from "./sanitize-html";
 import type { CommSendRequest } from "./comm-send";
-import { FOCUS_RING } from "./interaction-styles";
+import { Button } from "./button";
 
 export interface CommSendPreviewLabels {
   title: string;
@@ -57,17 +57,12 @@ export function CommSendPreviewModal(props: CommSendPreviewModalProps) {
           dangerouslySetInnerHTML={{ __html: sanitizeTemplateHtml(req.html) }}
         />
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${FOCUS_RING}`}>
+          <Button variant="secondary" size="sm" onClick={onCancel}>
             {labels.cancel}
-          </button>
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={busy}
-            className={`rounded-md border border-line bg-ui-dark-blue px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
-          >
+          </Button>
+          <Button variant="primary" size="sm" onClick={onSend} disabled={busy}>
             {labels.send}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -14,6 +14,7 @@ import { parseSharePointFileUrl } from "./sharepoint-backend";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useToastContext } from "./toast-context";
 import { reportSilentFailure } from "./guard-feedback";
+import { Button } from "./button";
 
 type Props = {
   lang: Lang;
@@ -193,33 +194,32 @@ export function StorageConfigSection({
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => runPicker("save")}
                   disabled={picking !== null}
-                  className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {description
                     ? t(lang, "storageChangeFile")
                     : t(lang, "storagePickFile")}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => runPicker("open")}
                   disabled={picking !== null}
-                  className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {t(lang, "storageOpenFile")}
-                </button>
+                </Button>
                 {description && !ready && (
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
                     onClick={() => runPicker("grant")}
                     disabled={picking !== null}
-                    className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {t(lang, "storageGrantWrite")}
-                  </button>
+                  </Button>
                 )}
               </div>
               {error && (
@@ -245,13 +245,12 @@ export function StorageConfigSection({
           <p className="text-xs text-muted-foreground">
             {t(lang, "spStorageNeedsSignIn")}
           </p>
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={() => { void auth.signIn().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
-            className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
           >
             {t(lang, "integrationsM365SignIn")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -272,13 +271,14 @@ export function StorageConfigSection({
           {spUrlError && (
             <Banner severity="error">{spUrlError}</Banner>
           )}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-1"
             onClick={() => setSpPickerOpen(true)}
-            className="mt-1 rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted"
           >
             {t(lang, "spStorageBrowse")}
-          </button>
+          </Button>
           {spPickerOpen && (config.kind === "sp-json" || config.kind === "sp-csv") && (
             <SharePointPickerModal
               mode="location"
@@ -314,13 +314,13 @@ export function StorageConfigSection({
 
       {onReloadProject && (
         <div className="mt-3 border-t border-line pt-3">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={onReloadProject}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "reloadProject")}
-          </button>
+          </Button>
           <p className="mt-1 text-xs text-muted-foreground">{t(lang, "reloadProjectHint")}</p>
         </div>
       )}

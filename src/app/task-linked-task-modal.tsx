@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Button } from "./button";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { PRIORITIES, type Priority } from "./types";
@@ -124,21 +125,12 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
             </select>
           </label>
           <div className="flex items-center justify-end gap-2 border-t border-line pt-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
-            >
+            <Button variant="secondary" onClick={onClose}>
               {t(lang, "cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!canSave}
-              className={`rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
-            >
+            </Button>
+            <Button variant="primary" onClick={handleSubmit} disabled={!canSave}>
               {t(lang, "add")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
