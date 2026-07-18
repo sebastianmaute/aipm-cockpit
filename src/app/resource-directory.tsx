@@ -19,6 +19,7 @@ import { BulkEditPanel, selectField, textField, type BulkField } from "./bulk-ed
 import { useConfirm } from "./confirm-dialog";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { DataTable } from "./data-table";
+import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
 
@@ -280,9 +281,7 @@ function ResourceDirectoryInner({
         <BulkEditPanel lang={lang} count={sel.count} fields={bulkFields} onApply={applyBulk} onCancel={() => setBulkOpen(false)} />
       )}
       {resources.length === 0 ? (
-        <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
-          {t(lang, "resourcesEmpty")}
-        </div>
+        <EmptyState title={t(lang, "resourcesEmpty")} />
       ) : (
         <div className={INNER_TABLE_CLASS}>
           <DataTable className="w-full text-left text-sm" head={<>

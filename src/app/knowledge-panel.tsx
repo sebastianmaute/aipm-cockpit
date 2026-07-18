@@ -12,6 +12,7 @@ import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
@@ -266,14 +267,13 @@ export function KnowledgePanel() {
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-auto pr-2">
           <div className="mb-3 flex flex-wrap items-center gap-2 print:hidden">
-            <button
-              type="button"
+            <AddButton
               onClick={() => setAddOpen((o) => !o)}
               aria-expanded={addOpen}
-              className={`shrink-0 rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
+              className="shrink-0"
             >
               + {t(lang, "documentsTabAdd")}
-            </button>
+            </AddButton>
             <div className="flex flex-wrap gap-1.5">
               {(["all", ...chipKinds] as (DocSourceKind | "all")[]).map((k) => {
                 const active = effFilter === k;

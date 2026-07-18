@@ -5,7 +5,6 @@ import { VIEW_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { DataTable } from "./data-table";
 import { RagBadge } from "./rag-badge";
-import { healthText } from "./health";
 import { TrendChart, type TrendPoint } from "./trend-chart";
 import { formatCurrency } from "./resource-cost";
 import type { SnapshotRecord, VarianceRow } from "./snapshot";
@@ -158,7 +157,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                     <td className="px-3 py-2 font-medium">{t(lang, VARIANCE_LABEL_KEYS[row.key])}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmtVarianceCell(row, "baseline")}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmtVarianceCell(row, "current")}</td>
-                    <td className={`px-3 py-2 text-right tabular-nums ${row.health ? healthText[row.health] : ""}`}>
+                    <td className="px-3 py-2 text-right tabular-nums">
                       <span className="inline-flex items-center justify-end gap-1.5">
                         {fmtVarianceDelta(row, lang)}
                         {row.health ? <RagBadge value={row.health} lang={lang} /> : null}

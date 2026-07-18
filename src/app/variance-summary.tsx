@@ -1,5 +1,5 @@
 import { type Lang, t } from "./i18n";
-import { healthText } from "./health";
+import { RagDot } from "./rag-dot";
 import type { VarianceRow } from "./snapshot";
 import { VARIANCE_LABEL_KEYS, fmtVarianceDelta } from "./variance-format";
 
@@ -15,7 +15,8 @@ export function VarianceSummary({ variance, lang }: VarianceSummaryProps) {
       {variance.map((row) => (
         <div key={row.key} className="flex items-center justify-between gap-2">
           <dt className="text-muted-foreground">{t(lang, VARIANCE_LABEL_KEYS[row.key])}</dt>
-          <dd className={`font-medium ${row.health ? healthText[row.health] : "text-foreground"}`}>
+          <dd className="flex items-center justify-end gap-1.5 font-medium text-foreground">
+            {row.health ? <RagDot level={row.health} /> : null}
             {fmtVarianceDelta(row, lang)}
           </dd>
         </div>

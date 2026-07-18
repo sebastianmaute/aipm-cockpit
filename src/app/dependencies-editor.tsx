@@ -143,7 +143,7 @@ export function DependenciesEditor({
             setPendingType(e.target.value as DependencyType)
           }
           aria-label={t(lang, "depType")}
-          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs font-mono text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-1 focus:ring-ui-green"
+          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs font-mono text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green"
         >
           {DEPENDENCY_TYPES.map((dt) => (
             <option key={dt} value={dt}>
@@ -157,7 +157,7 @@ export function DependenciesEditor({
             setPendingTaskId(e.target.value === "" ? "" : Number(e.target.value))
           }
           aria-label={t(lang, "depPickTask")}
-          className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-1 focus:ring-ui-green"
+          className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green"
         >
           <option value="">{t(lang, "depPickTaskPlaceholder")}</option>
           {eligibleTasks.map((task) => (

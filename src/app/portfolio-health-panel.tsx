@@ -18,6 +18,7 @@ import type { SubStatus } from "./dashboard";
 import { usePortfolioHealth, PORTFOLIO_LOAD_FAILED } from "./use-portfolio-health";
 import type { MilestoneHealthBucket } from "./portfolio-rollup";
 import { EmptyState } from "./empty-state";
+import { DataTable } from "./data-table";
 import { PanelSkeleton } from "./skeleton";
 import { Tile, KpiGradientBar } from "./report-table";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
@@ -130,19 +131,17 @@ export function PortfolioHealthPanel({
       </div>
 
       {/* Per-project health table */}
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColProject")}</th>
-            <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColOverall")}</th>
-            <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColSchedule")}</th>
-            <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColBudget")}</th>
-            <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColComplete")}</th>
-            <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColOpenRaid")}</th>
-            <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColMilestones")}</th>
-          </tr>
-        </thead>
-        <tbody>
+      <DataTable className="w-full text-left text-sm" head={
+        <tr>
+          <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColProject")}</th>
+          <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColOverall")}</th>
+          <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColSchedule")}</th>
+          <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColBudget")}</th>
+          <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColComplete")}</th>
+          <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColOpenRaid")}</th>
+          <th className="py-2 pr-3 font-medium">{t(lang, "portfolioColMilestones")}</th>
+        </tr>
+      }>
           {rows.map((row) => (
             <tr key={row.id} className="border-b border-line">
               <td className="py-2 pr-3 font-medium text-foreground">
@@ -167,8 +166,7 @@ export function PortfolioHealthPanel({
               <td className="py-2 pr-3">{t(lang, MS_LABEL_KEYS[row.milestoneHealth])}</td>
             </tr>
           ))}
-        </tbody>
-      </table>
+      </DataTable>
       </div>
     </div>
   );

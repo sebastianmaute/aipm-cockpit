@@ -5,7 +5,7 @@
 // input, then filter selects). These atoms emit the exact prior class strings so
 // the migration is pixel-neutral.
 
-import type { HTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 
 /** The wrapping toolbar row: a wrapping flex line above a pane's data area.
@@ -59,7 +59,7 @@ export function PaneSearchInput({
 /** The primary `+ Add X` toolbar button (dark-blue filled). The `+ ` prefix and
  *  label are the caller's children. Distinct from the dashed empty-state
  *  `AddFirstItemButton`. */
-export function AddButton({ className, children, ...props }: HTMLAttributes<HTMLButtonElement>) {
+export function AddButton({ className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"

@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.24] - 2026-07-18 "Pinsker"
+
+### Fixed
+
+Design-system review follow-up — accessibility fixes and primitive-adoption cleanup surfaced by a holistic review of the DS sprawl program (MR 261–282):
+
+- **`Banner`** now defaults its live-region role from severity (`error` → `role="alert"` so validation/config failures are announced; everything else → `role="status"`); an explicit `role` still overrides. Fixes ~15 error banners (AI/Turso/SharePoint/storage config) that rendered visibly but were never announced to screen readers.
+- **Budget planning-mode toggle** pins its label to the enabling action so `aria-pressed` state reads coherently (WCAG 4.1.2 / 2.5.3), via the shared `ToggleButton`.
+- **RAG figures** on the dashboard progress card, trends table and variance summary now carry a RAG **dot** instead of small `--rag-amber-text`, which failed AA contrast on the dark and mockup schemes.
+- **Read-only pop-out banner** uses `--ui-purple-strong` for AA contrast.
+- **Primitive adoption:** portfolio-health and diagnostics tables use the shared `DataTable` head; report/resource "no data" states use the `EmptyState` primitive; the delta strip uses the `Card` primitive; the `AddButton` primitive (widened to accept button attributes) replaces hand-rolled toolbar add buttons across milestones/tasks/knowledge/gantt/budget.
+- **Focus & scheme consistency:** weak 1px focus rings normalized to the 2px app standard; the field-tier segmented control uses scheme tokens; bespoke sort-header hovers use `--table-head-accent` (scheme-safe on the mockup light header).
+
 ## [0.190.23] - 2026-07-18 "Pinsker"
 
 Palette token rename (Release B): the internal palette token names lose the brand

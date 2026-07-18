@@ -39,7 +39,7 @@ import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { DataTable } from "./data-table";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { PaneSearchInput } from "./pane-toolbar";
+import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
@@ -312,13 +312,9 @@ function MilestonesPanelBody({
         <ViewCallout view="milestones" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
       <header className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
-        <button
-          type="button"
-          onClick={openNew}
-          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
-        >
+        <AddButton onClick={openNew}>
           + {t(lang, "milestoneNew")}
-        </button>
+        </AddButton>
         {onPushToOutlook ? (
           <button
             type="button"

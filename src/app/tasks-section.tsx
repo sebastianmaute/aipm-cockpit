@@ -37,6 +37,7 @@ import { ActionChips, chipsForView } from "./action-chips";
 import { ViewCallout } from "./view-callout";
 import { SavedViewsControl } from "./saved-views-control";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import type { SuggestedAction } from "./next-actions/types";
 import {
@@ -471,18 +472,16 @@ export function TasksSection({
         />
       )}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
+        <AddButton
           onClick={() => {
             handleCancelEdit();
             setTaskModalOpen(true);
           }}
           aria-label={t(lang, "addTaskButton")}
           title={t(lang, "addTaskButton")}
-          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "addTaskButton")}
-        </button>
+        </AddButton>
         {jiraEnabled && (
           <button
             type="button"

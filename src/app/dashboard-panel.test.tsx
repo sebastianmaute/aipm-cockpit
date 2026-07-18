@@ -6,7 +6,6 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { DashboardPanel } from "./dashboard-panel";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
-import { healthText } from "./health";
 import { t } from "./i18n";
 import { loadActivityLog } from "./activity-log";
 import type { RaidItem, Milestone, ChangeItem } from "./types";
@@ -152,7 +151,7 @@ describe("DashboardPanel Changes subsection", () => {
 });
 
 describe("DashboardPanel RAG polish (Task 3)", () => {
-  it("colorizes the R / A / G counts with the AIPM health text classes", () => {
+  it("marks the R / A / G counts with RAG dots (colour rides the dot, not small text)", () => {
     render(
       <DashboardPanel
         lang="en-US"
@@ -172,11 +171,11 @@ describe("DashboardPanel RAG polish (Task 3)", () => {
       />,
       { wrapper },
     );
-    const redCount = screen
-      .getAllByText("1")
-      .find((el) => el.tagName === "SPAN" && el.className.includes(healthText.R));
-    expect(redCount).toBeDefined();
-    expect(redCount?.className).toContain("text-[var(--rag-red-text)]");
+    // Counts now carry a RagDot (colour rides the dot, AA-exempt) instead of
+    // small rag-*-text, which fails AA on dark + mockup schemes.
+    expect(document.querySelector("span.bg-\\[var\\(--rag-red\\)\\]")).not.toBeNull();
+    expect(document.querySelector("span.bg-\\[var\\(--rag-amber\\)\\]")).not.toBeNull();
+    expect(document.querySelector("span.bg-\\[var\\(--rag-green\\)\\]")).not.toBeNull();
   });
 
   it("wraps the Progress section in a boxed rounded-lg card", () => {

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.23";
-export const APP_BUILD_DATE = "2026-07-18"; // 0.190.23: palette token rename (Release B) — the 12 base tokens renamed AIPM-*→ui-* across Tailwind classes, CSS vars, @theme map, scheme registries, shipped themes JSON keys, guards, tests, docs; pure rename, no visual change; AIPM theme identity preserved (Pinsker)
+export const APP_VERSION = "0.190.24";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.24: design-system review follow-up — Banner auto-derives its live-region role, budget-toggle name/state coherence, RAG figures ride dots (not sub-AA amber text), DataTable/EmptyState/Card/AddButton adoption, 1px→2px focus rings, scheme-token segmented control + sort-header accent (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

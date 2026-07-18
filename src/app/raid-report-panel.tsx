@@ -23,6 +23,7 @@ import {
 } from "./raid-report";
 import type { RaidItem, Resource } from "./types";
 import { DataTable } from "./data-table";
+import { EmptyState } from "./empty-state";
 
 // ---------------------------------------------------------------------------
 // Column-width default maps
@@ -156,9 +157,7 @@ export function RaidReportPanel({ lang, items, today, resourcesById, embedded = 
 
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
-        {t(lang, "raidReportEmpty")}
-      </div>
+      <EmptyState title={t(lang, "raidReportEmpty")} />
     );
   }
 

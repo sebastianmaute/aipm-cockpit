@@ -44,6 +44,7 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { DataTable } from "./data-table";
+import { EmptyState } from "./empty-state";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
@@ -441,9 +442,7 @@ function ResourcesPanelInner({
       )}
       {view === "workload" && renderHeader()}
       {isEmpty && view !== "planning" && (
-        <div className="mt-3 flex-1 rounded-md border border-dashed border-line p-6 text-center text-sm text-muted-foreground">
-          {t(lang, "resourcesEmpty")}
-        </div>
+        <EmptyState title={t(lang, "resourcesEmpty")} />
       )}
       {view === "planning" && (() => {
         // CANONICAL (entry) periods — where utilization is stored & edited.
