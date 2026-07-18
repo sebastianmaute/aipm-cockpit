@@ -3,8 +3,9 @@
 import { useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { type Lang, t } from "../i18n";
-import { TRANSITION, FOCUS_RING, INTERACTIVE } from "../interaction-styles";
+import { TRANSITION, FOCUS_RING } from "../interaction-styles";
 import { useAutogrow } from "../use-autogrow";
+import { Button } from "../button";
 import { Card } from "../card";
 import type { ProjectStatus } from "../types";
 
@@ -81,23 +82,23 @@ export function NarrativeEditor({
           onBlur={commitNarrative}
         />
         <div className="mt-2 flex justify-end gap-2 print:hidden">
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={commitNarrative}
             disabled={draftNarrative.trim() === (status.narrative ?? "")}
-            className={`rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "dashboardStatusSave")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={clearNarrative}
             onMouseDown={(e) => e.preventDefault()}
             disabled={(status.narrative ?? "") === "" && draftNarrative === ""}
-            className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "dashboardStatusClear")}
-          </button>
+          </Button>
         </div>
       </div>
     </details>

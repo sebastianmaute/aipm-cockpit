@@ -11,6 +11,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { dayFromHour, materializeRoleRates } from "./role-rates";
 import { SegmentedControl } from "./segmented-control";
+import { Button } from "./button";
 import { IconButton } from "./icon-button";
 
 export const ROLES_COL_WIDTHS = {
@@ -316,12 +317,11 @@ export function RolesEditor({
             <option value="">{t(lang, "rolesGrade")}</option>
             {grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
-          <button type="button"
+          <Button variant="primary" size="sm"
             disabled={comboDiscipline === "" || comboGrade === ""}
-            onClick={() => { if (comboDiscipline !== "" && comboGrade !== "") onResolveOrCreateRole(Number(comboDiscipline), Number(comboGrade)); }}
-            className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1 text-sm font-medium text-white disabled:opacity-50">
+            onClick={() => { if (comboDiscipline !== "" && comboGrade !== "") onResolveOrCreateRole(Number(comboDiscipline), Number(comboGrade)); }}>
             {t(lang, "rolesAddCombo")}
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -408,8 +408,7 @@ function RefList({
         <input value={addValue} onChange={(e) => setAddValue(e.target.value)} placeholder={addPlaceholder}
           aria-label={addPlaceholder}
           className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
-        <button type="button" onClick={onAdd} aria-label={addPlaceholder}
-          className="rounded-md border border-ui-dark-blue px-3 py-1 text-sm font-medium text-ui-dark-blue hover:bg-ui-dark-blue/5">+</button>
+        <Button variant="secondary" size="sm" onClick={onAdd} aria-label={addPlaceholder}>+</Button>
       </div>
     </div>
   );

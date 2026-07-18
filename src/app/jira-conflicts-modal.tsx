@@ -11,7 +11,6 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { DataTable } from "./data-table";
 import { Button } from "./button";
-import { FOCUS_RING } from "./interaction-styles";
 
 const JIRA_CONFLICTS_COL_WIDTHS = {
   field: 128,
@@ -166,20 +165,12 @@ export function JiraConflictsModal({
           <span className="text-muted-foreground">
             {t(lang, "jiraConflictQuickPicks")}
           </span>
-          <button
-            type="button"
-            onClick={() => applyAll("local")}
-            className={`rounded-md border border-ui-medium-grey/30 bg-surface px-2 py-1 font-medium text-ui-dark-blue hover:bg-surface-muted ${FOCUS_RING}`}
-          >
+          <Button variant="secondary" size="xs" onClick={() => applyAll("local")}>
             {t(lang, "jiraConflictAllLocal")}
-          </button>
-          <button
-            type="button"
-            onClick={() => applyAll("remote")}
-            className={`rounded-md border border-ui-medium-grey/30 bg-surface px-2 py-1 font-medium text-ui-dark-blue hover:bg-surface-muted ${FOCUS_RING}`}
-          >
+          </Button>
+          <Button variant="secondary" size="xs" onClick={() => applyAll("remote")}>
             {t(lang, "jiraConflictAllRemote")}
-          </button>
+          </Button>
         </div>
 
         <ul className="divide-y divide-line">

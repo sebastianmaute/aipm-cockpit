@@ -181,14 +181,14 @@ export function SharePointPickerModal({
               placeholder={t(lang, "spPickerPasteUrl")}
               className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             />
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handlePaste}
               disabled={!pasteUrl.trim()}
-              className="rounded-md border border-line px-3 py-2 text-sm text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green disabled:opacity-40 dark:text-ui-light-grey"
             >
               {t(lang, "spPickerOpenFolder")}
-            </button>
+            </Button>
           </div>
 
           {/* Results area */}

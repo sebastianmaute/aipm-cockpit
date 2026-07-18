@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import type { Editor } from "@tiptap/react";
 import { sanitizeTemplateHtml } from "./sanitize-html";
 import { isSafeHttpUrl } from "./document-link";
+import { Button } from "./button";
 
 export interface RichTextEditorLabels {
   bold: string;
@@ -92,14 +93,14 @@ export function RichTextEditor(props: RichTextEditorProps) {
           </div>
           <div className="flex flex-wrap gap-1">
             {mergeFields.map((field) => (
-              <button
+              <Button
                 key={field}
-                type="button"
+                variant="secondary"
+                size="xs"
                 onClick={() => editor.chain().focus().insertContent(`{{${field}}}`).run()}
-                className="rounded-md border border-line px-2 py-1 text-xs text-foreground hover:bg-surface-muted"
               >
                 {fieldLabel(field)}
-              </button>
+              </Button>
             ))}
           </div>
         </>

@@ -13,6 +13,7 @@ import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
+import { Button } from "./button";
 import { IconButton } from "./icon-button";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
@@ -187,13 +188,13 @@ export function KnowledgePanel() {
                 ))}
               </select>
             </label>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => { setManualName(""); setManualUrl(""); setTargetKey(""); setAddOpen(false); }}
-              className={`rounded-md border border-line bg-surface px-3 py-1 text-sm text-muted-foreground hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {t(lang, "cancel")}
-            </button>
+            </Button>
           </div>
           {target && (
             <>
@@ -236,14 +237,14 @@ export function KnowledgePanel() {
                     className={`w-full min-w-[12rem] rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
                   />
                 </label>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => addManualLink(target)}
                   disabled={!manualValid}
-                  className={`rounded-md border border-line bg-surface px-3 py-1 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
                 >
                   {t(lang, "documentsManualAdd")}
-                </button>
+                </Button>
               </div>
               <p className="mb-2 text-xs text-muted-foreground">{t(lang, "documentsManualHint")}</p>
               {canAddDocument && (

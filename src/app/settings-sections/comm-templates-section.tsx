@@ -210,20 +210,23 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     </span>
                   )}
                 </button>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  className="shrink-0"
                   onClick={() =>
                     void props.onSetDefault(category, tpl.id).catch((e) =>
                       reportSilentFailure(showToast, lang, "commTemplates.saveFailed", e, "guardCommTemplateSaveFailed"),
                     )
                   }
                   disabled={tpl.isDefault}
-                  className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "commTplSetDefault")}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="xs"
+                  className="shrink-0"
                   onClick={() => {
                     void props.onRemove(tpl.id).catch((e) =>
                       reportSilentFailure(showToast, lang, "commTemplates.saveFailed", e, "guardCommTemplateSaveFailed"),
@@ -231,10 +234,9 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     if (selectedId === tpl.id) { setSelectedId(null); setBodyDraft(""); }
                   }}
                   aria-label={`${t(lang, "commTplDelete")}: ${tpl.name}`}
-                  className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs text-ui-purple hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "commTplDelete")}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -274,13 +276,14 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
           >
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">{t(lang, "commTplBody")}</span>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="xs"
+                className="shrink-0"
                 onClick={cancelEdit}
-                className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "commTemplateCancelEdit")}
-              </button>
+              </Button>
             </div>
             <RichTextEditor
               key={`${selected.id}:${restoreNonce}`}
@@ -307,13 +310,14 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
           <div className="flex flex-col gap-2 border-t border-line pt-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">{t(lang, "commTplVersions")}</span>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="xs"
+                className="shrink-0"
                 onClick={saveCurrentVersion}
-                className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {t(lang, "commTplSaveVersion")}
-              </button>
+              </Button>
             </div>
             {versions.versions.length === 0 && (
               <EmptyState compact title={t(lang, "commTplVersionsEmpty")} />
@@ -354,14 +358,15 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   >
                     {t(lang, "commTplCompare")}
                   </button>
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="xs"
+                    className="shrink-0"
                     onClick={() => restoreVersion(v.body)}
                     aria-label={`${t(lang, "commTplRestore")}: ${v.name}`}
-                    className={`shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted ${INTERACTIVE}`}
                   >
                     {t(lang, "commTplRestore")}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

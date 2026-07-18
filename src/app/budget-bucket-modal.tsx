@@ -30,7 +30,6 @@ import { useToastContext } from "./toast-context";
 import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
-import { INTERACTIVE } from "./interaction-styles";
 import { Checkbox, fieldClass } from "./form-controls";
 import { useConfirm } from "./confirm-dialog";
 import { Button } from "./button";
@@ -549,13 +548,13 @@ export function BudgetBucketModal({
                       grades,
                     ) || `#${a.roleId}`}
                   </span>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => removeRole(a.roleId)}
-                    className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                   >
                     {t(lang, "budgetRemoveRole")}
-                  </button>
+                  </Button>
                 </div>
 
                 {resources.length > 0 && (
@@ -630,13 +629,13 @@ export function BudgetBucketModal({
                     <span className="font-medium">
                       {disciplines.find((x) => x.id === a.disciplineId)?.name ?? `#${a.disciplineId}`}
                     </span>
-                    <button
-                      type="button"
+                    <Button
+                      variant="ghost"
+                      size="xs"
                       onClick={() => removeDiscipline(a.disciplineId)}
-                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {t(lang, "budgetRemoveDiscipline")}
-                    </button>
+                    </Button>
                   </div>
                   {resources.length > 0 && (
                     <div className="mt-1">
