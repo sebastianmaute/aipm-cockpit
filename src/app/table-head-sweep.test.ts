@@ -46,7 +46,12 @@ describe("table header sweep", () => {
       for (const forbidden of FORBIDDEN_HEADS) {
         expect(src).not.toContain(forbidden);
       }
-      expect(src).toContain("TABLE_HEAD_CLASS");
+      // A swept file is compliant if it applies the sanctioned head directly
+      // (TABLE_HEAD_CLASS) OR routes its table(s) through <DataTable>, which
+      // applies TABLE_HEAD_CLASS by construction. Migrated files no longer hold
+      // the literal (it moved into data-table.tsx) but a `<DataTable` usage
+      // guarantees the same sanctioned head.
+      expect(src.includes("TABLE_HEAD_CLASS") || src.includes("DataTable")).toBe(true);
     });
   }
 });

@@ -18,8 +18,9 @@ import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, selectField, textField, type BulkField } from "./bulk-edit-panel";
 import { useConfirm } from "./confirm-dialog";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { AddButton } from "./pane-toolbar";
 
 const DIRECTORY_COL_WIDTHS = {
   name: 180,
@@ -227,20 +228,12 @@ function ResourceDirectoryInner({
   return (
     <div ref={dirRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <div className="mb-2 flex shrink-0 items-center gap-2 print:hidden">
-        <button
-          type="button"
-          onClick={() => onAddResource()}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
-        >
+        <AddButton onClick={() => onAddResource()}>
           {t(lang, "resourcesAddResource")}
-        </button>
-        <button
-          type="button"
-          onClick={() => onAddAbsence()}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
-        >
+        </AddButton>
+        <AddButton onClick={() => onAddAbsence()}>
           {t(lang, "resourcesAddAbsence")}
-        </button>
+        </AddButton>
         <input
           type="search"
           value={filter}
@@ -292,8 +285,7 @@ function ResourceDirectoryInner({
         </div>
       ) : (
         <div className={INNER_TABLE_CLASS}>
-          <table className="w-full text-left text-sm">
-            <thead className={TABLE_HEAD_CLASS}>
+          <DataTable className="w-full text-left text-sm" head={<>
               <tr>
                 {bulkEnabled && (
                   <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
@@ -349,8 +341,7 @@ function ResourceDirectoryInner({
                   <ColumnResizeHandle col="birthday" onMouseDown={startColResize} />
                 </th>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
+            </>} tbodyClassName="divide-y divide-line">
               {rows.map((r) => (
                 <tr key={r.id} className="cursor-pointer align-middle hover:bg-surface-muted" onClick={() => onEditResource(r)}>
                   {bulkEnabled && (
@@ -411,8 +402,7 @@ function ResourceDirectoryInner({
                   <td className="px-3 py-2 text-muted-foreground" title={r.birthday ?? ""}>{r.birthday ?? "—"}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
+          </DataTable>
         </div>
       )}
     </div>

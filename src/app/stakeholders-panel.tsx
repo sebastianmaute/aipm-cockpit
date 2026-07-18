@@ -16,7 +16,7 @@ import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
 import { PanelViewsControl } from "./panel-views-control";
 import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 import type { PanelFiltersState } from "./panel-views";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import {
   INFLUENCE_INTEREST_LEVELS,
   STAKEHOLDER_CATEGORIES,
@@ -32,6 +32,7 @@ import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton 
 import { InfoTooltip } from "./info-tooltip";
 import { resourceDisplayName } from "./resource-foundation";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { selectField, type BulkField } from "./bulk-edit-panel";
@@ -273,23 +274,18 @@ function StakeholdersPanelBody({
   }, [resources]);
 
   const toolbar = (
-    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
-      <button
-        type="button"
+    <PaneToolbar>
+      <AddButton
         onClick={openNew}
         aria-label={t(lang, "stakeholdersAdd")}
         title={t(lang, "stakeholdersAdd")}
-        className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
       >
         + {t(lang, "stakeholdersAdd")}
-      </button>
-      <input
-        type="search"
+      </AddButton>
+      <PaneSearchInput
         value={search}
-        onChange={(e) => pf.setSearch(e.target.value)}
-        placeholder={t(lang, "stakeholderFieldName")}
-        aria-label={t(lang, "stakeholderFieldName")}
-        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+        onChange={pf.setSearch}
+        ariaLabel={t(lang, "stakeholderFieldName")}
       />
       {search && (
         <button
@@ -306,7 +302,7 @@ function StakeholdersPanelBody({
       <PrintButton lang={lang} />
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <ResetSizeButton onClick={resetPaneSize} lang={lang} />
-    </div>
+    </PaneToolbar>
   );
 
   return (
@@ -357,8 +353,7 @@ function StakeholdersPanelBody({
         )
       }
     >
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
               <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
                 <input
@@ -485,8 +480,7 @@ function StakeholdersPanelBody({
               </th>
               )}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          </>} tbodyClassName="divide-y divide-line">
             {visible.length === 0 && (
               <tr>
                 <td colSpan={1 + STAKEHOLDER_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length} className="p-10 text-center text-sm text-muted-foreground">
@@ -566,8 +560,7 @@ function StakeholdersPanelBody({
                 </tr>
               );
             })}
-          </tbody>
-        </table>
+        </DataTable>
     </PanelTableScaffold>
   );
 }

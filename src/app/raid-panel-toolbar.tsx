@@ -8,6 +8,7 @@ import { categoryLabel, severityLabel } from "./raid-labels";
 import { RAID_CATEGORIES, RAID_SEVERITIES } from "./types";
 import { PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { PanelViewsControl } from "./panel-views-control";
 import { ColumnConfigPopover } from "./column-config-popover";
 import { CalendarSyncControls } from "./calendar-sync-controls";
@@ -73,22 +74,13 @@ export function RaidToolbar({
   calendarPullBusy,
 }: RaidToolbarProps) {
   return (
-    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
-      <button
-        type="button"
-        onClick={onAddNew}
-        className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
-      >
-        {t(lang, "raidAddItem")}
-      </button>
-      <input
-        type="search"
+    <PaneToolbar>
+      <AddButton onClick={onAddNew}>{t(lang, "raidAddItem")}</AddButton>
+      <PaneSearchInput
         value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-        placeholder={t(lang, "raidSearchPlaceholder")}
-        aria-label={t(lang, "raidSearchPlaceholder")}
+        onChange={onSearchChange}
+        ariaLabel={t(lang, "raidSearchPlaceholder")}
         title={t(lang, "raidSearchHint")}
-        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
       />
       <select
         value={categoryFilter}
@@ -184,6 +176,6 @@ export function RaidToolbar({
       <PrintButton lang={lang} />
       <ResetColWidthsButton onClick={onResetColWidths} lang={lang} />
       <ResetSizeButton onClick={onResetSize} lang={lang} />
-    </div>
+    </PaneToolbar>
   );
 }

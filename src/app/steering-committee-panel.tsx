@@ -15,7 +15,7 @@ import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton 
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import type { CommitteeMeeting, InfoSchedule, Resource, SteeringCommittee } from "./types";
 import { Modal } from "./modal";
 import { committeePushKey, type CommitteeReconcileTarget } from "./committee-calendar-reconcile";
@@ -313,8 +313,7 @@ export function SteeringCommitteePanel({
         <section>
           <h3 className="mb-2 text-sm font-medium text-foreground">{t(lang, "committeeMeetings")}</h3>
           {c.meetings.length > 0 && (
-            <table className="mb-2 w-full text-sm">
-              <thead className={TABLE_HEAD_CLASS}>
+            <DataTable className="mb-2 w-full text-sm" head={<>
                 <tr className="text-left">
                   <th className="relative px-3 py-2" style={{ width: meetingCols.colWidths.date, minWidth: meetingCols.colWidths.date }}>
                     {t(lang, "committeeMeetingDate")}
@@ -332,8 +331,7 @@ export function SteeringCommitteePanel({
                   {outlookPush?.onPushRow && <th className="px-3 py-2 print:hidden" />}
                   <th className="px-3 py-2" />
                 </tr>
-              </thead>
-              <tbody>
+              </>}>
                 {c.meetings.map((m) => (
                   <tr key={m.id} className="border-t border-line">
                     <td className="py-1">
@@ -392,8 +390,7 @@ export function SteeringCommitteePanel({
                     <DeleteCell lang={lang} onClick={() => deleteMeeting(m.id)} label={m.title || m.date} />
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </DataTable>
           )}
           <div className="flex flex-wrap items-end gap-2">
             <input
@@ -431,8 +428,7 @@ export function SteeringCommitteePanel({
         <section>
           <h3 className="mb-2 text-sm font-medium text-foreground">{t(lang, "committeeInfoSchedules")}</h3>
           {c.infoSchedules.length > 0 && (
-            <table className="mb-2 w-full text-sm">
-              <thead className={TABLE_HEAD_CLASS}>
+            <DataTable className="mb-2 w-full text-sm" head={<>
                 <tr className="text-left">
                   <th className="relative px-3 py-2" style={{ width: scheduleCols.colWidths.label, minWidth: scheduleCols.colWidths.label }}>
                     {t(lang, "committeeScheduleLabel")}
@@ -445,8 +441,7 @@ export function SteeringCommitteePanel({
                   {outlookPush?.onPushRow && <th className="px-3 py-2 print:hidden" />}
                   <th className="px-3 py-2" />
                 </tr>
-              </thead>
-              <tbody>
+              </>}>
                 {c.infoSchedules.map((s) => (
                   <tr key={s.id} className="border-t border-line">
                     <td className="py-1">
@@ -481,8 +476,7 @@ export function SteeringCommitteePanel({
                     <DeleteCell lang={lang} onClick={() => deleteSchedule(s.id)} label={s.label || String(s.id)} />
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </DataTable>
           )}
           <div className="flex flex-wrap items-end gap-2">
             <input

@@ -9,7 +9,7 @@ import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { FOCUS_RING } from "./interaction-styles";
 
 const JIRA_CONFLICTS_COL_WIDTHS = {
@@ -197,8 +197,9 @@ export function JiraConflictsModal({
                   </span>
                 )}
               </div>
-              <table className="w-full text-xs">
-                <thead className={TABLE_HEAD_CLASS}>
+              <DataTable
+                className="w-full text-xs"
+                head={<>
                   <tr>
                     <th className="relative px-2 py-1 text-left font-medium" style={{ width: colWidths.field, minWidth: colWidths.field }}>
                       {t(lang, "jiraConflictField")}
@@ -213,8 +214,8 @@ export function JiraConflictsModal({
                       <ColumnResizeHandle col="remote" onMouseDown={startResize} />
                     </th>
                   </tr>
-                </thead>
-                <tbody>
+                </>}
+              >
                   {c.fields.map((f) => {
                     const lockedRemote = f.key === "assignee";
                     const pick = picks[c.taskId]?.picks[f.key] ?? "remote";
@@ -267,8 +268,7 @@ export function JiraConflictsModal({
                       </tr>
                     );
                   })}
-                </tbody>
-              </table>
+              </DataTable>
             </li>
           ))}
         </ul>

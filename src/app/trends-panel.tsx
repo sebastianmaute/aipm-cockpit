@@ -3,7 +3,7 @@ import { useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { VIEW_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { RagBadge } from "./rag-badge";
 import { healthText } from "./health";
 import { TrendChart, type TrendPoint } from "./trend-chart";
@@ -131,8 +131,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
               {baseline ? ` · ${t(lang, "trendsBaselineLabel")}: ${baseline.bucket}` : ""}
             </h3>
             <div className={INNER_TABLE_CLASS}>
-            <table className="w-full text-left text-sm">
-              <thead className={TABLE_HEAD_CLASS}>
+            <DataTable className="w-full text-left text-sm" head={<>
                 <tr>
                   <th className="relative px-3 py-2 text-left" style={{ width: varianceResize.colWidths.kpi, minWidth: varianceResize.colWidths.kpi }}>
                     KPI
@@ -153,8 +152,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                     <ColumnResizeHandle col="delta" onMouseDown={varianceStartResize} />
                   </th>
                 </tr>
-              </thead>
-              <tbody>
+              </>}>
                 {variance.map((row) => (
                   <tr key={row.key}>
                     <td className="px-3 py-2 font-medium">{t(lang, VARIANCE_LABEL_KEYS[row.key])}</td>
@@ -168,8 +166,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </DataTable>
             </div>
           </div>
 
@@ -209,8 +206,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
               </button>
             </div>
             <div className={INNER_TABLE_CLASS}>
-            <table className="w-full text-left text-sm">
-              <thead className={TABLE_HEAD_CLASS}>
+            <DataTable className="w-full text-left text-sm" head={<>
                 <tr>
                   <th className="w-8 px-3 py-2" />
                   <th className="relative px-3 py-2 text-left" style={{ width: snapshotResize.colWidths.capturedAt, minWidth: snapshotResize.colWidths.capturedAt }}>
@@ -230,8 +226,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                     <ColumnResizeHandle col="actions" onMouseDown={snapshotStartResize} />
                   </th>
                 </tr>
-              </thead>
-              <tbody>
+              </>}>
                 {[...snapshots].reverse().map((s) => (
                   <tr key={s.id}>
                     <td className="px-3 py-2">
@@ -275,8 +270,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </DataTable>
             </div>
           </div>
         </div>

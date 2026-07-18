@@ -13,7 +13,6 @@ import { isTerminalStatus, severityRag, type RaidSortKey } from "./raid";
 import { isRaidActiveForReview } from "./raid-review";
 import type { RaidCategory, RaidItem, Resource, Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
-import { TABLE_HEAD_CLASS } from "./table-styles";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { RagDot } from "./rag-dot";
@@ -22,6 +21,7 @@ import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { useRowSelection } from "./use-row-selection";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
+import { DataTable } from "./data-table";
 
 const categoryPillClass: Record<RaidCategory, string> = {
   R: "bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey",
@@ -86,8 +86,7 @@ export function RaidTable({
   onSendInquiry,
 }: RaidTableProps) {
   return (
-    <table className="min-w-full text-left text-sm">
-      <thead className={TABLE_HEAD_CLASS}>
+    <DataTable className="min-w-full text-left text-sm" head={<>
         <tr>
           <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
             <input
@@ -168,8 +167,7 @@ export function RaidTable({
           </th>
           )}
         </tr>
-      </thead>
-      <tbody className="divide-y divide-line">
+      </>} tbodyClassName="divide-y divide-line">
         {visible.length === 0 && (
           <tr>
             <td colSpan={1 + RAID_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length} className="p-10 text-center text-sm text-muted-foreground">
@@ -359,7 +357,6 @@ export function RaidTable({
             </button>
           </td>
         </tr>
-      </tbody>
-    </table>
+    </DataTable>
   );
 }

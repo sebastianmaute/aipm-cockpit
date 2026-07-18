@@ -23,6 +23,7 @@ const RESIZABLE_FILES = [
   "resources-panel.tsx",
   "gantt.tsx",
   "budget-panel.tsx",
+  "history-panel.tsx",
 ];
 
 // Forbidden: a divergent rounded-md inset card on the resources inner tables or

@@ -12,7 +12,7 @@ import { BudgetBucketModal } from "./budget-bucket-modal";
 import { mintId } from "./id-mint-session";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { TableFilter, SortResizeTh, nextSortDir, type SortDir } from "./report-table";
@@ -323,7 +323,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   };
 
   return (
-    <div ref={budgetRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <div ref={budgetRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {onLearnMore && (
         <ViewCallout view="budget" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
@@ -472,8 +472,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />
               </div>
               <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className={TABLE_HEAD_CLASS}>
+                <DataTable
+                  className="w-full text-xs"
+                  head={<>
                     <tr>
                       <th className="px-1 py-1 text-left font-medium" style={{ width: 28, minWidth: 28 }}>{t(lang, "budgetRoleStatus")}</th>
                       <SortResizeTh
@@ -496,8 +497,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         </th>
                       ))}
                     </tr>
-                  </thead>
-                  <tbody>
+                  </>}
+                >
                     {!isBlended && detailedRows.map((a) => {
                       // Effective budget (mirrors planned when follow-plan is on) so the
                       // row RAG agrees with the cells + bucket dot — not the stored hours.
@@ -551,8 +552,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       </tr>
                       );
                     })}
-                  </tbody>
-                </table>
+                </DataTable>
               </div>
               <div className="mt-2 flex items-center gap-4">
                 <button

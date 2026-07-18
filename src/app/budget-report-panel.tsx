@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
-import { TABLE_HEAD_CLASS } from "./table-styles";
+import { DataTable } from "./data-table";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import {
@@ -237,8 +237,10 @@ function BucketDetailTable({
     <Section title={t(lang, "budgetReportByBucket")}>
       <TableFilter lang={lang} value={filter} onChange={setFilter} placeholderKey="budgetReportFilterBucket" />
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="min-w-full text-left text-sm">
-          <thead className={TABLE_HEAD_CLASS}>
+        <DataTable
+          className="min-w-full text-left text-sm"
+          tbodyClassName="divide-y divide-line"
+          head={<>
             <tr>
               <th className="px-2 py-2 text-left font-medium" style={{ width: 32, minWidth: 32 }}>{t(lang, "budgetRoleStatus")}</th>
               {cols.map((c) => (
@@ -257,8 +259,8 @@ function BucketDetailTable({
                 />
               ))}
             </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
+          </>}
+        >
             {sorted.length === 0 && filter !== "" ? (
               <tr>
                 <td colSpan={cols.length + 1} className="px-3 py-3 text-center text-xs text-muted-foreground">
@@ -289,8 +291,7 @@ function BucketDetailTable({
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
+        </DataTable>
       </div>
     </Section>
   );

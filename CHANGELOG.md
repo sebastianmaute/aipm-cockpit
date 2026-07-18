@@ -8,6 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.20] - 2026-07-18 "Pinsker"
+
+Design-system dedup (Phases 3g + 3h).
+
+### Changed
+- View panes now share one header + toolbar building block (title/actions row, the
+  search box, and the "+ Add" button), so every register and directory view reads and
+  behaves identically. No visual change.
+- Register and report tables now render through one shared table component, so the
+  branded sticky header is applied consistently by construction. No visual change.
+
+### Fixed
+- The Budget view now prints in landscape (wide tables were being clipped in portrait).
+- The Version-history view is now a resizable pane with a reset-size control, matching
+  every other view.
+
 ## [0.190.19] - 2026-07-18 "Pinsker"
 
 Design-system dedup (Phases 3e + 3f).
