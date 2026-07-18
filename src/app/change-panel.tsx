@@ -52,6 +52,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton 
 import { InfoTooltip } from "./info-tooltip";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { selectField, textField, type BulkField } from "./bulk-edit-panel";
 
@@ -351,21 +352,12 @@ function ChangePanelBody({
     sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
 
   const toolbar = (
-    <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
-      <button
-        type="button"
-        onClick={openNew}
-        className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
-      >
-        + {t(lang, "changesAdd")}
-      </button>
-      <input
-        type="search"
+    <PaneToolbar>
+      <AddButton onClick={openNew}>+ {t(lang, "changesAdd")}</AddButton>
+      <PaneSearchInput
         value={search}
-        onChange={(e) => pf.setSearch(e.target.value)}
-        placeholder={t(lang, "changeFilterSearch")}
-        aria-label={t(lang, "changeFilterSearch")}
-        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+        onChange={pf.setSearch}
+        ariaLabel={t(lang, "changeFilterSearch")}
       />
       <select
         value={typeFilter}
@@ -420,7 +412,7 @@ function ChangePanelBody({
       )}
       <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
       <ResetSizeButton onClick={resetPaneSize} lang={lang} />
-    </div>
+    </PaneToolbar>
   );
 
   return (

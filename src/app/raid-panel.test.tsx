@@ -306,8 +306,11 @@ test("raid toolbar: add-item precedes search; no open-report button", () => {
   // (mirrors the gantt-chrome markup-order source test).
   const src = readFileSync(join(__dirname, "raid-panel-toolbar.tsx"), "utf8");
   const addIdx = src.indexOf("onClick={onAddNew}");
-  const searchIdx = src.indexOf('type="search"');
+  // The search box was migrated to the shared <PaneSearchInput> primitive
+  // (no more raw `type="search"` literal here); anchor on the component name.
+  const searchIdx = src.indexOf("<PaneSearchInput");
   expect(addIdx).toBeGreaterThan(-1);
+  expect(searchIdx).toBeGreaterThan(-1);
   expect(addIdx).toBeLessThan(searchIdx);
   expect(src).not.toMatch(/raidReportOpenReport\b/);
 });

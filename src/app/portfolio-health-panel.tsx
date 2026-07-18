@@ -24,6 +24,7 @@ import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_FILL_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
+import { PaneHeader } from "./pane-header";
 
 export interface PortfolioHealthPanelProps {
   lang: Lang;
@@ -105,13 +106,15 @@ export function PortfolioHealthPanel({
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-        <h2 className="text-lg font-medium text-foreground">{t(lang, "navPortfolioHealth")}</h2>
-        <div className="flex items-center gap-2 print:hidden">
-          <PrintButton lang={lang} />
-          <ResetSizeButton onClick={resetSize} lang={lang} />
-        </div>
-      </div>
+      <PaneHeader
+        title={t(lang, "navPortfolioHealth")}
+        actions={
+          <>
+            <PrintButton lang={lang} />
+            <ResetSizeButton onClick={resetSize} lang={lang} />
+          </>
+        }
+      />
 
       <div className="min-h-[240px] flex-1 overflow-auto rounded-xl border border-line p-3 pr-2 print:max-h-none print:overflow-visible">
       {/* Aggregate KPI strip */}

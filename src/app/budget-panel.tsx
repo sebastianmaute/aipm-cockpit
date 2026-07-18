@@ -323,7 +323,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   };
 
   return (
-    <div ref={budgetRef} className={VIEW_PANE_RESIZABLE_CLASS}>
+    <div ref={budgetRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {onLearnMore && (
         <ViewCallout view="budget" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}

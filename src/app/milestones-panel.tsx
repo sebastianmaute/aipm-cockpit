@@ -39,6 +39,7 @@ import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
@@ -338,13 +339,11 @@ function MilestonesPanelBody({
             {t(lang, calendarPullBusy ? "calendarPulling" : "calendarPull")}
           </button>
         ) : null}
-        <input
-          type="search"
+        <PaneSearchInput
           value={pf.search}
-          onChange={(e) => pf.setSearch(e.target.value)}
-          placeholder={t(lang, "milestonesFilterName")}
-          aria-label={t(lang, "milestonesFilterName")}
-          className={`min-w-[10rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+          onChange={pf.setSearch}
+          ariaLabel={t(lang, "milestonesFilterName")}
+          minW="min-w-[10rem]"
         />
         <select
           value={status}

@@ -17,7 +17,9 @@ import { useToastContext } from "./toast-context";
 import { useConfirm } from "./confirm-dialog";
 import { Badge } from "./badge";
 import { EmptyState } from "./empty-state";
-import { PrintButton } from "./task-manager-ui";
+import { PrintButton, ResetSizeButton } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
+import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 
 interface HistoryPanelProps {
@@ -34,6 +36,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const { displayTz } = useDisplayTimezone();
   const showToast = useToastContext();
   const confirm = useConfirm();
+  const { ref: paneRef, reset: resetSize } = useResizable("aipm-cockpit:history-size");
   const [diff, setDiff] = useState<VersionChange[] | null>(null);
   const [comparing, setComparing] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
@@ -188,8 +191,8 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   };
 
   return (
-    <div className="print-root p-4">
-      <div className="mb-3 flex items-center justify-between">
+    <div ref={paneRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">{t(lang, "historyTitle")}</h2>
         <span className="flex items-center gap-2 print:hidden">
           <button
@@ -249,9 +252,11 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             </button>
           )}
           <PrintButton lang={lang} />
+          <ResetSizeButton onClick={resetSize} lang={lang} />
         </span>
       </div>
 
+      <div className="min-h-0 flex-1 overflow-auto pr-2">
       {versions.length === 0 ? (
         <EmptyState compact title={t(lang, "historyEmpty")} />
       ) : (
@@ -392,6 +397,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }

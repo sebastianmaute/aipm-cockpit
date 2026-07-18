@@ -20,6 +20,7 @@ import { useConfirm } from "./confirm-dialog";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { AddButton } from "./pane-toolbar";
 
 const DIRECTORY_COL_WIDTHS = {
   name: 180,
@@ -227,20 +228,12 @@ function ResourceDirectoryInner({
   return (
     <div ref={dirRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <div className="mb-2 flex shrink-0 items-center gap-2 print:hidden">
-        <button
-          type="button"
-          onClick={() => onAddResource()}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
-        >
+        <AddButton onClick={() => onAddResource()}>
           {t(lang, "resourcesAddResource")}
-        </button>
-        <button
-          type="button"
-          onClick={() => onAddAbsence()}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
-        >
+        </AddButton>
+        <AddButton onClick={() => onAddAbsence()}>
           {t(lang, "resourcesAddAbsence")}
-        </button>
+        </AddButton>
         <input
           type="search"
           value={filter}
