@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 // (`children`) MUST name what pressed=true ENABLES and NEVER flip with state.
 // `aria-pressed` tracks that same state, so "Inline milestones, pressed" ⇒
 // inline is on. Do not pass a label that flips to the opposite action.
-export type ToggleAccent = "dark-blue" | "pink" | "green";
+export type ToggleAccent = "dark-blue" | "pink";
 
 const BASE =
   "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2";
@@ -21,8 +21,6 @@ const PRESSED: Record<ToggleAccent, string> = {
   "dark-blue":
     "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey",
   pink: "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-dark-blue hover:bg-AIPM-pink/20 focus:ring-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey",
-  green:
-    "border-AIPM-green bg-AIPM-green/10 text-AIPM-dark-blue hover:bg-AIPM-green/20 focus:ring-AIPM-green dark:border-AIPM-green dark:bg-AIPM-green/15 dark:text-AIPM-light-grey",
 };
 
 interface ToggleButtonProps {

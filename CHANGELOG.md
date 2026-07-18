@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.17] - 2026-07-18 "Pinsker"
+
+Design-system dedup (Phase 3c).
+
+### Changed
+- On/off toggle buttons (the Gantt critical-path / baseline / inline-milestones toggles, plus
+  the bulk-edit and show-archived toggles) now share one component, so they look and behave
+  consistently — a bordered chip that takes on an accent tint when switched on. The bulk-edit
+  and show-archived toggles gain that visible on-state they previously lacked.
+
 ## [0.190.16] - 2026-07-18 "Pinsker"
 
 Design-system dedup (Phase 3b).
