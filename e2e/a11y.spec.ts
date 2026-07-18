@@ -1,18 +1,19 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
-import {
-  ICC_LIGHT,
-  ICC_DARK,
-  MOCKUP_LIGHT,
-  HARBOR_DARK,
-  HARBOR_LIGHT,
-} from "../src/app/builtin-schemes";
-import {
-  ICC_STRUCTURAL,
-  MOCKUP_STRUCTURAL,
-  resolveSchemeColors,
-} from "../src/app/scheme-tokens";
+import { readFileSync } from "node:fs";
+import { HARBOR_DARK, HARBOR_LIGHT } from "../src/app/builtin-schemes";
+import { resolveSchemeColors } from "../src/app/scheme-tokens";
 import type { SchemeColorMap, SchemeStructuralMap } from "../src/app/scheme-apply";
+
+const loadTheme = (f: string) =>
+  JSON.parse(readFileSync(`public/themes/${f}`, "utf8")) as {
+    light: SchemeColorMap;
+    dark?: SchemeColorMap;
+    structural: SchemeStructuralMap;
+    supportsDark: boolean;
+  };
+const ICC_THEME = loadTheme("AIPM.json");
+const MOCKUP_THEME = loadTheme("mockup.json");
 
 // Accessibility gate: scan the critical views (with a DATA-SEEDED project, so
 // colour-coded RAG/status states actually render) for WCAG 2.0/2.1 A & AA
@@ -29,11 +30,12 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
   "Next actions": "#actions",
 };
 
-// Phase 2: AIPM + Mockup are now built-in SCHEMES (ids "AIPM"/"mockup"); the style
-// axis collapses to the constant data-style="custom" and the active SCHEME drives
-// the look. Every shipped scheme/theme combo is scanned for the SAME visual
-// coverage as before: AIPM (light+dark), Mockup (light-only), Harbor (light+dark,
-// the fresh-install default). Represented as a scheme id + dark flag.
+// AIPM + Mockup are no longer built-in schemes: they ship as importable theme
+// files (public/themes/*.json), read here at seed time and seeded as USER schemes
+// (Harbor is the sole brand default / built-in). The style axis is the constant
+// data-style="custom" and the active SCHEME drives the look. The 5-combo matrix
+// scans the SAME visual coverage as before: AIPM (light+dark), Mockup (light-only),
+// Harbor (light+dark, the fresh-install default). Represented as a scheme id + dark flag.
 const COMBOS = [
   { scheme: "AIPM",    dark: false },
   { scheme: "AIPM",    dark: true  },
@@ -42,17 +44,17 @@ const COMBOS = [
   { scheme: "harbor", dark: true  },
 ] as const;
 
-// Per-scheme resolved maps (imported + resolved node-side, at seed time — mirrors
-// how the app persists them). Mockup is light-only (no dark map, supportsDark=0);
-// AIPM/Harbor are dark-capable. Structural: AIPM reproduces the flat look, Mockup
-// adds shadows/gradient, Harbor carries none ({}).
+// Per-scheme maps (AIPM/Mockup from the shipped theme JSON, Harbor imported; all
+// resolved node-side at seed time — mirrors how the app persists them). Mockup is
+// light-only (no dark map, supportsDark=0); AIPM/Harbor are dark-capable. Structural:
+// AIPM reproduces the flat look, Mockup adds shadows/gradient, Harbor carries none ({}).
 const SCHEME_SEED: Record<
   (typeof COMBOS)[number]["scheme"],
   { light: SchemeColorMap; dark?: SchemeColorMap; structural: SchemeStructuralMap; supportsDark: boolean }
 > = {
-  AIPM:    { light: ICC_LIGHT,    dark: ICC_DARK,    structural: ICC_STRUCTURAL,    supportsDark: true },
-  mockup: { light: MOCKUP_LIGHT,                    structural: MOCKUP_STRUCTURAL, supportsDark: false },
-  harbor: { light: HARBOR_LIGHT, dark: HARBOR_DARK, structural: {},                supportsDark: true },
+  AIPM:    { light: ICC_THEME.light, dark: ICC_THEME.dark, structural: ICC_THEME.structural, supportsDark: true },
+  mockup: { light: MOCKUP_THEME.light, structural: MOCKUP_THEME.structural, supportsDark: false },
+  harbor: { light: HARBOR_LIGHT, dark: HARBOR_DARK, structural: {}, supportsDark: true },
 };
 
 const comboLabel = (combo: (typeof COMBOS)[number]): string =>
@@ -70,7 +72,26 @@ function seedScript(combo: (typeof COMBOS)[number]): string {
   const spec = SCHEME_SEED[combo.scheme];
   const useDark = combo.dark && spec.supportsDark;
   const map = resolveSchemeColors(useDark && spec.dark ? spec.dark : spec.light);
-  const store = { schemes: [], activeId: combo.scheme };
+  // Harbor is a built-in (empty schemes[] + activeId selects it via reconcile);
+  // AIPM/Mockup are shipped theme files -> seed them as user schemes so reconcile
+  // keeps them and syncScheme doesn't snap back to Harbor.
+  const store =
+    combo.scheme === "harbor"
+      ? { schemes: [], activeId: "harbor" }
+      : {
+          schemes: [
+            {
+              id: combo.scheme,
+              name: combo.scheme,
+              supportsDark: spec.supportsDark,
+              light: spec.light,
+              ...(spec.dark ? { dark: spec.dark } : {}),
+              structural: spec.structural,
+              branding: {},
+            },
+          ],
+          activeId: combo.scheme,
+        };
   return [
     `localStorage.setItem("aipm-cockpit-style", "custom");`,
     `localStorage.setItem("aipm-cockpit-theme", ${JSON.stringify(combo.dark ? "dark" : "light")});`,
