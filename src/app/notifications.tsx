@@ -9,13 +9,13 @@ import { formatExpiryDate } from "./date-format";
 import type { JiraTokenAlert } from "./jira-token-status";
 import type { StorageErrorKind } from "./storage-error";
 import { Banner, type BannerSeverity } from "./banner";
+import { Button } from "./button";
 
 function DismissButton({ lang, onClick }: { lang: Lang; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} aria-label={t(lang, "alertBannerDismiss")}
-      className="rounded-md border border-ui-medium-grey/40 bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted">
+    <Button variant="secondary" size="xs" onClick={onClick} aria-label={t(lang, "alertBannerDismiss")}>
       {t(lang, "alertBannerDismiss")}
-    </button>
+    </Button>
   );
 }
 
@@ -99,10 +99,9 @@ export function StorageBanner({
   return (
     <AlertBanner severity="error" ariaLabel={t(lang, "storageBannerAria")} icon="⚠"
       actions={<>
-        <button type="button" onClick={onOpenSettings}
-          className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90">
+        <Button variant="primary" size="xs" onClick={onOpenSettings}>
           {t(lang, "storageBannerOpenSettings")}
-        </button>
+        </Button>
         <DismissButton lang={lang} onClick={onDismiss} />
       </>}>
       <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{msg}</p>

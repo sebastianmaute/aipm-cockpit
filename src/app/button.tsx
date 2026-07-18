@@ -35,7 +35,7 @@ const SIZE_CLASS: Record<ButtonSize, string> = {
 };
 
 const BASE_CLASS =
-  "rounded-md font-medium disabled:cursor-not-allowed disabled:opacity-50";
+  "cursor-pointer rounded-md font-medium disabled:cursor-not-allowed disabled:opacity-50";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;

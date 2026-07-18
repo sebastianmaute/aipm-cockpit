@@ -26,7 +26,8 @@ const VARIANT_CLASS: Record<IconButtonVariant, string> = {
   danger: "text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink-strong",
 };
 
-const BASE_CLASS = "inline-flex items-center justify-center rounded-md";
+const BASE_CLASS =
+  "inline-flex cursor-pointer items-center justify-center rounded-md disabled:cursor-not-allowed disabled:opacity-50";
 
 export interface IconButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> {

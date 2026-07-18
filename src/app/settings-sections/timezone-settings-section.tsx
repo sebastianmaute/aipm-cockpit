@@ -4,7 +4,8 @@ import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import { browserTimeZone, isValidTimeZone, tzZones } from "../timezone";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { FOCUS_RING, TRANSITION } from "../interaction-styles";
+import { Button } from "../button";
 import { RemovableChipRow } from "./removable-chip-row";
 import { FieldHint } from "../field-hint";
 
@@ -79,14 +80,15 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
                 </option>
               ))}
           </select>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
+            className="shrink-0"
             onClick={addZone}
             disabled={!pending}
-            className={`shrink-0 rounded-md bg-ui-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "tzAddLabel")}
-          </button>
+          </Button>
         </div>
 
         {additional.length > 0 && (

@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.27] - 2026-07-18 "Pinsker"
+
+### Changed
+
+Design-system: **button-size normalization** — the final button-sprawl slice. The off-size CTA buttons that the `<Button>` pass skipped (paddings that matched no standard size) are normalized onto the shared `<Button>` `xs`/`sm` sizes, closing the button consolidation entirely.
+
+- Size map: `px-3 py-2`/`px-3 py-1` → `sm`; `px-2 py-1`/`px-2 py-0.5`/`px-3 py-1.5 text-xs` → `xs`.
+- Off-variant folds: `bg-ui-green` save-passphrase → primary; `border-ui-medium-grey` quick-picks/dismiss → secondary; a `text-ui-purple` delete → destructive.
+- ~25 buttons across 15 files (settings integrations/localization/timezone/comm-templates, history, knowledge, roles, dashboard narrative, notifications, jira-conflicts, sharepoint paste, budget-bucket, raid-edit, rich-text, chat inline-stop).
+- Left bespoke by design: full-width list-selection *rows* (SharePoint site/drive/result rows — not centered chips), dropdown menu items (snooze), and the filled `bg-ui-pink` composer Stop (no filled-pink Button variant).
+
 ## [0.190.26] - 2026-07-18 "Pinsker"
 
 ### Added

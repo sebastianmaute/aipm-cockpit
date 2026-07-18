@@ -291,26 +291,26 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 >
                   {t(lang, "historyCompareVsNow")}
                 </TextButton>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="xs"
                   onClick={() => { void restoreWholeVersion(v); }}
                   disabled={busy || comparing}
                   title={t(lang, "historyRestoreStateHint")}
-                  className={`cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
                 >
                   {t(lang, "historyRestoreState")}
-                </button>
+                </Button>
                 {onDelete && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="destructive"
+                    size="xs"
                     onClick={() => { void deleteVersionRow(v); }}
                     disabled={busy || comparing}
                     title={t(lang, "historyDelete")}
                     aria-label={`${t(lang, "historyDelete")} – ${labelOf(v)}`}
-                    className={`cursor-pointer rounded-md border border-ui-pink/50 px-2 py-0.5 text-xs font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "historyDelete")}
-                  </button>
+                  </Button>
                 )}
                 <span className="text-xs text-muted-foreground">{formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
               </span>
@@ -328,39 +328,39 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   act on the ticked records; an identical snapshot has none). */}
               {compareFrom !== null && diff.length > 0 && (
                 <>
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={selectAllRecords}
-                    className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue ${INTERACTIVE}`}
                   >
                     {t(lang, "historySelectAll")}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={deselectAllRecords}
                     disabled={Object.keys(selection).length === 0}
-                    className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "historyDeselectAll")}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
                     disabled={Object.keys(selection).length === 0}
                     onClick={() => { const cf = compareFrom; if (cf) void restore(cf.id, selection, cf.label).then((ok) => { if (!ok) return; setSelection({}); setDiff(null); setCompareFrom(null); setRestoreFrom(null); }); }}
                     title={t(lang, "historyRestoreSelectedHint")}
-                    className={`rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "historyRestoreSelected")}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={restoreCompareState}
                     aria-label={t(lang, "historyRestoreState")}
                     title={t(lang, "historyRestoreStateHint")}
-                    className={`rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
                   >
                     {t(lang, "historyRestoreState")}
-                  </button>
+                  </Button>
                 </>
               )}
               <button

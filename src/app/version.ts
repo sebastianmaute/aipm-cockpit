@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.26";
-export const APP_BUILD_DATE = "2026-07-18"; // 0.190.26: design-system IconButton + TextButton primitives — canonical icon-only ✕/remove buttons + inline action-link buttons; migrated the icon-only + link CTAs the Button pass intentionally left (Pinsker)
+export const APP_VERSION = "0.190.27";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.27: design-system button-size normalization — the remaining off-size CTA buttons (px-2 py-1 / px-3 py-1 / px-3 py-2 / px-2 py-0.5) normalized onto the shared <Button> xs/sm sizes + variants; off-variant folds (green→primary, medium-grey→secondary); list-selection rows + filled-pink stop left bespoke (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

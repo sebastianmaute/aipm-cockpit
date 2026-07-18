@@ -27,7 +27,7 @@ import { defaultStorageConfig } from "../workspace";
 import { saveSecretValue, setSecretPassphrase } from "../use-secrets";
 import { isPassphraseLocked, loadSealed, removeSealed } from "../secrets-store";
 import { useIntegrationDisclaimer } from "../integration-disclaimer";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "../interaction-styles";
+import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { Button } from "../button";
 import { Checkbox } from "../form-controls";
 import { TimelogSettings } from "../timelog-settings";
@@ -318,17 +318,18 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 <span className="text-xs text-foreground">
                   {t(lang, "integrationsM365SignedInAs")} {auth.account.username}
                 </span>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="xs"
                   onClick={() => { void auth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
-                  className={`rounded border border-line bg-surface px-2 py-1 text-xs hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "integrationsM365SignOut")}
-                </button>
+                </Button>
               </>
             ) : (
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="xs"
                 onClick={() => {
                   setSignInBusy(true);
                   void auth
@@ -343,10 +344,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     ? t(lang, "integrationsM365NeedsConfig")
                     : undefined
                 }
-                className={`rounded border border-ui-dark-blue bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "integrationsM365SignIn")}
-              </button>
+              </Button>
             )}
           </div>
 
@@ -513,26 +513,28 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   {tokenPassphraseMismatch && (
                     <Banner severity="error">{t(lang, "secretPassphraseMismatch")}</Banner>
                   )}
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="self-start whitespace-nowrap"
                     disabled={!(turso.authToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
                     onClick={handleTokenLockConfirm}
-                    className={`self-start whitespace-nowrap rounded-md border border-line bg-ui-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "secretPassphraseSave")}
-                  </button>
+                  </Button>
                   <FieldHint>{t(lang, "secretLockWarning")}</FieldHint>
                 </div>
               )}
               {tokenStored && (
-                <button
-                  type="button"
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="mt-2"
                   onClick={() => void handleRemoveToken()}
                   title={t(lang, "secretPassphraseRemoveHint")}
-                  className={`mt-2 rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "secretPassphraseRemove")}
-                </button>
+                </Button>
               )}
             </div>
           )}

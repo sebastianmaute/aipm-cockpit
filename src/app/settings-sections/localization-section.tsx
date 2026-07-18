@@ -6,7 +6,8 @@ import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { EmptyState } from "../empty-state";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { FOCUS_RING, TRANSITION } from "../interaction-styles";
+import { Button } from "../button";
 import { RemovableChipRow } from "./removable-chip-row";
 
 interface LocalizationSectionProps {
@@ -82,14 +83,15 @@ export function LocalizationSection({ lang, settings, onChange }: LocalizationSe
               </option>
             ))}
           </select>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
+            className="shrink-0"
             onClick={addCountry}
             disabled={!pending}
-            className={`shrink-0 rounded-md bg-ui-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "add")}
-          </button>
+          </Button>
         </div>
 
         {settings.holidayCountries.length === 0 ? (
