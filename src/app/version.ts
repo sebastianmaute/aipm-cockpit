@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.18";
-export const APP_BUILD_DATE = "2026-07-18"; // 0.190.18: design-system dedup + a11y (P3d) — shared useTablistRoving hook gives the workspace + Help tabs arrow/Home/End keyboard roving; SegmentedControl gains radiogroup arrow-roving + ring-2; the Open Points Table/Board toggle now uses the shared SegmentedControl (Pinsker)
+export const APP_VERSION = "0.190.19";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.19: design-system dedup (P3e+P3f) — error/notice messages routed through the FieldError/ModalFieldError/Banner primitives app-wide (consistent tinted boxes + inline field errors); new shared CountBadge (notification-count pill, fixes a text-colour drift) and ProgressTrack (progress/usage bar rail) atoms (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

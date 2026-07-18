@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { ModalFieldError } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
@@ -688,9 +689,7 @@ export function BudgetBucketModal({
             </div>
           )}
 
-          {error && (
-            <p role="alert" className="text-sm text-AIPM-pink-strong sm:col-span-2">{error}</p>
-          )}
+          {error && <ModalFieldError error={error} />}
         </div>
 
         <footer className="flex shrink-0 justify-end gap-2 border-t border-line px-6 py-4">

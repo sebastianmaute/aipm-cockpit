@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { NAV_GROUPS, navLabelKey, type AppView, type NavGroup, type NavItem } from "./nav-config";
 import { NavIcon } from "./nav-icons";
+import { CountBadge } from "./count-badge";
 import { TOUR_ANCHORS } from "./app-tour";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 
@@ -29,9 +30,6 @@ function isParentActive(item: NavItem, active: AppView): boolean {
   if (item.view === active) return true;
   return (item.children ?? []).some((c) => c.view === active);
 }
-
-const CHILD_BADGE_CLASS =
-  "ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white";
 
 /**
  * Collapsed-rail affordance for a parent that has sub-menu children (#35).
@@ -150,7 +148,7 @@ function CollapsedNavFlyout({
               >
                 <NavIcon view={view} />
                 <span>{t(lang, navLabelKey(view))}</span>
-                {badge > 0 && <span aria-hidden className={CHILD_BADGE_CLASS}>{badge}</span>}
+                {badge > 0 && <CountBadge variant="pink" aria-hidden className="ml-auto">{badge}</CountBadge>}
               </button>
             );
           })}
@@ -229,9 +227,9 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
                     <NavIcon view={item.view} />
                     {!collapsed && <span>{label}</span>}
                     {!collapsed && rootBadge > 0 && (
-                      <span aria-hidden className="ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white">
+                      <CountBadge variant="pink" aria-hidden className="ml-auto">
                         {rootBadge}
-                      </span>
+                      </CountBadge>
                     )}
                   </button>
                   {showChildren && (
@@ -250,9 +248,9 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
                               <NavIcon view={child.view} />
                               <span>{t(lang, navLabelKey(child.view))}</span>
                               {!!badges?.[child.view] && (
-                                <span aria-hidden className="ml-auto inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-AIPM-pink px-1 text-[10px] font-semibold leading-none text-white">
+                                <CountBadge variant="pink" aria-hidden className="ml-auto">
                                   {badges[child.view]}
-                                </span>
+                                </CountBadge>
                               )}
                             </button>
                           </li>

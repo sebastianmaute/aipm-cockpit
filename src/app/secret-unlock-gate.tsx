@@ -10,6 +10,7 @@
 
 import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
+import { FieldError } from "./field-feedback";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
@@ -74,9 +75,7 @@ export function SecretUnlockGate({ lang, messageKey, onUnlock }: SecretUnlockGat
             className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
           />
           {error && (
-            <p role="alert" className="text-sm text-AIPM-pink-strong">
-              {t(lang, "secretUnlockFailed")}
-            </p>
+            <FieldError>{t(lang, "secretUnlockFailed")}</FieldError>
           )}
           <div className="flex justify-end">
             <Button

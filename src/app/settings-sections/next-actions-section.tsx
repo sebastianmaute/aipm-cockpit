@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { type Lang, type TranslationKey, t } from "../i18n";
+import { FieldError } from "../field-feedback";
 import {
   type NextActionsConfig,
   type NextActionsLearningConfig,
@@ -168,9 +169,9 @@ export function NextActionsSection({
         </div>
       )}
       {suggest.error && (
-        <p role="alert" className="mb-3 text-xs text-AIPM-pink-strong">
+        <FieldError>
           {t(lang, suggestErrorKey(suggest.error))}
-        </p>
+        </FieldError>
       )}
       {!suggest.error && !suggest.busy && suggest.result && displayed.length === 0 && (
         <p className="mb-3 text-xs text-muted-foreground">{t(lang, "weightSuggestNone")}</p>

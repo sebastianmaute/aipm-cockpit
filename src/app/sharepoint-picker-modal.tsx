@@ -6,6 +6,7 @@ import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { t, type Lang } from "./i18n";
+import { Banner } from "./banner";
 import { useSharePointBrowser, type AcquireToken } from "./use-sharepoint-browser";
 import { parseSharePointSiteUrl } from "./sharepoint-backend";
 import type { KnowledgeLink } from "./document-link";
@@ -196,13 +197,13 @@ export function SharePointPickerModal({
           {/* Results area */}
           <div className="min-h-[120px]">
             {searchForbidden && (
-              <p className="mb-2 rounded-md bg-surface-muted px-3 py-2 text-sm text-AIPM-pink-strong">
+              <Banner severity="error" className="mb-2">
                 {t(lang, "spPickerSearchForbidden")}
-              </p>
+              </Banner>
             )}
 
             {error && (
-              <p className="py-4 text-center text-sm text-AIPM-pink-strong">{t(lang, error as Parameters<typeof t>[1])}</p>
+              <Banner severity="error">{t(lang, error as Parameters<typeof t>[1])}</Banner>
             )}
 
             {loading && !error && (

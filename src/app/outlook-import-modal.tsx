@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { Banner } from "./banner";
 import { Modal } from "./modal";
 import type { OutlookContact } from "./outlook-contacts";
 
@@ -90,7 +91,7 @@ export function OutlookImportModal({
               {t(lang, "outlookImportLoading")}
             </p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-AIPM-pink-strong">{error}</p>
+            <Banner severity="error">{error}</Banner>
           ) : contacts.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {t(lang, "outlookImportEmpty")}

@@ -3,6 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
+import { Banner } from "./banner";
 import { Modal } from "./modal";
 import { dedupeKey, type OutlookEvent } from "./outlook-calendar";
 import { ABSENCE_TYPES, type AbsenceType } from "./types";
@@ -112,7 +113,7 @@ export function OutlookCalendarImportModal({
           {loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t(lang, "outlookCalImportLoading")}</p>
           ) : error ? (
-            <p className="py-8 text-center text-sm text-AIPM-pink-strong">{error}</p>
+            <Banner severity="error">{error}</Banner>
           ) : events.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">{t(lang, "outlookCalImportEmpty")}</p>
           ) : (

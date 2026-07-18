@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
+import { FieldError } from "./field-feedback";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, MOCKUP_SEED, resolveSchemeColors } from "./scheme-tokens";
 import { checkSchemePairs } from "./scheme-contrast";
@@ -205,7 +206,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
           <input type="file" accept="application/json,.json" className="sr-only" onChange={onImportFile} />
         </label>
       </div>
-      {importError && <p className="mb-2 text-xs text-AIPM-pink-strong">{importError}</p>}
+      {importError && <FieldError>{importError}</FieldError>}
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {CORE_TOKENS.map((tk) => picker(tk.token, tk.labelKey as TranslationKey))}

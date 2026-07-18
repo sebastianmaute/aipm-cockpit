@@ -12,6 +12,7 @@ import {
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { type Lang, t } from "./i18n";
 import { EmptyState } from "./empty-state";
+import { ProgressTrack } from "./progress-track";
 import { type GroupOrLabelRow, type Stats } from "./reports-stats";
 
 export const REPORTS_INQUIRY_COL_WIDTHS = {
@@ -269,7 +270,7 @@ export function StackedBar({
   }
   return (
     <div>
-      <div className="flex h-3 w-full overflow-hidden rounded-full bg-surface-muted">
+      <ProgressTrack height="h-3" className="flex">
         {segments.map((s, i) =>
           s.value > 0 ? (
             <div
@@ -280,7 +281,7 @@ export function StackedBar({
             />
           ) : null,
         )}
-      </div>
+      </ProgressTrack>
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {segments.map((s, i) => (
           <li key={i} className="flex items-center gap-1.5">

@@ -2,6 +2,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
+import { FieldError } from "./field-feedback";
 import { Button } from "./button";
 import { Spinner } from "./spinner";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -128,7 +129,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
         </div>
       </div>
       {aiAnalysis?.error && (
-        <p role="alert" className="mb-3 text-sm text-AIPM-pink-strong">
+        <FieldError>
           {aiAnalysis.error === "limit"
             ? t(lang, "aiUsageLimitReached")
             : /^\d+$/.test(aiAnalysis.error)
@@ -136,7 +137,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               : aiAnalysis.error === "network"
                 ? t(lang, "actionAiErrorNetwork")
                 : t(lang, "actionAiErrorGeneric")}
-        </p>
+        </FieldError>
       )}
       {aiAnalysis?.result && (
         <section

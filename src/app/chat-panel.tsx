@@ -30,6 +30,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
 import { Checkbox } from "./form-controls";
 import { Banner } from "./banner";
+import { FieldError } from "./field-feedback";
 import { unlockSecret } from "./use-secrets";
 import { useConfirm } from "./confirm-dialog";
 import { isPassphraseLocked } from "./secrets-store";
@@ -663,9 +664,7 @@ function ChatPanelInner({
                   </button>
                 </div>
                 {unlockError && (
-                  <p role="alert" className="text-sm text-AIPM-pink-strong">
-                    {t(lang, "secretUnlockFailed")}
-                  </p>
+                  <FieldError>{t(lang, "secretUnlockFailed")}</FieldError>
                 )}
               </div>
             ) : (
@@ -726,12 +725,9 @@ function ChatPanelInner({
                   </div>
                 )}
                 {item.kind === "notice" && (
-                  <div
-                    role="status"
-                    className="rounded-md border border-AIPM-dark-blue/30 bg-AIPM-dark-blue/5 px-3 py-2 text-sm text-foreground"
-                  >
+                  <Banner severity="info" role="status">
                     {item.text}
-                  </div>
+                  </Banner>
                 )}
                 {item.kind === "tool" && (
                   <ToolBlock

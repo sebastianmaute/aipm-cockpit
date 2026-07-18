@@ -29,6 +29,7 @@ import {
   deriveMode,
 } from "./feature-modules";
 import { t, type Lang } from "./i18n";
+import { FieldError } from "./field-feedback";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { aiKeyIfEnabled, type Settings } from "./settings-types";
 import { type ProjectTemplate } from "./templates";
@@ -365,9 +366,7 @@ export function CreateProjectWizard({
               })}
             </fieldset>
             {seedHasContent(aiSeed) && selectedTemplate !== null && (
-              <p role="alert" className="text-xs text-AIPM-pink-strong">
-                {t(lang, "aiCreateTemplateReplacesSeed")}
-              </p>
+              <FieldError>{t(lang, "aiCreateTemplateReplacesSeed")}</FieldError>
             )}
           </div>
         )}

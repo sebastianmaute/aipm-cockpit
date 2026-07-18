@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
+import { ModalFieldError } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { ModalEditFooter } from "./modal-edit-fields";
@@ -272,9 +273,7 @@ export function MilestoneEditModal({
           </fieldset>
           )}
 
-          {error && (
-            <p role="alert" className="text-sm text-AIPM-pink-strong">{error}</p>
-          )}
+          {error && <ModalFieldError error={error} />}
 
           <ModalEditFooter
             lang={lang}

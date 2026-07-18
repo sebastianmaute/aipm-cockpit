@@ -13,6 +13,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 import { InfoTooltip } from "./info-tooltip";
 import { Card } from "./card";
+import { ProgressTrack } from "./progress-track";
 
 export type SortDir = "asc" | "desc" | "off";
 
@@ -298,13 +299,9 @@ export function KpiGradientBar({ percent, label }: { percent: number; label: str
   const safe = Number.isFinite(percent) ? percent : 0;
   const pct = Math.max(0, Math.min(100, Math.round(safe)));
   return (
-    <div
-      role="img"
-      aria-label={`${label}: ${pct}%`}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted"
-    >
+    <ProgressTrack height="h-1.5" role="img" aria-label={`${label}: ${pct}%`}>
       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--gradient-kpi)" }} />
-    </div>
+    </ProgressTrack>
   );
 }
 

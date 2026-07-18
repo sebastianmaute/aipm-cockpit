@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { t, type Lang } from "./i18n";
 import { FieldNotice } from "./field-feedback";
+import { Banner } from "./banner";
 import type { TimelogConfig, TimelogScopeMode } from "./timelog-types";
 import { saveSecretValue } from "./use-secrets";
 import { listUsers, getPrivileges } from "./timelog-api";
@@ -119,7 +120,7 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
             <FieldNotice>{t(lang, "credentialStorageNote")}</FieldNotice>
           </label>
           {config.tokenInvalidAt && (
-            <p className="text-xs text-AIPM-pink-strong">{t(lang, "timelogTokenInvalid")}</p>
+            <Banner severity="error">{t(lang, "timelogTokenInvalid")}</Banner>
           )}
           <label className="block text-xs">
             {t(lang, "timelogScope")}

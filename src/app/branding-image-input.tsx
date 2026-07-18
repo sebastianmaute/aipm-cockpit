@@ -1,6 +1,7 @@
 "use client";
 import { type ChangeEvent } from "react";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { FieldError } from "./field-feedback";
 
 export interface BrandingImageInputProps {
   label: string; // accessible name for the file input
@@ -72,9 +73,7 @@ export function BrandingImageInput(props: BrandingImageInputProps) {
         ) : null}
       </div>
       {props.error ? (
-        <p className="text-sm text-AIPM-pink-strong" role="alert">
-          {props.error}
-        </p>
+        <FieldError>{props.error}</FieldError>
       ) : null}
     </div>
   );
