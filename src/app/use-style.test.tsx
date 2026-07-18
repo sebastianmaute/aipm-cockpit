@@ -157,20 +157,25 @@ describe("CI style ↔ scheme interaction (Phase 2 — scheme-driven)", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
-  it("migrates a legacy aipm-cockpit-style='mockup' to the mockup scheme + custom", () => {
-    localStorage.setItem(STYLE_STORAGE_KEY, "mockup");
+  it("does NOT activate a scheme for a legacy aipm-cockpit-style='mockup'; normalises to custom", () => {
+    setActive("meridian"); // pre-existing active scheme
+    localStorage.setItem(STYLE_STORAGE_KEY, "mockup"); // legacy value
     render(tree());
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
-    expect(loadSchemes().activeId).toBe("mockup");
+    // Legacy migration dropped — AIPM/Mockup are importable theme files, not built-ins.
+    // The scheme store is left untouched (no setActive("mockup")).
+    expect(loadSchemes().activeId).toBe("meridian");
   });
 
-  it("migrates a legacy aipm-cockpit-style='AIPM' to the AIPM scheme + custom", () => {
-    localStorage.setItem(STYLE_STORAGE_KEY, "AIPM");
+  it("does NOT activate a scheme for a legacy aipm-cockpit-style='AIPM'; normalises to custom", () => {
+    setActive("meridian"); // pre-existing active scheme
+    localStorage.setItem(STYLE_STORAGE_KEY, "AIPM"); // legacy value
     render(tree());
     expect(document.documentElement.getAttribute("data-style")).toBe("custom");
     expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
-    expect(loadSchemes().activeId).toBe("AIPM");
+    // Legacy migration dropped — the scheme store is left untouched (no setActive("AIPM")).
+    expect(loadSchemes().activeId).toBe("meridian");
   });
 
   it("leaves an existing aipm-cockpit-style='custom' + activeId untouched (idempotent)", () => {
