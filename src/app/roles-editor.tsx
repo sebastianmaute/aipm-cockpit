@@ -11,7 +11,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
 import { dayFromHour, materializeRoleRates } from "./role-rates";
 import { SegmentedControl } from "./segmented-control";
-import { FOCUS_RING } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -295,8 +295,7 @@ export function RolesEditor({
                     />
                   </td>
                   <td className="px-3 py-2 text-right print:hidden">
-                    <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={`${t(lang, "delete")} – ${rowCtx}`}
-                      className={`rounded p-1 text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink ${FOCUS_RING}`}>×</button>
+                    <IconButton variant="danger" onClick={() => onDeleteRole(r.id)} label={`${t(lang, "delete")} – ${rowCtx}`}>×</IconButton>
                   </td>
                 </tr>
                 );
@@ -395,14 +394,13 @@ function RefList({
             <input defaultValue={it.name}
               onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== it.name) onRename(it.id, e.target.value); }}
               className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
-            <button
-              type="button"
-              aria-label={`${t(lang, "delete")} – ${it.name}`}
+            <IconButton
+              variant="danger"
+              label={`${t(lang, "delete")} – ${it.name}`}
               onClick={async () => {
                 if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}
-              className={`rounded p-1 text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink ${FOCUS_RING}`}
-            >×</button>
+            >×</IconButton>
           </li>
         ))}
       </ul>

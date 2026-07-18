@@ -29,6 +29,7 @@ import { useChatModels } from "./use-chat-models";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION, PRESS } from "./interaction-styles";
 import { Button } from "./button";
+import { IconButton } from "./icon-button";
 import { Checkbox } from "./form-controls";
 import { Banner } from "./banner";
 import { FieldError } from "./field-feedback";
@@ -760,15 +761,14 @@ function ChatPanelInner({
       {error && (
         <Banner severity="error" role="alert" className="mt-2 flex items-start justify-between gap-2">
           <p className="min-w-0 whitespace-pre-line">{error}</p>
-          <button
-            type="button"
+          <IconButton
             onClick={() => setError(null)}
-            aria-label={t(lang, "dismiss")}
+            label={t(lang, "dismiss")}
             title={t(lang, "dismiss")}
-            className={`shrink-0 rounded px-1 font-semibold hover:text-ui-pink ${INTERACTIVE}`}
+            className="shrink-0 font-semibold"
           >
             ×
-          </button>
+          </IconButton>
         </Banner>
       )}
 
@@ -783,15 +783,15 @@ function ChatPanelInner({
                 <span aria-hidden>📎</span>
                 <span className="truncate">{a.name}</span>
               </span>
-              <button
-                type="button"
+              <IconButton
+                variant="danger"
                 onClick={() => removeAttachment(a.id)}
-                aria-label={t(lang, "chatAttachmentRemove", a.name)}
+                label={t(lang, "chatAttachmentRemove", a.name)}
                 title={t(lang, "chatAttachmentRemove", a.name)}
-                className={`shrink-0 rounded px-1 font-semibold text-muted-foreground hover:text-ui-pink-strong ${INTERACTIVE}`}
+                className="shrink-0 font-semibold"
               >
                 ×
-              </button>
+              </IconButton>
             </li>
           ))}
         </ul>

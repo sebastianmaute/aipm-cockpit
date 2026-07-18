@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { FieldNotice } from "./field-feedback";
 import { fieldClass } from "./form-controls";
+import { TextButton } from "./text-button";
 import { InfoTooltip } from "./info-tooltip";
 import {
   type JiraIssueType,
@@ -23,7 +24,7 @@ import {
 } from "./settings-types";
 import { saveSecretValue } from "./use-secrets";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
-import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING } from "./interaction-styles";
 import { Button } from "./button";
 import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
@@ -493,8 +494,8 @@ export function JiraSettingsSection({
                             />
                             {t(lang, "jiraReadOnly")}
                           </label>
-                          <button
-                            type="button"
+                          <TextButton
+                            tone="danger"
                             aria-label={`${t(lang, "jiraExtraProjectRemove")} – ${e.name} (${e.key})`}
                             onClick={() =>
                               onChange({
@@ -504,10 +505,10 @@ export function JiraSettingsSection({
                                 ),
                               })
                             }
-                            className={`text-xs font-medium text-ui-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
+                            className="text-xs"
                           >
                             {t(lang, "jiraExtraProjectRemove")}
-                          </button>
+                          </TextButton>
                         </span>
                       </li>
                     ))}
@@ -621,13 +622,13 @@ export function JiraSettingsSection({
               )}
             </div>
 
-            <button
-              type="button"
+            <TextButton
+              tone="danger"
               onClick={reset}
-              className="text-xs font-medium text-ui-pink-strong underline-offset-2 hover:underline"
+              className="text-xs"
             >
               {t(lang, "jiraReset")}
-            </button>
+            </TextButton>
           </fieldset>
           )}
 

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.25";
-export const APP_BUILD_DATE = "2026-07-18"; // 0.190.25: design-system Button adoption — ~70 hand-rolled CTAs migrated to the shared <Button> primitive (single canonical primary hover/focus/press); AddButton now delegates to <Button size="xs">; Button gained xs size + ref forwarding (Pinsker)
+export const APP_VERSION = "0.190.26";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.26: design-system IconButton + TextButton primitives — canonical icon-only ✕/remove buttons + inline action-link buttons; migrated the icon-only + link CTAs the Button pass intentionally left (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

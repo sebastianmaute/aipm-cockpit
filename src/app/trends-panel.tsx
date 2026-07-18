@@ -3,6 +3,7 @@ import { useState } from "react";
 import { type Lang, t, localeFor } from "./i18n";
 import { VIEW_PANE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
+import { TextButton } from "./text-button";
 import { DataTable } from "./data-table";
 import { RagBadge } from "./rag-badge";
 import { TrendChart, type TrendPoint } from "./trend-chart";
@@ -253,18 +254,18 @@ export function TrendsPanel(props: TrendsPanelProps) {
                             {t(lang, "trendsSetBaseline")}
                           </button>
                         )}
-                        <button
-                          type="button"
+                        <TextButton
+                          tone="danger"
                           disabled={busy}
                           onClick={async () => {
                             if (!(await confirm({ message: t(lang, "snapshotDeleteConfirm") }))) return;
                             void deleteSnapshot(s.id);
                             setSelected((prev) => { const next = new Set(prev); next.delete(s.id); return next; });
                           }}
-                          className={`text-xs font-medium text-ui-pink-strong underline-offset-2 hover:underline disabled:opacity-50 ${INTERACTIVE}`}
+                          className="text-xs"
                         >
                           {t(lang, "snapshotDelete")}
-                        </button>
+                        </TextButton>
                       </span>
                     </td>
                   </tr>

@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import { useDisplayTimezone } from "./display-timezone-context";
+import { TextButton } from "./text-button";
 import { formatDisplayTimestamp } from "./tz-display";
 import type { ProjectVersionMeta } from "./version-history";
 import type { VersionChange } from "./version-diff";
@@ -282,15 +283,14 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 )}
               </span>
               <span className="flex items-center gap-2">
-                <button
-                  type="button"
+                <TextButton
                   onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setRestoreFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
                   disabled={comparing}
                   title={t(lang, "historyCompareVsNowHint")}
-                  className={`cursor-pointer text-xs text-ui-dark-blue hover:underline disabled:opacity-50 ${INTERACTIVE}`}
+                  className="text-xs"
                 >
                   {t(lang, "historyCompareVsNow")}
-                </button>
+                </TextButton>
                 <button
                   type="button"
                   onClick={() => { void restoreWholeVersion(v); }}

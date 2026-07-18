@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { Button } from "./button";
+import { TextButton } from "./text-button";
 import { Spinner } from "./spinner";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
@@ -212,16 +213,15 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                 </h3>
                 <div id={`action-${tier}-list`} className="flex flex-col gap-2">{visible.map(renderRow)}</div>
                 {rows.length > MAX_VISIBLE_PER_TIER && (
-                  <button
-                    type="button"
+                  <TextButton
                     aria-expanded={open}
                     aria-controls={`action-${tier}-list`}
                     aria-label={`${t(lang, labelKey)} – ${open ? t(lang, "actionShowLess") : t(lang, "actionShowMore", hiddenCount)}`}
                     onClick={() => setExpanded((e) => ({ ...e, [tier]: !open }))}
-                    className="mt-2 text-xs font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
+                    className="mt-2 text-xs"
                   >
                     {open ? t(lang, "actionShowLess") : t(lang, "actionShowMore", hiddenCount)}
-                  </button>
+                  </TextButton>
                 )}
               </section>
             );

@@ -13,6 +13,7 @@ import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
+import { IconButton } from "./icon-button";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
@@ -335,15 +336,15 @@ export function KnowledgePanel() {
                     key={`${r.source.kind}:${r.source.id}:${r.index}:${i}`}
                     className="relative flex flex-col gap-2 rounded-lg border border-line bg-surface p-3"
                   >
-                    <button
-                      type="button"
-                      aria-label={`${t(lang, "documentsRemove")} – ${r.link.name}`}
+                    <IconButton
+                      variant="danger"
+                      label={`${t(lang, "documentsRemove")} – ${r.link.name}`}
                       title={t(lang, "documentsRemove")}
                       onClick={() => remove(r)}
-                      className={`absolute right-2 top-2 rounded-md px-1.5 text-xs text-muted-foreground hover:text-ui-pink-strong ${INTERACTIVE}`}
+                      className="absolute right-2 top-2 text-xs"
                     >
                       ✕
-                    </button>
+                    </IconButton>
                     <div className="text-2xl" aria-hidden="true">
                       {ft.icon}
                     </div>
