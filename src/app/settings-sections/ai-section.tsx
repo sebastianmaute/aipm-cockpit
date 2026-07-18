@@ -422,6 +422,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           <InfoTooltip text={t(lang, "aiApiKeyTooltip")} />
         </span>
         <Input
+          className="w-full"
           type="password"
           autoComplete="off"
           value={settings.ai.apiKey}
@@ -443,6 +444,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         {keyWrap === "passphrase" && (
           <div className="mt-2 flex flex-col gap-2">
             <Input
+              className="w-full"
               type="password"
               autoComplete="off"
               aria-label={t(lang, "secretPassphrasePlaceholder")}
@@ -451,6 +453,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               onChange={(e) => setKeyPassphrase(e.target.value)}
             />
             <Input
+              className="w-full"
               type="password"
               autoComplete="off"
               aria-label={t(lang, "secretPassphraseConfirm")}
@@ -489,6 +492,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           <InfoTooltip text={t(lang, "aiModelTooltip")} />
         </span>
         <Select
+          className="w-full"
           value={settings.ai.model}
           onChange={(e) =>
             onChange({

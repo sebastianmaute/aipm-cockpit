@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { ComboInput } from "./combo-input";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { ResourcePicker } from "./resource-picker";
@@ -11,9 +11,9 @@ import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import { useAutogrow } from "./use-autogrow";
 import { useSettings } from "./use-settings";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Input, Select, Textarea } from "./form-controls";
 import {
   computeTaskHealth,
   HEALTH_VALUES,
@@ -39,11 +39,6 @@ import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
 import { PRIORITIES, TASK_STATUSES, type Absence, type NoteLogEntry, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
 import { resourceDisplayName } from "./resource-foundation";
-
-// Same compact input class the rest of the form uses. Declared here to avoid
-// a circular import back into task-form-modal.tsx.
-export const inputClass =
-  `w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none dark:border-line dark:bg-surface dark:text-foreground ${FOCUS_RING} ${TRANSITION}`;
 
 export interface TaskFormFieldsProps {
   lang: Lang;
@@ -92,8 +87,6 @@ export function TaskFormFields({
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
-  const notesRef = useRef<HTMLTextAreaElement>(null);
-  useAutogrow(notesRef, form.notes);
   const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
@@ -186,17 +179,17 @@ export function TaskFormFields({
 
         {/* Status is a core workflow field — always shown (not gated by fieldVisibility). */}
         <Field label={t(lang, "colTaskStatus")}>
-          <select
+          <Select
             value={form.status}
             onChange={(e) => setForm({ ...form, status: e.target.value as TaskStatus })}
-            className={inputClass}
+            className="w-full"
           >
             {TASK_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {t(lang, statusLabelKey(s))}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field
@@ -205,7 +198,7 @@ export function TaskFormFields({
           className="sm:col-span-2"
         >
           <div className="flex items-center gap-1">
-            <input
+            <Input
               type="text"
               required
               value={form.taskName}
@@ -217,9 +210,9 @@ export function TaskFormFields({
                 titleDictationReg.onBlur();
               }}
               placeholder={t(lang, "placeholderTaskName")}
-              aria-invalid={errorFor("taskName") ? true : undefined}
+              invalid={errorFor("taskName") ? true : undefined}
               aria-describedby={describedBy("taskName", "taskName-counter")}
-              className={inputClass}
+              className="w-full"
             />
             {titleMic}
           </div>
@@ -292,7 +285,7 @@ export function TaskFormFields({
 
         {isVisible("email") && (
         <Field label={t(lang, "email")}>
-          <input
+          <Input
             type="email"
             value={form.assigneeEmail}
             onChange={(e) =>
@@ -303,9 +296,9 @@ export function TaskFormFields({
               markTouched("assigneeEmail");
             }}
             placeholder={t(lang, "placeholderEmail")}
-            aria-invalid={errorFor("assigneeEmail") ? true : undefined}
+            invalid={errorFor("assigneeEmail") ? true : undefined}
             aria-describedby={describedBy("assigneeEmail", "email-counter")}
-            className={inputClass}
+            className="w-full"
           />
           <CharCounter value={form.assigneeEmail} max={EMAIL_MAX} id="email-counter" lang={lang} />
           <FieldError id="assigneeEmail-error">{errorFor("assigneeEmail")}</FieldError>
@@ -317,7 +310,7 @@ export function TaskFormFields({
       <TaskFormSection index={2} title={t(lang, "taskFormSectionScheduling")}>
         {isVisible("startDate") && (
         <Field label={t(lang, "startDate")}>
-          <input
+          <Input
             type="date"
             max={form.dueDate || undefined}
             value={form.startDate}
@@ -325,7 +318,7 @@ export function TaskFormFields({
               setForm({ ...form, startDate: e.target.value })
             }
             aria-describedby="startDate-hint"
-            className={inputClass}
+            className="w-full"
           />
           <p id="startDate-hint" className="mt-1 text-xs text-muted-foreground">
             {t(lang, "startDateHint")}
@@ -335,16 +328,16 @@ export function TaskFormFields({
 
         {isVisible("dueDate") && (
         <Field label={t(lang, "dueDate")} required>
-          <input
+          <Input
             type="date"
             required
             min={today}
             value={form.dueDate}
             onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
             onBlur={() => markTouched("dueDate")}
-            aria-invalid={errorFor("dueDate") ? true : undefined}
+            invalid={errorFor("dueDate") ? true : undefined}
             aria-describedby={describedBy("dueDate")}
-            className={inputClass}
+            className="w-full"
           />
           <FieldError id="dueDate-error">{errorFor("dueDate")}</FieldError>
           {(() => {
@@ -386,13 +379,13 @@ export function TaskFormFields({
 
         {isVisible("lastUpdate") && (
         <Field label={t(lang, "lastUpdateDate")}>
-          <input
+          <Input
             type="date"
             value={form.lastUpdateDate}
             onChange={(e) =>
               setForm({ ...form, lastUpdateDate: e.target.value })
             }
-            className={inputClass}
+            className="w-full"
           />
         </Field>
         )}
@@ -477,7 +470,7 @@ export function TaskFormFields({
 
         {isVisible("blockers") && (
         <Field label={t(lang, "blockers")} hint={t(lang, "taskHintBlockers")} className="sm:col-span-2">
-          <textarea
+          <Textarea
             rows={2}
             value={form.blockers}
             onChange={(e) => setForm({ ...form, blockers: e.target.value })}
@@ -486,7 +479,7 @@ export function TaskFormFields({
             }
             placeholder={t(lang, "placeholderBlockers")}
             aria-describedby="blockers-counter"
-            className={inputClass}
+            className="w-full"
           />
           <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
         </Field>
@@ -568,8 +561,8 @@ export function TaskFormFields({
             {t(lang, "notes")}
             {notesMic}
           </span>
-          <textarea
-            ref={notesRef}
+          <Textarea
+            autoGrow
             rows={3}
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -580,7 +573,7 @@ export function TaskFormFields({
             }}
             placeholder={t(lang, "placeholderNotes")}
             aria-describedby="notes-counter"
-            className={`resize-none ${inputClass}`}
+            className="w-full"
           />
           <CharCounter value={form.notes} max={TEXTAREA_MAX} id="notes-counter" lang={lang} />
           {notesDictationStatus}
@@ -609,7 +602,7 @@ export function TaskFormFields({
           )}
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[10rem] flex-1">
-              <input
+              <Input
                 type="text"
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
@@ -621,14 +614,13 @@ export function TaskFormFields({
                 }}
                 placeholder={t(lang, "noteLogPlaceholder")}
                 aria-label={t(lang, "noteLogPlaceholder")}
-                className={inputClass}
+                className="w-full"
               />
             </div>
-            <select
+            <Select
               value={noteAuthorValue === "" ? "" : String(noteAuthorValue)}
               onChange={(e) => setChosenAuthor(e.target.value === "" ? "" : Number(e.target.value))}
               aria-label={t(lang, "noteLogAuthor")}
-              className={`rounded-md border border-line bg-surface px-2 py-2 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
             >
               <option value="">{t(lang, "noteLogNoAuthor")}</option>
               {resources.map((r) => (
@@ -636,7 +628,7 @@ export function TaskFormFields({
                   {resourceDisplayName(r)}
                 </option>
               ))}
-            </select>
+            </Select>
             <button
               type="button"
               onClick={addNote}
@@ -705,7 +697,7 @@ function EffortField({
 
   return (
     <Field label={label}>
-      <input
+      <Input
         type="text"
         value={text}
         onChange={(e) => {
@@ -725,9 +717,9 @@ function EffortField({
           onChange(mins);
         }}
         placeholder={t(lang, "taskEffortHint")}
-        aria-invalid={invalid || undefined}
+        invalid={invalid}
         aria-describedby={invalid ? noticeId : undefined}
-        className={inputClass}
+        className="w-full"
       />
       {invalid && <FieldNotice id={noticeId}>{t(lang, "taskEffortInvalid")}</FieldNotice>}
     </Field>

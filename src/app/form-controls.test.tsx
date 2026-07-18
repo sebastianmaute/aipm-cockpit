@@ -36,6 +36,19 @@ describe("fieldClass", () => {
     expect(c).toContain("extra");
     expect(c.indexOf("border-line")).toBeLessThan(c.indexOf("extra"));
   });
+
+  it("sets no width in the base (width is the caller's layout)", () => {
+    expect(fieldClass()).not.toContain("w-full");
+  });
+
+  it("supports a compact xs size (px-2 py-1 text-xs) vs the md default", () => {
+    expect(fieldClass(false, undefined, "md")).toContain("px-3");
+    const xs = fieldClass(false, undefined, "xs");
+    expect(xs).toContain("px-2");
+    expect(xs).toContain("py-1");
+    expect(xs).toContain("text-xs");
+    expect(xs).not.toContain("px-3");
+  });
 });
 
 describe("Input", () => {

@@ -30,11 +30,22 @@ import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useAutogrow } from "./use-autogrow";
 
 // ONE text-field shell. `border` (no colour) here; the state layer supplies the
-// border colour so valid/invalid diverge on colour only. `w-full` matches the
-// overwhelming majority of form fields (and every copy-declared `inputClass`
-// this primitive single-sources).
+// border colour so valid/invalid diverge on colour only. ★ WIDTH is the caller's
+// (layout) — pass `w-full`/`flex-1`/a fixed width via `className`; the base sets
+// none, so there is no width to fight. ★ SIZE (padding + text size) is a
+// SEPARATE axis (`FIELD_SIZE`) kept out of the base so a `size` variant can't
+// collide with the base padding (the same CSS-source-order trap the Button
+// primitive has): `md` (default) is the roomy form field; `xs` the compact
+// toolbar/table field.
 const FIELD_BASE =
-  "w-full rounded-md border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-md border bg-surface text-foreground placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50";
+
+export type FieldSize = "xs" | "md";
+
+const FIELD_SIZE: Record<FieldSize, string> = {
+  md: "px-3 py-2 text-sm",
+  xs: "px-2 py-1 text-xs",
+};
 
 // valid = neutral line border + canonical green ring. invalid = pink semantic
 // ring + pink border (NEVER also carry the green ring — see the header note).
@@ -42,43 +53,50 @@ const FIELD_VALID = `border-line ${FOCUS_RING}`;
 const FIELD_INVALID =
   "border-ui-pink focus:outline-none focus:ring-2 focus:ring-ui-pink";
 
-/** Canonical field class string (shell + valid/invalid state + 150ms
+/** Canonical field class string (shell + size + valid/invalid state + 150ms
  *  transition). Exported so string-based consumers (the copy-declared
  *  `inputClass` locals) can single-source the exact same shell without adopting
- *  the component. `className` is appended LAST so layout tweaks extend the
- *  base. */
-export function fieldClass(invalid?: boolean, className?: string): string {
-  return `${FIELD_BASE} ${invalid ? FIELD_INVALID : FIELD_VALID} ${TRANSITION}${
+ *  the component. ★ Width is NOT set — pass `w-full`/`flex-1`/a fixed width in
+ *  `className` (appended LAST so layout tweaks extend the base). `size` defaults
+ *  to `md`. */
+export function fieldClass(invalid?: boolean, className?: string, size: FieldSize = "md"): string {
+  return `${FIELD_BASE} ${FIELD_SIZE[size]} ${invalid ? FIELD_INVALID : FIELD_VALID} ${TRANSITION}${
     className ? ` ${className}` : ""
   }`;
 }
 
-export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+// Native `size` (visible char/row count) is repurposed as the field-size
+// variant, so it is omitted from the passthrough props (mirrors Checkbox).
+export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
   /** Renders the pink semantic error state + sets aria-invalid. */
   invalid?: boolean;
+  /** Field size (padding + text size). `md` (default) or compact `xs`. */
+  size?: FieldSize;
 }
 
 /** Canonical text `<input>`. All native input props pass through; pair with a
- *  `<label>`/`aria-label` (a placeholder is not an accessible name). */
-export function Input({ invalid, className, "aria-invalid": ariaInvalid, ...props }: InputProps) {
+ *  `<label>`/`aria-label` (a placeholder is not an accessible name). Pass a
+ *  width (`w-full`/`flex-1`/fixed) via `className`. */
+export function Input({ invalid, size, className, "aria-invalid": ariaInvalid, ...props }: InputProps) {
   return (
     <input
-      className={fieldClass(invalid, className)}
+      className={fieldClass(invalid, className, size)}
       aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
       {...props}
     />
   );
 }
 
-export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "size"> {
   invalid?: boolean;
+  size?: FieldSize;
 }
 
-/** Canonical native `<select>` — same shell as Input. */
-export function Select({ invalid, className, "aria-invalid": ariaInvalid, ...props }: SelectProps) {
+/** Canonical native `<select>` — same shell as Input. Pass a width via `className`. */
+export function Select({ invalid, size, className, "aria-invalid": ariaInvalid, ...props }: SelectProps) {
   return (
     <select
-      className={fieldClass(invalid, className)}
+      className={fieldClass(invalid, className, size)}
       aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
       {...props}
     />
@@ -89,13 +107,17 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
   invalid?: boolean;
   /** Grows to fit content (needs a controlled string `value`). */
   autoGrow?: boolean;
+  /** Field size (padding + text size). `md` (default) or compact `xs`. */
+  size?: FieldSize;
 }
 
 /** Canonical `<textarea>` — Input shell + `resize-none`. `autoGrow` grows the
- *  field to fit its value via the shared use-autogrow hook (internal ref). */
+ *  field to fit its value via the shared use-autogrow hook (internal ref). Pass
+ *  a width via `className`. */
 export function Textarea({
   invalid,
   autoGrow,
+  size,
   className,
   "aria-invalid": ariaInvalid,
   ...props
@@ -107,7 +129,7 @@ export function Textarea({
   return (
     <textarea
       ref={autoGrow ? ref : undefined}
-      className={fieldClass(invalid, `resize-none${className ? ` ${className}` : ""}`)}
+      className={fieldClass(invalid, `resize-none${className ? ` ${className}` : ""}`, size)}
       aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
       {...props}
     />

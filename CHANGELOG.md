@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.28] - 2026-07-18 "Pinsker"
+
+### Changed
+
+Design-system **form-field primitive sweep (1 of 3)** — adopting the `Input`/`Select`/`Textarea` primitives that shipped in P2a but were barely used (the field analog of the button program).
+
+- **Primitive redesign** (`form-controls.tsx`): `w-full` dropped from the base — width is now the caller's layout (`w-full`/`flex-1`/fixed via `className`), so the ~160 non-full-width fields can adopt it without stretching. New `size` axis (`md` = px-3 py-2 text-sm default · `xs` = px-2 py-1 text-xs compact) on `Input`/`Select`/`Textarea`/`fieldClass`, so compact fields migrate reliably (no className-override-order trap). Native `size` attribute repurposed as the variant.
+- **5 existing consumers rewired** for the base change (w-full restored): `ai-section` fields + the four `fieldClass()` callers (budget-bucket, bulk-edit, jira-settings, project-form-fields).
+- **Task / Open Points cluster migrated** to the primitives (task-form-fields, tasks-section, task-editor-raid-mini, task-linked-task-modal); local `inputClass` consts + orphaned imports removed; `notes` textarea now uses the primitive's built-in `autoGrow`.
+
+Settings (2/3) and panels/modals (3/3) follow in subsequent releases.
+
 ## [0.190.27] - 2026-07-18 "Pinsker"
 
 ### Changed

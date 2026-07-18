@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
+import { Input, Select } from "./form-controls";
 import { RAID_CATEGORIES, type RaidCategory } from "./types";
 import type { RaidSpec } from "./use-task-editor-buffer";
 
@@ -39,8 +40,6 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
     setTitle("");
   };
 
-  const fieldClass = `rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground dark:border-line dark:bg-surface dark:text-foreground ${FOCUS_RING} ${TRANSITION}`;
-
   return (
     <div className="space-y-2">
       {!open ? (
@@ -55,23 +54,24 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
             {t(lang, "raidCategory")}
-            <select
+            <Select
+              size="xs"
               aria-label={`RAID ${t(lang, "raidCategory")}`}
               value={category}
               onChange={(e) => setCategory(e.target.value as RaidCategory)}
-              className={fieldClass}
             >
               {RAID_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {t(lang, CATEGORY_LABEL_KEY[c])}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
             {t(lang, "raidTitle")}
-            <input
+            <Input
               type="text"
+              size="xs"
               aria-label={`RAID ${t(lang, "raidTitle")}`}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -81,7 +81,7 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
                   handleAdd();
                 }
               }}
-              className={`min-w-[10rem] ${fieldClass}`}
+              className="min-w-[10rem]"
             />
           </label>
           <Button size="sm" onClick={handleAdd}>
