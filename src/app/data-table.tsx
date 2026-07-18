@@ -12,6 +12,11 @@
 // the cells stay the caller's (their padding is already uniform — `px-3 py-2`,
 // dense tables `py-1`). Scroller ownership also stays with the caller
 // (`INNER_TABLE_CLASS` / `PanelTableScaffold`), since it differs across panels.
+//
+// Caveat: this is a plain function component (not `forwardRef`), and `<tbody>`
+// takes only `tbodyClassName` — a table needing a `<table ref>`, a tbody `ref`,
+// or a tbody `aria-live` must stay a raw `<table>` (or grow those props here
+// first). No current caller needs them.
 
 import type { HTMLAttributes, ReactNode } from "react";
 import { TABLE_HEAD_CLASS } from "./table-styles";

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.19";
-export const APP_BUILD_DATE = "2026-07-18"; // 0.190.19: design-system dedup (P3e+P3f) — error/notice messages routed through the FieldError/ModalFieldError/Banner primitives app-wide (consistent tinted boxes + inline field errors); new shared CountBadge (notification-count pill, fixes a text-colour drift) and ProgressTrack (progress/usage bar rail) atoms (Pinsker)
+export const APP_VERSION = "0.190.20";
+export const APP_BUILD_DATE = "2026-07-18"; // 0.190.20: design-system dedup (P3g+P3h) — shared view-pane header/toolbar atoms (PaneHeader/PaneToolbar/PaneSearchInput/AddButton) and a shared DataTable table shell across the register/report tables; fixes: Budget now prints landscape, Version-history is a resizable pane like every other view (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
