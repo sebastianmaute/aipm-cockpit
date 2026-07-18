@@ -261,12 +261,12 @@ describe("ResourcesPanel", () => {
     expect(screen.getByRole("button", { name: /reset back to the default size/i })).toBeInTheDocument();
   });
 
-  test("planning date inputs use the taller py-1.5 control height", () => {
+  test("planning date inputs use the taller md control height (py-2 text-sm)", () => {
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
     render(<ResourcesPanel {...baseProps} view="planning" resources={[]} plan={plan} workdayHours={8}
       onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     const from = screen.getByLabelText("From");
-    expect(from.className).toContain("py-1.5");
+    expect(from.className).toContain("py-2");
     expect(from.className).toContain("text-sm");
   });
 

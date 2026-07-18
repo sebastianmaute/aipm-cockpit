@@ -7,6 +7,7 @@
 import { t, type Lang } from "./i18n";
 import type { TimelogProjectRef } from "./timelog-match";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Input } from "./form-controls";
 
 interface TimelogProjectScopeProps {
   lang: Lang;
@@ -58,15 +59,16 @@ export function TimelogProjectScope({
         )}
       </div>
       {hasCustomer && (
-        <input
+        <Input
           type="text"
           role="searchbox"
+          size="xs"
           value={filter}
           onChange={(e) => onFilterChange(e.target.value)}
           placeholder={t(lang, "timelogProjectFilter")}
           aria-label={t(lang, "timelogProjectFilter")}
           disabled={disabled}
-          className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
+          className="w-full"
         />
       )}
       {!hasCustomer ? (

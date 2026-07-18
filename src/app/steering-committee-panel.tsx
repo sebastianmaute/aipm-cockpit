@@ -23,6 +23,7 @@ import { MeetingReportPanel, type MeetingReportVersionUi } from "./meeting-repor
 import { committeeMemberEmails } from "./committee-report/report-recipients";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
 import { Button } from "./button";
+import { Input } from "./form-controls";
 
 const MEETING_COL_WIDTHS = { date: 150, title: 240, location: 200 } as const;
 type MeetingCol = keyof typeof MEETING_COL_WIDTHS;
@@ -39,9 +40,6 @@ const EMPTY_COMMITTEE: SteeringCommittee = {
 function nextMaxId(items: ReadonlyArray<{ id: number }>): number {
   return items.reduce((max, x) => Math.max(max, x.id), 0) + 1;
 }
-
-const INPUT_CLASS =
-  "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green";
 
 function DeleteCell({ lang, onClick, label }: { lang: Lang; onClick: () => void; label: string }) {
   return (
@@ -257,14 +255,15 @@ export function SteeringCommitteePanel({
           <label htmlFor="committee-name" className="mb-1 block text-sm font-medium text-foreground">
             {t(lang, "committeeName")}
           </label>
-          <input
+          <Input
             id="committee-name"
             type="text"
+            size="xs"
             value={c.name}
             maxLength={200}
             onChange={(e) => update({ name: e.target.value })}
             aria-label={t(lang, "committeeName")}
-            className={`${INPUT_CLASS} w-full max-w-md`}
+            className="w-full max-w-md"
           />
         </section>
 
@@ -332,32 +331,34 @@ export function SteeringCommitteePanel({
                 {c.meetings.map((m) => (
                   <tr key={m.id} className="border-t border-line">
                     <td className="py-1">
-                      <input
+                      <Input
                         type="date"
+                        size="xs"
                         value={m.date}
                         onChange={(e) => patchMeeting(m.id, { date: e.target.value })}
                         aria-label={`${t(lang, "committeeMeetingDate")} – ${m.title || m.date}`}
-                        className={INPUT_CLASS}
                       />
                     </td>
                     <td>
-                      <input
+                      <Input
                         type="text"
+                        size="xs"
                         value={m.title}
                         maxLength={200}
                         onChange={(e) => patchMeeting(m.id, { title: e.target.value })}
                         aria-label={`${t(lang, "committeeMeetingTitle")} – ${m.title || m.date}`}
-                        className={`${INPUT_CLASS} w-full`}
+                        className="w-full"
                       />
                     </td>
                     <td>
-                      <input
+                      <Input
                         type="text"
+                        size="xs"
                         value={m.location ?? ""}
                         maxLength={300}
                         onChange={(e) => patchMeeting(m.id, { location: e.target.value })}
                         aria-label={`${t(lang, "committeeMeetingLocation")} – ${m.title || m.date}`}
-                        className={`${INPUT_CLASS} w-full`}
+                        className="w-full"
                       />
                     </td>
                     {report && !isPopout && (
@@ -390,30 +391,32 @@ export function SteeringCommitteePanel({
             </DataTable>
           )}
           <div className="flex flex-wrap items-end gap-2">
-            <input
+            <Input
               type="date"
+              size="xs"
               value={meetingDraft.date}
               onChange={(e) => setMeetingDraft((d) => ({ ...d, date: e.target.value }))}
               aria-label={t(lang, "committeeMeetingDate")}
-              className={INPUT_CLASS}
             />
-            <input
+            <Input
               type="text"
+              size="xs"
               value={meetingDraft.title}
               maxLength={200}
               placeholder={t(lang, "committeeMeetingTitle")}
               onChange={(e) => setMeetingDraft((d) => ({ ...d, title: e.target.value }))}
               aria-label={t(lang, "committeeMeetingTitle")}
-              className={`${INPUT_CLASS} min-w-[12rem]`}
+              className="min-w-[12rem]"
             />
-            <input
+            <Input
               type="text"
+              size="xs"
               value={meetingDraft.location}
               maxLength={300}
               placeholder={t(lang, "committeeMeetingLocation")}
               onChange={(e) => setMeetingDraft((d) => ({ ...d, location: e.target.value }))}
               aria-label={t(lang, "committeeMeetingLocation")}
-              className={`${INPUT_CLASS} min-w-[10rem]`}
+              className="min-w-[10rem]"
             />
             <Button size="xs" onClick={addMeeting}>
               + {t(lang, "committeeAddMeeting")}
@@ -442,23 +445,25 @@ export function SteeringCommitteePanel({
                 {c.infoSchedules.map((s) => (
                   <tr key={s.id} className="border-t border-line">
                     <td className="py-1">
-                      <input
+                      <Input
                         type="text"
+                        size="xs"
                         value={s.label}
                         maxLength={200}
                         onChange={(e) => patchSchedule(s.id, { label: e.target.value })}
                         aria-label={`${t(lang, "committeeScheduleLabel")} – ${s.label || s.id}`}
-                        className={`${INPUT_CLASS} w-full`}
+                        className="w-full"
                       />
                     </td>
                     <td>
-                      <input
+                      <Input
                         type="number"
+                        size="xs"
                         min={0}
                         value={s.leadDays}
                         onChange={(e) => patchSchedule(s.id, { leadDays: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
                         aria-label={`${t(lang, "committeeScheduleLeadDays")} – ${s.label || s.id}`}
-                        className={`${INPUT_CLASS} w-24`}
+                        className="w-24"
                       />
                     </td>
                     {outlookPush?.onPushRow && (
@@ -476,22 +481,24 @@ export function SteeringCommitteePanel({
             </DataTable>
           )}
           <div className="flex flex-wrap items-end gap-2">
-            <input
+            <Input
               type="text"
+              size="xs"
               value={scheduleDraft.label}
               maxLength={200}
               placeholder={t(lang, "committeeScheduleLabel")}
               onChange={(e) => setScheduleDraft((d) => ({ ...d, label: e.target.value }))}
               aria-label={t(lang, "committeeScheduleLabel")}
-              className={`${INPUT_CLASS} min-w-[12rem]`}
+              className="min-w-[12rem]"
             />
-            <input
+            <Input
               type="number"
+              size="xs"
               min={0}
               value={scheduleDraft.leadDays}
               onChange={(e) => setScheduleDraft((d) => ({ ...d, leadDays: Math.max(0, Math.round(Number(e.target.value) || 0)) }))}
               aria-label={t(lang, "committeeScheduleLeadDays")}
-              className={`${INPUT_CLASS} w-24`}
+              className="w-24"
             />
             <Button size="xs" onClick={addSchedule}>
               + {t(lang, "committeeAddSchedule")}

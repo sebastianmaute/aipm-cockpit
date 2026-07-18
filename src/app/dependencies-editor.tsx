@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
+import { Select } from "./form-controls";
 import { wouldCreateDependencyCycle } from "./sanitize";
 import {
   DEPENDENCY_TYPES,
@@ -139,27 +140,29 @@ export function DependenciesEditor({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
+          size="xs"
           value={pendingType}
           onChange={(e) =>
             setPendingType(e.target.value as DependencyType)
           }
           aria-label={t(lang, "depType")}
-          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs font-mono text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green"
+          className="font-mono"
         >
           {DEPENDENCY_TYPES.map((dt) => (
             <option key={dt} value={dt}>
               {dt} — {t(lang, depTypeShortKey(dt))}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="xs"
           value={pendingTaskId === "" ? "" : String(pendingTaskId)}
           onChange={(e) =>
             setPendingTaskId(e.target.value === "" ? "" : Number(e.target.value))
           }
           aria-label={t(lang, "depPickTask")}
-          className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green"
+          className="min-w-[12rem] flex-1"
         >
           <option value="">{t(lang, "depPickTaskPlaceholder")}</option>
           {eligibleTasks.map((task) => (
@@ -167,7 +170,7 @@ export function DependenciesEditor({
               #{task.id} — {task.taskName}
             </option>
           ))}
-        </select>
+        </Select>
         <Button size="sm" onClick={add} disabled={pendingTaskId === ""}>
           {t(lang, "depAdd")}
         </Button>

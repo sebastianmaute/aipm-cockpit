@@ -8,6 +8,7 @@ import { isValidEmail } from "./sanitize";
 import { planEscalation } from "./action-escalate";
 import { popoverTriggerClass } from "./action-cta-styles";
 import { PopoverPanel } from "./popover-panel";
+import { Input } from "./form-controls";
 
 export interface EscalateBundle {
   resources: readonly Resource[];
@@ -105,7 +106,7 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
             onCreateResource={bundle.onCreateResource}
             onChange={handlePickerChange}
           />
-          <input
+          <Input
             type="email"
             aria-label={t(lang, "actionEscalateEmailPlaceholder")}
             placeholder={t(lang, "actionEscalateEmailPlaceholder")}
@@ -114,7 +115,7 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
               setEmailInput(e.target.value);
               setRecipient((r) => ({ ...r, email: e.target.value }));
             }}
-            className="mt-1 w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+            className="mt-1 w-full"
           />
           <div className="mt-2 flex justify-end">
             <button

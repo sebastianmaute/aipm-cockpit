@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Input } from "./form-controls";
 import { DataTable } from "./data-table";
 import { VIEW_PANE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { type Lang, t } from "./i18n";
@@ -138,8 +139,9 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
           Print/Reset stay top-right. */}
       <div className="mb-2 flex shrink-0 flex-wrap items-start gap-2 print:hidden">
         <div className="flex flex-1 flex-wrap items-center gap-2">
-          <input
+          <Input
             type="text"
+            size="xs"
             value={filterInput}
             onChange={(e) => {
               const v = e.target.value;
@@ -160,7 +162,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
             list="raci-filter-people"
             aria-label={t(lang, "raciFilterAdd")}
             placeholder={t(lang, "raciFilterAdd")}
-            className={`w-48 rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            className="w-48"
           />
           <datalist id="raci-filter-people">
             {stakeholders

@@ -14,6 +14,7 @@ import { FieldError } from "./field-feedback";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
+import { Input } from "./form-controls";
 
 export interface SecretUnlockGateProps {
   lang: Lang;
@@ -60,7 +61,7 @@ export function SecretUnlockGate({ lang, messageKey, onUnlock }: SecretUnlockGat
         />
         <div className="flex flex-col gap-3 p-6">
           <p className="text-sm text-muted-foreground">{t(lang, messageKey)}</p>
-          <input
+          <Input
             type="password"
             aria-label={t(lang, "secretPassphrasePlaceholder")}
             placeholder={t(lang, "secretPassphrasePlaceholder")}
@@ -72,7 +73,7 @@ export function SecretUnlockGate({ lang, messageKey, onUnlock }: SecretUnlockGat
             onKeyDown={(e) => {
               if (e.key === "Enter") void submit();
             }}
-            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+            className="w-full"
           />
           {error && (
             <FieldError>{t(lang, "secretUnlockFailed")}</FieldError>

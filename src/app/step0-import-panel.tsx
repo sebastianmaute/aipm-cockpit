@@ -32,6 +32,7 @@ import type { KnowledgeLink } from "./document-link";
 import { Modal } from "./modal";
 import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
+import { Input, Textarea } from "./form-controls";
 import { Spinner } from "./spinner";
 
 /** Cap on files accepted in a single multi-upload (extras → "too-many" skip). */
@@ -320,13 +321,12 @@ export function Step0ImportPanel({
         {method === "describe" && (
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">{t(lang, "aiCreateDescribeLabel")}</span>
-            <textarea
+            <Textarea
               aria-label={t(lang, "aiCreateDescribeLabel")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={6}
               placeholder={t(lang, "aiCreateDescribePlaceholder")}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             />
           </label>
         )}
@@ -362,13 +362,12 @@ export function Step0ImportPanel({
           <div className="flex flex-col gap-2 text-sm">
             <label className="flex flex-col gap-1">
               <span className="font-medium text-foreground">{t(lang, "wizardImportConfluenceUrl")}</span>
-              <input
+              <Input
                 type="url"
                 aria-label={t(lang, "wizardImportConfluenceUrl")}
                 value={confluenceUrl}
                 onChange={(e) => setConfluenceUrl(e.target.value)}
                 placeholder="https://acme.atlassian.net/wiki/spaces/…"
-                className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
               />
             </label>
             <div>

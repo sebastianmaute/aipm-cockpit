@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { type Lang, t } from "../i18n";
-import { TRANSITION, FOCUS_RING } from "../interaction-styles";
-import { useAutogrow } from "../use-autogrow";
+import { FOCUS_RING } from "../interaction-styles";
 import { Button } from "../button";
 import { Card } from "../card";
+import { Textarea } from "../form-controls";
 import type { ProjectStatus } from "../types";
 
 /** Read-only exec-summary of the saved status narrative (Tier 0). Renders null
@@ -47,9 +47,6 @@ export function NarrativeEditor({
     setDraftNarrative(storedNarrative);
   }
 
-  const narrativeRef = useRef<HTMLTextAreaElement | null>(null);
-  useAutogrow(narrativeRef, draftNarrative);
-
   const commitNarrative = () => {
     const trimmed = draftNarrative.trim();
     if (trimmed === (status.narrative ?? "")) return;
@@ -72,9 +69,9 @@ export function NarrativeEditor({
         {t(lang, "dashboardStatusSummary")}
       </summary>
       <div className="mt-2">
-        <textarea
-          ref={narrativeRef}
-          className={`min-h-24 w-full resize-none rounded-md border border-line bg-surface p-2 text-sm ${TRANSITION} ${FOCUS_RING}`}
+        <Textarea
+          autoGrow
+          className="min-h-24 w-full"
           aria-label={t(lang, "dashboardNarrativePlaceholder")}
           placeholder={t(lang, "dashboardNarrativePlaceholder")}
           value={draftNarrative}

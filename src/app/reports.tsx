@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { EmptyState } from "./empty-state";
+import { Select } from "./form-controls";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
@@ -241,21 +242,21 @@ export function ReportsPanel({
   );
 
   const removeReportControl = extraReports.length > 0 ? (
-    <select
+    <Select
       aria-label={t(lang, "reportsRemoveReport")}
+      size="xs"
       value=""
       onChange={(e) => {
         const id = e.target.value as AddableReportId;
         if (id) onChangeExtraReports?.(extraReports.filter((x) => x !== id));
       }}
-      className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs ${FOCUS_RING} ${TRANSITION}`}
     >
       <option value="">{`− ${t(lang, "reportsRemoveReport")}`}</option>
       {extraReports.map((id) => {
         const meta = ADDABLE_REPORTS.find((r) => r.id === id);
         return meta ? <option key={id} value={id}>{t(lang, meta.titleKey)}</option> : null;
       })}
-    </select>
+    </Select>
   ) : null;
 
   const REPORT_SOURCE_VIEW: Partial<Record<AddableReportId, AppView>> = {

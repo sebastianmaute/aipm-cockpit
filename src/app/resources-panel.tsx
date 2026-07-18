@@ -53,6 +53,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { CalendarSyncControls } from "./calendar-sync-controls";
 import { ViewCallout } from "./view-callout";
+import { Input } from "./form-controls";
 
 const PLANNING_COL_WIDTHS = {
   assignee: 160,
@@ -459,15 +460,13 @@ function ResourcesPanelInner({
             <div className="mb-2 flex flex-wrap items-center gap-2 text-xs print:hidden">
               <label className="flex items-center gap-1">
                 <span className="flex items-center gap-1">{t(lang, "resourcesPlanStart")}<InfoTooltip text={t(lang, "resourcesPlanStartHint")} /></span>
-                <input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
-                  onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)}
-                  className={`rounded border border-line px-2 py-1.5 text-sm dark:bg-surface ${FOCUS_RING} ${TRANSITION}`} />
+                <Input type="date" aria-label={t(lang, "resourcesPlanStart")} value={plan.startDate}
+                  onChange={(e) => onSetPlanWindow(e.target.value, plan.endDate)} />
               </label>
               <label className="flex items-center gap-1">
                 <span className="flex items-center gap-1">{t(lang, "resourcesPlanEnd")}<InfoTooltip text={t(lang, "resourcesPlanEndHint")} /></span>
-                <input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
-                  onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)}
-                  className={`rounded border border-line px-2 py-1.5 text-sm dark:bg-surface ${FOCUS_RING} ${TRANSITION}`} />
+                <Input type="date" aria-label={t(lang, "resourcesPlanEnd")} value={plan.endDate}
+                  onChange={(e) => onSetPlanWindow(plan.startDate, e.target.value)} />
               </label>
               <SegmentedControl<"week" | "month">
                 value={viewGranularity}
@@ -759,22 +758,22 @@ function ResourcesPanelInner({
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1">
                   <span>{t(lang, "calendarFrom")}</span>
-                  <input
+                  <Input
                     type="date"
+                    size="xs"
                     aria-label={t(lang, "calendarFrom")}
                     value={calendarFrom}
                     onChange={(e) => setCalendarFrom(e.target.value)}
-                    className={`rounded border border-line px-2 py-1.5 text-sm dark:bg-surface ${FOCUS_RING} ${TRANSITION}`}
                   />
                 </label>
                 <label className="flex items-center gap-1">
                   <span>{t(lang, "calendarTo")}</span>
-                  <input
+                  <Input
                     type="date"
+                    size="xs"
                     aria-label={t(lang, "calendarTo")}
                     value={calendarTo}
                     onChange={(e) => setCalendarTo(e.target.value)}
-                    className={`rounded border border-line px-2 py-1.5 text-sm dark:bg-surface ${FOCUS_RING} ${TRANSITION}`}
                   />
                 </label>
                 <button

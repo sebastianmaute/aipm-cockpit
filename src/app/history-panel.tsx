@@ -21,8 +21,9 @@ import { EmptyState } from "./empty-state";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
+import { Input } from "./form-controls";
 
 interface HistoryPanelProps {
   lang: Lang;
@@ -217,14 +218,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
           </Button>
           {naming ? (
             <span className="flex items-center gap-2">
-              <input
+              <Input
                 type="text"
                 autoFocus
                 value={draftLabel}
                 onChange={(e) => setDraftLabel(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") confirmSave(); else if (e.key === "Escape") cancelSave(); }}
                 placeholder={t(lang, "historyManualLabelPrompt")}
-                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
               />
               <Button
                 size="sm"

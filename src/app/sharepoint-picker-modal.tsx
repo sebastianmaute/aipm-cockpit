@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "./button";
+import { Input } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
@@ -158,13 +159,13 @@ export function SharePointPickerModal({
         <div className="flex flex-col gap-3 overflow-y-auto p-4">
           {/* Search row */}
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               placeholder={t(lang, "spPickerSearchPlaceholder")}
-              className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+              className="flex-1"
             />
             <Button variant="primary" onClick={handleSearch}>
               {t(lang, "spPickerSearchButton")}
@@ -173,13 +174,13 @@ export function SharePointPickerModal({
 
           {/* Paste URL row */}
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={pasteUrl}
               onChange={(e) => setPasteUrl(e.target.value)}
               onKeyDown={handlePasteKeyDown}
               placeholder={t(lang, "spPickerPasteUrl")}
-              className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+              className="flex-1"
             />
             <Button
               variant="secondary"

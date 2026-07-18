@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.31] - 2026-07-19 "Pinsker"
+
+### Changed
+
+Design-system **form-field sweep (3b of 3 — COMPLETE)** — the remaining panel/editor/misc fields. Migrated hand-rolled `<input>`/`<select>`/`<textarea>` across ~30 files (timelog, resources, steering-committee, roles, color-scheme, dependencies, budget, task-row, bulk-edit, chat, step0-import, reports, history, gantt, diagnostics, raci, activity-log, saved-views, template-menus, meeting-report, dashboard-narrative/hero, create-project, display-tz-switcher, sharepoint/outlook modals, escalate/rebaseline/reschedule/secret-unlock popovers) to the `Input`/`Select`/`Textarea` primitives.
+
+- activity-log search now wires `invalid`; dashboard-narrative textarea uses primitive `autoGrow`; resources plan-window dates kept at the taller `md` size.
+- Left bespoke by design (reported): fields needing an external `ref` (chat composer, inline-ai NL input — primitives aren't forwardRef), `resize-y` textareas (task-row notes), non-standard shells (`bg-surface-muted`/`bg-background`/`rounded` micro `px-1 py-0.5` cells), color/file inputs, checkboxes/radios, SegmentedControl, PaneSearchInput, custom combobox/chip-input components (combo-input, labels-input, resource-picker, stakeholder-recipient, global-search), and `fieldClass()` string consumers.
+
+This completes the form-field primitive adoption program (sweeps 1 task-cluster · 2 settings · 3a edit-modals+registers · 3b panels/editors/misc).
+
 ## [0.190.30] - 2026-07-18 "Pinsker"
 
 ### Changed

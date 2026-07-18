@@ -5,6 +5,7 @@ import type { SuggestedAction } from "./next-actions/types";
 import { isValidIsoDate } from "./action-rebaseline";
 import { popoverTriggerClass } from "./action-cta-styles";
 import { PopoverPanel } from "./popover-panel";
+import { Input } from "./form-controls";
 
 export interface RescheduleBundle {
   onReschedule: (action: SuggestedAction, isoDate: string) => void;
@@ -59,12 +60,12 @@ export function ReschedulePopover({ lang, action, bundle, prominent }: Reschedul
             {t(lang, "currentDueDate", currentDue)}
           </p>
         )}
-        <input
+        <Input
           type="date"
           aria-label={t(lang, "actionRescheduleTitle")}
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
+          className="w-full"
         />
         <div className="mt-2 flex justify-end">
           <button

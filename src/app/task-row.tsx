@@ -15,6 +15,7 @@ import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { Input, Select } from "./form-controls";
 import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
 import { effectiveAssignee } from "./resource-foundation";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
@@ -300,15 +301,16 @@ function TaskRowImpl({
     const label = `${t(lang, field)} – ${task.taskName}`;
     if (inline.editing === field) {
       return (
-        <input
+        <Input
           autoFocus
           type={type}
+          size="xs"
           value={inline.draft}
           onChange={(e) => inline.setDraft(e.target.value)}
           onBlur={inline.commit}
           onKeyDown={onInlineKeyDown}
           aria-label={label}
-          className={`w-full rounded-md border border-line bg-surface px-2 py-0.5 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
+          className="w-full"
         />
       );
     }
@@ -474,14 +476,15 @@ function TaskRowImpl({
         className={`font-medium text-foreground ${isComplete ? "line-through" : ""}`}
       >
         {inlineEditable && inline.editing === "taskName" ? (
-          <input
+          <Input
             autoFocus
+            size="xs"
             value={inline.draft}
             onChange={(e) => inline.setDraft(e.target.value)}
             onBlur={inline.commit}
             onKeyDown={onInlineKeyDown}
             aria-label={`${t(lang, "taskName")} – ${task.taskName}`}
-            className={`w-full rounded-md border border-line bg-surface px-2 py-0.5 text-sm font-medium text-foreground ${FOCUS_RING} ${TRANSITION}`}
+            className="w-full font-medium"
           />
         ) : (
           <button
@@ -555,8 +558,9 @@ function TaskRowImpl({
       {!hiddenCols.has("priority") && (
         <Td stopClick>
           {inlineEditable && inline.editing === "priority" ? (
-            <select
+            <Select
               autoFocus
+              size="xs"
               value={inline.draft}
               onChange={(e) => {
                 onInlinePatch(task.id, { priority: e.target.value as Priority });
@@ -570,12 +574,11 @@ function TaskRowImpl({
                 }
               }}
               aria-label={`${t(lang, "priority")} – ${task.taskName}`}
-              className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
             >
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>{priorityLabel(lang, p)}</option>
               ))}
-            </select>
+            </Select>
           ) : inlineEditable ? (
             <button
               type="button"

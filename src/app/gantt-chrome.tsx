@@ -4,7 +4,8 @@
 // owns the data + handlers and passes them in.
 import { type Lang, t } from "./i18n";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { Input, Select } from "./form-controls";
+import { INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
 import { PrintButton, ResetSizeButton, ResetSizeIcon } from "./task-manager-ui";
 import { ToggleButton } from "./toggle-button";
@@ -94,14 +95,15 @@ export function GanttToolbar({
           + {t(lang, "ganttAddMilestone")}
         </AddButton>
       )}
-      <input
+      <Input
         type="search"
+        size="xs"
         value={prefs.search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder={t(lang, "searchPlaceholder")}
         aria-label={t(lang, "searchPlaceholder")}
         title={t(lang, "ganttSearchHint")}
-        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+        className="min-w-[12rem] flex-1"
       />
       <FilterMultiSelect
         lang={lang}
@@ -131,12 +133,13 @@ export function GanttToolbar({
       />
       <label className="flex items-center gap-1 text-xs text-muted-foreground">
         <span className="hidden sm:inline">{t(lang, "ganttSortLabel")}</span>
-        <select
+        <Select
+          size="xs"
           value={prefs.sort}
           onChange={(e) => setSort(e.target.value as GanttSort)}
           aria-label={t(lang, "ganttSortLabel")}
           title={t(lang, "ganttSortHint")}
-          className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+          className="h-[30px]"
         >
           <option value="auto">{t(lang, "ganttSortAuto")}</option>
           <option value="due">{t(lang, "ganttSortDue")}</option>
@@ -145,7 +148,7 @@ export function GanttToolbar({
           <option value="custom" disabled={prefs.customOrder.length === 0}>
             {t(lang, "ganttSortCustom")}
           </option>
-        </select>
+        </Select>
       </label>
       {filtersActive && (
         <button

@@ -28,6 +28,7 @@ import { Tile } from "./report-table";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
+import { Input, Select } from "./form-controls";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -633,13 +634,14 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
         ) : (
           <>
             {/* Narrow the loaded directory before ticking who to fetch bookings for. */}
-            <input
+            <Input
               type="search"
+              size="xs"
               value={peopleFilter}
               onChange={(e) => setPeopleFilter(e.target.value)}
               placeholder={t(lang, "timelogPeopleFilter")}
               aria-label={t(lang, "timelogPeopleFilter")}
-              className={`mb-2 w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
+              className="mb-2 w-full print:hidden"
             />
             {/* Bulk-remove bar — self-hides at zero selection */}
             {sel.count > 0 && !isPopout && (
@@ -728,7 +730,8 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                           )}
                         </td>
                         <td className="py-2 pr-2">
-                          <select
+                          <Select
+                            size="xs"
                             aria-label={selectLabel}
                             value={link?.resourceId ?? ""}
                             disabled={isPopout}
@@ -738,7 +741,6 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                                 e.target.value === "" ? null : Number(e.target.value),
                               )
                             }
-                            className={`rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
                           >
                             <option value="">{t(lang, "timelogMatchNone")}</option>
                             {matchableResources.map((r) => (
@@ -746,7 +748,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                                 {r.firstName} {r.lastName}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </td>
                         <td className="py-2 pr-2">
                           {link && (
@@ -843,7 +845,8 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                     <tr key={p.id} className="border-b border-line last:border-0">
                       <td className="py-2 pr-3 text-foreground">{displayId}</td>
                       <td className="py-2 pr-2">
-                        <select
+                        <Select
+                          size="xs"
                           aria-label={selectLabel}
                           value={pLink?.bucketId ?? ""}
                           disabled={isPopout}
@@ -853,7 +856,6 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                               e.target.value === "" ? null : Number(e.target.value),
                             )
                           }
-                          className={`rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
                         >
                           <option value="">{t(lang, "timelogMatchNone")}</option>
                           {budgets.map((b) => (
@@ -861,7 +863,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                               {b.name}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </td>
                       <td className="py-2 pr-2">
                         {pLink && (

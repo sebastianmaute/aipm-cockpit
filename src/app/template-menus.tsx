@@ -15,7 +15,7 @@
 
 import { useId, useMemo, useRef, useState } from "react";
 import { usePopoverDismiss } from "./use-popover-dismiss";
-import { Checkbox } from "./form-controls";
+import { Checkbox, Input, Select } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import type { ProjectTemplate } from "./templates";
 import type { SaveTemplateInput } from "./templates";
@@ -28,9 +28,6 @@ const POPOVER_CLASS =
 
 const HEADING_CLASS =
   "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
-
-const FIELD_CLASS =
-  "w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green";
 
 const PRIMARY_BTN_CLASS =
   "rounded-md bg-ui-green px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-ui-dark-blue hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green disabled:cursor-not-allowed disabled:opacity-50";
@@ -99,13 +96,14 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
         <div role="dialog" aria-label={t(lang, "templateSaveTitle")} className={POPOVER_CLASS}>
           <h3 className={HEADING_CLASS}>{t(lang, "templateSaveTitle")}</h3>
           <div className="space-y-3">
-            <input
+            <Input
               type="text"
+              size="xs"
+              className="w-full"
               aria-label={t(lang, "templateSaveName")}
               placeholder={t(lang, "templateSaveName")}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={FIELD_CLASS}
             />
             <label htmlFor={checkboxId} className="flex items-center gap-2 text-sm text-foreground">
               <Checkbox
@@ -224,19 +222,20 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
         <div role="dialog" aria-label={t(lang, "templateApplyTitle")} className={POPOVER_CLASS}>
           <h3 className={HEADING_CLASS}>{t(lang, "templateApplyTitle")}</h3>
           <div className="space-y-3">
-            <select
+            <Select
+              size="xs"
+              className="w-full"
               aria-label={t(lang, "templatePick")}
               value={selectedId}
               onChange={(e) => setPicked(e.target.value)}
               disabled={!hasTemplates}
-              className={FIELD_CLASS}
             >
               {templates.map((tpl) => (
                 <option key={tpl.id} value={tpl.id}>
                   {tpl.name}
                 </option>
               ))}
-            </select>
+            </Select>
             <p className="text-xs text-muted-foreground">
               {t(lang, "templateApplyReplacesFv")}
             </p>

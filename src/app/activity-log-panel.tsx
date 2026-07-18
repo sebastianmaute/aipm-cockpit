@@ -34,6 +34,7 @@ import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton 
 import { DataTable } from "./data-table";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
+import { Input } from "./form-controls";
 import { useConfirm } from "./confirm-dialog";
 
 const ACTIVITY_LOG_COL_WIDTHS = {
@@ -192,19 +193,16 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
 
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
         <div className="relative min-w-[14rem] flex-1">
-          <input
+          <Input
             type="search"
+            size="xs"
+            invalid={!!matcher?.invalid}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t(lang, "activitySearchPlaceholder")}
             aria-label={t(lang, "activitySearchPlaceholder")}
             title={t(lang, "activitySearchHint")}
-            aria-invalid={matcher?.invalid ? true : undefined}
-            className={`w-full rounded-md border bg-surface px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 ${
-              matcher?.invalid
-                ? "border-ui-pink focus:border-ui-pink focus:ring-ui-pink"
-                : "border-line focus:border-ui-dark-blue focus:ring-ui-green"
-            }`}
+            className="w-full"
           />
           {matcher?.invalid && (
             <span className="absolute -bottom-4 left-1 text-[10px] text-ui-pink-strong">
