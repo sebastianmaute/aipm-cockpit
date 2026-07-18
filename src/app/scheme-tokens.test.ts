@@ -1,10 +1,5 @@
-import { describe, it, test, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
-  CORE_TOKENS,
-  ADVANCED_TOKENS,
-  ICC_SEED,
-  ICC_STRUCTURAL,
-  MOCKUP_STRUCTURAL,
   deriveAaVariants,
   resolveSchemeColors,
 } from "./scheme-tokens";
@@ -28,10 +23,14 @@ function contrastRatio(a: string, b: string): number {
 }
 
 describe("scheme-tokens", () => {
-  it("ICC_SEED has a hex value for every core and advanced token", () => {
-    for (const t of [...CORE_TOKENS, ...ADVANCED_TOKENS]) {
-      expect(ICC_SEED[t.token], `seed for ${t.token}`).toMatch(/^#[0-9a-f]{6}$/i);
-    }
+  it("resolveSchemeColors derives AA variants from a minimal color map", () => {
+    const out = resolveSchemeColors({
+      "--AIPM-green": "#84bd00",
+      "--rag-red": "#ef4444",
+      "--surface": "#ffffff",
+    });
+    expect(out["--AIPM-green-strong"]).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(out["--rag-red-text"]).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
   it("deriveAaVariants darkens the accent until it clears AA on white", () => {
@@ -103,12 +102,5 @@ describe("scheme-tokens", () => {
     expect(lightDerived["--muted-foreground"]).toBe("#636362");
     const darkDerived = deriveAaVariants({ "--surface": "#16212e", "--foreground": "#e4edf4" });
     expect(darkDerived["--muted-foreground"]).toBe("#e4edf4");
-  });
-
-  test("structural seeds cover the 7 structural tokens", () => {
-    const keys = ["--shadow-card","--shadow-control","--shadow-card-hover","--gradient-kpi","--delta-chip-pad","--rag-green-chip","--rag-red-chip"];
-    for (const k of keys) { expect(ICC_STRUCTURAL[k]).toBeDefined(); expect(MOCKUP_STRUCTURAL[k]).toBeDefined(); }
-    expect(ICC_STRUCTURAL["--shadow-card"]).toBe("none");
-    expect(MOCKUP_STRUCTURAL["--gradient-kpi"]).toContain("linear-gradient");
   });
 });

@@ -8,6 +8,25 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.22] - 2026-07-18 "Pinsker"
+
+Theme decoupling (Release A): AIPM and Dashboard are no longer baked-in built-in
+schemes.
+
+### Changed
+- **AIPM and Dashboard are now optional, importable themes.** They ship as
+  self-contained files and are imported on demand from a new Theme gallery in
+  Settings → Appearance. A fresh install shows Harbor, Meridian and Umber; AIPM and
+  Dashboard appear once imported. **Harbor is now the default look** (base palette
+  and no-JS fallback).
+- The scheme editor's base + reset now start from Harbor, and its old
+  "New from AIPM / New from Mockup" preset buttons collapse to one "New from current
+  theme" that seeds from whatever scheme is active.
+- Exported/imported theme files now carry their shadow/gradient (structural) tokens
+  and pinned accessibility variants, so a shared theme keeps its exact look.
+- Fixed the default header logo's alt text (was a stale brand name; now the app
+  title).
+
 ## [0.190.21] - 2026-07-18 "Pinsker"
 
 Design-system dedup (Phases 3i + 3j).

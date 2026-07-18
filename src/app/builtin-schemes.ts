@@ -1,42 +1,10 @@
-// Code-owned built-in color schemes (AIPM / Mockup / Harbor / Meridian / Umber).
-// The dark-capable ones ship a light+dark pair over the 21 editable tokens;
-// Mockup is light-only. AIPM + Mockup pin their -strong/-text AA variants +
-// structural tokens to reproduce the historic globals.css look byte-for-byte.
-// Harbor is the fresh-install default. Pure (no DOM). Built-ins are undeletable
-// + refreshed from code on every load (reconcile).
+// Code-owned built-in color schemes (Harbor / Meridian / Umber). Each ships a
+// light+dark pair over the 21 editable tokens. Harbor is the fresh-install
+// default. Pure (no DOM). Built-ins are undeletable + refreshed from code on
+// every load (reconcile). AIPM and Mockup are no longer code built-ins — they
+// ship as importable theme files (public/themes/*.json).
 import type { ColorScheme, SchemeStore } from "./color-schemes";
 import type { SchemeColorMap, SchemeStructuralMap } from "./scheme-apply";
-import { ICC_SEED, MOCKUP_SEED, ICC_STRUCTURAL, MOCKUP_STRUCTURAL } from "./scheme-tokens";
-
-// ── AIPM (the historic default look) ──────────────────────────────────────
-// Pinned -strong/-text + muted-foreground reproduce globals.css byte-for-byte;
-// base-wins resolveSchemeColors keeps them (never re-derived).
-export const ICC_LIGHT: SchemeColorMap = {
-  ...ICC_SEED,
-  "--AIPM-green-strong": "#4d7000", "--AIPM-pink-strong": "#c41e5a", "--AIPM-purple-strong": "#7a2d72",
-  "--rag-red-text": "#c41e5a", "--rag-amber-text": "#aa4899", "--rag-green-text": "#4d7000",
-  "--muted-foreground": "#636362",
-};
-export const ICC_DARK: SchemeColorMap = {
-  ...ICC_SEED,
-  "--background": "#0b0f12", "--foreground": "#e3e6e6", "--surface": "#121619",
-  "--surface-muted": "#1b2024", "--line": "#2b3137", "--muted-foreground": "#9ca3a9",
-  // Reproduce the old globals.css `--segment-track-bg: var(--surface)`: ICC_SEED
-  // flattened it to a concrete #ffffff, which is near-white in dark → --foreground
-  // (#e3e6e6) fails AA (1.25:1). Follow the dark surface (~14:1) instead.
-  "--segment-track-bg": "#121619",
-  "--AIPM-green-strong": "#84bd00", "--AIPM-pink-strong": "#e96089", "--AIPM-purple-strong": "#d98cc8",
-  "--rag-red-text": "#e96089", "--rag-amber-text": "#aa4899", "--rag-green-text": "#84bd00",
-};
-
-// ── Mockup ("Dashboard") — light-only, with structural shadows + gradient ──
-export const MOCKUP_LIGHT: SchemeColorMap = {
-  ...MOCKUP_SEED,
-  // Mockup does NOT override the -strong pins in globals.css — they cascade
-  // from :root (AIPM). Pin them so base-wins doesn't re-derive wrong values.
-  "--AIPM-green-strong": "#4d7000", "--AIPM-pink-strong": "#c41e5a", "--AIPM-purple-strong": "#7a2d72",
-  "--rag-red-text": "#c0392b", "--rag-amber-text": "#a96a00", "--rag-green-text": "#3d7a00",
-};
 
 // ── Harbor ───────────────────────────────────────────────────────────────
 export const HARBOR_LIGHT: SchemeColorMap = {
@@ -93,8 +61,6 @@ export const UMBER_DARK: SchemeColorMap = {
 };
 
 export const BUILTIN_SCHEMES: readonly ColorScheme[] = [
-  { id: "AIPM", name: "AIPM", builtIn: true, supportsDark: true, light: ICC_LIGHT, dark: ICC_DARK, structural: ICC_STRUCTURAL, branding: {} },
-  { id: "mockup", name: "Dashboard", builtIn: true, supportsDark: false, light: MOCKUP_LIGHT, structural: MOCKUP_STRUCTURAL, branding: {} },
   { id: "harbor", name: "Harbor", builtIn: true, supportsDark: true, light: HARBOR_LIGHT, dark: HARBOR_DARK, branding: {} },
   { id: "meridian", name: "Meridian", builtIn: true, supportsDark: true, light: MERIDIAN_LIGHT, dark: MERIDIAN_DARK, branding: {} },
   { id: "umber", name: "Umber", builtIn: true, supportsDark: true, light: UMBER_LIGHT, dark: UMBER_DARK, branding: {} },

@@ -4,7 +4,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
-import { CORE_TOKENS, ADVANCED_TOKENS, ICC_SEED, MOCKUP_SEED, resolveSchemeColors } from "./scheme-tokens";
+import { CORE_TOKENS, ADVANCED_TOKENS, resolveSchemeColors } from "./scheme-tokens";
 import { checkSchemePairs } from "./scheme-contrast";
 import { readActiveSchemeColors, type SchemeColorMap } from "./scheme-apply";
 import {
@@ -12,7 +12,7 @@ import {
   exportScheme, importScheme, type SchemeStore,
 } from "./color-schemes";
 import { loadSchemesAsync, upsertSchemeAsync, deleteSchemeAsync } from "./color-schemes-store";
-import { reconcileBuiltins } from "./builtin-schemes";
+import { reconcileBuiltins, HARBOR_LIGHT } from "./builtin-schemes";
 import { BrandingImageInput } from "./branding-image-input";
 import type { BrandingConfig } from "./settings-types";
 import type { TursoConfig } from "./turso-config";
@@ -74,7 +74,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
   // Seed the draft from the active scheme's light map; if none, from the
   // last-applied boot key (so an applied-but-unsaved scheme survives reload).
   const [colors, setColors] = useState<SchemeColorMap>(() => ({
-    ...ICC_SEED,
+    ...HARBOR_LIGHT,
     ...(active ? active.light : readActiveSchemeColors() ?? {}),
   }));
   const [branding, setBranding] = useState<BrandingConfig>(active?.branding ?? {});
@@ -90,7 +90,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
     if (forceBranding || b.slogan?.trim() || b.footerSlogan?.trim() || b.logo || b.favicon) onApplyBranding?.(b);
   }
   function seed(map: SchemeColorMap) {
-    setColors({ ...ICC_SEED, ...map });
+    setColors({ ...HARBOR_LIGHT, ...map });
   }
   function apply() {
     applyResolved(colors, branding, true);
@@ -126,7 +126,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
     persist(next);
     void deleteSchemeAsync(config, removedId);
     setName("");
-    setColors({ ...ICC_SEED });
+    setColors({ ...HARBOR_LIGHT });
     setBranding({});
     onClear?.();
     onSchemeChange?.();
@@ -154,7 +154,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
       persist(next);
       const s = next.schemes[next.schemes.length - 1];
       dbUpsert(next, s.id);
-      const full = { ...ICC_SEED, ...s.light };
+      const full = { ...HARBOR_LIGHT, ...s.light };
       setName(s.name); setColors(full); setBranding(s.branding);
       applyResolved(full, s.branding); // importing applies the imported scheme
       onSchemeChange?.();
@@ -198,8 +198,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
         <button type="button" className={btn} onClick={saveNew}>{t(lang, "schemeNew")}</button>
         <button type="button" className={btn} onClick={rename} disabled={!active || isBuiltin}>{t(lang, "schemeRename")}</button>
         <button type="button" className={btn} onClick={del} disabled={!active || isBuiltin}>{t(lang, "schemeDelete")}</button>
-        <button type="button" className={btn} onClick={() => seed(ICC_SEED)}>{t(lang, "schemeNewFromIcc")}</button>
-        <button type="button" className={btn} onClick={() => seed(MOCKUP_SEED)}>{t(lang, "schemeNewFromMockup")}</button>
+        <button type="button" className={btn} onClick={() => seed(active?.light ?? {})}>{t(lang, "schemeNewFromCurrent")}</button>
         <button type="button" className={btn} onClick={doExport} disabled={!active}>{t(lang, "schemeExport")}</button>
         <label className={`cursor-pointer ${btn}`}>
           {t(lang, "schemeImport")}

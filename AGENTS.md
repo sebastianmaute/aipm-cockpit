@@ -909,6 +909,23 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
   e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
   "var(--delta-chip-pad)"} : undefined}` — so AIPM is untouched AND a chip-less (flat) trend gets no empty bubble.
+  • **★★ RELEASE A (theme decouple, 0.190.22) SUPERSEDES the "FIVE built-ins" claim below:** AIPM + Mockup
+  LEFT the code built-ins and now ship as self-contained importable theme files `public/themes/AIPM.json` +
+  `mockup.json` (full portable format — light/dark/`structural`/branding/pinned AA tokens). `BUILTIN_SCHEMES` =
+  **[harbor, meridian, umber]** only. An in-app **Theme gallery** (`theme-gallery.tsx`, mounted in
+  `AppearanceSection` beside the scheme editor) fetches `/themes/*.json` → widened `importScheme` → `addScheme`
+  + `updateScheme({dark,structural})` → a removable user scheme. Fresh install picker = Harbor/Meridian/Umber;
+  AIPM/Dashboard are opt-in imports. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
+  Harbor-falls-back via reconcile. `ICC_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
+  `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
+  **Harbor-resolved-light** no-JS fallback (the `--AIPM-*` var NAMES + `@theme` map are UNCHANGED — a neutral
+  rename is the deferred Release B). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
+  (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
+  `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
+  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` now READS
+  `public/themes/*.json` and seeds AIPM/Mockup as **USER schemes** (not the empty-`schemes[]`+built-in-activeId
+  shortcut — they're no longer built-ins) to keep the 5-combo matrix. — The Phase-2 text below still describes
+  the MECHANISM (data-style/scheme apply/structural), just not the built-in ROSTER.
   • **Scheme-driven color schemes (Phase 2 — AIPM + Mockup ARE built-in schemes):** the AIPM/mockup/custom
   `data-style` AXIS COLLAPSED — `data-style` is now the CONSTANT `"custom"` (`use-style` always writes it;
   `CiStyle.style` is always `"custom"` in normal operation). AIPM + Mockup JOINED Harbor/Meridian/Umber as

@@ -14,6 +14,7 @@ import { FieldHint } from "../field-hint";
 import { useColorSchemes } from "../use-color-schemes";
 import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import { ColorSchemeEditor } from "../color-scheme-editor";
+import { ThemeGallery } from "../theme-gallery";
 import { BrandingImageInput } from "../branding-image-input";
 import { applySchemeColors, writeActiveSchemeColors } from "../scheme-apply";
 import { mergeAppliedBranding } from "../color-schemes";
@@ -39,10 +40,9 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
   // the look. A dark-capable active scheme honours the theme; mockup + a
   // light-only user scheme pin light (mirrors effectiveDark → !supportsDark).
   const pinsLight = !activeSupportsDark;
-  const isMockupActive = store.activeId === "mockup";
-  // AIPM + Mockup are now built-in schemes rendered under friendly labels below,
-  // so exclude them from the generic built-in loop (which would duplicate them).
-  const builtinSchemes = store.schemes.filter((s) => s.builtIn && s.id !== "AIPM" && s.id !== "mockup");
+  // Built-in schemes are Harbor/Meridian/Umber; AIPM + Dashboard ship as importable
+  // theme files (Theme gallery below), so they are NOT hardcoded options here.
+  const builtinSchemes = store.schemes.filter((s) => s.builtIn);
   const userSchemes = store.schemes.filter((s) => !s.builtIn);
   const schemeValue = store.activeId ?? "harbor";
   // Gate the global app-name/footer inputs on scheme IDENTITY, matching the editor
@@ -76,8 +76,6 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
           {builtinSchemes.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
-          <option value="AIPM">{t(lang, "styleIcc")}</option>
-          <option value="mockup">{t(lang, "styleMockup")}</option>
           {userSchemes.length > 0 && (
             <optgroup label={t(lang, "schemeUserGroup")}>
               {userSchemes.map((s) => (
@@ -101,6 +99,7 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
         {config ? (
           <p className="mt-2 text-sm text-muted-foreground">{t(lang, "schemeStoredInDb")}</p>
         ) : null}
+        <ThemeGallery lang={lang} config={config} onImported={(id) => selectScheme(id)} />
       </div>
 
       <div className="mb-4">
@@ -122,7 +121,7 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
         />
         {pinsLight && (
           <FieldHint className="mt-1">
-            {t(lang, isMockupActive ? "styleMockupLightOnly" : "styleCustomLightOnly")}
+            {t(lang, "styleCustomLightOnly")}
           </FieldHint>
         )}
       </div>

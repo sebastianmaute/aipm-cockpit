@@ -303,7 +303,6 @@ const enUS = {
   themeDark: "Dark",
   themeSystem: "System",
   themeHint: "Choose light, dark, or follow your system setting.",
-  styleIcc: "Acme",
   schemeTokenPrimary: "Brand primary",
   schemeTokenAccent: "Accent",
   schemeTokenBackground: "Background",
@@ -333,8 +332,7 @@ const enUS = {
   schemeAdvanced: "Advanced colors",
   schemeContrastBelowAa: "below AA",
   schemeNew: "New scheme",
-  schemeNewFromIcc: "New from AIPM",
-  schemeNewFromMockup: "New from Mockup",
+  schemeNewFromCurrent: "New from current theme",
   schemeApply: "Apply",
   schemeRename: "Rename",
   schemeDelete: "Delete",
@@ -346,8 +344,10 @@ const enUS = {
   schemeUserGroup: "Your schemes",
   schemeBuiltinReadonly: "Built-in scheme — save as new to customise.",
   schemeStoredInDb: "Custom schemes are stored in the project database and shared across your devices.",
-  styleMockup: "Dashboard",
-  styleMockupLightOnly: "Dashboard style is light-only - theme is disabled while it's active.",
+  themeGalleryHeading: "Theme gallery",
+  themeGalleryHint: "Import a shipped theme to customise or use as-is.",
+  themeGalleryImport: "Import {0}",
+  themeGalleryImportError: "Could not import that theme.",
   styleCustomLightOnly: "Custom schemes are light-only - theme is disabled while one is active.",
   language: "Language",
   holidayCountries: "Holiday countries",
@@ -3380,6 +3380,7 @@ const enUS = {
   versionHighlightKnowledgeLinks: "The Documents view is now \"Knowledge\", and a link can be a SharePoint document, a Confluence page, or any web URL — each shown with a kind-appropriate icon. Existing document links are unaffected.",
   versionHighlightTaskDedup: "Deduplicate & unify tasks: from Open Points, let the AI assistant propose which tasks look like duplicates and how to merge them; you review each group and confirm before anything is combined, and the merge can be undone in one step.",
   versionHighlightAppRename: "The application is now called AI PM Cockpit.",
+  versionHighlightThemeDecouple: "AIPM and Dashboard are now optional importable themes (Settings - Appearance - Theme gallery); Harbor is the default look.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

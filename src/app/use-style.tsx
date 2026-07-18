@@ -8,7 +8,7 @@ import {
   writeActiveSchemeStructural,
   writeSchemeSupportsDark,
 } from "./scheme-apply";
-import { loadSchemes, setActive } from "./color-schemes";
+import { loadSchemes } from "./color-schemes";
 import {
   activeSchemeOf,
   reconcileBuiltins,
@@ -65,18 +65,11 @@ export function useCiStyle(): CiStyleContextValue { return useContext(CiStyleCon
 export function CiStyleProvider({ children }: { children: React.ReactNode }) {
   const [style, setStyleState] = useState<CiStyle>(() => {
     if (typeof window === "undefined") return "custom";
-    // Phase 2: AIPM + Mockup are now built-in SCHEMES (ids "AIPM"/"mockup"), and the
-    // style axis collapses to the constant "custom". Migrate a legacy device style
-    // ONCE — activate the matching built-in scheme (so it survives reload) — and
-    // for ANY non-"custom" value (legacy OR absent/fresh) persist aipm-cockpit-style="custom".
-    // A fresh user MUST get aipm-cockpit-style written so the boot script and the dead
-    // selectScheme fallback stay consistent; a legacy user also activates the scheme
-    // first. Idempotent: an already-"custom" user keeps their existing activeId and
-    // the write is a harmless no-op. This runs in the lazy initializer (before the
-    // first syncScheme) so the migrated scheme paints immediately, without a
-    // set-state-in-effect.
+    // The style axis is the constant "custom"; the active SCHEME drives the look.
+    // Persist "custom" for any non-"custom" (legacy/absent) value so the boot script +
+    // selectScheme fallback stay consistent. No legacy AIPM/mockup scheme-activation:
+    // those are now importable theme files, not built-ins.
     const stored = localStorage.getItem(STYLE_STORAGE_KEY);
-    if (stored === "AIPM" || stored === "mockup") setActive(stored);
     if (stored !== "custom") {
       try {
         localStorage.setItem(STYLE_STORAGE_KEY, "custom");

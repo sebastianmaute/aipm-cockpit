@@ -82,14 +82,15 @@ describe("AppearanceSection density control", () => {
 });
 
 describe("AppearanceSection scheme control", () => {
-  it("renders the scheme selector with the built-ins + AIPM + Mockup", () => {
+  it("renders the scheme selector with the canonical built-ins (no AIPM/Mockup by default)", () => {
     renderSection();
     expect(screen.getByLabelText(t("en-US", "schemeAppearanceLabel"))).toBeInTheDocument();
     for (const name of ["Harbor", "Meridian", "Umber"]) {
       expect(screen.getByRole("option", { name })).toBeInTheDocument();
     }
-    expect(screen.getByRole("option", { name: t("en-US", "styleIcc") })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: t("en-US", "styleMockup") })).toBeInTheDocument();
+    // AIPM + Dashboard are shipped importable themes now, not built-in options.
+    expect(screen.queryByRole("option", { name: "AIPM" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Dashboard" })).not.toBeInTheDocument();
   });
 
   it("selecting a built-in scheme switches the style to custom", () => {
@@ -106,35 +107,20 @@ describe("AppearanceSection scheme control", () => {
     expect(loadSchemes().activeId).toBe("meridian");
   });
 
-  it("selecting Dashboard activates the mockup scheme (style stays custom)", () => {
-    // Phase 2: Mockup is a built-in scheme; selecting it routes through
-    // selectScheme → activeId "mockup", the style axis stays the constant "custom".
-    renderSection();
-    fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "mockup" } });
-    expect(loadSchemes().activeId).toBe("mockup");
-    expect(localStorage.getItem(STYLE_STORAGE_KEY)).toBe("custom");
-  });
-
-  it("selecting Mockup disables the Theme control and shows the light-only note", () => {
-    // Fresh store → Harbor active (dark-capable) → theme enabled to start.
+  it("a light-only scheme disables the Theme control and shows the light-only note", () => {
+    // No built-in is light-only anymore; seed a light-only USER scheme (it becomes
+    // active) → pinsLight → theme control disabled + the generic light-only note.
+    addScheme("LightOnly", { "--surface": "#eeeeee" }, {}); // → u-1, active
     renderSection({}, "custom");
-    fireEvent.change(screen.getByLabelText(t("en-US", "schemeAppearanceLabel")), { target: { value: "mockup" } });
     expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).toBeDisabled();
-    expect(screen.getByText(t("en-US", "styleMockupLightOnly"))).toBeInTheDocument();
+    expect(screen.getByText(t("en-US", "styleCustomLightOnly"))).toBeInTheDocument();
   });
 
   it("a dark-capable built-in (Harbor) keeps the Theme control enabled with no light-only note", () => {
     renderSection({}, "custom"); // fresh store → Harbor active (dark-capable)
     expect(screen.getByRole("radiogroup", { name: t("en-US", "theme") })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("radio", { name: t("en-US", "themeLight") })).not.toBeDisabled();
-    expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
-    expect(screen.queryByText(t("en-US", "styleCustomLightOnly"))).not.toBeInTheDocument();
-  });
-
-  it("when the AIPM scheme is active (dark-capable), the light-only note is absent", () => {
-    renderSection(); // starts on AIPM → migrated to activeId "AIPM" (supportsDark)
-    expect(screen.queryByText(t("en-US", "styleMockupLightOnly"))).not.toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "styleCustomLightOnly"))).not.toBeInTheDocument();
   });
 

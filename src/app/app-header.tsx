@@ -94,7 +94,7 @@ export function AppHeader({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={settings.branding?.logo || "/AIPM-logo.svg"}
-          alt={settings.branding?.logo ? (settings.branding.slogan ?? t(lang, "appTitle")) : "Acme"}
+          alt={settings.branding?.logo ? (settings.branding.slogan ?? t(lang, "appTitle")) : t(lang, "appTitle")}
           // Custom logos render as-is (light header → no invert), capped so a
           // large upload can't blow out the header.
           className={settings.branding?.logo ? "max-h-10 w-auto max-w-[200px] object-contain" : "h-7 w-auto"}

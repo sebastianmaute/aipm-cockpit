@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { MOCKUP_LIGHT } from "./builtin-schemes";
-import { MOCKUP_STRUCTURAL } from "./scheme-tokens";
 const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 const start = css.indexOf(":root {");
 const rootBlock = css.slice(start, css.indexOf("\n}", start));
@@ -12,31 +10,30 @@ describe("CI-style role tokens", () => {
     "defines %s in :root", (t) => expect(rootBlock).toContain(`${t}:`),
   );
   it("Mockup values live in the scheme data, not a CSS override block", () => {
-    // Phase 2 removed the hardcoded :root[data-style="mockup"] block; Mockup is
-    // now a built-in scheme whose values live in code (builtin-schemes/scheme-tokens).
+    // Phase 2 removed the hardcoded :root[data-style="mockup"] block; AIPM/Mockup
+    // now ship as importable theme files (public/themes/*.json) — their fidelity is
+    // asserted in shipped-themes.test.ts, not here.
     expect(css).not.toContain(':root[data-style="mockup"]');
-    expect(MOCKUP_LIGHT["--table-head-bg"]).toBe("#f1f3f4");
-    expect(MOCKUP_STRUCTURAL["--shadow-card"]).toContain("rgba");
   });
-  it("AIPM role values reproduce today's look exactly (no-op)", () => {
+  it("Harbor role values are the brand-default fallback", () => {
     expect(rootBlock).toMatch(/--table-head-bg:\s*var\(--AIPM-dark-blue\)/);
     expect(rootBlock).toMatch(/--table-head-fg:\s*#ffffff/);
     expect(rootBlock).toMatch(/--shadow-card:\s*none/);
     expect(rootBlock).toMatch(/--shadow-control:\s*none/);
     expect(rootBlock).toMatch(/--gradient-kpi:\s*var\(--AIPM-green\)/);
-    expect(rootBlock).toMatch(/--rag-red:\s*#ef4444/);
-    expect(rootBlock).toMatch(/--rag-amber:\s*#f59e0b/);
-    expect(rootBlock).toMatch(/--rag-green:\s*#10b981/);
-    expect(rootBlock).toMatch(/--rag-red-text:\s*var\(--AIPM-pink-strong\)/);
-    expect(rootBlock).toMatch(/--rag-amber-text:\s*var\(--AIPM-purple\)/);
-    expect(rootBlock).toMatch(/--rag-green-text:\s*var\(--AIPM-green-strong\)/);
+    expect(rootBlock).toMatch(/--rag-red:\s*#d24a4a/);
+    expect(rootBlock).toMatch(/--rag-amber:\s*#cf8a1c/);
+    expect(rootBlock).toMatch(/--rag-green:\s*#2f9d70/);
+    expect(rootBlock).toMatch(/--rag-red-text:\s*#b33f3f/);
+    expect(rootBlock).toMatch(/--rag-amber-text:\s*#966414/);
+    expect(rootBlock).toMatch(/--rag-green-text:\s*#227151/);
   });
-  it("new polish tokens are AIPM no-ops", () => {
+  it("new polish tokens are flat structural no-ops", () => {
     expect(rootBlock).toMatch(/--shadow-card-hover:\s*none/);
     expect(rootBlock).toMatch(/--rag-green-chip:\s*transparent/);
     expect(rootBlock).toMatch(/--rag-red-chip:\s*transparent/);
     expect(rootBlock).toMatch(/--delta-chip-pad:\s*0/);
-    expect(rootBlock).toMatch(/--segment-track-bg:\s*var\(--surface\)/);
+    expect(rootBlock).toMatch(/--segment-track-bg:\s*#eef2f6/);
     expect(rootBlock).toMatch(/--segment-active-bg:\s*var\(--AIPM-dark-blue\)/);
     expect(rootBlock).toMatch(/--segment-active-fg:\s*#ffffff/);
   });
