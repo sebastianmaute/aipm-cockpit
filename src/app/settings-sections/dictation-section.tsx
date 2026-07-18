@@ -5,6 +5,7 @@ import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { SegmentedControl } from "../segmented-control";
 import { InfoTooltip } from "../info-tooltip";
+import { FieldHint } from "../field-hint";
 import { saveSecretValue } from "../use-secrets";
 import { loadSealed, removeSealed } from "../secrets-store";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
@@ -136,7 +137,7 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
               className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
             />
           </label>
-          <p className="text-xs text-muted-foreground">{t(lang, "dictationSttNote")}</p>
+          <FieldHint>{t(lang, "dictationSttNote")}</FieldHint>
         </div>
       )}
 
@@ -166,7 +167,7 @@ export function DictationSection({ lang, settings, onChange }: DictationSectionP
             {t(lang, "dictationHotkeyReset")}
           </button>
         </div>
-        <p className="text-xs text-muted-foreground">{t(lang, "dictationHotkeyNote")}</p>
+        <FieldHint>{t(lang, "dictationHotkeyNote")}</FieldHint>
       </div>
     </div>
   );

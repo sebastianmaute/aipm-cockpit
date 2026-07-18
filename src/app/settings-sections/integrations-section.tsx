@@ -4,6 +4,7 @@ import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { FieldNotice } from "../field-feedback";
 import { Banner } from "../banner";
+import { FieldHint } from "../field-hint";
 import {
   type M365IntegrationsSettings,
   type TursoIntegrationsSettings,
@@ -273,9 +274,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         </label>
         <InfoTooltip text={t(lang, "integrationsM365Tooltip")} />
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <FieldHint className="mt-1">
         {t(lang, "integrationsM365Hint")}
-      </p>
+      </FieldHint>
 
       {m365.enabled && (
         <div className="mt-3 space-y-2 border-l-2 border-line pl-3">
@@ -380,7 +381,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
 
           <div className="mt-3 border-t border-line pt-2">
             <h4 className="text-sm font-semibold text-foreground">{t(lang, "calendarSyncHeading")}</h4>
-            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "calendarSyncDesc")}</p>
+            <FieldHint className="mt-1">{t(lang, "calendarSyncDesc")}</FieldHint>
             <CalendarSyncEntityRow
               lang={lang}
               settings={settings}
@@ -426,9 +427,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
         </label>
         <InfoTooltip text={t(lang, "integrationsTursoTooltip")} />
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <FieldHint className="mt-1">
         {t(lang, "integrationsTursoHint")}
-      </p>
+      </FieldHint>
       <p className="mt-1 text-xs">
         <a
           href="https://turso.tech/"
@@ -519,7 +520,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   >
                     {t(lang, "secretPassphraseSave")}
                   </button>
-                  <p className="text-xs text-muted-foreground">{t(lang, "secretLockWarning")}</p>
+                  <FieldHint>{t(lang, "secretLockWarning")}</FieldHint>
                 </div>
               )}
               {tokenStored && (
@@ -544,7 +545,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               >
                 {t(lang, "projectMigrateToTurso")}
               </button>
-              <p className="mt-1 text-xs text-muted-foreground">{t(lang, "projectMigrateToTursoHint")}</p>
+              <FieldHint className="mt-1">{t(lang, "projectMigrateToTursoHint")}</FieldHint>
             </div>
           )}
           <div className="mt-2 border-t border-line pt-2">
@@ -558,9 +559,9 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 {t(lang, "snapshotRecordingLabel")}
               </span>
             </label>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <FieldHint className="mt-1">
               {t(lang, onTurso ? "snapshotNeedsTurso" : "snapshotNeedsTursoFirst")}
-            </p>
+            </FieldHint>
             <label className="mt-2 block text-xs">
               <span className="text-muted-foreground">{t(lang, "snapshotCadenceLabel")}</span>
               <select
@@ -596,7 +597,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                 </option>
               </select>
             </label>
-            <p className="mt-1 text-xs text-muted-foreground">{t(lang, "portfolioModeHelp")}</p>
+            <FieldHint className="mt-1">{t(lang, "portfolioModeHelp")}</FieldHint>
             {!tursoConfigured && (
               <Banner severity="error" className="mt-1">{t(lang, "portfolioModeTursoNeedsConfig")}</Banner>
             )}

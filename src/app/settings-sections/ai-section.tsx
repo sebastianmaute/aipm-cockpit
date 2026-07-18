@@ -7,6 +7,7 @@ import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_T
 import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
 import { Banner } from "../banner";
+import { FieldHint } from "../field-hint";
 import { AiUsagePanel } from "./ai-usage-panel";
 import type { UseOperatingGuidesResult } from "../use-operating-guides";
 import type { OperatingGuide, GuideScope } from "../operating-guide";
@@ -411,7 +412,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         />
         <span className="text-xs text-foreground">{t(lang, "aiEnable")}</span>
       </label>
-      <p className="mt-1 text-xs text-muted-foreground">{t(lang, "aiEnableHelp")}</p>
+      <FieldHint className="mt-1">{t(lang, "aiEnableHelp")}</FieldHint>
       {settings.ai.enabled === true && (
         <>
       <label className="mt-2 block">
@@ -467,7 +468,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
             >
               {t(lang, "secretPassphraseSave")}
             </button>
-            <p className="text-xs text-muted-foreground">{t(lang, "secretLockWarning")}</p>
+            <FieldHint>{t(lang, "secretLockWarning")}</FieldHint>
           </div>
         )}
         {keyStored && (
@@ -505,14 +506,14 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           ))}
         </Select>
         {!modelsLoaded && (
-          <span className="mt-1 block text-xs text-muted-foreground">
+          <FieldHint as="span" className="mt-1 block">
             {t(lang, "aiModelNeedsKey")}
-          </span>
+          </FieldHint>
         )}
       </label>
-      <p className="mt-2 text-xs text-muted-foreground">
+      <FieldHint className="mt-2">
         {t(lang, "aiApiKeyHint")}
-      </p>
+      </FieldHint>
       {settings.ai.consentAccepted ? (
         <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>✓ {t(lang, "aiConsentGranted")}</span>
@@ -585,7 +586,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
       {/* Operating guides */}
       <div className="mt-4 border-t border-line pt-4">
         <p className="text-sm font-medium text-foreground">{t(lang, "aiGuidesHeading")}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "aiGuidesDesc")}</p>
+        <FieldHint className="mt-1">{t(lang, "aiGuidesDesc")}</FieldHint>
 
         {/* Master toggle */}
         <label className="mt-3 flex items-center gap-2">
@@ -621,9 +622,9 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
             {t(lang, "settingsAiActionSuggestions")}
           </span>
         </label>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <FieldHint className="mt-1">
           {t(lang, "settingsAiActionSuggestionsHelp")}
-        </p>
+        </FieldHint>
 
         {og != null && (
           <>

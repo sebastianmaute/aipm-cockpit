@@ -11,6 +11,7 @@ import { htmlToPlainText } from "../html-to-text";
 import { CommTemplateDiffView } from "../comm-template-diff-view";
 import { InfoTooltip } from "../info-tooltip";
 import { EmptyState } from "../empty-state";
+import { FieldHint } from "../field-hint";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
 import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
@@ -148,7 +149,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
             <span>{t(lang, key)}</span>
           </label>
         ))}
-        <span className="text-xs text-muted-foreground">{t(lang, "commSendModeHint")}</span>
+        <FieldHint as="span">{t(lang, "commSendModeHint")}</FieldHint>
       </fieldset>
 
       <label className="flex flex-col gap-1 text-sm text-foreground">

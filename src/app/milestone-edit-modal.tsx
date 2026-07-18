@@ -6,10 +6,9 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { ModalFieldError } from "./edit-modal-chrome";
+import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { ModalEditFooter } from "./modal-edit-fields";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
@@ -277,10 +276,10 @@ export function MilestoneEditModal({
 
           <ModalEditFooter
             lang={lang}
-            isNew={isNew}
+            hideDelete={isNew}
             onDelete={handleDeleteClick}
-            onClose={onClose}
-            saveLabel={t(lang, "milestoneSave")}
+            onCancel={onClose}
+            saveLabelKey="milestoneSave"
           />
         </form>
       </div>

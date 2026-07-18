@@ -4,6 +4,7 @@ import { type Lang, type TranslationKey, t } from "../i18n";
 import type { ChannelConfig, NotificationsConfig, Settings } from "../settings-types";
 import type { StakeholderQuadrant } from "../stakeholders";
 import { InfoTooltip } from "../info-tooltip";
+import { FieldHint } from "../field-hint";
 import { useToastContext } from "../toast-context";
 import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 
@@ -49,9 +50,9 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
         {t(lang, "notifications")}
         <InfoTooltip text={t(lang, "notificationsTooltip")} />
       </span>
-      <p className="mb-2 text-xs text-muted-foreground">
+      <FieldHint className="mb-2">
         {t(lang, "notificationsHint")}
-      </p>
+      </FieldHint>
 
       {/* Global lead-time toggle */}
       <div className="mt-2 flex items-center gap-2 text-sm text-foreground">
@@ -215,9 +216,9 @@ function CommsLeadDaysBlock({ lang, leadDays, onChange }: CommsLeadDaysBlockProp
 
   return (
     <div className="ml-6 mt-1 space-y-1 border-l border-line pl-3">
-      <p className="text-xs text-muted-foreground">
+      <FieldHint>
         {t(lang, "notifCommsLeadDaysHint")}
-      </p>
+      </FieldHint>
       {QUADRANT_ORDER.map((q) => (
         <label
           key={q}

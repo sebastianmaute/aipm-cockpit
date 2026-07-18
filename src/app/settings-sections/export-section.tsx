@@ -2,6 +2,7 @@
 "use client";
 
 import { type Lang, type TranslationKey, t } from "../i18n";
+import { FieldHint } from "../field-hint";
 import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import type { Settings } from "../settings-types";
 import { EXPORT_SECTION_KEYS, defaultExportConfig, type ExportSectionKey } from "../settings-types";
@@ -39,9 +40,9 @@ export function ExportSection({ lang, settings, onChange }: ExportSectionProps) 
 
   return (
     <div className="mb-4">
-      <p className="mb-4 text-xs text-muted-foreground">
+      <FieldHint className="mb-4">
         {t(lang, "exportSectionHint")}
-      </p>
+      </FieldHint>
 
       <ul className="space-y-2" aria-label={t(lang, "settingsSectionExport")}>
         {EXPORT_SECTION_KEYS.map((key) => {

@@ -7,11 +7,10 @@
 
 import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
-import { ModalFieldError } from "./edit-modal-chrome";
+import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { useAutogrow } from "./use-autogrow";
-import { ModalEditFooter } from "./modal-edit-fields";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
@@ -399,10 +398,10 @@ export function ResourceEditModal({
 
           <ModalEditFooter
             lang={lang}
-            isNew={isNew}
+            hideDelete={isNew}
             onDelete={handleDeleteClick}
-            onClose={onClose}
-            saveLabel={t(lang, "resourceSave")}
+            onCancel={onClose}
+            saveLabelKey="resourceSave"
           />
         </form>
       </div>

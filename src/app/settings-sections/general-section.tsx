@@ -4,6 +4,7 @@ import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import type { Settings } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
+import { FieldHint } from "../field-hint";
 import { TypeToConfirmDialog } from "../type-to-confirm-dialog";
 import { resetAppToCleanSlate } from "../app-reset";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
@@ -71,7 +72,7 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
         <h3 className="text-sm font-semibold text-AIPM-pink-strong">
           {t(lang, "settingsResetHeading")}
         </h3>
-        <p className="mt-1 text-xs text-muted-foreground">{t(lang, "settingsResetDesc")}</p>
+        <FieldHint className="mt-1">{t(lang, "settingsResetDesc")}</FieldHint>
         <button
           type="button"
           onClick={() => setResetOpen(true)}
