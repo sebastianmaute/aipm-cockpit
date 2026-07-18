@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
+import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, DEFAULT_TOKEN_MULTIPLIER } from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
@@ -517,18 +518,18 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
       {settings.ai.consentAccepted ? (
         <p className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>✓ {t(lang, "aiConsentGranted")}</span>
-          <button
-            type="button"
+          <TextButton
+            tone="danger"
             onClick={() =>
               onChange({
                 ...settings,
                 ai: { ...settings.ai, consentAccepted: false },
               })
             }
-            className={`text-xs font-medium text-ui-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
+            className="text-xs"
           >
             {t(lang, "aiConsentRevoke")}
-          </button>
+          </TextButton>
         </p>
       ) : (
         <p className="mt-2 text-xs text-ui-purple">

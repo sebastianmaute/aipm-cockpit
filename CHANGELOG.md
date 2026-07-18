@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.26] - 2026-07-18 "Pinsker"
+
+### Added
+
+Two new design-system primitives for the CTA shapes the `<Button>` pass (0.190.25) intentionally left, closing the remaining button sprawl:
+
+- **`IconButton`** — canonical icon-only control (✕/close/remove) with a REQUIRED `label` (accessible name), `ghost`/`danger` variants, and `sm`/`md` sizes. Migrated ~7 bespoke icon-only buttons (outlook import modals, roles editor, dependencies editor, knowledge cards, chat dismiss) to it, normalizing their divergent `p-0.5`/`p-1`/`px-1` + `rounded`/`rounded-md` + muted/foreground-hover shapes.
+- **`TextButton`** — inline action-link button (hyperlink look, in-page action) with `default` (dark-blue) / `danger` (pink) tones; padding-less and text-size-agnostic so callers keep their own `text-xs`/`text-sm`. Migrated ~8 action links (compare-to-now, send-inquiry, revoke-consent, extra-project remove/reset, snapshot delete, notes show-more).
+
+Prose/navigation links and colour outliers (green/foreground/muted) were left bespoke by design.
+
 ## [0.190.25] - 2026-07-18 "Pinsker"
 
 ### Changed

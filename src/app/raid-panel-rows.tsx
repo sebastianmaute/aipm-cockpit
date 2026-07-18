@@ -8,6 +8,7 @@
 import type React from "react";
 import { type Lang, t } from "./i18n";
 import { Badge } from "./badge";
+import { TextButton } from "./text-button";
 import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { isTerminalStatus, severityRag, type RaidSortKey } from "./raid";
 import { isRaidActiveForReview } from "./raid-review";
@@ -252,17 +253,16 @@ export function RaidTable({
                 <span className="inline-flex flex-col items-start gap-0.5">
                   <span>{effectivePersonName(item.owner ?? "", item.ownerResourceId, resourcesById)}</span>
                   {onSendInquiry && isRaidActiveForReview(item) && (
-                    <button
-                      type="button"
+                    <TextButton
                       onClick={(e) => {
                         e.stopPropagation();
                         onSendInquiry(item);
                       }}
                       aria-label={`${t(lang, "sendInquiry")} – ${item.title}`}
-                      className={`text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue ${INTERACTIVE}`}
+                      className="text-xs"
                     >
                       {t(lang, "sendInquiry")}
-                    </button>
+                    </TextButton>
                   )}
                 </span>
               </td>

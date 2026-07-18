@@ -3,6 +3,7 @@
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { RagDot } from "./rag-dot";
+import { TextButton } from "./text-button";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
 import { isReadOnlyIssue } from "./jira-projects";
@@ -655,14 +656,13 @@ function NotesCellImpl({ notes, isExpanded, taskId }: NotesCellProps) {
         {displayed}
       </span>
       {summary.truncated && (
-        <button
-          type="button"
+        <TextButton
           onClick={() => onToggleNoteExpanded(taskId)}
-          className={`self-start text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue ${INTERACTIVE}`}
+          className="self-start text-xs"
           aria-expanded={isExpanded}
         >
           {isExpanded ? t(lang, "showLess") : t(lang, "showMore")}
-        </button>
+        </TextButton>
       )}
     </div>
   );

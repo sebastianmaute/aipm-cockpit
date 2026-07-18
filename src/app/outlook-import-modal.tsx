@@ -6,6 +6,7 @@ import { type Lang, t } from "./i18n";
 import { Banner } from "./banner";
 import { Button } from "./button";
 import { Modal } from "./modal";
+import { IconButton } from "./icon-button";
 import type { OutlookContact } from "./outlook-contacts";
 
 export interface OutlookImportModalProps {
@@ -70,11 +71,10 @@ export function OutlookImportModal({
           <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "outlookImportTitle")}
           </h2>
-          <button
-            type="button"
+          <IconButton
+            size="md"
             onClick={onClose}
-            aria-label={t(lang, "outlookImportCancel")}
-            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue"
+            label={t(lang, "outlookImportCancel")}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path
@@ -83,7 +83,7 @@ export function OutlookImportModal({
                 clipRule="evenodd"
               />
             </svg>
-          </button>
+          </IconButton>
         </header>
 
         <div className="min-h-0 flex-1 overflow-auto p-4">

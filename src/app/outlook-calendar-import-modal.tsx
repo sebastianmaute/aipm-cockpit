@@ -6,6 +6,7 @@ import { type Lang, t } from "./i18n";
 import { Banner } from "./banner";
 import { Button } from "./button";
 import { Modal } from "./modal";
+import { IconButton } from "./icon-button";
 import { dedupeKey, type OutlookEvent } from "./outlook-calendar";
 import { ABSENCE_TYPES, type AbsenceType } from "./types";
 
@@ -98,16 +99,15 @@ export function OutlookCalendarImportModal({
           <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "outlookCalImportTitle")}
           </h2>
-          <button
-            type="button"
+          <IconButton
+            size="md"
             onClick={onClose}
-            aria-label={t(lang, "outlookCalImportCancel")}
-            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue"
+            label={t(lang, "outlookCalImportCancel")}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path fillRule="evenodd" d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z" clipRule="evenodd" />
             </svg>
-          </button>
+          </IconButton>
         </header>
 
         <div className="min-h-0 flex-1 overflow-auto p-4">

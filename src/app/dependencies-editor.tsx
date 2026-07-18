@@ -15,6 +15,7 @@
 import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
+import { IconButton } from "./icon-button";
 import { wouldCreateDependencyCycle } from "./sanitize";
 import {
   DEPENDENCY_TYPES,
@@ -110,12 +111,12 @@ export function DependenciesEditor({
                     #{dep.taskId}{" "}
                     {task ? task.taskName : `(${t(lang, "depMissing")})`}
                   </span>
-                  <button
-                    type="button"
+                  <IconButton
+                    variant="danger"
                     onClick={() => remove(i)}
-                    aria-label={t(lang, "depRemove")}
+                    label={t(lang, "depRemove")}
                     title={t(lang, "depRemove")}
-                    className="ml-0.5 rounded p-0.5 text-ui-dark-blue hover:bg-ui-dark-blue/20 dark:text-ui-light-grey"
+                    className="ml-0.5"
                   >
                     <svg
                       viewBox="0 0 20 20"
@@ -129,7 +130,7 @@ export function DependenciesEditor({
                         clipRule="evenodd"
                       />
                     </svg>
-                  </button>
+                  </IconButton>
                 </span>
               </li>
             );
