@@ -30,16 +30,16 @@ import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import {
   EditModalShell,
   ModalFieldError,
   StakeholderChipPicker,
   ModalEditFooter,
 } from "./edit-modal-chrome";
+import { Input, Select, Textarea } from "./form-controls";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import { useAutogrow } from "./use-autogrow";
 import { useSettings } from "./use-settings";
 
 export interface ChangeEditModalProps {
@@ -85,8 +85,6 @@ const IMPACT_LABEL_KEYS: Record<ChangeImpact, TranslationKey> = {
   Critical: "raidSeverityCritical",
 };
 
-const INPUT_CLASS = `rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`;
-
 export function ChangeEditModal({
   lang,
   tasks,
@@ -110,12 +108,6 @@ export function ChangeEditModal({
   const [notice, setNotice] = useState<Record<string, string>>({});
   const scheduleNoticeId = useId();
   const costNoticeId = useId();
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const impactRef = useRef<HTMLTextAreaElement>(null);
-  const resolutionRef = useRef<HTMLTextAreaElement>(null);
-  useAutogrow(descriptionRef, draft.description ?? "");
-  useAutogrow(impactRef, draft.impactDescription ?? "");
-  useAutogrow(resolutionRef, draft.resolutionNotes ?? "");
   const adj = useAdjustmentTracker();
   const { settings } = useSettings();
   const draftRef = useRef(draft);
@@ -253,7 +245,7 @@ export function ChangeEditModal({
               {t(lang, "changeFieldTitle")} *<InfoTooltip text={t(lang, "changeFieldTitleHint")} />
               {titleMic}
             </span>
-            <input
+            <Input
               type="text"
               required
               value={draft.title}
@@ -261,7 +253,6 @@ export function ChangeEditModal({
               onFocus={titleDictationReg.onFocus}
               onBlur={(e) => { update("title", describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim()); titleDictationReg.onBlur(); }}
               aria-describedby="change-title-counter"
-              className={INPUT_CLASS}
             />
             <CharCounter value={draft.title} max={BUDGET_NAME_MAX} id="change-title-counter" lang={lang} />
             {titleDictationStatus}
@@ -273,18 +264,17 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldType")}<InfoTooltip text={t(lang, "changeFieldTypeHint")} />
             </span>
-            <select
+            <Select
               aria-label={t(lang, "changeFieldType")}
               value={draft.type}
               onChange={(e) => update("type", e.target.value as ChangeType)}
-              className={INPUT_CLASS}
             >
               {CHANGE_TYPES.map((ty) => (
                 <option key={ty} value={ty}>
                   {t(lang, TYPE_LABEL_KEYS[ty])}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           )}
 
@@ -294,18 +284,17 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldStatus")}<InfoTooltip text={t(lang, "changeFieldStatusHint")} />
             </span>
-            <select
+            <Select
               aria-label={t(lang, "changeFieldStatus")}
               value={draft.status}
               onChange={(e) => onApplyStatus(e.target.value as ChangeStatus)}
-              className={INPUT_CLASS}
             >
               {CHANGE_STATUSES.map((st) => (
                 <option key={st} value={st}>
                   {t(lang, STATUS_LABEL_KEYS[st])}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           )}
 
@@ -316,8 +305,8 @@ export function ChangeEditModal({
               {t(lang, "changeFieldDescription")}<InfoTooltip text={t(lang, "changeFieldDescriptionHint")} />
               {descriptionMic}
             </span>
-            <textarea
-              ref={descriptionRef}
+            <Textarea
+              autoGrow
               rows={2}
               value={draft.description}
               onChange={(e) => update("description", e.target.value)}
@@ -327,7 +316,6 @@ export function ChangeEditModal({
                 descriptionDictationReg.onBlur();
               }}
               aria-describedby="change-description-counter"
-              className={`resize-none ${INPUT_CLASS}`}
             />
             <CharCounter value={draft.description ?? ""} max={TEXTAREA_MAX} id="change-description-counter" lang={lang} />
             {descriptionDictationStatus}
@@ -340,7 +328,7 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldImpact")}<InfoTooltip text={t(lang, "changeFieldImpactHint")} />
             </span>
-            <select
+            <Select
               aria-label={t(lang, "changeFieldImpact")}
               value={draft.impact ?? ""}
               onChange={(e) =>
@@ -351,7 +339,6 @@ export function ChangeEditModal({
                     : (e.target.value as ChangeImpact),
                 )
               }
-              className={INPUT_CLASS}
             >
               <option value="">—</option>
               {RAID_SEVERITIES.map((sev) => (
@@ -359,7 +346,7 @@ export function ChangeEditModal({
                   {t(lang, IMPACT_LABEL_KEYS[sev])}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           )}
 
@@ -369,7 +356,7 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldRequestedBy")}<InfoTooltip text={t(lang, "changeFieldRequestedByHint")} />
             </span>
-            <input
+            <Input
               type="text"
               value={draft.requestedBy ?? ""}
               onChange={(e) =>
@@ -380,7 +367,6 @@ export function ChangeEditModal({
                 update("requestedBy", trimmed || undefined);
               }}
               aria-describedby="change-requestedBy-counter"
-              className={INPUT_CLASS}
             />
             <CharCounter value={draft.requestedBy ?? ""} max={BUDGET_NAME_MAX} id="change-requestedBy-counter" lang={lang} />
           </label>
@@ -392,8 +378,8 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldImpactDescription")}<InfoTooltip text={t(lang, "changeFieldImpactDescriptionHint")} />
             </span>
-            <textarea
-              ref={impactRef}
+            <Textarea
+              autoGrow
               rows={2}
               value={draft.impactDescription ?? ""}
               onChange={(e) =>
@@ -401,7 +387,6 @@ export function ChangeEditModal({
               }
               onBlur={(e) => update("impactDescription", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
               aria-describedby="change-impactDescription-counter"
-              className={`resize-none ${INPUT_CLASS}`}
             />
             <CharCounter value={draft.impactDescription ?? ""} max={TEXTAREA_MAX} id="change-impactDescription-counter" lang={lang} />
           </label>
@@ -413,7 +398,7 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldScheduleImpact")}<InfoTooltip text={t(lang, "changeFieldScheduleImpactHint")} />
             </span>
-            <input
+            <Input
               type="number"
               value={draft.scheduleImpactDays ?? ""}
               onChange={(e) =>
@@ -430,9 +415,8 @@ export function ChangeEditModal({
                     : "",
                 }));
               }}
-              aria-invalid={!!notice.scheduleImpactDays || undefined}
+              invalid={!!notice.scheduleImpactDays}
               aria-describedby={notice.scheduleImpactDays ? scheduleNoticeId : undefined}
-              className={INPUT_CLASS}
             />
             <FieldNotice id={scheduleNoticeId}>{notice.scheduleImpactDays}</FieldNotice>
           </label>
@@ -444,7 +428,7 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldCostImpact")}<InfoTooltip text={t(lang, "changeFieldCostImpactHint")} />
             </span>
-            <input
+            <Input
               type="number"
               value={draft.costImpact ?? ""}
               onChange={(e) =>
@@ -461,9 +445,8 @@ export function ChangeEditModal({
                     : "",
                 }));
               }}
-              aria-invalid={!!notice.costImpact || undefined}
+              invalid={!!notice.costImpact}
               aria-describedby={notice.costImpact ? costNoticeId : undefined}
-              className={INPUT_CLASS}
             />
             <FieldNotice id={costNoticeId}>{notice.costImpact}</FieldNotice>
           </label>
@@ -474,11 +457,10 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldRaisedDate")}<InfoTooltip text={t(lang, "changeFieldRaisedDateHint")} />
             </span>
-            <input
+            <Input
               type="date"
               value={draft.raisedDate}
               onChange={(e) => update("raisedDate", e.target.value)}
-              className={INPUT_CLASS}
             />
           </label>
 
@@ -487,7 +469,7 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldDecisionBy")}<InfoTooltip text={t(lang, "changeFieldDecisionByHint")} />
             </span>
-            <input
+            <Input
               type="text"
               value={draft.decisionBy ?? ""}
               onChange={(e) =>
@@ -498,7 +480,6 @@ export function ChangeEditModal({
                 update("decisionBy", trimmed || undefined);
               }}
               aria-describedby="change-decisionBy-counter"
-              className={INPUT_CLASS}
             />
             <CharCounter value={draft.decisionBy ?? ""} max={BUDGET_NAME_MAX} id="change-decisionBy-counter" lang={lang} />
           </label>
@@ -520,8 +501,8 @@ export function ChangeEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "changeFieldResolution")}<InfoTooltip text={t(lang, "changeFieldResolutionHint")} />
             </span>
-            <textarea
-              ref={resolutionRef}
+            <Textarea
+              autoGrow
               rows={2}
               value={draft.resolutionNotes ?? ""}
               onChange={(e) =>
@@ -529,7 +510,6 @@ export function ChangeEditModal({
               }
               onBlur={(e) => update("resolutionNotes", describeTextCap(e.target.value, TEXTAREA_MAX).value || undefined)}
               aria-describedby="change-resolutionNotes-counter"
-              className={`resize-none ${INPUT_CLASS}`}
             />
             <CharCounter value={draft.resolutionNotes ?? ""} max={TEXTAREA_MAX} id="change-resolutionNotes-counter" lang={lang} />
           </label>
@@ -578,12 +558,12 @@ export function ChangeEditModal({
               })}
             </div>
             <div className="relative">
-              <input
+              <Input
                 type="text"
                 value={taskPickerQuery}
                 onChange={(e) => setTaskPickerQuery(e.target.value)}
                 placeholder={t(lang, "raidLinkPickerPlaceholder")}
-                className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+                className="w-full"
               />
               {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
                 <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
@@ -640,12 +620,12 @@ export function ChangeEditModal({
               })}
             </div>
             <div className="relative">
-              <input
+              <Input
                 type="text"
                 value={raidPickerQuery}
                 onChange={(e) => setRaidPickerQuery(e.target.value)}
                 placeholder={t(lang, "raidLinkPickerPlaceholder")}
-                className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+                className="w-full"
               />
               {raidPickerQuery.trim() !== "" && availableRaid.length > 0 && (
                 <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">

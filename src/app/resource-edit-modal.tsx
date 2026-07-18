@@ -5,12 +5,12 @@
 // via useEffect, `update(key, value)` helper, footer with Delete/Cancel/Save.
 // Does NOT edit discipline/grade (those are owned by the Roles modal).
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { Input, Textarea } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
-import { useAutogrow } from "./use-autogrow";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
@@ -76,8 +76,6 @@ export function ResourceEditModal({
   const adj = useAdjustmentTracker();
   const { isVisible } = useModalVisibility("resource");
   const confirm = useConfirm();
-  const notesRef = useRef<HTMLTextAreaElement>(null);
-  useAutogrow(notesRef, draft?.notes ?? "");
 
   const { offset, reset: dragReset, handleProps } = useDraggable(
     draft !== null,
@@ -166,13 +164,12 @@ export function ResourceEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "resourceFirstName")}<InfoTooltip text={t(lang, "resourceFirstNameHint")} />
             </span>
-            <input
+            <Input
               type="text"
               value={draft.firstName ?? ""}
               onChange={(e) => update("firstName", e.target.value)}
               onBlur={(e) => update("firstName", describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim())}
               aria-describedby="resource-firstName-counter"
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.firstName ?? ""} max={ASSIGNEE_MAX} id="resource-firstName-counter" lang={lang} />
           </label>
@@ -182,13 +179,12 @@ export function ResourceEditModal({
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "resourceLastName")}<InfoTooltip text={t(lang, "resourceLastNameHint")} />
             </span>
-            <input
+            <Input
               type="text"
               value={draft.lastName ?? ""}
               onChange={(e) => update("lastName", e.target.value)}
               onBlur={(e) => update("lastName", describeTextCap(e.target.value, ASSIGNEE_MAX).value.trim())}
               aria-describedby="resource-lastName-counter"
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
             />
             <CharCounter value={draft.lastName ?? ""} max={ASSIGNEE_MAX} id="resource-lastName-counter" lang={lang} />
           </label>
@@ -199,11 +195,10 @@ export function ResourceEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "resourceJobTitle")}<InfoTooltip text={t(lang, "resourceJobTitleHint")} />
               </span>
-              <input
+              <Input
                 type="text"
                 value={draft.title ?? ""}
                 onChange={(e) => update("title", e.target.value || undefined)}
-                className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}
@@ -214,11 +209,10 @@ export function ResourceEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "resourceCompany")}<InfoTooltip text={t(lang, "resourceCompanyHint")} />
               </span>
-              <input
+              <Input
                 type="text"
                 value={draft.company ?? ""}
                 onChange={(e) => update("company", e.target.value || undefined)}
-                className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}
@@ -229,11 +223,10 @@ export function ResourceEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "resourceDepartment")}<InfoTooltip text={t(lang, "resourceDepartmentHint")} />
               </span>
-              <input
+              <Input
                 type="text"
                 value={draft.department ?? ""}
                 onChange={(e) => update("department", e.target.value || undefined)}
-                className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}
@@ -244,11 +237,10 @@ export function ResourceEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "resourceLocation")}<InfoTooltip text={t(lang, "resourceLocationHint")} />
               </span>
-              <input
+              <Input
                 type="text"
                 value={draft.location ?? ""}
                 onChange={(e) => update("location", e.target.value || undefined)}
-                className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}
@@ -259,13 +251,12 @@ export function ResourceEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "resourcePhone")}<InfoTooltip text={t(lang, "resourcePhoneHint")} />
               </span>
-              <input
+              <Input
                 type="tel"
                 value={draft.businessPhone ?? ""}
                 onChange={(e) =>
                   update("businessPhone", e.target.value || undefined)
                 }
-                className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}
@@ -276,7 +267,7 @@ export function ResourceEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "resourceEmail")}<InfoTooltip text={t(lang, "resourceEmailHint")} />
               </span>
-              <input
+              <Input
                 type="email"
                 value={draft.email ?? ""}
                 onChange={(e) => update("email", e.target.value || undefined)}
@@ -285,7 +276,6 @@ export function ResourceEditModal({
                   update("email", trimmed || undefined);
                 }}
                 aria-describedby="resource-email-counter"
-                className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
               <CharCounter value={draft.email ?? ""} max={EMAIL_MAX} id="resource-email-counter" lang={lang} />
             </label>
@@ -299,7 +289,7 @@ export function ResourceEditModal({
               </span>
               {(draft.emails ?? []).map((addr, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <input
+                  <Input
                     type="email"
                     value={addr}
                     aria-label={`${t(lang, "resourceEmailsLabel")} ${i + 1}`}
@@ -308,7 +298,7 @@ export function ResourceEditModal({
                       next[i] = e.target.value;
                       update("emails", next);
                     }}
-                    className={`flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
+                    className="flex-1"
                   />
                   <button
                     type="button"
@@ -348,12 +338,11 @@ export function ResourceEditModal({
                 {t(lang, "resourceBirthday")}<InfoTooltip text={t(lang, "resourceBirthdayHint")} />
               </span>
               <div className="flex flex-wrap items-center gap-3">
-                <input
+                <Input
                   type="date"
                   value={birthdayToInput(draft.birthday)}
                   onChange={(e) => update("birthday", inputToBirthday(e.target.value, yearUnknown))}
                   aria-label={t(lang, "resourceBirthday")}
-                  className={`rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
                 />
                 <label className="flex items-center gap-1.5 text-sm text-foreground">
                   <input
@@ -384,12 +373,11 @@ export function ResourceEditModal({
               <span className="flex items-center gap-1 font-medium text-foreground">
                 {t(lang, "resourceNotes")}<InfoTooltip text={t(lang, "resourceNotesHint")} />
               </span>
-              <textarea
-                ref={notesRef}
+              <Textarea
+                autoGrow
                 rows={3}
                 value={draft.notes ?? ""}
                 onChange={(e) => update("notes", e.target.value || undefined)}
-                className={`resize-none rounded-md border border-line bg-surface px-3 py-2 text-sm ${FOCUS_RING} ${TRANSITION}`}
               />
             </label>
           )}

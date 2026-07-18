@@ -39,6 +39,7 @@ import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { DataTable } from "./data-table";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { useRowSelection } from "./use-row-selection";
@@ -341,17 +342,18 @@ function MilestonesPanelBody({
           ariaLabel={t(lang, "milestonesFilterName")}
           minW="min-w-[10rem]"
         />
-        <select
+        <Select
           value={status}
           onChange={(e) => pf.setFilter("status", e.target.value)}
           aria-label={t(lang, "milestonesFilterStatus")}
-          className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+          size="xs"
+          className="h-[30px]"
         >
           <option value="all">{t(lang, "milestonesFilterAll")}</option>
           <option value="pending">{t(lang, "milestonesFilterPending")}</option>
           <option value="achieved">{t(lang, "milestonesFilterAchieved")}</option>
           <option value="overdue">{t(lang, "milestonesFilterOverdue")}</option>
-        </select>
+        </Select>
         <ColumnConfigPopover lang={lang} cols={MILESTONE_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
         <PanelViewsControl lang={lang} view="milestones" />
         <PrintButton lang={lang} />

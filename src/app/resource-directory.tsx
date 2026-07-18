@@ -21,6 +21,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton 
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { Input } from "./form-controls";
 import { AddButton } from "./pane-toolbar";
 
 const DIRECTORY_COL_WIDTHS = {
@@ -235,14 +236,15 @@ function ResourceDirectoryInner({
         <AddButton onClick={() => onAddAbsence()}>
           {t(lang, "resourcesAddAbsence")}
         </AddButton>
-        <input
+        <Input
           type="search"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder={t(lang, "directorySearchPlaceholder")}
           aria-label={t(lang, "directorySearchPlaceholder")}
           title={t(lang, "directorySearchHint")}
-          className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+          size="xs"
+          className="min-w-0 flex-1"
         />
         {onImportOutlook && (
           <button

@@ -8,6 +8,18 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.30] - 2026-07-18 "Pinsker"
+
+### Changed
+
+Design-system **form-field sweep (3a of 3)** — edit modals + register panels. Migrated hand-rolled fields to `Input`/`Select`/`Textarea` across 13 files:
+
+- Edit modals: resource, change, stakeholder, raid, milestone, shift, absence. Field validation now flows through the primitive's `invalid` prop (change modal number fields); notes/description/mitigation textareas use the primitive's built-in `autoGrow` (external refs + `useAutogrow` calls removed).
+- Register panels: change, milestones, raid-toolbar, raid-edit-fields, knowledge, resource-directory (filters + pickers).
+- Left bespoke (reported): shift-modal's 7 `px-1 py-1` per-day hour inputs (no matching size axis), resource-directory's `bg-surface-muted` inline role select, checkboxes/radios/SegmentedControl/PaneSearchInput. A few previously drag-resizable textareas now carry the primitive's `resize-none` (DS-consistent).
+
+Sweep 3b (resources/timelog/editors/misc) completes the program.
+
 ## [0.190.29] - 2026-07-18 "Pinsker"
 
 ### Changed
