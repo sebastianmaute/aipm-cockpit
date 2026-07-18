@@ -35,14 +35,19 @@ export interface BannerProps extends HTMLAttributes<HTMLDivElement> {
   severity: BannerSeverity;
 }
 
-/** Shared tinted alert/notice box. The caller owns the live-region role
- *  (`role="alert"` for errors, `"status"` for polite notices, `"region"` for a
- *  labelled landmark) and any dismiss/action controls, passed as children +
- *  native div props. `className` is appended AFTER the severity classes so
- *  layout tweaks (flex, gap, mb-*, sm:col-span-2…) extend the base. */
-export function Banner({ severity, className, ...props }: BannerProps) {
+/** Shared tinted alert/notice box. The live-region role DEFAULTS from severity
+ *  (`error` → `role="alert"` so validation/config failures are announced
+ *  promptly; everything else → `role="status"` for a polite announcement) so a
+ *  caller can't silently ship an unannounced error box. Pass an explicit `role`
+ *  to override (e.g. `"region"` for a labelled landmark, or `"none"` to opt
+ *  out of a live region). Dismiss/action controls + `className` (appended AFTER the severity
+ *  classes, so layout tweaks like flex, gap, margin or column-span extend the
+ *  base) ride the native div props. */
+export function Banner({ severity, className, role, ...props }: BannerProps) {
+  const resolvedRole =
+    role !== undefined ? role : severity === "error" ? "alert" : "status";
   const classes = `${BASE_CLASS} ${SEVERITY_CLASS[severity]}${
     className ? ` ${className}` : ""
   }`;
-  return <div className={classes} {...props} />;
+  return <div role={resolvedRole} className={classes} {...props} />;
 }

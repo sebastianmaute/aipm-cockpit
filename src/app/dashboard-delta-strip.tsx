@@ -1,6 +1,7 @@
 "use client";
 
 import { t, type Lang } from "./i18n";
+import { Card } from "./card";
 import { RagBadge } from "./rag-badge";
 import { INTERACTIVE } from "./interaction-styles";
 import { healthColorName } from "./health";
@@ -55,7 +56,7 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
   const sinceDate = delta.since ? delta.since.slice(0, 10) : "";
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
+    <Card boxed padded>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, greeting.greetingKey)}
@@ -98,6 +99,6 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

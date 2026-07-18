@@ -114,7 +114,7 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
               setEmailInput(e.target.value);
               setRecipient((r) => ({ ...r, email: e.target.value }));
             }}
-            className="mt-1 w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ui-green"
+            className="mt-1 w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
           />
           <div className="mt-2 flex justify-end">
             <button

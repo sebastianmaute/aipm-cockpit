@@ -32,8 +32,8 @@ const TIER_LABEL: Record<FieldTier, "fieldViewSimple" | "fieldViewAdvanced" | "f
 };
 
 const SEGMENT_BASE =
-  "px-2.5 py-1 text-xs font-medium focus:outline-none focus:relative focus:z-10 focus:ring-1 focus:ring-ui-green";
-const SEGMENT_ACTIVE = "bg-ui-dark-blue text-white";
+  "px-2.5 py-1 text-xs font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-ui-green";
+const SEGMENT_ACTIVE = "bg-[var(--segment-active-bg)] text-[var(--segment-active-fg)]";
 const SEGMENT_INACTIVE = "text-foreground hover:bg-surface-muted";
 
 export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
@@ -83,7 +83,7 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
           aria-label={t(lang, "configureFields")}
           aria-expanded={cogOpen}
           onClick={() => setCogOpen((o) => !o)}
-          className="inline-flex items-center justify-center rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-1 focus:ring-ui-green"
+          className="inline-flex items-center justify-center rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
         >
           <span aria-hidden="true">⚙</span>
         </button>
@@ -110,7 +110,7 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
             <button
               type="button"
               onClick={reset}
-              className="mt-3 w-full rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-1 focus:ring-ui-green"
+              className="mt-3 w-full rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
             >
               {t(lang, "resetToDefault")}
             </button>

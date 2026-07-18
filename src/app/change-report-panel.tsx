@@ -30,6 +30,7 @@ import {
   type ChangeItem,
 } from "./types";
 import { DataTable } from "./data-table";
+import { EmptyState } from "./empty-state";
 
 // ---------------------------------------------------------------------------
 // Label maps (reuse existing RAID severity + change i18n keys)
@@ -130,9 +131,7 @@ export function ChangeReportPanel({ lang, items, embedded = false }: Props) {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
-        {t(lang, "changeEmpty")}
-      </div>
+      <EmptyState title={t(lang, "changeEmpty")} />
     );
   }
 

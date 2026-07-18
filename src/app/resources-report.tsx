@@ -9,6 +9,7 @@ import type { Absence, Discipline, Grade, Resource, ResourcePlan, Role } from ".
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { DataTable } from "./data-table";
+import { EmptyState } from "./empty-state";
 import {
   ReportCard,
   Section,
@@ -115,9 +116,7 @@ export function ResourcesReportPanel({
 
   if (resources.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-line p-10 text-center text-sm text-muted-foreground">
-        {t(lang, "resourcesReportEmpty")}
-      </div>
+      <EmptyState title={t(lang, "resourcesReportEmpty")} />
     );
   }
 

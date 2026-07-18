@@ -5,6 +5,7 @@
 import { type Lang, t } from "./i18n";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { AddButton } from "./pane-toolbar";
 import { PrintButton, ResetSizeButton, ResetSizeIcon } from "./task-manager-ui";
 import { ToggleButton } from "./toggle-button";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
@@ -76,26 +77,22 @@ export function GanttToolbar({
   return (
     <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
       {onAddTask && (
-        <button
-          type="button"
+        <AddButton
           onClick={onAddTask}
           aria-label={t(lang, "addTaskButton")}
           title={t(lang, "addTaskButton")}
-          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "addTaskButton")}
-        </button>
+        </AddButton>
       )}
       {onAddMilestone && (
-        <button
-          type="button"
+        <AddButton
           onClick={onAddMilestone}
           aria-label={t(lang, "ganttAddMilestone")}
           title={t(lang, "ganttAddMilestone")}
-          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "ganttAddMilestone")}
-        </button>
+        </AddButton>
       )}
       <input
         type="search"

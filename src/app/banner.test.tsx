@@ -95,8 +95,15 @@ describe("Banner", () => {
     expect(screen.getByRole("alert", { name: "problem" })).toBeInTheDocument();
   });
 
-  it("sets no role by default (caller opts into a live-region role)", () => {
-    render(<Banner severity="info">Quiet</Banner>);
-    expect(screen.getByText("Quiet")).not.toHaveAttribute("role");
+  it("defaults the live-region role from severity (error → alert, else status)", () => {
+    const { rerender } = render(<Banner severity="info">Quiet</Banner>);
+    expect(screen.getByText("Quiet")).toHaveAttribute("role", "status");
+    rerender(<Banner severity="error">Boom</Banner>);
+    expect(screen.getByText("Boom")).toHaveAttribute("role", "alert");
+  });
+
+  it("lets an explicit role override the severity default", () => {
+    render(<Banner severity="error" role="region" aria-label="x">Landmark</Banner>);
+    expect(screen.getByText("Landmark")).toHaveAttribute("role", "region");
   });
 });

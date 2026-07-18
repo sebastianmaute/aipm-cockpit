@@ -6,6 +6,7 @@ import { readDiagLog, clearDiagLog, buildDiagnosticBundle } from "./diagnostics"
 import type { DiagLevel } from "./diagnostics";
 import { filterDiag, summarizeDiag } from "./diagnostics-filter";
 import { EmptyState } from "./empty-state";
+import { DataTable } from "./data-table";
 import { reportSilentFailure } from "./guard-feedback";
 import { INTERACTIVE } from "./interaction-styles";
 import { useToastContext } from "./toast-context";
@@ -118,16 +119,14 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
             <p className="text-xs text-muted-foreground">{t(lang, "diagnosticsNoMatch")}</p>
           ) : (
             <div className="min-h-0 overflow-auto pr-2">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="text-muted-foreground">
-                    <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColTime")}</th>
-                    <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColLevel")}</th>
-                    <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColCode")}</th>
-                    <th className="py-1 font-medium">{t(lang, "diagnosticsColDetails")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
+              <DataTable className="w-full text-left text-xs" tbodyClassName="divide-y divide-line" head={
+                <tr>
+                  <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColTime")}</th>
+                  <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColLevel")}</th>
+                  <th className="py-1 pr-2 font-medium">{t(lang, "diagnosticsColCode")}</th>
+                  <th className="py-1 font-medium">{t(lang, "diagnosticsColDetails")}</th>
+                </tr>
+              }>
                   {shown.map((e, i) => (
                     <tr key={`${String(e.at ?? "")}-${String(e.code ?? "")}-${i}`}>
                       <td className="py-1 pr-2 font-mono text-muted-foreground">
@@ -140,8 +139,7 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
+              </DataTable>
             </div>
           )}
         </>

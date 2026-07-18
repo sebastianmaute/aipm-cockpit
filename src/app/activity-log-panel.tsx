@@ -200,7 +200,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             aria-label={t(lang, "activitySearchPlaceholder")}
             title={t(lang, "activitySearchHint")}
             aria-invalid={matcher?.invalid ? true : undefined}
-            className={`w-full rounded-md border bg-surface px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 ${
+            className={`w-full rounded-md border bg-surface px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 ${
               matcher?.invalid
                 ? "border-ui-pink focus:border-ui-pink focus:ring-ui-pink"
                 : "border-line focus:border-ui-dark-blue focus:ring-ui-green"

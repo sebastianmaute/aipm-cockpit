@@ -10,7 +10,8 @@ import { DashboardTopActions } from "./dashboard-sections/dashboard-top-actions"
 import { useWorkspace } from "./workspace-context";
 import { loadActivityLog, type ActivityEntry } from "./activity-log";
 import { type Lang, t, localeFor, type TranslationKey } from "./i18n";
-import { healthText, type Health } from "./health";
+import { RagDot } from "./rag-dot";
+import type { Health } from "./health";
 import { ratioHealth } from "./budget-health";
 import { changeImpactRag } from "./change-log";
 import type { Absence, BudgetBucket, ChangeItem, ChangeStatus, Milestone, RaidItem, ResourcePlan, Resource, Role, Task } from "./types";
@@ -296,12 +297,10 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 <Tile
                   label="R / A / G" hint={t(lang, "dashboardRagHint")}
                   value={
-                    <span>
-                      <span className={healthText.R}>{model.progress.counts.R}</span>
-                      {" / "}
-                      <span className={healthText.A}>{model.progress.counts.A}</span>
-                      {" / "}
-                      <span className={healthText.G}>{model.progress.counts.G}</span>
+                    <span className="inline-flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1"><RagDot level="R" />{model.progress.counts.R}</span>
+                      <span className="inline-flex items-center gap-1"><RagDot level="A" />{model.progress.counts.A}</span>
+                      <span className="inline-flex items-center gap-1"><RagDot level="G" />{model.progress.counts.G}</span>
                     </span>
                   }
                   onActivate={props.onNavigate ? () => props.onNavigate!("open-points") : undefined}

@@ -13,6 +13,7 @@ import { importScheme, addScheme, updateScheme, loadSchemes } from "./color-sche
 import { upsertSchemeAsync } from "./color-schemes-store";
 import type { TursoConfig } from "./turso-config";
 import { Button } from "./button";
+import { FieldError } from "./field-feedback";
 
 interface ShippedTheme {
   id: string;
@@ -100,7 +101,7 @@ export function ThemeGallery({ lang, config = null, onImported }: ThemeGalleryPr
           </Button>
         ))}
       </div>
-      {error && <p role="alert" className="text-xs text-ui-pink-strong">{error}</p>}
+      <FieldError>{error}</FieldError>
     </div>
   );
 }

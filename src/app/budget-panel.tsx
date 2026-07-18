@@ -20,6 +20,7 @@ import { ratioHealth, marginHealth, costPerformanceHealth, winLossHealth } from 
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
 import { useConfirm } from "./confirm-dialog";
@@ -351,13 +352,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
               <InfoTooltip text={t(lang, "budgetFollowsPlanHint")} />
             </div>
           ) : null}
-          <button
-            type="button"
-            onClick={addBucket}
-            className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
-          >
+          <AddButton onClick={addBucket}>
             + {t(lang, "budgetAddBucket")}
-          </button>
+          </AddButton>
           <button
             type="button"
             onClick={props.onRefreshFx}

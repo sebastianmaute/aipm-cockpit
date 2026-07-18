@@ -44,7 +44,7 @@ const BTN_PRIMARY =
 const BTN_SECONDARY =
   "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60";
 const INPUT_CLASS =
-  "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-1 focus:ring-ui-green";
+  "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green";
 
 function DeleteCell({ lang, onClick, label }: { lang: Lang; onClick: () => void; label: string }) {
   return (

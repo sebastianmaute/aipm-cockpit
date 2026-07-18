@@ -8,6 +8,8 @@ import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { SegmentedControl } from "./segmented-control";
+import { ToggleButton } from "./toggle-button";
+import { AddButton } from "./pane-toolbar";
 import {
   BUDGET_TYPES,
   SUPPORTED_CURRENCIES,
@@ -449,19 +451,14 @@ export function BudgetBucketModal({
           {isVisible("planningDetail") && (
           <div className="flex flex-col gap-1 text-sm sm:col-span-2">
             <span className="flex items-center gap-1">{t(lang, "budgetDetailedPlanning")}<InfoTooltip text={t(lang, "budgetDetailedPlanningHint")} /></span>
-            <button
-              type="button"
-              onClick={togglePlanningMode}
-              aria-pressed={!isBlended}
-              aria-label={t(lang, "budgetDetailedPlanning")}
-              className={`w-fit rounded-md border px-3 py-1.5 text-xs font-medium ${INTERACTIVE} ${
-                !isBlended
-                  ? "border-ui-dark-blue bg-ui-dark-blue text-white"
-                  : "border-line bg-surface text-foreground hover:bg-surface-muted"
-              }`}
+            <ToggleButton
+              pressed={!isBlended}
+              onToggle={togglePlanningMode}
+              ariaLabel={t(lang, "budgetDetailedPlanning")}
+              className="w-fit"
             >
-              {t(lang, !isBlended ? "budgetModeDetailed" : "budgetModeBlended")}
-            </button>
+              {t(lang, "budgetModeDetailed")}
+            </ToggleButton>
           </div>
           )}
 
@@ -604,14 +601,13 @@ export function BudgetBucketModal({
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
+              <AddButton
                 onClick={addRole}
                 disabled={roleToAdd === ""}
-                className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-50 ${INTERACTIVE}`}
+                className="disabled:opacity-50"
               >
                 + {t(lang, "budgetAddRole")}
-              </button>
+              </AddButton>
             </div>
             {/* Empty rate card: roles are defined under Resources → Manage roles,
                 not here, so guide the user there instead of a dead dropdown. */}
@@ -672,14 +668,13 @@ export function BudgetBucketModal({
                     <option key={x.id} value={x.id}>{x.name}</option>
                   ))}
                 </select>
-                <button
-                  type="button"
+                <AddButton
                   onClick={addDiscipline}
                   disabled={disciplineToAdd === ""}
-                  className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-50 ${INTERACTIVE}`}
+                  className="disabled:opacity-50"
                 >
                   + {t(lang, "budgetAddDiscipline")}
-                </button>
+                </AddButton>
               </div>
               {disciplines.length === 0 && (
                 <p className="text-xs text-muted-foreground">
