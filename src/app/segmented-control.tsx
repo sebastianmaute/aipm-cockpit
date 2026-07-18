@@ -67,6 +67,7 @@ export function SegmentedControl<T extends string>({
     const radios = e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]');
     radios[next]?.focus();
   }
+  const hasSelection = options.some((o) => o.value === value);
   return (
     <div
       role="radiogroup"
@@ -82,6 +83,10 @@ export function SegmentedControl<T extends string>({
         const selected = value === opt.value;
         const first = idx === 0;
         const last = idx === options.length - 1;
+        // Roving tabindex: the checked radio is the sole Tab-stop; if `value`
+        // matches no option (stale/out-of-range), fall back to the first radio
+        // so the group is never left keyboard-unreachable.
+        const tabStop = selected || (!hasSelection && first);
         return (
           <button
             key={String(opt.value)}
@@ -89,7 +94,7 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={selected}
             aria-label={optionAriaLabel ? optionAriaLabel(opt.value) : undefined}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={tabStop ? 0 : -1}
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={[
