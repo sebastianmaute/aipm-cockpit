@@ -177,8 +177,8 @@ export function WorkspaceTabStrip({
           }
           className={
             workspaceCollapsed
-              ? "ml-auto mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
-              : "mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue"
+              ? "ml-auto mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue"
+              : "mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue"
           }
         >
           <svg

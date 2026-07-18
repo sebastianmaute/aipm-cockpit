@@ -58,7 +58,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "settingsSectionMode")}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">{t(lang, "modeIntro")}</p>
@@ -68,7 +68,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
         <span className="text-sm font-medium">{t(lang, "modeBadgeLabel")}:</span>
         <span
           data-testid="mode-badge"
-          className="rounded-full bg-AIPM-green/15 px-3 py-1 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+          className="rounded-full bg-ui-green/15 px-3 py-1 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey"
         >
           {t(lang, MODE_LABEL_KEY[mode])}
         </span>
@@ -121,7 +121,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
       </fieldset>
 
       {removesModules && (
-        <p className="rounded-md bg-[var(--rag-amber)]/20 px-3 py-2 text-xs text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <p className="rounded-md bg-[var(--rag-amber)]/20 px-3 py-2 text-xs text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "modeRetentionNote")}
         </p>
       )}
@@ -154,7 +154,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
           type="button"
           disabled={!dirty}
           onClick={() => onCommitFeatures(ALL_MODULE_IDS.filter((id) => draft.includes(id)))}
-          className={`rounded-md bg-AIPM-green px-4 py-2 text-sm font-medium text-AIPM-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
+          className={`rounded-md bg-ui-green px-4 py-2 text-sm font-medium text-ui-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "modeSave")}
         </button>

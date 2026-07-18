@@ -21,8 +21,8 @@ export function TabButton({
   // Active/hover colors are applied to the wrapping flex row so the active
   // border-b-2 indicator spans both the label and the popout icon.
   const colorClass = active
-    ? "border-AIPM-green text-AIPM-dark-blue dark:border-AIPM-green dark:text-AIPM-light-grey"
-    : "border-transparent text-muted-foreground hover:text-AIPM-dark-blue";
+    ? "border-ui-green text-ui-dark-blue dark:border-ui-green dark:text-ui-light-grey"
+    : "border-transparent text-muted-foreground hover:text-ui-dark-blue";
   return (
     <div
       className={`-mb-px inline-flex items-stretch rounded-t-md border-b-2 transition-colors ${colorClass}`}
@@ -262,7 +262,7 @@ export function PrintButton({
       onClick={onClick ?? (() => window.print())}
       aria-label={t(lang, "printHint")}
       title={t(lang, "printHint")}
-      className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
+      className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
     >
       <PrinterIcon />
       {!iconOnly && t(lang, "print")}

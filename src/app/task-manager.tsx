@@ -1989,7 +1989,7 @@ function TaskManagerInner() {
           type="button"
           onClick={() => { void handleJiraSync(); }}
           disabled={jiraSyncing}
-          className="rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-AIPM-light-grey dark:hover:bg-surface-muted"
+          className="rounded-md border border-line bg-surface px-4 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-ui-light-grey dark:hover:bg-surface-muted"
         >
           {t(lang, jiraSyncing ? "jiraSyncing" : "jiraSync")}
         </button>
@@ -2015,7 +2015,7 @@ function TaskManagerInner() {
       <button
         type="button"
         onClick={() => setLinkedTaskOpen(true)}
-        className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-AIPM-light-grey dark:hover:bg-surface-muted ${INTERACTIVE}`}
+        className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-ui-light-grey dark:hover:bg-surface-muted ${INTERACTIVE}`}
       >
         {`+ ${t(lang, "taskEditorNewLinkedTask")}`}
       </button>

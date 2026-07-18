@@ -17,7 +17,7 @@ import { statusLabelKey } from "./task-status-ui";
 import { PRIORITIES, TASK_STATUSES, type Priority, type TaskStatus } from "./types";
 
 // Canonical field shell, single-sourced from the shared primitive (was a
-// copy-declared ring-1 string; now the ring-2 AIPM-green standard).
+// copy-declared ring-1 string; now the ring-2 ui-green standard).
 const inputClass = fieldClass();
 
 export interface BulkEditModalProps {
@@ -341,7 +341,7 @@ export function BulkEditModal({
         <button
           type="button"
           onClick={onApply}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${FOCUS_RING}`}
+          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 ${FOCUS_RING}`}
         >
           {selectedIds.size === 1
             ? t(lang, "bulkApplyOne")
@@ -373,7 +373,7 @@ function BulkEditFieldRow({
         type="checkbox"
         checked={enabled}
         onChange={onToggle}
-        className="mt-2 h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+        className="mt-2 h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
       />
       <div className="min-w-0 flex-1">
         <label

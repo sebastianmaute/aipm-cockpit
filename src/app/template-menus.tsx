@@ -21,7 +21,7 @@ import type { ProjectTemplate } from "./templates";
 import type { SaveTemplateInput } from "./templates";
 
 const TRIGGER_CLASS =
-  "rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-muted-foreground dark:hover:text-AIPM-light-grey";
+  "rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey";
 
 const POPOVER_CLASS =
   "absolute right-0 top-full z-40 mt-2 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-3";
@@ -30,10 +30,10 @@ const HEADING_CLASS =
   "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
 
 const FIELD_CLASS =
-  "w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green";
+  "w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green";
 
 const PRIMARY_BTN_CLASS =
-  "rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-md bg-ui-green px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-ui-dark-blue hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Close the popover on outside-click / Escape; owns the wrapper ref. */
 function useDismiss(open: boolean, close: () => void) {

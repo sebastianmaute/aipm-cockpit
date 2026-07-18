@@ -64,7 +64,7 @@ export function TaskDedupModal({
                     disabled={busy}
                     onChange={() => onToggle(g.keepId)}
                     aria-label={`${t(lang, "taskDedupInclude")} – ${g.keepTitle}`}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-line text-ui-dark-blue focus:ring-ui-green"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-foreground">
@@ -102,7 +102,7 @@ export function TaskDedupModal({
             type="button"
             onClick={onConfirm}
             disabled={busy || selectedCount === 0}
-            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "taskDedupConfirm")}
           </button>

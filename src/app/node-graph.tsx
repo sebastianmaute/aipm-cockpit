@@ -25,7 +25,7 @@ interface NodeGraphProps {
   /** Tooltip on each node button (interactive). */
   selectTitle?: string;
   /** Tailwind class for non-highlighted edge strokes. Defaults to `stroke-line`;
-   *  the info-flows diagram passes `stroke-AIPM-medium-grey` for visible connectors. */
+   *  the info-flows diagram passes `stroke-ui-medium-grey` for visible connectors. */
   edgeClassName?: string;
 }
 
@@ -33,10 +33,10 @@ function ArrowDefs() {
   return (
     <defs>
       <marker id="ng-arrow-end" markerWidth={8} markerHeight={8} refX={6} refY={3} orient="auto">
-        <path d="M0,0 L0,6 L8,3 z" className="fill-AIPM-medium-grey" />
+        <path d="M0,0 L0,6 L8,3 z" className="fill-ui-medium-grey" />
       </marker>
       <marker id="ng-arrow-start" markerWidth={8} markerHeight={8} refX={2} refY={3} orient="auto-start-reverse">
-        <path d="M0,0 L0,6 L8,3 z" className="fill-AIPM-medium-grey" />
+        <path d="M0,0 L0,6 L8,3 z" className="fill-ui-medium-grey" />
       </marker>
     </defs>
   );
@@ -52,7 +52,7 @@ function ZoneShape({ zone }: { zone: NodeGraphZone }) {
         height={zone.h}
         rx={10}
         fill="none"
-        className="stroke-AIPM-medium-grey"
+        className="stroke-ui-medium-grey"
         strokeWidth={1}
         strokeDasharray="4 3"
       />
@@ -83,11 +83,11 @@ function NodeShape({
 }) {
   const hub = node.accent === "hub";
   const filled = hub || isActive;
-  const fillClass = filled ? "fill-AIPM-dark-blue" : "fill-surface";
-  const strokeClass = isNeighbour ? "stroke-AIPM-green" : node.accent === "green" ? "stroke-AIPM-green" : "stroke-AIPM-dark-blue";
-  const titleClass = filled ? "text-AIPM-white" : "text-foreground";
-  const subClass = filled ? "text-AIPM-green" : "text-muted-foreground";
-  const stripeClass = node.accent === "green" ? "fill-AIPM-green" : "fill-AIPM-dark-blue";
+  const fillClass = filled ? "fill-ui-dark-blue" : "fill-surface";
+  const strokeClass = isNeighbour ? "stroke-ui-green" : node.accent === "green" ? "stroke-ui-green" : "stroke-ui-dark-blue";
+  const titleClass = filled ? "text-ui-white" : "text-foreground";
+  const subClass = filled ? "text-ui-green" : "text-muted-foreground";
+  const stripeClass = node.accent === "green" ? "fill-ui-green" : "fill-ui-dark-blue";
 
   // Compress-to-fit safety: SVG text does not wrap, so a label wider than the
   // box (long EN/DE concept titles) would spill into neighbours. When the
@@ -187,7 +187,7 @@ export function NodeGraph({
             y1={na.y + na.h / 2}
             x2={nb.x + nb.w / 2}
             y2={nb.y + nb.h / 2}
-            className={incident ? "stroke-AIPM-dark-blue" : edgeClassName}
+            className={incident ? "stroke-ui-dark-blue" : edgeClassName}
             strokeWidth={incident ? 1.6 : 1.2}
             opacity={active && !incident ? 0.3 : 1}
             markerStart={e.arrow === "both" ? "url(#ng-arrow-start)" : undefined}

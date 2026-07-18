@@ -28,7 +28,7 @@ import { reportSilentFailure } from "./guard-feedback";
 import { useToastContext } from "./toast-context";
 
 // Canonical field shell, single-sourced from the shared primitive (was a
-// copy-declared ring-1 string; now the ring-2 AIPM-green standard).
+// copy-declared ring-1 string; now the ring-2 ui-green standard).
 const inputClass = fieldClass();
 
 type Status =
@@ -201,7 +201,7 @@ export function JiraSettingsSection({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-AIPM-dark-blue"
+          className="flex w-full items-center justify-between text-sm font-medium text-foreground hover:text-ui-dark-blue"
           aria-expanded={open}
         >
           <span>{t(lang, "jiraIntegration")}</span>
@@ -230,7 +230,7 @@ export function JiraSettingsSection({
                   if (e.target.checked) notifyEnable();
                   update("enabled", e.target.checked);
                 }}
-                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
               />
               <span className="text-foreground">
                 {t(lang, "jiraEnable")}
@@ -302,7 +302,7 @@ export function JiraSettingsSection({
                 href="https://id.atlassian.com/manage-profile/security/api-tokens"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-block text-xs text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+                className="mt-1 inline-block text-xs text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
               >
                 {t(lang, "jiraApiTokenLink")} ↗
               </a>
@@ -325,19 +325,19 @@ export function JiraSettingsSection({
                 type="button"
                 onClick={handleTest}
                 disabled={!credsReady || status.kind === "loading"}
-                className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {status.kind === "loading"
                   ? status.label
                   : t(lang, "jiraTest")}
               </button>
               {status.kind === "ok" && (
-                <span className="text-xs text-AIPM-green-strong">
+                <span className="text-xs text-ui-green-strong">
                   ✓ {status.message}
                 </span>
               )}
               {status.kind === "err" && (
-                <span className="text-xs text-AIPM-pink-strong">
+                <span className="text-xs text-ui-pink-strong">
                   ⚠ {status.message}
                 </span>
               )}
@@ -504,7 +504,7 @@ export function JiraSettingsSection({
                                 ),
                               })
                             }
-                            className={`text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
+                            className={`text-xs font-medium text-ui-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
                           >
                             {t(lang, "jiraExtraProjectRemove")}
                           </button>
@@ -531,7 +531,7 @@ export function JiraSettingsSection({
                             type="checkbox"
                             checked={config.issueTypes.includes(it.name)}
                             onChange={() => toggleIssueType(it.name)}
-                            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
                           />
                           {it.name}
                         </label>
@@ -556,7 +556,7 @@ export function JiraSettingsSection({
                       name="jira-assignee-mode"
                       checked={config.assigneeMode === mode}
                       onChange={() => update("assigneeMode", mode)}
-                      className="h-3 w-3 cursor-pointer text-AIPM-dark-blue focus:ring-AIPM-green"
+                      className="h-3 w-3 cursor-pointer text-ui-dark-blue focus:ring-ui-green"
                     />
                     <span className="text-foreground">
                       {t(lang, `jiraAssignee_${mode}`)}
@@ -602,7 +602,7 @@ export function JiraSettingsSection({
                             }
                             className={`block w-full px-3 py-1.5 text-left text-xs ${
                               config.assigneeAccountId === u.accountId
-                                ? "bg-surface-muted text-AIPM-dark-blue"
+                                ? "bg-surface-muted text-ui-dark-blue"
                                 : "text-foreground hover:bg-surface-muted"
                             }`}
                           >
@@ -624,7 +624,7 @@ export function JiraSettingsSection({
             <button
               type="button"
               onClick={reset}
-              className="text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline"
+              className="text-xs font-medium text-ui-pink-strong underline-offset-2 hover:underline"
             >
               {t(lang, "jiraReset")}
             </button>

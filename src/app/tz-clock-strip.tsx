@@ -34,7 +34,7 @@ export function TzClockStrip({ lang, defaultTz, zones }: TzClockStripProps) {
     >
       {all.map((tz) => (
         <span key={tz} className="whitespace-nowrap">
-          <span className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{tz}</span>
+          <span className="font-medium text-ui-dark-blue dark:text-ui-light-grey">{tz}</span>
           <span className="ml-1 text-muted-foreground tabular-nums">{formatZoneClock(iso, tz, lang)}</span>
         </span>
       ))}

@@ -125,7 +125,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "settingsSectionCommTemplates")}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">{t(lang, "commTplIntro")}</p>
@@ -144,7 +144,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
               name="commSendMode"
               checked={(props.settings.commTemplateSendMode ?? "mailto") === value}
               onChange={() => props.onChange({ ...props.settings, commTemplateSendMode: value })}
-              className={`h-4 w-4 cursor-pointer border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+              className={`h-4 w-4 cursor-pointer border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
             />
             <span>{t(lang, key)}</span>
           </label>
@@ -158,7 +158,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
           value={category}
           aria-label={t(lang, "commTplCategory")}
           onChange={(e) => { setCategory(e.target.value as CommTemplateCategory); setSelectedId(null); setBodyDraft(""); setCompareIds([]); }}
-          className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+          className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
         >
           {COMM_TEMPLATE_CATEGORIES.map((c) => (
             <option key={c} value={c}>{t(lang, CAT_LABEL_KEY[c])}</option>
@@ -176,7 +176,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
             placeholder={t(lang, "commTplNew")}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") createTemplate(); }}
-            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
           />
         </label>
         <button
@@ -199,7 +199,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
         ) : (
           <ul className="flex flex-col gap-2">
             {inCategory.map((tpl) => (
-              <li key={tpl.id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted">
+              <li key={tpl.id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2 transition-colors hover:border-ui-dark-blue/40 hover:bg-surface-muted">
                 <button type="button" onClick={() => selectTemplate(tpl)} title={t(lang, "commTplRowsClickableHint")} className={`flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left ${INTERACTIVE}`}>
                   <span className="truncate text-sm font-medium text-foreground">{tpl.name}</span>
                   {tpl.isDefault && (
@@ -229,7 +229,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     if (selectedId === tpl.id) { setSelectedId(null); setBodyDraft(""); }
                   }}
                   aria-label={`${t(lang, "commTplDelete")}: ${tpl.name}`}
-                  className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs text-AIPM-purple hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`shrink-0 rounded-md border border-line px-2 py-1 text-xs text-ui-purple hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "commTplDelete")}
                 </button>
@@ -257,7 +257,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   );
                 }
               }}
-              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             />
           </label>
 
@@ -325,7 +325,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                   aria-pressed={compareIds.includes(CURRENT_ID)}
                   aria-label={`${t(lang, "commTplCompare")}: ${t(lang, "commTplCurrent")}`}
                   className={`${compareIds.includes(CURRENT_ID)
-                    ? "shrink-0 rounded-md border border-line bg-AIPM-dark-blue px-2 py-0.5 text-[11px] text-white"
+                    ? "shrink-0 rounded-md border border-line bg-ui-dark-blue px-2 py-0.5 text-[11px] text-white"
                     : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"} ${INTERACTIVE}`}
                 >
                   {t(lang, "commTplCompare")}
@@ -347,7 +347,7 @@ export function CommTemplatesSection(props: CommTemplatesSectionProps) {
                     aria-pressed={compareIds.includes(v.id)}
                     aria-label={`${t(lang, "commTplCompare")}: ${v.name}`}
                     className={`${compareIds.includes(v.id)
-                      ? "shrink-0 rounded-md border border-line bg-AIPM-dark-blue px-2 py-0.5 text-[11px] text-white"
+                      ? "shrink-0 rounded-md border border-line bg-ui-dark-blue px-2 py-0.5 text-[11px] text-white"
                       : "shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] hover:bg-surface-muted"} ${INTERACTIVE}`}
                   >
                     {t(lang, "commTplCompare")}

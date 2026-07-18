@@ -37,7 +37,7 @@ export function VersionInfoModal({
             type="button"
             onClick={onClose}
             aria-label={t(lang, "alertModalClose")}
-            className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+            className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -53,7 +53,7 @@ export function VersionInfoModal({
 export function VersionInfo({ lang }: { lang: Lang }) {
   return (
     <>
-      <p className="text-base font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+      <p className="text-base font-semibold text-ui-dark-blue dark:text-ui-light-grey">
         {t(lang, "appTitle")}
       </p>
       <dl className="mt-2 space-y-1 text-sm">
@@ -67,7 +67,7 @@ export function VersionInfo({ lang }: { lang: Lang }) {
       <ul className="mt-1.5 space-y-1 text-xs text-foreground">
         {APP_HIGHLIGHT_KEYS.map((k) => (
           <li key={k} className="flex gap-2">
-            <span aria-hidden className="mt-0.5 text-AIPM-green-strong">
+            <span aria-hidden className="mt-0.5 text-ui-green-strong">
               •
             </span>
             <span>{t(lang, k)}</span>
@@ -83,7 +83,7 @@ export function VersionInfo({ lang }: { lang: Lang }) {
           href={APP_REPO_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium not-italic text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+          className="font-medium not-italic text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
         >
           Acme ↗
         </a>{" "}
@@ -99,7 +99,7 @@ function Row({ term, value }: { term: string; value: string }) {
       <dt className="text-xs uppercase tracking-wide text-muted-foreground">
         {term}
       </dt>
-      <dd className="font-mono text-foreground dark:text-AIPM-light-grey">
+      <dd className="font-mono text-foreground dark:text-ui-light-grey">
         {value}
       </dd>
     </div>

@@ -98,7 +98,7 @@ export function SegmentedControl<T extends string>({
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={[
-              "px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-AIPM-green",
+              "px-3 py-1.5 text-sm font-medium focus:outline-none focus:relative focus:z-10 focus:ring-2 focus:ring-ui-green",
               first ? "rounded-l-md" : "",
               last ? "rounded-r-md" : "",
               idx > 0 ? "border-l border-line" : "",

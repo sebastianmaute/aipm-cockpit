@@ -156,7 +156,7 @@ export function GroupOrLabelTable({
             ) : (
               sorted.map((row) => (
                 <tr key={row.name}>
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{row.name}</td>
+                  <td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{row.name}</td>
                   <td className="px-3 py-2 text-right">{row.total}</td>
                   <td className="px-3 py-2 text-right">{row.open}</td>
                   <td className="px-3 py-2 text-right text-[var(--rag-green-text)]">{row.completed}</td>
@@ -238,7 +238,7 @@ export function AssigneeTable({
             ) : (
               sorted.map((row) => (
                 <tr key={row.name}>
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{row.name}</td>
+                  <td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{row.name}</td>
                   <td className="px-3 py-2 text-right">{row.total}</td>
                   <td className="px-3 py-2 text-right">{row.open}</td>
                   <td className={`px-3 py-2 text-right ${row.overdue > 0 ? "text-[var(--rag-red-text)] font-semibold" : ""}`}>{row.overdue}</td>

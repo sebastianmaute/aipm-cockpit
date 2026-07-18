@@ -6,7 +6,7 @@ import { type Lang, t } from "./i18n";
 import { ComboboxChevron, ComboboxOptions, useCombobox } from "./combobox-shared";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
-// Canonical field shell: same ring-2 AIPM-green focus as the form-controls
+// Canonical field shell: same ring-2 ui-green focus as the form-controls
 // `fieldClass` and the resource-picker / global-search comboboxes (was a weak
 // ring-1 — the design-system Phase 2b focus-ring normalisation).
 const baseInputClass = `w-full rounded-md border border-line bg-surface pl-3 pr-10 py-2 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
@@ -114,7 +114,7 @@ export function ComboInput({
           setOpen((o) => !o);
           inputRef.current?.focus();
         }}
-        className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-AIPM-dark-blue disabled:cursor-not-allowed"
+        className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-ui-dark-blue disabled:cursor-not-allowed"
       />
 
       {open && totalItems > 0 && (

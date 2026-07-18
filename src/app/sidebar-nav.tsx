@@ -115,7 +115,7 @@ function CollapsedNavFlyout({
         {/* "has children" affordance on the icon rail. */}
         <span
           aria-hidden
-          className="absolute right-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-AIPM-medium-grey"
+          className="absolute right-1 top-1/2 h-1 w-1 -translate-y-1/2 rounded-full bg-ui-medium-grey"
         />
       </button>
       {open && (
@@ -140,9 +140,9 @@ function CollapsedNavFlyout({
                   onNavigate(view);
                   setOpen(false);
                 }}
-                className={`flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm focus:outline-none focus:ring-2 focus:ring-AIPM-green ${
+                className={`flex w-full items-center gap-2 rounded px-3 py-1.5 text-left text-sm focus:outline-none focus:ring-2 focus:ring-ui-green ${
                   viewActive
-                    ? "bg-surface-muted font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+                    ? "bg-surface-muted font-semibold text-ui-dark-blue dark:text-ui-light-grey"
                     : "text-foreground hover:bg-surface-muted"
                 }`}
               >
@@ -158,7 +158,7 @@ function CollapsedNavFlyout({
         // Collapsed urgency dot (the numeric pill only shows when expanded).
         <span
           aria-hidden
-          className="pointer-events-none absolute right-2 top-1.5 h-2 w-2 rounded-full bg-AIPM-pink"
+          className="pointer-events-none absolute right-2 top-1.5 h-2 w-2 rounded-full bg-ui-pink"
         />
       )}
     </li>
@@ -172,10 +172,10 @@ function navItemClass(active: boolean, indent: "root" | "child", collapsed: bool
     : indent === "root"
       ? "px-4 py-2 "
       : "py-1.5 pl-9 pr-4 ";
-  const inactiveText = indent === "root" ? "text-AIPM-light-grey" : "text-AIPM-light-grey";
+  const inactiveText = indent === "root" ? "text-ui-light-grey" : "text-ui-light-grey";
   const state = active
-    ? "border-AIPM-green bg-AIPM-green/15 font-semibold text-AIPM-white"
-    : `border-transparent ${inactiveText} hover:bg-AIPM-white/10 hover:text-AIPM-white`;
+    ? "border-ui-green bg-ui-green/15 font-semibold text-ui-white"
+    : `border-transparent ${inactiveText} hover:bg-ui-white/10 hover:text-ui-white`;
   return base + spacing + state;
 }
 
@@ -185,7 +185,7 @@ export function SidebarNav({ lang, activeView, onNavigate, collapsed = false, na
       {(navGroups ?? NAV_GROUPS).map((group) => (
         <div key={group.labelKey}>
           {!collapsed && (
-            <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-AIPM-light-grey">
+            <p className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ui-light-grey">
               {t(lang, group.labelKey)}
             </p>
           )}

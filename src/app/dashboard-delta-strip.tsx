@@ -57,7 +57,7 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
   return (
     <div className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <span className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, greeting.greetingKey)}
         </span>
         {(greeting.summary.needsYou > 0 || greeting.summary.milestonesSoon > 0) && (
@@ -81,7 +81,7 @@ export function DashboardDeltaStrip({ lang, delta, greeting, onOpenTask, onOpenR
                   key={chip.key}
                   type="button"
                   onClick={chip.onClick}
-                  className={`rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue ${INTERACTIVE}`}
+                  className={`rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-ui-dark-blue ${INTERACTIVE}`}
                 >
                   {chip.label}
                 </button>

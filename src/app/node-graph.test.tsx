@@ -13,7 +13,7 @@ const edges: NodeGraphEdge[] = [
   { a: "hub", b: "y" },
 ];
 const zones: NodeGraphZone[] = [
-  { label: "Zone A", color: "var(--AIPM-green)", x: 4, y: 20, w: 70, h: 80 },
+  { label: "Zone A", color: "var(--ui-green)", x: 4, y: 20, w: 70, h: 80 },
 ];
 
 describe("NodeGraph static mode (no onSelectNode)", () => {

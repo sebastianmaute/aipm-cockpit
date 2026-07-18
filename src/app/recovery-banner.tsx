@@ -30,7 +30,7 @@ export function RecoveryBanner() {
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-AIPM-dark-blue px-4 py-2 text-sm text-white"
+      className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-ui-dark-blue px-4 py-2 text-sm text-white"
     >
       <span className="font-medium">{t(lang, "recoveryBannerTitle")}</span>
       <span className="flex items-center gap-3">
@@ -47,7 +47,7 @@ export function RecoveryBanner() {
         >
           {t(lang, "recoveryResetNow")}
         </button>
-        {failed && <span className="text-xs text-AIPM-pink-strong">{t(lang, "guardRecoveryResetFailed")}</span>}
+        {failed && <span className="text-xs text-ui-pink-strong">{t(lang, "guardRecoveryResetFailed")}</span>}
       </span>
     </div>
   );

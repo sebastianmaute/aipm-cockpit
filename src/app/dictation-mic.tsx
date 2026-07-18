@@ -55,7 +55,7 @@ export function useDictationMic({ lang, dictation, enabled = true, label, onAppe
       aria-pressed={ptt.listening}
       aria-label={`${t(lang, "dictationHold")} – ${label}`}
       title={`${t(lang, "dictationHold")} – ${label}`}
-      className={`rounded-md border border-line px-2 py-1 ${INTERACTIVE} ${ptt.listening ? "text-AIPM-green-strong" : "text-muted-foreground"}`}
+      className={`rounded-md border border-line px-2 py-1 ${INTERACTIVE} ${ptt.listening ? "text-ui-green-strong" : "text-muted-foreground"}`}
       {...ptt.buttonHandlers}
     >
       🎙

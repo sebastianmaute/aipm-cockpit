@@ -114,7 +114,7 @@ export function HelpView({
                 onClick={() => setTab(tb.key)}
                 className={
                   isActive
-                    ? `rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-semibold text-white ${FOCUS_RING}`
+                    ? `rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-semibold text-white ${FOCUS_RING}`
                     : `rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
                 }
               >

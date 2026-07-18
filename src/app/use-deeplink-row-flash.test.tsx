@@ -184,7 +184,7 @@ describe("useDeepLinkRowFlash", () => {
   });
 
   it("flashOutlineClass returns outline classes only when flashed", () => {
-    expect(flashOutlineClass(true)).toContain("outline-AIPM-green");
+    expect(flashOutlineClass(true)).toContain("outline-ui-green");
     expect(flashOutlineClass(false)).toBe("");
   });
 });

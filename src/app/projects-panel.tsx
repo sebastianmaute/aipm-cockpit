@@ -174,7 +174,7 @@ export function ProjectsPanel({
     <div ref={paneSizeRef} className={`${CENTERED_HALF_PANE_CLASS} text-foreground`}>
       {/* Header --------------------------------------------------------- */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
-        <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "projectsTitle")}
         </h2>
         <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export function ProjectsPanel({
                   key={p.id}
                   className={`flex flex-col gap-2 rounded-lg border p-3 ${
                     isCurrent
-                      ? "border-AIPM-dark-blue bg-AIPM-dark-blue/5"
+                      ? "border-ui-dark-blue bg-ui-dark-blue/5"
                       : "border-line bg-surface"
                   }`}
                 >
@@ -233,7 +233,7 @@ export function ProjectsPanel({
                           {p.code}
                         </span>
                         {isCurrent && (
-                          <span className="rounded bg-AIPM-dark-blue px-2 py-0.5 text-xs font-medium text-white">
+                          <span className="rounded bg-ui-dark-blue px-2 py-0.5 text-xs font-medium text-white">
                             {t(lang, "projectCurrentLabel")}
                           </span>
                         )}
@@ -349,7 +349,7 @@ export function ProjectsPanel({
         {/* Archived projects (turso mode only) ----------------------- */}
         {isTurso && showArchived && (
           <div className="mt-6 border-t border-line pt-4">
-            <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, "projectsArchived")}
             </h3>
             {(archivedProjects ?? []).length === 0 ? (
@@ -414,7 +414,7 @@ export function ProjectsPanel({
           onClose={closeModal}
           ariaLabel={t(lang, modal.mode === "create" ? "projectsNew" : "projectsEdit")}
           align="center"
-          backdropClassName="bg-AIPM-dark-blue/40"
+          backdropClassName="bg-ui-dark-blue/40"
           zIndex={50}
         >
           <div

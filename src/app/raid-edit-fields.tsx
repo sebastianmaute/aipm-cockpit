@@ -44,7 +44,7 @@ export function RaidLinkedTasksField({
           onClick={onCreateMitigationTask}
           disabled={isNew}
           title={t(lang, "raidCreateMitigationTaskHint")}
-          className={`rounded-md border border-AIPM-dark-blue bg-surface px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-blue dark:text-AIPM-blue ${INTERACTIVE}`}
+          className={`rounded-md border border-ui-dark-blue bg-surface px-2 py-1 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-ui-blue dark:text-ui-blue ${INTERACTIVE}`}
         >
           {t(lang, "raidCreateMitigationTask")}
         </button>
@@ -69,7 +69,7 @@ export function RaidLinkedTasksField({
                 onClick={() => removeLinked(tid)}
                 aria-label={t(lang, "raidUnlinkTask")}
                 title={t(lang, "raidUnlinkTask")}
-                className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
+                className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
               >
                 ×
               </button>
@@ -166,7 +166,7 @@ export function RaidCausedByField({
                 onClick={() => removeCausedBy(p.id)}
                 aria-label={t(lang, "raidCausedByClear")}
                 title={t(lang, "raidCausedByClear")}
-                className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
+                className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
               >
                 ×
               </button>
@@ -216,7 +216,7 @@ export function RaidCausedByField({
                 type="button"
                 onClick={() => onJumpToRaid(c.id)}
                 title={c.title}
-                className={`inline-flex items-center gap-1 rounded bg-AIPM-purple/10 px-2 py-0.5 text-xs text-AIPM-purple hover:bg-AIPM-purple/20 dark:bg-AIPM-purple/15 dark:hover:bg-AIPM-purple/25 ${INTERACTIVE}`}
+                className={`inline-flex items-center gap-1 rounded bg-ui-purple/10 px-2 py-0.5 text-xs text-ui-purple hover:bg-ui-purple/20 dark:bg-ui-purple/15 dark:hover:bg-ui-purple/25 ${INTERACTIVE}`}
               >
                 <span className="font-mono">{c.category}#{c.id}</span>
                 <span className="max-w-[220px] truncate">{c.title}</span>

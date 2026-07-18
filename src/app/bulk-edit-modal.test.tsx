@@ -114,7 +114,7 @@ describe("BulkEditModal", () => {
     );
     const buttons = screen.getAllByRole("button");
     const apply = buttons.find((b) =>
-      (b.className ?? "").includes("bg-AIPM-dark-blue"),
+      (b.className ?? "").includes("bg-ui-dark-blue"),
     );
     expect(apply).toBeDefined();
     apply!.click();

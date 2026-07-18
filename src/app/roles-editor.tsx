@@ -177,7 +177,7 @@ export function RolesEditor({
     <div className="flex flex-col gap-6">
       <section>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "rolesRateCard")}</h4>
+          <h4 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "rolesRateCard")}</h4>
           <div className="flex flex-row flex-nowrap items-center gap-2">
             {onResetSize && <ResetSizeButton onClick={onResetSize} lang={lang} />}
             <PrintButton lang={lang} />
@@ -192,7 +192,7 @@ export function RolesEditor({
               <tr>
                 <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.discipline, minWidth: ROLES_COL_WIDTHS.discipline }}>
                   <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                    <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-ui-green">
                       {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesDisciplineHint")} />
@@ -200,7 +200,7 @@ export function RolesEditor({
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.grade, minWidth: ROLES_COL_WIDTHS.grade }}>
                   <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                    <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-ui-green">
                       {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesGradeHint")} />
@@ -208,7 +208,7 @@ export function RolesEditor({
                 </th>
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.internal, minWidth: ROLES_COL_WIDTHS.internal }}>
                   <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                    <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-ui-green">
                       {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesInternalRateHint")} />
@@ -216,7 +216,7 @@ export function RolesEditor({
                 </th>
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.external, minWidth: ROLES_COL_WIDTHS.external }}>
                   <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-AIPM-green">
+                    <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-ui-green">
                       {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
                     </button>
                     <InfoTooltip text={t(lang, "rolesExternalRateHint")} />
@@ -296,7 +296,7 @@ export function RolesEditor({
                   </td>
                   <td className="px-3 py-2 text-right print:hidden">
                     <button type="button" onClick={() => onDeleteRole(r.id)} aria-label={`${t(lang, "delete")} – ${rowCtx}`}
-                      className={`rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink ${FOCUS_RING}`}>×</button>
+                      className={`rounded p-1 text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink ${FOCUS_RING}`}>×</button>
                   </td>
                 </tr>
                 );
@@ -320,7 +320,7 @@ export function RolesEditor({
           <button type="button"
             disabled={comboDiscipline === "" || comboGrade === ""}
             onClick={() => { if (comboDiscipline !== "" && comboGrade !== "") onResolveOrCreateRole(Number(comboDiscipline), Number(comboGrade)); }}
-            className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1 text-sm font-medium text-white disabled:opacity-50">
+            className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1 text-sm font-medium text-white disabled:opacity-50">
             {t(lang, "rolesAddCombo")}
           </button>
         </div>
@@ -362,7 +362,7 @@ function RefList({
 
   return (
     <div>
-      <h4 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h4>
+      <h4 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{title}</h4>
       <ul className="flex flex-col gap-1.5">
         {items.map((it) => (
           <li
@@ -401,7 +401,7 @@ function RefList({
               onClick={async () => {
                 if (await confirm({ message: t(lang, "rolesConfirmDeleteRef") })) onDelete(it.id);
               }}
-              className={`rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink ${FOCUS_RING}`}
+              className={`rounded p-1 text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink ${FOCUS_RING}`}
             >×</button>
           </li>
         ))}
@@ -411,7 +411,7 @@ function RefList({
           aria-label={addPlaceholder}
           className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />
         <button type="button" onClick={onAdd} aria-label={addPlaceholder}
-          className="rounded-md border border-AIPM-dark-blue px-3 py-1 text-sm font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/5">+</button>
+          className="rounded-md border border-ui-dark-blue px-3 py-1 text-sm font-medium text-ui-dark-blue hover:bg-ui-dark-blue/5">+</button>
       </div>
     </div>
   );

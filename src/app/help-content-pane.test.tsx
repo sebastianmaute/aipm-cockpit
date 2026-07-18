@@ -76,5 +76,5 @@ test("activates a TOC item on click", () => {
   const tocButtons = screen.getAllByRole("button");
   fireEvent.click(tocButtons[0]);
   // the clicked TOC button gets the active styling marker class
-  expect(tocButtons[0].className).toContain("border-AIPM-dark-blue");
+  expect(tocButtons[0].className).toContain("border-ui-dark-blue");
 });

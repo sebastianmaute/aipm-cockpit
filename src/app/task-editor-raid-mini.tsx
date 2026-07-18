@@ -46,7 +46,7 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-AIPM-light-grey dark:hover:bg-surface-muted ${INTERACTIVE}`}
+          className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-ui-light-grey dark:hover:bg-surface-muted ${INTERACTIVE}`}
         >
           {`+ ${t(lang, "taskEditorCreateRaid")}`}
         </button>
@@ -86,7 +86,7 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
           <button
             type="button"
             onClick={handleAdd}
-            className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
+            className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
           >
             {t(lang, "add")}
           </button>
@@ -99,7 +99,7 @@ export function TaskEditorRaidMini({ lang, onAdd, pending }: TaskEditorRaidMiniP
               key={`${spec.category}-${i}`}
               className="flex items-center gap-2 text-xs text-muted-foreground"
             >
-              <span className="rounded-sm bg-surface-muted px-1.5 py-0.5 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              <span className="rounded-sm bg-surface-muted px-1.5 py-0.5 font-medium text-ui-dark-blue dark:text-ui-light-grey">
                 {t(lang, CATEGORY_LABEL_KEY[(spec.category as RaidCategory) in CATEGORY_LABEL_KEY ? (spec.category as RaidCategory) : "R"])}
               </span>
               <span className="truncate">{spec.title}</span>

@@ -33,14 +33,14 @@ export function ViewCallout({ view, lang, showHints, isPopout, onLearnMore }: Vi
 
   return (
     <div className="mb-2 flex shrink-0 items-start gap-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs print:hidden">
-      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-AIPM-dark-blue dark:text-AIPM-light-grey">
+      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ui-dark-blue dark:text-ui-light-grey">
         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
       </svg>
       <p className="flex-1 text-foreground">{t(lang, callout.textKey)}</p>
       <button
         type="button"
         onClick={() => onLearnMore(callout.conceptId)}
-        className={`shrink-0 font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+        className={`shrink-0 font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
       >
         {t(lang, "viewHintLearnMore")}
         <span aria-hidden="true"> →</span>

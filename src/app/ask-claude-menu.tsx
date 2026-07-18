@@ -34,7 +34,7 @@ function PromptSection({
             <button
               type="button"
               onClick={() => onPick(def)}
-              className={`w-full rounded-md px-2.5 py-1.5 text-left text-sm text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
+              className={`w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
             >
               {t(lang, def.labelKey)}
             </button>

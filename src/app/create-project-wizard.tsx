@@ -309,7 +309,7 @@ export function CreateProjectWizard({
                 aria-pressed={selectedTemplate === null}
                 className={`rounded-md border px-3 py-2 text-left text-sm hover:bg-surface-muted ${
                   selectedTemplate === null
-                    ? "border-AIPM-green bg-AIPM-green/10"
+                    ? "border-ui-green bg-ui-green/10"
                     : "border-line bg-surface"
                 }`}
               >
@@ -337,18 +337,18 @@ export function CreateProjectWizard({
                     onClick={() => chooseTemplate(tpl)}
                     aria-pressed={selected}
                     className={`rounded-md border px-3 py-2 text-left text-sm hover:bg-surface-muted ${
-                      selected ? "border-AIPM-green bg-AIPM-green/10" : "border-line bg-surface"
+                      selected ? "border-ui-green bg-ui-green/10" : "border-line bg-surface"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-foreground">{tpl.name}</span>
                       <span className="flex items-center gap-1">
                         {suggestion?.templateId === tpl.id && (
-                          <Badge pill className="bg-AIPM-dark-blue font-semibold text-white">
+                          <Badge pill className="bg-ui-dark-blue font-semibold text-white">
                             {t(lang, "templateSuggested")}
                           </Badge>
                         )}
-                        <Badge pill className="bg-AIPM-green/15 font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                        <Badge pill className="bg-ui-green/15 font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                           {t(lang, MODE_LABEL_KEY[tplMode])}
                         </Badge>
                       </span>
@@ -378,7 +378,7 @@ export function CreateProjectWizard({
 
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">{t(lang, "modeBadgeLabel")}:</span>
-              <span className="rounded-full bg-AIPM-green/15 px-3 py-1 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              <span className="rounded-full bg-ui-green/15 px-3 py-1 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                 {t(lang, MODE_LABEL_KEY[mode])}
               </span>
             </div>

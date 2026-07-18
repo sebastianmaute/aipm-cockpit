@@ -314,14 +314,14 @@ export function ResourceEditModal({
                     type="button"
                     aria-label={`${t(lang, "resourceEmailRemove")} ${i + 1}`}
                     onClick={() => update("emails", (draft.emails ?? []).filter((_, j) => j !== i))}
-                    className="rounded p-1 text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink"
+                    className="rounded p-1 text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink"
                   >×</button>
                 </div>
               ))}
               <button
                 type="button"
                 onClick={() => update("emails", [...(draft.emails ?? []), ""])}
-                className={`self-start rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                className={`self-start rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 + {t(lang, "resourceEmailAdd")}
               </button>

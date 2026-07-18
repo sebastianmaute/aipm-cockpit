@@ -7,7 +7,7 @@ import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
 
 /** Standard compact control class shared by the bulk-edit field controls. */
 const CONTROL_CLASS =
-  `w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`;
+  `w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:border-ui-dark-blue disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`;
 
 export interface BulkFieldOption {
   value: string;
@@ -136,7 +136,7 @@ export function BulkEditPanel({ lang, count, fields, onApply, onCancel }: BulkEd
                 type="checkbox"
                 checked={on}
                 onChange={() => setEnabled((e) => ({ ...e, [f.key]: !e[f.key] }))}
-                className={`mt-2 h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                className={`mt-2 h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
               />
               <div className="min-w-0 flex-1">
                 <label htmlFor={`${id}-enable`} className="mb-1 block cursor-pointer text-sm font-medium text-foreground">
@@ -166,7 +166,7 @@ export function BulkEditPanel({ lang, count, fields, onApply, onCancel }: BulkEd
           type="button"
           onClick={apply}
           disabled={!anyEnabled}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "bulkApplyCount", String(count))}
         </button>

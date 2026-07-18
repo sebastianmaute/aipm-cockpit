@@ -6,7 +6,7 @@ import { PanelSkeleton, Skeleton } from "./skeleton";
 
 describe("interaction-styles atoms", () => {
   test("FOCUS_RING is the canonical app-wide ring", () => {
-    expect(FOCUS_RING).toBe("focus:outline-none focus:ring-2 focus:ring-AIPM-green");
+    expect(FOCUS_RING).toBe("focus:outline-none focus:ring-2 focus:ring-ui-green");
   });
 
   test("INTERACTIVE bundles transition + focus ring + press", () => {

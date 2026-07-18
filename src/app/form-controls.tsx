@@ -3,16 +3,16 @@
 // Canonical form-field primitives (design-system Phase 2a). Replaces the ~130
 // ad-hoc <input>/<select>/<textarea> shells and ~90 forked checkboxes that
 // drifted across every form surface. ONE text-field shell (rounded-md border-
-// line bg-surface, ring-2 AIPM-green focus) and ONE checkbox accent, so field
+// line bg-surface, ring-2 ui-green focus) and ONE checkbox accent, so field
 // chrome / focus / checkbox-fill read identically app-wide.
 //
-// ★ FORM FIELDS get FOCUS_RING (ring-2 AIPM-green) + TRANSITION only — NEVER
+// ★ FORM FIELDS get FOCUS_RING (ring-2 ui-green) + TRANSITION only — NEVER
 // PRESS (a 1px translate on a text field is wrong; AGENTS.md). Invalid state
 // swaps the neutral green ring for the pink SEMANTIC ring — the two are never
 // combined (both set --tw-ring-color, so whichever is emitted later in the
 // stylesheet wins regardless of className order; the bespoke-ring landmine).
 //
-// ★ Checkbox accent is `accent-AIPM-dark-blue` (the CSS `accent-color`
+// ★ Checkbox accent is `accent-ui-dark-blue` (the CSS `accent-color`
 // mechanism). This project has NO @tailwindcss/forms plugin, so the widespread
 // `text-AIPM-*` checkbox classes were INERT (native checkboxes ignore `color`) —
 // the tick rendered browser-default. `accent-*` is the mechanism that actually
@@ -40,7 +40,7 @@ const FIELD_BASE =
 // ring + pink border (NEVER also carry the green ring — see the header note).
 const FIELD_VALID = `border-line ${FOCUS_RING}`;
 const FIELD_INVALID =
-  "border-AIPM-pink focus:outline-none focus:ring-2 focus:ring-AIPM-pink";
+  "border-ui-pink focus:outline-none focus:ring-2 focus:ring-ui-pink";
 
 /** Canonical field class string (shell + valid/invalid state + 150ms
  *  transition). Exported so string-based consumers (the copy-declared
@@ -118,7 +118,7 @@ export function Textarea({
 // Size is a SEPARATE axis (kept out of the base so a `size` variant can't
 // collide with a hard-coded `h-4 w-4`): `md` (default) matches the original
 // primitive; `sm` is the compact size the toolbar filter/column popovers use.
-const CHECKBOX_BASE = `rounded border-line accent-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
+const CHECKBOX_BASE = `rounded border-line accent-ui-dark-blue ${FOCUS_RING} ${TRANSITION} disabled:cursor-not-allowed disabled:opacity-50`;
 const CHECKBOX_SIZE: Record<"sm" | "md", string> = { sm: "h-3.5 w-3.5", md: "h-4 w-4" };
 
 // Omit the native numeric `size` attribute — we repurpose `size` as the variant.

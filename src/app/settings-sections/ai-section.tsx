@@ -242,7 +242,7 @@ function GuideForm({ lang, draft, onChange, onSave, onCancel, busy }: GuideFormP
           type="button"
           disabled={busy || !draft.name.trim()}
           onClick={onSave}
-          className={`rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+          className={`rounded-md border border-line bg-ui-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "aiGuideSave")}
         </button>
@@ -464,7 +464,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
               type="button"
               disabled={!settings.ai.apiKey.trim() || !keyPassphrase || keyPassphrase !== keyConfirm}
               onClick={handleLockConfirm}
-              className={`self-start whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-2 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+              className={`self-start whitespace-nowrap rounded-md border border-line bg-ui-green px-3 py-2 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "secretPassphraseSave")}
             </button>
@@ -476,7 +476,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
             type="button"
             onClick={handleRemoveSecret}
             title={t(lang, "secretPassphraseRemoveHint")}
-            className={`mt-2 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
+            className={`mt-2 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, "secretPassphraseRemove")}
           </button>
@@ -525,13 +525,13 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
                 ai: { ...settings.ai, consentAccepted: false },
               })
             }
-            className={`text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
+            className={`text-xs font-medium text-ui-pink-strong underline-offset-2 hover:underline ${INTERACTIVE}`}
           >
             {t(lang, "aiConsentRevoke")}
           </button>
         </p>
       ) : (
-        <p className="mt-2 text-xs text-AIPM-purple">
+        <p className="mt-2 text-xs text-ui-purple">
           {t(lang, "aiConsentRequired")}
         </p>
       )}
@@ -676,7 +676,7 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
                           type="button"
                           aria-label={`${t(lang, "aiGuideDelete")} – ${g.name}`}
                           onClick={() => { void og.remove(g.id); }}
-                          className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-AIPM-pink-strong ${INTERACTIVE}`}
+                          className={`rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-medium text-ui-pink-strong ${INTERACTIVE}`}
                         >
                           {t(lang, "aiGuideDelete")}
                         </button>

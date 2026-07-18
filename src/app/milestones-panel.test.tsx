@@ -170,7 +170,7 @@ describe("MilestonesPanel", () => {
     // contains "+ New milestone…") isn't present to make the query ambiguous.
     renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
     const btn = screen.getByRole("button", { name: /new milestone/i });
-    expect(btn.className).toContain("bg-AIPM-dark-blue");
+    expect(btn.className).toContain("bg-ui-dark-blue");
     expect(btn.className).toContain("text-white");
   });
 
@@ -200,7 +200,7 @@ describe("MilestonesPanel", () => {
   it("name button uses the workload hover style", () => {
     renderMilestones({ milestones: [m("Alpha", "2026-06-10")] });
     const btn = screen.getByRole("button", { name: "Alpha" });
-    expect(btn.className).toContain("hover:border-AIPM-dark-blue");
+    expect(btn.className).toContain("hover:border-ui-dark-blue");
   });
 
   it("renders resizable column headers", () => {

@@ -100,7 +100,7 @@ export function ThemeGallery({ lang, config = null, onImported }: ThemeGalleryPr
           </Button>
         ))}
       </div>
-      {error && <p role="alert" className="text-xs text-AIPM-pink-strong">{error}</p>}
+      {error && <p role="alert" className="text-xs text-ui-pink-strong">{error}</p>}
     </div>
   );
 }

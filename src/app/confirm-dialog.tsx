@@ -42,7 +42,7 @@ export interface ConfirmOptions {
   confirmLabel?: string;
   /** Already-translated cancel-button label. Defaults to "Cancel". */
   cancelLabel?: string;
-  /** Visual tone of the confirm button. Destructive (AIPM-pink) by default —
+  /** Visual tone of the confirm button. Destructive (ui-pink) by default —
    *  the overwhelming majority of call sites are deletes/clears. */
   tone?: "danger" | "default";
 }
@@ -101,8 +101,8 @@ export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
 
   const danger = pending?.tone !== "default";
   const confirmClass = danger
-    ? "border-AIPM-pink/50 bg-AIPM-pink text-white hover:bg-AIPM-pink/90"
-    : "border-AIPM-green/50 bg-AIPM-green text-white hover:bg-AIPM-green/90";
+    ? "border-ui-pink/50 bg-ui-pink text-white hover:bg-ui-pink/90"
+    : "border-ui-green/50 bg-ui-green text-white hover:bg-ui-green/90";
 
   return (
     <ConfirmContext.Provider value={value}>
@@ -113,7 +113,7 @@ export function ConfirmProvider({ lang, children }: ConfirmProviderProps) {
           onClose={() => settle(false)}
           ariaLabelledby={TITLE_ID}
           align="center"
-          backdropClassName="bg-AIPM-dark-blue/50"
+          backdropClassName="bg-ui-dark-blue/50"
           zIndex={60}
           initialFocusRef={cancelRef}
         >

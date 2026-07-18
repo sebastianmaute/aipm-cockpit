@@ -17,7 +17,7 @@ describe("Spinner", () => {
     expect(cls).toContain("w-7");
     expect(cls).toContain("border-2");
     expect(cls).toContain("animate-spin");
-    expect(cls).toContain("border-AIPM-dark-blue");
+    expect(cls).toContain("border-ui-dark-blue");
     expect(cls).toContain("border-t-transparent");
   });
 

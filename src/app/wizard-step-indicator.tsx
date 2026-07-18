@@ -27,7 +27,7 @@ export function WizardStepIndicator({
           <span
             className={
               current === i
-                ? "rounded-full bg-AIPM-green/15 px-3 py-1 font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+                ? "rounded-full bg-ui-green/15 px-3 py-1 font-semibold text-ui-dark-blue dark:text-ui-light-grey"
                 : "px-3 py-1 text-muted-foreground"
             }
           >

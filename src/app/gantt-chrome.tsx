@@ -81,7 +81,7 @@ export function GanttToolbar({
           onClick={onAddTask}
           aria-label={t(lang, "addTaskButton")}
           title={t(lang, "addTaskButton")}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "addTaskButton")}
         </button>
@@ -92,7 +92,7 @@ export function GanttToolbar({
           onClick={onAddMilestone}
           aria-label={t(lang, "ganttAddMilestone")}
           title={t(lang, "ganttAddMilestone")}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "ganttAddMilestone")}
         </button>
@@ -104,7 +104,7 @@ export function GanttToolbar({
         placeholder={t(lang, "searchPlaceholder")}
         aria-label={t(lang, "searchPlaceholder")}
         title={t(lang, "ganttSearchHint")}
-        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+        className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
       />
       <FilterMultiSelect
         lang={lang}
@@ -139,7 +139,7 @@ export function GanttToolbar({
           onChange={(e) => setSort(e.target.value as GanttSort)}
           aria-label={t(lang, "ganttSortLabel")}
           title={t(lang, "ganttSortHint")}
-          className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+          className={`h-[30px] rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="auto">{t(lang, "ganttSortAuto")}</option>
           <option value="due">{t(lang, "ganttSortDue")}</option>
@@ -285,7 +285,7 @@ export function GanttHeader({
             aria-label={t(lang, "ganttResizeNameCol")}
             title={t(lang, "ganttResizeNameCol")}
             onMouseDown={onStartNameColResize}
-            className="absolute right-0 top-0 z-40 flex h-full w-2 cursor-col-resize select-none items-center justify-center text-muted-foreground/60 transition-colors hover:bg-AIPM-dark-blue/10 hover:text-AIPM-dark-blue active:text-AIPM-dark-blue print:hidden"
+            className="absolute right-0 top-0 z-40 flex h-full w-2 cursor-col-resize select-none items-center justify-center text-muted-foreground/60 transition-colors hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue active:text-ui-dark-blue print:hidden"
           >
             <svg viewBox="0 0 2 12" width="2" height="12" fill="currentColor" aria-hidden="true">
               <circle cx="1" cy="2" r="1" />
@@ -306,7 +306,7 @@ export function GanttHeader({
           {monthGroups.map((g, i) => (
             <div
               key={i}
-              className="flex items-center justify-center border-r border-line px-1 text-[11px] font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+              className="flex items-center justify-center border-r border-line px-1 text-[11px] font-semibold text-ui-dark-blue dark:text-ui-light-grey"
               style={{ width: g.widthPx }}
               title={g.label}
             >
@@ -327,7 +327,7 @@ export function GanttHeader({
                 key={i}
                 className={`flex items-center justify-center border-r text-[10px] ${
                   isToday
-                    ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 font-semibold text-AIPM-dark-blue dark:text-foreground"
+                    ? "border-ui-dark-blue bg-ui-dark-blue/10 font-semibold text-ui-dark-blue dark:text-foreground"
                     : isWeekend
                       ? "border-line bg-surface-muted/60 text-muted-foreground"
                       : "border-line text-muted-foreground"

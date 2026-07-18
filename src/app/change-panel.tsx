@@ -470,12 +470,12 @@ function ChangePanelBody({
                   aria-label={t(lang, "selectAllVisibleRows")}
                   checked={sel.allSelected(visibleIds)}
                   onChange={() => sel.toggleAllVisible(visibleIds)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
               </th>
               {!hiddenSet.has("id") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={ariaSort("id")}>
-                <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
+                <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}>
                   #{sortArrow("id")}
                 </button>
                 <ColumnResizeHandle col="id" onMouseDown={startResize} />
@@ -483,7 +483,7 @@ function ChangePanelBody({
               )}
               {!hiddenSet.has("type") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.type, minWidth: colWidths.type }} aria-sort={ariaSort("type")}>
-                <button type="button" onClick={() => toggleSort("type")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
+                <button type="button" onClick={() => toggleSort("type")} className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldType")}{sortArrow("type")}
                 </button>
                 <ColumnResizeHandle col="type" onMouseDown={startResize} />
@@ -491,7 +491,7 @@ function ChangePanelBody({
               )}
               {!hiddenSet.has("title") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.title, minWidth: colWidths.title }} aria-sort={ariaSort("title")}>
-                <button type="button" onClick={() => toggleSort("title")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
+                <button type="button" onClick={() => toggleSort("title")} className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldTitle")}{sortArrow("title")}
                 </button>
                 <ColumnResizeHandle col="title" onMouseDown={startResize} />
@@ -499,7 +499,7 @@ function ChangePanelBody({
               )}
               {!hiddenSet.has("impact") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.impact, minWidth: colWidths.impact }} aria-sort={ariaSort("impact")}>
-                <button type="button" onClick={() => toggleSort("impact")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
+                <button type="button" onClick={() => toggleSort("impact")} className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldImpact")}{sortArrow("impact")}
                 </button>
                 <InfoTooltip text={t(lang, "changeFieldImpactHint")} />
@@ -508,7 +508,7 @@ function ChangePanelBody({
               )}
               {!hiddenSet.has("status") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={ariaSort("status")}>
-                <button type="button" onClick={() => toggleSort("status")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
+                <button type="button" onClick={() => toggleSort("status")} className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldStatus")}{sortArrow("status")}
                 </button>
                 <ColumnResizeHandle col="status" onMouseDown={startResize} />
@@ -516,7 +516,7 @@ function ChangePanelBody({
               )}
               {!hiddenSet.has("requestedBy") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.requestedBy, minWidth: colWidths.requestedBy }} aria-sort={ariaSort("requestedBy")}>
-                <button type="button" onClick={() => toggleSort("requestedBy")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
+                <button type="button" onClick={() => toggleSort("requestedBy")} className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldRequestedBy")}{sortArrow("requestedBy")}
                 </button>
                 <ColumnResizeHandle col="requestedBy" onMouseDown={startResize} />
@@ -524,7 +524,7 @@ function ChangePanelBody({
               )}
               {!hiddenSet.has("raisedDate") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.raisedDate, minWidth: colWidths.raisedDate }} aria-sort={ariaSort("raisedDate")}>
-                <button type="button" onClick={() => toggleSort("raisedDate")} className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}>
+                <button type="button" onClick={() => toggleSort("raisedDate")} className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}>
                   {t(lang, "changeFieldRaisedDate")}{sortArrow("raisedDate")}
                 </button>
                 <ColumnResizeHandle col="raisedDate" onMouseDown={startResize} />
@@ -557,7 +557,7 @@ function ChangePanelBody({
                       aria-label={t(lang, "selectItem", item.title)}
                       checked={sel.isSelected(item.id)}
                       onChange={() => sel.toggle(item.id)}
-                      className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                      className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                     />
                   </td>
                   {!hiddenSet.has("id") && (

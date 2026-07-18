@@ -6,7 +6,7 @@ describe("CountBadge", () => {
   test("renders the count and the pink tint by default", () => {
     render(<CountBadge>3</CountBadge>);
     const el = screen.getByText("3");
-    expect(el.className).toContain("bg-AIPM-pink");
+    expect(el.className).toContain("bg-ui-pink");
     expect(el.className).toContain("text-white");
     // Canonical pill shape.
     expect(el.className).toContain("rounded-full");
@@ -16,12 +16,12 @@ describe("CountBadge", () => {
 
   test("dark-blue variant uses the dark-blue tint", () => {
     render(<CountBadge variant="dark-blue">7</CountBadge>);
-    expect(screen.getByText("7").className).toContain("bg-AIPM-dark-blue");
+    expect(screen.getByText("7").className).toContain("bg-ui-dark-blue");
   });
 
   test("grey variant uses the medium-grey tint", () => {
     render(<CountBadge variant="grey">9</CountBadge>);
-    expect(screen.getByText("9").className).toContain("bg-AIPM-medium-grey");
+    expect(screen.getByText("9").className).toContain("bg-ui-medium-grey");
   });
 
   test("appends className after the base + variant (for positioning)", () => {

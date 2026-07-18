@@ -1,7 +1,7 @@
 "use client";
 
 // Canonical indeterminate loading spinner (design-system Phase 2b). Replaces the
-// hand-rolled `h-7 w-7 animate-spin rounded-full border-2 border-AIPM-dark-blue
+// hand-rolled `h-7 w-7 animate-spin rounded-full border-2 border-ui-dark-blue
 // border-t-transparent` span that was copy-declared across the AI-analysis,
 // file-import and timelog fetch surfaces. ONE rotating-ring spinner so busy
 // indicators read identically app-wide.
@@ -27,7 +27,7 @@ export function Spinner({ size = "md", className = "" }: SpinnerProps) {
   return (
     <span
       aria-hidden="true"
-      className={`inline-block animate-spin rounded-full border-AIPM-dark-blue border-t-transparent ${SPINNER_SIZE[size]}${
+      className={`inline-block animate-spin rounded-full border-ui-dark-blue border-t-transparent ${SPINNER_SIZE[size]}${
         className ? ` ${className}` : ""
       }`}
     />

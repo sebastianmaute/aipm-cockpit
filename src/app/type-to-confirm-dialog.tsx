@@ -3,7 +3,7 @@
 // Reusable destructive-confirmation dialog. The confirm button stays disabled
 // until the user types the required value (e.g. the project's exact name) into
 // the input. Used for permanent (hard) project deletion. Palette-safe: the
-// destructive action uses AIPM-pink.
+// destructive action uses ui-pink.
 
 import { useState } from "react";
 import { t, type Lang } from "./i18n";
@@ -42,7 +42,7 @@ export function TypeToConfirmDialog({
       onClose={onCancel}
       ariaLabelledby={TITLE_ID}
       align="center"
-      backdropClassName="bg-AIPM-dark-blue/50"
+      backdropClassName="bg-ui-dark-blue/50"
       zIndex={60}
     >
       <div
@@ -77,7 +77,7 @@ export function TypeToConfirmDialog({
               type="button"
               disabled={!matched}
               onClick={onConfirm}
-              className="rounded-md border border-AIPM-pink/50 bg-AIPM-pink px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-pink/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md border border-ui-pink/50 bg-ui-pink px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-pink/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {confirmLabel}
             </button>

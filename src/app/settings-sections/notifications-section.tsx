@@ -61,7 +61,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
             type="checkbox"
             checked={notifications.useGlobalLeadDays}
             onChange={(e) => patchNotif({ useGlobalLeadDays: e.target.checked })}
-            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "notifUseGlobalLeadDays")}
         </label>
@@ -168,7 +168,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
             onChange={(e) =>
               patchNotif({ jiraTokenError: { ...notifications.jiraTokenError, enabled: e.target.checked } })
             }
-            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "notifJiraTokenError")}
         </label>
@@ -181,7 +181,7 @@ export function NotificationsSection({ lang, settings, onChange }: Notifications
             type="checkbox"
             checked={notifications.desktopUrgent.enabled}
             onChange={(e) => handleDesktopToggle(e.target.checked)}
-            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "settingsDesktopNotify")}
         </label>
@@ -283,7 +283,7 @@ function NotificationRow({
             type="checkbox"
             checked={config.enabled}
             onChange={(e) => onChange({ ...config, enabled: e.target.checked })}
-            className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           <span className="text-foreground">{label}</span>
         </label>

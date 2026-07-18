@@ -315,7 +315,7 @@ function MilestonesPanelBody({
         <button
           type="button"
           onClick={openNew}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "milestoneNew")}
         </button>
@@ -349,7 +349,7 @@ function MilestonesPanelBody({
           value={status}
           onChange={(e) => pf.setFilter("status", e.target.value)}
           aria-label={t(lang, "milestonesFilterStatus")}
-          className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+          className={`rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         >
           <option value="all">{t(lang, "milestonesFilterAll")}</option>
           <option value="pending">{t(lang, "milestonesFilterPending")}</option>
@@ -402,7 +402,7 @@ function MilestonesPanelBody({
                   aria-label={t(lang, "selectAllVisibleRows")}
                   checked={sel.allSelected(visibleIds)}
                   onChange={() => sel.toggleAllVisible(visibleIds)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
               </th>
               {!hiddenSet.has("name") && (
@@ -461,7 +461,7 @@ function MilestonesPanelBody({
                       aria-label={t(lang, "selectItem", m.name)}
                       checked={sel.isSelected(m.id)}
                       onChange={() => sel.toggle(m.id)}
-                      className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                      className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                     />
                   </td>
                   {!hiddenSet.has("name") && (
@@ -470,7 +470,7 @@ function MilestonesPanelBody({
                         <button
                           type="button"
                           title={m.name}
-                          className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green ${INTERACTIVE}`}
+                          className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green ${INTERACTIVE}`}
                           onClick={() => {
                             setIsNew(false);
                             setEditing(m);

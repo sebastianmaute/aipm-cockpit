@@ -275,7 +275,7 @@ export function TaskFormFields({
               disabled={editingIsJiraLinked}
               aria-label={t(lang, "taskAddAssigneeToAddressBook")}
               title={t(lang, "taskAddAssigneeToAddressBook")}
-              className={`shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
+              className={`shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted ${INTERACTIVE}`}
             >
               +
             </button>
@@ -366,7 +366,7 @@ export function TaskFormFields({
                 {hits.map((a) => (
                   <p
                     key={a.id}
-                    className="text-xs text-AIPM-purple"
+                    className="text-xs text-ui-purple"
                   >
                     {t(
                       lang,
@@ -536,7 +536,7 @@ export function TaskFormFields({
                   aria-pressed={form.healthOverride === ""}
                   className={`${chipBase} ${
                     form.healthOverride === ""
-                      ? "border-AIPM-dark-blue bg-surface-muted text-AIPM-dark-blue dark:border-AIPM-blue dark:bg-surface-muted dark:text-AIPM-light-grey"
+                      ? "border-ui-dark-blue bg-surface-muted text-ui-dark-blue dark:border-ui-blue dark:bg-surface-muted dark:text-ui-light-grey"
                       : chipInactive
                   }`}
                 >
@@ -641,7 +641,7 @@ export function TaskFormFields({
               type="button"
               onClick={addNote}
               disabled={!noteText.trim()}
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey ${INTERACTIVE}`}
+              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
             >
               {t(lang, "noteLogAdd")}
             </button>
@@ -666,7 +666,7 @@ export function TaskFormFields({
                 onChange={(e) =>
                   setForm({ ...form, pushToJira: e.target.checked })
                 }
-                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
+                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line dark:bg-surface-muted"
               />
               <span>
                 {t(
@@ -747,7 +747,7 @@ export function TaskFormSection({
 }) {
   return (
     <section>
-      <h3 className="mb-3 border-b border-line pb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+      <h3 className="mb-3 border-b border-line pb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
         {index}. {title}
       </h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
@@ -774,7 +774,7 @@ export function Field({
     <label className={`block ${className ?? ""}`}>
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {label}
-        {required && <span className="ml-0.5 text-AIPM-pink-strong">*</span>}
+        {required && <span className="ml-0.5 text-ui-pink-strong">*</span>}
         {hint && (
           // preventDefault stops the wrapping <label> from also focusing/toggling
           // its control when the tooltip trigger is clicked.

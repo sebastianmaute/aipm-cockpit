@@ -27,16 +27,16 @@ describe("ToggleButton", () => {
     );
     let btn = screen.getByRole("button");
     expect(btn.className).toContain("border-line");
-    expect(btn.className).not.toContain("bg-AIPM-pink/10");
+    expect(btn.className).not.toContain("bg-ui-pink/10");
     rerender(<ToggleButton pressed onToggle={() => {}} accent="pink">Critical path</ToggleButton>);
     btn = screen.getByRole("button");
-    expect(btn.className).toContain("bg-AIPM-pink/10");
-    expect(btn.className).toContain("border-AIPM-pink");
+    expect(btn.className).toContain("bg-ui-pink/10");
+    expect(btn.className).toContain("border-ui-pink");
   });
 
   it("defaults to the dark-blue accent", () => {
     render(<ToggleButton pressed onToggle={() => {}}>On</ToggleButton>);
-    expect(screen.getByRole("button").className).toContain("bg-AIPM-dark-blue/10");
+    expect(screen.getByRole("button").className).toContain("bg-ui-dark-blue/10");
   });
 
   it("renders a leading icon and an override aria-label", () => {

@@ -33,7 +33,7 @@ export default function ErrorPage({ error, unstable_retry }: ErrorPageProps) {
       className="flex min-h-[60vh] items-center justify-center p-8"
     >
       <div className="w-full max-w-md rounded-xl border border-line bg-surface p-6 text-center">
-        <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           Something went wrong
         </h2>
         <p className="mt-2 text-sm text-foreground">
@@ -50,14 +50,14 @@ export default function ErrorPage({ error, unstable_retry }: ErrorPageProps) {
           <button
             type="button"
             onClick={() => unstable_retry()}
-            className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${FOCUS_RING}`}
+            className={`rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-ui-dark-blue/90 ${FOCUS_RING}`}
           >
             Try again
           </button>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className={`rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted ${FOCUS_RING} dark:text-AIPM-light-grey`}
+            className={`rounded-md border border-line px-4 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted ${FOCUS_RING} dark:text-ui-light-grey`}
           >
             Reload page
           </button>

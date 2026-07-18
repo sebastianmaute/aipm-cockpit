@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.23] - 2026-07-18 "Pinsker"
+
+Palette token rename (Release B): the internal palette token names lose the brand
+word now that AIPM is just one pluggable theme.
+
+### Changed
+- **Palette tokens renamed `AIPM-*` → `ui-*`** across the whole codebase — Tailwind
+  utility classes (`bg-AIPM-green` → `bg-ui-green`), CSS variables (`--AIPM-green` →
+  `--ui-green`), the Tailwind `@theme` map, the scheme registries, the shipped theme
+  JSON keys, and the palette guards. This is a pure rename with **no visual or
+  behavioral change**. The AIPM theme identity (its display name, `themes/AIPM.json`,
+  and logo) is unchanged; it remains importable from the Theme gallery.
+
 ## [0.190.22] - 2026-07-18 "Pinsker"
 
 Theme decoupling (Release A): AIPM and Dashboard are no longer baked-in built-in
@@ -214,7 +227,7 @@ Design-system consistency — Phase 1d (Badge + palette hygiene).
 ### Fixed
 - Replaced off-palette raw colours with sanctioned tokens so they recolour under the
   Mockup/custom schemes: amber warning chips (`bg-amber-500` → `--rag-amber`) and two
-  error-text strings (`text-AIPM-red` → `AIPM-pink-strong`).
+  error-text strings (`text-ui-red` → `ui-pink-strong`).
 
 ## [0.190.5] - 2026-07-17 "Pinsker"
 
@@ -1374,12 +1387,12 @@ breaking changes.
 ## [0.126.0] - 2026-06-22 "McIntyre"
 
 ### Added
-- Deep-link scroll + highlight now also works in the tasks **Kanban board**: a Dashboard or Action Center deep-link to a task scrolls its board card into view and briefly outlines it (`outline-AIPM-green`), matching the table-row behaviour. Closes the board-mode gap left by 0.125.0. The remaining graceful no-ops are the tasks full-page editor (list unmounted) and any card hidden by an active filter/search.
+- Deep-link scroll + highlight now also works in the tasks **Kanban board**: a Dashboard or Action Center deep-link to a task scrolls its board card into view and briefly outlines it (`outline-ui-green`), matching the table-row behaviour. Closes the board-mode gap left by 0.125.0. The remaining graceful no-ops are the tasks full-page editor (list unmounted) and any card hidden by an active filter/search.
 
 ## [0.125.0] - 2026-06-22 "Brunner"
 
 ### Added
-- Dashboard and Action Center deep-links now scroll the target row into view and briefly highlight it (an `outline-AIPM-green` flash) in its list — across the RAID, milestones, changes, stakeholders, and tasks panels — in addition to opening the item's editor.
+- Dashboard and Action Center deep-links now scroll the target row into view and briefly highlight it (an `outline-ui-green` flash) in its list — across the RAID, milestones, changes, stakeholders, and tasks panels — in addition to opening the item's editor.
 
 ## 0.124.0 "Pratchett" — 2026-06-22
 

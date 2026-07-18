@@ -208,10 +208,10 @@ export const EMPTY_HOLIDAY_SET: ReadonlySet<string> = new Set<string>();
 
 // Priority → bar fill class. Matches the priority pill colors elsewhere.
 export const priorityFillClass: Record<Priority, string> = {
-  Low: "fill-AIPM-medium-grey",
-  Medium: "fill-AIPM-blue",
-  High: "fill-AIPM-purple",
-  Urgent: "fill-AIPM-pink",
+  Low: "fill-ui-medium-grey",
+  Medium: "fill-ui-blue",
+  High: "fill-ui-purple",
+  Urgent: "fill-ui-pink",
 };
 
 // ---------- date helpers --------------------------------------------------
@@ -663,11 +663,11 @@ export type GanttBarEdit = {
 export function absenceBandBg(type: AbsenceType): string {
   switch (type) {
     case "vacation":
-      return "bg-AIPM-blue/20 dark:bg-AIPM-blue/25";
+      return "bg-ui-blue/20 dark:bg-ui-blue/25";
     case "sick":
-      return "bg-AIPM-pink/20 dark:bg-AIPM-pink/25";
+      return "bg-ui-pink/20 dark:bg-ui-pink/25";
     case "training":
-      return "bg-AIPM-purple/20 dark:bg-AIPM-purple/25";
+      return "bg-ui-purple/20 dark:bg-ui-purple/25";
     default:
       return "bg-surface-muted";
   }
@@ -679,7 +679,7 @@ export function absenceBandBg(type: AbsenceType): string {
 export function milestoneDiamondProps(achieved: boolean, atRisk: boolean) {
   return {
     className: achieved ? "fill-emerald-500/50" : "fill-emerald-500",
-    stroke: atRisk ? "var(--AIPM-pink)" : "none",
+    stroke: atRisk ? "var(--ui-pink)" : "none",
     strokeWidth: atRisk ? 2 : 0,
   } as const;
 }

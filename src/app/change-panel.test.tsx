@@ -75,7 +75,7 @@ describe("ChangePanel", () => {
     const cls = Array.from(container.querySelectorAll("span.rounded-full")).map((d) => d.className);
     expect(cls.some((c) => c.includes("bg-[var(--rag-red)]"))).toBe(true);
     expect(cls.some((c) => c.includes("bg-[var(--rag-amber)]"))).toBe(true);
-    expect(cls.some((c) => c.includes("bg-AIPM-purple"))).toBe(false);
+    expect(cls.some((c) => c.includes("bg-ui-purple"))).toBe(false);
   });
   it("tags every change row with its id via data-deeplink-row (deep-link flash wiring)", () => {
     const { container } = render(<ChangePanel {...base} />, { wrapper: Providers });

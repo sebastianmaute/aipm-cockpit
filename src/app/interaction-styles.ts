@@ -5,8 +5,8 @@
 
 /** Canonical keyboard focus ring — the app-wide standard (matches the ~95
  *  existing call sites). Append to every interactive control so focus is
- *  uniformly visible. Pairs `outline-none` with a 2px AIPM-green ring. */
-export const FOCUS_RING = "focus:outline-none focus:ring-2 focus:ring-AIPM-green";
+ *  uniformly visible. Pairs `outline-none` with a 2px ui-green ring. */
+export const FOCUS_RING = "focus:outline-none focus:ring-2 focus:ring-ui-green";
 
 /** Subtle physical press feedback. Transform-only → palette-irrelevant and
  *  GPU-cheap; `translate-y` (not `scale`) avoids the layout reflow that scaling

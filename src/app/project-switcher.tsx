@@ -130,13 +130,13 @@ export function ProjectSwitcher({
       <div
         data-tour-id={dataTourId}
         title={label}
-        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey"
+        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey"
       >
         <svg
           viewBox="0 0 20 20"
           fill="currentColor"
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-AIPM-green-strong"
+          className="h-4 w-4 shrink-0 text-ui-green-strong"
         >
           <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
         </svg>
@@ -155,13 +155,13 @@ export function ProjectSwitcher({
         aria-haspopup="menu"
         aria-expanded={open}
         title={t(lang, "projectCurrentLabel")}
-        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-light-grey dark:hover:bg-surface"
+        className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey dark:hover:bg-surface"
       >
         <svg
           viewBox="0 0 20 20"
           fill="currentColor"
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-AIPM-green-strong"
+          className="h-4 w-4 shrink-0 text-ui-green-strong"
         >
           <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
         </svg>
@@ -209,7 +209,7 @@ export function ProjectSwitcher({
                   onSwitch(p.id);
                   setOpen(false);
                 }}
-                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green aria-disabled:cursor-default aria-disabled:bg-surface-muted aria-disabled:hover:bg-surface-muted"
+                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green aria-disabled:cursor-default aria-disabled:bg-surface-muted aria-disabled:hover:bg-surface-muted"
               >
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate font-medium">{p.name}</span>
@@ -224,7 +224,7 @@ export function ProjectSwitcher({
                     viewBox="0 0 20 20"
                     fill="currentColor"
                     aria-hidden="true"
-                    className="h-4 w-4 shrink-0 text-AIPM-green-strong"
+                    className="h-4 w-4 shrink-0 text-ui-green-strong"
                   >
                     <path
                       fillRule="evenodd"
@@ -248,7 +248,7 @@ export function ProjectSwitcher({
                 onLoadFromFile();
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
             >
               {t(lang, "projectSwitcherLoadFile")}
             </button>
@@ -261,7 +261,7 @@ export function ProjectSwitcher({
               onNew();
               setOpen(false);
             }}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-light-grey"
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey"
           >
             + {t(lang, "projectsNew")}
           </button>
@@ -274,7 +274,7 @@ export function ProjectSwitcher({
         onClick={onReload}
         aria-label={t(lang, "reloadProject")}
         title={t(lang, "reloadProjectHint")}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted text-AIPM-dark-blue hover:bg-surface focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-light-grey"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted text-ui-dark-blue hover:bg-surface focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey"
       >
         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
           <path

@@ -151,7 +151,7 @@ export function PortfolioHealthPanel({
                     type="button"
                     onClick={() => onSwitchProject(row.id)}
                     aria-label={`${t(lang, "portfolioOpenProject")} – ${row.name}`}
-                    className={`text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                    className={`text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                   >
                     {row.name}
                   </button>

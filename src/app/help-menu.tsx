@@ -159,7 +159,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
         aria-label={t(lang, "help")}
         aria-expanded={open}
         title={t(lang, "help")}
-        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
+        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
         <svg
           viewBox="0 0 20 20"
@@ -199,7 +199,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
-              className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:text-muted-foreground dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+              className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
             >
               <svg
                 viewBox="0 0 20 20"
@@ -219,7 +219,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t(lang, "helpSearchPlaceholder")}
               aria-label={t(lang, "helpSearchPlaceholder")}
-              className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             />
           </div>
 
@@ -230,7 +230,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
               href={APP_LICENSE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+              className="text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
             >
               {t(lang, "versionLicense")} ↗
             </a>

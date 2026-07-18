@@ -86,7 +86,7 @@ describe("TaskDeleteButton", () => {
 
     const btn = screen.getByRole("button", { name: "Delete" });
     expect(btn).toBeInTheDocument();
-    expect(btn.className).toMatch(/AIPM-pink/);
+    expect(btn.className).toMatch(/ui-pink/);
 
     fireEvent.click(btn);
     expect(onDelete).toHaveBeenCalledWith(99);

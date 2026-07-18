@@ -125,8 +125,8 @@ utilities (use the `--shadow-*` / `--gradient-*` role tokens where one is
 genuinely needed). The `shell-palette-guard` / `palette-chrome-sweep` tests
 enforce this and scan the **whole source, including comments**, so a stray raw
 `shadow` (even `--shadow-card` written in a code comment) fails CI.
-`AIPM-light-grey` is **not** a chrome token — `bg-` / `border-` /
-`divide-AIPM-light-grey` is banned; use `AIPM-medium-grey` instead.
+`ui-light-grey` is **not** a chrome token — `bg-` / `border-` /
+`divide-ui-light-grey` is banned; use `ui-medium-grey` instead.
 
 ### State
 The orchestrator component (`task-manager.tsx`, ~3.5k LoC after slice-4 modal

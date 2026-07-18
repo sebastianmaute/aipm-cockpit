@@ -34,7 +34,7 @@ const USER_ID_RE = /^u-(\d+)$/;
 // resolveSchemeColors never re-derives them), so editing a base colour won't
 // refresh the pin — accepted for the faithful-copy intent.
 const DERIVED_TOKENS = [
-  "--AIPM-green-strong", "--AIPM-pink-strong", "--AIPM-purple-strong",
+  "--ui-green-strong", "--ui-pink-strong", "--ui-purple-strong",
   "--rag-red-text", "--rag-amber-text", "--rag-green-text", "--muted-foreground",
 ] as const;
 const VALID_TOKENS = new Set([

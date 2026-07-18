@@ -16,7 +16,7 @@ const TYPE_KEY: Record<ChangeType, "historyAdded" | "historyRemoved" | "historyM
   added: "historyAdded", removed: "historyRemoved", modified: "historyModified",
 };
 const TYPE_CLASS: Record<ChangeType, string> = {
-  added: "text-AIPM-green-strong", removed: "text-AIPM-pink-strong", modified: "text-muted-foreground",
+  added: "text-ui-green-strong", removed: "text-ui-pink-strong", modified: "text-muted-foreground",
 };
 
 function fmt(v: unknown): string {
@@ -88,7 +88,7 @@ export function VersionDiffView({
                           type="button"
                           onClick={() => onRestoreRecord(keyOf(c))}
                           title={t(lang, "historyRestoreRecordHint")}
-                          className="shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted dark:text-AIPM-light-grey"
+                          className="shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted dark:text-ui-light-grey"
                         >
                           {t(lang, "historyRestoreRecord")}
                         </button>
@@ -136,7 +136,7 @@ export function VersionDiffView({
                         checked={selection[keyOf(c)] !== undefined}
                         onChange={() => onToggleRecord?.(keyOf(c))}
                         aria-label={c.recordLabel}
-                        className="accent-AIPM-dark-blue mr-2"
+                        className="accent-ui-dark-blue mr-2"
                       />
                     )}
                     <button
@@ -152,7 +152,7 @@ export function VersionDiffView({
                         type="button"
                         onClick={() => onRestoreRecord(keyOf(c))}
                         title={t(lang, "historyRestoreRecordHint")}
-                        className="ml-2 shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted dark:text-AIPM-light-grey"
+                        className="ml-2 shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted dark:text-ui-light-grey"
                       >
                         {t(lang, "historyRestoreRecord")}
                       </button>
@@ -168,13 +168,13 @@ export function VersionDiffView({
                               checked={selection[keyOf(c)] === "all" || (Array.isArray(selection[keyOf(c)]) && (selection[keyOf(c)] as string[]).includes(f.field))}
                               onChange={() => onToggleField?.(keyOf(c), f.field)}
                               aria-label={f.label}
-                              className="accent-AIPM-dark-blue mr-1"
+                              className="accent-ui-dark-blue mr-1"
                             />
                           )}
                           <span className="font-medium text-muted-foreground">{f.label}:</span>
-                          <span className="text-AIPM-pink-strong line-through">{fmt(f.before)}</span>
+                          <span className="text-ui-pink-strong line-through">{fmt(f.before)}</span>
                           <span className="text-muted-foreground">→</span>
-                          <span className="text-AIPM-green-strong">{fmt(f.after)}</span>
+                          <span className="text-ui-green-strong">{fmt(f.after)}</span>
                         </li>
                       ))}
                     </ul>

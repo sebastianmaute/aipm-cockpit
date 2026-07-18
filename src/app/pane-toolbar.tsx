@@ -50,7 +50,7 @@ export function PaneSearchInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder ?? ariaLabel}
       aria-label={ariaLabel}
-      className={`${minW} flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}${className ? ` ${className}` : ""}`}
+      className={`${minW} flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}${className ? ` ${className}` : ""}`}
       {...props}
     />
   );
@@ -63,7 +63,7 @@ export function AddButton({ className, children, ...props }: HTMLAttributes<HTML
   return (
     <button
       type="button"
-      className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}${className ? ` ${className}` : ""}`}
+      className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}${className ? ` ${className}` : ""}`}
       {...props}
     >
       {children}

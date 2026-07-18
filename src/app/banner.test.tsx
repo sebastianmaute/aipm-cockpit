@@ -19,27 +19,27 @@ describe("Banner", () => {
     expect(cls).toContain("text-sm");
   });
 
-  it("maps error severity to the sanctioned AIPM-pink tokens", () => {
+  it("maps error severity to the sanctioned ui-pink tokens", () => {
     render(<Banner severity="error">Err</Banner>);
     const cls = screen.getByText("Err").className;
-    expect(cls).toContain("border-AIPM-pink/40");
-    expect(cls).toContain("bg-AIPM-pink/10");
-    expect(cls).toContain("text-AIPM-pink-strong");
+    expect(cls).toContain("border-ui-pink/40");
+    expect(cls).toContain("bg-ui-pink/10");
+    expect(cls).toContain("text-ui-pink-strong");
   });
 
-  it("maps success severity to the sanctioned AIPM-green tokens", () => {
+  it("maps success severity to the sanctioned ui-green tokens", () => {
     render(<Banner severity="success">Ok</Banner>);
     const cls = screen.getByText("Ok").className;
-    expect(cls).toContain("border-AIPM-green/40");
-    expect(cls).toContain("bg-AIPM-green/10");
-    expect(cls).toContain("text-AIPM-green-strong");
+    expect(cls).toContain("border-ui-green/40");
+    expect(cls).toContain("bg-ui-green/10");
+    expect(cls).toContain("text-ui-green-strong");
   });
 
-  it("maps info severity to the AIPM-dark-blue tint with AA-safe foreground text", () => {
+  it("maps info severity to the ui-dark-blue tint with AA-safe foreground text", () => {
     render(<Banner severity="info">Info</Banner>);
     const cls = screen.getByText("Info").className;
-    expect(cls).toContain("border-AIPM-dark-blue/40");
-    expect(cls).toContain("bg-AIPM-dark-blue/10");
+    expect(cls).toContain("border-ui-dark-blue/40");
+    expect(cls).toContain("bg-ui-dark-blue/10");
     expect(cls).toContain("text-foreground");
   });
 
@@ -63,10 +63,10 @@ describe("Banner", () => {
         <Banner severity="warn">W</Banner>
       </>,
     );
-    expect(screen.getByText("E").className).toContain("dark:bg-AIPM-pink/15");
-    expect(screen.getByText("E").className).toContain("dark:border-AIPM-pink/60");
-    expect(screen.getByText("S").className).toContain("dark:bg-AIPM-green/15");
-    expect(screen.getByText("I").className).toContain("dark:bg-AIPM-dark-blue/15");
+    expect(screen.getByText("E").className).toContain("dark:bg-ui-pink/15");
+    expect(screen.getByText("E").className).toContain("dark:border-ui-pink/60");
+    expect(screen.getByText("S").className).toContain("dark:bg-ui-green/15");
+    expect(screen.getByText("I").className).toContain("dark:bg-ui-dark-blue/15");
     expect(screen.getByText("W").className).toContain("dark:bg-[var(--rag-amber)]/20");
     expect(screen.getByText("W").className).toContain("dark:border-[var(--rag-amber)]/50");
     // ★ still no amber on text, even in dark mode
@@ -83,7 +83,7 @@ describe("Banner", () => {
     expect(cls).toContain("extra-class");
     expect(cls).toContain("flex");
     // base severity class present and comes before the appended className
-    expect(cls.indexOf("bg-AIPM-pink/10")).toBeLessThan(cls.indexOf("extra-class"));
+    expect(cls.indexOf("bg-ui-pink/10")).toBeLessThan(cls.indexOf("extra-class"));
   });
 
   it("passes through role and aria-label (caller owns alert/status/region semantics)", () => {

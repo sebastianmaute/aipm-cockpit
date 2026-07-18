@@ -77,7 +77,7 @@ describe("no-flash boot script — runtime behaviour", () => {
     expect(root().getAttribute("data-scheme-dark")).toBe("1");
     expect(root().classList.contains("dark")).toBe(false);
     expect(root().style.getPropertyValue("--surface")).toBe(resolveSchemeColors(HARBOR_LIGHT)["--surface"]);
-    expect(root().style.getPropertyValue("--AIPM-dark-blue")).toBe("#153a5c"); // Harbor light base
+    expect(root().style.getPropertyValue("--ui-dark-blue")).toBe("#153a5c"); // Harbor light base
   });
 
   it("fresh install with system dark → Harbor dark + .dark", () => {
@@ -95,7 +95,7 @@ describe("no-flash boot script — runtime behaviour", () => {
     runBoot();
     expect(root().getAttribute("data-style")).toBe("custom");
     expect(root().classList.contains("dark")).toBe(false);
-    expect(root().style.getPropertyValue("--AIPM-dark-blue")).toBe("#153a5c"); // Harbor light, NOT Mockup
+    expect(root().style.getPropertyValue("--ui-dark-blue")).toBe("#153a5c"); // Harbor light, NOT Mockup
   });
 
   it("legacy style value 'AIPM' (no color key) is ignored → Harbor base paint", () => {
@@ -103,7 +103,7 @@ describe("no-flash boot script — runtime behaviour", () => {
     runBoot();
     expect(root().getAttribute("data-style")).toBe("custom");
     expect(root().classList.contains("dark")).toBe(false);
-    expect(root().style.getPropertyValue("--AIPM-dark-blue")).toBe("#153a5c"); // Harbor light, NOT AIPM
+    expect(root().style.getPropertyValue("--ui-dark-blue")).toBe("#153a5c"); // Harbor light, NOT AIPM
   });
 
   it("light-only custom (supports-dark unset) pins light and applies the mirrored map", () => {
@@ -149,13 +149,13 @@ describe("no-flash boot script — runtime behaviour", () => {
     // the boot script must still read lop-active-scheme-colors, not hardcode Harbor.
     // Meridian is a dark-capable built-in, so its apply mirrors supports-dark="1".
     localStorage.setItem("lop-scheme-supports-dark", "1");
-    localStorage.setItem("lop-active-scheme-colors", JSON.stringify({ "--AIPM-dark-blue": "#3730a3" }));
+    localStorage.setItem("lop-active-scheme-colors", JSON.stringify({ "--ui-dark-blue": "#3730a3" }));
     runBoot();
     expect(root().getAttribute("data-style")).toBe("custom");
     expect(root().getAttribute("data-scheme-dark")).toBe("1"); // mirrored dark-capable flag honoured
-    expect(root().style.getPropertyValue("--AIPM-dark-blue")).toBe("#3730a3");
+    expect(root().style.getPropertyValue("--ui-dark-blue")).toBe("#3730a3");
     // NOT Harbor's dark-blue.
-    expect(root().style.getPropertyValue("--AIPM-dark-blue")).not.toBe("#153a5c");
+    expect(root().style.getPropertyValue("--ui-dark-blue")).not.toBe("#153a5c");
   });
 
   it("skips an over-length structural value in the boot key (length guard)", () => {

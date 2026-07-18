@@ -512,7 +512,7 @@ describe("RaidPanel — Outlook calendar toggle (SP2)", () => {
     const push = screen.getByRole("button", { name: t("en-US", "calendarPush") });
     expect(push.className).toContain("border-line");
     expect(push.className).toContain("text-foreground");
-    expect(push.className).not.toContain("border-AIPM-dark-blue");
+    expect(push.className).not.toContain("border-ui-dark-blue");
     // Leading icon present + decorative (does not bleed into the accessible name).
     expect(push.querySelector("svg[aria-hidden='true']")).not.toBeNull();
   });
@@ -605,6 +605,6 @@ describe("RAID severity dot RAG tokens", () => {
     expect(cls.some((c) => c.includes("bg-[var(--rag-red)]"))).toBe(true);
     expect(cls.some((c) => c.includes("bg-[var(--rag-amber)]"))).toBe(true);
     expect(cls.some((c) => c.includes("bg-[var(--rag-green)]"))).toBe(true);
-    expect(cls.some((c) => c.includes("bg-AIPM-purple"))).toBe(false);
+    expect(cls.some((c) => c.includes("bg-ui-purple"))).toBe(false);
   });
 });

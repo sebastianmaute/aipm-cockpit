@@ -140,7 +140,7 @@ export function GanttTaskRow({
       {isDropTarget && (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-0 right-0 top-0 z-20 h-0.5 bg-AIPM-dark-blue"
+          className="pointer-events-none absolute left-0 right-0 top-0 z-20 h-0.5 bg-ui-dark-blue"
         />
       )}
       <div
@@ -150,7 +150,7 @@ export function GanttTaskRow({
       >
         <span
           aria-hidden
-          className="cursor-grab text-muted-foreground hover:text-AIPM-dark-blue active:cursor-grabbing"
+          className="cursor-grab text-muted-foreground hover:text-ui-dark-blue active:cursor-grabbing"
           title={t(lang, "ganttDragHint")}
         >
           {/* Grip icon — 6 dots in a 2×3 arrangement, matching
@@ -178,7 +178,7 @@ export function GanttTaskRow({
             onClick={() => onEditTask(task)}
             onPointerDown={(e) => e.stopPropagation()}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
+            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
               isComplete
                 ? "text-muted-foreground line-through"
                 : "text-foreground"
@@ -301,13 +301,13 @@ export function GanttTaskRow({
                 isComplete
                   ? "opacity-50"
                   : critical.criticalTasks.has(task.id)
-                    ? "ring-2 ring-AIPM-pink"
+                    ? "ring-2 ring-ui-pink"
                     : isOverdue
-                      ? "ring-2 ring-AIPM-pink/70"
+                      ? "ring-2 ring-ui-pink/70"
                       : ""
               } ${
                 barDrag && barDrag.taskId === task.id
-                  ? "ring-2 ring-AIPM-dark-blue/60"
+                  ? "ring-2 ring-ui-dark-blue/60"
                   : ""
               }`}
               style={{
@@ -465,7 +465,7 @@ export function GanttMilestoneRow({
             type="button"
             onClick={() => onEditMilestone(m)}
             title={`${m.name} · ${fmtFull(md, lang)} — ${t(lang, "clickToEdit")}`}
-            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
+            className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
               achieved
                 ? "text-muted-foreground line-through"
                 : "text-foreground"

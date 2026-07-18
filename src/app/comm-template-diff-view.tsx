@@ -19,14 +19,14 @@ export function CommTemplateDiffView(props: CommTemplateDiffViewProps) {
       {lines.map((line, i) => {
         if (line.type === "added") {
           return (
-            <div key={i} role="listitem" aria-label={`${addedLabel}: ${line.text}`} className="text-AIPM-green-strong">
+            <div key={i} role="listitem" aria-label={`${addedLabel}: ${line.text}`} className="text-ui-green-strong">
               <span aria-hidden>+ </span>{line.text || " "}
             </div>
           );
         }
         if (line.type === "removed") {
           return (
-            <div key={i} role="listitem" aria-label={`${removedLabel}: ${line.text}`} className="text-AIPM-purple line-through">
+            <div key={i} role="listitem" aria-label={`${removedLabel}: ${line.text}`} className="text-ui-purple line-through">
               <span aria-hidden>- </span>{line.text || " "}
             </div>
           );

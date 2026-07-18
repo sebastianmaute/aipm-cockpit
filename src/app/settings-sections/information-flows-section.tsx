@@ -62,11 +62,11 @@ function Legend({ lang }: LegendProps) {
     <>
       <div className="mb-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-AIPM-green" aria-hidden="true" />
+          <span className="h-2.5 w-2.5 rounded-sm bg-ui-green" aria-hidden="true" />
           {t(lang, "infoFlowsZoneDataLabel")}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-AIPM-dark-blue" aria-hidden="true" />
+          <span className="h-2.5 w-2.5 rounded-sm bg-ui-dark-blue" aria-hidden="true" />
           {t(lang, "infoFlowsZoneServicesLabel")}
         </span>
       </div>
@@ -84,8 +84,8 @@ function Legend({ lang }: LegendProps) {
 
 export function InformationFlowsSection({ lang, maxWidth = 480 }: InformationFlowsSectionProps) {
   const zones: readonly NodeGraphZone[] = [
-    { label: t(lang, "infoFlowsZoneDataLabel"), color: "var(--AIPM-green)", x: 8, y: 20, w: 120, h: 200 },
-    { label: t(lang, "infoFlowsZoneServicesLabel"), color: "var(--AIPM-dark-blue)", x: 300, y: 20, w: 172, h: 200 },
+    { label: t(lang, "infoFlowsZoneDataLabel"), color: "var(--ui-green)", x: 8, y: 20, w: 120, h: 200 },
+    { label: t(lang, "infoFlowsZoneServicesLabel"), color: "var(--ui-dark-blue)", x: 300, y: 20, w: 172, h: 200 },
   ];
 
   return (
@@ -100,7 +100,7 @@ export function InformationFlowsSection({ lang, maxWidth = 480 }: InformationFlo
         ariaLabel={t(lang, "infoFlowsDiagramAriaLabel")}
         description={DIAGRAM_DESC}
         maxWidth={maxWidth}
-        edgeClassName="stroke-AIPM-medium-grey"
+        edgeClassName="stroke-ui-medium-grey"
       />
 
       <div className="mt-4">

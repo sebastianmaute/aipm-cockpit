@@ -220,7 +220,7 @@ function ResourceCalendarInner({
             <tr role="row">
               <th
                 role="columnheader"
-                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-AIPM-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
+                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
                 style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
               >
                 {t(lang, "assignee")}
@@ -237,12 +237,12 @@ function ResourceCalendarInner({
                   className={[
                     "sticky top-0 z-20 border-b border-r border-line px-0 py-1 text-center text-[10px] font-medium tracking-wide",
                     d.isToday
-                      ? "bg-AIPM-green/20 text-AIPM-dark-blue dark:bg-AIPM-green/20 dark:text-AIPM-light-grey"
+                      ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/20 dark:text-ui-light-grey"
                       : d.isHoliday
-                        ? "bg-AIPM-purple/15 text-AIPM-dark-blue dark:bg-AIPM-purple/20 dark:text-AIPM-light-grey"
+                        ? "bg-ui-purple/15 text-ui-dark-blue dark:bg-ui-purple/20 dark:text-ui-light-grey"
                         : d.isWeekend
-                          ? "bg-AIPM-dark-blue text-white"
-                          : "bg-AIPM-dark-blue text-white",
+                          ? "bg-ui-dark-blue text-white"
+                          : "bg-ui-dark-blue text-white",
                   ].join(" ")}
                   style={{ minWidth: CELL_PX, width: CELL_PX }}
                 >
@@ -280,7 +280,7 @@ function ResourceCalendarInner({
                               : onAddResource({ ...splitName(row.display), email: row.email || undefined })
                           }
                           title={row.display}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
                         >
                           {row.display}
                         </button>
@@ -294,11 +294,11 @@ function ResourceCalendarInner({
                     const baseBg = hit
                       ? absenceBg(hit.type)
                       : d.isToday
-                        ? "bg-AIPM-green/15 hover:bg-AIPM-green/25 dark:bg-AIPM-green/15 dark:hover:bg-AIPM-green/25"
+                        ? "bg-ui-green/15 hover:bg-ui-green/25 dark:bg-ui-green/15 dark:hover:bg-ui-green/25"
                         : d.isHoliday
-                          ? "bg-AIPM-purple/10 hover:bg-AIPM-purple/20 dark:bg-AIPM-purple/15 dark:hover:bg-AIPM-purple/25"
+                          ? "bg-ui-purple/10 hover:bg-ui-purple/20 dark:bg-ui-purple/15 dark:hover:bg-ui-purple/25"
                           : d.isWeekend
-                            ? "bg-surface-muted hover:bg-AIPM-medium-grey/20 dark:hover:bg-AIPM-medium-grey/20"
+                            ? "bg-surface-muted hover:bg-ui-medium-grey/20 dark:hover:bg-ui-medium-grey/20"
                             : "bg-surface hover:bg-surface-muted";
                     const handleClick = hit
                       ? () => onEditAbsence(hit)
@@ -356,27 +356,27 @@ function ResourceCalendarInner({
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-muted-foreground">
         <LegendChip
-          className="bg-AIPM-blue/30 dark:bg-AIPM-blue/25"
+          className="bg-ui-blue/30 dark:bg-ui-blue/25"
           label={t(lang, "absenceTypeVacation")}
         />
         <LegendChip
-          className="bg-AIPM-pink/30 dark:bg-AIPM-pink/25"
+          className="bg-ui-pink/30 dark:bg-ui-pink/25"
           label={t(lang, "absenceTypeSick")}
         />
         <LegendChip
-          className="bg-AIPM-purple/30 dark:bg-AIPM-purple/25"
+          className="bg-ui-purple/30 dark:bg-ui-purple/25"
           label={t(lang, "absenceTypeTraining")}
         />
         <LegendChip
-          className="bg-AIPM-medium-grey/45 dark:bg-AIPM-medium-grey/35"
+          className="bg-ui-medium-grey/45 dark:bg-ui-medium-grey/35"
           label={t(lang, "absenceTypeOther")}
         />
         <LegendChip
-          className="bg-AIPM-green/20 dark:bg-AIPM-green/20"
+          className="bg-ui-green/20 dark:bg-ui-green/20"
           label={t(lang, "resourcesToday")}
         />
         <LegendChip
-          className="bg-AIPM-purple/15 dark:bg-AIPM-purple/20"
+          className="bg-ui-purple/15 dark:bg-ui-purple/20"
           label={t(lang, "resourcesHoliday")}
         />
       </div>

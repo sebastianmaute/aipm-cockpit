@@ -28,12 +28,12 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
             type="button"
             onClick={() => onStartTour(tour.id)}
             aria-label={`${t(lang, isDone ? "tourReplayCta" : "tourStartCta")} – ${t(lang, tour.titleKey)}`}
-            className={`flex gap-3 rounded-md border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface p-3 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+            className={`flex gap-3 rounded-md border border-line border-l-[3px] border-l-ui-dark-blue bg-surface p-3 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >
             <span
               aria-hidden="true"
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
-                isDone ? "bg-AIPM-green/15 text-AIPM-green-strong" : "bg-surface-muted text-AIPM-dark-blue"
+                isDone ? "bg-ui-green/15 text-ui-green-strong" : "bg-surface-muted text-ui-dark-blue"
               }`}
             >
               {isDone ? "✓" : <NavIcon view={tour.iconView} className="h-4 w-4" />}
@@ -42,7 +42,7 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
               <span className="flex items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-foreground">{t(lang, tour.titleKey)}</span>
                 {isDone && (
-                  <Badge pill size="sm" className="shrink-0 bg-AIPM-green/15 font-medium text-AIPM-green-strong">
+                  <Badge pill size="sm" className="shrink-0 bg-ui-green/15 font-medium text-ui-green-strong">
                     <span aria-hidden="true">✓ </span>
                     {t(lang, "tourDoneBadge")}
                   </Badge>
@@ -52,7 +52,7 @@ export function TourCatalog({ lang, tours, completedTours, onStartTour }: TourCa
                 {t(lang, "tourStepCount", String(tour.stepCount))}
               </span>
               <span className="mt-0.5 block text-xs text-muted-foreground">{t(lang, tour.descKey)}</span>
-              <span className="mt-1 block text-xs font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+              <span className="mt-1 block text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey">
                 {isDone ? t(lang, "tourReplayCta") : t(lang, "tourStartCta")} →
               </span>
             </span>

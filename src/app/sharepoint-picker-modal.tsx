@@ -45,7 +45,7 @@ function ResultRow({ item, mode, lang, onSelect, onClose, openFolder }: ResultRo
           <button
             type="button"
             onClick={() => openFolder(item)}
-            className="rounded px-2 py-1 text-xs font-medium text-AIPM-dark-blue ring-1 ring-line hover:bg-surface-muted focus:outline-none focus:ring-AIPM-green dark:text-AIPM-light-grey"
+            className="rounded px-2 py-1 text-xs font-medium text-ui-dark-blue ring-1 ring-line hover:bg-surface-muted focus:outline-none focus:ring-ui-green dark:text-ui-light-grey"
           >
             {t(lang, "spPickerOpenFolder")}
           </button>
@@ -54,7 +54,7 @@ function ResultRow({ item, mode, lang, onSelect, onClose, openFolder }: ResultRo
           <button
             type="button"
             onClick={handleSelect}
-            className="rounded bg-AIPM-dark-blue px-2 py-1 text-xs font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "spPickerUse")}
           </button>
@@ -63,7 +63,7 @@ function ResultRow({ item, mode, lang, onSelect, onClose, openFolder }: ResultRo
           <button
             type="button"
             onClick={handleSelect}
-            className="rounded bg-AIPM-dark-blue px-2 py-1 text-xs font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "spPickerSelectFile")}
           </button>
@@ -134,7 +134,7 @@ export function SharePointPickerModal({
       open
       onClose={onClose}
       ariaLabel={title}
-      backdropClassName="bg-AIPM-dark-blue/40"
+      backdropClassName="bg-ui-dark-blue/40"
       zIndex={60}
     >
       <div
@@ -163,12 +163,12 @@ export function SharePointPickerModal({
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               placeholder={t(lang, "spPickerSearchPlaceholder")}
-              className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+              className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             />
             <button
               type="button"
               onClick={handleSearch}
-              className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+              className="rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-ui-green"
             >
               {t(lang, "spPickerSearchButton")}
             </button>
@@ -182,13 +182,13 @@ export function SharePointPickerModal({
               onChange={(e) => setPasteUrl(e.target.value)}
               onKeyDown={handlePasteKeyDown}
               placeholder={t(lang, "spPickerPasteUrl")}
-              className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+              className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             />
             <button
               type="button"
               onClick={handlePaste}
               disabled={!pasteUrl.trim()}
-              className="rounded-md border border-line px-3 py-2 text-sm text-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:opacity-40 dark:text-AIPM-light-grey"
+              className="rounded-md border border-line px-3 py-2 text-sm text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green disabled:opacity-40 dark:text-ui-light-grey"
             >
               {t(lang, "spPickerOpenFolder")}
             </button>
@@ -232,7 +232,7 @@ export function SharePointPickerModal({
                         key={site.id}
                         type="button"
                         onClick={() => void openSite(site)}
-                        className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+                        className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
                       >
                         {site.name}
                       </button>
@@ -248,7 +248,7 @@ export function SharePointPickerModal({
                         key={drive.id}
                         type="button"
                         onClick={() => void openDrive(drive)}
-                        className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+                        className="w-full rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
                       >
                         {drive.name}
                       </button>

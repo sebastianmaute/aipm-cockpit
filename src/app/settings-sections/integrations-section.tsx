@@ -342,7 +342,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     ? t(lang, "integrationsM365NeedsConfig")
                     : undefined
                 }
-                className={`rounded border border-AIPM-dark-blue bg-AIPM-dark-blue px-2 py-1 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                className={`rounded border border-ui-dark-blue bg-ui-dark-blue px-2 py-1 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "integrationsM365SignIn")}
               </button>
@@ -435,7 +435,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
           href="https://turso.tech/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-AIPM-dark-blue underline hover:opacity-80"
+          className="text-ui-dark-blue underline hover:opacity-80"
         >
           {t(lang, "integrationsTursoLearnMore")}
         </a>
@@ -516,7 +516,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                     type="button"
                     disabled={!(turso.authToken ?? "").trim() || !tokenPassphrase || tokenPassphrase !== tokenConfirm}
                     onClick={handleTokenLockConfirm}
-                    className={`self-start whitespace-nowrap rounded-md border border-line bg-AIPM-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+                    className={`self-start whitespace-nowrap rounded-md border border-line bg-ui-green px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "secretPassphraseSave")}
                   </button>
@@ -528,7 +528,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
                   type="button"
                   onClick={() => void handleRemoveToken()}
                   title={t(lang, "secretPassphraseRemoveHint")}
-                  className={`mt-2 rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`mt-2 rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "secretPassphraseRemove")}
                 </button>
@@ -541,7 +541,7 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <button
                 type="button"
                 onClick={onMigrateToTurso}
-                className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
+                className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
               >
                 {t(lang, "projectMigrateToTurso")}
               </button>
@@ -602,14 +602,14 @@ export function IntegrationsSection({ lang, settings, onChange, onMigrateToTurso
               <Banner severity="error" className="mt-1">{t(lang, "portfolioModeTursoNeedsConfig")}</Banner>
             )}
             {portfolioModeDirty && (
-              <div className="mt-2 rounded-md border border-AIPM-purple/40 bg-AIPM-purple/5 p-2">
+              <div className="mt-2 rounded-md border border-ui-purple/40 bg-ui-purple/5 p-2">
                 <p className="text-xs text-foreground">{t(lang, "portfolioModeSwitchNote")}</p>
                 <button
                   type="button"
                   onClick={confirmPortfolioModeSwitch}
                   disabled={switchBusy}
                   aria-busy={switchBusy}
-                  className={`mt-2 rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                  className={`mt-2 rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "portfolioModeSwitchConfirm")}
                 </button>

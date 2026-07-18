@@ -13,15 +13,15 @@ describe("ColorSchemeEditor", () => {
   });
 
   it("calls onApply with the resolved color map including a changed token", () => {
-    addScheme("Draft", { "--AIPM-green": "#000000" }, {}); // editable USER scheme active (Apply enabled)
+    addScheme("Draft", { "--ui-green": "#000000" }, {}); // editable USER scheme active (Apply enabled)
     const onApply = vi.fn();
     render(<ColorSchemeEditor lang="en-US" onApply={onApply} />);
     fireEvent.input(screen.getByLabelText("Accent"), { target: { value: "#123456" } });
     fireEvent.click(screen.getByRole("button", { name: /apply/i }));
     expect(onApply).toHaveBeenCalledTimes(1);
     const arg = onApply.mock.calls[0][0] as Record<string, string>;
-    expect(arg["--AIPM-green"]).toBe("#123456");
-    expect(arg["--AIPM-green-strong"]).toBeDefined();
+    expect(arg["--ui-green"]).toBe("#123456");
+    expect(arg["--ui-green-strong"]).toBeDefined();
   });
 
   it("shows a below-AA warning when text/background contrast is poor", () => {
@@ -45,7 +45,7 @@ describe("ColorSchemeEditor", () => {
   });
 
   it("shows per-scheme branding fields for an editable user scheme", () => {
-    addScheme("Draft", { "--AIPM-green": "#000000" }, {}); // user scheme active
+    addScheme("Draft", { "--ui-green": "#000000" }, {}); // user scheme active
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
     expect(screen.getByLabelText("App name")).toBeInTheDocument();
   });
@@ -74,11 +74,11 @@ describe("ColorSchemeEditor coherence", () => {
     onApply.mockClear();
     fireEvent.click(screen.getByRole("button", { name: /^new scheme$/i }));
     expect(onApply).toHaveBeenCalled();
-    expect(onApply.mock.calls.at(-1)![0]["--AIPM-green"]).toBe("#123456");
+    expect(onApply.mock.calls.at(-1)![0]["--ui-green"]).toBe("#123456");
   });
 
   it("clears the applied colors when the active USER scheme is deleted", () => {
-    addScheme("Red", { "--AIPM-green": "#ff0000" }, {}); // active = Red (user)
+    addScheme("Red", { "--ui-green": "#ff0000" }, {}); // active = Red (user)
     const onClear = vi.fn();
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onClear={onClear} />);
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
@@ -86,12 +86,12 @@ describe("ColorSchemeEditor coherence", () => {
   });
 
   it("persists applied edits to the active USER scheme (survives reload)", () => {
-    addScheme("Red", { "--AIPM-green": "#ff0000" }, {});
+    addScheme("Red", { "--ui-green": "#ff0000" }, {});
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
     fireEvent.input(screen.getByLabelText("Accent"), { target: { value: "#00ff00" } });
     fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
     const red = loadSchemes().schemes.find((s) => s.name === "Red");
-    expect(red!.light["--AIPM-green"]).toBe("#00ff00");
+    expect(red!.light["--ui-green"]).toBe("#00ff00");
   });
 });
 
@@ -110,7 +110,7 @@ describe("ColorSchemeEditor branding-apply guard", () => {
   });
 
   it("calls onApplyBranding when the scheme carries branding", () => {
-    addScheme("Branded", { "--AIPM-green": "#000000" }, {}); // user scheme active → branding editable
+    addScheme("Branded", { "--ui-green": "#000000" }, {}); // user scheme active → branding editable
     const onApplyBranding = vi.fn();
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onApplyBranding={onApplyBranding} />);
     fireEvent.change(screen.getByLabelText("App name"), { target: { value: "My Tracker" } });
@@ -123,7 +123,7 @@ describe("ColorSchemeEditor branding-apply guard", () => {
   // PROPAGATE the empty value — the empty-guard is scoped to saveNew/import,
   // which can originate while a built-in is active.
   it("clearing a user scheme's branding via Apply propagates the clear", () => {
-    addScheme("Branded", { "--AIPM-green": "#000000" }, { slogan: "Acme PMO" }); // branded user scheme active
+    addScheme("Branded", { "--ui-green": "#000000" }, { slogan: "Acme PMO" }); // branded user scheme active
     const onApplyBranding = vi.fn();
     render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} onApplyBranding={onApplyBranding} />);
     fireEvent.change(screen.getByLabelText("App name"), { target: { value: "" } });

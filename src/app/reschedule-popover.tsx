@@ -64,14 +64,14 @@ export function ReschedulePopover({ lang, action, bundle, prominent }: Reschedul
           aria-label={t(lang, "actionRescheduleTitle")}
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className="w-full rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ui-green"
         />
         <div className="mt-2 flex justify-end">
           <button
             type="button"
             disabled={!canConfirm}
             onClick={(e) => { e.stopPropagation(); confirm(); }}
-            className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
+            className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey"
           >
             {t(lang, "actionRescheduleConfirm")}
           </button>

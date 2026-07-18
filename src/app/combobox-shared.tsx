@@ -130,7 +130,7 @@ export function ComboboxOptions({
             onClick={() => onSelect(s)}
             className={`block w-full cursor-pointer px-3 py-1.5 text-left ${
               idx === highlight
-                ? "bg-surface-muted text-AIPM-dark-blue"
+                ? "bg-surface-muted text-ui-dark-blue"
                 : "text-foreground hover:bg-surface-muted"
             }`}
           >
@@ -150,8 +150,8 @@ export function ComboboxOptions({
             onClick={onAddNew}
             className={`block w-full cursor-pointer px-3 py-1.5 text-left italic ${
               highlight === filtered.length
-                ? "bg-AIPM-green/20 text-AIPM-dark-blue dark:bg-AIPM-green/30"
-                : "text-AIPM-dark-blue hover:bg-AIPM-green/10 dark:text-AIPM-light-grey"
+                ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/30"
+                : "text-ui-dark-blue hover:bg-ui-green/10 dark:text-ui-light-grey"
             }`}
           >
             + {addNewLabel}

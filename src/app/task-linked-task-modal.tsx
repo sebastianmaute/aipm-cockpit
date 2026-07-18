@@ -54,7 +54,7 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
       open
       onClose={onClose}
       ariaLabel={t(lang, "taskEditorNewLinkedTask")}
-      backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto"
+      backdropClassName="bg-ui-dark-blue/40 overflow-y-auto"
       lang={lang}
     >
       <div
@@ -135,7 +135,7 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
               type="button"
               onClick={handleSubmit}
               disabled={!canSave}
-              className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+              className={`rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "add")}
             </button>

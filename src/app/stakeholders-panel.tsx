@@ -107,9 +107,9 @@ const LEVEL_KEY: Record<InfluenceInterest, TranslationKey> = {
 };
 
 const LEVEL_CHIP: Record<InfluenceInterest, string> = {
-  Low: "bg-surface-muted/40 text-foreground dark:text-AIPM-light-grey",
-  Medium: "bg-AIPM-purple/20 text-AIPM-dark-blue dark:bg-AIPM-purple/25 dark:text-AIPM-light-grey",
-  High: "bg-AIPM-green/20 text-AIPM-dark-blue dark:bg-AIPM-green/25 dark:text-AIPM-light-grey",
+  Low: "bg-surface-muted/40 text-foreground dark:text-ui-light-grey",
+  Medium: "bg-ui-purple/20 text-ui-dark-blue dark:bg-ui-purple/25 dark:text-ui-light-grey",
+  High: "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/25 dark:text-ui-light-grey",
 };
 
 function Chip({ label, className }: { label: string; className?: string }) {
@@ -361,7 +361,7 @@ function StakeholdersPanelBody({
                   aria-label={t(lang, "selectAllVisibleRows")}
                   checked={sel.allSelected(visibleIds)}
                   onChange={() => sel.toggleAllVisible(visibleIds)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
               </th>
               {!hiddenSet.has("name") && (
@@ -373,7 +373,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("name")}
-                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
+                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldName")}{sortArrow("name")}
                 </button>
@@ -389,7 +389,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("organization")}
-                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
+                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldOrganization")}{sortArrow("organization")}
                 </button>
@@ -416,7 +416,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("category")}
-                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
+                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldCategory")}{sortArrow("category")}
                 </button>
@@ -432,7 +432,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("influence")}
-                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
+                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldInfluence")}{sortArrow("influence")}
                 </button>
@@ -449,7 +449,7 @@ function StakeholdersPanelBody({
                 <button
                   type="button"
                   onClick={() => toggleSort("interest")}
-                  className={`inline-flex items-center gap-1 hover:text-AIPM-green ${INTERACTIVE}`}
+                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
                 >
                   {t(lang, "stakeholderFieldInterest")}{sortArrow("interest")}
                 </button>
@@ -505,7 +505,7 @@ function StakeholdersPanelBody({
                       aria-label={t(lang, "selectItem", item.name)}
                       checked={sel.isSelected(item.id)}
                       onChange={() => sel.toggle(item.id)}
-                      className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                      className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                     />
                   </td>
                   {!hiddenSet.has("name") && (
@@ -515,7 +515,7 @@ function StakeholdersPanelBody({
                         type="button"
                         onClick={(e) => { e.stopPropagation(); openEdit(item); }}
                         title={item.name}
-                        className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
+                        className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
                       >
                         {item.name}
                       </button>

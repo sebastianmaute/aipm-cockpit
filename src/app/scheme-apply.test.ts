@@ -17,19 +17,19 @@ describe("scheme-apply", () => {
   });
 
   it("sets inline CSS vars for each token and clears them with null", () => {
-    applySchemeColors({ "--AIPM-green": "#123456", "--background": "#abcdef" });
-    expect(document.documentElement.style.getPropertyValue("--AIPM-green")).toBe("#123456");
+    applySchemeColors({ "--ui-green": "#123456", "--background": "#abcdef" });
+    expect(document.documentElement.style.getPropertyValue("--ui-green")).toBe("#123456");
     expect(document.documentElement.style.getPropertyValue("--background")).toBe("#abcdef");
 
     applySchemeColors(null);
-    expect(document.documentElement.style.getPropertyValue("--AIPM-green")).toBe("");
+    expect(document.documentElement.style.getPropertyValue("--ui-green")).toBe("");
     expect(document.documentElement.style.getPropertyValue("--background")).toBe("");
   });
 
   it("round-trips the active color map through localStorage", () => {
-    writeActiveSchemeColors({ "--AIPM-green": "#123456" });
-    expect(localStorage.getItem(ACTIVE_SCHEME_COLORS_KEY)).toContain("--AIPM-green");
-    expect(readActiveSchemeColors()).toEqual({ "--AIPM-green": "#123456" });
+    writeActiveSchemeColors({ "--ui-green": "#123456" });
+    expect(localStorage.getItem(ACTIVE_SCHEME_COLORS_KEY)).toContain("--ui-green");
+    expect(readActiveSchemeColors()).toEqual({ "--ui-green": "#123456" });
   });
 
   it("readActiveSchemeColors returns null on missing/garbage", () => {
@@ -42,13 +42,13 @@ describe("scheme-apply", () => {
     localStorage.setItem(
       ACTIVE_SCHEME_COLORS_KEY,
       JSON.stringify({
-        "--AIPM-green": "#123456", // valid → kept
+        "--ui-green": "#123456", // valid → kept
         "--surface": "url(https://evil/x)", // non-hex → dropped
         "background:red;--x": "#ffffff", // non-token key → dropped
         "--line": "not-a-hex", // non-hex → dropped
       }),
     );
-    expect(readActiveSchemeColors()).toEqual({ "--AIPM-green": "#123456" });
+    expect(readActiveSchemeColors()).toEqual({ "--ui-green": "#123456" });
   });
 
   it("round-trips the dark-capable boot flag and clears it when false", () => {
@@ -62,9 +62,9 @@ describe("scheme-apply", () => {
   });
 
   it("clearing replaces the previous inline override set (no stale tokens)", () => {
-    applySchemeColors({ "--AIPM-green": "#111111", "--line": "#222222" });
-    applySchemeColors({ "--AIPM-green": "#333333" });
-    expect(document.documentElement.style.getPropertyValue("--AIPM-green")).toBe("#333333");
+    applySchemeColors({ "--ui-green": "#111111", "--line": "#222222" });
+    applySchemeColors({ "--ui-green": "#333333" });
+    expect(document.documentElement.style.getPropertyValue("--ui-green")).toBe("#333333");
     expect(document.documentElement.style.getPropertyValue("--line")).toBe("");
   });
 
@@ -74,7 +74,7 @@ describe("scheme-apply", () => {
       "transparent",
       "0",
       "0.125rem 0.375rem",
-      "var(--AIPM-green)",
+      "var(--ui-green)",
       "linear-gradient(90deg, var(--rag-red), var(--rag-amber), var(--rag-green))",
       "0 1px 3px rgba(0, 65, 89, 0.12), 0 1px 2px rgba(0, 65, 89, 0.08)",
       "#e6f2d8",

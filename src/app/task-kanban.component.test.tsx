@@ -68,8 +68,8 @@ describe("TaskKanban", () => {
         flashId={4}
       />,
     );
-    expect(screen.getByTestId("kanban-card-4").className).toContain("outline-AIPM-green");
-    expect(screen.getByTestId("kanban-card-5").className).not.toContain("outline-AIPM-green");
+    expect(screen.getByTestId("kanban-card-4").className).toContain("outline-ui-green");
+    expect(screen.getByTestId("kanban-card-5").className).not.toContain("outline-ui-green");
   });
   it("no card is outlined when flashId is omitted", () => {
     render(
@@ -80,7 +80,7 @@ describe("TaskKanban", () => {
         onEdit={vi.fn()}
       />,
     );
-    expect(screen.getByTestId("kanban-card-4").className).not.toContain("outline-AIPM-green");
+    expect(screen.getByTestId("kanban-card-4").className).not.toContain("outline-ui-green");
   });
   // Inline "Ask Claude" (SP1 board wiring): the board must not crash on a
   // RAID-linked card (renders OUTSIDE RowContextProvider) AND must surface the

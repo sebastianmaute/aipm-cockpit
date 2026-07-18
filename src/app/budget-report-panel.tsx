@@ -271,7 +271,7 @@ function BucketDetailTable({
               sorted.map((r) => (
                 <tr key={r.bucketId}>
                   <td className="px-2 py-2"><RagBadge value={ratioHealth(r.consumedValue, r.budgetValue)} lang={lang} title={t(lang, "budgetRoleStatus")} /></td>
-                  <td className="px-3 py-2 font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">{r.name}</td>
+                  <td className="px-3 py-2 font-medium text-ui-dark-blue dark:text-ui-light-grey">{r.name}</td>
                   <td className="px-3 py-2">{r.modeLabel}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.typeLabel}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.statusLabel}</td>

@@ -56,7 +56,7 @@ export function BackendConfigModal({
       onClose={onClose}
       ariaLabelledby={TITLE_ID}
       align="center"
-      backdropClassName="bg-AIPM-dark-blue/40"
+      backdropClassName="bg-ui-dark-blue/40"
       zIndex={60}
     >
       <div

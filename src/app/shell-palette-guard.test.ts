@@ -39,7 +39,7 @@ describe("shell palette guard", () => {
       expect(HEX_IN_CLASS.test(cls)).toBe(true);
     });
 
-    it.each(["bg-AIPM-green", "text-white", "from-AIPM-dark-blue", "border-line"])(
+    it.each(["bg-ui-green", "text-white", "from-ui-dark-blue", "border-line"])(
       "allows palette token %s",
       (cls) => {
         expect(HEX_IN_CLASS.test(cls)).toBe(false);

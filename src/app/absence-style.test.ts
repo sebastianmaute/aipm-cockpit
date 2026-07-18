@@ -6,21 +6,21 @@ describe("absence-style", () => {
     // These strings are BYTE-IDENTICAL to the resource-calendar originals; the
     // calendar imports them, so the two surfaces can never drift.
     expect(absenceBg("vacation")).toBe(
-      "bg-AIPM-blue/30 hover:bg-AIPM-blue/40 dark:bg-AIPM-blue/25 dark:hover:bg-AIPM-blue/35",
+      "bg-ui-blue/30 hover:bg-ui-blue/40 dark:bg-ui-blue/25 dark:hover:bg-ui-blue/35",
     );
     expect(absenceBg("sick")).toBe(
-      "bg-AIPM-pink/30 hover:bg-AIPM-pink/40 dark:bg-AIPM-pink/25 dark:hover:bg-AIPM-pink/35",
+      "bg-ui-pink/30 hover:bg-ui-pink/40 dark:bg-ui-pink/25 dark:hover:bg-ui-pink/35",
     );
     expect(absenceBg("training")).toBe(
-      "bg-AIPM-purple/30 hover:bg-AIPM-purple/40 dark:bg-AIPM-purple/25 dark:hover:bg-AIPM-purple/35",
+      "bg-ui-purple/30 hover:bg-ui-purple/40 dark:bg-ui-purple/25 dark:hover:bg-ui-purple/35",
     );
     expect(absenceBg("other")).toBe(
-      "bg-AIPM-medium-grey/45 hover:bg-AIPM-medium-grey/55 dark:bg-AIPM-medium-grey/35 dark:hover:bg-AIPM-medium-grey/45",
+      "bg-ui-medium-grey/45 hover:bg-ui-medium-grey/55 dark:bg-ui-medium-grey/35 dark:hover:bg-ui-medium-grey/45",
     );
   });
 
   it("gives the sick type a pink token background", () => {
-    expect(absenceBg("sick")).toContain("bg-AIPM-pink/30");
+    expect(absenceBg("sick")).toContain("bg-ui-pink/30");
   });
 
   it("maps each absence type to its single-letter glyph", () => {
@@ -31,9 +31,9 @@ describe("absence-style", () => {
   });
 
   it("provides resting-state legend swatch tints per type", () => {
-    expect(absenceLegendBg("vacation")).toBe("bg-AIPM-blue/30 dark:bg-AIPM-blue/25");
-    expect(absenceLegendBg("sick")).toBe("bg-AIPM-pink/30 dark:bg-AIPM-pink/25");
-    expect(absenceLegendBg("training")).toBe("bg-AIPM-purple/30 dark:bg-AIPM-purple/25");
-    expect(absenceLegendBg("other")).toBe("bg-AIPM-medium-grey/45 dark:bg-AIPM-medium-grey/35");
+    expect(absenceLegendBg("vacation")).toBe("bg-ui-blue/30 dark:bg-ui-blue/25");
+    expect(absenceLegendBg("sick")).toBe("bg-ui-pink/30 dark:bg-ui-pink/25");
+    expect(absenceLegendBg("training")).toBe("bg-ui-purple/30 dark:bg-ui-purple/25");
+    expect(absenceLegendBg("other")).toBe("bg-ui-medium-grey/45 dark:bg-ui-medium-grey/35");
   });
 });

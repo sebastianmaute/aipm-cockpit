@@ -129,7 +129,7 @@ export function StakeholderRecipientInput({
       <div ref={rootRef} className="relative">
         {/* Token container + inline input */}
         <div
-          className="flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 text-sm focus-within:border-AIPM-dark-blue focus-within:ring-1 focus-within:ring-AIPM-green"
+          className="flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 text-sm focus-within:border-ui-dark-blue focus-within:ring-1 focus-within:ring-ui-green"
           onClick={() => inputRef.current?.focus()}
         >
           {value.map((name) => {
@@ -139,14 +139,14 @@ export function StakeholderRecipientInput({
             return (
               <span
                 key={name}
-                className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey"
+                className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey"
                 title={isKnown ? "known stakeholder" : undefined}
                 data-known={isKnown ? "true" : undefined}
               >
                 {isKnown && (
                   <span
                     aria-hidden="true"
-                    className="h-1.5 w-1.5 rounded-full bg-AIPM-green"
+                    className="h-1.5 w-1.5 rounded-full bg-ui-green"
                   />
                 )}
                 {name}
@@ -157,7 +157,7 @@ export function StakeholderRecipientInput({
                     remove(name);
                   }}
                   aria-label={`Remove ${name}`}
-                  className={`-mr-1 rounded-full text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
+                  className={`-mr-1 rounded-full text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
                 >
                   <svg
                     viewBox="0 0 20 20"

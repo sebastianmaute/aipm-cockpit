@@ -198,7 +198,7 @@ export function ResourcePicker({
           aria-activedescendant={open && rows.length ? `${listboxId}-opt-${highlight}` : undefined}
           aria-autocomplete="list"
           className={`w-full rounded-md border bg-surface px-3 py-2 text-sm text-foreground disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted-foreground ${FOCUS_RING} ${TRANSITION} ${
-            linked ? "border-AIPM-green pr-8" : dangling ? "border-AIPM-pink pr-8" : "border-line"
+            linked ? "border-ui-green pr-8" : dangling ? "border-ui-pink pr-8" : "border-line"
           }`}
         />
         {(linked || dangling) && (
@@ -213,7 +213,7 @@ export function ResourcePicker({
             aria-label={t(lang, "resourcePickerUnlink")}
             title={linked ? t(lang, "resourcePickerLinked") : t(lang, "resourcePickerUnlink")}
             className={`absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 ${
-              linked ? "text-AIPM-green-strong" : "text-AIPM-pink-strong"
+              linked ? "text-ui-green-strong" : "text-ui-pink-strong"
             } hover:bg-surface-muted ${INTERACTIVE}`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5">
@@ -265,13 +265,13 @@ export function ResourcePicker({
                     className={`flex w-full min-w-0 flex-col items-start text-left ${INTERACTIVE}`}
                   >
                     {row.kind === "add" ? (
-                      <span className="font-medium text-AIPM-green-strong">
+                      <span className="font-medium text-ui-green-strong">
                         {t(lang, "resourcePickerAddAsResource").replace("{0}", row.name)}
                       </span>
                     ) : (
                       <>
                         <span className="flex items-center gap-1.5 truncate font-medium text-foreground">
-                          {row.kind === "resource" && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-AIPM-green" />}
+                          {row.kind === "resource" && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-ui-green" />}
                           {row.name}
                         </span>
                         {row.email && <span className="truncate text-xs text-muted-foreground">{row.email}</span>}

@@ -658,7 +658,7 @@ function ChatPanelInner({
                   <button
                     type="button"
                     onClick={unlockApiKey}
-                    className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
+                    className={`rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
                   >
                     {t(lang, "secretUnlock")}
                   </button>
@@ -683,7 +683,7 @@ function ChatPanelInner({
                           ? submitPrompt(t(lang, chip.bodyKey))
                           : setInput(t(lang, chip.bodyKey))
                       }
-                      className={`rounded-full border border-AIPM-dark-blue/40 bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-AIPM-dark-blue/10 focus:outline-none focus:ring-2 focus:ring-AIPM-dark-blue/50 dark:border-AIPM-dark-blue/60 dark:text-AIPM-dark-blue dark:hover:bg-AIPM-dark-blue/20 ${TRANSITION} ${PRESS}`}
+                      className={`rounded-full border border-ui-dark-blue/40 bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue hover:bg-ui-dark-blue/10 focus:outline-none focus:ring-2 focus:ring-ui-dark-blue/50 dark:border-ui-dark-blue/60 dark:text-ui-dark-blue dark:hover:bg-ui-dark-blue/20 ${TRANSITION} ${PRESS}`}
                     >
                       {t(lang, chip.labelKey)}
                     </button>
@@ -702,7 +702,7 @@ function ChatPanelInner({
               <li key={idx}>
                 {item.kind === "user" && (
                   <div className="flex justify-end">
-                    <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-AIPM-dark-blue px-3 py-2 text-sm text-white">
+                    <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-ui-dark-blue px-3 py-2 text-sm text-white">
                       {item.text}
                     </div>
                   </div>
@@ -750,7 +750,7 @@ function ChatPanelInner({
                   onClick={stopChat}
                   aria-label={t(lang, "chatStopGenerating")}
                   title={t(lang, "chatStopGenerating")}
-                  className={`rounded-md border border-AIPM-pink px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
+                  className={`rounded-md border border-ui-pink px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-ui-pink/10 ${INTERACTIVE}`}
                 >
                   {t(lang, "chatStop")}
                 </button>
@@ -768,7 +768,7 @@ function ChatPanelInner({
             onClick={() => setError(null)}
             aria-label={t(lang, "dismiss")}
             title={t(lang, "dismiss")}
-            className={`shrink-0 rounded px-1 font-semibold hover:text-AIPM-pink ${INTERACTIVE}`}
+            className={`shrink-0 rounded px-1 font-semibold hover:text-ui-pink ${INTERACTIVE}`}
           >
             ×
           </button>
@@ -780,7 +780,7 @@ function ChatPanelInner({
           {attachments.map((a) => (
             <li
               key={a.id}
-              className="flex items-center justify-between gap-2 rounded-md border border-AIPM-dark-blue/40 bg-surface px-2 py-1 text-xs text-foreground"
+              className="flex items-center justify-between gap-2 rounded-md border border-ui-dark-blue/40 bg-surface px-2 py-1 text-xs text-foreground"
             >
               <span className="flex min-w-0 items-center gap-1">
                 <span aria-hidden>📎</span>
@@ -791,7 +791,7 @@ function ChatPanelInner({
                 onClick={() => removeAttachment(a.id)}
                 aria-label={t(lang, "chatAttachmentRemove", a.name)}
                 title={t(lang, "chatAttachmentRemove", a.name)}
-                className={`shrink-0 rounded px-1 font-semibold text-muted-foreground hover:text-AIPM-pink-strong ${INTERACTIVE}`}
+                className={`shrink-0 rounded px-1 font-semibold text-muted-foreground hover:text-ui-pink-strong ${INTERACTIVE}`}
               >
                 ×
               </button>
@@ -843,7 +843,7 @@ function ChatPanelInner({
               type="button"
               onClick={stopChat}
               aria-label={t(lang, "chatStop")}
-              className={`rounded-md bg-AIPM-pink px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
+              className={`rounded-md bg-ui-pink px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${INTERACTIVE}`}
             >
               {t(lang, "chatStop")}
             </button>
@@ -852,7 +852,7 @@ function ChatPanelInner({
               type="button"
               onClick={() => submitPrompt()}
               disabled={(!input.trim() && attachments.length === 0) || apiKeyMissing || guidesPending}
-              className={`rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+              className={`rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "chatSend")}
             </button>
@@ -894,14 +894,14 @@ function ConsentScreen({
     "aiConsentBullet6",
   ];
   return (
-    <div className="rounded-lg border border-AIPM-purple/40 bg-AIPM-purple/10 p-5 dark:border-AIPM-purple/50 dark:bg-AIPM-purple/15">
-      <h3 className="text-base font-semibold text-AIPM-purple-strong">
+    <div className="rounded-lg border border-ui-purple/40 bg-ui-purple/10 p-5 dark:border-ui-purple/50 dark:bg-ui-purple/15">
+      <h3 className="text-base font-semibold text-ui-purple-strong">
         {t(lang, "aiConsentTitle")}
       </h3>
-      <p className="mt-2 text-sm text-AIPM-purple-strong">
+      <p className="mt-2 text-sm text-ui-purple-strong">
         {t(lang, "aiConsentNotAccepted")}
       </p>
-      <ul className="mt-3 space-y-2 text-sm text-AIPM-purple-strong">
+      <ul className="mt-3 space-y-2 text-sm text-ui-purple-strong">
         {bullets.map((k) => (
           <li key={k} className="flex gap-2">
             <span aria-hidden className="mt-0.5">
@@ -916,12 +916,12 @@ function ConsentScreen({
           href={POLICY_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-AIPM-purple-strong underline underline-offset-2 hover:text-AIPM-purple-strong/80"
+          className="font-medium text-ui-purple-strong underline underline-offset-2 hover:text-ui-purple-strong/80"
         >
           {t(lang, "aiConsentPolicyLink")} ↗
         </a>
       </p>
-      <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-AIPM-purple-strong">
+      <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm text-ui-purple-strong">
         <Checkbox
           checked={policyAccepted}
           onChange={(e) => setPolicyAccepted(e.target.checked)}
@@ -934,7 +934,7 @@ function ConsentScreen({
           type="button"
           onClick={onAccept}
           disabled={!policyAccepted}
-          className={`rounded-md bg-AIPM-purple px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-purple/90 focus:outline-none focus:ring-2 focus:ring-AIPM-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${PRESS}`}
+          className={`rounded-md bg-ui-purple px-4 py-2 text-sm font-medium text-white hover:bg-ui-purple/90 focus:outline-none focus:ring-2 focus:ring-ui-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${TRANSITION} ${PRESS}`}
         >
           {t(lang, "aiConsentAccept")}
         </button>
@@ -964,7 +964,7 @@ function ToolBlock({
         onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}
         className={`max-w-[85%] rounded-lg border px-3 py-2 text-xs ${
           error
-            ? "border-AIPM-pink/40 bg-AIPM-pink/10 text-AIPM-dark-blue dark:border-AIPM-pink/50 dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey"
+            ? "border-ui-pink/40 bg-ui-pink/10 text-ui-dark-blue dark:border-ui-pink/50 dark:bg-ui-pink/15 dark:text-ui-light-grey"
             : "border-line bg-surface text-foreground"
         }`}
       >

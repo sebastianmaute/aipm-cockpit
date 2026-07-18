@@ -229,7 +229,7 @@ export function ReportsPanel({
         const id = e.target.value as AddableReportId;
         if (id) onChangeExtraReports?.([...extraReports, id]);
       }}
-      className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
+      className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
     >
       {/* Options carry explicit readable colors: the select's white text would
           otherwise render white-on-white in Chrome's open dropdown popup. */}
@@ -525,18 +525,18 @@ export function ReportsPanel({
                   }}
                   aria-label={t(lang, "reportReorderHandle")}
                   title={t(lang, "reportReorderHandle")}
-                  className="cursor-grab touch-none select-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green print:hidden"
+                  className="cursor-grab touch-none select-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:hidden"
                 >
                   ⠿
                 </button>
-                <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, meta.titleKey)}</h3>
+                <h3 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, meta.titleKey)}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => onChangeExtraReports?.(extraReports.filter((x) => x !== id))}
                 aria-label={removeLabel}
                 title={removeLabel}
-                className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
+                className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted print:hidden ${INTERACTIVE}`}
               >
                 ×
               </button>

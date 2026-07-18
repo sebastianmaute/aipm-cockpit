@@ -71,7 +71,7 @@ function DisclaimerModal({ lang, open, onAck }: { lang: Lang; open: boolean; onA
           <button
             type="button"
             onClick={onAck}
-            className={`rounded-md border border-line bg-AIPM-green px-4 py-1.5 text-xs font-medium text-foreground ${INTERACTIVE}`}
+            className={`rounded-md border border-line bg-ui-green px-4 py-1.5 text-xs font-medium text-foreground ${INTERACTIVE}`}
           >
             {t(lang, "disclaimerAck")}
           </button>

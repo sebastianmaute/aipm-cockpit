@@ -40,11 +40,11 @@ function nextMaxId(items: ReadonlyArray<{ id: number }>): number {
 }
 
 const BTN_PRIMARY =
-  "rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90";
+  "rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90";
 const BTN_SECONDARY =
   "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60";
 const INPUT_CLASS =
-  "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green";
+  "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-1 focus:ring-ui-green";
 
 function DeleteCell({ lang, onClick, label }: { lang: Lang; onClick: () => void; label: string }) {
   return (

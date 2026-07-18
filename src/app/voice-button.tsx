@@ -117,9 +117,9 @@ export function VoiceCommandButton({
           : t(lang, "voiceUnsupported")
       }
       disabled={!supported}
-      className={`rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-AIPM-green disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-ui-green disabled:cursor-not-allowed disabled:opacity-50 ${
         listening
-          ? "animate-pulse bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey"
+          ? "animate-pulse bg-ui-pink/15 text-ui-dark-blue dark:bg-ui-pink/20 dark:text-ui-light-grey"
           : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       }`}
     >

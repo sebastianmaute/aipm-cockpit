@@ -16,11 +16,11 @@ describe("CI-style role tokens", () => {
     expect(css).not.toContain(':root[data-style="mockup"]');
   });
   it("Harbor role values are the brand-default fallback", () => {
-    expect(rootBlock).toMatch(/--table-head-bg:\s*var\(--AIPM-dark-blue\)/);
+    expect(rootBlock).toMatch(/--table-head-bg:\s*var\(--ui-dark-blue\)/);
     expect(rootBlock).toMatch(/--table-head-fg:\s*#ffffff/);
     expect(rootBlock).toMatch(/--shadow-card:\s*none/);
     expect(rootBlock).toMatch(/--shadow-control:\s*none/);
-    expect(rootBlock).toMatch(/--gradient-kpi:\s*var\(--AIPM-green\)/);
+    expect(rootBlock).toMatch(/--gradient-kpi:\s*var\(--ui-green\)/);
     expect(rootBlock).toMatch(/--rag-red:\s*#d24a4a/);
     expect(rootBlock).toMatch(/--rag-amber:\s*#cf8a1c/);
     expect(rootBlock).toMatch(/--rag-green:\s*#2f9d70/);
@@ -34,7 +34,7 @@ describe("CI-style role tokens", () => {
     expect(rootBlock).toMatch(/--rag-red-chip:\s*transparent/);
     expect(rootBlock).toMatch(/--delta-chip-pad:\s*0/);
     expect(rootBlock).toMatch(/--segment-track-bg:\s*#eef2f6/);
-    expect(rootBlock).toMatch(/--segment-active-bg:\s*var\(--AIPM-dark-blue\)/);
+    expect(rootBlock).toMatch(/--segment-active-bg:\s*var\(--ui-dark-blue\)/);
     expect(rootBlock).toMatch(/--segment-active-fg:\s*#ffffff/);
   });
   it("maps the role tokens into the @theme block", () => {

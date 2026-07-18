@@ -50,7 +50,7 @@ export function MilestoneHorizonStrip({ lang, buckets, onOpenMilestone }: Milest
                     <button
                       type="button"
                       onClick={() => onOpenMilestone(e.milestone.id)}
-                      className={`inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue ${INTERACTIVE}`}
+                      className={`inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-foreground hover:bg-surface-muted hover:border-ui-dark-blue ${INTERACTIVE}`}
                     >
                       {alert && (
                         <span aria-hidden="true">

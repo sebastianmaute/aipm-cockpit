@@ -182,7 +182,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   onClear();
               }}
               title={t(lang, "activityClearHint")}
-              className={`rounded-md border border-AIPM-pink/50 bg-surface px-2.5 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
+              className={`rounded-md border border-ui-pink/50 bg-surface px-2.5 py-1 text-xs font-medium text-ui-pink-strong hover:bg-ui-pink/10 ${INTERACTIVE}`}
             >
               {t(lang, "activityClear")}
             </button>
@@ -202,12 +202,12 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             aria-invalid={matcher?.invalid ? true : undefined}
             className={`w-full rounded-md border bg-surface px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 ${
               matcher?.invalid
-                ? "border-AIPM-pink focus:border-AIPM-pink focus:ring-AIPM-pink"
-                : "border-line focus:border-AIPM-dark-blue focus:ring-AIPM-green"
+                ? "border-ui-pink focus:border-ui-pink focus:ring-ui-pink"
+                : "border-line focus:border-ui-dark-blue focus:ring-ui-green"
             }`}
           />
           {matcher?.invalid && (
-            <span className="absolute -bottom-4 left-1 text-[10px] text-AIPM-pink-strong">
+            <span className="absolute -bottom-4 left-1 text-[10px] text-ui-pink-strong">
               {t(lang, "activitySearchInvalidRegex")}
             </span>
           )}
@@ -262,7 +262,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("timestamp")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderWhen"))}
-                    className={`cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green ${INTERACTIVE}`}
+                    className={`cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-ui-green ${INTERACTIVE}`}
                   >
                     {t(lang, "activityHeaderWhen")}
                     {sortIndicator("timestamp")}
@@ -277,7 +277,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("kind")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderKind"))}
-                    className={`cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green ${INTERACTIVE}`}
+                    className={`cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-ui-green ${INTERACTIVE}`}
                   >
                     {t(lang, "activityHeaderKind")}
                     {sortIndicator("kind")}
@@ -292,7 +292,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     type="button"
                     onClick={() => toggleSort("message")}
                     title={t(lang, "sortBy", t(lang, "activityHeaderMessage"))}
-                    className={`cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-AIPM-green ${INTERACTIVE}`}
+                    className={`cursor-pointer select-none text-left text-xs uppercase tracking-wide hover:text-ui-green ${INTERACTIVE}`}
                   >
                     {t(lang, "activityHeaderMessage")}
                     {sortIndicator("message")}

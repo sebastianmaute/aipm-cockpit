@@ -72,11 +72,11 @@ export function TrendChart({
         )}
         {segments.map((s, i) => (
           <line key={`s${i}`} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
-            className="stroke-AIPM-dark-blue" strokeWidth={2}
+            className="stroke-ui-dark-blue" strokeWidth={2}
             strokeDasharray={s.dashed ? "4 3" : undefined} />
         ))}
         <polyline points={points.map((p, i) => `${xAt(i, n).toFixed(1)},${yAt(p.value, min, max).toFixed(1)}`).join(" ")}
-          fill="none" className="stroke-AIPM-dark-blue" strokeWidth={0} aria-hidden="true" />
+          fill="none" className="stroke-ui-dark-blue" strokeWidth={0} aria-hidden="true" />
         {points.map((p, i) => (
           <text key={`x${i}`} x={xAt(i, n)} y={baseY + 12}
             textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}

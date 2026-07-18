@@ -269,7 +269,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `action-reasons.tsx` = shared +N-reasons expander. Escalate/Rebaseline/Reschedule popovers + the assign button take a
   `prominent?` prop (hero = filled+larger via `action-cta-styles.ts` `popoverTriggerClass`; rows pass nothing → unchanged
   ghost). Source icon/pill GONE — source label is a bold prefix in the why-line; numeric score is `expertMode`-only.
-  ★★ `--rag-amber-text` (=AIPM-purple / a brown) is AA ONLY on LIGHT AIPM — as SMALL text on `bg-surface` it FAILS AA on
+  ★★ `--rag-amber-text` (=ui-purple / a brown) is AA ONLY on LIGHT AIPM — as SMALL text on `bg-surface` it FAILS AA on
   dark+mockup (3.5/4.4:1). Tier colour MUST ride the DOT/STRIPE (non-text, AA-exempt), never tinted small text (bit the
   tier count + hero eyebrow; both now muted). ★ the `actions` (Next actions) view is now in axe `A11Y_VIEWS` (hash-nav in
   `e2e/a11y.spec.ts` — Dashboard sub-child, sidebar entry may be collapsed at scan time).
@@ -292,7 +292,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   editor controls/heading wire into the modal header/footer. ★ The Delete button lives footer-LEFT +
   pink/destructive (mirrors `change-edit-modal`) via exported `TaskDeleteButton` (`task-editor-actions.tsx`);
   `TaskFormModal` takes a `deleteAction` prop (the old `TaskEditView` `footerLeading` path is gone).
-  Dark-mode hover uses `dark:hover:bg-AIPM-pink/5`.
+  Dark-mode hover uses `dark:hover:bg-ui-pink/5`.
 - **Task status model:** `Task.status` (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the
   SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
   **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
@@ -318,7 +318,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   handled-ref to the LIVE nonce is the remount-SWALLOW trap — a voice-clear fired from a non-Tasks view
   (TasksSection unmounted) is silently DROPPED; sentinel-seed + parent-clear for any "works-from-any-view" req. All saved-views controls (`panel-views-control`/
   `saved-views-control`/`reports-views-control`) use the standard `FOCUS_RING` (ring-2) — a bare
-  `focus:ring-AIPM-green` sets colour only (no width) and is invisible.
+  `focus:ring-ui-green` sets colour only (no width) and is invisible.
 - **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
   component is **`task-kanban-board.tsx`** — NOT `task-kanban.tsx` (the pure `task-kanban.ts` engine
   shadows a `.tsx` sibling via `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card
@@ -348,7 +348,7 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   markup-ORDER source test reads `gantt-chrome.tsx` (toolbar markup moved there), not `gantt.tsx`.
   ★ The name-column resize handle (in `GanttHeader`, `gantt-chrome.tsx`) renders the SAME 3-dot ⋮ grip
   glyph as the Open Points table but tuned for the LIGHT `bg-surface-muted` header (`text-muted-foreground/60`
-  + `hover:bg-AIPM-dark-blue/10` + `hover:text-AIPM-dark-blue`) — NOT the shared `ColumnResizeHandle` (which
+  + `hover:bg-ui-dark-blue/10` + `hover:text-ui-dark-blue`) — NOT the shared `ColumnResizeHandle` (which
   uses dark-header `table-head-*` tokens). It's `role="button"` + aria-label, mouse-only (`onMouseDown`); the
   SVG child is `aria-hidden` so the accessible name stays the aria-label.
 - **Reports module map:** `ReportsPanel` (`reports.tsx`) owns data + sort/column-resize state; pure
@@ -505,7 +505,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `[]` (card hidden). Pure: `today`+counts passed in; percents clamped 0–100; future-dated + non-task events
   ignored; trailing cap `MAX_POINTS=12`. ★ ALWAYS-ON, no `tursoConfig` guard — on file/IDB `snapshots` is
   `[]` so the log path runs automatically (reads snapshots opportunistically, never WRITES). Presentational
-  `sparkline.tsx` (pure SVG `<polyline>`, `stroke-AIPM-dark-blue`, null for <2 points; optional `ariaLabel`
+  `sparkline.tsx` (pure SVG `<polyline>`, `stroke-ui-dark-blue`, null for <2 points; optional `ariaLabel`
   prop → SVG gets `role="img"`+`aria-label`, else `aria-hidden` decorative — name rides the GRAPHIC, not the
   bare card div). ★ New optional `DashboardPanel` prop `snapshots?` threaded from `trends.snapshots`; the
   panel ALREADY loads `activity` via `loadActivityLog()` (no activity prop). ★ series `useMemo` deps hoisted
@@ -548,7 +548,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   re-request re-fire) + `flashOutlineClass(isFlashed)`. Each of the five deep-linkable panels
   (raid/milestones/changes/stakeholders/tasks) attaches `containerRef` to its `overflow-auto` scroll
   container and adds `data-deeplink-row={id}` + `flashOutlineClass(flashId===id)` to rows; static
-  `outline-AIPM-green` (no bg → never fights row `bg-*` state classes; palette-safe). Fires ALONGSIDE the
+  `outline-ui-green` (no bg → never fights row `bg-*` state classes; palette-safe). Fires ALONGSIDE the
   editor-open effect and does NOT clear `pendingOpen` (the panel's own effect does — both fire in the same
   commit; the side-effect is keyed on `flashId` NOT `pendingOpen` so `clearPendingOpen` can't cancel the
   scroll/auto-clear). ★ The Kanban **board** is ALSO wired: `tasks-section.tsx` threads the SAME
@@ -578,7 +578,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   i18n key is `searchGlobalPlaceholder` (`searchPlaceholder` was taken by the task-table search). ★ Document
   keydown FOCUS SHORTCUT (⌘K/Ctrl-K always; "/" only when no INPUT/TEXTAREA/SELECT/contentEditable is active;
   Escape blurs). Pure `search-highlight.ts` `splitHighlight(text,query)` (indexOf-based, NOT a RegExp from
-  input → no metachar/`/s`-flag traps) renders matched segments as `<mark class="bg-AIPM-green/20
+  input → no metachar/`/s`-flag traps) renders matched segments as `<mark class="bg-ui-green/20
   text-inherit">` in result title+subtitle, query-mode only. Pure `search-recents.ts` (per-device
   `aipm-cockpit:search-recents`, `MAX_RECENTS=8`, validated load, pure `pushRecent` dedupe+cap) — recents shown
   when the box is focused with an EMPTY query, FILTERED to items still present in the live workspace; OUT of
@@ -594,7 +594,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   sections, threaded handlers/state as props). RAID IS in axe `A11Y_VIEWS`.
 - **Shared edit-modal chrome (`edit-modal-chrome.tsx`):** three presentational atoms the change/raid/
   stakeholder edit modals repeated verbatim (top cross-file jscpd clones, TD-6): `ModalFieldError` (the
-  `<p role="alert">` AIPM-pink banner — caller keeps the `{error && …}` guard), `StakeholderChipPicker` (the
+  `<p role="alert">` ui-pink banner — caller keeps the `{error && …}` guard), `StakeholderChipPicker` (the
   linked-stakeholders checkbox chip list — caller keeps its own field-visibility gate; change + raid),
   `ModalEditFooter` (bordered footer, destructive delete left + cancel/submit right — change + stakeholder;
   takes `deleteConfirmKey`/`deleteLabelKey`/`deleteAriaLabelKey?`/`deleteDisabled`/`saveDisabled`/
@@ -703,7 +703,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   "Related:" links. The floating top-bar Help panel stays features-only via the
   derived `HELP_SECTIONS` (`help-sections.ts` was renamed to `help-content.ts`).
   ★★ `help-content-pane.tsx` (shared by the in-pane view AND the floating panel) renders each concept
-  as a CARD (`border-l-AIPM-dark-blue` stripe, no shadow) on a `bg-surface-muted` scroller, with a wider `w-56`
+  as a CARD (`border-l-ui-dark-blue` stripe, no shadow) on a `bg-surface-muted` scroller, with a wider `w-56`
   TOC driven by an `IntersectionObserver` SCROLL-SPY (effect dep = a hoisted scalar `sectionIdsKey` join, NOT an
   array; observer callback sets `activeId` — not render-phase setState). ★★ IN-PANE `HelpView` is its OWN TABBED
   surface: a `role=tablist` in the header beside the search box with tabs **Help · Guided tours · How it connects ·
@@ -754,7 +754,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   Presentational `relations-map.tsx` uses the ★★ OVERLAY technique: a `<ul>` of flow rows, each a dot
   `<span aria-hidden>` + a real `<button>` (keyboard-native, axe-clean interactive layer), plus a decorative
   `aria-hidden` `<svg viewBox="0 0 24 100">` in the LEFT GUTTER drawing edge `<path>` bezier curves (control-point
-  `bow` CLAMPED ≤11 so it stays in the viewBox; green when incident to the active node, else `stroke-line`). Local `useState(active)` from hover AND focus highlights incident edges (`stroke-AIPM-dark-blue`,
+  `bow` CLAMPED ≤11 so it stays in the viewBox; green when incident to the active node, else `stroke-line`). Local `useState(active)` from hover AND focus highlights incident edges (`stroke-ui-dark-blue`,
   dim the rest) + neighbour buttons; click → `onSelectConcept(id)` → HelpView `scrollToSection`. Concept-only —
   view navigation lives in the Related line: SP3 upgraded each entry's `relatedViews` from a plain italic `<span>`
   to a navigate `<button>` gated on a NEW OPTIONAL `HelpView` prop `onNavigateView?: (view:AppView)=>void` (optional
@@ -781,8 +781,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   Start/Replay CTA (`tourReplayCta` when completed — the card's `aria-label` tracks that verb, WCAG 2.5.3).
   Threaded task-manager → `WorkspaceSectionProps` (3 new OPTIONAL fields) → HelpView. `TourOverlay`
   gained an optional `tourTitleKey` label. Help is NOT in axe `A11Y_VIEWS` → catalog a11y eye-verified
-  (`tour-catalog` uses the `INTERACTIVE` atom + `text-AIPM-green-strong` for the ✓-Done badge — there is
-  NO `text-AIPM-green-text` utility token).
+  (`tour-catalog` uses the `INTERACTIVE` atom + `text-ui-green-strong` for the ✓-Done badge — there is
+  NO `text-ui-green-text` utility token).
   • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
   also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
   fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
@@ -795,7 +795,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (`useFocusTrap(ref, active, onEscape)`) is the app's FIRST real focus trap — ★★ `onEscape` MUST be a
   stable `useCallback` or the effect re-focuses the first element every render. **Mobile off-canvas drawer**
   (`modern-shell.tsx`, `<1024px` via `useMediaQuery(SIDEBAR_NARROW_QUERY)`): the hamburger opens the EXPANDED
-  sidebar as a `role=dialog aria-modal` overlay + backdrop (`bg-AIPM-dark-blue/50`) + trap; Escape/backdrop/nav
+  sidebar as a `role=dialog aria-modal` overlay + backdrop (`bg-ui-dark-blue/50`) + trap; Escape/backdrop/nav
   close. ★ drawer content UNMOUNTS when closed (no phantom off-screen tab stops); ★ a stale `drawerOpen` is
   reset via a render-time reconcile (`if (!isNarrow && drawerOpen) setDrawerOpen(false)` — NOT an effect);
   ★ `Sidebar` gained `toggleAriaLabel?` so the drawer relabels its toggle as the dialog CLOSE
@@ -803,7 +803,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (one trap at a time). **`CollapsedNavFlyout`** (`sidebar-nav.tsx`): a collapsed-rail parent-with-children
   becomes an `aria-haspopup` trigger opening a `usePopoverDismiss` popover of parent+children (roving arrows/
   Home/End, Escape→trigger) so nested views stay reachable from the icon rail; caret dot + collapsed urgency
-  dot (`bg-AIPM-medium-grey`/`bg-AIPM-pink`). **`resource-calendar.tsx`** is the app's FIRST `role=grid` 2-D
+  dot (`bg-ui-medium-grey`/`bg-ui-pink`). **`resource-calendar.tsx`** is the app's FIRST `role=grid` 2-D
   roving grid (Arrow ±day/±assignee, Home/End, Ctrl+Home/End, PageUp/Down ±7; ★ clamp-on-read `focusRow/
   focusCol` so a window shrink keeps EXACTLY one tab stop; keydown guards on `document.activeElement` being a
   `[data-cell]` so the assignee row-header keeps its own arrow keys; `default: return` before `preventDefault`
@@ -873,7 +873,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `:root[data-style=mockup]` CSS block (both REMOVED) — they now ride their SCHEME maps, and `globals.css`
   `:root` is the static AIPM-LIGHT no-JS fallback only. RAG flows through `health.ts` (`healthDot`/`healthText` →
   `--rag-*` / `--rag-*-text` token families (e.g. `bg-[var(--rag-red)]`, `text-[var(--rag-green-text)]`)). `--gradient-kpi` is APPLIED to the completion-% gauge
-  (`KpiGradientBar` in `report-table.tsx`, the Tile `bar` slot) — AIPM `var(--AIPM-green)` solid, Mockup the
+  (`KpiGradientBar` in `report-table.tsx`, the Tile `bar` slot) — AIPM `var(--ui-green)` solid, Mockup the
   red→amber→green gradient (inline `style`, the ONLY legal gradient path). It is the SOLE "more=better"
   visual; NEVER apply to effort/usage bars (more=worse — gradient inverts the signal). Shadows/gradients
   legal ONLY via tokens (e.g. `shadow-[var(--shadow-card)]` — use the `--shadow-*` token family); `shell-palette-guard` bans raw
@@ -881,34 +881,44 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★★ `shell-palette-guard` + `palette-chrome-sweep` scan the WHOLE SOURCE incl. COMMENTS: the bare word
   "shadow" or a literal `--shadow-card` in prose (a JSDoc/comment) trips RAW_SHADOW (only the
   `shadow-[var(--…)]` className form is stripped first) — reference the token obliquely in comments.
-  `bg`/`border`/`divide-AIPM-light-grey` + `text-AIPM-dark-grey` are BANNED chrome greys (`text-AIPM-light-grey`
-  is fine) — use `bg-AIPM-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
+  `bg`/`border`/`divide-ui-light-grey` + `text-ui-dark-grey` are BANNED chrome greys (`text-ui-light-grey`
+  is fine) — use `bg-ui-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
   EVERY shipped combo: AIPM-light, AIPM-dark, Mockup-light, Harbor(custom)-light, Harbor(custom)-dark
   (5 × A11Y_VIEWS), seeding
   `aipm-cockpit-style`/`aipm-cockpit-theme` via `addInitScript` — ★ Phase 2: it must ALSO seed `aipm-cockpit:color-schemes` `activeId`
   to the scheme under test, else `syncScheme` overwrites the boot paint on mount (scheme landmine 4). Appearance
   Style switch disables the theme control while Mockup (a light-only scheme) is active.
   ★★ ANY RAG-semantic color (status values, KPI deltas, win/loss, stacked-bar segments — NOT just the
-  dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-AIPM-green`/`-pink-strong`, or it
+  dots) MUST use the `--rag-*`/`--rag-*-text` tokens, never raw `text-ui-green`/`-pink-strong`, or it
   won't switch under Mockup (bit trend-arrow / reports-tables / StackedBar / budget / raid-report).
   ★★ Data-table header sort buttons (`report-table` SortHeaderButton, used by every `SortResizeTh` — now
   the Open Points table too, `SortableTh` was RETIRED into it) use `text-[var(--table-head-accent)]` for
-  active/hover — raw `text-AIPM-green` is sub-AA (2.03:1) on the
+  active/hover — raw `text-ui-green` is sub-AA (2.03:1) on the
   Mockup light header AND a blanket `.aipm-cockpit-thead button{color}` rule silently kills the sort affordance.
   ★★ A TRANSLUCENT role-token tint (`rgba(...)`) over a parent whose bg CHANGES on hover (e.g. a `Tile`
   button's `hover:bg-surface-muted`) RE-composites darker → its TEXT can drop below AA on hover. The axe
   gate scans RESTING state only, so it PASSES. Use OPAQUE pre-composited tints — `--rag-green-chip`/
   `--rag-red-chip` are opaque hex (NOT rgba) for exactly this (bit the KPI delta chips).
-  ★★ PURPLE TEXT on a purple tint needs `--AIPM-purple-strong` (light `#7a2d72`, dark `#d98cc8`), the AA
-  companion mirroring `AIPM-pink-strong`/`AIPM-green-strong` — plain `text-AIPM-purple` (#aa4899) on
-  `bg-AIPM-purple/10` is 3.6:1 (bit the AI-consent block). Bright `AIPM-purple` stays for fills/borders.
+  ★★ PURPLE TEXT on a purple tint needs `--ui-purple-strong` (light `#7a2d72`, dark `#d98cc8`), the AA
+  companion mirroring `ui-pink-strong`/`ui-green-strong` — plain `text-ui-purple` (#aa4899) on
+  `bg-ui-purple/10` is 3.6:1 (bit the AI-consent block). Bright `ui-purple` stays for fills/borders.
   ★★ A `-strong` text token tuned AA on `bg-surface` can still FAIL on the lighter `bg-surface-muted` —
-  dark `--AIPM-pink-strong` was bumped `#e5497c`→`#e96089` so overdue pink text clears AA on a Kanban
+  dark `--ui-pink-strong` was bumped `#e5497c`→`#e96089` so overdue pink text clears AA on a Kanban
   card (`bg-surface-muted`), not just on `bg-surface`. Brightening a dark text token only RAISES contrast.
   ★★ A STRUCTURAL style diff that must stay an AIPM no-op (padding/size, not color) can't ride a Tailwind
   class (a class isn't token-toggleable). Put it in a token applied via INLINE STYLE, gated on presence:
   e.g. `--delta-chip-pad` (AIPM `0` ⇒ byte-identical; Mockup pads the pill), `style={chip ? {padding:
   "var(--delta-chip-pad)"} : undefined}` — so AIPM is untouched AND a chip-less (flat) trend gets no empty bubble.
+  • **★★ RELEASE B (token rename, 0.190.23):** the palette token NAMES were renamed `AIPM-*`→`ui-*`
+  everywhere — Tailwind classes (`bg-AIPM-green`→`bg-ui-green`), CSS var names (`--AIPM-green`→`--ui-green`),
+  the `@theme` map (`--color-AIPM-*`→`--color-ui-*`), scheme registries (`CORE_TOKENS`/`VALID_TOKENS`/
+  `DERIVED_TOKENS`), the shipped `public/themes/*.json` color KEYS, and the palette guards. The 12 base
+  tokens are `ui-{dark-blue,green,green-strong,pink,pink-strong,purple,purple-strong,blue,white,dark-grey,
+  light-grey,medium-grey}`. The var NAMES + `@theme` MECHANISM are otherwise unchanged (only the prefix);
+  Phase-2 text below that says `--AIPM-*` now means `--ui-*`. PRESERVED (NOT renamed): `AIPM` (company /
+  theme display name), `Acme`/`AIPM-consult` (host/email), `public/themes/AIPM.json` + gallery id
+  `"AIPM"` (the AIPM THEME identity), `AIPM-logo`/`AIPM-icon` (asset classes). NO key migration — a stored/
+  exported scheme with legacy `--AIPM-*` color keys drops to the Harbor fallback (no active users).
   • **★★ RELEASE A (theme decouple, 0.190.22) SUPERSEDES the "FIVE built-ins" claim below:** AIPM + Mockup
   LEFT the code built-ins and now ship as self-contained importable theme files `public/themes/AIPM.json` +
   `mockup.json` (full portable format — light/dark/`structural`/branding/pinned AA tokens). `BUILTIN_SCHEMES` =
@@ -918,8 +928,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   AIPM/Dashboard are opt-in imports. NO migration (no active users) — an orphaned `activeId "AIPM"/"mockup"`
   Harbor-falls-back via reconcile. `ICC_SEED`/`MOCKUP_SEED` + their structural maps DELETED from
   `scheme-tokens.ts` (AA derivation uses a neutral `FALLBACK_SURFACE`); `globals.css :root` is now the
-  **Harbor-resolved-light** no-JS fallback (the `--AIPM-*` var NAMES + `@theme` map are UNCHANGED — a neutral
-  rename is the deferred Release B). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
+  **Harbor-resolved-light** no-JS fallback (the var NAMES are now `--ui-*` after Release B; `@theme` map
+  structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
   (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
   `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
   "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` now READS
@@ -980,7 +990,7 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   its light/dark map; derivation only fills gaps. Flipping back to derived-wins silently OVERWRITES AIPM/Mockup
   pinned `-strong`/`-text`/`muted-foreground`.
   (2) Mockup's `-strong` tokens were NOT overridden by the (now-removed) `:root[data-style=mockup]` CSS — they
-  cascaded from `:root` (AIPM). So `MOCKUP_LIGHT` MUST PIN `AIPM-green/pink/purple-strong` to
+  cascaded from `:root` (AIPM). So `MOCKUP_LIGHT` MUST PIN `ui-green/pink/purple-strong` to
   `#4d7000`/`#c41e5a`/`#7a2d72`, else `nudgeToAa` re-derives WRONG values (review-caught regression).
   (3) AIPM scheme maps FLATTEN tokens that were `var(--surface)` in globals (e.g. `--segment-track-bg`) —
   `ICC_SEED` hardcodes `#ffffff`; `ICC_DARK` MUST re-override `--segment-track-bg: #121619` (dark surface) or
@@ -1066,15 +1076,15 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   scan, so a responsive break slips CI — eye-check new metric strips at ~375px.
 - **Interaction-state atoms (`interaction-styles.ts`):** pure class-string consts every interactive control
   composes so hover/focus/press read identically app-wide — `FOCUS_RING` (canonical
-  `focus:outline-none focus:ring-2 focus:ring-AIPM-green`), `TRANSITION` (`transition-colors duration-150`),
+  `focus:outline-none focus:ring-2 focus:ring-ui-green`), `TRANSITION` (`transition-colors duration-150`),
   `PRESS` (`active:translate-y-px`), and `INTERACTIVE` = all three. Palette-safe by construction (no color but
   the brand ring; no shadow/gradient). ★ Apply ADDITIVELY — append the atom AFTER the control's own color
   classes; convert a plain-string `className` to a template literal. ★ Buttons get `${INTERACTIVE}`; FORM
   FIELDS (`<input>`/`<select>`/`<textarea>`) get `${FOCUS_RING} ${TRANSITION}` ONLY — never PRESS (a 1px
   translate on a field is wrong). ★ A control that ALREADY has a complete `focus:ring-2` keeps it — add motion
   only (`${TRANSITION} ${PRESS}`), don't re-add the ring. ★★ Do NOT override a BESPOKE SEMANTIC focus ring
-  (invalid-state `AIPM-pink`, consent `AIPM-purple`, critical-path toggle) with the green `FOCUS_RING` — leave
-  those, add motion only. ★ Weak legacy `focus:ring-1 focus:ring-AIPM-green` fragments are normalized to the
+  (invalid-state `ui-pink`, consent `ui-purple`, critical-path toggle) with the green `FOCUS_RING` — leave
+  those, add motion only. ★ Weak legacy `focus:ring-1 focus:ring-ui-green` fragments are normalized to the
   `ring-2` standard. The shared report/table primitives (`Tile`/`SortHeaderButton`/`TableFilter` in
   `report-table.tsx`, `task-manager-ui.tsx` tabs/reset/print/sort) already carry the atoms.
 - **Empty + loading primitives:** `empty-state.tsx` `EmptyState` (presentational; `title`/`description`/
@@ -1091,8 +1101,8 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   NOT filtered-empty), render a full-width clickable dashed `<button>` that adds the first item — NOT the
   `EmptyState` primitive. Style (shared by budget · gantt · milestones · changes · stakeholders · raid · open-points):
   `flex w-full flex-col items-center gap-2 rounded-(lg|md) border border-dashed border-line p-(6|10)
-  text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue
-  dark:hover:text-AIPM-light-grey ${INTERACTIVE}` with two spans: the descriptive empty text + a
+  text-center text-sm text-muted-foreground hover:border-ui-dark-blue hover:text-ui-dark-blue
+  dark:hover:text-ui-light-grey ${INTERACTIVE}` with two spans: the descriptive empty text + a
   `font-medium` "+ <Add X>…" line; `onClick` = the panel's create handler (`openNew`/`addBucket`/`onAddTask`/
   `setTaskModalOpen(true)`). ★★ NO SOLID OUTER BOX: the box sits UNWRAPPED (gantt look) — the panel's
   bordered scroller (`INNER_TABLE_CLASS` / `rounded-(md|xl) border border-line`) is made CONDITIONAL

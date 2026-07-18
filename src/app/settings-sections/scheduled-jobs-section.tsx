@@ -105,7 +105,7 @@ function JobRow({
           onClick={() => onDelete(job.id)}
           disabled={busy}
           aria-label={`${t(lang, "delete")} – ${job.name}`}
-          className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted disabled:opacity-50 ${INTERACTIVE}`}
+          className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "delete")}
         </button>
@@ -260,7 +260,7 @@ export function ScheduledJobsSection({ lang, settings, onChange, config }: Sched
                 type="button"
                 onClick={addJob}
                 disabled={busy}
-                className={`self-start rounded-md border border-line bg-AIPM-green px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+                className={`self-start rounded-md border border-line bg-ui-green px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "scheduledJobsAdd")}
               </button>

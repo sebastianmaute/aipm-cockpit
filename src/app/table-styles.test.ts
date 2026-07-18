@@ -5,7 +5,7 @@ describe("TABLE_HEAD_CLASS", () => {
   it("is a token-fg-text, sticky header carrying the rounded-header marker", () => {
     // The Dark-Blue fill now lives on the <th> cells (set via the `aipm-cockpit-thead`
     // rule in globals.css) so the rounded corners can clip it — the class no
-    // longer carries `bg-AIPM-dark-blue` itself.
+    // longer carries `bg-ui-dark-blue` itself.
     expect(TABLE_HEAD_CLASS).toContain("aipm-cockpit-thead");
     expect(TABLE_HEAD_CLASS).toContain("text-[var(--table-head-fg)]");
     expect(TABLE_HEAD_CLASS).toContain("sticky");

@@ -247,10 +247,10 @@ export function AppModals({
           // (white-on-pink — even on pink-strong — fails AA in dark mode.)
           className={`fixed bottom-4 right-4 z-30 max-w-md rounded-md border border-l-4 px-4 py-2.5 text-sm shadow-[var(--shadow-card)] ${
             toast.kind === "error"
-              ? "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-pink-strong dark:bg-AIPM-pink/15"
+              ? "border-ui-pink bg-ui-pink/10 text-ui-pink-strong dark:bg-ui-pink/15"
               : toast.kind === "success"
-                ? "border-AIPM-green bg-AIPM-green/10 text-AIPM-green-strong dark:bg-AIPM-green/15"
-                : "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
+                ? "border-ui-green bg-ui-green/10 text-ui-green-strong dark:bg-ui-green/15"
+                : "border-ui-dark-blue bg-ui-dark-blue/10 text-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey"
           }`}
         >
           <div className="flex items-center gap-3">

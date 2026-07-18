@@ -48,7 +48,7 @@ export function CalendarSyncControls({
           checked={!!calendarEnabled}
           onChange={(e) => onToggleCalendar(e.target.checked)}
           aria-label={`${t(lang, "calendarSyncEnable")} – ${t(lang, entityLabelKey)}`}
-          className={`h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+          className={`h-3.5 w-3.5 rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
         />
         {t(lang, "calendarSyncEnable")}
       </label>

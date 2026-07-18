@@ -23,13 +23,13 @@ describe("Button", () => {
     render(<Button>Focus</Button>);
     const btn = screen.getByRole("button", { name: "Focus" });
     expect(btn.className).toContain("focus:ring-2");
-    expect(btn.className).toContain("focus:ring-AIPM-green");
+    expect(btn.className).toContain("focus:ring-ui-green");
   });
 
   it("applies primary variant classes by default (filled dark blue)", () => {
     render(<Button>Primary</Button>);
     const btn = screen.getByRole("button", { name: "Primary" });
-    expect(btn.className).toContain("bg-AIPM-dark-blue");
+    expect(btn.className).toContain("bg-ui-dark-blue");
     expect(btn.className).toContain("text-white");
   });
 
@@ -45,14 +45,14 @@ describe("Button", () => {
     render(<Button variant="ghost">Ghost</Button>);
     const btn = screen.getByRole("button", { name: "Ghost" });
     expect(btn.className).toContain("hover:bg-surface-muted");
-    expect(btn.className).not.toContain("bg-AIPM-dark-blue");
+    expect(btn.className).not.toContain("bg-ui-dark-blue");
   });
 
   it("applies destructive variant classes (pink)", () => {
     render(<Button variant="destructive">Delete</Button>);
     const btn = screen.getByRole("button", { name: "Delete" });
-    expect(btn.className).toContain("text-AIPM-pink-strong");
-    expect(btn.className).toContain("border-AIPM-pink/40");
+    expect(btn.className).toContain("text-ui-pink-strong");
+    expect(btn.className).toContain("border-ui-pink/40");
   });
 
   it("maps md and sm sizes to their paddings", () => {
@@ -68,7 +68,7 @@ describe("Button", () => {
     expect(cls).toContain("w-full");
     expect(cls).toContain("extra-class");
     // variant class still present and comes before the appended className
-    expect(cls.indexOf("bg-AIPM-dark-blue")).toBeLessThan(cls.indexOf("extra-class"));
+    expect(cls.indexOf("bg-ui-dark-blue")).toBeLessThan(cls.indexOf("extra-class"));
   });
 
   it("passes through disabled, onClick, aria-label and title", () => {

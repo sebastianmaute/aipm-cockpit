@@ -146,7 +146,7 @@ export function StorageConfigSection({
         value={config.kind}
         onChange={(e) => handleKindChange(e.target.value as StorageKind)}
         aria-label={t(lang, "storage")}
-        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-1 focus:ring-ui-green"
       >
         {STORAGE_OPTIONS.map((o) => {
           const isSpKind = o.kind === "sp-json" || o.kind === "sp-csv";
@@ -173,7 +173,7 @@ export function StorageConfigSection({
       {isLocal && (
         <div className="mt-2 space-y-2">
           {!fsaSupported ? (
-            <p className="text-xs text-AIPM-purple">
+            <p className="text-xs text-ui-purple">
               {t(lang, "storageFsaUnsupported")}
             </p>
           ) : (
@@ -182,13 +182,13 @@ export function StorageConfigSection({
                 <p className="text-xs text-muted-foreground">
                   ✓ {description}
                   {!ready && (
-                    <span className="ml-1 text-AIPM-purple">
+                    <span className="ml-1 text-ui-purple">
                       ({t(lang, "storagePermissionNeeded")})
                     </span>
                   )}
                 </p>
               ) : (
-                <p className="text-xs text-AIPM-purple">
+                <p className="text-xs text-ui-purple">
                   {t(lang, "storagePickFilePrompt")}
                 </p>
               )}
@@ -216,7 +216,7 @@ export function StorageConfigSection({
                     type="button"
                     onClick={() => runPicker("grant")}
                     disabled={picking !== null}
-                    className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {t(lang, "storageGrantWrite")}
                   </button>
@@ -248,7 +248,7 @@ export function StorageConfigSection({
           <button
             type="button"
             onClick={() => { void auth.signIn().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}
-            className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+            className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
           >
             {t(lang, "integrationsM365SignIn")}
           </button>
@@ -317,7 +317,7 @@ export function StorageConfigSection({
           <button
             type="button"
             onClick={onReloadProject}
-            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded-md border border-line bg-surface px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "reloadProject")}
           </button>

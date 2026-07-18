@@ -85,7 +85,7 @@ export function ExportMenu({
         aria-label={t(lang, "exportTitle")}
         aria-expanded={open}
         title={t(lang, "exportTitle")}
-        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
+        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
         <svg
           viewBox="0 0 20 20"
@@ -122,7 +122,7 @@ export function ExportMenu({
                   onClick={() => pick(o.format)}
                   className={`flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
                 >
-                  <span className="font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                  <span className="font-medium text-ui-dark-blue dark:text-ui-light-grey">
                     {t(lang, o.labelKey)}
                   </span>
                   <span className="text-xs text-muted-foreground">

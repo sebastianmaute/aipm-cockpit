@@ -14,10 +14,10 @@ interface RaciChipPickerProps {
 
 // Brand color per role (filled when active, outlined when inactive).
 const CHIP: Record<RaciRole, { on: string; off: string }> = {
-  R: { on: "bg-AIPM-dark-blue text-white border-AIPM-dark-blue", off: "border-AIPM-dark-blue text-foreground" },
-  A: { on: "bg-AIPM-green-strong text-white border-AIPM-green-strong", off: "border-AIPM-green-strong text-foreground" },
-  C: { on: "bg-AIPM-purple text-white border-AIPM-purple", off: "border-AIPM-purple text-foreground" },
-  I: { on: "bg-AIPM-dark-grey text-white border-AIPM-dark-grey", off: "border-AIPM-dark-grey text-foreground" },
+  R: { on: "bg-ui-dark-blue text-white border-ui-dark-blue", off: "border-ui-dark-blue text-foreground" },
+  A: { on: "bg-ui-green-strong text-white border-ui-green-strong", off: "border-ui-green-strong text-foreground" },
+  C: { on: "bg-ui-purple text-white border-ui-purple", off: "border-ui-purple text-foreground" },
+  I: { on: "bg-ui-dark-grey text-white border-ui-dark-grey", off: "border-ui-dark-grey text-foreground" },
 };
 
 const ROLE_LABEL_KEY: Record<RaciRole, Parameters<typeof t>[1]> = {
@@ -28,7 +28,7 @@ const ROLE_LABEL_KEY: Record<RaciRole, Parameters<typeof t>[1]> = {
 };
 
 const CHIP_BASE =
-  "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-AIPM-green";
+  "flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-semibold leading-none transition-colors focus:outline-none focus:ring-2 focus:ring-ui-green";
 
 export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPickerProps) {
   const [open, setOpen] = useState(false);
