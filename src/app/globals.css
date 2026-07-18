@@ -3,51 +3,53 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #636362;
+  --background: #f6f8fa;
+  --foreground: #15212e;
   --surface: #ffffff;
-  --surface-muted: #e3e6e6;
-  --line: #e3e6e6;
+  --surface-muted: #eef2f6;
+  --line: #dbe2ea;
   /* Secondary text. Brand medium-grey #939598 is only 3.0:1 on white (and
      worse on the #e3e6e6 surface-muted panels), so it fails WCAG AA. The
      lightest value that clears 4.5:1 on BOTH white and #e3e6e6 is the brand
      dark-grey #636362 — so in light mode muted text matches body text (the
      accepted trade for AA). The dark theme keeps a distinct lighter grey. */
-  --muted-foreground: #636362;
+  --muted-foreground: #15212e;
 
-  /* Acme brand palette — only these colors are permitted */
+  /* Harbor no-JS / pre-boot fallback palette. Variable NAMES stay --AIPM-* (a
+     neutral rename is a later release); these are only the static fallback
+     values — the active scheme overrides them inline at runtime. */
   --AIPM-dark-grey: #636362;
-  --AIPM-dark-blue: #004159;
-  --AIPM-green: #84bd00;
+  --AIPM-dark-blue: #153a5c;
+  --AIPM-green: #2bc4b6;
   --AIPM-white: #ffffff;
-  --AIPM-light-grey: #e3e6e6;
-  --AIPM-medium-grey: #939598;
-  --AIPM-blue: #60c0dd;
-  --AIPM-pink: #e5497c;
-  --AIPM-purple: #aa4899;
+  --AIPM-light-grey: #c9d3dc;
+  --AIPM-medium-grey: #7d8a97;
+  --AIPM-blue: #2f6f9e;
+  --AIPM-pink: #c24a76;
+  --AIPM-purple: #5f57a8;
   /* AA-accessible variant of --AIPM-green for GREEN TEXT ON A LIGHT BACKGROUND
      (RAG "Green", accents): brand green #84bd00 is only 2.26:1 on white. This
      darker green meets AA; use it only for green text on light surfaces — the
      bright brand green still applies to fills and to text on dark surfaces. */
-  --AIPM-green-strong: #4d7000;
+  --AIPM-green-strong: #1a7870;
   /* Darker pink for AA-contrast TEXT on light surfaces (AIPM-pink #e5497c is
      ~3.76:1 on white — fails AA). Bright AIPM-pink stays for fills/borders and
      text on dark surfaces. */
-  --AIPM-pink-strong: #c41e5a;
+  --AIPM-pink-strong: #a53f64;
   /* AA-compliant darker purple for purple TEXT on a light purple tint
      (bg-AIPM-purple/10 ≈ 3.6:1 with bright AIPM-purple — fails AA). Bright
      AIPM-purple stays for fills/borders and text on dark surfaces. */
-  --AIPM-purple-strong: #7a2d72;
+  --AIPM-purple-strong: #5f57a8;
 
   /* ---- CI-style role tokens. These AIPM-light values are the static no-JS /
      pre-boot FALLBACK; at runtime the active scheme (AIPM / Mockup / Harbor /
      user) overrides them inline via setProperty (see scheme-apply.ts). ---- */
-  --rag-red: #ef4444;
-  --rag-amber: #f59e0b;
-  --rag-green: #10b981;
-  --rag-red-text: var(--AIPM-pink-strong);
-  --rag-amber-text: var(--AIPM-purple);
-  --rag-green-text: var(--AIPM-green-strong);
+  --rag-red: #d24a4a;
+  --rag-amber: #cf8a1c;
+  --rag-green: #2f9d70;
+  --rag-red-text: #b33f3f;
+  --rag-amber-text: #966414;
+  --rag-green-text: #227151;
   --table-head-bg: var(--AIPM-dark-blue);
   --table-head-fg: #ffffff;
   --table-head-accent: var(--AIPM-green);
@@ -67,7 +69,7 @@
   --delta-chip-pad: 0;
   /* Segmented-control active/track. AIPM = legacy dark-blue solid pill on a surface
      track (no-op); mockup = white pill + green text on a light-grey track. */
-  --segment-track-bg: var(--surface);
+  --segment-track-bg: #eef2f6;
   --segment-active-bg: var(--AIPM-dark-blue);
   --segment-active-fg: #ffffff;
 }
