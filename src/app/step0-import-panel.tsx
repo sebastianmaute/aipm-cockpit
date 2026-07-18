@@ -308,7 +308,7 @@ export function Step0ImportPanel({
                 }}
                 className={`rounded-md border px-3 py-1.5 text-sm hover:bg-surface-muted ${
                   method === m.id
-                    ? "border-AIPM-green bg-AIPM-green/10 font-medium text-foreground"
+                    ? "border-ui-green bg-ui-green/10 font-medium text-foreground"
                     : "border-line bg-surface text-muted-foreground"
                 }`}
               >
@@ -326,7 +326,7 @@ export function Step0ImportPanel({
               onChange={(e) => setDescription(e.target.value)}
               rows={6}
               placeholder={t(lang, "aiCreateDescribePlaceholder")}
-              className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+              className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ui-green"
             />
           </label>
         )}
@@ -368,7 +368,7 @@ export function Step0ImportPanel({
                 value={confluenceUrl}
                 onChange={(e) => setConfluenceUrl(e.target.value)}
                 placeholder="https://acme.atlassian.net/wiki/spaces/…"
-                className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+                className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ui-green"
               />
             </label>
             <div>

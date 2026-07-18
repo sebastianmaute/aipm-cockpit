@@ -15,12 +15,12 @@ const BASE =
   "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:ring-2";
 
 const UNPRESSED =
-  "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-AIPM-green";
+  "border-line bg-surface text-foreground hover:bg-surface-muted focus:ring-ui-green";
 
 const PRESSED: Record<ToggleAccent, string> = {
   "dark-blue":
-    "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 focus:ring-AIPM-dark-blue dark:border-AIPM-dark-blue dark:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey",
-  pink: "border-AIPM-pink bg-AIPM-pink/10 text-AIPM-dark-blue hover:bg-AIPM-pink/20 focus:ring-AIPM-pink dark:border-AIPM-pink dark:bg-AIPM-pink/15 dark:text-AIPM-light-grey",
+    "border-ui-dark-blue bg-ui-dark-blue/10 text-ui-dark-blue hover:bg-ui-dark-blue/20 focus:ring-ui-dark-blue dark:border-ui-dark-blue dark:bg-ui-dark-blue/20 dark:text-ui-light-grey",
+  pink: "border-ui-pink bg-ui-pink/10 text-ui-dark-blue hover:bg-ui-pink/20 focus:ring-ui-pink dark:border-ui-pink dark:bg-ui-pink/15 dark:text-ui-light-grey",
 };
 
 interface ToggleButtonProps {

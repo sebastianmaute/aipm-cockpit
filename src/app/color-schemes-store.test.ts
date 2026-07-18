@@ -15,7 +15,7 @@ import type { ColorScheme } from "./color-schemes";
 
 const CFG = { httpUrl: "https://x", authToken: "t" } as never;
 const scheme = (id: string): ColorScheme => ({
-  id, name: id, supportsDark: false, light: { "--AIPM-green": "#4d7000" }, branding: {},
+  id, name: id, supportsDark: false, light: { "--ui-green": "#4d7000" }, branding: {},
 });
 type Stmt = { sql: string; args?: { value: string }[] };
 const stmtsOf = (call: number): Stmt[] => runTursoPipeline.mock.calls[call][1] as Stmt[];
@@ -124,7 +124,7 @@ describe("color-schemes-store: shared-tenant DB hardening", () => {
       id: "u-9",
       name: "Rogue",
       supportsDark: false,
-      light: { "background-image": "url(https://evil/x.gif)", "--AIPM-green": "#4d7000" },
+      light: { "background-image": "url(https://evil/x.gif)", "--ui-green": "#4d7000" },
       branding: { logo: "data:image/svg+xml;base64,PHN2Zz4=" },
     };
     runTursoPipeline.mockResolvedValue([
@@ -136,7 +136,7 @@ describe("color-schemes-store: shared-tenant DB hardening", () => {
     const [out] = await loadSchemesAsync(CFG);
     expect(out.id).toBe("u-9");
     expect(out.light).not.toHaveProperty("background-image");
-    expect(out.light["--AIPM-green"]).toBe("#4d7000");
+    expect(out.light["--ui-green"]).toBe("#4d7000");
     expect(out.branding.logo).toBeUndefined(); // SVG rejected by sanitizeBranding
   });
 });

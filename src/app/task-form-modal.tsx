@@ -95,7 +95,7 @@ export function TaskFormModal({
       ariaLabel={
         isEditing ? t(lang, "taskEditTitle") : t(lang, "tabNewTask")
       }
-      backdropClassName="bg-AIPM-dark-blue/40 overflow-y-auto"
+      backdropClassName="bg-ui-dark-blue/40 overflow-y-auto"
     >
       <div
         ref={(el) => {

@@ -117,7 +117,7 @@ export function ProjectEmptyState({
       onClose={noop}
       ariaLabelledby={TITLE_ID}
       align="center"
-      backdropClassName="bg-AIPM-dark-blue/60"
+      backdropClassName="bg-ui-dark-blue/60"
       zIndex={50}
     >
       <div

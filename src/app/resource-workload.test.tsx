@@ -118,7 +118,7 @@ describe("ResourceWorkload", () => {
     );
     const input = screen.getByLabelText(/Near-term utilization for Alex Example/i) as HTMLInputElement;
     // Over-allocated (>100%) → pink highlight.
-    expect(input.className).toContain("text-AIPM-pink-strong");
+    expect(input.className).toContain("text-ui-pink-strong");
     fireEvent.change(input, { target: { value: "50" } });
     expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-06", 50);
   });

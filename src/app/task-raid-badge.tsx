@@ -28,7 +28,7 @@ function RaidBadgeImpl({ taskId, refs, lang, onJumpToRaid }: RaidBadgeProps) {
       }}
       title={t(lang, "raidReferencedBy", refs.length)}
       aria-label={t(lang, "raidReferencedBy", refs.length)}
-      className={`ml-1 inline-flex items-center rounded bg-AIPM-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-AIPM-purple/90 ${INTERACTIVE}`}
+      className={`ml-1 inline-flex items-center rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-ui-purple/90 ${INTERACTIVE}`}
     >
       {t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D)}
     </button>

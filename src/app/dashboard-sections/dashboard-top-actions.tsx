@@ -19,7 +19,7 @@ export function DashboardTopActions({ lang, topActions, onOpenAction, dc }: Dash
   if (!topActions?.length) return null;
   return (
     <Card boxed className={dc.cardPad}>
-      <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "dashboardTopActions")}</h3>
+      <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "dashboardTopActions")}</h3>
       <div className={`flex flex-col ${dc.kpiGap}`}>
         {topActions.map((a) => (
           <ActionRow key={a.id} lang={lang} action={a} onOpen={onOpenAction ?? (() => {})} />

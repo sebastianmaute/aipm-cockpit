@@ -7,9 +7,9 @@ import type { Priority, TaskStatus } from "./types";
 // render an identical badge.
 export const priorityStyle: Record<Priority, string> = {
   Low: "bg-surface-muted text-muted-foreground",
-  Medium: "bg-AIPM-blue/15 text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey",
-  High: "bg-AIPM-purple/15 text-AIPM-dark-blue dark:bg-AIPM-purple/20 dark:text-AIPM-light-grey",
-  Urgent: "bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey",
+  Medium: "bg-ui-blue/15 text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey",
+  High: "bg-ui-purple/15 text-ui-dark-blue dark:bg-ui-purple/20 dark:text-ui-light-grey",
+  Urgent: "bg-ui-pink/15 text-ui-dark-blue dark:bg-ui-pink/20 dark:text-ui-light-grey",
 };
 
 const STATUS_LABEL_KEY: Record<TaskStatus, TranslationKey> = {
@@ -32,11 +32,11 @@ export function statusLabelKey(s: TaskStatus): TranslationKey {
 // is muted + struck through; Done is green.
 const STATUS_BADGE_CLASS: Record<TaskStatus, string> = {
   "To Do": "bg-surface-muted text-muted-foreground",
-  "In Progress": "bg-AIPM-blue/15 text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey",
-  "On Hold": "bg-AIPM-purple/15 text-AIPM-dark-blue dark:bg-AIPM-purple/20 dark:text-AIPM-light-grey",
-  "In Review": "bg-AIPM-pink/15 text-AIPM-dark-blue dark:bg-AIPM-pink/20 dark:text-AIPM-light-grey",
+  "In Progress": "bg-ui-blue/15 text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey",
+  "On Hold": "bg-ui-purple/15 text-ui-dark-blue dark:bg-ui-purple/20 dark:text-ui-light-grey",
+  "In Review": "bg-ui-pink/15 text-ui-dark-blue dark:bg-ui-pink/20 dark:text-ui-light-grey",
   "Cancelled": "bg-surface-muted text-muted-foreground line-through",
-  "Done": "bg-AIPM-green/15 text-AIPM-dark-blue dark:bg-AIPM-green/20 dark:text-AIPM-light-grey",
+  "Done": "bg-ui-green/15 text-ui-dark-blue dark:bg-ui-green/20 dark:text-ui-light-grey",
 };
 
 export function statusBadgeClass(s: TaskStatus): string {

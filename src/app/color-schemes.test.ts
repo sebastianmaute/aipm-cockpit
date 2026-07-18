@@ -9,7 +9,7 @@ function sample(name = "Acme"): ColorScheme {
     id: "u-1",
     name,
     supportsDark: false,
-    light: { "--AIPM-green": "#123456" },
+    light: { "--ui-green": "#123456" },
     branding: { slogan: "Hi" },
   };
 }
@@ -73,7 +73,7 @@ describe("export/import round-trip: logo + favicon (Phase 3)", () => {
   it("preserves a raster logo + favicon through export→import", () => {
     const scheme = {
       id: "u-1", name: "Mine", supportsDark: false,
-      light: { "--AIPM-green": "#4d7000" },
+      light: { "--ui-green": "#4d7000" },
       branding: {
         logo: "data:image/png;base64,AAAA",
         favicon: "data:image/png;base64,BBBB",
@@ -101,8 +101,8 @@ describe("color-schemes store", () => {
   beforeEach(() => localStorage.clear());
 
   it("adds with string ids (u-1, u-2) and round-trips through localStorage", () => {
-    const a = addScheme("First", { "--AIPM-green": "#111111" }, {});
-    const b = addScheme("Second", { "--AIPM-green": "#222222" }, {});
+    const a = addScheme("First", { "--ui-green": "#111111" }, {});
+    const b = addScheme("Second", { "--ui-green": "#222222" }, {});
     expect(b.activeId).toBe(b.schemes[b.schemes.length - 1].id);
     expect(a.schemes[0].id).toBe("u-1");
     expect(b.schemes[1].id).toBe("u-2");
@@ -110,8 +110,8 @@ describe("color-schemes store", () => {
   });
 
   it("stores added schemes as light maps with supportsDark=false", () => {
-    const st = addScheme("First", { "--AIPM-green": "#111111" }, {});
-    expect(st.schemes[0].light["--AIPM-green"]).toBe("#111111");
+    const st = addScheme("First", { "--ui-green": "#111111" }, {});
+    expect(st.schemes[0].light["--ui-green"]).toBe("#111111");
     expect(st.schemes[0].supportsDark).toBe(false);
     expect(st.schemes[0].dark).toBeUndefined();
   });
@@ -126,7 +126,7 @@ describe("color-schemes store", () => {
 
   it("removeScheme on a builtIn scheme is a no-op (undeletable)", () => {
     saveSchemes({
-      schemes: [{ id: "builtin-AIPM", name: "AIPM", builtIn: true, supportsDark: false, light: { "--AIPM-green": "#111111" }, branding: {} }],
+      schemes: [{ id: "builtin-AIPM", name: "AIPM", builtIn: true, supportsDark: false, light: { "--ui-green": "#111111" }, branding: {} }],
       activeId: null,
     });
     const st = removeScheme("builtin-AIPM");
@@ -136,28 +136,28 @@ describe("color-schemes store", () => {
 
   it("updateScheme on a builtIn is unchanged (code-owned)", () => {
     saveSchemes({
-      schemes: [{ id: "builtin-AIPM", name: "AIPM", builtIn: true, supportsDark: false, light: { "--AIPM-green": "#111111" }, branding: {} }],
+      schemes: [{ id: "builtin-AIPM", name: "AIPM", builtIn: true, supportsDark: false, light: { "--ui-green": "#111111" }, branding: {} }],
       activeId: null,
     });
-    const st = updateScheme("builtin-AIPM", { name: "Hacked", light: { "--AIPM-green": "#999999" } });
+    const st = updateScheme("builtin-AIPM", { name: "Hacked", light: { "--ui-green": "#999999" } });
     expect(st.schemes[0].name).toBe("AIPM");
-    expect(st.schemes[0].light["--AIPM-green"]).toBe("#111111");
+    expect(st.schemes[0].light["--ui-green"]).toBe("#111111");
   });
 
   it("updateScheme applies light/dark/supportsDark/name to a user scheme", () => {
-    let st = addScheme("First", { "--AIPM-green": "#111111" }, {});
+    let st = addScheme("First", { "--ui-green": "#111111" }, {});
     const id = st.schemes[0].id;
-    st = updateScheme(id, { name: "Renamed", supportsDark: true, dark: { "--AIPM-green": "#eeeeee" } });
+    st = updateScheme(id, { name: "Renamed", supportsDark: true, dark: { "--ui-green": "#eeeeee" } });
     expect(st.schemes[0].name).toBe("Renamed");
     expect(st.schemes[0].supportsDark).toBe(true);
-    expect(st.schemes[0].dark!["--AIPM-green"]).toBe("#eeeeee");
+    expect(st.schemes[0].dark!["--ui-green"]).toBe("#eeeeee");
   });
 
   it("migrates a legacy flat {colors} scheme to light with supportsDark=false", () => {
-    const json = JSON.stringify({ id: 1, name: "Legacy", colors: { "--AIPM-green": "#123456" }, branding: {} });
+    const json = JSON.stringify({ id: 1, name: "Legacy", colors: { "--ui-green": "#123456" }, branding: {} });
     const imported = importScheme(json);
     expect(imported).not.toBeNull();
-    expect(imported!.light["--AIPM-green"]).toBe("#123456");
+    expect(imported!.light["--ui-green"]).toBe("#123456");
     expect(imported!.supportsDark).toBe(false);
     expect(imported!.dark).toBeUndefined();
   });
@@ -166,20 +166,20 @@ describe("color-schemes store", () => {
     const json = JSON.stringify({
       name: "Dual",
       supportsDark: true,
-      light: { "--AIPM-green": "#111111", "--bogus": "#fff" },
-      dark: { "--AIPM-green": "#eeeeee", "--AIPM-green-bad": "nothex" },
+      light: { "--ui-green": "#111111", "--bogus": "#fff" },
+      dark: { "--ui-green": "#eeeeee", "--ui-green-bad": "nothex" },
     });
     const imported = importScheme(json);
     expect(imported).not.toBeNull();
     expect(imported!.supportsDark).toBe(true);
-    expect(imported!.light["--AIPM-green"]).toBe("#111111");
+    expect(imported!.light["--ui-green"]).toBe("#111111");
     expect(imported!.light["--bogus"]).toBeUndefined();
-    expect(imported!.dark!["--AIPM-green"]).toBe("#eeeeee");
-    expect(imported!.dark!["--AIPM-green-bad"]).toBeUndefined();
+    expect(imported!.dark!["--ui-green"]).toBe("#eeeeee");
+    expect(imported!.dark!["--ui-green-bad"]).toBeUndefined();
   });
 
   it("collapses supportsDark to false when the dark map ends up empty", () => {
-    const json = JSON.stringify({ name: "NoDark", supportsDark: true, light: { "--AIPM-green": "#111111" }, dark: { "--bogus": "nothex" } });
+    const json = JSON.stringify({ name: "NoDark", supportsDark: true, light: { "--ui-green": "#111111" }, dark: { "--bogus": "nothex" } });
     const imported = importScheme(json);
     expect(imported!.supportsDark).toBe(false);
     expect(imported!.dark).toBeUndefined();
@@ -190,22 +190,22 @@ describe("color-schemes store", () => {
     const parsed = JSON.parse(json) as Record<string, unknown>;
     expect(parsed.id).toBeUndefined();
     expect(parsed.builtIn).toBeUndefined();
-    expect((parsed.light as Record<string, string>)["--AIPM-green"]).toBe("#123456");
+    expect((parsed.light as Record<string, string>)["--ui-green"]).toBe("#123456");
     expect(parsed.supportsDark).toBe(false);
   });
 
   it("exports JSON and imports it back (no data loss)", () => {
     const imported = importScheme(exportScheme(sample()));
     expect(imported?.name).toBe("Acme");
-    expect(imported?.light["--AIPM-green"]).toBe("#123456");
+    expect(imported?.light["--ui-green"]).toBe("#123456");
     expect(imported?.supportsDark).toBe(false);
   });
 
   it("import rejects non-hex color values and drops unknown keys", () => {
-    const bad = JSON.stringify({ name: "X", light: { "--AIPM-green": "red;}html{}", "--bogus": "#fff" }, branding: {} });
+    const bad = JSON.stringify({ name: "X", light: { "--ui-green": "red;}html{}", "--bogus": "#fff" }, branding: {} });
     const imported = importScheme(bad);
     expect(imported).not.toBeNull();
-    expect(imported!.light["--AIPM-green"]).toBeUndefined();
+    expect(imported!.light["--ui-green"]).toBeUndefined();
     expect(imported!.light["--bogus"]).toBeUndefined();
   });
 
@@ -223,12 +223,12 @@ describe("color-schemes store", () => {
   });
 
   it("ColorScheme.structural is optional and user schemes round-trip without it", () => {
-    const st = addScheme("Draft", { "--AIPM-green": "#84bd00" }, {});
+    const st = addScheme("Draft", { "--ui-green": "#84bd00" }, {});
     expect(st.schemes[0].structural).toBeUndefined();
   });
 
   it("setActive persists a user id or null; an unknown id is left to reconcileBuiltins", () => {
-    addScheme("Mine", { "--AIPM-green": "#123456" }, {}); // → u-1
+    addScheme("Mine", { "--ui-green": "#123456" }, {}); // → u-1
     expect(setActive("u-1").activeId).toBe("u-1");
     expect(setActive(null).activeId).toBeNull();
     // An unknown id is persisted as-is here (reconcileBuiltins maps it to Harbor),
@@ -242,9 +242,9 @@ describe("portable theme format (structural + pins)", () => {
     name: "Test",
     supportsDark: false,
     light: {
-      "--AIPM-dark-blue": "#004159",
-      "--AIPM-green": "#84bd00",
-      "--AIPM-green-strong": "#4d7000",
+      "--ui-dark-blue": "#004159",
+      "--ui-green": "#84bd00",
+      "--ui-green-strong": "#4d7000",
       "--rag-red-text": "#c41e5a",
     },
     structural: {
@@ -257,7 +257,7 @@ describe("portable theme format (structural + pins)", () => {
   test("import preserves pinned AA tokens + valid structural, drops unknown", () => {
     const s = cleanScheme(JSON.parse(themeJson), "u-1");
     expect(s).not.toBeNull();
-    expect(s!.light["--AIPM-green-strong"]).toBe("#4d7000");
+    expect(s!.light["--ui-green-strong"]).toBe("#4d7000");
     expect(s!.light["--rag-red-text"]).toBe("#c41e5a");
     expect(s!.structural?.["--shadow-card"]).toBe("0 1px 3px rgba(0,65,89,0.12)");
     expect(s!.structural?.["--gradient-kpi"]).toContain("linear-gradient");

@@ -22,10 +22,10 @@ export type BannerSeverity = "info" | "warn" | "success" | "error";
 // the text colour is AA-safe on the tint (AIPM-*-strong on surface, foreground
 // on the neutral/amber tints).
 const SEVERITY_CLASS: Record<BannerSeverity, string> = {
-  info: "border-AIPM-dark-blue/40 bg-AIPM-dark-blue/10 text-foreground dark:border-AIPM-dark-blue/60 dark:bg-AIPM-dark-blue/15",
+  info: "border-ui-dark-blue/40 bg-ui-dark-blue/10 text-foreground dark:border-ui-dark-blue/60 dark:bg-ui-dark-blue/15",
   warn: "border-[var(--rag-amber)]/40 bg-[var(--rag-amber)]/15 text-foreground dark:border-[var(--rag-amber)]/50 dark:bg-[var(--rag-amber)]/20",
-  success: "border-AIPM-green/40 bg-AIPM-green/10 text-AIPM-green-strong dark:border-AIPM-green/60 dark:bg-AIPM-green/15",
-  error: "border-AIPM-pink/40 bg-AIPM-pink/10 text-AIPM-pink-strong dark:border-AIPM-pink/60 dark:bg-AIPM-pink/15",
+  success: "border-ui-green/40 bg-ui-green/10 text-ui-green-strong dark:border-ui-green/60 dark:bg-ui-green/15",
+  error: "border-ui-pink/40 bg-ui-pink/10 text-ui-pink-strong dark:border-ui-pink/60 dark:bg-ui-pink/15",
 };
 
 // One canonical banner radius + padding + type size for the whole app.

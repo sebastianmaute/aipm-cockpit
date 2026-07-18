@@ -238,7 +238,7 @@ export function KnowledgePanel() {
                   type="button"
                   onClick={() => addManualLink(target)}
                   disabled={!manualValid}
-                  className={`rounded-md border border-line bg-surface px-3 py-1 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                  className={`rounded-md border border-line bg-surface px-3 py-1 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
                 >
                   {t(lang, "documentsManualAdd")}
                 </button>
@@ -270,7 +270,7 @@ export function KnowledgePanel() {
               type="button"
               onClick={() => setAddOpen((o) => !o)}
               aria-expanded={addOpen}
-              className={`shrink-0 rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+              className={`shrink-0 rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
             >
               + {t(lang, "documentsTabAdd")}
             </button>
@@ -286,7 +286,7 @@ export function KnowledgePanel() {
                     onClick={() => setSourceFilter(k)}
                     className={`rounded-full border px-2.5 py-0.5 text-xs ${
                       active
-                        ? "border-AIPM-dark-blue bg-AIPM-dark-blue text-white"
+                        ? "border-ui-dark-blue bg-ui-dark-blue text-white"
                         : "border-line bg-surface-muted text-foreground"
                     } ${INTERACTIVE}`}
                   >
@@ -340,7 +340,7 @@ export function KnowledgePanel() {
                       aria-label={`${t(lang, "documentsRemove")} – ${r.link.name}`}
                       title={t(lang, "documentsRemove")}
                       onClick={() => remove(r)}
-                      className={`absolute right-2 top-2 rounded-md px-1.5 text-xs text-muted-foreground hover:text-AIPM-pink-strong ${INTERACTIVE}`}
+                      className={`absolute right-2 top-2 rounded-md px-1.5 text-xs text-muted-foreground hover:text-ui-pink-strong ${INTERACTIVE}`}
                     >
                       ✕
                     </button>
@@ -353,7 +353,7 @@ export function KnowledgePanel() {
                           href={r.link.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey"
+                          className="font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
                         >
                           {r.link.name} ↗
                         </a>
@@ -364,14 +364,14 @@ export function KnowledgePanel() {
                     <button
                       type="button"
                       onClick={() => requestOpen(r.source.view, r.source.id)}
-                      className={`self-start rounded-full bg-surface-muted px-2 py-0.5 text-xs text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                      className={`self-start rounded-full bg-surface-muted px-2 py-0.5 text-xs text-ui-dark-blue hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                     >
                       {t(lang, SOURCE_LABEL[r.source.kind])}: {r.source.name}
                     </button>
                     <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                       <span>{t(lang, DOC_TYPE_LABEL[ft.labelKey])}</span>
                       {host && (
-                        <span className="rounded bg-AIPM-dark-blue px-1 text-[10px] uppercase text-white">{host}</span>
+                        <span className="rounded bg-ui-dark-blue px-1 text-[10px] uppercase text-white">{host}</span>
                       )}
                       {r.link.addedAt && (
                         <span>· {t(lang, "documentsAdded", formatExpiryDate(r.link.addedAt.slice(0, 10), lang))}</span>

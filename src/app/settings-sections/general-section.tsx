@@ -35,7 +35,7 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
                   popout: { ...settings.popout, reuseWindow: e.target.checked },
                 })
               }
-              className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+              className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
             />
             <span className="text-sm text-foreground">
               {t(lang, "popoutReuseWindow")}
@@ -69,14 +69,14 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
 
       {/* Danger zone — full factory reset (detaches projects, no file/DB delete). */}
       <div className="mb-2">
-        <h3 className="text-sm font-semibold text-AIPM-pink-strong">
+        <h3 className="text-sm font-semibold text-ui-pink-strong">
           {t(lang, "settingsResetHeading")}
         </h3>
         <FieldHint className="mt-1">{t(lang, "settingsResetDesc")}</FieldHint>
         <button
           type="button"
           onClick={() => setResetOpen(true)}
-          className={`mt-3 rounded-md border border-AIPM-pink/50 bg-surface px-4 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
+          className={`mt-3 rounded-md border border-ui-pink/50 bg-surface px-4 py-2 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 ${INTERACTIVE}`}
         >
           {t(lang, "settingsResetButton")}
         </button>

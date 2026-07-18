@@ -51,7 +51,7 @@ export function InfoTooltip({ text, label }: InfoTooltipProps) {
         onBlur={() => setOpen(false)}
         onClick={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus(); }}
         onKeyDown={(e) => { if (e.key === "Escape") (e.currentTarget as HTMLElement).blur(); }}
-        className="flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+        className="flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-line text-[10px] font-semibold normal-case leading-none text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
       >
         i
       </span>

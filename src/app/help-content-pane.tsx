@@ -21,7 +21,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
     <>
       {highlightSegments(text, query).map((seg, k) =>
         seg.match ? (
-          <mark key={k} className="bg-AIPM-green/20 text-inherit">
+          <mark key={k} className="bg-ui-green/20 text-inherit">
             {seg.text}
           </mark>
         ) : (
@@ -107,7 +107,7 @@ export function HelpContentPane({
                     onClick={() => scrollToSection(e.id)}
                     className={
                       activeId === e.id
-                        ? `block w-full whitespace-nowrap rounded border-l-2 border-AIPM-dark-blue bg-surface-muted px-2 py-1.5 text-left text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`
+                        ? `block w-full whitespace-nowrap rounded border-l-2 border-ui-dark-blue bg-surface-muted px-2 py-1.5 text-left text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`
                         : `block w-full whitespace-nowrap rounded border-l-2 border-transparent px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`
                     }
                   >
@@ -124,12 +124,12 @@ export function HelpContentPane({
       <div ref={contentRef} className="min-h-0 flex-1 overflow-auto bg-surface-muted p-3 pr-2 print:max-h-none print:overflow-visible">
         {groups.map(({ group, entries }) => (
           <div key={group} className="mb-8">
-            <h2 className="mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            <h2 className="mb-2 border-b border-line pb-1 text-xs font-semibold uppercase tracking-wide text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, HELP_GROUP_LABEL[group])}
             </h2>
             <div className="flex flex-col gap-3">
               {entries.map((e) => (
-                <section key={e.id} id={helpSectionId(e.id)} className="scroll-mt-2 rounded-lg border border-line border-l-[3px] border-l-AIPM-dark-blue bg-surface p-4">
+                <section key={e.id} id={helpSectionId(e.id)} className="scroll-mt-2 rounded-lg border border-line border-l-[3px] border-l-ui-dark-blue bg-surface p-4">
                   <h3 className="mb-1 text-sm font-semibold text-foreground">
                     <Highlighted text={t(lang, e.titleKey)} query={query} />
                   </h3>
@@ -148,7 +148,7 @@ export function HelpContentPane({
                             <button
                               type="button"
                               onClick={() => scrollToSection(rid)}
-                              className={`text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                              className={`text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                             >
                               {t(lang, target.titleKey)}
                             </button>
@@ -162,7 +162,7 @@ export function HelpContentPane({
                             type="button"
                             onClick={() => onNavigateView(v)}
                             aria-label={t(lang, "helpRelationsGoToView", t(lang, navLabelKey(v)))}
-                            className={`ml-2 italic text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                            className={`ml-2 italic text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-light-grey ${INTERACTIVE}`}
                           >
                             {t(lang, navLabelKey(v))}
                           </button>

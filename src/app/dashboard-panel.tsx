@@ -317,7 +317,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
               {(() => {
                 const trendsBody = (
                   <>
-                    <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                    <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                       {t(lang, "navTrends")}
                     </h3>
                     {varianceRows.length === 0 ? (
@@ -332,7 +332,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     type="button"
                     aria-label={t(lang, "dashboardOpenTrendsView")}
                     onClick={() => props.onNavigate!("trends")}
-                    className={`block w-full rounded-lg border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
+                    className={`block w-full rounded-lg border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-ui-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
                   >
                     {trendsBody}
                   </button>
@@ -429,7 +429,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                               type="button"
                               aria-label={t(lang, "dashboardOpenChangeItem", c.title)}
                               onClick={() => props.onOpenChange!(c.id)}
-                              className={`flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                              className={`flex w-full items-center gap-2 rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                             >
                               {content}
                             </button>
@@ -476,7 +476,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                     type="button"
                     aria-label={t(lang, props.tursoActive ? "dashboardOpenTrendsView" : "dashboardOpenTasksView")}
                     onClick={() => props.onNavigate!(trendView)}
-                    className={`block w-full rounded border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-AIPM-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
+                    className={`block w-full rounded border border-line bg-surface text-left shadow-[var(--shadow-card)] hover:border-ui-dark-blue ${INTERACTIVE} ${dc.cardPad}`}
                   >
                     {sparkBody}
                   </button>

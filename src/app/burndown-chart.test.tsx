@@ -32,8 +32,8 @@ describe("BurndownCharts", () => {
       actualRemainingValue: [36000, -8000, null],
     };
     const { container } = render(<BurndownCharts series={over} lang="en-US" currency="EUR" />);
-    const pink = container.querySelectorAll("polyline.stroke-AIPM-pink");
-    const green = container.querySelectorAll("polyline.stroke-AIPM-green");
+    const pink = container.querySelectorAll("polyline.stroke-ui-pink");
+    const green = container.querySelectorAll("polyline.stroke-ui-green");
     expect(pink.length).toBe(2); // both actual lines pink
     expect(green.length).toBe(0);
   });

@@ -145,7 +145,7 @@ describe("AppearanceSection scheme control", () => {
     // Review HIGH: gate on IDENTITY (built-in) to match the editor. A user scheme
     // (isBuiltin=false) → editor renders its OWN branding inputs, so the global
     // ones must be HIDDEN → exactly ONE "App name" field in every state.
-    addScheme("Draft", { "--AIPM-green": "#000000" }, {}); // user scheme active
+    addScheme("Draft", { "--ui-green": "#000000" }, {}); // user scheme active
     renderSection({}, "custom");
     expect(document.getElementById("branding-appname")).toBeNull();
     expect(document.getElementById("branding-footer-slogan")).toBeNull();

@@ -22,7 +22,7 @@ export function DigestCard({ lang, digest, dc, m365Configured, busy, onGenerate,
   return (
     <div className={`rounded-xl border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-AIPM-dark-blue">{t(lang, "digestTitle")}</h3>
+        <h3 className="font-medium text-ui-dark-blue">{t(lang, "digestTitle")}</h3>
         <RagDot level={digest.rag} size="lg" label={t(lang, ragLabelKey)} />
       </div>
       {digest.narrative ? <p className="mt-2 text-sm text-muted-foreground">{digest.narrative}</p> : null}

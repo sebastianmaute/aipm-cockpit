@@ -19,9 +19,9 @@ const LEVEL_LABEL_KEYS: Record<InfluenceInterest, TranslationKey> = {
 // Tint is a thin LEFT-ACCENT border + subtle cell background — text contrast
 // no longer depends on it (labels/markers sit on a solid chip, see below).
 function cellTint(score: number): string {
-  if (score >= 6) return "border-l-2 border-AIPM-green bg-AIPM-green/15 hover:bg-AIPM-green/25";
-  if (score >= 5) return "border-l-2 border-AIPM-green/70 bg-AIPM-green/10 hover:bg-AIPM-green/20";
-  if (score >= 4) return "border-l-2 border-AIPM-purple/60 bg-AIPM-purple/10 hover:bg-AIPM-purple/20";
+  if (score >= 6) return "border-l-2 border-ui-green bg-ui-green/15 hover:bg-ui-green/25";
+  if (score >= 5) return "border-l-2 border-ui-green/70 bg-ui-green/10 hover:bg-ui-green/20";
+  if (score >= 4) return "border-l-2 border-ui-purple/60 bg-ui-purple/10 hover:bg-ui-purple/20";
   if (score >= 3) return "border-l-2 border-surface-muted bg-surface-muted/20 hover:bg-surface-muted/30";
   return "border-l-2 border-surface-muted bg-surface-muted/10 hover:bg-surface-muted/20";
 }
@@ -79,7 +79,7 @@ export function InfluenceInterestMatrix({
                   aria-pressed={isSelected}
                   aria-label={`${influenceLabel} ${t(lang, LEVEL_LABEL_KEYS[inf])}, ${interestLabel} ${t(lang, LEVEL_LABEL_KEYS[intr])}`}
                   onClick={() => onPick(inf, intr)}
-                  className={`flex h-12 w-14 items-center justify-center rounded ${cellTint(score)} ${isSelected ? "ring-2 ring-AIPM-green ring-offset-1" : ""}`}
+                  className={`flex h-12 w-14 items-center justify-center rounded ${cellTint(score)} ${isSelected ? "ring-2 ring-ui-green ring-offset-1" : ""}`}
                 >
                   {/* Solid chip: text/marker contrast is independent of the quadrant tint. */}
                   <span
@@ -93,7 +93,7 @@ export function InfluenceInterestMatrix({
                         tabIndex={0}
                         aria-label={t(lang, "stakeholderNeedsComms")}
                         title={t(lang, "stakeholderNeedsComms")}
-                        className="inline-flex cursor-pointer items-center justify-center rounded text-AIPM-purple hover:text-AIPM-green focus-visible:outline focus-visible:outline-2 focus-visible:outline-AIPM-green"
+                        className="inline-flex cursor-pointer items-center justify-center rounded text-ui-purple hover:text-ui-green focus-visible:outline focus-visible:outline-2 focus-visible:outline-ui-green"
                         onClick={(e) => {
                           e.stopPropagation();
                           onJumpToComms?.(stakeholderId);

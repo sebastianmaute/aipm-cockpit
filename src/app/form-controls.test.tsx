@@ -15,7 +15,7 @@ describe("fieldClass", () => {
   it("uses the canonical ring-2 green focus ring (never ring-1) when valid", () => {
     const c = fieldClass();
     expect(c).toContain("focus:ring-2");
-    expect(c).toContain("focus:ring-AIPM-green");
+    expect(c).toContain("focus:ring-ui-green");
     expect(c).not.toContain("focus:ring-1");
   });
 
@@ -25,9 +25,9 @@ describe("fieldClass", () => {
 
   it("swaps to the pink semantic ring when invalid, dropping the green ring", () => {
     const c = fieldClass(true);
-    expect(c).toContain("focus:ring-AIPM-pink");
-    expect(c).toContain("border-AIPM-pink");
-    expect(c).not.toContain("focus:ring-AIPM-green");
+    expect(c).toContain("focus:ring-ui-pink");
+    expect(c).toContain("border-ui-pink");
+    expect(c).not.toContain("focus:ring-ui-green");
   });
 
   it("appends caller className last", () => {
@@ -43,7 +43,7 @@ describe("Input", () => {
     render(<Input aria-label="Name" />);
     const el = screen.getByLabelText("Name");
     expect(el.tagName).toBe("INPUT");
-    expect(el.className).toContain("focus:ring-AIPM-green");
+    expect(el.className).toContain("focus:ring-ui-green");
     expect(el.className).toContain("border-line");
   });
 
@@ -51,8 +51,8 @@ describe("Input", () => {
     render(<Input aria-label="Bad" invalid />);
     const el = screen.getByLabelText("Bad");
     expect(el).toHaveAttribute("aria-invalid", "true");
-    expect(el.className).toContain("focus:ring-AIPM-pink");
-    expect(el.className).not.toContain("focus:ring-AIPM-green");
+    expect(el.className).toContain("focus:ring-ui-pink");
+    expect(el.className).not.toContain("focus:ring-ui-green");
   });
 
   it("passes through type, value, onChange, disabled and aria-*", () => {
@@ -82,7 +82,7 @@ describe("Select", () => {
     );
     const el = screen.getByLabelText("Pick");
     expect(el.tagName).toBe("SELECT");
-    expect(el.className).toContain("focus:ring-AIPM-green");
+    expect(el.className).toContain("focus:ring-ui-green");
   });
 
   it("supports the invalid state", () => {
@@ -93,7 +93,7 @@ describe("Select", () => {
     );
     const el = screen.getByLabelText("PickBad");
     expect(el).toHaveAttribute("aria-invalid", "true");
-    expect(el.className).toContain("focus:ring-AIPM-pink");
+    expect(el.className).toContain("focus:ring-ui-pink");
   });
 });
 
@@ -103,7 +103,7 @@ describe("Textarea", () => {
     const el = screen.getByLabelText("Notes");
     expect(el.tagName).toBe("TEXTAREA");
     expect(el.className).toContain("resize-none");
-    expect(el.className).toContain("focus:ring-AIPM-green");
+    expect(el.className).toContain("focus:ring-ui-green");
   });
 
   it("passes value/onChange through", () => {
@@ -127,7 +127,7 @@ describe("Checkbox", () => {
     render(<Checkbox aria-label="Agree" />);
     const el = screen.getByLabelText("Agree");
     expect(el).toHaveAttribute("type", "checkbox");
-    expect(el.className).toContain("accent-AIPM-dark-blue");
+    expect(el.className).toContain("accent-ui-dark-blue");
     expect(el.className).toContain("h-4");
     expect(el.className).toContain("w-4");
   });
@@ -136,7 +136,7 @@ describe("Checkbox", () => {
     render(<Checkbox aria-label="Ring" />);
     const cls = screen.getByLabelText("Ring").className;
     expect(cls).toContain("focus:ring-2");
-    expect(cls).toContain("focus:ring-AIPM-green");
+    expect(cls).toContain("focus:ring-ui-green");
     expect(cls).not.toContain("active:translate-y");
   });
 
@@ -152,6 +152,6 @@ describe("Checkbox", () => {
     render(<Checkbox aria-label="M" className="mt-0.5" />);
     const cls = screen.getByLabelText("M").className;
     expect(cls).toContain("mt-0.5");
-    expect(cls.indexOf("accent-AIPM-dark-blue")).toBeLessThan(cls.indexOf("mt-0.5"));
+    expect(cls.indexOf("accent-ui-dark-blue")).toBeLessThan(cls.indexOf("mt-0.5"));
   });
 });

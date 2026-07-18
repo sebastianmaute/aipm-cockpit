@@ -2,7 +2,7 @@
 
 // Canonical <CountBadge> pill (design-system Phase 3f). Replaces the notification
 // count pill that was hand-rolled verbatim across the top bar, sidebar nav and
-// classic app header (5 copies, one of which had drifted to `text-AIPM-white`
+// classic app header (5 copies, one of which had drifted to `text-ui-white`
 // where the others used `text-white`). One pill shape, one tint per `variant`.
 //
 // Every tint is a sanctioned AIPM brand token, so the primitive is palette-safe
@@ -15,9 +15,9 @@ export type CountBadgeVariant = "pink" | "dark-blue" | "grey";
 
 // variant → brand tint (fill + AA-safe white text).
 const VARIANT_CLASS: Record<CountBadgeVariant, string> = {
-  pink: "bg-AIPM-pink text-white",
-  "dark-blue": "bg-AIPM-dark-blue text-white",
-  grey: "bg-AIPM-medium-grey text-white",
+  pink: "bg-ui-pink text-white",
+  "dark-blue": "bg-ui-dark-blue text-white",
+  grey: "bg-ui-medium-grey text-white",
 };
 
 // One canonical count-pill shape for the whole app.

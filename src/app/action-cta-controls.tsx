@@ -50,11 +50,11 @@ export function useActionCaps(h: ActionHandlers): ActionCaps {
 }
 
 const GHOST =
-  `cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-AIPM-dark-blue hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 dark:text-AIPM-light-grey ${INTERACTIVE}`;
+  `cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-ui-dark-blue hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 dark:text-ui-light-grey ${INTERACTIVE}`;
 // Size is applied per-context (prominent hero vs compact row) so the hero's primary
 // verb reads bolder than the same verb in a row.
 const FILLED_BASE =
-  `cursor-pointer rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue font-medium text-white hover:opacity-90 ${INTERACTIVE}`;
+  `cursor-pointer rounded-md border border-ui-dark-blue bg-ui-dark-blue font-medium text-white hover:opacity-90 ${INTERACTIVE}`;
 
 interface CtaProps {
   lang: Lang;
@@ -141,7 +141,7 @@ export function ActionOverflowMenu({ lang, action, caps, handlers }: CtaProps) {
       <button ref={btnRef} type="button" aria-expanded={menuOpen}
         aria-label={`${t(lang, "actionMoreActions")} – ${title}`}
         onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
-        className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 ${FOCUS_RING}`}>
+        className={`cursor-pointer rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING}`}>
         ⋮
       </button>
       <PopoverPanel open={menuOpen} anchorRef={btnRef} onClose={close} className="flex w-max flex-col py-1">

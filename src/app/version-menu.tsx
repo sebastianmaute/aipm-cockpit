@@ -19,7 +19,7 @@ export function VersionMenu({ lang }: { lang: Lang }) {
         aria-label={t(lang, "version")}
         aria-expanded={open}
         title={t(lang, "version")}
-        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-muted-foreground dark:hover:text-AIPM-light-grey"
+        className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
         <svg
           viewBox="0 0 20 20"

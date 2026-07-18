@@ -356,7 +356,7 @@ describe("TasksSection", () => {
     expect(thead).not.toBeNull();
     // The Dark-Blue fill moved to the <th> cells (via the `aipm-cockpit-thead` marker +
     // globals.css) so rounded header corners can clip it; the thead carries the
-    // marker class instead of `bg-AIPM-dark-blue`.
+    // marker class instead of `bg-ui-dark-blue`.
     expect(thead!.className).toContain("aipm-cockpit-thead");
     expect(thead!.className).not.toContain("bg-surface-muted");
   });

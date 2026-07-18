@@ -76,7 +76,7 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
               href="https://login.timelog.com/personaltoken"
               target="_blank"
               rel="noopener noreferrer"
-              className={`text-AIPM-dark-blue underline dark:text-AIPM-light-grey ${FOCUS_RING}`}
+              className={`text-ui-dark-blue underline dark:text-ui-light-grey ${FOCUS_RING}`}
             >
               https://login.timelog.com/personaltoken
             </a>{" "}
@@ -138,7 +138,7 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
             type="button"
             onClick={() => void test()}
             disabled={testing}
-            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-AIPM-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey ${INTERACTIVE}`}
+            className={`self-start rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
           >
             {t(lang, "timelogTest")}
           </button>

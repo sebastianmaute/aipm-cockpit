@@ -37,7 +37,7 @@ export function EmptyState({ title, description, icon, actions, compact = false 
               key={`${i}-${a.label}`}
               type="button"
               onClick={a.onClick}
-              className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+              className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
             >
               {a.label}
             </button>

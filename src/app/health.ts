@@ -231,15 +231,15 @@ export const healthDot: Record<Health, string> = {
 /**
  * Tailwind text-colour class for a RAG value. Uses CSS role tokens
  * (--rag-red-text/amber-text/green-text) so text color reflows when the CI
- * style switches. AIPM token values equal text-AIPM-pink-strong/text-AIPM-purple/
- * text-AIPM-green-strong, so the rendered look is identical for existing users.
+ * style switches. AIPM token values equal text-ui-pink-strong/text-ui-purple/
+ * text-ui-green-strong, so the rendered look is identical for existing users.
  * Used to tint inline status text, e.g. the dashboard "Overall: Green" label.
  */
 export const healthText: Record<Health, string> = {
   R: "text-[var(--rag-red-text)]",
   A: "text-[var(--rag-amber-text)]",
   // AA-accessible green for text on light surfaces (brand green is only 2.26:1
-  // on white). See --AIPM-green-strong in globals.css.
+  // on white). See --ui-green-strong in globals.css.
   G: "text-[var(--rag-green-text)]",
 };
 

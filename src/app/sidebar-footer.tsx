@@ -33,12 +33,12 @@ export function SidebarFooter({
   return (
     <div className="flex flex-col gap-3">
       {storageDescription && (
-        <p className={storageReady ? "text-AIPM-light-grey" : "text-AIPM-light-grey"}>
+        <p className={storageReady ? "text-ui-light-grey" : "text-ui-light-grey"}>
           <span
             aria-hidden
             className={
               "mr-1 inline-block h-2 w-2 rounded-full " +
-              (storageReady ? "bg-AIPM-green" : "bg-AIPM-medium-grey")
+              (storageReady ? "bg-ui-green" : "bg-ui-medium-grey")
             }
           />
           {storageDescription}
@@ -47,11 +47,11 @@ export function SidebarFooter({
 
       {isSignedIn && accountName && (
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-AIPM-light-grey">{accountName}</span>
+          <span className="truncate text-ui-light-grey">{accountName}</span>
           <button
             type="button"
             onClick={onSignOut}
-            className="rounded-md px-2 py-1 text-AIPM-light-grey hover:bg-AIPM-white/10 hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="rounded-md px-2 py-1 text-ui-light-grey hover:bg-ui-white/10 hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "sidebarSignOut")}
           </button>

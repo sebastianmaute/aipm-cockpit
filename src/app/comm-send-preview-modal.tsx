@@ -45,7 +45,7 @@ export function CommSendPreviewModal(props: CommSendPreviewModalProps) {
         tabIndex={-1}
         className="flex max-h-[80vh] w-full max-w-lg flex-col gap-3 overflow-auto rounded-lg border border-line bg-surface p-4 focus:outline-none"
       >
-        <h2 className="text-base font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{labels.title}</h2>
+        <h2 className="text-base font-semibold text-ui-dark-blue dark:text-ui-light-grey">{labels.title}</h2>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           <dt className="font-medium text-muted-foreground">{labels.to}</dt>
           <dd className="text-foreground">{req.to}</dd>
@@ -64,7 +64,7 @@ export function CommSendPreviewModal(props: CommSendPreviewModalProps) {
             type="button"
             onClick={onSend}
             disabled={busy}
-            className={`rounded-md border border-line bg-AIPM-dark-blue px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+            className={`rounded-md border border-line bg-ui-dark-blue px-3 py-1.5 text-sm text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
           >
             {labels.send}
           </button>

@@ -147,8 +147,8 @@ describe("SegmentedControl palette", () => {
       />,
     );
     const radios = screen.getAllByRole("radio");
-    expect(radios[0].className).toContain("ring-AIPM-green");
-    expect(radios[0].className).not.toContain("ring-AIPM-dark-blue");
+    expect(radios[0].className).toContain("ring-ui-green");
+    expect(radios[0].className).not.toContain("ring-ui-dark-blue");
     const group = screen.getByRole("radiogroup");
     expect(group.className).not.toContain("shadow");
     expect(group.className).not.toContain("zinc");

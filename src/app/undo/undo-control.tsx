@@ -5,7 +5,7 @@ import { INTERACTIVE } from "../interaction-styles";
 import { PopoverPanel } from "../popover-panel";
 
 const BUTTON_CLASS =
-  "inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-sm text-muted-foreground hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey";
+  "inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-sm text-muted-foreground hover:text-ui-dark-blue dark:hover:text-ui-light-grey";
 
 /**
  * A top-bar undo/redo control: the action button plus an Excel-style caret that
@@ -53,7 +53,7 @@ function UndoRedoControl({
       >
         {icon}
         <span>{t(lang, labelKey)}</span>
-        <span className="rounded-full bg-AIPM-medium-grey px-1.5 text-xs text-white">{depth}</span>
+        <span className="rounded-full bg-ui-medium-grey px-1.5 text-xs text-white">{depth}</span>
       </button>
       {hasPreview && (
         <>
@@ -81,7 +81,7 @@ function UndoRedoControl({
             className="w-64 p-2"
           >
             <p className="text-xs font-medium text-muted-foreground">{t(lang, nextHeadingKey)}</p>
-            <p className="mt-1 text-sm text-AIPM-dark-blue dark:text-AIPM-light-grey">{nextLabel}</p>
+            <p className="mt-1 text-sm text-ui-dark-blue dark:text-ui-light-grey">{nextLabel}</p>
           </PopoverPanel>
         </>
       )}

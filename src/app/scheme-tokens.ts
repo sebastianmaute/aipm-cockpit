@@ -13,8 +13,8 @@ export interface TokenSpec {
 }
 
 export const CORE_TOKENS: readonly TokenSpec[] = [
-  { token: "--AIPM-dark-blue", labelKey: "schemeTokenPrimary" },
-  { token: "--AIPM-green", labelKey: "schemeTokenAccent" },
+  { token: "--ui-dark-blue", labelKey: "schemeTokenPrimary" },
+  { token: "--ui-green", labelKey: "schemeTokenAccent" },
   { token: "--background", labelKey: "schemeTokenBackground" },
   { token: "--surface", labelKey: "schemeTokenSurface" },
   { token: "--foreground", labelKey: "schemeTokenText" },
@@ -24,11 +24,11 @@ export const CORE_TOKENS: readonly TokenSpec[] = [
 ] as const;
 
 export const ADVANCED_TOKENS: readonly TokenSpec[] = [
-  { token: "--AIPM-pink", labelKey: "schemeTokenPink" },
-  { token: "--AIPM-purple", labelKey: "schemeTokenPurple" },
-  { token: "--AIPM-blue", labelKey: "schemeTokenBlue" },
-  { token: "--AIPM-medium-grey", labelKey: "schemeTokenMediumGrey" },
-  { token: "--AIPM-light-grey", labelKey: "schemeTokenLightGrey" },
+  { token: "--ui-pink", labelKey: "schemeTokenPink" },
+  { token: "--ui-purple", labelKey: "schemeTokenPurple" },
+  { token: "--ui-blue", labelKey: "schemeTokenBlue" },
+  { token: "--ui-medium-grey", labelKey: "schemeTokenMediumGrey" },
+  { token: "--ui-light-grey", labelKey: "schemeTokenLightGrey" },
   { token: "--surface-muted", labelKey: "schemeTokenSurfaceMuted" },
   { token: "--line", labelKey: "schemeTokenLine" },
   { token: "--table-head-bg", labelKey: "schemeTokenTableHeadBg" },
@@ -82,9 +82,9 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
   // dark ones), so clearing AA there guarantees AA on the plain --surface too.
   const surface = colors["--surface-muted"] ?? colors["--surface"] ?? FALLBACK_SURFACE;
   const out: SchemeColorMap = {};
-  if (colors["--AIPM-green"]) out["--AIPM-green-strong"] = nudgeToAa(colors["--AIPM-green"], surface);
-  if (colors["--AIPM-pink"]) out["--AIPM-pink-strong"] = nudgeToAa(colors["--AIPM-pink"], surface);
-  if (colors["--AIPM-purple"]) out["--AIPM-purple-strong"] = nudgeToAa(colors["--AIPM-purple"], surface);
+  if (colors["--ui-green"]) out["--ui-green-strong"] = nudgeToAa(colors["--ui-green"], surface);
+  if (colors["--ui-pink"]) out["--ui-pink-strong"] = nudgeToAa(colors["--ui-pink"], surface);
+  if (colors["--ui-purple"]) out["--ui-purple-strong"] = nudgeToAa(colors["--ui-purple"], surface);
   if (colors["--rag-red"]) out["--rag-red-text"] = nudgeToAa(colors["--rag-red"], surface);
   if (colors["--rag-amber"]) out["--rag-amber-text"] = nudgeToAa(colors["--rag-amber"], surface);
   if (colors["--rag-green"]) out["--rag-green-text"] = nudgeToAa(colors["--rag-green"], surface);

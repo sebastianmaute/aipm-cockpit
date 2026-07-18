@@ -636,7 +636,7 @@ export function GanttPanel({
           {todayOffsetPx >= nameColWidth && (
             <div
               aria-hidden
-              className="pointer-events-none absolute z-10 w-px bg-AIPM-dark-blue/60"
+              className="pointer-events-none absolute z-10 w-px bg-ui-dark-blue/60"
               style={{
                 left: todayOffsetPx,
                 top: 0,
@@ -733,7 +733,7 @@ export function GanttPanel({
               aria-label={t(lang, "addTaskButton")}
             >
               <div
-                className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-AIPM-dark-blue"
+                className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-ui-dark-blue"
                 style={{ width: nameColWidth }}
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 shrink-0">

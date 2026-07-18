@@ -43,7 +43,7 @@ const modalStack: symbol[] = [];
  *  `Modal` defaults to it; hand-rolled overlays (popovers that can't use `Modal`)
  *  import it so the whole app dims consistently. Emphasis tiers (confirm/empty)
  *  intentionally use a stronger variant and are not folded onto this. */
-export const MODAL_BACKDROP_CLASS = "bg-AIPM-dark-blue/40";
+export const MODAL_BACKDROP_CLASS = "bg-ui-dark-blue/40";
 
 // Standard "focusable element" selector. Excludes negative-tabindex (which
 // the dialog root itself uses) and disabled inputs/buttons/etc.

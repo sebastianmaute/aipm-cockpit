@@ -31,9 +31,9 @@ describe("Badge", () => {
   });
 
   it("appends caller className AFTER the base classes", () => {
-    render(<Badge className="bg-AIPM-green/15 text-AIPM-dark-blue extra-class">Tint</Badge>);
+    render(<Badge className="bg-ui-green/15 text-ui-dark-blue extra-class">Tint</Badge>);
     const cls = screen.getByText("Tint").className;
-    expect(cls).toContain("bg-AIPM-green/15");
+    expect(cls).toContain("bg-ui-green/15");
     expect(cls).toContain("extra-class");
     // size class present and comes before the appended className
     expect(cls.indexOf("text-xs")).toBeLessThan(cls.indexOf("extra-class"));

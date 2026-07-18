@@ -4,7 +4,7 @@ import { type Lang, t } from "../i18n";
 import type { RaidItem, Task } from "../types";
 
 const LINK_CLASS =
-  "rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted";
+  "rounded-md border border-transparent px-2 py-0.5 text-left text-foreground hover:border-ui-dark-blue hover:bg-surface-muted";
 
 // Row body: a click-through button when a handler is supplied, else a plain span.
 function LinkItem({ onOpen, children }: { onOpen?: () => void; children: ReactNode }) {

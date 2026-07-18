@@ -213,7 +213,7 @@ function parseInline(input: string): ReactNode[] {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-AIPM-dark-blue underline underline-offset-2 hover:opacity-80 dark:text-AIPM-blue"
+                className="text-ui-dark-blue underline underline-offset-2 hover:opacity-80 dark:text-ui-blue"
               >
                 {parseInline(label)}
               </a>,
@@ -277,7 +277,7 @@ export function Markdown({ text }: { text: string }) {
             return (
               <h3
                 key={key}
-                className="my-1.5 text-sm font-semibold text-AIPM-dark-blue first:mt-0 dark:text-AIPM-light-grey"
+                className="my-1.5 text-sm font-semibold text-ui-dark-blue first:mt-0 dark:text-ui-light-grey"
               >
                 {parseInline(b.text)}
               </h3>

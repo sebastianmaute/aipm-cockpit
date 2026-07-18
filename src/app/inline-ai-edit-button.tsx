@@ -26,7 +26,7 @@ export function InlineAiEditButton({ lang, label, onClick }: InlineAiEditButtonP
       }}
       aria-label={`${t(lang, "inlineAiEdit")} – ${label}`}
       title={t(lang, "inlineAiEdit")}
-      className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
+      className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
     >
       <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
         <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />

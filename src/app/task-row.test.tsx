@@ -476,7 +476,7 @@ describe("TaskRow zebra striping", () => {
       }),
     );
     const tr = container.querySelector("tbody tr");
-    expect(tr?.className).toContain("bg-AIPM-purple/10");
+    expect(tr?.className).toContain("bg-ui-purple/10");
     expect(tr?.className).not.toContain("bg-surface-muted/40");
   });
 

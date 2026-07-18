@@ -29,7 +29,7 @@ export interface RichTextEditorProps {
 }
 
 const BTN = "rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted";
-const BTN_ON = "rounded-md border border-line bg-AIPM-dark-blue px-2 py-1 text-xs text-white";
+const BTN_ON = "rounded-md border border-line bg-ui-dark-blue px-2 py-1 text-xs text-white";
 
 function ToolbarButton(props: { label: string; active?: boolean; onClick: () => void }) {
   return (
@@ -61,7 +61,7 @@ export function RichTextEditor(props: RichTextEditorProps) {
         role: "textbox",
         "aria-multiline": "true",
         class:
-          "min-h-40 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green",
+          "min-h-40 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green",
       },
     },
     onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitizeTemplateHtml(editor.getHTML())),

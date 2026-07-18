@@ -478,7 +478,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
             type="button"
             disabled={sync.busy || isPopout || !sync.fetchedAt || confirming}
             onClick={clearAllFetched}
-            className={`rounded-md border border-AIPM-pink/50 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:opacity-50 ${INTERACTIVE}`}
+            className={`rounded-md border border-ui-pink/50 bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "clearAll")}
           </button>
@@ -602,7 +602,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
 
       {/* People matching table */}
       <section className="mb-6">
-        <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           <button
             type="button"
             onClick={() => setSettings((s) => ({ ...s, timelogPeopleCollapsed: !s.timelogPeopleCollapsed }))}
@@ -650,7 +650,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                 <button
                   type="button"
                   onClick={() => removeUsers([...sel.selectedIds])}
-                  className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "remove")}
                 </button>
@@ -774,7 +774,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                             aria-label={removeLabel}
                             disabled={isPopout}
                             onClick={() => removeUsers([u.userId])}
-                            className={`rounded border border-line px-2 py-0.5 text-xs text-AIPM-pink-strong ${INTERACTIVE}`}
+                            className={`rounded border border-line px-2 py-0.5 text-xs text-ui-pink-strong ${INTERACTIVE}`}
                           >
                             ✕
                           </button>
@@ -792,7 +792,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
       {/* Projects matching table */}
       <section className="mb-6">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <h3 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "timelogMatchProjects")}
           </h3>
           {/* Bootstrap the projects the token owner MANAGES (REST PM filter) so a

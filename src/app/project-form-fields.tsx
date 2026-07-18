@@ -92,7 +92,7 @@ export function emptyProjectDraft(): ProjectFormDraft {
 }
 
 // Canonical field shell, single-sourced from the shared primitive (was a
-// copy-declared ring-1 string; now the ring-2 AIPM-green standard).
+// copy-declared ring-1 string; now the ring-2 ui-green standard).
 export const inputClass = fieldClass();
 
 // IANA zone list for the operating-timezone select (shared with the settings
@@ -117,7 +117,7 @@ export function FormSection({
 }) {
   return (
     <section>
-      <h3 className="mb-3 border-b border-line pb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+      <h3 className="mb-3 border-b border-line pb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
         {title}
       </h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
@@ -145,7 +145,7 @@ export function Field({
     <label className={`block ${className ?? ""}`}>
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {label}
-        {required && <span className="text-AIPM-pink-strong">*</span>}
+        {required && <span className="text-ui-pink-strong">*</span>}
         {tooltip && <InfoTooltip text={tooltip} label={t(lang, "infoMore")} />}
       </span>
       {children}
@@ -372,7 +372,7 @@ export function CustomerFields({
                 type="checkbox"
                 checked={draft.regulatory.includes(req)}
                 onChange={() => toggleRegulatory(req)}
-                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
+                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line dark:bg-surface-muted"
               />
               {req}
             </label>
@@ -442,7 +442,7 @@ export function OptionalDetailsFields({
                 type="checkbox"
                 checked={draft.identityTypes.includes(type)}
                 onChange={() => toggleIdentityType(type)}
-                className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line dark:bg-surface-muted"
+                className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line dark:bg-surface-muted"
               />
               {type}
             </label>
@@ -645,7 +645,7 @@ function ContactPersonsControl({
     <div>
       <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
         {t(lang, "projectContactPersons")}
-        {required && <span className="text-AIPM-pink-strong">*</span>}
+        {required && <span className="text-ui-pink-strong">*</span>}
         <InfoTooltip text={t(lang, "contactPersonsTip")} />
       </span>
 
@@ -658,7 +658,7 @@ function ContactPersonsControl({
             >
               <span className="flex items-center gap-1.5">
                 {cp.resourceId != null && (
-                  <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-AIPM-green" title={t(lang, "resourcePickerLinked")} />
+                  <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-ui-green" title={t(lang, "resourcePickerLinked")} />
                 )}
                 <span>{cp.name}{cp.email ? ` <${cp.email}>` : ""}</span>
               </span>
@@ -666,7 +666,7 @@ function ContactPersonsControl({
                 type="button"
                 onClick={() => onChange(contactPersons.filter((c) => c.name !== cp.name))}
                 aria-label={`${t(lang, "remove")} ${cp.name}`}
-                className="rounded-full px-1 text-muted-foreground hover:text-AIPM-pink"
+                className="rounded-full px-1 text-muted-foreground hover:text-ui-pink"
               >
                 ×
               </button>
@@ -703,7 +703,7 @@ function ContactPersonsControl({
         <button
           type="button"
           onClick={addDraft}
-          className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
+          className="shrink-0 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:border-line dark:bg-surface dark:text-foreground dark:hover:bg-surface-muted"
         >
           {t(lang, "add")}
         </button>

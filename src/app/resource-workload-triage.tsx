@@ -50,7 +50,7 @@ export function WorkloadOverdueTriage({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`${t(lang, "workloadTriageOverdue")} – ${rowDisplay}`}
-        className={`rounded-md border border-transparent px-2 py-0.5 font-medium tabular-nums text-AIPM-pink-strong hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+        className={`rounded-md border border-transparent px-2 py-0.5 font-medium tabular-nums text-ui-pink-strong hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
       >
         {count}
       </button>

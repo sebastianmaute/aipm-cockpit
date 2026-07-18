@@ -211,7 +211,7 @@ export function SettingsView(props: SettingsViewProps) {
         onClick={() => setActive(id)}
         className={`${
           isActive
-            ? "rounded-md bg-AIPM-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
+            ? "rounded-md bg-ui-dark-blue px-3 py-2 text-left text-sm font-medium text-white"
             : "rounded-md px-3 py-2 text-left text-sm text-foreground hover:bg-surface-muted"
         } ${INTERACTIVE}`}
       >
@@ -238,7 +238,7 @@ export function SettingsView(props: SettingsViewProps) {
             checked={expert}
             aria-label={t(lang, "settingsExpertMode")}
             onChange={(e) => toggleExpert(e.target.checked)}
-            className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+            className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
           />
           <span className="inline-flex items-center gap-1">
             {t(lang, "settingsExpertMode")}
@@ -271,7 +271,7 @@ export function SettingsView(props: SettingsViewProps) {
             Templates and Comm-templates are excluded — they already render their
             own identical heading + an intro line. */}
         {active !== "mode" && active !== "templates" && active !== "commTemplates" && (
-          <h2 className="mb-4 text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <h2 className="mb-4 text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, RAIL.find((r) => r.id === active)?.labelKey ?? "settingsSectionGeneral")}
           </h2>
         )}
@@ -397,7 +397,7 @@ export function SettingsView(props: SettingsViewProps) {
         type="button"
         onClick={() => setShowVersion(true)}
         title={t(lang, "versionHistory")}
-        className="font-medium text-AIPM-dark-blue underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-AIPM-green dark:text-AIPM-blue"
+        className="font-medium text-ui-dark-blue underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-blue"
       >
         {t(lang, "versionVersion")} {APP_VERSION_LABEL}
       </button>
@@ -406,7 +406,7 @@ export function SettingsView(props: SettingsViewProps) {
         href={APP_LICENSE_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue"
+        className="font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue"
       >
         {t(lang, "versionLicense")}: {APP_LICENSE} ↗
       </a>

@@ -8,14 +8,14 @@ Defined in `src/app/globals.css`.
 
 | Utility | Hex | Role |
 |---|---|---|
-| `AIPM-dark-grey` | #636362 | primary text (light) |
-| `AIPM-dark-blue` | #004159 | fills (buttons), headers, section titles, table-headers |
-| `AIPM-green` | #84BD00 | **dominant accent** — focus rings, active indicators, links, positive/done |
-| `AIPM-light-grey` | #E3E6E6 | subtle bg / dividers / alt-rows |
-| `AIPM-medium-grey` | #939598 | secondary text |
-| `AIPM-blue` | #60C0DD | info / vacation / callouts / charts |
-| `AIPM-pink` | #E5497C | errors / delete / alerts / overdue / critical |
-| `AIPM-purple` | #AA4899 | warnings / medium-severity / holiday / differentiation |
+| `ui-dark-grey` | #636362 | primary text (light) |
+| `ui-dark-blue` | #004159 | fills (buttons), headers, section titles, table-headers |
+| `ui-green` | #84BD00 | **dominant accent** — focus rings, active indicators, links, positive/done |
+| `ui-light-grey` | #E3E6E6 | subtle bg / dividers / alt-rows |
+| `ui-medium-grey` | #939598 | secondary text |
+| `ui-blue` | #60C0DD | info / vacation / callouts / charts |
+| `ui-pink` | #E5497C | errors / delete / alerts / overdue / critical |
+| `ui-purple` | #AA4899 | warnings / medium-severity / holiday / differentiation |
 
 ## Semantic surface tokens (light / dark)
 
@@ -35,44 +35,44 @@ never reference them directly.
 ## Rules
 
 - **Green accents, Dark Blue fills.** Solid fills (primary buttons, selected
-  segmented-control pill) = `bg-AIPM-dark-blue text-white`. Green = focus rings,
+  segmented-control pill) = `bg-ui-dark-blue text-white`. Green = focus rings,
   active/selected indicators, links, positive states.
 - **No drop shadows, no gradients.** Remove every `shadow-*` and
   `bg-gradient`/`from-`/`via-`/`to-`. Use `border border-line` for separation.
-- **Status mapping:** red→`AIPM-pink`, amber/warning/medium→`AIPM-purple`,
-  info/vacation→`AIPM-blue`, holiday/differentiation→`AIPM-purple`,
-  done/low→`AIPM-green`. Soft backgrounds use alpha tints (e.g. `bg-AIPM-pink/10`).
-- **Chrome greys via semantic tokens only.** `bg`/`border`/`divide-AIPM-light-grey`
-  and `text-AIPM-dark-grey` are BANNED (`palette-chrome-sweep` guard) — use
-  `bg-surface-muted`/`border-line` for zones/dividers, `bg-AIPM-medium-grey` for a
+- **Status mapping:** red→`ui-pink`, amber/warning/medium→`ui-purple`,
+  info/vacation→`ui-blue`, holiday/differentiation→`ui-purple`,
+  done/low→`ui-green`. Soft backgrounds use alpha tints (e.g. `bg-ui-pink/10`).
+- **Chrome greys via semantic tokens only.** `bg`/`border`/`divide-ui-light-grey`
+  and `text-ui-dark-grey` are BANNED (`palette-chrome-sweep` guard) — use
+  `bg-surface-muted`/`border-line` for zones/dividers, `bg-ui-medium-grey` for a
   solid grey, `text-muted-foreground` for secondary text. The palette guards scan
   comments too, so a bare `shadow`/grey word in a comment can trip them.
 
 ## Canonical recipes
 
-- Primary button: `bg-AIPM-dark-blue text-white hover:bg-AIPM-dark-blue/90`
+- Primary button: `bg-ui-dark-blue text-white hover:bg-ui-dark-blue/90`
 - Secondary button: `border border-line bg-surface text-foreground hover:bg-surface-muted`
-- Destructive: text/border `AIPM-pink` (`text-AIPM-pink`, `border-AIPM-pink`, `hover:bg-AIPM-pink/10`)
-- Focus ring: `focus:outline-none focus:ring-2 focus:ring-AIPM-green`
+- Destructive: text/border `ui-pink` (`text-ui-pink`, `border-ui-pink`, `hover:bg-ui-pink/10`)
+- Focus ring: `focus:outline-none focus:ring-2 focus:ring-ui-green`
 - Card / panel: `bg-surface border border-line`
-- Table header: `bg-AIPM-dark-blue text-white`
+- Table header: `bg-ui-dark-blue text-white`
 
 ## Calendar status colors
 
-- Absence cells (with V/S/T/O glyph): vacation `AIPM-blue`, sick `AIPM-pink`, training `AIPM-purple`, other `AIPM-medium-grey` (alpha ~/30).
-- Column shades: today `AIPM-green` wash, holiday `AIPM-purple` wash (fainter than the training cell), weekend `surface-muted`, normal `surface`.
+- Absence cells (with V/S/T/O glyph): vacation `ui-blue`, sick `ui-pink`, training `ui-purple`, other `ui-medium-grey` (alpha ~/30).
+- Column shades: today `ui-green` wash, holiday `ui-purple` wash (fainter than the training cell), weekend `surface-muted`, normal `surface`.
 
 ## RAID category & severity colors
 
-- **Categories (R/A/I/D)** — 4-state chips, all 4 palette hues: Risk=`AIPM-pink`, Action=`AIPM-blue`, Issue=`AIPM-purple`, Decision=`AIPM-green`. Chips render at `/15` alpha light, `/20` dark.
-- **Severity ramp (Low→Critical)** — 4-step cold→hot: Low=`AIPM-green`, Medium=`AIPM-blue`, High=`AIPM-purple`, Critical=`AIPM-pink`. Alpha escalates with severity (`/20` Low/Medium → `/25` High → `/30` Critical).
-- **RAG health dots (R/A/G)** — solid dots: R=`bg-AIPM-pink`, A=`bg-AIPM-purple`, G=`bg-AIPM-green` (same triple as the task-form-modal RAG indicator and the reports legend).
+- **Categories (R/A/I/D)** — 4-state chips, all 4 palette hues: Risk=`ui-pink`, Action=`ui-blue`, Issue=`ui-purple`, Decision=`ui-green`. Chips render at `/15` alpha light, `/20` dark.
+- **Severity ramp (Low→Critical)** — 4-step cold→hot: Low=`ui-green`, Medium=`ui-blue`, High=`ui-purple`, Critical=`ui-pink`. Alpha escalates with severity (`/20` Low/Medium → `/25` High → `/30` Critical).
+- **RAG health dots (R/A/G)** — solid dots: R=`bg-ui-pink`, A=`bg-ui-purple`, G=`bg-ui-green` (same triple as the task-form-modal RAG indicator and the reports legend).
 
 ## RAG role tokens (dual-CI) — text-on-surface caveat
 
 The dual-CI style system adds `--rag-red/amber/green` role tokens (+ `-text` AA companions) so RAG semantics switch across the Acme / Dashboard / Custom styles.
 
-- ★ **`--rag-amber-text` is AA only on the LIGHT AIPM surface** — it maps to `AIPM-purple` (a brown under the Dashboard style). As **small text on `bg-surface`** it falls below WCAG AA on the dark and Dashboard styles (3.5:1 and 4.4:1). `--rag-red-text` / `--rag-green-text` pass.
+- ★ **`--rag-amber-text` is AA only on the LIGHT AIPM surface** — it maps to `ui-purple` (a brown under the Dashboard style). As **small text on `bg-surface`** it falls below WCAG AA on the dark and Dashboard styles (3.5:1 and 4.4:1). `--rag-red-text` / `--rag-green-text` pass.
 - **Carry tier colour on a NON-text element** — a solid dot or a left stripe (`bg-[var(--rag-amber)]` / `border-l-[var(--rag-amber)]`), which are exempt from text-contrast rules — never as small tinted text. (This bit the Next-actions tier counts + hero eyebrow; both were moved to a dot/stripe.)
 
 ## Migration status (sub-project E)

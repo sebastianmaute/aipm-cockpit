@@ -25,35 +25,35 @@ function contrastRatio(a: string, b: string): number {
 describe("scheme-tokens", () => {
   it("resolveSchemeColors derives AA variants from a minimal color map", () => {
     const out = resolveSchemeColors({
-      "--AIPM-green": "#84bd00",
+      "--ui-green": "#84bd00",
       "--rag-red": "#ef4444",
       "--surface": "#ffffff",
     });
-    expect(out["--AIPM-green-strong"]).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(out["--ui-green-strong"]).toMatch(/^#[0-9a-f]{6}$/i);
     expect(out["--rag-red-text"]).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
   it("deriveAaVariants darkens the accent until it clears AA on white", () => {
-    const derived = deriveAaVariants({ "--AIPM-green": "#84bd00", "--surface": "#ffffff" });
-    expect(derived["--AIPM-green-strong"]).toMatch(/^#[0-9a-f]{6}$/i);
+    const derived = deriveAaVariants({ "--ui-green": "#84bd00", "--surface": "#ffffff" });
+    expect(derived["--ui-green-strong"]).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
   it("resolveSchemeColors merges user colors with derived variants", () => {
-    const resolved = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface": "#ffffff" });
-    expect(resolved["--AIPM-green"]).toBe("#84bd00");
-    expect(resolved["--AIPM-green-strong"]).toBeDefined();
+    const resolved = resolveSchemeColors({ "--ui-green": "#84bd00", "--surface": "#ffffff" });
+    expect(resolved["--ui-green"]).toBe("#84bd00");
+    expect(resolved["--ui-green-strong"]).toBeDefined();
   });
 
   it("resolveSchemeColors: an explicit base derived token wins over derivation", () => {
     // LIGHT surface-muted: #84bd00 fails AA vs white, so derivation WOULD darken
     // it. Pinning the raw base proves base-wins (else derived darkens it).
-    const out = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface-muted": "#ffffff", "--AIPM-green-strong": "#84bd00" });
-    expect(out["--AIPM-green-strong"]).toBe("#84bd00"); // pinned, NOT re-derived/darkened
+    const out = resolveSchemeColors({ "--ui-green": "#84bd00", "--surface-muted": "#ffffff", "--ui-green-strong": "#84bd00" });
+    expect(out["--ui-green-strong"]).toBe("#84bd00"); // pinned, NOT re-derived/darkened
   });
 
   it("resolveSchemeColors: missing derived tokens are still filled", () => {
-    const out = resolveSchemeColors({ "--AIPM-green": "#84bd00", "--surface-muted": "#e3e6e6" });
-    expect(out["--AIPM-green-strong"]).toBeDefined();
+    const out = resolveSchemeColors({ "--ui-green": "#84bd00", "--surface-muted": "#e3e6e6" });
+    expect(out["--ui-green-strong"]).toBeDefined();
   });
 
   it("LIGHT map: derived text variants clear AA vs the light surface AND are darker than the base", () => {
@@ -61,15 +61,15 @@ describe("scheme-tokens", () => {
     const colors = {
       "--surface": light,
       "--foreground": "#636362",
-      "--AIPM-green": "#84bd00",
+      "--ui-green": "#84bd00",
       "--rag-red": "#ef4444",
     };
     const derived = deriveAaVariants(colors);
-    expect(contrastRatio(derived["--AIPM-green-strong"]!, light)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(derived["--ui-green-strong"]!, light)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(derived["--rag-red-text"]!, light)).toBeGreaterThanOrEqual(4.5);
     // darkened => lower luminance than the base
-    expect(relLuminance(hexToRgb(derived["--AIPM-green-strong"]!))).toBeLessThan(
-      relLuminance(hexToRgb(colors["--AIPM-green"])),
+    expect(relLuminance(hexToRgb(derived["--ui-green-strong"]!))).toBeLessThan(
+      relLuminance(hexToRgb(colors["--ui-green"])),
     );
     expect(relLuminance(hexToRgb(derived["--rag-red-text"]!))).toBeLessThan(
       relLuminance(hexToRgb(colors["--rag-red"])),
@@ -81,13 +81,13 @@ describe("scheme-tokens", () => {
     const colors = {
       "--surface": dark,
       "--foreground": "#e4edf4",
-      "--AIPM-green": "#4bc394",
+      "--ui-green": "#4bc394",
       "--rag-green": "#4bc394",
       "--rag-red": "#d64545",
     };
     const derived = deriveAaVariants(colors);
     expect(contrastRatio(derived["--rag-green-text"]!, dark)).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(derived["--AIPM-green-strong"]!, dark)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(derived["--ui-green-strong"]!, dark)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(derived["--rag-red-text"]!, dark)).toBeGreaterThanOrEqual(4.5);
     // rag-red starts BELOW AA on the dark surface, so the derivation must
     // LIGHTEN it (higher luminance than the base) to reach AA — proving direction.

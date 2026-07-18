@@ -83,7 +83,7 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
             type="button"
             onClick={addZone}
             disabled={!pending}
-            className={`shrink-0 rounded-md bg-AIPM-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            className={`shrink-0 rounded-md bg-ui-dark-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "tzAddLabel")}
           </button>

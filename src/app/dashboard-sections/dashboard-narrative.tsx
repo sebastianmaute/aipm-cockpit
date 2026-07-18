@@ -67,7 +67,7 @@ export function NarrativeEditor({
 
   return (
     <details className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)] print:hidden">
-      <summary className={`cursor-pointer text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey ${FOCUS_RING}`}>
+      <summary className={`cursor-pointer text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey ${FOCUS_RING}`}>
         {t(lang, "dashboardStatusSummary")}
       </summary>
       <div className="mt-2">
@@ -85,7 +85,7 @@ export function NarrativeEditor({
             type="button"
             onClick={commitNarrative}
             disabled={draftNarrative.trim() === (status.narrative ?? "")}
-            className={`rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            className={`rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "dashboardStatusSave")}
           </button>

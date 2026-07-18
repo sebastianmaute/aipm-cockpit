@@ -214,7 +214,7 @@ Design-system consistency — Phase 1d (Badge + palette hygiene).
 ### Fixed
 - Replaced off-palette raw colours with sanctioned tokens so they recolour under the
   Mockup/custom schemes: amber warning chips (`bg-amber-500` → `--rag-amber`) and two
-  error-text strings (`text-AIPM-red` → `AIPM-pink-strong`).
+  error-text strings (`text-ui-red` → `ui-pink-strong`).
 
 ## [0.190.5] - 2026-07-17 "Pinsker"
 
@@ -1374,12 +1374,12 @@ breaking changes.
 ## [0.126.0] - 2026-06-22 "McIntyre"
 
 ### Added
-- Deep-link scroll + highlight now also works in the tasks **Kanban board**: a Dashboard or Action Center deep-link to a task scrolls its board card into view and briefly outlines it (`outline-AIPM-green`), matching the table-row behaviour. Closes the board-mode gap left by 0.125.0. The remaining graceful no-ops are the tasks full-page editor (list unmounted) and any card hidden by an active filter/search.
+- Deep-link scroll + highlight now also works in the tasks **Kanban board**: a Dashboard or Action Center deep-link to a task scrolls its board card into view and briefly outlines it (`outline-ui-green`), matching the table-row behaviour. Closes the board-mode gap left by 0.125.0. The remaining graceful no-ops are the tasks full-page editor (list unmounted) and any card hidden by an active filter/search.
 
 ## [0.125.0] - 2026-06-22 "Brunner"
 
 ### Added
-- Dashboard and Action Center deep-links now scroll the target row into view and briefly highlight it (an `outline-AIPM-green` flash) in its list — across the RAID, milestones, changes, stakeholders, and tasks panels — in addition to opening the item's editor.
+- Dashboard and Action Center deep-links now scroll the target row into view and briefly highlight it (an `outline-ui-green` flash) in its list — across the RAID, milestones, changes, stakeholders, and tasks panels — in addition to opening the item's editor.
 
 ## 0.124.0 "Pratchett" — 2026-06-22
 

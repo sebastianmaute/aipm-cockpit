@@ -241,13 +241,13 @@ function ResourceDirectoryInner({
           placeholder={t(lang, "directorySearchPlaceholder")}
           aria-label={t(lang, "directorySearchPlaceholder")}
           title={t(lang, "directorySearchHint")}
-          className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+          className={`min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
         />
         {onImportOutlook && (
           <button
             type="button"
             onClick={onImportOutlook}
-            className={`shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+            className={`shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >
             {t(lang, "outlookImportButton")}
           </button>
@@ -269,7 +269,7 @@ function ResourceDirectoryInner({
             <button
               type="button"
               onClick={handleBulkDelete}
-              className={`mb-2 rounded-md border border-AIPM-pink/40 bg-surface px-2 py-1 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 ${INTERACTIVE}`}
+              className={`mb-2 rounded-md border border-ui-pink/40 bg-surface px-2 py-1 text-xs font-medium text-ui-pink-strong hover:bg-ui-pink/10 ${INTERACTIVE}`}
             >
               {t(lang, "resourceBulkDelete")}
             </button>
@@ -294,48 +294,48 @@ function ResourceDirectoryInner({
                       aria-label={t(lang, "selectAllVisibleRows")}
                       checked={sel.allSelected(visibleIds)}
                       onChange={() => sel.toggleAllVisible(visibleIds)}
-                      className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                      className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                     />
                   </th>
                 )}
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.name, minWidth: colWidths.name }}>
-                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
+                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
                     {t(lang, "assignee")}{sortIndicator("name")}
                   </button>
                   <ColumnResizeHandle col="name" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.role, minWidth: colWidths.role }}>
-                  <button type="button" onClick={() => toggleSort("role")} aria-label={t(lang, "sortBy", t(lang, "role"))} title={t(lang, "sortBy", t(lang, "role"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
+                  <button type="button" onClick={() => toggleSort("role")} aria-label={t(lang, "sortBy", t(lang, "role"))} title={t(lang, "sortBy", t(lang, "role"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
                     {t(lang, "role")}{sortIndicator("role")}
                   </button>
                   <ColumnResizeHandle col="role" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.title, minWidth: colWidths.title }}>
-                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
+                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
                     {t(lang, "resourceColTitle")}{sortIndicator("title")}
                   </button>
                   <ColumnResizeHandle col="title" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.department, minWidth: colWidths.department }}>
-                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
+                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
                     {t(lang, "resourceColDepartment")}{sortIndicator("department")}
                   </button>
                   <ColumnResizeHandle col="department" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.phone, minWidth: colWidths.phone }}>
-                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
+                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
                     {t(lang, "resourceColPhone")}{sortIndicator("phone")}
                   </button>
                   <ColumnResizeHandle col="phone" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.email, minWidth: colWidths.email }}>
-                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
+                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
                     {t(lang, "email")}{sortIndicator("email")}
                   </button>
                   <ColumnResizeHandle col="email" onMouseDown={startColResize} />
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.birthday, minWidth: colWidths.birthday }}>
-                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className={`hover:text-AIPM-green ${INTERACTIVE}`}>
+                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
                     {t(lang, "resourceColBirthday")}{sortIndicator("birthday")}
                   </button>
                   <ColumnResizeHandle col="birthday" onMouseDown={startColResize} />
@@ -351,7 +351,7 @@ function ResourceDirectoryInner({
                         aria-label={t(lang, "selectItem", resourceDisplayName(r))}
                         checked={sel.isSelected(r.id)}
                         onChange={() => sel.toggle(r.id)}
-                        className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                        className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                       />
                     </td>
                   )}
@@ -359,7 +359,7 @@ function ResourceDirectoryInner({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onEditResource(r); }}
-                      className={`rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                      className={`rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {resourceDisplayName(r)}
                     </button>
@@ -391,7 +391,7 @@ function ResourceDirectoryInner({
                             onClick={(e) => { e.stopPropagation(); void copyEmail(addr); }}
                             aria-label={t(lang, "resourceEmailCopyLabel", addr)}
                             title={t(lang, "resourceEmailCopyLabel", addr)}
-                            className={`rounded text-foreground hover:text-AIPM-dark-blue hover:underline ${FOCUS_RING} ${TRANSITION}`}
+                            className={`rounded text-foreground hover:text-ui-dark-blue hover:underline ${FOCUS_RING} ${TRANSITION}`}
                           >
                             {addr}
                           </button>

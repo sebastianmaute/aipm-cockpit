@@ -25,7 +25,7 @@ export function RemovableChipRow({ label, ariaLabel, onRemove }: RemovableChipRo
         type="button"
         onClick={onRemove}
         aria-label={ariaLabel}
-        className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
+        className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
       >
         <svg
           viewBox="0 0 20 20"

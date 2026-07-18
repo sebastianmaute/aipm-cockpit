@@ -136,7 +136,7 @@ export function ModernShell({
     <div className="flex h-screen w-full overflow-hidden bg-surface-muted pb-6 dark:bg-black">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-AIPM-green focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-AIPM-dark-blue"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-ui-green focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-ui-dark-blue"
       >
         {t(lang, "skipToContent")}
       </a>
@@ -144,7 +144,7 @@ export function ModernShell({
         ? drawerOpen && (
             <>
               <div
-                className="fixed inset-0 z-40 bg-AIPM-dark-blue/50"
+                className="fixed inset-0 z-40 bg-ui-dark-blue/50"
                 aria-hidden="true"
                 onClick={closeDrawer}
               />

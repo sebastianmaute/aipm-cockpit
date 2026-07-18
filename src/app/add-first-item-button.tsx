@@ -34,7 +34,7 @@ export function AddFirstItemButton({
   rounded = "lg",
   padding = 10,
 }: AddFirstItemButtonProps) {
-  const shell = `border border-dashed border-line ${RADIUS[rounded]} ${PAD[padding]} text-center text-sm text-muted-foreground hover:border-AIPM-dark-blue hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`;
+  const shell = `border border-dashed border-line ${RADIUS[rounded]} ${PAD[padding]} text-center text-sm text-muted-foreground hover:border-ui-dark-blue hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`;
 
   if (text === undefined) {
     return (

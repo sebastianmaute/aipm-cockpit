@@ -38,11 +38,11 @@ export function Sidebar({
   return (
     <aside
       className={
-        "flex h-full flex-col bg-AIPM-dark-blue text-AIPM-white " +
+        "flex h-full flex-col bg-ui-dark-blue text-ui-white " +
         (collapsed ? "w-16" : "w-64")
       }
     >
-      <div className="flex items-center justify-between gap-2 border-b border-AIPM-white/10 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b border-ui-white/10 px-4 py-2.5">
         {!collapsed && (
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -53,7 +53,7 @@ export function Sidebar({
               // mono Acme default gets the brightness-0 invert to go white.
               className={brandLogo ? "max-h-8 max-w-full w-auto object-contain" : "h-5 w-auto brightness-0 invert"}
             />
-            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-AIPM-green">
+            <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-ui-green">
               {brandSlogan || t(lang, "sidebarBrandSubtitle")}
             </p>
           </div>
@@ -64,7 +64,7 @@ export function Sidebar({
           aria-expanded={!collapsed}
           aria-label={toggleAriaLabel ?? (collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse"))}
           title={toggleAriaLabel ?? (collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse"))}
-          className="rounded-md p-1.5 text-AIPM-light-grey hover:bg-AIPM-white/10 hover:text-AIPM-white focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+          className="rounded-md p-1.5 text-ui-light-grey hover:bg-ui-white/10 hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`}>
             <path fillRule="evenodd" d="M12.78 5.22a.75.75 0 010 1.06L9.06 10l3.72 3.72a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0z" clipRule="evenodd" />
@@ -76,12 +76,12 @@ export function Sidebar({
         <SidebarNav lang={lang} activeView={activeView} onNavigate={onNavigate} collapsed={collapsed} navGroups={navGroups} badges={navBadges} />
       </div>
 
-      <div className="border-t border-AIPM-white/10 px-4 py-3 text-xs text-AIPM-light-grey">
+      <div className="border-t border-ui-white/10 px-4 py-3 text-xs text-ui-light-grey">
         {footer}
         {!collapsed && (
           <span
             data-testid="sidebar-mode-badge"
-            className="mb-2 inline-block rounded-full bg-AIPM-green/15 px-2.5 py-0.5 text-[11px] font-semibold text-AIPM-light-grey"
+            className="mb-2 inline-block rounded-full bg-ui-green/15 px-2.5 py-0.5 text-[11px] font-semibold text-ui-light-grey"
           >
             {t(lang, SIDEBAR_MODE_LABEL[mode])}
           </span>
@@ -91,7 +91,7 @@ export function Sidebar({
             type="button"
             onClick={onShowVersion}
             title={t(lang, "versionHistory")}
-            className="mt-2 block w-full rounded text-left text-AIPM-light-grey hover:text-AIPM-light-grey focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+            className="mt-2 block w-full rounded text-left text-ui-light-grey hover:text-ui-light-grey focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
             {t(lang, "versionVersion")} {version}
           </button>

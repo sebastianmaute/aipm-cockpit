@@ -96,7 +96,7 @@ export function overflowCtas(a: SuggestedAction, c: ActionCaps): SecondaryCtaKin
 // STRIPE and the header DOT. Concrete `var(--rag-NAME)` strings only — NEVER a
 // single arbitrary-value bracket with a pipe/wildcard (Tailwind v4 scans all files;
 // an invalid bracket char compiles to broken CSS and 500s globals.css).
-// ★ No `text` variant here on purpose: `--rag-amber-text` (= AIPM-purple / a brown)
+// ★ No `text` variant here on purpose: `--rag-amber-text` (= ui-purple / a brown)
 // is only AA on the LIGHT AIPM surface — as small text on bg-surface it fails AA on
 // dark + mockup (3.5:1 / 4.4:1). Tier colour rides the dot/stripe (AA-exempt);
 // tinted small text would reintroduce that contrast failure.

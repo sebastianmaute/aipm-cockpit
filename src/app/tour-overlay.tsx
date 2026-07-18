@@ -67,11 +67,11 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
     : { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-AIPM-dark-blue/40" role="presentation">
+    <div className="fixed inset-0 z-[60] bg-ui-dark-blue/40" role="presentation">
       {spotlight && anchorRect && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed rounded-md ring-2 ring-AIPM-green"
+          className="pointer-events-none fixed rounded-md ring-2 ring-ui-green"
           style={{ top: anchorRect.top - 4, left: anchorRect.left - 4, width: anchorRect.width + 8, height: anchorRect.height + 8 }}
         />
       )}
@@ -91,10 +91,10 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
         )}
         <div className="mb-2 flex items-center gap-1" aria-hidden="true">
           {steps.map((s, k) => (
-            <span key={s.id} className={k === i ? "h-1.5 w-3 rounded-full bg-AIPM-dark-blue" : "h-1.5 w-1.5 rounded-full bg-line"} />
+            <span key={s.id} className={k === i ? "h-1.5 w-3 rounded-full bg-ui-dark-blue" : "h-1.5 w-1.5 rounded-full bg-line"} />
           ))}
         </div>
-        <h2 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, step.titleKey)}</h2>
+        <h2 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, step.titleKey)}</h2>
         <p className="mt-1 text-xs leading-relaxed text-foreground">{t(lang, step.bodyKey)}</p>
         <p className="mt-2 text-[11px] text-muted-foreground">{i + 1} / {total}</p>
         <div className="mt-3 flex items-center justify-between gap-2">
@@ -103,7 +103,7 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
           </button>
           <div className="flex items-center gap-2">
             {step.view && (
-              <button type="button" onClick={() => onShowMe(step)} className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey">
+              <button type="button" onClick={() => onShowMe(step)} className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey">
                 {t(lang, "tourShowMe")}
               </button>
             )}
@@ -112,7 +112,7 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
                 {t(lang, "tourBack")}
               </button>
             )}
-            <button type="button" onClick={isLast ? onDone : onNext} className="rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90">
+            <button type="button" onClick={isLast ? onDone : onNext} className="rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90">
               {t(lang, isLast ? "tourDone" : "tourNext")}
             </button>
           </div>

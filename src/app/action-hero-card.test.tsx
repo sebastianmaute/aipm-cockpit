@@ -44,12 +44,12 @@ describe("ActionHeroCard", () => {
     const escalate = { resources: [], onCreateResource: () => 1,
       raid: [{ id: 12, category: "I", title: "X", status: "Open", severity: "High" }], onEscalate: () => {} } as never;
     render(<ActionHeroCard lang="en-US" group={group(severity)} onOpen={() => {}} escalate={escalate} />);
-    expect(screen.getByRole("button", { name: /^Escalate$/ }).className).toMatch(/bg-AIPM-dark-blue/);
+    expect(screen.getByRole("button", { name: /^Escalate$/ }).className).toMatch(/bg-ui-dark-blue/);
   });
   it("renders the hero's assign trigger as a prominent filled button", () => {
     render(<ActionHeroCard lang="en-US" group={group(noOwner)} onOpen={() => {}}
       assignOwner={{ resources: [], onCreateResource: () => 1, onAssign: () => {} }} />);
-    expect(screen.getByRole("button", { name: /assign owner/i }).className).toMatch(/bg-AIPM-dark-blue/);
+    expect(screen.getByRole("button", { name: /assign owner/i }).className).toMatch(/bg-ui-dark-blue/);
   });
   it("shows the learning surfaced/demoted hint when the action moved", () => {
     const surfaced = { ...noOwner, learning: { bias: 12, moved: "up" as const } };

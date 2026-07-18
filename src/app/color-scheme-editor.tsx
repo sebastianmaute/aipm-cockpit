@@ -277,7 +277,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
           {pairs.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-2">
               <span className="text-muted-foreground">{t(lang, p.labelKey as TranslationKey)}</span>
-              <span className={p.passesAa ? "text-AIPM-green-strong" : "text-AIPM-pink-strong"}>
+              <span className={p.passesAa ? "text-ui-green-strong" : "text-ui-pink-strong"}>
                 {p.ratio}:1 {p.passesAa ? "✓" : `⚠ ${t(lang, "schemeContrastBelowAa")}`}
               </span>
             </li>
@@ -291,7 +291,7 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
           onClick={apply}
           disabled={isBuiltin}
           title={isBuiltin ? t(lang, "schemeBuiltinReadonly") : undefined}
-          className={`rounded-md border border-line bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-AIPM-white disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+          className={`rounded-md border border-line bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-ui-white disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, "schemeApply")}
         </button>

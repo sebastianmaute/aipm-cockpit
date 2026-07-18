@@ -183,7 +183,7 @@ export function ProjectForm({
       {/* Optional, non-mandatory fields — collapsed by default to keep the
           create flow focused on what's required. */}
       <details className="rounded-md border border-line bg-surface">
-        <summary className="cursor-pointer select-none px-4 py-2.5 text-sm font-semibold text-AIPM-dark-blue marker:text-muted-foreground dark:text-AIPM-light-grey">
+        <summary className="cursor-pointer select-none px-4 py-2.5 text-sm font-semibold text-ui-dark-blue marker:text-muted-foreground dark:text-ui-light-grey">
           {t(lang, "projectFormOptional")}
         </summary>
         <div className="border-t border-line p-4">

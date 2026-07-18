@@ -48,7 +48,7 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={t(lang, "documentsOpen")}
-                  className="flex-1 truncate text-AIPM-dark-blue underline hover:opacity-80 dark:text-AIPM-light-grey"
+                  className="flex-1 truncate text-ui-dark-blue underline hover:opacity-80 dark:text-ui-light-grey"
                 >
                   {link.name}
                 </a>
@@ -59,7 +59,7 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
                 type="button"
                 onClick={() => remove(link.url)}
                 aria-label={t(lang, "documentsRemove")}
-                className={`rounded px-1 text-AIPM-pink-strong hover:bg-surface-muted ${FOCUS_RING}`}
+                className={`rounded px-1 text-ui-pink-strong hover:bg-surface-muted ${FOCUS_RING}`}
               >
                 ✕
               </button>

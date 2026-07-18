@@ -479,7 +479,7 @@ export function TasksSection({
           }}
           aria-label={t(lang, "addTaskButton")}
           title={t(lang, "addTaskButton")}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
         >
           + {t(lang, "addTaskButton")}
         </button>
@@ -493,7 +493,7 @@ export function TasksSection({
                 ? t(lang, "jiraSync")
                 : t(lang, "jiraSyncNoScope")
             }
-            className={`inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+            className={`inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
           >
             <svg
               viewBox="0 0 20 20"
@@ -516,7 +516,7 @@ export function TasksSection({
             type="checkbox"
             checked={hideFinished}
             onChange={(e) => setSettings((s) => ({ ...s, hideFinishedTasks: e.target.checked }))}
-            className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "hideFinishedTasks")}
         </label>
@@ -641,7 +641,7 @@ export function TasksSection({
                             return next;
                           })
                         }
-                        className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                        className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
                       />
                       {t(lang, labelKey)}
                     </label>
@@ -673,7 +673,7 @@ export function TasksSection({
                   }))
                 }
                 aria-label={t(lang, "calendarSyncEnable")}
-                className="h-3.5 w-3.5 rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
               />
               {t(lang, "calendarSyncEnable")}
             </label>
@@ -684,7 +684,7 @@ export function TasksSection({
                 disabled={calPushBusy}
                 aria-label={t(lang, "calendarPush")}
                 title={t(lang, "calendarPush")}
-                className={`rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                className={`rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {calPushBusy ? t(lang, "calendarPushing") : t(lang, "calendarPush")}
               </button>
@@ -743,14 +743,14 @@ export function TasksSection({
 
       {selectedIds.size > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface-muted p-3">
-          <span className="text-sm font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <span className="text-sm font-medium text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "selectionCount", selectedIds.size)}
           </span>
           <div className="ml-auto flex flex-wrap gap-2">
             <button
               type="button"
               onClick={handleBulkSendInquiry}
-              className={`rounded-md bg-AIPM-green px-3 py-1.5 text-sm font-medium text-AIPM-dark-blue hover:opacity-90 ${INTERACTIVE}`}
+              className={`rounded-md bg-ui-green px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:opacity-90 ${INTERACTIVE}`}
             >
               {t(lang, "bulkSendInquiries")}
             </button>
@@ -760,7 +760,7 @@ export function TasksSection({
             <button
               type="button"
               onClick={() => setDeleteSelectedConfirmOpen(true)}
-              className={`rounded-md border border-AIPM-pink-strong bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/5 ${INTERACTIVE}`}
+              className={`rounded-md border border-ui-pink-strong bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/5 ${INTERACTIVE}`}
             >
               {t(lang, "deleteSelected")}
             </button>
@@ -869,7 +869,7 @@ export function TasksSection({
                     checked={allVisibleSelected}
                     onChange={toggleSelectAllVisible}
                     aria-label={t(lang, "selectAllVisible")}
-                    className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green"
+                    className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green"
                   />
                 </Th>
                 {!hiddenCols.has("status") && <Th onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
@@ -919,7 +919,7 @@ export function TasksSection({
                     type="button"
                     onClick={() => { handleCancelEdit(); setTaskModalOpen(true); }}
                     aria-label={t(lang, "addTask")}
-                    className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-AIPM-dark-blue/5 hover:text-AIPM-dark-blue dark:hover:bg-white/5 ${INTERACTIVE}`}
+                    className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue dark:hover:bg-white/5 ${INTERACTIVE}`}
                   >
                     <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
                       <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />

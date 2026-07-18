@@ -354,7 +354,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           <button
             type="button"
             onClick={addBucket}
-            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+            className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
           >
             + {t(lang, "budgetAddBucket")}
           </button>
@@ -362,7 +362,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
             type="button"
             onClick={props.onRefreshFx}
             disabled={props.fxLoading}
-            className={`inline-flex items-center gap-1.5 rounded-md border border-AIPM-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-foreground ${INTERACTIVE}`}
+            className={`inline-flex items-center gap-1.5 rounded-md border border-ui-dark-blue bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-foreground ${INTERACTIVE}`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 ${props.fxLoading ? "animate-spin" : ""}`}>
               <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
@@ -375,7 +375,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
       </div>
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-2">
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -417,7 +417,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
               onDrop={() => onDropOnBucket(br.bucketId)}
               className={`rounded-xl border p-4 ${
                 dragId != null && dragId !== br.bucketId
-                  ? "border-AIPM-dark-blue/60"
+                  ? "border-ui-dark-blue/60"
                   : "border-line"
               }`}
             >
@@ -439,11 +439,11 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     }}
                     aria-label={t(lang, "budgetReorderHandle")}
                     title={t(lang, "budgetReorderHandle")}
-                    className="cursor-grab select-none rounded leading-none text-muted-foreground hover:text-AIPM-dark-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green active:cursor-grabbing dark:hover:text-AIPM-light-grey"
+                    className="cursor-grab select-none rounded leading-none text-muted-foreground hover:text-ui-dark-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green active:cursor-grabbing dark:hover:text-ui-light-grey"
                   >
                     ⠿
                   </button>
-                  <span className="font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                  <span className="font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                     {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
                   </span>
                 </div>
@@ -558,7 +558,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <button
                   type="button"
                   onClick={() => setEditingBucketId(bucket.id)}
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "budgetEditBucket")}
                 </button>
@@ -567,7 +567,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   onClick={() => updateBucket(bucket.id, bucket.status === "open"
                     ? { status: "closed", closedDate: props.today }
                     : { status: "open", closedDate: undefined })}
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen")}
                 </button>
@@ -575,7 +575,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   type="button"
                   onClick={() => removeBucket(bucket.id)}
                   title={t(lang, "budgetRemoveBucket")}
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "budgetRemoveBucket")}
                 </button>

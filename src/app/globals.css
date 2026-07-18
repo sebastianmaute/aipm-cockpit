@@ -18,28 +18,28 @@
   /* Harbor no-JS / pre-boot fallback palette. Variable NAMES stay --AIPM-* (a
      neutral rename is a later release); these are only the static fallback
      values — the active scheme overrides them inline at runtime. */
-  --AIPM-dark-grey: #636362;
-  --AIPM-dark-blue: #153a5c;
-  --AIPM-green: #2bc4b6;
-  --AIPM-white: #ffffff;
-  --AIPM-light-grey: #c9d3dc;
-  --AIPM-medium-grey: #7d8a97;
-  --AIPM-blue: #2f6f9e;
-  --AIPM-pink: #c24a76;
-  --AIPM-purple: #5f57a8;
-  /* AA-accessible variant of --AIPM-green for GREEN TEXT ON A LIGHT BACKGROUND
+  --ui-dark-grey: #636362;
+  --ui-dark-blue: #153a5c;
+  --ui-green: #2bc4b6;
+  --ui-white: #ffffff;
+  --ui-light-grey: #c9d3dc;
+  --ui-medium-grey: #7d8a97;
+  --ui-blue: #2f6f9e;
+  --ui-pink: #c24a76;
+  --ui-purple: #5f57a8;
+  /* AA-accessible variant of --ui-green for GREEN TEXT ON A LIGHT BACKGROUND
      (RAG "Green", accents): brand green #84bd00 is only 2.26:1 on white. This
      darker green meets AA; use it only for green text on light surfaces — the
      bright brand green still applies to fills and to text on dark surfaces. */
-  --AIPM-green-strong: #1a7870;
-  /* Darker pink for AA-contrast TEXT on light surfaces (AIPM-pink #e5497c is
-     ~3.76:1 on white — fails AA). Bright AIPM-pink stays for fills/borders and
+  --ui-green-strong: #1a7870;
+  /* Darker pink for AA-contrast TEXT on light surfaces (ui-pink #e5497c is
+     ~3.76:1 on white — fails AA). Bright ui-pink stays for fills/borders and
      text on dark surfaces. */
-  --AIPM-pink-strong: #a53f64;
+  --ui-pink-strong: #a53f64;
   /* AA-compliant darker purple for purple TEXT on a light purple tint
-     (bg-AIPM-purple/10 ≈ 3.6:1 with bright AIPM-purple — fails AA). Bright
-     AIPM-purple stays for fills/borders and text on dark surfaces. */
-  --AIPM-purple-strong: #5f57a8;
+     (bg-ui-purple/10 ≈ 3.6:1 with bright ui-purple — fails AA). Bright
+     ui-purple stays for fills/borders and text on dark surfaces. */
+  --ui-purple-strong: #5f57a8;
 
   /* ---- CI-style role tokens. These AIPM-light values are the static no-JS /
      pre-boot FALLBACK; at runtime the active scheme (AIPM / Mockup / Harbor /
@@ -50,15 +50,15 @@
   --rag-red-text: #b33f3f;
   --rag-amber-text: #966414;
   --rag-green-text: #227151;
-  --table-head-bg: var(--AIPM-dark-blue);
+  --table-head-bg: var(--ui-dark-blue);
   --table-head-fg: #ffffff;
-  --table-head-accent: var(--AIPM-green);
+  --table-head-accent: var(--ui-green);
   --shadow-card: none;
   --shadow-control: none;
   /* KPI "more=better" fill bar. AIPM = solid brand green; mockup overrides to the
      red→amber→green gradient. Applied ONLY to the completion-% bar (never effort/
      usage bars, which are more=worse). */
-  --gradient-kpi: var(--AIPM-green);
+  --gradient-kpi: var(--ui-green);
   --shadow-card-hover: none;
   /* Delta-chip backgrounds for the KPI trend pills. Transparent under AIPM (chip is
      invisible — plain glyph+text, the legacy look); tinted under mockup. */
@@ -70,7 +70,7 @@
   /* Segmented-control active/track. AIPM = legacy dark-blue solid pill on a surface
      track (no-op); mockup = white pill + green text on a light-grey track. */
   --segment-track-bg: #eef2f6;
-  --segment-active-bg: var(--AIPM-dark-blue);
+  --segment-active-bg: var(--ui-dark-blue);
   --segment-active-fg: #ffffff;
 }
 
@@ -83,18 +83,18 @@
   --color-muted-foreground: var(--muted-foreground);
   --font-sans: var(--font-titillium), "Segoe UI", Arial, sans-serif;
 
-  --color-AIPM-dark-grey: var(--AIPM-dark-grey);
-  --color-AIPM-dark-blue: var(--AIPM-dark-blue);
-  --color-AIPM-green: var(--AIPM-green);
-  --color-AIPM-white: var(--AIPM-white);
-  --color-AIPM-light-grey: var(--AIPM-light-grey);
-  --color-AIPM-medium-grey: var(--AIPM-medium-grey);
-  --color-AIPM-blue: var(--AIPM-blue);
-  --color-AIPM-pink: var(--AIPM-pink);
-  --color-AIPM-purple: var(--AIPM-purple);
-  --color-AIPM-green-strong: var(--AIPM-green-strong);
-  --color-AIPM-pink-strong: var(--AIPM-pink-strong);
-  --color-AIPM-purple-strong: var(--AIPM-purple-strong);
+  --color-ui-dark-grey: var(--ui-dark-grey);
+  --color-ui-dark-blue: var(--ui-dark-blue);
+  --color-ui-green: var(--ui-green);
+  --color-ui-white: var(--ui-white);
+  --color-ui-light-grey: var(--ui-light-grey);
+  --color-ui-medium-grey: var(--ui-medium-grey);
+  --color-ui-blue: var(--ui-blue);
+  --color-ui-pink: var(--ui-pink);
+  --color-ui-purple: var(--ui-purple);
+  --color-ui-green-strong: var(--ui-green-strong);
+  --color-ui-pink-strong: var(--ui-pink-strong);
+  --color-ui-purple-strong: var(--ui-purple-strong);
   --color-rag-red: var(--rag-red);
   --color-rag-amber: var(--rag-amber);
   --color-rag-green: var(--rag-green);

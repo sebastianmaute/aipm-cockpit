@@ -15,7 +15,7 @@ describe("TaskStatusSelect", () => {
       <TaskStatusSelect lang="en-US" task={task} onStatusChange={vi.fn()} />,
     );
     // Palette-safe hover (TRANSITION already smooths it); mouseover changes the border.
-    expect(getByRole("combobox").className).toContain("hover:border-AIPM-dark-blue");
+    expect(getByRole("combobox").className).toContain("hover:border-ui-dark-blue");
   });
 
   it("has a row-unique accessible name", () => {

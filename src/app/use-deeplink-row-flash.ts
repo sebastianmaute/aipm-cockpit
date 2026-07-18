@@ -3,7 +3,7 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import type { AppView } from "./nav-config";
 
 export const DEEPLINK_FLASH_MS = 1800;
-const FLASH_CLASS = "outline outline-2 -outline-offset-2 outline-AIPM-green";
+const FLASH_CLASS = "outline outline-2 -outline-offset-2 outline-ui-green";
 
 /** Outline classes for the transiently-flashed row; "" otherwise. */
 export function flashOutlineClass(isFlashed: boolean): string {

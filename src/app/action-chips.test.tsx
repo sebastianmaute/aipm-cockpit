@@ -53,6 +53,6 @@ describe("ActionChips", () => {
     const dots = Array.from(container.querySelectorAll("span[aria-hidden]"));
     expect(dots[0].className).toContain("bg-[var(--rag-red)]");
     expect(dots[1].className).toContain("bg-[var(--rag-amber)]");
-    expect(dots.some((d) => d.className.includes("bg-AIPM-purple"))).toBe(false);
+    expect(dots.some((d) => d.className.includes("bg-ui-purple"))).toBe(false);
   });
 });

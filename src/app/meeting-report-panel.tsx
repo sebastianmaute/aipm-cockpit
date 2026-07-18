@@ -20,7 +20,7 @@ const RichTextEditor = dynamic(() => import("./rich-text-editor").then((m) => m.
 });
 
 const BTN_PRIMARY =
-  "rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-60";
+  "rounded-md border border-ui-dark-blue bg-ui-dark-blue px-2.5 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-60";
 const BTN_SECONDARY =
   "rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted disabled:opacity-60";
 
@@ -217,7 +217,7 @@ export function MeetingReportPanel({
             aria-label={t(lang, "reportTo")}
             className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground ${FOCUS_RING} ${TRANSITION}`}
           />
-          {noRecipients && <span className="text-AIPM-pink-strong">{t(lang, "reportNoRecipients")}</span>}
+          {noRecipients && <span className="text-ui-pink-strong">{t(lang, "reportNoRecipients")}</span>}
         </label>
       )}
 

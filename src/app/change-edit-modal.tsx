@@ -569,7 +569,7 @@ export function ChangeEditModal({
                       onClick={() => removeLinkedTask(tid)}
                       aria-label={t(lang, "raidUnlinkTask")}
                       title={t(lang, "raidUnlinkTask")}
-                      className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
+                      className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
                     >
                       ×
                     </button>
@@ -631,7 +631,7 @@ export function ChangeEditModal({
                       onClick={() => removeLinkedRaid(rid)}
                       aria-label={t(lang, "changeUnlinkRaid")}
                       title={t(lang, "changeUnlinkRaid")}
-                      className={`text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
+                      className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
                     >
                       ×
                     </button>

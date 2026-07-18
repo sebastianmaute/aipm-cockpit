@@ -4,7 +4,7 @@
 // PRIMARY_BUTTON_CLASS / SECONDARY_BUTTON_CLASS / DESTRUCTIVE_BUTTON_CLASS
 // duplicates that drifted across the create-project / empty-state / projects /
 // backend-config surfaces. Every variant composes the shared INTERACTIVE atom
-// (canonical 150ms color transition + AIPM-green focus ring + press feedback) so
+// (canonical 150ms color transition + ui-green focus ring + press feedback) so
 // hover/focus/press read identically app-wide. Palette-safe by construction:
 // only sanctioned AIPM brand tokens (dark-blue fill, pink destructive, line/
 // surface chrome) — no gradients, shadows, or off-palette colors.
@@ -18,11 +18,11 @@ export type ButtonSize = "sm" | "md";
 // Variant color/border classes ONLY (no size, no motion — those are shared).
 // Values reproduce the current canonical look so migrated buttons don't shift.
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
-  primary: "bg-AIPM-dark-blue text-white hover:opacity-90",
+  primary: "bg-ui-dark-blue text-white hover:opacity-90",
   secondary: "border border-line bg-surface text-foreground hover:bg-surface-muted",
   ghost: "bg-transparent text-foreground hover:bg-surface-muted",
   destructive:
-    "border border-AIPM-pink/40 bg-surface text-AIPM-pink-strong hover:bg-AIPM-pink/10 dark:border-AIPM-pink/50",
+    "border border-ui-pink/40 bg-surface text-ui-pink-strong hover:bg-ui-pink/10 dark:border-ui-pink/50",
 };
 
 // The two common CTA paddings in the codebase. md = the large wizard/empty-state

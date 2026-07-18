@@ -200,7 +200,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             onClick={() => compareSelected("inline")}
             disabled={selected.length !== 2 || comparing}
             title={t(lang, "historyCompareSelectedHint")}
-            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
+            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-ui-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "historyCompareSelected")}
           </button>
@@ -209,7 +209,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             onClick={() => compareSelected("sideBySide")}
             disabled={selected.length !== 2 || comparing}
             title={t(lang, "historyCompareSideBySideHint")}
-            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
+            className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:border-ui-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
           >
             {t(lang, "historyCompareSideBySide")}
           </button>
@@ -222,13 +222,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 onChange={(e) => setDraftLabel(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") confirmSave(); else if (e.key === "Escape") cancelSave(); }}
                 placeholder={t(lang, "historyManualLabelPrompt")}
-                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+                className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
               />
               <button
                 type="button"
                 onClick={confirmSave}
                 disabled={busy}
-                className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
+                className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
               >
                 {t(lang, "add")}
               </button>
@@ -236,7 +236,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 type="button"
                 onClick={cancelSave}
                 aria-label={t(lang, "cancel")}
-                className={`rounded-full px-1 text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
+                className={`rounded-full px-1 text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
               >
                 ×
               </button>
@@ -246,7 +246,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               type="button"
               onClick={() => setNaming(true)}
               disabled={busy}
-              className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
+              className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
             >
               {t(lang, "historySaveNow")}
             </button>
@@ -269,9 +269,9 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   checked={selected.includes(v.id)}
                   onChange={() => toggleSelect(v.id)}
                   aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}`}
-                  className="accent-AIPM-dark-blue"
+                  className="accent-ui-dark-blue"
                 />
-                <Badge size="md" className={v.trigger === "manual" ? "bg-AIPM-green/15 text-AIPM-dark-blue dark:text-AIPM-light-grey" : "bg-surface-muted text-muted-foreground"}>
+                <Badge size="md" className={v.trigger === "manual" ? "bg-ui-green/15 text-ui-dark-blue dark:text-ui-light-grey" : "bg-surface-muted text-muted-foreground"}>
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
                 </Badge>
                 <span className="text-foreground">{v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
@@ -288,7 +288,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setRestoreFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
                   disabled={comparing}
                   title={t(lang, "historyCompareVsNowHint")}
-                  className={`cursor-pointer text-xs text-AIPM-dark-blue hover:underline disabled:opacity-50 ${INTERACTIVE}`}
+                  className={`cursor-pointer text-xs text-ui-dark-blue hover:underline disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "historyCompareVsNow")}
                 </button>
@@ -297,7 +297,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   onClick={() => { void restoreWholeVersion(v); }}
                   disabled={busy || comparing}
                   title={t(lang, "historyRestoreStateHint")}
-                  className={`cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                  className={`cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
                 >
                   {t(lang, "historyRestoreState")}
                 </button>
@@ -308,7 +308,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                     disabled={busy || comparing}
                     title={t(lang, "historyDelete")}
                     aria-label={`${t(lang, "historyDelete")} – ${labelOf(v)}`}
-                    className={`cursor-pointer rounded-md border border-AIPM-pink/50 px-2 py-0.5 text-xs font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                    className={`cursor-pointer rounded-md border border-ui-pink/50 px-2 py-0.5 text-xs font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "historyDelete")}
                   </button>
@@ -332,7 +332,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   <button
                     type="button"
                     onClick={selectAllRecords}
-                    className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue ${INTERACTIVE}`}
+                    className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue ${INTERACTIVE}`}
                   >
                     {t(lang, "historySelectAll")}
                   </button>
@@ -340,7 +340,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                     type="button"
                     onClick={deselectAllRecords}
                     disabled={Object.keys(selection).length === 0}
-                    className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
+                    className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "historyDeselectAll")}
                   </button>
@@ -349,7 +349,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                     disabled={Object.keys(selection).length === 0}
                     onClick={() => { const cf = compareFrom; if (cf) void restore(cf.id, selection, cf.label).then((ok) => { if (!ok) return; setSelection({}); setDiff(null); setCompareFrom(null); setRestoreFrom(null); }); }}
                     title={t(lang, "historyRestoreSelectedHint")}
-                    className={`rounded-md bg-AIPM-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
+                    className={`rounded-md bg-ui-dark-blue px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50 ${INTERACTIVE}`}
                   >
                     {t(lang, "historyRestoreSelected")}
                   </button>
@@ -358,7 +358,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                     onClick={restoreCompareState}
                     aria-label={t(lang, "historyRestoreState")}
                     title={t(lang, "historyRestoreStateHint")}
-                    className={`rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
+                    className={`rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
                   >
                     {t(lang, "historyRestoreState")}
                   </button>
@@ -368,7 +368,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 type="button"
                 onClick={() => { setDiff(null); setSelected([]); setSelection({}); setCompareFrom(null); setRestoreFrom(null); setSideBySide(false); setCompareLabels(null); }}
                 aria-label={t(lang, "alertModalClose")}
-                className={`cursor-pointer rounded-full px-1 text-muted-foreground hover:text-AIPM-pink ${INTERACTIVE}`}
+                className={`cursor-pointer rounded-full px-1 text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
               >
                 ×
               </button>

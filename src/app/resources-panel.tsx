@@ -391,7 +391,7 @@ function ResourcesPanelInner({
         <button
           type="button"
           onClick={onImportOutlookCalendar}
-          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey ${INTERACTIVE}`}
+          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
         >
           {t(lang, "outlookCalImportButton")}
         </button>
@@ -548,7 +548,7 @@ function ResourcesPanelInner({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); onEditResource(r); }}
                           title={resourceDisplayName(r)}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green dark:text-AIPM-light-grey"
+                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green dark:text-ui-light-grey"
                         >
                           {resourceDisplayName(r)}
                         </button>
@@ -586,7 +586,7 @@ function ResourcesPanelInner({
                             readOnly={derived}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
-                            className={`mt-0.5 w-16 rounded border border-AIPM-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-AIPM-purple dark:border-AIPM-purple/50 dark:text-AIPM-purple ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
+                            className={`mt-0.5 w-16 rounded border border-ui-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-ui-purple dark:border-ui-purple/50 dark:text-ui-purple ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
                         </td>
                         );
                       })}
@@ -634,7 +634,7 @@ function ResourcesPanelInner({
               <div className="mt-3">
                 <button type="button" onClick={() => setShowRollup((v) => !v)}
                   title={t(lang, "resourcesRollupHint")}
-                  className={`rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted dark:text-AIPM-light-grey print:hidden ${INTERACTIVE}`}>
+                  className={`rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey print:hidden ${INTERACTIVE}`}>
                   {showRollup ? t(lang, "resourcesRollupHide") : t(lang, "resourcesRollupShow")}
                 </button>
                 {showRollup && (

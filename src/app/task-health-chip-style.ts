@@ -9,7 +9,7 @@
 import type { Health } from "./health";
 
 export const HEALTH_CHIP_ACTIVE_CLASS: Record<Health, string> = {
-  R: "border-[var(--rag-red)] bg-[var(--rag-red)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-red)]/15 dark:text-AIPM-light-grey",
-  A: "border-[var(--rag-amber)] bg-[var(--rag-amber)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-amber)]/15 dark:text-AIPM-light-grey",
-  G: "border-[var(--rag-green)] bg-[var(--rag-green)]/10 text-AIPM-dark-blue dark:bg-[var(--rag-green)]/15 dark:text-AIPM-light-grey",
+  R: "border-[var(--rag-red)] bg-[var(--rag-red)]/10 text-ui-dark-blue dark:bg-[var(--rag-red)]/15 dark:text-ui-light-grey",
+  A: "border-[var(--rag-amber)] bg-[var(--rag-amber)]/10 text-ui-dark-blue dark:bg-[var(--rag-amber)]/15 dark:text-ui-light-grey",
+  G: "border-[var(--rag-green)] bg-[var(--rag-green)]/10 text-ui-dark-blue dark:bg-[var(--rag-green)]/15 dark:text-ui-light-grey",
 };

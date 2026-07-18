@@ -161,7 +161,7 @@ export function ResourceWorkload({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onEditResource(row.resource); }}
-                  className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-AIPM-green"
+                  className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
                   title={row.display}
                 >
                   {row.display}
@@ -207,7 +207,7 @@ export function ResourceWorkload({
                       ? t(lang, "resourcesEditShift")
                       : t(lang, "resourcesDefaultShift")
                   }
-                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
+                  className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
                     row.shift
                       ? "text-foreground"
                       : "text-muted-foreground italic"
@@ -229,7 +229,7 @@ export function ResourceWorkload({
                     }
                     className={`w-16 rounded border px-1 py-0.5 text-right tabular-nums dark:bg-surface ${FOCUS_RING} ${TRANSITION} ${
                       (nearTermPctByResource.get(row.resource.id) ?? 0) > overAllocatedPct
-                        ? "border-AIPM-pink-strong font-medium text-AIPM-pink-strong"
+                        ? "border-ui-pink-strong font-medium text-ui-pink-strong"
                         : "border-line text-foreground"
                     }`}
                   />
@@ -248,7 +248,7 @@ export function ResourceWorkload({
                           type="button"
                           onClick={(e) => { e.stopPropagation(); onEditAbsence(a); }}
                           title={a.note ?? ""}
-                          className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
+                          className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                         >
                           <span>{shortDateRange(a, lang)}</span>
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -294,7 +294,7 @@ export function ResourceWorkload({
                           email: row.email || undefined,
                         })
                       }
-                      className={`ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                      className={`ml-2 rounded-md border border-line bg-surface px-2 py-0.5 text-xs font-normal text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {t(lang, "resourcesAddAsResource")}
                     </button>
@@ -308,7 +308,7 @@ export function ResourceWorkload({
                             onClearUnlinked({ display: row.display, email: row.email, firstName: row.firstName, lastName: row.lastName });
                           }
                         }}
-                        className={`ml-1 rounded p-1 text-xs text-muted-foreground hover:bg-AIPM-pink/10 hover:text-AIPM-pink ${INTERACTIVE}`}
+                        className={`ml-1 rounded p-1 text-xs text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink ${INTERACTIVE}`}
                       >×</button>
                     )}
                   </td>
@@ -321,7 +321,7 @@ export function ResourceWorkload({
                   <td
                     className={`px-3 py-2 text-right tabular-nums ${
                       row.overdueCount > 0
-                        ? "font-medium text-AIPM-pink-strong"
+                        ? "font-medium text-ui-pink-strong"
                         : "text-muted-foreground"
                     }`}
                   >
@@ -346,7 +346,7 @@ export function ResourceWorkload({
                           ? t(lang, "resourcesEditShift")
                           : t(lang, "resourcesDefaultShift")
                       }
-                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-AIPM-dark-blue hover:bg-surface-muted ${
+                      className={`rounded-md border border-transparent px-2 py-0.5 text-xs hover:border-ui-dark-blue hover:bg-surface-muted ${
                         row.shift
                           ? "text-foreground"
                           : "text-muted-foreground italic"
@@ -367,7 +367,7 @@ export function ResourceWorkload({
                               type="button"
                               onClick={() => onEditAbsence(a)}
                               title={a.note ?? ""}
-                              className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-AIPM-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
+                              className={`inline-flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs text-foreground hover:border-ui-dark-blue ${absenceBg(a.type)} ${INTERACTIVE}`}
                             >
                               <span>{shortDateRange(a, lang)}</span>
                               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">

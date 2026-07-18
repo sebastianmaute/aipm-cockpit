@@ -100,7 +100,7 @@ export function DependenciesEditor({
             return (
               <li key={`${dep.taskId}-${dep.type}-${i}`}>
                 <span
-                  className="inline-flex items-center gap-1 rounded-full bg-AIPM-dark-blue/10 px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue dark:bg-AIPM-dark-blue/30 dark:text-AIPM-light-grey"
+                  className="inline-flex items-center gap-1 rounded-full bg-ui-dark-blue/10 px-2 py-0.5 text-xs font-medium text-ui-dark-blue dark:bg-ui-dark-blue/30 dark:text-ui-light-grey"
                   title={t(lang, depTypeHelpKey(dep.type))}
                 >
                   <span className="font-mono">{dep.type}</span>
@@ -114,7 +114,7 @@ export function DependenciesEditor({
                     onClick={() => remove(i)}
                     aria-label={t(lang, "depRemove")}
                     title={t(lang, "depRemove")}
-                    className="ml-0.5 rounded p-0.5 text-AIPM-dark-blue hover:bg-AIPM-dark-blue/20 dark:text-AIPM-light-grey"
+                    className="ml-0.5 rounded p-0.5 text-ui-dark-blue hover:bg-ui-dark-blue/20 dark:text-ui-light-grey"
                   >
                     <svg
                       viewBox="0 0 20 20"
@@ -143,7 +143,7 @@ export function DependenciesEditor({
             setPendingType(e.target.value as DependencyType)
           }
           aria-label={t(lang, "depType")}
-          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs font-mono text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs font-mono text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-1 focus:ring-ui-green"
         >
           {DEPENDENCY_TYPES.map((dt) => (
             <option key={dt} value={dt}>
@@ -157,7 +157,7 @@ export function DependenciesEditor({
             setPendingTaskId(e.target.value === "" ? "" : Number(e.target.value))
           }
           aria-label={t(lang, "depPickTask")}
-          className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+          className="min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none focus:ring-1 focus:ring-ui-green"
         >
           <option value="">{t(lang, "depPickTaskPlaceholder")}</option>
           {eligibleTasks.map((task) => (
@@ -170,7 +170,7 @@ export function DependenciesEditor({
           type="button"
           onClick={add}
           disabled={pendingTaskId === ""}
-          className="rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {t(lang, "depAdd")}
         </button>

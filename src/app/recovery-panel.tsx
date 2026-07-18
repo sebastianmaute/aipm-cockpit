@@ -117,7 +117,7 @@ export function RecoveryPanel() {
 
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+      <h1 className="text-2xl font-semibold text-ui-dark-blue dark:text-ui-light-grey">
         {t(lang, "recoveryPageTitle")}
       </h1>
       <p className="text-sm text-muted-foreground">{t(lang, "recoveryPageIntro")}</p>
@@ -146,14 +146,14 @@ export function RecoveryPanel() {
         <DiagnosticsPanel lang={lang} />
       </section>
 
-      {message && <p className="text-sm text-AIPM-green-strong">{message}</p>}
+      {message && <p className="text-sm text-ui-green-strong">{message}</p>}
 
       <div className="flex flex-col gap-3">
         <button
           type="button"
           onClick={onDownload}
           disabled={!storageOk}
-          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
+          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-ui-light-grey"
         >
           {t(lang, "recoveryDownload")}
         </button>
@@ -161,7 +161,7 @@ export function RecoveryPanel() {
           type="button"
           onClick={onReset}
           disabled={!storageOk}
-          className="rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          className="rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {t(lang, "recoveryReset")}
         </button>
@@ -169,7 +169,7 @@ export function RecoveryPanel() {
           type="button"
           onClick={onRestore}
           disabled={backups.length === 0 || !storageOk}
-          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-AIPM-light-grey"
+          className="rounded-md border border-line px-4 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:opacity-50 dark:text-ui-light-grey"
         >
           {t(lang, "recoveryRestore")}
         </button>

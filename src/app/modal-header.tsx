@@ -63,7 +63,7 @@ export function ModalHeader({
     >
       <div className="flex min-w-0 items-center gap-3">
         {logo}
-        <h2 id={titleId} className="truncate text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 id={titleId} className="truncate text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {title}
         </h2>
       </div>
@@ -78,7 +78,7 @@ export function ModalHeader({
             onClick={onResetLayout}
             aria-label={t(lang, "modalResetSize")}
             title={t(lang, "modalResetSize")}
-            className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey ${INTERACTIVE}`}
+            className={`rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey ${INTERACTIVE}`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path d="M10 3a7 7 0 105.66 2.87V3.5a.75.75 0 00-1.5 0v1.06A7 7 0 0010 3zm0 1.5a5.5 5.5 0 11-4.2 1.95l1.02 1.02a.75.75 0 001.06-1.06L6.1 5.53A5.47 5.47 0 0110 4.5z" />
@@ -91,7 +91,7 @@ export function ModalHeader({
             onClick={onClose}
             aria-label={t(lang, "alertModalClose")}
             title={t(lang, "alertModalClose")}
-            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-AIPM-dark-blue dark:hover:text-AIPM-light-grey"
+            className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:hover:text-ui-light-grey"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path

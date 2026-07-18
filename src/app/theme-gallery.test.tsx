@@ -12,7 +12,7 @@ describe("ThemeGallery", () => {
   });
 
   test("import fetches the theme file, persists structural, calls onImported", async () => {
-    const iccRaw = { name: "AIPM", supportsDark: true, light: { "--AIPM-dark-blue": "#004159" }, dark: { "--AIPM-dark-blue": "#004159", "--background": "#0b0f12" }, structural: { "--shadow-card": "none" }, branding: {} };
+    const iccRaw = { name: "AIPM", supportsDark: true, light: { "--ui-dark-blue": "#004159" }, dark: { "--ui-dark-blue": "#004159", "--background": "#0b0f12" }, structural: { "--shadow-card": "none" }, branding: {} };
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => JSON.stringify(iccRaw) })) as unknown as typeof fetch);
     const onImported = vi.fn();
     render(<ThemeGallery lang="en-US" onImported={onImported} />);
@@ -27,7 +27,7 @@ describe("ThemeGallery", () => {
   });
 
   test("re-importing the same theme reuses the existing scheme (no duplicate)", async () => {
-    const iccRaw = { name: "AIPM", supportsDark: true, light: { "--AIPM-dark-blue": "#004159" }, structural: {}, branding: {} };
+    const iccRaw = { name: "AIPM", supportsDark: true, light: { "--ui-dark-blue": "#004159" }, structural: {}, branding: {} };
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, text: async () => JSON.stringify(iccRaw) })) as unknown as typeof fetch);
     const onImported = vi.fn();
     render(<ThemeGallery lang="en-US" onImported={onImported} />);

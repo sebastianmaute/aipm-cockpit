@@ -181,7 +181,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
                   type="button"
                   onClick={() => removePerson(s.id)}
                   aria-label={t(lang, "raciFilterRemove", s.name)}
-                  className={`inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                  className={`inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground hover:text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 >
                   &times;
                 </button>
@@ -191,7 +191,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
             <button
               type="button"
               onClick={() => setFiltered(new Set())}
-              className={`rounded border border-line px-1.5 py-0.5 text-xs text-foreground hover:text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+              className={`rounded border border-line px-1.5 py-0.5 text-xs text-foreground hover:text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
             >
               {t(lang, "raciFilterClear")}
             </button>
@@ -223,12 +223,12 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
                     <span className="inline-flex items-center gap-2">
                       {row.milestone.name}
                       {warning === "missing" && (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-ui-dark-blue dark:text-ui-light-grey">
                           {t(lang, "raciAccountableMissing")}
                         </span>
                       )}
                       {warning === "multiple" && (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-ui-dark-blue dark:text-ui-light-grey">
                           {t(lang, "raciAccountableMultiple")}
                         </span>
                       )}

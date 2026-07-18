@@ -13,13 +13,13 @@ import type { AbsenceType } from "./types";
 export function absenceBg(type: AbsenceType): string {
   switch (type) {
     case "vacation":
-      return "bg-AIPM-blue/30 hover:bg-AIPM-blue/40 dark:bg-AIPM-blue/25 dark:hover:bg-AIPM-blue/35";
+      return "bg-ui-blue/30 hover:bg-ui-blue/40 dark:bg-ui-blue/25 dark:hover:bg-ui-blue/35";
     case "sick":
-      return "bg-AIPM-pink/30 hover:bg-AIPM-pink/40 dark:bg-AIPM-pink/25 dark:hover:bg-AIPM-pink/35";
+      return "bg-ui-pink/30 hover:bg-ui-pink/40 dark:bg-ui-pink/25 dark:hover:bg-ui-pink/35";
     case "training":
-      return "bg-AIPM-purple/30 hover:bg-AIPM-purple/40 dark:bg-AIPM-purple/25 dark:hover:bg-AIPM-purple/35";
+      return "bg-ui-purple/30 hover:bg-ui-purple/40 dark:bg-ui-purple/25 dark:hover:bg-ui-purple/35";
     default:
-      return "bg-AIPM-medium-grey/45 hover:bg-AIPM-medium-grey/55 dark:bg-AIPM-medium-grey/35 dark:hover:bg-AIPM-medium-grey/45";
+      return "bg-ui-medium-grey/45 hover:bg-ui-medium-grey/55 dark:bg-ui-medium-grey/35 dark:hover:bg-ui-medium-grey/45";
   }
 }
 
@@ -28,13 +28,13 @@ export function absenceBg(type: AbsenceType): string {
 export function absenceLegendBg(type: AbsenceType): string {
   switch (type) {
     case "vacation":
-      return "bg-AIPM-blue/30 dark:bg-AIPM-blue/25";
+      return "bg-ui-blue/30 dark:bg-ui-blue/25";
     case "sick":
-      return "bg-AIPM-pink/30 dark:bg-AIPM-pink/25";
+      return "bg-ui-pink/30 dark:bg-ui-pink/25";
     case "training":
-      return "bg-AIPM-purple/30 dark:bg-AIPM-purple/25";
+      return "bg-ui-purple/30 dark:bg-ui-purple/25";
     default:
-      return "bg-AIPM-medium-grey/45 dark:bg-AIPM-medium-grey/35";
+      return "bg-ui-medium-grey/45 dark:bg-ui-medium-grey/35";
   }
 }
 

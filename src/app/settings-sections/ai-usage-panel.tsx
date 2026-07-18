@@ -13,8 +13,8 @@ import {
 const BAR_BASE = "h-3 rounded-full transition-all";
 // AIPM palette only: green below 80 %, pink (warning/error) at 80 %+.
 function barColor(ratio: number): string {
-  if (ratio >= 0.8) return "bg-AIPM-pink";
-  return "bg-AIPM-green";
+  if (ratio >= 0.8) return "bg-ui-pink";
+  return "bg-ui-green";
 }
 
 type UsageBarProps = {

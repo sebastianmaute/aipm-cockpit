@@ -24,7 +24,7 @@ const userScheme = (id: string, name: string): ColorScheme => ({
   id,
   name,
   supportsDark: false,
-  light: { "--AIPM-green": "#123456" },
+  light: { "--ui-green": "#123456" },
   branding: {},
 });
 
@@ -111,8 +111,8 @@ describe("reconcileBuiltins", () => {
       name: "Harbor OLD",
       builtIn: true,
       supportsDark: true,
-      light: { "--AIPM-green": "#000000" },
-      dark: { "--AIPM-green": "#ffffff" },
+      light: { "--ui-green": "#000000" },
+      dark: { "--ui-green": "#ffffff" },
       branding: {},
     };
     const out = reconcileBuiltins({ schemes: [stale], activeId: "harbor" });
@@ -126,8 +126,8 @@ describe("reconcileBuiltins", () => {
   it("does not mutate the shared built-in literal maps", () => {
     const out = reconcileBuiltins({ schemes: [], activeId: null });
     const harbor = out.schemes.find((s) => s.id === "harbor")!;
-    harbor.light["--AIPM-green"] = "#deadbe";
-    expect(HARBOR_LIGHT["--AIPM-green"]).toBe("#2bc4b6");
+    harbor.light["--ui-green"] = "#deadbe";
+    expect(HARBOR_LIGHT["--ui-green"]).toBe("#2bc4b6");
   });
 });
 
@@ -140,7 +140,7 @@ describe("resolveActiveScheme / activeSchemeOf", () => {
 
   it("falls back to the light map for a light-only active scheme even in dark mode", () => {
     const store: SchemeStore = { schemes: [userScheme("u-1", "Mine")], activeId: "u-1" };
-    expect(resolveActiveScheme(store, true)).toEqual({ "--AIPM-green": "#123456" });
+    expect(resolveActiveScheme(store, true)).toEqual({ "--ui-green": "#123456" });
   });
 
   it("falls back to Harbor when activeId is unknown", () => {

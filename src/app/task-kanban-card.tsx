@@ -76,7 +76,7 @@ export function TaskKanbanCard({
           type="button"
           onClick={() => onEdit(task)}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-          className={`cursor-pointer rounded-md border border-transparent px-1 text-left font-medium text-foreground hover:border-AIPM-dark-blue hover:bg-surface ${INTERACTIVE}`}
+          className={`cursor-pointer rounded-md border border-transparent px-1 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface ${INTERACTIVE}`}
         >
           {task.taskName}
         </button>
@@ -94,7 +94,7 @@ export function TaskKanbanCard({
           <span
             title={changesLabel}
             aria-label={changesLabel}
-            className="inline-flex items-center rounded bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey"
+            className="inline-flex items-center rounded bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey"
           >
             {changesLabel}
           </span>
@@ -106,7 +106,7 @@ export function TaskKanbanCard({
         {task.dueDate && (
           <span
             title={`${t(lang, "dueDate")}: ${task.dueDate}`}
-            className={overdue ? "font-medium text-AIPM-pink-strong" : ""}
+            className={overdue ? "font-medium text-ui-pink-strong" : ""}
           >
             {task.dueDate}
           </span>
@@ -121,7 +121,7 @@ export function TaskKanbanCard({
             onClick={() => onAiEdit?.(task)}
             aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
             title={t(lang, "inlineAiEdit")}
-            className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
+            className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />

@@ -31,7 +31,7 @@ export function Sparkline({ points, className, ariaLabel }: SparklineProps) {
     : { "aria-hidden": true as const };
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={`w-full ${className ?? ""}`} preserveAspectRatio="none" {...a11y}>
-      <polyline points={coords} fill="none" className="stroke-AIPM-dark-blue" strokeWidth={2}
+      <polyline points={coords} fill="none" className="stroke-ui-dark-blue" strokeWidth={2}
         strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );

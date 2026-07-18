@@ -68,9 +68,9 @@ function Chart({
           </text>
         ))}
         <polyline points={points(planned, max, n)} fill="none" className="stroke-muted-foreground" strokeWidth={2} strokeDasharray="5 4" />
-        <polyline points={points(actual, max, n)} fill="none" className={over ? "stroke-AIPM-pink" : "stroke-AIPM-green"} strokeWidth={2.5} />
+        <polyline points={points(actual, max, n)} fill="none" className={over ? "stroke-ui-pink" : "stroke-ui-green"} strokeWidth={2.5} />
         {todayX !== null && (
-          <line x1={todayX} y1={PAD_T} x2={todayX} y2={baseY} className="stroke-AIPM-dark-blue" strokeWidth={1} strokeDasharray="3 3" />
+          <line x1={todayX} y1={PAD_T} x2={todayX} y2={baseY} className="stroke-ui-dark-blue" strokeWidth={1} strokeDasharray="3 3" />
         )}
       </svg>
     </div>
@@ -100,11 +100,11 @@ export function BurndownCharts({ series, lang, currency }: { series: BurndownSer
           {t(lang, "burndownPlanned")}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" className="stroke-AIPM-green" strokeWidth={2.5} /></svg>
+          <svg width="22" height="6" aria-hidden="true"><line x1="0" y1="3" x2="22" y2="3" className="stroke-ui-green" strokeWidth={2.5} /></svg>
           {t(lang, "burndownActual")}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <svg width="6" height="14" aria-hidden="true"><line x1="3" y1="0" x2="3" y2="14" className="stroke-AIPM-dark-blue" strokeWidth={1} strokeDasharray="3 3" /></svg>
+          <svg width="6" height="14" aria-hidden="true"><line x1="3" y1="0" x2="3" y2="14" className="stroke-ui-dark-blue" strokeWidth={1} strokeDasharray="3 3" /></svg>
           {t(lang, "burndownToday")}
         </span>
       </div>

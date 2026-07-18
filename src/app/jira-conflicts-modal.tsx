@@ -168,14 +168,14 @@ export function JiraConflictsModal({
           <button
             type="button"
             onClick={() => applyAll("local")}
-            className={`rounded-md border border-AIPM-medium-grey/30 bg-surface px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-surface-muted ${FOCUS_RING}`}
+            className={`rounded-md border border-ui-medium-grey/30 bg-surface px-2 py-1 font-medium text-ui-dark-blue hover:bg-surface-muted ${FOCUS_RING}`}
           >
             {t(lang, "jiraConflictAllLocal")}
           </button>
           <button
             type="button"
             onClick={() => applyAll("remote")}
-            className={`rounded-md border border-AIPM-medium-grey/30 bg-surface px-2 py-1 font-medium text-AIPM-dark-blue hover:bg-surface-muted ${FOCUS_RING}`}
+            className={`rounded-md border border-ui-medium-grey/30 bg-surface px-2 py-1 font-medium text-ui-dark-blue hover:bg-surface-muted ${FOCUS_RING}`}
           >
             {t(lang, "jiraConflictAllRemote")}
           </button>
@@ -188,7 +188,7 @@ export function JiraConflictsModal({
                 <span className="font-mono text-xs text-muted-foreground">
                   #{c.taskId}
                 </span>
-                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue">
+                <span className="rounded bg-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue">
                   {c.jiraKey}
                 </span>
                 {c.jiraIssueType && (
@@ -284,7 +284,7 @@ export function JiraConflictsModal({
           <button
             type="button"
             onClick={handleResolve}
-            className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${FOCUS_RING}`}
+            className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 ${FOCUS_RING}`}
           >
             {t(lang, "jiraConflictApply")}
           </button>

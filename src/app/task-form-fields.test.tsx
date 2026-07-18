@@ -43,9 +43,9 @@ describe("HEALTH_CHIP_ACTIVE_CLASS (manual health-override chip tint)", () => {
     expect(HEALTH_CHIP_ACTIVE_CLASS.A).toContain("bg-[var(--rag-amber)]");
     expect(HEALTH_CHIP_ACTIVE_CLASS.G).toContain("bg-[var(--rag-green)]");
     for (const cls of Object.values(HEALTH_CHIP_ACTIVE_CLASS)) {
-      expect(cls).not.toContain("bg-AIPM-purple");
-      expect(cls).not.toContain("bg-AIPM-pink");
-      expect(cls).not.toContain("bg-AIPM-green");
+      expect(cls).not.toContain("bg-ui-purple");
+      expect(cls).not.toContain("bg-ui-pink");
+      expect(cls).not.toContain("bg-ui-green");
     }
   });
 });

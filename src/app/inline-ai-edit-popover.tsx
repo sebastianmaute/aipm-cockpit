@@ -80,7 +80,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
               className={`w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-50 ${FOCUS_RING} ${TRANSITION}`}
             />
             <div className="mt-2 flex justify-end">
-              <button type="submit" disabled={busy || !value.trim()} className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${INTERACTIVE}`}>
+              <button type="submit" disabled={busy || !value.trim()} className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${INTERACTIVE}`}>
                 {t(lang, "inlineAiEdit")}
               </button>
             </div>
@@ -107,7 +107,7 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
             </ul>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={onCancel} className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground ${INTERACTIVE}`}>{t(lang, "cancel")}</button>
-              <button type="button" onClick={onApply} className={`rounded-md bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white ${INTERACTIVE}`}>{t(lang, "inlineAiEditApply")}</button>
+              <button type="button" onClick={onApply} className={`rounded-md bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white ${INTERACTIVE}`}>{t(lang, "inlineAiEditApply")}</button>
             </div>
           </div>
         )}

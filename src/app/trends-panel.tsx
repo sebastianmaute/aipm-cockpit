@@ -104,7 +104,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
       type="button"
       onClick={() => { void captureNow(); }}
       disabled={busy}
-      className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+      className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-xs font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
     >
       {t(lang, "trendsCaptureNow")}
     </button>
@@ -200,7 +200,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                   void deleteSnapshots([...selected]);
                   setSelected(new Set());
                 }}
-                className={`rounded border border-AIPM-pink-strong px-2 py-0.5 text-xs text-AIPM-pink-strong hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 ${INTERACTIVE}`}
+                className={`rounded border border-ui-pink-strong px-2 py-0.5 text-xs text-ui-pink-strong hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 ${INTERACTIVE}`}
               >
                 {t(lang, "snapshotDeleteSelected", selected.size)}
               </button>
@@ -250,7 +250,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                       <span className="inline-flex gap-2">
                         {!s.isBaseline && (
                           <button type="button" disabled={busy} onClick={() => { void setBaseline(s.id); }}
-                            className={`text-xs font-medium text-AIPM-green-strong underline-offset-2 hover:underline disabled:opacity-50 ${INTERACTIVE}`}>
+                            className={`text-xs font-medium text-ui-green-strong underline-offset-2 hover:underline disabled:opacity-50 ${INTERACTIVE}`}>
                             {t(lang, "trendsSetBaseline")}
                           </button>
                         )}
@@ -262,7 +262,7 @@ export function TrendsPanel(props: TrendsPanelProps) {
                             void deleteSnapshot(s.id);
                             setSelected((prev) => { const next = new Set(prev); next.delete(s.id); return next; });
                           }}
-                          className={`text-xs font-medium text-AIPM-pink-strong underline-offset-2 hover:underline disabled:opacity-50 ${INTERACTIVE}`}
+                          className={`text-xs font-medium text-ui-pink-strong underline-offset-2 hover:underline disabled:opacity-50 ${INTERACTIVE}`}
                         >
                           {t(lang, "snapshotDelete")}
                         </button>

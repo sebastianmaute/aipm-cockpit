@@ -230,7 +230,7 @@ export function ModalEditFooter({
             }}
             disabled={deleteDisabled}
             aria-label={deleteAriaLabelKey ? t(lang, deleteAriaLabelKey) : undefined}
-            className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-AIPM-pink/50 ${INTERACTIVE}`}
+            className={`rounded-md border border-ui-pink/40 bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:cursor-not-allowed disabled:opacity-50 dark:border-ui-pink/50 ${INTERACTIVE}`}
           >
             {t(lang, deleteLabelKey ?? "delete")}
           </button>
@@ -248,7 +248,7 @@ export function ModalEditFooter({
         <button
           type="submit"
           disabled={saveDisabled}
-          className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+          className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
         >
           {t(lang, saveLabelKey)}
         </button>

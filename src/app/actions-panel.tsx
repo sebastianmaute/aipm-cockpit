@@ -82,7 +82,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
       <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, "actionCenterTitle")}
             </h2>
             <p className="text-sm text-muted-foreground">{t(lang, "actionCenterSubtitle")}</p>
@@ -112,12 +112,12 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               onClick={onOpenLearningSettings}
               aria-label={t(lang, "actionLearningGoToSettings")}
               title={t(lang, "actionLearningTooltip")}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-AIPM-dark-blue/40 hover:bg-surface-muted"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-ui-dark-blue/40 hover:bg-surface-muted"
             >
               <span>{t(lang, "actionLearningPrefix")}</span>
               <span
                 className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                  learningEnabled ? "bg-AIPM-green text-white" : "bg-surface-muted text-muted-foreground"
+                  learningEnabled ? "bg-ui-green text-white" : "bg-surface-muted text-muted-foreground"
                 }`}
               >
                 {t(lang, learningEnabled ? "actionLearningOn" : "actionLearningOff")}
@@ -141,11 +141,11 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
       )}
       {aiAnalysis?.result && (
         <section
-          className="mb-5 rounded-md border border-AIPM-dark-blue/30 bg-AIPM-dark-blue/5 p-3"
+          className="mb-5 rounded-md border border-ui-dark-blue/30 bg-ui-dark-blue/5 p-3"
           aria-label={t(lang, "actionAiSectionTitle")}
         >
           <div className="mb-2 flex items-start justify-between gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-ui-dark-blue dark:text-ui-light-grey">
               {t(lang, "actionAiSectionTitle")}
             </h3>
             <button
@@ -218,7 +218,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                     aria-controls={`action-${tier}-list`}
                     aria-label={`${t(lang, labelKey)} – ${open ? t(lang, "actionShowLess") : t(lang, "actionShowMore", hiddenCount)}`}
                     onClick={() => setExpanded((e) => ({ ...e, [tier]: !open }))}
-                    className="mt-2 text-xs font-medium text-AIPM-dark-blue hover:underline dark:text-AIPM-light-grey"
+                    className="mt-2 text-xs font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
                   >
                     {open ? t(lang, "actionShowLess") : t(lang, "actionShowMore", hiddenCount)}
                   </button>
@@ -242,7 +242,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             <button
               type="button"
               onClick={aiAnalysis.onCancel}
-              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
             >
               {t(lang, "cancel")}
             </button>

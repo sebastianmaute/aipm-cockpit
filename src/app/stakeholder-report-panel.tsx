@@ -45,7 +45,7 @@ const QUADRANTS: { id: StakeholderQuadrant; labelKey: TranslationKey }[] = [
 ];
 
 const AMBER_CHIP =
-  "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-AIPM-dark-blue dark:text-AIPM-light-grey";
+  "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-ui-dark-blue dark:text-ui-light-grey";
 
 export interface StakeholderReportPanelProps {
   lang: Lang;
@@ -84,7 +84,7 @@ export function StakeholderReportPanel({
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               {t(lang, "navStakeholders")}
             </p>
-            <p className="mt-1 text-2xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+            <p className="mt-1 text-2xl font-semibold text-ui-dark-blue dark:text-ui-light-grey">
               {stakeholders.length}
             </p>
           </div>
@@ -98,7 +98,7 @@ export function StakeholderReportPanel({
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
                   {t(lang, CATEGORY_KEY[c.category])}
                 </p>
-                <p className="mt-1 text-2xl font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                <p className="mt-1 text-2xl font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                   {c.count}
                 </p>
               </div>
@@ -107,13 +107,13 @@ export function StakeholderReportPanel({
 
         {/* Influence / Interest 2×2 grid */}
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "stakeholderMapTitle")}
           </h3>
           <div className="grid grid-cols-2 gap-2">
             {QUADRANTS.map((q) => (
               <div key={q.id} className="rounded-lg border border-line p-3">
-                <p className="text-xs font-semibold text-AIPM-dark-blue">
+                <p className="text-xs font-semibold text-ui-dark-blue">
                   {t(lang, q.labelKey)}
                 </p>
                 <div className="mt-1 flex flex-wrap gap-1">
@@ -133,7 +133,7 @@ export function StakeholderReportPanel({
 
         {/* RACI coverage table */}
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "stakeholderRaciTitle")}
           </h3>
           {milestones.length === 0 ? (
@@ -187,7 +187,7 @@ export function StakeholderReportPanel({
 
         {/* Register table */}
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+          <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
             {t(lang, "navStakeholders")}
           </h3>
           <div className="overflow-x-auto rounded-md border border-line">

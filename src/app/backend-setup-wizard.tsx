@@ -43,7 +43,7 @@ const TOTAL = BACKEND_SETUP_STEPS.length;
 const SECONDARY_BTN =
   `rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`;
 const PRIMARY_BTN =
-  `rounded-md bg-AIPM-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 disabled:opacity-50 ${INTERACTIVE}`;
+  `rounded-md bg-ui-dark-blue px-4 py-2 text-sm font-medium text-white hover:bg-ui-dark-blue/90 disabled:opacity-50 ${INTERACTIVE}`;
 
 // ---------------------------------------------------------------------------
 // ReviewStep
@@ -150,7 +150,7 @@ export function BackendSetupWizard({
       onClose={handleClose}
       ariaLabelledby={TITLE_ID}
       align="center"
-      backdropClassName="bg-AIPM-dark-blue/40"
+      backdropClassName="bg-ui-dark-blue/40"
       zIndex={60}
     >
       <div

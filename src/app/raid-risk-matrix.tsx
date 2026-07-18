@@ -21,12 +21,12 @@ export function RiskMatrix({
   function cellColor(p: RiskScale, i: RiskScale): string {
     const score = p * i;
     if (score <= 5)
-      return "bg-AIPM-green/20 hover:bg-AIPM-green/30 dark:bg-AIPM-green/20 dark:hover:bg-AIPM-green/30";
+      return "bg-ui-green/20 hover:bg-ui-green/30 dark:bg-ui-green/20 dark:hover:bg-ui-green/30";
     if (score <= 10)
-      return "bg-AIPM-blue/20 hover:bg-AIPM-blue/30 dark:bg-AIPM-blue/20 dark:hover:bg-AIPM-blue/30";
+      return "bg-ui-blue/20 hover:bg-ui-blue/30 dark:bg-ui-blue/20 dark:hover:bg-ui-blue/30";
     if (score <= 15)
-      return "bg-AIPM-purple/25 hover:bg-AIPM-purple/35 dark:bg-AIPM-purple/25 dark:hover:bg-AIPM-purple/35";
-    return "bg-AIPM-pink/30 hover:bg-AIPM-pink/40 dark:bg-AIPM-pink/30 dark:hover:bg-AIPM-pink/40";
+      return "bg-ui-purple/25 hover:bg-ui-purple/35 dark:bg-ui-purple/25 dark:hover:bg-ui-purple/35";
+    return "bg-ui-pink/30 hover:bg-ui-pink/40 dark:bg-ui-pink/30 dark:hover:bg-ui-pink/40";
   }
 
   return (
@@ -72,7 +72,7 @@ export function RiskMatrix({
                 onClick={() => onPick(p, i)}
                 aria-label={`${t(lang, "raidProbability")} ${p}, ${t(lang, "raidImpact")} ${i}`}
                 className={`h-8 w-8 rounded text-[10px] font-medium text-foreground ${cellColor(p, i)} ${
-                  isSelected ? "ring-2 ring-AIPM-green ring-offset-1" : ""
+                  isSelected ? "ring-2 ring-ui-green ring-offset-1" : ""
                 } ${INTERACTIVE}`}
               >
                 {p * i}

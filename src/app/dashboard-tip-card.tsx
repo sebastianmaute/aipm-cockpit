@@ -68,7 +68,7 @@ export function DashboardTipCard({ lang, dc, isPopout = false }: DashboardTipCar
   return (
     <div className={`rounded-lg border border-line bg-surface ${dc.cardPad} shadow-[var(--shadow-card)]`}>
       <div className="flex items-start gap-2">
-        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "dashboardTipLabel")}
         </span>
         <p className="flex-1 text-sm text-foreground">{TIPS[index]}</p>

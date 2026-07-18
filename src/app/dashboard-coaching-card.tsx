@@ -15,7 +15,7 @@ export function DashboardCoachingCard({ lang, ctas, onNavigate }: DashboardCoach
   if (ctas.length === 0) return null;
   return (
     <div className="rounded-lg border border-line bg-surface p-4 shadow-[var(--shadow-card)]">
-      <h3 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{t(lang, "coachingTitle")}</h3>
+      <h3 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, "coachingTitle")}</h3>
       <p className="mt-0.5 text-xs text-muted-foreground">{t(lang, "coachingSubtitle")}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {ctas.map((cta) => (
@@ -23,7 +23,7 @@ export function DashboardCoachingCard({ lang, ctas, onNavigate }: DashboardCoach
             key={cta.key}
             type="button"
             onClick={() => onNavigate(cta.view, cta.section)}
-            className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-AIPM-dark-blue ${INTERACTIVE}`}
+            className={`rounded-md border border-line bg-surface px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-ui-dark-blue ${INTERACTIVE}`}
           >
             {t(lang, cta.labelKey)}
           </button>

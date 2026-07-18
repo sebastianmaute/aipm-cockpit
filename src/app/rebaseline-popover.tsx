@@ -95,7 +95,7 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
                   aria-label={t(lang, "actionRebaselineNewDate")}
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-AIPM-green"
+                  className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ui-green"
                 />
               </label>
               <div className="mt-2 flex justify-end">
@@ -103,7 +103,7 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
                   type="button"
                   disabled={!isValidIsoDate(date)}
                   onClick={(e) => { e.stopPropagation(); confirmMilestone(); }}
-                  className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
+                  className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey"
                 >
                   {t(lang, "actionRebaselineConfirm")}
                 </button>
@@ -117,7 +117,7 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
                   type="button"
                   disabled={bundle.busy}
                   onClick={(e) => { e.stopPropagation(); confirmSnapshot(); }}
-                  className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-AIPM-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-AIPM-light-grey"
+                  className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey"
                 >
                   {t(lang, "actionRebaselineConfirm")}
                 </button>

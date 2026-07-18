@@ -213,7 +213,7 @@ export function GlobalSearchBox({
     if (showingRecents) return text;
     return splitHighlight(text, query).map((seg, i) =>
       seg.match ? (
-        <mark key={i} className="rounded-sm bg-AIPM-green/20 text-inherit">
+        <mark key={i} className="rounded-sm bg-ui-green/20 text-inherit">
           {seg.text}
         </mark>
       ) : (
@@ -243,7 +243,7 @@ export function GlobalSearchBox({
           setOpen(true);
         }}
         onKeyDown={onKeyDown}
-        className={`w-full rounded-md border border-line bg-surface py-1.5 pl-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION} ${showingRecents ? "pr-14" : "pr-3"}`}
+        className={`w-full rounded-md border border-line bg-surface py-1.5 pl-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION} ${showingRecents ? "pr-14" : "pr-3"}`}
       />
       {/* Decorative focus-shortcut hint. aria-hidden so it never joins the
           combobox's accessible name; hidden once the user starts typing so it
@@ -275,7 +275,7 @@ export function GlobalSearchBox({
                 onClick={() => select(r)}
                 className={`flex cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left ${
                   i === highlight
-                    ? "bg-surface-muted text-AIPM-dark-blue"
+                    ? "bg-surface-muted text-ui-dark-blue"
                     : "text-foreground hover:bg-surface-muted"
                 }`}
               >

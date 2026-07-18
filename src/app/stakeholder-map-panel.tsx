@@ -61,13 +61,13 @@ const QUADRANTS: QuadrantConfig[] = [
     id: "keep-satisfied",
     testId: "quadrant-keep-satisfied",
     labelKey: "quadrantKeepSatisfied",
-    tintClass: "bg-AIPM-green/10 dark:bg-AIPM-green/15",
+    tintClass: "bg-ui-green/10 dark:bg-ui-green/15",
   },
   {
     id: "manage-closely",
     testId: "quadrant-manage-closely",
     labelKey: "quadrantManageClosely",
-    tintClass: "bg-AIPM-green/20 dark:bg-AIPM-green/25",
+    tintClass: "bg-ui-green/20 dark:bg-ui-green/25",
   },
   {
     id: "monitor",
@@ -127,7 +127,7 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
       )}
       {/* Toolbar: title left, controls right */}
       <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 print:hidden">
-        <h2 className="text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "stakeholderMapTitle")}
         </h2>
         <div className="flex items-center gap-2">
@@ -161,9 +161,9 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
                   onDragEnter={editable ? () => setDragOverQ(q.id) : undefined}
                   onDragLeave={editable ? (e) => { if (e.currentTarget === e.target) setDragOverQ(null); } : undefined}
                   onDrop={editable ? (e) => { onDropInto(q.id, e); setDragOverQ(null); } : undefined}
-                  className={`flex flex-col gap-1.5 overflow-auto rounded-lg border border-line p-3 ${q.tintClass} ${dragOverQ === q.id ? "ring-2 ring-AIPM-green" : ""}`}
+                  className={`flex flex-col gap-1.5 overflow-auto rounded-lg border border-line p-3 ${q.tintClass} ${dragOverQ === q.id ? "ring-2 ring-ui-green" : ""}`}
                 >
-                  <p className="text-xs font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+                  <p className="text-xs font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                     {t(lang, q.labelKey)}
                   </p>
                   <div className="flex flex-wrap gap-1">
@@ -180,7 +180,7 @@ export function StakeholderMapPanel({ lang, stakeholders, onOpenStakeholder, onS
                           onDragEnd={editable ? () => setDragOverQ(null) : undefined}
                           onClick={() => onOpenStakeholder(s.id)}
                           aria-label={`${t(lang, "edit")} – ${s.name}`}
-                          className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-AIPM-green/15 focus:outline-none focus:ring-2 focus:ring-AIPM-green ${TRANSITION} ${PRESS}`}
+                          className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium bg-surface text-foreground hover:bg-ui-green/15 focus:outline-none focus:ring-2 focus:ring-ui-green ${TRANSITION} ${PRESS}`}
                         >
                           {s.name}
                         </button>

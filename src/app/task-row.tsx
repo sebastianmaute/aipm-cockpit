@@ -316,7 +316,7 @@ function TaskRowImpl({
         type="button"
         onClick={() => inline.begin(field, current)}
         aria-label={label}
-        className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${displayClass ?? ""} ${INTERACTIVE}`}
+        className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${displayClass ?? ""} ${INTERACTIVE}`}
       >
         {display}
       </button>
@@ -360,7 +360,7 @@ function TaskRowImpl({
       <div
         onDoubleClick={() => inline.begin(field, current)}
         title={t(lang, "doubleClickToEdit")}
-        className="cursor-text rounded-md border border-transparent px-1 hover:border-AIPM-dark-blue"
+        className="cursor-text rounded-md border border-transparent px-1 hover:border-ui-dark-blue"
       >
         {display}
       </div>
@@ -377,7 +377,7 @@ function TaskRowImpl({
   // branch intentionally drops the stripe — full-opacity bg-surface-muted
   // already covers the /40 tint.
   const stateClass = isEditing
-    ? "bg-AIPM-purple/10 dark:bg-AIPM-purple/15"
+    ? "bg-ui-purple/10 dark:bg-ui-purple/15"
     : isSelected
       ? "bg-surface-muted"
       : isComplete
@@ -406,7 +406,7 @@ function TaskRowImpl({
             onClick={() => onAiEdit(task)}
             aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
             title={t(lang, "inlineAiEdit")}
-            className={`rounded-md px-1.5 text-AIPM-dark-blue opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-AIPM-dark-blue dark:text-AIPM-light-grey ${INTERACTIVE}`}
+            className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
               <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
@@ -420,13 +420,13 @@ function TaskRowImpl({
           checked={isSelected}
           onChange={() => onToggleSelect(task.id)}
           aria-label={t(lang, "selectRow", task.id)}
-          className="h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue focus:ring-AIPM-green dark:border-line"
+          className="h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue focus:ring-ui-green dark:border-line"
         />
       </Td>
       {!hiddenCols.has("status") && (
         <Td>
           {isComplete && !task.healthOverride ? (
-            <span role="img" title={label} aria-label={label} className="text-AIPM-green-strong">✓</span>
+            <span role="img" title={label} aria-label={label} className="text-ui-green-strong">✓</span>
           ) : (
             <RagDot level={health.color} size="md" label={label} />
           )}
@@ -438,7 +438,7 @@ function TaskRowImpl({
           onClick={() => onEdit(task)}
           title={`#${task.id} — ${t(lang, "clickToEdit")}`}
           aria-label={`#${task.id} — ${t(lang, "clickToEdit")}`}
-          className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-muted-foreground hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+          className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 font-mono text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
         >#{task.id}</button>
         {(() => {
           if (!task.jiraKey || !jiraSiteUrl) return null;
@@ -463,7 +463,7 @@ function TaskRowImpl({
           <span
             title={t(lang, "taskRowChangesBadge", changeRefs.length)}
             aria-label={t(lang, "taskRowChangesBadge", changeRefs.length)}
-            className="ml-1 inline-flex items-center rounded bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-blue/20 dark:text-AIPM-light-grey"
+            className="ml-1 inline-flex items-center rounded bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/20 dark:text-ui-light-grey"
           >
             {t(lang, "taskRowChangesBadge", changeRefs.length)}
           </span>
@@ -488,13 +488,13 @@ function TaskRowImpl({
             onClick={handleNameClick}
             onDoubleClick={handleNameDoubleClick}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
-            className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+            className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >{task.taskName}</button>
         )}
         {(task.group || (task.labels?.length ?? 0) > 0) && (
           <div className="mt-1 flex flex-wrap gap-1">
             {task.group && (
-              <span className="inline-flex rounded-md bg-AIPM-dark-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-dark-blue/30 dark:text-AIPM-light-grey">
+              <span className="inline-flex rounded-md bg-ui-dark-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-dark-blue/30 dark:text-ui-light-grey">
                 {task.group}
               </span>
             )}
@@ -530,7 +530,7 @@ function TaskRowImpl({
                 type="button"
                 onClick={beginAssigneeEdit}
                 aria-label={`${t(lang, "assignee")} – ${task.taskName}`}
-                className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+                className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {displayName || "—"}
               </button>
@@ -580,7 +580,7 @@ function TaskRowImpl({
               type="button"
               onClick={() => inline.begin("priority", task.priority)}
               aria-label={`${t(lang, "priority")} – ${task.taskName}`}
-              className={`rounded-md border border-transparent p-0.5 hover:border-AIPM-dark-blue ${INTERACTIVE}`}
+              className={`rounded-md border border-transparent p-0.5 hover:border-ui-dark-blue ${INTERACTIVE}`}
             >
               <Badge pill className={`font-medium ${priorityStyle[task.priority]}`}>
                 {priorityLabel(lang, task.priority)}
@@ -658,7 +658,7 @@ function NotesCellImpl({ notes, isExpanded, taskId }: NotesCellProps) {
         <button
           type="button"
           onClick={() => onToggleNoteExpanded(taskId)}
-          className={`self-start text-xs font-medium text-AIPM-dark-blue underline-offset-2 hover:underline dark:text-AIPM-blue ${INTERACTIVE}`}
+          className={`self-start text-xs font-medium text-ui-dark-blue underline-offset-2 hover:underline dark:text-ui-blue ${INTERACTIVE}`}
           aria-expanded={isExpanded}
         >
           {isExpanded ? t(lang, "showLess") : t(lang, "showMore")}
@@ -715,7 +715,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           aria-label={`${t(lang, "actionMoreActions")} – ${task.taskName}`}
           title={t(lang, "actionMoreActions")}
           onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
-          className={`rounded-md border border-line px-2 py-0.5 text-xs font-medium text-muted-foreground hover:border-AIPM-dark-blue/40 hover:bg-AIPM-dark-blue/10 ${FOCUS_RING} ${TRANSITION}`}
+          className={`rounded-md border border-line px-2 py-0.5 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING} ${TRANSITION}`}
         >
           ⋮
         </button>
@@ -752,7 +752,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
             type="button"
             role="menuitem"
             onClick={(e) => { stop(e); setMenuOpen(false); onDelete(task.id); }}
-            className="px-3 py-1 text-left text-xs text-AIPM-pink-strong hover:bg-AIPM-pink/5"
+            className="px-3 py-1 text-left text-xs text-ui-pink-strong hover:bg-ui-pink/5"
           >
             {t(lang, "delete")}
           </button>
@@ -781,7 +781,7 @@ function DependencyChipsImpl({ deps }: DependencyChipsProps) {
           <li key={`dep-${dep.taskId}-${dep.type}-${i}`}>
             <span
               title={`${t(lang, "depDependsOn")} #${dep.taskId} (${dep.type}) — ${predName}`}
-              className="inline-flex items-center gap-0.5 rounded-full bg-AIPM-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-AIPM-dark-blue dark:bg-AIPM-blue/25 dark:text-AIPM-light-grey"
+              className="inline-flex items-center gap-0.5 rounded-full bg-ui-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-ui-dark-blue dark:bg-ui-blue/25 dark:text-ui-light-grey"
             >
               <span className="font-mono">{dep.type}</span>
               <span className="opacity-70">·</span>

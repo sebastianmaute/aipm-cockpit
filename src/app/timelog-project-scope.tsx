@@ -50,7 +50,7 @@ export function TimelogProjectScope({
               type="checkbox"
               checked={allSelected}
               onChange={onToggleAll}
-              className={`accent-AIPM-dark-blue ${FOCUS_RING}`}
+              className={`accent-ui-dark-blue ${FOCUS_RING}`}
               aria-label={t(lang, "timelogProjectSelectAll")}
             />
             {t(lang, "timelogProjectSelectAll")}
@@ -88,7 +88,7 @@ export function TimelogProjectScope({
                   checked={selectedIds.has(p.id)}
                   onChange={() => onToggle(p.id)}
                   disabled={off}
-                  className={`accent-AIPM-dark-blue ${FOCUS_RING}`}
+                  className={`accent-ui-dark-blue ${FOCUS_RING}`}
                   aria-label={`${t(lang, "timelogProjectScopeLabel")} – ${p.name}${p.no ? ` (${p.no})` : ""}`}
                 />
                 <span className="truncate">

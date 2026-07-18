@@ -25,7 +25,7 @@ export function DisplayTzSwitcher({ lang, ctx, additionalTimezones }: DisplayTzS
       aria-label={t(lang, "displayTzLabel")}
       value={ctx.isOverridden ? ctx.displayTz : ""}
       onChange={(e) => ctx.setDisplayOverride(e.target.value || undefined)}
-      className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground focus:border-AIPM-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
+      className={`rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}`}
     >
       <option value="">{`${t(lang, "displayTzDefault")} (${ctx.effectiveTz})`}</option>
       <option value="UTC">UTC</option>

@@ -28,12 +28,12 @@ export function EffortProgressBar({ lang, estimateMin, spentMin }: EffortProgres
       >
         {hasEstimate && (
           <div
-            className={`h-full rounded-full transition-all ${over ? "bg-AIPM-pink" : "bg-AIPM-dark-blue"}`}
+            className={`h-full rounded-full transition-all ${over ? "bg-ui-pink" : "bg-ui-dark-blue"}`}
             style={{ width: `${fillPct}%` }}
           />
         )}
       </ProgressTrack>
-      <p className={`mt-1 text-xs ${over ? "text-AIPM-pink-strong" : "text-muted-foreground"}`}>
+      <p className={`mt-1 text-xs ${over ? "text-ui-pink-strong" : "text-muted-foreground"}`}>
         {hasEstimate
           ? `${formatDuration(spentMin ?? 0) || "0m"} / ${formatDuration(estimateMin ?? 0)} · ${labelPct}%`
           : t(lang, "taskEffortNoEstimate")}

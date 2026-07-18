@@ -25,7 +25,7 @@ export function CharCounter({ value, max, id, lang }: CharCounterProps) {
   }
   const atCap = len >= max;
   return (
-    <p id={id} className={`mt-1 text-xs ${atCap ? "text-AIPM-pink-strong" : "text-muted-foreground"}`}>
+    <p id={id} className={`mt-1 text-xs ${atCap ? "text-ui-pink-strong" : "text-muted-foreground"}`}>
       {t(lang, "fieldCounter", len, max)}
       {atCap ? ` — ${t(lang, "fieldTrimmedToFit")}` : ""}
     </p>
@@ -41,7 +41,7 @@ interface FieldNoticeProps {
 export function FieldNotice({ id, children }: FieldNoticeProps) {
   if (!children) return null;
   return (
-    <p id={id} role="status" aria-live="polite" className="mt-1 text-xs text-AIPM-pink-strong">
+    <p id={id} role="status" aria-live="polite" className="mt-1 text-xs text-ui-pink-strong">
       {children}
     </p>
   );
@@ -57,7 +57,7 @@ interface FieldErrorProps {
 export function FieldError({ id, children }: FieldErrorProps) {
   if (!children) return null;
   return (
-    <p id={id} role="alert" className="mt-1 text-xs font-medium text-AIPM-pink-strong">
+    <p id={id} role="alert" className="mt-1 text-xs font-medium text-ui-pink-strong">
       {children}
     </p>
   );

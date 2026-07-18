@@ -40,7 +40,7 @@ describe("AddButton", () => {
     const onClick = vi.fn();
     render(<AddButton onClick={onClick}>+ Add change</AddButton>);
     const btn = screen.getByRole("button", { name: "+ Add change" });
-    expect(btn.className).toContain("bg-AIPM-dark-blue");
+    expect(btn.className).toContain("bg-ui-dark-blue");
     expect(btn.className).toContain("text-white");
     await userEvent.click(btn);
     expect(onClick).toHaveBeenCalledTimes(1);

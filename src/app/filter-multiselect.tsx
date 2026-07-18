@@ -77,13 +77,13 @@ export function FilterMultiSelect<T extends string>({
         title={hint ?? aria}
         className={`inline-flex h-[30px] items-center gap-1 rounded-md border px-2.5 py-1.5 text-xs font-medium ${TRANSITION} ${INTERACTIVE} ${
           count > 0
-            ? "border-AIPM-dark-blue bg-AIPM-dark-blue/10 text-AIPM-dark-blue dark:text-AIPM-light-grey"
+            ? "border-ui-dark-blue bg-ui-dark-blue/10 text-ui-dark-blue dark:text-ui-light-grey"
             : "border-line bg-surface text-foreground hover:bg-surface-muted"
         } disabled:cursor-not-allowed disabled:opacity-50`}
       >
         <span>{label}</span>
         {count > 0 && (
-          <span className="rounded-full bg-AIPM-dark-blue px-1.5 text-[10px] font-semibold leading-4 text-white">
+          <span className="rounded-full bg-ui-dark-blue px-1.5 text-[10px] font-semibold leading-4 text-white">
             {count}
           </span>
         )}

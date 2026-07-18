@@ -37,7 +37,7 @@ export function checkSchemePairs(colors: SchemeColorMap): ContrastPair[] {
   const surface = c["--surface"] ?? "#ffffff";
   const defs: { id: string; labelKey: string; fg?: string; on: string }[] = [
     { id: "text-bg", labelKey: "schemePairTextBg", fg: c["--foreground"], on: bg },
-    { id: "accent-surface", labelKey: "schemePairAccentSurface", fg: c["--AIPM-green-strong"] ?? c["--AIPM-green"], on: surface },
+    { id: "accent-surface", labelKey: "schemePairAccentSurface", fg: c["--ui-green-strong"] ?? c["--ui-green"], on: surface },
     { id: "rag-red", labelKey: "schemePairRagRed", fg: c["--rag-red-text"], on: surface },
     { id: "rag-amber", labelKey: "schemePairRagAmber", fg: c["--rag-amber-text"], on: surface },
     { id: "rag-green", labelKey: "schemePairRagGreen", fg: c["--rag-green-text"], on: surface },

@@ -55,7 +55,7 @@ export interface TasksDedup {
 }
 
 const TRIGGER_CLASS =
-  "inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-AIPM-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50";
 
 export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
   const { settings, isPopout, lang, tasks, setTasks, capture, logActivity } = deps;

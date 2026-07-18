@@ -99,7 +99,7 @@ export function LabelsInput({
     <>
     <div ref={rootRef} className="relative">
       <div
-        className={`flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 pr-9 text-sm focus-within:border-line focus-within:ring-1 focus-within:ring-AIPM-green ${
+        className={`flex min-h-[2.5rem] flex-wrap items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1.5 pr-9 text-sm focus-within:border-line focus-within:ring-1 focus-within:ring-ui-green ${
           disabled ? "cursor-not-allowed opacity-50" : ""
         }`}
         onClick={() => !disabled && inputRef.current?.focus()}
@@ -107,7 +107,7 @@ export function LabelsInput({
         {value.map((label, idx) => (
           <span
             key={`${label}-${idx}`}
-            className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-AIPM-dark-blue dark:text-AIPM-light-grey"
+            className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2 py-0.5 text-xs font-medium text-ui-dark-blue dark:text-ui-light-grey"
           >
             {label}
             {!disabled && (
@@ -118,7 +118,7 @@ export function LabelsInput({
                   removeAt(idx);
                 }}
                 aria-label={`${t(lang, "remove")} ${label}`}
-                className="-mr-1 rounded-full text-muted-foreground hover:text-AIPM-pink"
+                className="-mr-1 rounded-full text-muted-foreground hover:text-ui-pink"
               >
                 <svg
                   viewBox="0 0 20 20"
@@ -169,7 +169,7 @@ export function LabelsInput({
           setOpen((o) => !o);
           inputRef.current?.focus();
         }}
-        className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-AIPM-dark-blue disabled:cursor-not-allowed disabled:opacity-50"
+        className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-ui-dark-blue disabled:cursor-not-allowed disabled:opacity-50"
       />
 
       {open && !disabled && totalItems > 0 && (

@@ -320,13 +320,13 @@ export function RaidEditModal({
               <button
                 type="button"
                 onClick={() => setCategoryUnlocked(true)}
-                className={`self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-AIPM-dark-blue hover:underline ${INTERACTIVE}`}
+                className={`self-start text-[11px] font-medium text-muted-foreground underline-offset-2 hover:text-ui-dark-blue hover:underline ${INTERACTIVE}`}
               >
                 {t(lang, "raidAdvancedChangeCategory")}
               </button>
             )}
             {!isNew && categoryUnlocked && (
-              <span className="text-[11px] italic text-AIPM-purple">
+              <span className="text-[11px] italic text-ui-purple">
                 {t(lang, "raidCategoryChangedWarning")}
               </span>
             )}
@@ -606,7 +606,7 @@ export function RaidEditModal({
                     if (await confirm({ message: t(lang, "raidConfirmDelete") })) onDelete();
                   }}
                   disabled={isNew}
-                  className={`rounded-md border border-AIPM-pink/40 bg-surface px-3 py-2 text-sm font-medium text-AIPM-pink-strong hover:bg-AIPM-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
+                  className={`rounded-md border border-ui-pink/40 bg-surface px-3 py-2 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:cursor-not-allowed disabled:opacity-50 ${INTERACTIVE}`}
                 >
                   {t(lang, "raidDelete")}
                 </button>
@@ -632,7 +632,7 @@ export function RaidEditModal({
               </button>
               <button
                 type="submit"
-                className={`rounded-md border border-AIPM-dark-blue bg-AIPM-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-AIPM-dark-blue/90 ${INTERACTIVE}`}
+                className={`rounded-md border border-ui-dark-blue bg-ui-dark-blue px-3 py-1.5 text-sm font-medium text-white hover:bg-ui-dark-blue/90 ${INTERACTIVE}`}
               >
                 {t(lang, "raidSave")}
               </button>

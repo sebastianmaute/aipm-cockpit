@@ -54,7 +54,7 @@ export function ExportSection({ lang, settings, onChange }: ExportSectionProps) 
                   type="checkbox"
                   checked={checked}
                   onChange={(e) => handleToggle(key, e.target.checked)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-AIPM-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
                 {t(lang, LABEL_KEYS[key])}
               </label>

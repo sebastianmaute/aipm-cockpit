@@ -61,7 +61,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">
+        <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "settingsSectionTemplates")}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">{t(lang, "templatesIntro")}</p>
@@ -80,7 +80,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
           onKeyDown={(e) => {
             if (e.key === "Enter") saveCurrent();
           }}
-          className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+          className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
         />
         <label className="flex items-center gap-2 text-sm text-foreground">
           <Checkbox
@@ -146,14 +146,14 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                       const name = e.target.value.trim();
                       if (name && name !== tpl.name) updateTemplate(tpl.id, { name });
                     }}
-                    className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-AIPM-green"
+                    className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
                   />
                   <span className="text-xs text-muted-foreground">{modeSummary(lang, tpl)}</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => removeTemplate(tpl.id)}
-                  className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm text-AIPM-purple hover:bg-surface-muted ${INTERACTIVE}`}
+                  className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm text-ui-purple hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "templatesDelete")}
                 </button>

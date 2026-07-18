@@ -89,7 +89,7 @@ export function TableFilter({
         onChange={(e) => onChange(e.target.value)}
         placeholder={t(lang, placeholderKey)}
         aria-label={t(lang, placeholderKey)}
-        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-AIPM-dark-blue focus:outline-none"
+        className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none"
       />
       {value && (
         <button
@@ -252,7 +252,7 @@ export function Tile({
 }) {
   const valueColor = danger
     ? "text-[var(--rag-red-text)]"
-    : "text-AIPM-dark-blue dark:text-AIPM-light-grey";
+    : "text-ui-dark-blue dark:text-ui-light-grey";
   const sizeClass = size === "2xl" ? "text-2xl" : "text-xl";
   const inner = (
     <>
@@ -270,7 +270,7 @@ export function Tile({
       type="button"
       aria-label={activateLabel}
       onClick={onActivate}
-      className={`w-full rounded-lg border border-line bg-surface p-3 text-left${flat ? "" : " shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"} hover:border-AIPM-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+      className={`w-full rounded-lg border border-line bg-surface p-3 text-left${flat ? "" : " shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"} hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
     >
       {inner}
     </button>
@@ -314,7 +314,7 @@ export function Section({
 }) {
   const body = (
     <>
-      <h3 className="mb-2 text-sm font-semibold text-AIPM-dark-blue dark:text-AIPM-light-grey">{title}</h3>
+      <h3 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{title}</h3>
       {children}
     </>
   );
