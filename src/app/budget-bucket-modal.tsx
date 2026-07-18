@@ -46,7 +46,7 @@ interface BudgetBucketModalProps {
   onClose: () => void;
 }
 
-const inputClass = fieldClass();
+const inputClass = fieldClass(false, "w-full");
 
 export function BudgetBucketModal({
   lang,

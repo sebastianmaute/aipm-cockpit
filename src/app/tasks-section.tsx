@@ -36,7 +36,8 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ActionChips, chipsForView } from "./action-chips";
 import { ViewCallout } from "./view-callout";
 import { SavedViewsControl } from "./saved-views-control";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { Input, Select } from "./form-controls";
 import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import type { SuggestedAction } from "./next-actions/types";
@@ -74,12 +75,6 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "estimate",       labelKey: "taskOriginalEstimate" },
   { key: "spent",          labelKey: "taskTimeSpent" },
 ];
-
-const inputClass =
-  `rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`;
-
-const searchClass =
-  `min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-line focus:outline-none ${FOCUS_RING} ${TRANSITION}`;
 
 export interface TasksSectionProps {
   lang: Lang;
@@ -528,22 +523,23 @@ export function TasksSection({
           onChange={(mode) => setSettings((s) => ({ ...s, tasksViewMode: mode }))}
           ariaLabel={t(lang, "tasksViewModeLabel")}
         />
-        <input
+        <Input
           type="search"
+          size="xs"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t(lang, "searchPlaceholder")}
           aria-label={t(lang, "searchPlaceholder")}
           title={t(lang, "tasksSearchHint")}
-          className={searchClass}
+          className="min-w-[12rem] flex-1"
         />
-        <select
+        <Select
+          size="xs"
           value={priorityFilter}
           onChange={(e) =>
             setPriorityFilter(e.target.value as Priority | "All")
           }
           title={t(lang, "priorityFilterHint")}
-          className={inputClass}
         >
           <option value="All">{t(lang, "allPriorities")}</option>
           {PRIORITIES.map((p) => (
@@ -551,12 +547,12 @@ export function TasksSection({
               {priorityLabel(lang, p)}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="xs"
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
           title={t(lang, "assigneeFilterHint")}
-          className={inputClass}
         >
           <option value="All">{t(lang, "allAssignees")}</option>
           {uniqueAssignees.map((a) => (
@@ -564,12 +560,12 @@ export function TasksSection({
               {a}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="xs"
           value={groupFilter}
           onChange={(e) => setGroupFilter(e.target.value)}
           title={t(lang, "tasksGroupFilterHint")}
-          className={inputClass}
         >
           <option value="All">{t(lang, "allGroups")}</option>
           <option value="">{t(lang, "groupNone")}</option>
@@ -578,12 +574,12 @@ export function TasksSection({
               {g}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="xs"
           value={labelFilter}
           onChange={(e) => setLabelFilter(e.target.value)}
           title={t(lang, "tasksLabelFilterHint")}
-          className={inputClass}
         >
           <option value="All">{t(lang, "allLabels")}</option>
           {uniqueLabels.map((l) => (
@@ -591,19 +587,19 @@ export function TasksSection({
               {l}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="xs"
           value={healthFilter}
           onChange={(e) => setHealthFilter(e.target.value as HealthFilter)}
           aria-label={t(lang, "healthFilterLabel")}
           title={t(lang, "healthFilterHint")}
-          className={inputClass}
         >
           <option value="all">{t(lang, "allHealth")}</option>
           <option value="red">{t(lang, "healthRed")}</option>
           <option value="amber">{t(lang, "healthAmber")}</option>
           <option value="green">{t(lang, "healthGreen")}</option>
-        </select>
+        </Select>
         <div ref={colConfigRef} className="relative">
           <button
             type="button"

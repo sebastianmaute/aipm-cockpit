@@ -31,7 +31,7 @@ import { useToastContext } from "./toast-context";
 
 // Canonical field shell, single-sourced from the shared primitive (was a
 // copy-declared ring-1 string; now the ring-2 ui-green standard).
-const inputClass = fieldClass();
+const inputClass = fieldClass(false, "w-full");
 
 type Status =
   | { kind: "idle" }

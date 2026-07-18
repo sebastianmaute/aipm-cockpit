@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Button } from "./button";
+import { Input, Select } from "./form-controls";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { PRIORITIES, type Priority } from "./types";
@@ -42,7 +42,6 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
 
   const canSave = taskName.trim().length > 0 && dueDate.length > 0;
 
-  const fieldClass = `w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground dark:border-line dark:bg-surface dark:text-foreground ${FOCUS_RING} ${TRANSITION}`;
   const labelClass = "flex flex-col gap-1 text-xs font-medium text-muted-foreground";
 
   const handleSubmit = () => {
@@ -66,63 +65,68 @@ export function TaskLinkedTaskModal({ lang, today, onCreate, onClose }: TaskLink
         <div className="space-y-3 p-5">
           <label className={labelClass}>
             {t(lang, "taskName")}
-            <input
+            <Input
               type="text"
+              size="xs"
               aria-label={t(lang, "taskName")}
               value={taskName}
               onChange={(e) => setTaskName(e.target.value)}
               autoFocus
-              className={fieldClass}
+              className="w-full"
             />
           </label>
           <label className={labelClass}>
             {t(lang, "assignee")}
-            <input
+            <Input
               type="text"
+              size="xs"
               aria-label={t(lang, "assignee")}
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
-              className={fieldClass}
+              className="w-full"
             />
           </label>
           <div className="flex gap-3">
             <label className={`flex-1 ${labelClass}`}>
               {t(lang, "dueDate")}
-              <input
+              <Input
                 type="date"
+                size="xs"
                 aria-label={t(lang, "dueDate")}
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className={fieldClass}
+                className="w-full"
               />
             </label>
             <label className={`flex-1 ${labelClass}`}>
               {t(lang, "priority")}
-              <select
+              <Select
+                size="xs"
                 aria-label={t(lang, "priority")}
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
-                className={fieldClass}
+                className="w-full"
               >
                 {PRIORITIES.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
           <label className={labelClass}>
             {t(lang, "taskLinkDirection")}
-            <select
+            <Select
+              size="xs"
               aria-label={t(lang, "taskLinkDirection")}
               value={direction}
               onChange={(e) => setDirection(e.target.value as LinkDirection)}
-              className={fieldClass}
+              className="w-full"
             >
               <option value="predecessor">{t(lang, "taskLinkAsPredecessor")}</option>
               <option value="successor">{t(lang, "taskLinkAsSuccessor")}</option>
-            </select>
+            </Select>
           </label>
           <div className="flex items-center justify-end gap-2 border-t border-line pt-3">
             <Button variant="secondary" onClick={onClose}>

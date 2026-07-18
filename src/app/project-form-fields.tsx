@@ -93,7 +93,7 @@ export function emptyProjectDraft(): ProjectFormDraft {
 
 // Canonical field shell, single-sourced from the shared primitive (was a
 // copy-declared ring-1 string; now the ring-2 ui-green standard).
-export const inputClass = fieldClass();
+export const inputClass = fieldClass(false, "w-full");
 
 // IANA zone list for the operating-timezone select (shared with the settings
 // picker via timezone.ts; guarded fallback for older runtimes inside tzZones).
