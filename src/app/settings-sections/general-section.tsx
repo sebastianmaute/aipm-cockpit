@@ -8,6 +8,7 @@ import { FieldHint } from "../field-hint";
 import { TypeToConfirmDialog } from "../type-to-confirm-dialog";
 import { resetAppToCleanSlate } from "../app-reset";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "../interaction-styles";
+import { Input } from "../form-controls";
 
 interface GeneralSectionProps {
   lang: Lang;
@@ -53,14 +54,15 @@ export function GeneralSection({ lang, settings, onChange }: GeneralSectionProps
             {t(lang, "resourcesWorkdayHours")}
             <InfoTooltip text={t(lang, "resourcesWorkdayHoursTooltip")} />
           </span>
-          <input
+          <Input
             type="number" min={1} max={24} step={0.5}
+            size="xs"
+            className="w-20"
             value={settings.resources.workdayHours}
             onChange={(e) => {
               const n = Math.min(24, Math.max(1, Number(e.target.value) || 8));
               onChange({ ...settings, resources: { ...settings.resources, workdayHours: n } });
             }}
-            className={`w-20 rounded-md border border-line px-2 py-1 text-sm ${FOCUS_RING} ${TRANSITION}`}
           />
         </label>
       </div>

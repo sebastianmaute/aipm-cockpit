@@ -6,8 +6,9 @@ import { Banner } from "./banner";
 import type { TimelogConfig, TimelogScopeMode } from "./timelog-types";
 import { saveSecretValue } from "./use-secrets";
 import { listUsers, getPrivileges } from "./timelog-api";
-import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { useIntegrationDisclaimer } from "./integration-disclaimer";
+import { Input, Select } from "./form-controls";
 
 interface Props {
   lang: Lang;
@@ -51,8 +52,6 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
     }
   }
 
-  const field = `mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`;
-
   return (
     <div className="mt-4 border-t border-line pt-3">
       <h3 className="text-sm font-medium text-foreground">{t(lang, "timelogTitle")}</h3>
@@ -84,24 +83,27 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
           </p>
           <label className="block text-xs">
             {t(lang, "timelogHost")}
-            <input
-              className={field}
+            <Input
+              size="xs"
+              className="mt-1 w-full"
               value={config.host}
               onChange={(e) => set({ host: e.target.value })}
             />
           </label>
           <label className="block text-xs">
             {t(lang, "timelogTenant")}
-            <input
-              className={field}
+            <Input
+              size="xs"
+              className="mt-1 w-full"
               value={config.tenant}
               onChange={(e) => set({ tenant: e.target.value })}
             />
           </label>
           <label className="block text-xs">
             {t(lang, "timelogEmail")}
-            <input
-              className={field}
+            <Input
+              size="xs"
+              className="mt-1 w-full"
               type="email"
               value={config.email}
               onChange={(e) => set({ email: e.target.value })}
@@ -109,8 +111,9 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
           </label>
           <label className="block text-xs">
             {t(lang, "timelogToken")}
-            <input
-              className={field}
+            <Input
+              size="xs"
+              className="mt-1 w-full"
               type="password"
               autoComplete="off"
               aria-label={t(lang, "timelogToken")}
@@ -124,15 +127,16 @@ export function TimelogSettings({ lang, config, onChange }: Props) {
           )}
           <label className="block text-xs">
             {t(lang, "timelogScope")}
-            <select
-              className={field}
+            <Select
+              size="xs"
+              className="mt-1 w-full"
               value={config.scopeMode}
               onChange={(e) => set({ scopeMode: e.target.value as TimelogScopeMode })}
             >
               <option value="auto">{t(lang, "timelogScopeAuto")}</option>
               <option value="self">{t(lang, "timelogScopeSelf")}</option>
               <option value="org">{t(lang, "timelogScopeOrg")}</option>
-            </select>
+            </Select>
           </label>
           <button
             type="button"

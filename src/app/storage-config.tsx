@@ -15,6 +15,7 @@ import { SharePointPickerModal } from "./sharepoint-picker-modal";
 import { useToastContext } from "./toast-context";
 import { reportSilentFailure } from "./guard-feedback";
 import { Button } from "./button";
+import { Input, Select } from "./form-controls";
 
 type Props = {
   lang: Lang;
@@ -143,11 +144,11 @@ export function StorageConfigSection({
         {t(lang, "storage")}
         <InfoTooltip text={t(lang, "storageTooltip")} />
       </span>
-      <select
+      <Select
         value={config.kind}
         onChange={(e) => handleKindChange(e.target.value as StorageKind)}
         aria-label={t(lang, "storage")}
-        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-foreground focus:border-line focus:outline-none focus:ring-2 focus:ring-ui-green"
+        className="w-full"
       >
         {STORAGE_OPTIONS.map((o) => {
           const isSpKind = o.kind === "sp-json" || o.kind === "sp-csv";
@@ -163,7 +164,7 @@ export function StorageConfigSection({
             </option>
           );
         })}
-      </select>
+      </Select>
 
       {config.kind === "browser" && (
         <p className="mt-2 text-xs text-muted-foreground">
@@ -258,13 +259,15 @@ export function StorageConfigSection({
         <div className="mt-2 space-y-1">
           <label className="block text-xs">
             <span className="text-muted-foreground">{t(lang, "spStorageUrlLabel")}</span>
-            <input
+            <Input
+              size="xs"
               type="text"
               value={spUrl}
               onChange={(e) => setSpUrl(e.target.value)}
               onBlur={handleSpUrlBlur}
               placeholder={t(lang, "spStorageUrlPlaceholder")}
-              className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-foreground"
+              invalid={!!spUrlError}
+              className="mt-1 w-full"
             />
           </label>
           <p className="text-xs text-muted-foreground">{t(lang, "spStorageHint")}</p>
