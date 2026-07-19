@@ -8,6 +8,26 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.38] - 2026-07-19 "Pinsker"
+
+### Changed
+
+**Consolidation sweep (Tier D)** — the final consolidation follow-up. Internal;
+one one-time reset noted below.
+
+- **`useColumnManager` composes the shared hooks.** The Open Points table's
+  column state hook stopped hand-rolling its column widths / debounced persist /
+  drag-resize (now the shared `useColumnResize`, tableId `"open-points"`) and its
+  column-config dropdown outside-click/Escape dismiss (now the shared
+  `usePopoverDismiss`); it keeps only the hidden-columns set. ★ Because the width
+  storage key is now tableId-scoped (`…:col-widths:open-points`), a previously
+  saved Open Points column-width layout resets to defaults once (widths are
+  re-draggable from there; other tables unaffected).
+- **`IconButton` gains a `bordered` variant** that codifies the quiet
+  bordered-box recipe the toolbar reset icons already used verbatim.
+  `ResetSizeButton`, `ResetColWidthsButton`, and the Gantt name-column reset
+  button now render through it instead of hand-rolling the class.
+
 ## [0.190.37] - 2026-07-19 "Pinsker"
 
 ### Changed

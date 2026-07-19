@@ -8,6 +8,7 @@ import { Input, Select } from "./form-controls";
 import { INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
 import { PrintButton, ResetSizeButton, ResetSizeIcon } from "./task-manager-ui";
+import { IconButton } from "./icon-button";
 import { ToggleButton } from "./toggle-button";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
 import {
@@ -237,15 +238,15 @@ export function GanttToolbar({
           {t(lang, "ganttMilestonesInline")}
         </ToggleButton>
       )}
-      <button
-        type="button"
+      <IconButton
+        variant="bordered"
+        size="md"
         onClick={resetNameColWidth}
-        aria-label={t(lang, "ganttResetNameCol")}
+        label={t(lang, "ganttResetNameCol")}
         title={t(lang, "ganttResetNameCol")}
-        className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
       >
         <ResetSizeIcon />
-      </button>
+      </IconButton>
       <PrintButton lang={lang} />
       <ResetSizeButton onClick={resetGanttSize} lang={lang} />
     </div>

@@ -1,9 +1,12 @@
 // src/app/use-column-manager.test.ts
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { DEFAULT_COL_WIDTHS, useColumnManager } from "./use-column-manager";
 
-const COL_WIDTHS_KEY = "aipm-cockpit:col-widths";
+// Width state is delegated to the shared useColumnResize (tableId "open-points"),
+// which owns the suffixed storage key + the debounced-persist behaviour (covered
+// by use-column-resize.test.ts). These tests cover what useColumnManager adds.
+const COL_WIDTHS_KEY = "aipm-cockpit:col-widths:open-points";
 const HIDDEN_COLS_KEY = "aipm-cockpit:hidden-cols";
 
 describe("useColumnManager", () => {
@@ -51,30 +54,6 @@ describe("useColumnManager", () => {
       });
       expect(result.current.colWidths).toEqual(DEFAULT_COL_WIDTHS);
       expect(localStorage.getItem(COL_WIDTHS_KEY)).toBeNull();
-    });
-  });
-
-  describe("persistence", () => {
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it("persists colWidths to localStorage after 250 ms debounce", async () => {
-      vi.useFakeTimers();
-      const { result } = renderHook(() => useColumnManager());
-      await act(async () => { vi.runAllTimers(); });
-      localStorage.removeItem(COL_WIDTHS_KEY);
-
-      act(() => {
-        result.current.setColWidths((prev) => ({ ...prev, taskName: 999 }));
-      });
-      expect(localStorage.getItem(COL_WIDTHS_KEY)).toBeNull();
-
-      act(() => { vi.advanceTimersByTime(250); });
-      const stored = JSON.parse(
-        localStorage.getItem(COL_WIDTHS_KEY) ?? "{}",
-      ) as Record<string, number>;
-      expect(stored.taskName).toBe(999);
     });
   });
 });
