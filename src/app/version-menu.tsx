@@ -1,19 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { usePopoverDismiss } from "./use-popover-dismiss";
+import { useCallback, useRef, useState } from "react";
+import { PopoverPanel } from "./popover-panel";
 import { type Lang, t } from "./i18n";
 import { VersionInfo } from "./version-info";
 
 export function VersionMenu({ lang }: { lang: Lang }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  usePopoverDismiss(open, ref, () => setOpen(false));
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={t(lang, "version")}
@@ -35,18 +35,19 @@ export function VersionMenu({ lang }: { lang: Lang }) {
         </svg>
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-label={t(lang, "version")}
-          className="absolute right-0 top-full z-40 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-lg border border-line bg-surface p-4"
-        >
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t(lang, "version")}
-          </h3>
-          <VersionInfo lang={lang} />
-        </div>
-      )}
+      <PopoverPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={t(lang, "version")}
+        className="max-h-[80vh] w-80 overflow-y-auto p-4"
+      >
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t(lang, "version")}
+        </h3>
+        <VersionInfo lang={lang} />
+      </PopoverPanel>
     </div>
   );
 }

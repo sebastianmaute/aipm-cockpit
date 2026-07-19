@@ -18,16 +18,19 @@ vi.mock("./export", () => ({
 
 // Source-assertion guard (mirrors the table-head-sweep idiom): the export
 // dropdown must stack above the Gantt sticky date row (z-20) and its frozen
-// left column (z-30), so it uses z-40.
+// left column (z-30). It now renders via the shared `PopoverPanel`, which
+// portals to document.body at z-[100] — above any in-flow sticky header — so
+// the guard just pins the portal primitive + forbids a regression to a low z.
 const src = readFileSync(
   join(process.cwd(), "src", "app", "export-menu.tsx"),
   "utf8",
 );
 
 describe("export menu stacking", () => {
-  it("renders its dropdown above the gantt sticky header (z-40, not z-20)", () => {
-    expect(src).toContain("top-full z-40 mt-2 w-72");
-    expect(src).not.toContain("top-full z-20 mt-2 w-72");
+  it("renders its dropdown via the PopoverPanel portal (above sticky headers)", () => {
+    expect(src).toContain("PopoverPanel");
+    expect(src).not.toContain("top-full z-20");
+    expect(src).not.toContain("top-full z-40");
   });
 });
 
