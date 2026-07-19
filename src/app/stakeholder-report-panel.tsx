@@ -8,6 +8,7 @@ import { type Lang, t, type TranslationKey } from "./i18n";
 import { EmptyState } from "./empty-state";
 import { Card } from "./card";
 import { InfoTooltip } from "./info-tooltip";
+import { RaciAccountableWarning } from "./raci-accountable-warning";
 import { DataTable } from "./data-table";
 import {
   quadrantFor,
@@ -44,9 +45,6 @@ const QUADRANTS: { id: StakeholderQuadrant; labelKey: TranslationKey }[] = [
   { id: "monitor", labelKey: "quadrantMonitor" },
   { id: "keep-informed", labelKey: "quadrantKeepInformed" },
 ];
-
-const AMBER_CHIP =
-  "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-ui-dark-blue dark:text-ui-light-grey";
 
 export interface StakeholderReportPanelProps {
   lang: Lang;
@@ -167,16 +165,7 @@ export function StakeholderReportPanel({
                         </td>
                         <td className="px-3 py-2 text-right">{count}</td>
                         <td className="px-3 py-2">
-                          {warning === "missing" && (
-                            <span className={AMBER_CHIP}>
-                              {t(lang, "raciAccountableMissing")}
-                            </span>
-                          )}
-                          {warning === "multiple" && (
-                            <span className={AMBER_CHIP}>
-                              {t(lang, "raciAccountableMultiple")}
-                            </span>
-                          )}
+                          <RaciAccountableWarning lang={lang} warning={warning} />
                         </td>
                       </tr>
                     );

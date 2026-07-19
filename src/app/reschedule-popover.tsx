@@ -3,8 +3,8 @@ import { useState, useRef, useCallback } from "react";
 import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import { isValidIsoDate } from "./action-rebaseline";
-import { popoverTriggerClass } from "./action-cta-styles";
-import { PopoverPanel } from "./popover-panel";
+import { POPOVER_CONFIRM_BTN } from "./action-cta-styles";
+import { ActionPopoverTrigger } from "./action-popover-trigger";
 import { Input } from "./form-controls";
 
 export interface RescheduleBundle {
@@ -33,51 +33,41 @@ export function ReschedulePopover({ lang, action, bundle, prominent }: Reschedul
   const confirm = () => { bundle.onReschedule(action, date); setDate(""); setOpen(false); };
 
   return (
-    <span className="relative">
-      <button
-        ref={btnRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
-        className={popoverTriggerClass(prominent)}
-      >
-        {t(lang, "actionReschedule")}
-      </button>
-      <PopoverPanel
-        open={open}
-        anchorRef={btnRef}
-        onClose={close}
-        role="dialog"
-        ariaLabel={t(lang, "actionReschedule")}
-        className="w-64 p-2"
-      >
-        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          {t(lang, "actionRescheduleTitle")}
-        </label>
-        {currentDue && (
-          <p className="mb-1 text-[11px] text-muted-foreground">
-            {t(lang, "currentDueDate", currentDue)}
-          </p>
-        )}
-        <Input
-          type="date"
-          aria-label={t(lang, "actionRescheduleTitle")}
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full"
-        />
-        <div className="mt-2 flex justify-end">
-          <button
-            type="button"
-            disabled={!canConfirm}
-            onClick={(e) => { e.stopPropagation(); confirm(); }}
-            className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey"
-          >
-            {t(lang, "actionRescheduleConfirm")}
-          </button>
-        </div>
-      </PopoverPanel>
-    </span>
+    <ActionPopoverTrigger
+      label={t(lang, "actionReschedule")}
+      ariaLabel={t(lang, "actionReschedule")}
+      open={open}
+      onToggle={toggleOpen}
+      onClose={close}
+      btnRef={btnRef}
+      prominent={prominent}
+      panelClassName="w-64 p-2"
+    >
+      <label className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {t(lang, "actionRescheduleTitle")}
+      </label>
+      {currentDue && (
+        <p className="mb-1 text-[11px] text-muted-foreground">
+          {t(lang, "currentDueDate", currentDue)}
+        </p>
+      )}
+      <Input
+        type="date"
+        aria-label={t(lang, "actionRescheduleTitle")}
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+        className="w-full"
+      />
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          disabled={!canConfirm}
+          onClick={(e) => { e.stopPropagation(); confirm(); }}
+          className={POPOVER_CONFIRM_BTN}
+        >
+          {t(lang, "actionRescheduleConfirm")}
+        </button>
+      </div>
+    </ActionPopoverTrigger>
   );
 }
