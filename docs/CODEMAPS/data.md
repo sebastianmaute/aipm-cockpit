@@ -510,7 +510,7 @@ so older files self-heal; `project` is decoded separately via
 |---|---|
 | JSON | `{ schemaVersion: 9, tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders, project? }` (`project` key emitted only when set) |
 | CSV  | `# TASKS` + `# RAID` + `# ABSENCES` + `# SHIFTS` + `# DISCIPLINES` + `# GRADES` + `# ROLES` + `# RESOURCES` + `# PLAN` + `# BUDGETS` + `# FX_RATES` + `# PROJECT STATUS` + `# MILESTONES` + `# CHANGES` (+ a project section when `ws.project` set and `config === undefined`), RFC-style escaping |
-| Markdown | `# LOP Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s + `## Project Status` (field bullets) + `## Milestones` (pipe table) + `## Changes` (pipe table) H2s (+ a project block when `ws.project` set and `config === undefined`) |
+| Markdown | `# AIPM Tasks` + `# RAID Log` + `# Absences` + `# Shifts` + `# Disciplines` + `# Grades` + `# Roles` + `# Resources` + `# Plan` + `# Budgets` + `# FX Rates` H1s + `## Project Status` (field bullets) + `## Milestones` (pipe table) + `## Changes` (pipe table) H2s (+ a project block when `ws.project` set and `config === undefined`) |
 
 The `utilization` and `absenceOverride` maps serialize into a single
 encoded cell each via `encodePeriodMap` / `decodePeriodMap` — format

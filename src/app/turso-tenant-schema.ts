@@ -131,6 +131,9 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     if (ws.timelogLinks) {
       out.push(tenantInsert("meta", ["key", "value"], ["timelog_links", JSON.stringify(ws.timelogLinks)], projectId));
     }
+    if (ws.knowledgeItems && ws.knowledgeItems.length) {
+      out.push(tenantInsert("meta", ["key", "value"], ["knowledge_items", JSON.stringify(ws.knowledgeItems)], projectId));
+    }
   }
   out.push({ sql: "COMMIT" });
   return out;

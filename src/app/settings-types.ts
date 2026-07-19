@@ -268,6 +268,7 @@ export const EXPORT_SECTION_KEYS = [
   "project",
   "tasks", "raid", "changes", "milestones", "stakeholders",
   "budgets", "resources", "roles", "absences", "shifts", "status",
+  "knowledgeItems",
 ] as const;
 export type ExportSectionKey = (typeof EXPORT_SECTION_KEYS)[number];
 export type ExportConfig = Record<ExportSectionKey, boolean>;
@@ -277,6 +278,7 @@ export const defaultExportConfig: ExportConfig = {
   tasks: true,  raid: true,
   changes: false, milestones: false, stakeholders: false, budgets: false,
   resources: false, roles: false, absences: false, shifts: false, status: false,
+  knowledgeItems: false,
 };
 
 export function sanitizeExportConfig(raw: unknown): ExportConfig {

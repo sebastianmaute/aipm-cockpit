@@ -50,7 +50,7 @@ export class TursoLockTimeoutError extends Error {
 /** Web Locks name for the cross-tab single-writer lock. Scoped by DB URL and
  *  (in tenant mode) project id: different DBs / projects must not contend. */
 export function tursoWriteLockName(httpUrl: string, projectId: string | undefined): string {
-  return `lop-turso-write:${httpUrl}:${projectId ?? "single"}`;
+  return `aipm-turso-write:${httpUrl}:${projectId ?? "single"}`;
 }
 
 /** Defensively read results[i].response.result.rows[0][0].value as a string. */

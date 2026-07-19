@@ -207,8 +207,8 @@ describe("TursoBackend (tenant mode)", () => {
       await Promise.all([tabA, tabB]);
       expect(order).toEqual(["tabA-start", "tabA-end", "tabB"]);
       expect(names).toEqual([
-        "lop-turso-write:https://x.turso.io:p1",
-        "lop-turso-write:https://x.turso.io:p1",
+        "aipm-turso-write:https://x.turso.io:p1",
+        "aipm-turso-write:https://x.turso.io:p1",
       ]);
     });
   });

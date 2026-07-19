@@ -54,6 +54,7 @@ import {
   markdownToStatus,
   markdownToSteeringCommittee,
   markdownToTimelogLinks,
+  markdownToKnowledgeItems,
   mdUnescape,
   splitMdRow,
 } from "./markdown-codecs-core";
@@ -101,7 +102,7 @@ function splitMarkdownSections(md: string): {
   for (const line of lines) {
     const trimmed = line.trim();
     if (/^#\s+RAID\s+Log\b/i.test(trimmed)) { target = raidLines; target.push(line); continue; }
-    if (/^#\s+LOP\s+Tasks\b/i.test(trimmed)) { target = tasksLines; target.push(line); continue; }
+    if (/^#\s+AIPM\s+Tasks\b/i.test(trimmed)) { target = tasksLines; target.push(line); continue; }
     if (/^#\s+Absences\b/i.test(trimmed)) { target = absencesLines; target.push(line); continue; }
     if (/^#\s+Shifts\b/i.test(trimmed)) { target = shiftsLines; target.push(line); continue; }
     if (/^#\s+Resources\b/i.test(trimmed)) { target = resourcesLines; target.push(line); continue; }
@@ -304,6 +305,8 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   if (sc) ws.steeringCommittee = sc;
   const tl = markdownToTimelogLinks(md);
   if (tl) ws.timelogLinks = tl;
+  const ki = markdownToKnowledgeItems(md);
+  if (ki) ws.knowledgeItems = ki;
   return migrateWorkspaceV10(ws);
 }
 

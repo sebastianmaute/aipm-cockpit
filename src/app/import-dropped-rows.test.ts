@@ -24,10 +24,10 @@ const CSV_CLEAN = [
   "2,R,Second risk,Open",
 ].join("\r\n");
 
-// A "# LOP Tasks" heading keeps the raid table out of the task decoder's
+// A "# AIPM Tasks" heading keeps the raid table out of the task decoder's
 // no-heading fallback (markdownToTasks(s.tasksMd || md)).
 const MD_ONE_BAD = [
-  "# LOP Tasks",
+  "# AIPM Tasks",
   "",
   "# RAID Log",
   "",
@@ -39,7 +39,7 @@ const MD_ONE_BAD = [
 ].join("\n");
 
 const MD_CLEAN = [
-  "# LOP Tasks",
+  "# AIPM Tasks",
   "",
   "# RAID Log",
   "",

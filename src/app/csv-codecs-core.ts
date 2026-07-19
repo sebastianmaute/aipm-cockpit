@@ -180,6 +180,7 @@ export const CSV_SECTION_FIELD_VIS = "# FIELD-VISIBILITY";
 export const CSV_SECTION_FUNCTIONS = "# FUNCTIONS";
 export const CSV_SECTION_STEERING = "# STEERING COMMITTEE";
 export const CSV_SECTION_TIMELOG_LINKS = "# TIMELOG LINKS";
+export const CSV_SECTION_KNOWLEDGE_ITEMS = "# KNOWLEDGE ITEMS";
 
 export function shiftFieldToString(s: Shift, col: string): string {
   switch (col) {

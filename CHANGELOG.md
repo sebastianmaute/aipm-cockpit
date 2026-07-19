@@ -8,6 +8,47 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.41] - 2026-07-19 "Pinsker"
+
+### Added
+
+**Standalone Knowledge-library items.** The Knowledge view can now hold items
+that live on their own — a document, a Confluence page, or any web URL — instead
+of only aggregating links attached to tasks/RAID/changes/etc. Linking a
+standalone item to a task is an optional second step, and an item can link to
+**multiple** tasks.
+
+- New persisted `Workspace.knowledgeItems` field (each item is a knowledge link
+  plus an optional `taskIds[]`), round-tripped across all six storage paths
+  (JSON · CSV · Markdown · Turso single · Turso multi-tenant · IndexedDB) and
+  **included in exports** via a new `knowledgeItems` export section (default
+  off). An items-less workspace stays byte-identical (no section emitted).
+- The Knowledge panel gains a "Standalone item" add mode (type · name · URL +
+  an optional multi-task picker) and a "Knowledge library" card grid with
+  per-item remove and an inline multi-task link editor.
+
+**AI `update_settings` tool.** The assistant can adjust a **safe subset** of app
+settings on request: dashboard density, per-view hint banners, the Open Points
+table/board mode, which feature modules are enabled, and next-actions ranking
+weights. Every value is re-validated and clamped through the same coercers the
+settings UI uses (`sanitizeFeatures`, `NEXT_ACTIONS_FIELD_COERCE`); API keys,
+secrets, storage, and integration config are **never** reachable, and the tool
+is refused in read-only pop-outs.
+
+### Changed
+
+**Internal identifier cleanup.** The last `lop`/`LOP` identifiers left after the
+`aipm-cockpit` rename were renamed: the Turso write-lock (`aipm-turso-write:`),
+the diagnostics devtools global (`window.__aipmDiag()`), and the Markdown tasks
+heading (`# AIPM Tasks`). The Markdown decoder no longer accepts the legacy
+`# LOP Tasks` heading.
+
+### Removed
+
+**Completed storage migration.** The one-time `lop-app`→`aipm-cockpit`
+localStorage/IndexedDB rename migration (`storage-migration.ts` and its boot
+duplicate) has served its purpose and is removed.
+
 ## [0.190.40] - 2026-07-19 "Pinsker"
 
 ### Changed

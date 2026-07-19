@@ -15,8 +15,6 @@
 // idempotently — users coming from earlier versions keep their data and gain
 // the new record stores additively.
 
-import { ensureStorageMigrated } from "./storage-migration";
-
 const IDB_NAME = "aipm-cockpit";
 const IDB_VERSION = 6;
 const IDB_KV_STORE = "kv";
@@ -38,7 +36,6 @@ export const KV_STAKEHOLDERS_KEY = "stakeholders";
 export const KV_PROJECT_KEY = "project";
 
 async function openIdb(): Promise<IDBDatabase> {
-  await ensureStorageMigrated(); // migrate legacy storage namespace before first open
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === "undefined") {
       reject(new Error("IndexedDB unavailable"));

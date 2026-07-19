@@ -78,6 +78,7 @@ function ChatPanelImpl({
   guidesReady = true,
   chatSeed = null,
   onChatSeedConsumed,
+  onConfigureAi,
   projectId = "default",
   getChatConversation,
   saveChatConversation,
@@ -92,6 +93,9 @@ function ChatPanelImpl({
   guidesReady?: boolean;
   chatSeed?: { prompt: string; autoSend: boolean } | null;
   onChatSeedConsumed?: () => void;
+  /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
+   *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
+  onConfigureAi?: () => void;
 } & ChatConversationStoreProps) {
   if (!ai.consentAccepted) {
     return <ConsentScreen lang={lang} onAccept={onAcceptConsent} />;
@@ -107,6 +111,7 @@ function ChatPanelImpl({
       guidesReady={guidesReady}
       chatSeed={chatSeed}
       onChatSeedConsumed={onChatSeedConsumed}
+      onConfigureAi={onConfigureAi}
       projectId={projectId}
       getChatConversation={getChatConversation}
       saveChatConversation={saveChatConversation}
@@ -139,6 +144,7 @@ function ChatPanelInner({
   guidesReady = true,
   chatSeed = null,
   onChatSeedConsumed,
+  onConfigureAi,
   projectId = "default",
   getChatConversation,
   saveChatConversation,
@@ -152,6 +158,9 @@ function ChatPanelInner({
   guidesReady?: boolean;
   chatSeed?: { prompt: string; autoSend: boolean } | null;
   onChatSeedConsumed?: () => void;
+  /** Deep-link to Settings → AI; rendered as a "Configure AI" button in the
+   *  empty state when AI is off / no key. Omitted in pop-outs (can't navigate). */
+  onConfigureAi?: () => void;
 } & ChatConversationStoreProps) {
   const confirm = useConfirm();
   // Restore this project's in-memory conversation on (re)mount — the modern
@@ -667,9 +676,14 @@ function ChatPanelInner({
                 )}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {apiKeyMissing ? t(lang, "chatNoApiKey") : t(lang, "chatGreeting")}
+                </p>
+                {apiKeyMissing && onConfigureAi && (
+                  <Button onClick={onConfigureAi}>{t(lang, "chatConfigureAi")}</Button>
+                )}
+              </div>
             )}
             {!apiKeyMissing && (
               <ul className="flex flex-wrap gap-2 list-none p-0 m-0" aria-label="Suggested prompts">

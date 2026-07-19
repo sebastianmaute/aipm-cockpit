@@ -133,6 +133,20 @@ export type StakeholderInput = {
   notes?: string;
 };
 
+/** Safe-subset app-settings patch the AI may write. Every field is re-validated
+ *  in the dispatcher (density/mode enums, `sanitizeFeatures`, per-field
+ *  `NEXT_ACTIONS_FIELD_COERCE`) before it reaches `setSettings`; secrets, keys,
+ *  storage, and integration config are intentionally NOT reachable here. */
+export type SettingsUpdateInput = {
+  dashboardDensity?: string;
+  showViewHints?: boolean;
+  tasksViewMode?: string;
+  /** COMPLETE desired set of enabled feature-module ids (replaces current). */
+  enabledModules?: unknown;
+  /** Map of next-actions tuning field → numeric value; unknown keys ignored. */
+  nextActionsWeights?: unknown;
+};
+
 /** A directory resource (person). `sanitizeResource` fills roleId/utilization
  *  defaults; discipline/grade are assigned in the app, not by the model. */
 export type ResourceInput = {
@@ -191,6 +205,9 @@ export type ToolDispatcher = {
   createStakeholder(input: StakeholderInput): StakeholderSummary;
   updateStakeholder(id: number, patch: Partial<StakeholderInput>): StakeholderSummary | null;
   deleteStakeholder(id: number): boolean;
+  /** Apply a safe-subset settings patch; returns the fields actually applied
+   *  (after validation/clamping). Throws in a read-only popout. */
+  updateSettings(patch: SettingsUpdateInput): Record<string, unknown>;
   createResource(input: ResourceInput): ResourceSummary;
   getResource(id: number): ResourceSummary | null;
   updateResource(id: number, patch: Partial<ResourceInput>): ResourceSummary | null;
@@ -525,6 +542,14 @@ export async function runTool(
       const id = requireId(input);
       if (!d.deleteStakeholder(id)) throw new Error(`stakeholder #${id} not found`);
       return { deleted: id };
+    }
+
+    case "update_settings": {
+      const applied = d.updateSettings(input as SettingsUpdateInput);
+      if (Object.keys(applied).length === 0) {
+        throw new Error("no recognized settings fields to update");
+      }
+      return { applied };
     }
 
     default:

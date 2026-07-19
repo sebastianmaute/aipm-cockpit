@@ -238,9 +238,9 @@ describe("tasks:false CSV — tasks section absent, RAID present", () => {
 describe("tasks:false Markdown — tasks section absent, RAID present", () => {
   const cfg: ExportConfig = { ...defaultExportConfig, tasks: false, raid: true };
 
-  it("does NOT contain # LOP Tasks heading", () => {
+  it("does NOT contain # AIPM Tasks heading", () => {
     const md = workspaceToMarkdown(richWorkspace(), cfg);
-    expect(md).not.toContain("# LOP Tasks");
+    expect(md).not.toContain("# AIPM Tasks");
   });
 
   it("DOES contain # RAID Log heading (raid:true)", () => {
@@ -261,9 +261,9 @@ describe("no-config (undefined) — tasks ALWAYS emitted (round-trip unchanged)"
     expect(csv).toContain("# TASKS");
   });
 
-  it("Markdown contains # LOP Tasks with no config", () => {
+  it("Markdown contains # AIPM Tasks with no config", () => {
     const md = workspaceToMarkdown(richWorkspace()); // no config
-    expect(md).toContain("# LOP Tasks");
+    expect(md).toContain("# AIPM Tasks");
   });
 });
 

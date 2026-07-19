@@ -114,3 +114,66 @@ export function decodeKnowledgeLinks(cell: string | null | undefined): Knowledge
     return [];
   }
 }
+
+/** A STANDALONE knowledge item: a link that lives in the project's Knowledge
+ *  library on its own (not attached to an entity), optionally cross-linked to
+ *  one or more tasks as an explicit second step. Persisted as `Workspace
+ *  .knowledgeItems` across all six storage paths AND included in exports. */
+export type KnowledgeItem = KnowledgeLink & {
+  /** Ids of tasks this item is linked to. Omitted/empty ⇒ unlinked. */
+  taskIds?: number[];
+};
+
+/** Max task links per knowledge item / max standalone items — bounds the work a
+ *  hostile or corrupt import can force (the dedup + validation loops). */
+const MAX_TASK_LINKS = 200;
+const MAX_KNOWLEDGE_ITEMS = 1000;
+
+/** Positive-integer task ids, deduped (Set) and capped; drops non-numeric/≤ 0. */
+function sanitizeTaskIds(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<number>();
+  for (const v of raw) {
+    if (seen.size >= MAX_TASK_LINKS) break;
+    const n = typeof v === "number" ? v : Number(v);
+    if (Number.isInteger(n) && n > 0) seen.add(n);
+  }
+  return [...seen];
+}
+
+/** Validate an array of standalone knowledge items: each link is run through
+ *  `sanitizeKnowledgeLinks` (safe-http-url gate, kind normalization, id fill)
+ *  and its `taskIds` are coerced to a deduped positive-int list. `taskIds` is
+ *  emitted only when non-empty, so an unlinked item stays byte-minimal. */
+export function sanitizeKnowledgeItems(raw: unknown): KnowledgeItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: KnowledgeItem[] = [];
+  for (const entry of raw) {
+    if (out.length >= MAX_KNOWLEDGE_ITEMS) break;
+    const [link] = sanitizeKnowledgeLinks([entry]);
+    if (!link) continue;
+    const taskIds = sanitizeTaskIds(
+      entry && typeof entry === "object"
+        ? (entry as Record<string, unknown>).taskIds
+        : undefined,
+    );
+    out.push(taskIds.length ? { ...link, taskIds } : link);
+  }
+  return out;
+}
+
+/** Encode the standalone-items list for a single CSV/MD/Turso cell (empty ⇒ ""
+ *  so a project with no standalone items stays byte-identical to legacy data). */
+export function encodeKnowledgeItems(items: readonly KnowledgeItem[] | undefined): string {
+  return items && items.length ? JSON.stringify(items) : "";
+}
+
+/** Inverse of encodeKnowledgeItems; tolerates empty/malformed cells. */
+export function decodeKnowledgeItems(cell: string | null | undefined): KnowledgeItem[] {
+  if (!cell) return [];
+  try {
+    return sanitizeKnowledgeItems(JSON.parse(cell));
+  } catch {
+    return [];
+  }
+}

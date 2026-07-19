@@ -272,7 +272,7 @@ describe("TursoBackend", () => {
       await backend.save(ws);
       // One lock acquisition wraps both the column-ensure PRAGMA and the overwrite.
       expect(seen).toEqual([
-        { name: "lop-turso-write:https://db.turso.io:single", mode: "exclusive", boundedWait: true },
+        { name: "aipm-turso-write:https://db.turso.io:single", mode: "exclusive", boundedWait: true },
       ]);
       expect(fetchSpy).toHaveBeenCalledTimes(2);
       // Zero-change save: no pipeline round-trip, so no lock acquisition either.
@@ -321,8 +321,8 @@ describe("TursoBackend", () => {
     });
 
     it("scopes the lock name by DB URL and project id", () => {
-      expect(tursoWriteLockName("https://db.turso.io", undefined)).toBe("lop-turso-write:https://db.turso.io:single");
-      expect(tursoWriteLockName("https://db.turso.io", "p1")).toBe("lop-turso-write:https://db.turso.io:p1");
+      expect(tursoWriteLockName("https://db.turso.io", undefined)).toBe("aipm-turso-write:https://db.turso.io:single");
+      expect(tursoWriteLockName("https://db.turso.io", "p1")).toBe("aipm-turso-write:https://db.turso.io:p1");
       expect(tursoWriteLockName("https://db.turso.io", "p1"))
         .not.toBe(tursoWriteLockName("https://db.turso.io", "p2"));
       expect(tursoWriteLockName("https://other.turso.io", "p1"))

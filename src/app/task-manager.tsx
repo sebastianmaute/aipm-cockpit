@@ -259,6 +259,7 @@ function TaskManagerInner() {
     setSteeringCommittee,
     timelogLinks,
     setTimelogLinks,
+    setKnowledgeItems,
     setFieldVisibility,
     fxRates,
     project,
@@ -854,13 +855,13 @@ function TaskManagerInner() {
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
-    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks);
+    setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
     // Version restore replaces the SAME project's data — RAISE the id-minter
     // high-water (never lower it) so an id freed by restoring an older (smaller)
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks]);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the

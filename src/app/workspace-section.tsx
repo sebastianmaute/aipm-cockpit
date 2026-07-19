@@ -320,6 +320,11 @@ export function WorkspaceSection({
             dictation={settings.dictation}
             dispatcher={dispatcher}
             onAcceptConsent={handleAcceptAiConsent}
+            onConfigureAi={
+              !isPopout && onOpenSettingsSection
+                ? () => onOpenSettingsSection("ai")
+                : undefined
+            }
             onChangeModel={(model) => setSettings((s) => ({ ...s, ai: { ...s.ai, model } }))}
             guides={guides}
             guidesReady={guidesReady}

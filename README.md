@@ -25,9 +25,12 @@ It runs in your browser with no backend account. Bring your own API keys — the
 **One cockpit for the whole engagement.**
 Project-health RAG, RAID and change-control registers, a stakeholder register with RACI, resource capacity and budget with Earned Value, and a multi-project portfolio — in one surface, with a landing dashboard that opens on what needs you.
 
+**Adapts to you, not the other way around.**
+No two project leads track the same things. The cockpit bends to fit through deep customizability: choose how you see work (table, Kanban board, or Gantt), switch views and panes to what this engagement needs, toggle whole feature modules on or off, pick a Simple / Modular / Advanced **mode** that gates complexity, and start from a reusable **project template** that presets it all. The result fits your workflow and information needs — a solo consultant and a regulated multi-workstream programme run the same tool, configured differently.
+
 ### Built to be trusted
 
-Not a prototype: 6,300+ automated tests with enforced coverage floors, a WCAG accessibility gate (axe across 13 views × 5 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: there is no application server holding your accounts or secrets, so the browser profile is the security boundary (see [Security Model](#security-model)).
+Not a prototype, and not shelfware: the cockpit is **already in active friendly-user testing**, exercised against real projects by real project leads rather than sitting behind a demo. It is backed by 6,800+ automated tests with enforced coverage floors, a WCAG accessibility gate (axe across 13 views × 5 theme/scheme combinations), semgrep SAST, and duplication and file-size ratchets — all blocking in CI. Local-first and bring-your-own-key by design: there is no application server holding your accounts or secrets, so the browser profile is the security boundary (see [Security Model](#security-model)).
 
 ### See it in a minute
 
@@ -221,7 +224,7 @@ Microsoft 365 features use MSAL (browser PKCE — no backend token exchange) and
 
 Sign-in opens a Microsoft pop-up. On success Microsoft redirects the pop-up to the app's dedicated **`/msal-redirect`** route (not the main app), which uses the MSAL v5 [redirect-bridge](https://github.com/AzureAD/microsoft-authentication-library-for-js) (`broadcastResponseToMainFrame`) to hand the response back to the opener over a `BroadcastChannel` and close itself. This route is intentionally minimal so the full app never boots inside the pop-up. Runtime config (Client ID / Tenant ID) is read from Settings first and env vars second, so the integration works without a rebuild.
 
-Troubleshooting (from `window.__lopDiag()` diagnostics under `msauth.*`):
+Troubleshooting (from `window.__aipmDiag()` diagnostics under `msauth.*`):
 
 | Symptom / error | Cause | Fix |
 |-----------------|-------|-----|

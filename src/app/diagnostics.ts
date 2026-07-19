@@ -1,7 +1,7 @@
 // Structured, secrets-free diagnostic ring. Per-device (localStorage
 // `aipm-cockpit:diag-log`), capped, out of workspace exports/Turso, swept by
 // clearAppConfig's `aipm-cockpit:*` removal. Never throws into the app.
-// Inspect in devtools: `window.__lopDiag()`.
+// Inspect in devtools: `window.__aipmDiag()`.
 import { APP_VERSION } from "./version";
 import { redactFields } from "./diagnostics-redact";
 
@@ -113,5 +113,5 @@ export function buildDiagnosticBundle(): string {
 }
 
 if (typeof window !== "undefined") {
-  (window as Window & { __lopDiag?: () => DiagEvent[] }).__lopDiag = readDiagLog;
+  (window as Window & { __aipmDiag?: () => DiagEvent[] }).__aipmDiag = readDiagLog;
 }

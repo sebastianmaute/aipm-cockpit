@@ -31,6 +31,7 @@ import {
   statusToCsv,
 } from "./storage";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
+import { linkKindOf, type KnowledgeItem } from "./document-link";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
@@ -236,6 +237,21 @@ function statusSection(status: ProjectStatus): ExportSection {
   return { key: "status", title: "Project Status", columns: ["field", "value"], rows };
 }
 
+function knowledgeItemsSection(items: readonly KnowledgeItem[], lang: Lang): ExportSection {
+  const rows = items.map((it) => [
+    it.name,
+    linkKindOf(it),
+    it.url,
+    (it.taskIds ?? []).join(" "),
+  ]);
+  return {
+    key: "knowledgeItems",
+    title: t(lang, "exportLabelKnowledgeItems"),
+    columns: ["name", "type", "url", "tasks"],
+    rows,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Builder map keyed by ExportSectionKey
 // ---------------------------------------------------------------------------
@@ -267,6 +283,10 @@ const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
   budgets: (ws) => {
     const items = ws.budgets ?? [];
     return items.length > 0 ? budgetsSection(items) : null;
+  },
+  knowledgeItems: (ws, lang) => {
+    const items = ws.knowledgeItems ?? [];
+    return items.length > 0 ? knowledgeItemsSection(items, lang) : null;
   },
   resources: (ws, lang) => {
     const items = ws.resources;

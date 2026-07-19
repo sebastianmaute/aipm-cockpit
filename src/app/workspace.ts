@@ -34,6 +34,7 @@ import {
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
+import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import {
   type Absence,
   type BudgetBucket,
@@ -106,6 +107,10 @@ export type Workspace = {
   /** Timelog integration link mappings (user→resource, project→bucket).
    *  Optional & additive: undefined serializes to nothing (byte-stable). */
   timelogLinks?: Readonly<TimelogLinks>;
+  /** Standalone Knowledge-library items (documents / Confluence pages / URLs)
+   *  that live on their own, optionally cross-linked to tasks. Optional &
+   *  additive: undefined/empty serializes to nothing (byte-stable). */
+  knowledgeItems?: readonly KnowledgeItem[];
 };
 
 const SCHEMA_VERSION = 11;
@@ -419,6 +424,12 @@ export function workspaceToJson(ws: Workspace): string {
       // Additive: only present when timelog links are configured, so legacy
       // files stay free of a `timelogLinks` key.
       ...(ws.timelogLinks ? { timelogLinks: ws.timelogLinks } : {}),
+      // Additive: only present when standalone knowledge items exist, so legacy
+      // files stay free of a `knowledgeItems` key. JSON is the complete
+      // round-trip, so this is always emitted (storage AND export) when present.
+      ...(ws.knowledgeItems && ws.knowledgeItems.length
+        ? { knowledgeItems: ws.knowledgeItems }
+        : {}),
     },
     null,
     2,
@@ -528,6 +539,11 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     if (p.timelogLinks !== undefined) {
       const links = sanitizeTimelogLinks(p.timelogLinks);
       if (links) raw.timelogLinks = links;
+    }
+    // Additive: sanitize incoming standalone knowledge items when present.
+    if (p.knowledgeItems !== undefined) {
+      const items = sanitizeKnowledgeItems(p.knowledgeItems);
+      if (items.length) raw.knowledgeItems = items;
     }
     return migrateWorkspaceV10(raw);
   } catch (err) {
