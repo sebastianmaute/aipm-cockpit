@@ -9,6 +9,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { type RaidItem, type Task } from "./types";
 import { INTERACTIVE } from "./interaction-styles";
 import { Input } from "./form-controls";
+import { TaskLinkPicker } from "./task-link-picker";
 
 export function RaidLinkedTasksField({
   lang,
@@ -16,9 +17,6 @@ export function RaidLinkedTasksField({
   tasks,
   isNew,
   onCreateMitigationTask,
-  taskPickerQuery,
-  setTaskPickerQuery,
-  availableTasks,
   addLinked,
   removeLinked,
 }: {
@@ -27,9 +25,6 @@ export function RaidLinkedTasksField({
   tasks: readonly Task[];
   isNew: boolean;
   onCreateMitigationTask: () => void;
-  taskPickerQuery: string;
-  setTaskPickerQuery: (v: string) => void;
-  availableTasks: readonly Task[];
   addLinked: (taskId: number) => void;
   removeLinked: (taskId: number) => void;
 }) {
@@ -50,61 +45,14 @@ export function RaidLinkedTasksField({
           {t(lang, "raidCreateMitigationTask")}
         </button>
       </div>
-      <div className="mb-2 flex flex-wrap gap-1.5">
-        {linkedTaskIds.length === 0 && (
-          <span className="text-xs italic text-muted-foreground">—</span>
-        )}
-        {linkedTaskIds.map((tid) => {
-          const tk = tasks.find((task) => task.id === tid);
-          return (
-            <span
-              key={tid}
-              className="inline-flex items-center gap-1 rounded bg-surface-muted px-2 py-0.5 text-xs text-foreground"
-            >
-              <span className="font-mono">#{tid}</span>
-              <span className="max-w-[200px] truncate">
-                {tk?.taskName ?? ""}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeLinked(tid)}
-                aria-label={t(lang, "raidUnlinkTask")}
-                title={t(lang, "raidUnlinkTask")}
-                className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
-              >
-                ×
-              </button>
-            </span>
-          );
-        })}
-      </div>
-      <div className="relative">
-        <Input
-          type="text"
-          value={taskPickerQuery}
-          onChange={(e) => setTaskPickerQuery(e.target.value)}
-          placeholder={t(lang, "raidLinkPickerPlaceholder")}
-          className="w-full"
-        />
-        {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
-          <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
-            {availableTasks.map((tk) => (
-              <li key={tk.id}>
-                <button
-                  type="button"
-                  onClick={() => addLinked(tk.id)}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
-                >
-                  <span className="font-mono text-xs text-muted-foreground">
-                    #{tk.id}
-                  </span>
-                  <span className="truncate">{tk.taskName}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <TaskLinkPicker
+        lang={lang}
+        tasks={tasks}
+        selectedIds={linkedTaskIds}
+        onAdd={addLinked}
+        onRemove={removeLinked}
+        label={t(lang, "raidLinkedTasks")}
+      />
     </div>
   );
 }

@@ -28,7 +28,7 @@ import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { filterPickerOptions } from "./picker-filter";
-import { useTaskPickerOptions } from "./use-task-picker-options";
+import { TaskLinkPicker } from "./task-link-picker";
 import { useToastContext } from "./toast-context";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
@@ -105,7 +105,6 @@ export function ChangeEditModal({
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("change");
   const [error, setError] = useState<string | null>(null);
-  const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [raidPickerQuery, setRaidPickerQuery] = useState("");
   const [notice, setNotice] = useState<Record<string, string>>({});
   const scheduleNoticeId = useId();
@@ -134,11 +133,6 @@ export function ChangeEditModal({
 
   useEscapeKey(onCancel);
 
-  const availableTasks = useTaskPickerOptions(
-    tasks,
-    draft.linkedTaskIds,
-    taskPickerQuery,
-  );
 
   const availableRaid = useMemo(
     () =>
@@ -178,7 +172,6 @@ export function ChangeEditModal({
   function addLinkedTask(taskId: number) {
     if (draft.linkedTaskIds.includes(taskId)) return;
     onChange({ ...draft, linkedTaskIds: [...draft.linkedTaskIds, taskId] });
-    setTaskPickerQuery("");
   }
 
   function removeLinkedTask(taskId: number) {
@@ -522,61 +515,14 @@ export function ChangeEditModal({
             <span className="mb-2 flex items-center gap-1 text-sm font-medium text-foreground">
               {t(lang, "changeFieldLinkedTasks")}<InfoTooltip text={t(lang, "changeFieldLinkedTasksHint")} />
             </span>
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {draft.linkedTaskIds.length === 0 && (
-                <span className="text-xs italic text-muted-foreground">—</span>
-              )}
-              {draft.linkedTaskIds.map((tid) => {
-                const tk = tasks.find((task) => task.id === tid);
-                return (
-                  <span
-                    key={tid}
-                    className="inline-flex items-center gap-1 rounded bg-surface-muted px-2 py-0.5 text-xs text-foreground"
-                  >
-                    <span className="font-mono">#{tid}</span>
-                    <span className="max-w-[200px] truncate">
-                      {tk?.taskName ?? ""}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeLinkedTask(tid)}
-                      aria-label={t(lang, "raidUnlinkTask")}
-                      title={t(lang, "raidUnlinkTask")}
-                      className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-            <div className="relative">
-              <Input
-                type="text"
-                value={taskPickerQuery}
-                onChange={(e) => setTaskPickerQuery(e.target.value)}
-                placeholder={t(lang, "raidLinkPickerPlaceholder")}
-                className="w-full"
-              />
-              {taskPickerQuery.trim() !== "" && availableTasks.length > 0 && (
-                <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
-                  {availableTasks.map((tk) => (
-                    <li key={tk.id}>
-                      <button
-                        type="button"
-                        onClick={() => addLinkedTask(tk.id)}
-                        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
-                      >
-                        <span className="font-mono text-xs text-muted-foreground">
-                          #{tk.id}
-                        </span>
-                        <span className="truncate">{tk.taskName}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <TaskLinkPicker
+              lang={lang}
+              tasks={tasks}
+              selectedIds={draft.linkedTaskIds}
+              onAdd={addLinkedTask}
+              onRemove={removeLinkedTask}
+              label={t(lang, "changeFieldLinkedTasks")}
+            />
           </div>}
 
           {/* Linked RAID items (part of the `links` field group) ------ */}

@@ -42,7 +42,6 @@ import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
 import { filterPickerOptions } from "./picker-filter";
-import { useTaskPickerOptions } from "./use-task-picker-options";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
@@ -125,7 +124,6 @@ export function RaidEditModal({
       onChange({ ...draftRef.current, title: describeTextCap(appendDictation(draftRef.current.title ?? "", txt), TASK_NAME_MAX).value }),
   });
   const [error, setError] = useState<string | null>(null);
-  const [taskPickerQuery, setTaskPickerQuery] = useState("");
   const [causePickerQuery, setCausePickerQuery] = useState("");
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:raid-edit");
   // Category is locked after creation by default (changing it can lose
@@ -139,12 +137,6 @@ export function RaidEditModal({
   }
 
   const statusOpts = statusOptionsFor(draft.category);
-
-  const availableTasks = useTaskPickerOptions(
-    tasks,
-    draft.linkedTaskIds,
-    taskPickerQuery,
-  );
 
   // RAID items eligible to be added as a cause of this draft. Excludes the
   // draft itself, already-selected parents, and any item whose selection
@@ -196,7 +188,6 @@ export function RaidEditModal({
   function addLinked(taskId: number) {
     if (draft.linkedTaskIds.includes(taskId)) return;
     onChange({ ...draft, linkedTaskIds: [...draft.linkedTaskIds, taskId] });
-    setTaskPickerQuery("");
   }
 
   function removeLinked(taskId: number) {
@@ -545,9 +536,6 @@ export function RaidEditModal({
             tasks={tasks}
             isNew={isNew}
             onCreateMitigationTask={onCreateMitigationTask}
-            taskPickerQuery={taskPickerQuery}
-            setTaskPickerQuery={setTaskPickerQuery}
-            availableTasks={availableTasks}
             addLinked={addLinked}
             removeLinked={removeLinked}
           />
