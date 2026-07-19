@@ -6,6 +6,7 @@
 // destructured to the same local names the inline JSX used, so the markup is
 // reproduced verbatim.
 import type React from "react";
+import { PlusIcon } from "@heroicons/react/24/outline";
 import { Checkbox } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import { Badge } from "./badge";
@@ -349,9 +350,7 @@ export function RaidTable({
               aria-label={t(lang, "raidAddItem")}
               className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue ${INTERACTIVE}`}
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100">
-                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-              </svg>
+              <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
               {t(lang, "raidAddItem")}
             </button>
           </td>

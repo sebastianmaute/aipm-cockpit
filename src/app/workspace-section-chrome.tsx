@@ -9,6 +9,7 @@
 // renders <WorkspaceTabStrip> only in that mode, matching the former inline
 // guards exactly. The component reproduces the prior markup verbatim.
 import type React from "react";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { t } from "./i18n";
 import { openPopoutWindow } from "./broadcast-sync";
 import { TabButton, ResetSizeButton } from "./task-manager-ui";
@@ -177,18 +178,10 @@ export function WorkspaceTabStrip({
               : "mb-1 rounded-md p-1.5 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue"
           }
         >
-          <svg
-            viewBox="0 0 20 20"
-            fill="currentColor"
+          <ChevronDownIcon
             aria-hidden="true"
             className={`h-4 w-4 transition-transform ${workspaceCollapsed ? "rotate-180" : ""}`}
-          >
-            <path
-              fillRule="evenodd"
-              d="M14.78 12.78a.75.75 0 01-1.06 0L10 9.06l-3.72 3.72a.75.75 0 11-1.06-1.06l4.25-4.25a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06z"
-              clipRule="evenodd"
-            />
-          </svg>
+          />
         </button>
       </div>
 

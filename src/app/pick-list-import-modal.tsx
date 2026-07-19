@@ -8,6 +8,7 @@
 // since row content genuinely diverges (contact name+email vs event+date+type).
 
 import { type ReactNode } from "react";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Banner } from "./banner";
 import { Button } from "./button";
 import { Modal } from "./modal";
@@ -63,13 +64,7 @@ export function PickListImportModal({
         <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-4 border-b border-line bg-surface px-6 py-4">
           <h2 className="text-lg font-semibold text-ui-dark-blue dark:text-ui-light-grey">{title}</h2>
           <IconButton size="md" onClick={onClose} label={cancelLabel}>
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-              <path
-                fillRule="evenodd"
-                d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </IconButton>
         </header>
 

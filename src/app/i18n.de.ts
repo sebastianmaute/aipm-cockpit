@@ -3364,4 +3364,5 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightAppRename: "Die Anwendung heißt jetzt AI PM Cockpit.",
   versionHighlightThemeDecouple: "AIPM und Dashboard sind jetzt optionale importierbare Designs (Einstellungen - Darstellung - Design-Galerie); Harbor ist die Standardoptik.",
   versionHighlightUiTokenRename: "Interne Paletten-Tokens auf ein neutrales Präfix umbenannt; keine visuelle Änderung.",
+  versionHighlightHeroicons: "Einheitlicher Heroicons-Symbolsatz in der gesamten Oberfläche; keine Funktionsänderung.",
 };

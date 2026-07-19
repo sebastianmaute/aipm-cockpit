@@ -607,6 +607,11 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   takes `deleteConfirmKey`/`deleteLabelKey`/`deleteAriaLabelKey?`/`deleteDisabled`/`saveDisabled`/
   `saveLabelKey`). ★ RAID's footer stays BESPOKE (border-less + `InfoTooltip`, no submit-disabled) — divergent,
   deliberately NOT folded in. Presentational only; edit shared modal markup/a11y HERE.
+  ★ `EditModalShell` (the resizable/draggable panel + `ModalHeader` + backdrop, in `modal.tsx`) is now used by ALL
+  SIX edit-modals — change/raid/stakeholder + absence/milestone/resource (adopted 0.190.39). It takes defaulted
+  `widthClassName`/`formClassName` (defaults = the wide 720px two-column form), so a modal overrides ONLY when it
+  diverges (the three newly-migrated ones pass a 560px width; milestone passes a single-column form). Changing a
+  default here shifts every non-overriding adopter — keep the defaults == the pre-0.190.39 hardcoded values.
 - **Stakeholder Influence/Interest map drag:** `stakeholder-map-panel.tsx` chips drag between the 2×2 quadrants
   (native HTML5 DnD, no lib). Pure i18n-free `applyQuadrantMove(s, quadrant)` in `stakeholders.ts` uses
   **preserve-Medium**: high side → "High"; low side demotes only a "High" → "Medium", keeps existing Medium/Low;
@@ -1117,6 +1122,32 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   primitive forces `resize-none`). ★ Deliberately BESPOKE (not sprawl — don't migrate): help-menu
   (draggable window), project-switcher / ask-claude-menu (menu/dialog popovers), colConfig popover,
   filled-semantic one-offs (chat pink Stop, purple consent w/ bespoke ring).
+- **Shared consolidation modules (Tier E, 0.190.39) — reuse these, do NOT re-hand-roll:**
+  • **`device-store.ts`** = `readDeviceJson<T>(key, fallback)` / `writeDeviceJson(key, v)` / `removeDeviceKey(key)` —
+  the SSR-guard + try/catch JSON envelope EVERY per-device `aipm-cockpit:*` store uses (the store keeps its OWN
+  validation/cap/dedupe on the parsed result). ★ `writeDeviceJson` SWALLOWS quota throws — a store that must
+  PROPAGATE a write failure (scheduled-jobs / operating-guide) keeps its own throwing writer and adopts device-store
+  for READS only; a raw-non-JSON store (reminder-snooze stores a bare number) doesn't use it at all.
+  • **`capped-list-store.ts`** = `createCappedListStore<T extends {id;name}>(key, max, sanitizeList, {capOnLoad?})`
+  → `{load, add, remove, rename, save}` (`add` mints max-id+1, cap keeps the LAST `max`) built ON the device-store
+  envelope; saved-views + reports-views adopt (`capOnLoad:true` vs default false). panel-views (per-VIEW cap) +
+  search-recents (dedupe) stay bespoke — don't force them in.
+  • **`ai-forced-call.ts`** = `runForcedToolCall({apiKey, model, system?, tools, toolName, messages, maxTokens, signal?})`
+  — the ONE audited never-log one-shot forced-tool Anthropic envelope (key is header-ONLY; response body read only via
+  sanitized `safeAiErrorType`/`safeAiErrorMessage`; `!ok`→`AiHttpError` with STATUS-only message; absent tool_use →
+  `Error("parse")`). ★★ EVERY new one-shot forced-tool call routes its fetch through this (scheduled-job-analysis,
+  weight-suggestion-call, task-dedup-call, committee report-call, digest-narrative, use-project-proposal already do);
+  each caller keeps its OWN parse/ground/coerce. ★ the multi-turn agentic `callClaude` (chat) is NOT a forced call —
+  do NOT fold it in.
+  • **`use-draft-state.ts`** `useDraftState<T>(initial|null)` → `{draft, setDraft, update, error, setError}` — LOCAL-draft
+  edit-modals only (absence/milestone/resource); the parent-owned-draft modals (change/raid/stakeholder call `onChange`,
+  no local state) correctly do NOT use it. **`use-task-picker-options.ts`** `useTaskPickerOptions(tasks, selectedIds,
+  query, extra?)` wraps `filterPickerOptions` for the change/raid task pickers (raid's self/cycle CAUSE picker stays
+  separate). **`EntityPaneCalendarHintsProps`** / `EntityPaneHintsProps` interface mixin (`workspace-section-types.ts`)
+  — change/raid extend calendar+hints, stakeholders is hints-ONLY (no calendar). **`guardTurso()`** = the
+  isPopout+`tursoConfigNow`+toast preamble, a non-memoized local helper in `use-storage-turso-ops.ts` (switch keeps its
+  extra `tursoProjectId===id` guard inline). jira **`parseIssueFields`** in `api/jira/_helpers.ts` (create/update issue
+  routes share the field-sanitize; the SSRF/auth/URL guard stays per-route).
 - **Empty + loading primitives:** `empty-state.tsx` `EmptyState` (presentational; `title`/`description`/
   `actions[]` props, i18n done by caller; CTA buttons carry `INTERACTIVE`; `compact` for inline card slots) —
   use it instead of a bare `<p>no data</p>` for true "no rows" messages (NOT `<td>`-cell or dashed-`<div>`
@@ -1331,9 +1362,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   in popouts. Gated on key + `ai.scheduledJobs === true` (default OFF / opt-in — UNLIKE
   `actionSuggestions`'s `!== false`).
 - **AI weight suggestions:** "Suggest with AI" in the next-actions settings → ONE forced-tool call
-  (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (mirrors `scheduled-job-analysis.ts`
-  security EXACTLY — never logs/echoes apiKey or body; thrown errors carry only HTTP-status digits or
-  `"parse"`). Pure contract `next-actions-tuning.ts` + `weight-suggestion-ai.ts`; hook
+  (`suggest_weights`, forced, NO loop) in `weight-suggestion-call.ts` (the fetch now routes through the shared
+  `runForcedToolCall` (`ai-forced-call.ts`) — the single never-log envelope; never logs/echoes apiKey or body; thrown
+  errors carry only HTTP-status digits or `"parse"`). Pure contract `next-actions-tuning.ts` + `weight-suggestion-ai.ts`; hook
   `use-weight-suggestions.ts`. ★★ EVERY model-proposed value reaching `settings.nextActions` MUST pass
   `parseWeightSuggestions` → `NEXT_ACTIONS_FIELD_COERCE[field]` — the SAME per-field validators
   `resolveNextActionsConfig` uses (hoisted to a shared exported map in `settings-types.ts`; a

@@ -5,6 +5,7 @@
 // onAsk(promptBody) — wired upstream to requestChat(body, true), which switches
 // to the chat tab and auto-sends.
 import { useRef, useState } from "react";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
@@ -78,9 +79,7 @@ export function AskClaudeMenu({
         title={t(lang, "aiAskClaude")}
         className="inline-flex items-center gap-1.5"
       >
-        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-          <path d="M10 1.5l1.6 4.3 4.3 1.6-4.3 1.6L10 13.3 8.4 9 4.1 7.4l4.3-1.6L10 1.5zM15.5 12l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />
-        </svg>
+        <SparklesIcon aria-hidden="true" className="h-4 w-4" />
         <span>{t(lang, "aiAskClaude")}</span>
       </Button>
 

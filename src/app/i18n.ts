@@ -3383,6 +3383,7 @@ const enUS = {
   versionHighlightAppRename: "The application is now called AI PM Cockpit.",
   versionHighlightThemeDecouple: "AIPM and Dashboard are now optional importable themes (Settings - Appearance - Theme gallery); Harbor is the default look.",
   versionHighlightUiTokenRename: "Internal palette tokens renamed to a neutral prefix; no visual change.",
+  versionHighlightHeroicons: "Unified Heroicons icon set across the whole UI; no functional change.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

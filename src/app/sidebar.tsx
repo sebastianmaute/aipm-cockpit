@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { SidebarNav } from "./sidebar-nav";
 import type { AppView, NavGroup } from "./nav-config";
@@ -66,9 +67,7 @@ export function Sidebar({
           title={toggleAriaLabel ?? (collapsed ? t(lang, "sidebarExpand") : t(lang, "sidebarCollapse"))}
           className="rounded-md p-1.5 text-ui-light-grey hover:bg-ui-white/10 hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green"
         >
-          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`}>
-            <path fillRule="evenodd" d="M12.78 5.22a.75.75 0 010 1.06L9.06 10l3.72 3.72a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0z" clipRule="evenodd" />
-          </svg>
+          <ChevronDownIcon aria-hidden="true" className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
         </button>
       </div>
 

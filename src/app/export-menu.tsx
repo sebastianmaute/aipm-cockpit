@@ -9,6 +9,7 @@
 // what each output looks like before they pick one.
 
 import { useCallback, useRef, useState } from "react";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { PopoverPanel } from "./popover-panel";
 import { INTERACTIVE } from "./interaction-styles";
 import { type ExportFormat, exportWorkspace } from "./export";
@@ -87,19 +88,7 @@ export function ExportMenu({
         title={t(lang, "exportTitle")}
         className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-          className="h-5 w-5"
-        >
-          {/* Download / outbox icon — tray with a down arrow. */}
-          <path
-            fillRule="evenodd"
-            d="M10 2a.75.75 0 01.75.75v7.69l1.97-1.97a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L6.22 9.53a.75.75 0 111.06-1.06l1.97 1.97V2.75A.75.75 0 0110 2zM3 14.75A.75.75 0 013.75 14h12.5a.75.75 0 01.75.75v1.5A1.75 1.75 0 0115.25 18h-10.5A1.75 1.75 0 013 16.25v-1.5z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <ArrowDownTrayIcon aria-hidden="true" className="h-5 w-5" />
       </button>
 
       <PopoverPanel

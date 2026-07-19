@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.39";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.39: consolidation sweep (Tier E) — extracted shared modules for the last real dedup tail: device-store JSON envelope (readDeviceJson/writeDeviceJson/removeDeviceKey, 14 per-device stores adopt), capped-list-store factory (saved/reports-views), guardTurso preamble (use-storage-turso-ops), EditModalShell adoption (absence/milestone/resource edit-modals), ai-forced-call (ONE audited never-log Anthropic forced-tool envelope, 6 call sites), useTaskPickerOptions, useDraftState, EntityPaneCalendarHintsProps mixin, jira parseIssueFields. Behavior-preserving (Pinsker)
+export const APP_VERSION = "0.190.40";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.40: adopt @heroicons/react for all ~69 UI chrome icons (nav sidebar, top bar, menus, toolbars, action buttons, Jira badges) — hand-rolled inline <svg> glyphs replaced with @heroicons/react/24/outline; data-viz graphics (sparkline, gantt bars/arrows, charts, node-graph) stay hand-rolled; bespoke glyphs force-fit to nearest heroicon. aria-hidden + size/rotate/opacity classes preserved (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
@@ -227,4 +227,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightAppRename",
   "versionHighlightThemeDecouple",
   "versionHighlightUiTokenRename",
+  "versionHighlightHeroicons",
 ] as const;

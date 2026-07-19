@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { RagDot } from "./rag-dot";
 import { TextButton } from "./text-button";
@@ -411,9 +412,7 @@ function TaskRowImpl({
             title={t(lang, "inlineAiEdit")}
             className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-              <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
-            </svg>
+            <SparklesIcon aria-hidden="true" className="h-4 w-4" />
           </button>
         )}
       </Td>
@@ -833,9 +832,7 @@ function DepRelationsCellImpl({ task, editable }: DepRelationsCellProps) {
             aria-expanded={open}
             className="shrink-0"
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5">
-              <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a1 1 0 01-.464.263l-3 .857a.5.5 0 01-.618-.618l.857-3a1 1 0 01.263-.464l8.5-8.5z" />
-            </svg>
+            <PencilIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </IconButton>
         )}
       </div>

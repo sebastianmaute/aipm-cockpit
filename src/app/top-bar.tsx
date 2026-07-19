@@ -1,4 +1,5 @@
 "use client";
+import { Bars3Icon, BellIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
 import { CountBadge } from "./count-badge";
@@ -39,9 +40,7 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
             title={t(lang, "sidebarMenuButton")}
             className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
-              <path fillRule="evenodd" d="M3 5.5A.75.75 0 013.75 4.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 5.5zm0 4.5a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 10zm0 4.5a.75.75 0 01.75-.75h12.5a.75.75 0 010 1.5H3.75A.75.75 0 013 14.5z" clipRule="evenodd" />
-            </svg>
+            <Bars3Icon aria-hidden="true" className="h-5 w-5" />
           </button>
         )}
         <h1 className="truncate text-xl font-semibold tracking-tight text-ui-dark-blue dark:text-ui-light-grey">
@@ -60,9 +59,7 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
             title={t(lang, "openAiAssistant")}
             className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
-              <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z" clipRule="evenodd" />
-            </svg>
+            <ChatBubbleLeftRightIcon aria-hidden="true" className="h-5 w-5" />
           </button>
         )}
         {primaryAction}
@@ -73,9 +70,7 @@ export function TopBar({ lang, title, bannerCount, onShowAlerts, onOpenAiAssista
           title={t(lang, "showDueAlerts")}
           className="relative rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
         >
-          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
-            <path d="M10 2a6 6 0 00-6 6v2.586l-.707.707A1 1 0 004 13h12a1 1 0 00.707-1.707L16 10.586V8a6 6 0 00-6-6zM8 15a2 2 0 104 0H8z" />
-          </svg>
+          <BellIcon aria-hidden="true" className="h-5 w-5" />
           {bannerCount > 0 && (
             <CountBadge variant="pink" aria-hidden className="absolute -right-0.5 -top-0.5">
               {bannerCount}

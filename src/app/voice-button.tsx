@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MicrophoneIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import {
   type Command,
@@ -10,17 +11,7 @@ import {
 } from "./voice";
 
 function MicIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-      className={className ?? "h-5 w-5"}
-    >
-      <path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4z" />
-      <path d="M5.5 9.643a.75.75 0 00-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-1.5v-1.546A6.001 6.001 0 0016 10v-.357a.75.75 0 00-1.5 0V10a4.5 4.5 0 01-9 0v-.357z" />
-    </svg>
-  );
+  return <MicrophoneIcon aria-hidden="true" className={className ?? "h-5 w-5"} />;
 }
 
 // Shared speech-recognition state + lifecycle for the two mic buttons below.

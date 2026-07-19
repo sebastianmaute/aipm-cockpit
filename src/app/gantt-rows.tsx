@@ -2,6 +2,7 @@
 // GanttTaskRow (draggable task row + absence bands + drag-editable bar) and
 // GanttMilestoneRow (a diamond at the milestone's date). Presentational —
 // GanttPanel owns the data, drag state, and handlers and threads them in.
+import { Bars2Icon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";
@@ -153,21 +154,8 @@ export function GanttTaskRow({
           className="cursor-grab text-muted-foreground hover:text-ui-dark-blue active:cursor-grabbing"
           title={t(lang, "ganttDragHint")}
         >
-          {/* Grip icon — 6 dots in a 2×3 arrangement, matching
-              the common "drag handle" affordance. */}
-          <svg
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            aria-hidden="true"
-            className="ml-1 h-4 w-4"
-          >
-            <circle cx="7" cy="5" r="1.4" />
-            <circle cx="13" cy="5" r="1.4" />
-            <circle cx="7" cy="10" r="1.4" />
-            <circle cx="13" cy="10" r="1.4" />
-            <circle cx="7" cy="15" r="1.4" />
-            <circle cx="13" cy="15" r="1.4" />
-          </svg>
+          {/* Grip icon — the common "drag handle" affordance. */}
+          <Bars2Icon aria-hidden="true" className="ml-1 h-4 w-4" />
         </span>
         <span className="font-mono text-muted-foreground">
           #{task.id}

@@ -4,6 +4,7 @@
 // tiles, and the apply-to-budget flow. Consumes only pure engines + context —
 // no direct API calls in render; all network happens inside event handlers.
 import { useEffect, useMemo, useState } from "react";
+import { ArrowPathIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { t, type Lang } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
@@ -507,10 +508,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
               title={t(lang, "timelogRefreshHint")}
               className={`inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
             >
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-3.5 w-3.5">
-                <path d="M15.5 8A6 6 0 004 6.5M4 4v3h3" />
-                <path d="M4.5 12A6 6 0 0016 13.5M16 16v-3h-3" />
-              </svg>
+              <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
               {t(lang, "timelogRefresh")}
             </button>
           )}
@@ -613,9 +611,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
             title={t(lang, peopleCollapsed ? "timelogPeopleExpand" : "timelogPeopleCollapse")}
             className={`flex items-center gap-1.5 rounded-md ${FOCUS_RING} ${TRANSITION}`}
           >
-            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2} className={`h-4 w-4 transition-transform ${peopleCollapsed ? "-rotate-90" : ""}`}>
-              <path d="M6 8l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <ChevronDownIcon aria-hidden="true" className={`h-4 w-4 transition-transform ${peopleCollapsed ? "-rotate-90" : ""}`} />
             {t(lang, "timelogMatchPeople")}
           </button>
         </h3>

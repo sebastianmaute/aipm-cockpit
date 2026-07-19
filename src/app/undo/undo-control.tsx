@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useRef, useState, type ReactNode } from "react";
+import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { t, type Lang, type TranslationKey } from "../i18n";
 import { INTERACTIVE } from "../interaction-styles";
 import { PopoverPanel } from "../popover-panel";
@@ -68,9 +69,7 @@ function UndoRedoControl({
             className={`${BUTTON_CLASS} rounded-l-none px-1 ${INTERACTIVE}`}
           >
             {/* Chevron (decorative — aria-label carries the name) */}
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
+            <ChevronDownIcon aria-hidden="true" className="h-3.5 w-3.5" />
           </button>
           <PopoverPanel
             open={open}
@@ -112,10 +111,7 @@ export function UndoControl({ lang, depth, onUndo, nextLabel }: UndoControlProps
       lang={lang}
       icon={
         // Undo arrow (decorative — aria-label carries the name)
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M9 14L4 9l5-5" />
-          <path d="M4 9h11a5 5 0 0 1 0 10h-1" />
-        </svg>
+        <ArrowUturnLeftIcon aria-hidden="true" className="h-4 w-4" />
       }
     />
   );
@@ -144,10 +140,7 @@ export function RedoControl({ lang, depth, onRedo, nextLabel }: RedoControlProps
       lang={lang}
       icon={
         // Redo arrow — horizontal mirror of the undo arrow (decorative; aria-label carries the name)
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M15 14l5-5-5-5" />
-          <path d="M20 9H9a5 5 0 0 0 0 10h1" />
-        </svg>
+        <ArrowUturnRightIcon aria-hidden="true" className="h-4 w-4" />
       }
     />
   );
