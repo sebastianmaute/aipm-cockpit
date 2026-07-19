@@ -5,6 +5,7 @@ import {
   BackspaceIcon,
   EllipsisVerticalIcon,
   PrinterIcon as PrinterHeroIcon,
+  ViewColumnsIcon,
 } from "@heroicons/react/24/outline";
 import type React from "react";
 import { type Lang, t } from "./i18n";
@@ -73,7 +74,7 @@ export function ResetSizeIcon() {
 }
 
 export function ResetColWidthsIcon() {
-  return <ArrowsPointingInIcon aria-hidden="true" className="h-4 w-4" />;
+  return <ViewColumnsIcon aria-hidden="true" className="h-4 w-4" />;
 }
 
 export function EraserIcon() {

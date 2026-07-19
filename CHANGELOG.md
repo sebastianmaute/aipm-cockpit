@@ -8,6 +8,26 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.40] - 2026-07-19 "Pinsker"
+
+### Changed
+
+**Heroicons for UI chrome.** The app's ~69 hand-rolled inline `<svg>` chrome
+icons are replaced with [`@heroicons/react`](https://heroicons.com) components
+(`@heroicons/react/24/outline`) for a consistent, maintained icon set.
+
+- **Scope:** nav sidebar (all 33 `AppView` glyphs), top bar, dropdown menus,
+  panel toolbars, action buttons, and the Jira read-only/two-way badges.
+- **Left hand-rolled:** data-visualisation graphics — the completion sparkline,
+  Gantt bars/dependency arrows/milestone diamonds, trend + burndown charts, and
+  the relations/info-flows node graphs (these are art, not icons).
+- **Bespoke glyphs** with no clean heroicon (the ⋮ column-resize grip, the 6-dot
+  drag handle, and the Gantt critical-path / baseline / inline-milestone toggles)
+  are force-fit to their nearest heroicon.
+- Every icon keeps `aria-hidden` and its original size/rotate/opacity/spin
+  classes; icon-only buttons keep their accessible names. No behavioural,
+  serialization, or palette change (heroicons render `currentColor` only).
+
 ## [0.190.39] - 2026-07-19 "Pinsker"
 
 ### Changed
