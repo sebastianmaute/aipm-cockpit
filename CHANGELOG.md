@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.34] - 2026-07-19 "Pinsker"
+
+### Changed
+
+Design-system **`Modal` adoption** — migrated the last hand-rolled dialog panel, the communication send-preview modal, onto the shared `Modal` primitive. It now inherits the canonical dialog chrome instead of re-implementing a subset:
+
+- **Backdrop unified** to the shared AIPM dark-blue scrim (`bg-ui-dark-blue/40`), matching every other modal in the app (was a bespoke light `bg-surface-muted/70` tint).
+- **Gains focus-trap + focus-restore** — Tab/Shift+Tab now cycle within the dialog and focus returns to the trigger on close (previously only a one-shot `.focus()`, no trap, no restore).
+- **Gains backdrop-click-to-close** (previously clicking outside did nothing) and participates in the topmost-only modal stack.
+- Dropped ~30 lines of hand-rolled Escape listener + focus wiring; the panel is now pure content.
+
+This completes the design-system Modal-adoption phase — the two other dialog candidates (steering-committee report modal, version-info) were already on the shared `Modal`.
+
 ## [0.190.33] - 2026-07-19 "Pinsker"
 
 ### Changed
