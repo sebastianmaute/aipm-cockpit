@@ -2205,6 +2205,7 @@ function TaskManagerInner() {
           to: t(lang, "commSendPreviewTo"),
           subject: t(lang, "commSendPreviewSubject"),
           send: t(lang, "commSendPreviewSend"),
+          sending: t(lang, "commSendPreviewSending"),
           cancel: t(lang, "commSendPreviewCancel"),
         }}
       />

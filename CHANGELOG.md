@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.35] - 2026-07-19 "Pinsker"
+
+### Changed
+
+**Modal accessibility follow-ups** — post-adoption fixes surfaced by the 0.190.34 review:
+
+- **Shared `Modal` seeds focus on the first focusable child** instead of the dialog root. The root is `tabIndex=-1` and carries no focus ring, so a keyboard user could land focus on the un-ringed backdrop (WCAG 2.4.7); focus now starts on a real control (still overridable via `initialFocusRef`, still falls back to the root only for a panel with no focusable content).
+- **Comm send-preview locks dismissal while sending.** The Graph send keeps running and still reports its outcome, so Escape/backdrop/Cancel no longer dismiss the modal mid-send, where they would have falsely implied the email was cancelled. Cancel is disabled while busy. To keep that lock from ever becoming a keyboard trap (WCAG 2.1.2) on a stalled network, every Graph mail POST is now bounded by a 30s abort timeout, so the send always settles and the lock releases.
+- The **Send button now reports `aria-busy`** and swaps to a "Sending…" label while a send is in flight (was a silently-disabled button).
+- The dialog is **named via its visible heading** (`aria-labelledby`) rather than a duplicate label string.
+
 ## [0.190.34] - 2026-07-19 "Pinsker"
 
 ### Changed

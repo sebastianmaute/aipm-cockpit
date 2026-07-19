@@ -139,8 +139,16 @@ export function Modal({
     // Defer one frame so deep children (e.g. lazy datalist options) have
     // committed before we look up focusables.
     const raf = requestAnimationFrame(() => {
-      const target =
-        initialFocusRef?.current ?? dialogRef.current ?? null;
+      // Prefer an explicit target, then the first real focusable child, and
+      // only fall back to the dialog root (which is tabIndex=-1 and carries no
+      // focus ring) when the panel has no focusable content at all. Landing on
+      // the root leaves a keyboard user with focus on the un-ringed backdrop
+      // (WCAG 2.4.7); a real control is both visible-focus correct and the
+      // natural start of the tab order.
+      const root = dialogRef.current;
+      const firstFocusable =
+        root?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? null;
+      const target = initialFocusRef?.current ?? firstFocusable ?? root ?? null;
       target?.focus();
     });
 

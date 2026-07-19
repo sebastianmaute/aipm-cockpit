@@ -2160,6 +2160,7 @@ export const de: Record<TranslationKey, string> = {
   commSendPreviewTo: "An",
   commSendPreviewSubject: "Betreff",
   commSendPreviewSend: "Senden",
+  commSendPreviewSending: "Senden…",
   commSendPreviewCancel: "Abbrechen",
   commSendDraftError: "Outlook-Entwurf konnte nicht erstellt werden — Vorschau wird geöffnet.",
   commSendDraftCreated: "Entwurf in Outlook erstellt — zum Prüfen und Senden Outlook öffnen.",
