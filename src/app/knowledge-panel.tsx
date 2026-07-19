@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useState } from "react";
 import { t } from "./i18n";
 import { useSettings } from "./use-settings";
 import { useWorkspace } from "./workspace-context";
@@ -11,7 +11,8 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
-import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { TaskLinkPicker } from "./task-link-picker";
 import { Input, Select } from "./form-controls";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
@@ -186,8 +187,6 @@ export function KnowledgePanel() {
       }),
     );
   }
-  const selectedTaskIds = (e: ChangeEvent<HTMLSelectElement>): number[] =>
-    Array.from(e.target.selectedOptions, (o) => Number(o.value));
 
   const counts = sourceCounts(docs);
   const chipKinds = SOURCE_ORDER.filter((k) => counts[k] > 0);
@@ -290,19 +289,14 @@ export function KnowledgePanel() {
                 {isStandalone && (
                   <label className="flex flex-col gap-1 text-xs text-foreground">
                     <span>{t(lang, "knowledgeLinkedTasks")}</span>
-                    <select
-                      multiple
-                      aria-label={t(lang, "knowledgeLinkedTasks")}
-                      value={linkTaskIds.map(String)}
-                      onChange={(e) => setLinkTaskIds(selectedTaskIds(e))}
-                      className={`h-20 min-w-[10rem] rounded border border-line bg-surface p-1 text-xs ${FOCUS_RING}`}
-                    >
-                      {tasks.map((tk) => (
-                        <option key={tk.id} value={tk.id}>
-                          {tk.taskName}
-                        </option>
-                      ))}
-                    </select>
+                    <TaskLinkPicker
+                      lang={lang}
+                      tasks={tasks}
+                      selectedIds={linkTaskIds}
+                      onAdd={(id) => setLinkTaskIds((p) => (p.includes(id) ? p : [...p, id]))}
+                      onRemove={(id) => setLinkTaskIds((p) => p.filter((x) => x !== id))}
+                      label={t(lang, "knowledgeLinkedTasks")}
+                    />
                   </label>
                 )}
                 <Button
@@ -433,19 +427,16 @@ export function KnowledgePanel() {
                       <div className="text-xs text-muted-foreground">{t(lang, DOC_TYPE_LABEL[ft.labelKey])}</div>
                       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                         <span>{t(lang, "knowledgeLinkedTasks")}</span>
-                        <select
-                          multiple
-                          aria-label={`${t(lang, "knowledgeLinkedTasks")} – ${it.name} (${idx + 1})`}
-                          value={(it.taskIds ?? []).map(String)}
-                          onChange={(e) => setStandaloneTasks(idx, selectedTaskIds(e))}
-                          className={`h-16 rounded border border-line bg-surface p-1 ${FOCUS_RING}`}
-                        >
-                          {tasks.map((tk) => (
-                            <option key={tk.id} value={tk.id}>
-                              {tk.taskName}
-                            </option>
-                          ))}
-                        </select>
+                        <TaskLinkPicker
+                          lang={lang}
+                          tasks={tasks}
+                          selectedIds={it.taskIds ?? []}
+                          onAdd={(id) => setStandaloneTasks(idx, [...(it.taskIds ?? []), id])}
+                          onRemove={(id) =>
+                            setStandaloneTasks(idx, (it.taskIds ?? []).filter((x) => x !== id))
+                          }
+                          label={`${t(lang, "knowledgeLinkedTasks")} – ${it.name} (${idx + 1})`}
+                        />
                       </label>
                     </Card>
                   );

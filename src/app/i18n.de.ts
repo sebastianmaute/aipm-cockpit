@@ -2998,6 +2998,8 @@ export const de: Record<TranslationKey, string> = {
   knowledgeStandaloneOption: "Eigenständiges Element (Wissensbibliothek)",
   knowledgeLibraryHeading: "Wissensbibliothek",
   knowledgeLinkedTasks: "Verknüpfte Aufgaben",
+  taskUnlink: "Entfernen",
+  taskLinkSearchPlaceholder: "Aufgaben zum Verknüpfen suchen…",
 
   settingsSectionInformationFlows: "Informationsflüsse",
   settingsExpertMode: "Expertenmodus",

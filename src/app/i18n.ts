@@ -3017,6 +3017,8 @@ const enUS = {
   knowledgeStandaloneOption: "Standalone item (Knowledge library)",
   knowledgeLibraryHeading: "Knowledge library",
   knowledgeLinkedTasks: "Linked tasks",
+  taskUnlink: "Unlink",
+  taskLinkSearchPlaceholder: "Search tasks to link…",
 
   settingsSectionInformationFlows: "Information flows",
   settingsExpertMode: "Expert mode",
