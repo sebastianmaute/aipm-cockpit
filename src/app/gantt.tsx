@@ -26,6 +26,7 @@
 // glance at. For dynamic editing, the user goes back to the tasks list.
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { ViewCallout } from "./view-callout";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -736,9 +737,7 @@ export function GanttPanel({
                 className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 border-r border-line bg-surface px-3 text-xs text-muted-foreground group-hover:text-ui-dark-blue"
                 style={{ width: nameColWidth }}
               >
-                <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5 shrink-0">
-                  <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                </svg>
+                <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                 <span>{t(lang, "ganttAddTask")}</span>
               </div>
               <div style={{ width: timelineWidthPx }} />

@@ -59,13 +59,14 @@ describe("ColumnResizeHandle", () => {
     return { handle, onMouseDown };
   }
 
-  it("renders an always-visible grip (an aria-hidden svg with dots)", () => {
+  it("renders an always-visible grip (an aria-hidden heroicon svg)", () => {
     const { handle } = renderHandle();
     expect(handle).toBeTruthy();
     const svg = handle.querySelector("svg");
     expect(svg).toBeTruthy();
     expect(svg).toHaveAttribute("aria-hidden", "true");
-    expect(svg!.querySelectorAll("circle").length).toBe(3);
+    // EllipsisVerticalIcon (⋮ grip) renders path geometry, not <circle> dots.
+    expect(svg!.querySelector("path")).toBeTruthy();
   });
 
   it("is decorative and 6px wide with the col-resize cursor", () => {

@@ -6,6 +6,7 @@
 // Y = influence (High at top -> Low at bottom), matching the stakeholder map.
 // Clicking a cell reports BOTH influence and interest in one onPick call.
 
+import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { INFLUENCE_INTEREST_LEVELS, type InfluenceInterest } from "./types";
 
@@ -106,15 +107,7 @@ export function InfluenceInterestMatrix({
                           }
                         }}
                       >
-                        <svg
-                          viewBox="0 0 16 16"
-                          width="11"
-                          height="11"
-                          fill="currentColor"
-                          aria-hidden
-                        >
-                          <path d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v6A1.5 1.5 0 0 1 12.5 11H6.7l-2.5 2.2A.6.6 0 0 1 3.2 13v-2H3.5A1.5 1.5 0 0 1 2 9.5v-6Z" />
-                        </svg>
+                        <EnvelopeIcon aria-hidden width={11} height={11} />
                       </span>
                     ) : null}
                   </span>

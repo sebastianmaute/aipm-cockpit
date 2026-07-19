@@ -12,6 +12,7 @@
 //   always reflects props.value.
 
 import { useEffect, useId, useRef, useState } from "react";
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import type React from "react";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -159,18 +160,7 @@ export function StakeholderRecipientInput({
                   aria-label={`Remove ${name}`}
                   className={`-mr-1 rounded-full text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
                 >
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                    className="h-3 w-3"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4.28 4.28a.75.75 0 011.06 0L10 8.94l4.66-4.66a.75.75 0 111.06 1.06L11.06 10l4.66 4.66a.75.75 0 11-1.06 1.06L10 11.06l-4.66 4.66a.75.75 0 01-1.06-1.06L8.94 10 4.28 5.34a.75.75 0 010-1.06z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <XMarkIcon aria-hidden="true" className="h-3 w-3" />
                 </button>
               </span>
             );

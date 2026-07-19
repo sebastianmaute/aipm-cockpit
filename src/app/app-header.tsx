@@ -1,5 +1,6 @@
 "use client";
 import type React from "react";
+import { BellIcon, ChatBubbleLeftRightIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { type Command } from "./voice";
 import { type StorageKind } from "./storage";
@@ -108,9 +109,7 @@ export function AppHeader({
               title={t(lang, "openAiAssistant")}
               className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
-                <path fillRule="evenodd" d="M2 5a2 2 0 012-2h12a2 2 0 012 2v7a2 2 0 01-2 2H6l-4 4V5z" clipRule="evenodd" />
-              </svg>
+              <ChatBubbleLeftRightIcon aria-hidden="true" className="h-5 w-5" />
             </button>
           )}
           <button
@@ -123,18 +122,7 @@ export function AppHeader({
             title={t(lang, "addTaskButton")}
             className="rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
           >
-            <svg
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-              className="h-5 w-5"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <PlusIcon aria-hidden="true" className="h-5 w-5" />
           </button>
           <button
             type="button"
@@ -143,14 +131,7 @@ export function AppHeader({
             title={t(lang, "showDueAlerts")}
             className="relative rounded-md p-2 text-muted-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:hover:text-ui-light-grey"
           >
-            <svg
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-              className="h-5 w-5"
-            >
-              <path d="M10 2a6 6 0 00-6 6v2.586l-.707.707A1 1 0 004 13h12a1 1 0 00.707-1.707L16 10.586V8a6 6 0 00-6-6zM8 15a2 2 0 104 0H8z" />
-            </svg>
+            <BellIcon aria-hidden="true" className="h-5 w-5" />
             {bannerCount > 0 && (
               <CountBadge variant="pink" aria-hidden className="absolute -right-0.5 -top-0.5">
                 {bannerCount}

@@ -1,6 +1,7 @@
 // src/app/actions-panel.tsx
 "use client";
 import { useMemo, useState } from "react";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { Button } from "./button";
@@ -101,9 +102,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               title={t(lang, "actionAiAnalyze")}
               className="inline-flex shrink-0 items-center gap-1.5 print:hidden"
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-                <path d="M10 1.5l1.6 4.3 4.3 1.6-4.3 1.6L10 13.3 8.4 9 4.1 7.4l4.3-1.6L10 1.5zM15.5 12l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />
-              </svg>
+              <SparklesIcon aria-hidden="true" className="h-4 w-4" />
               <span>{t(lang, "actionAiAnalyze")}</span>
             </Button>
           )}

@@ -14,6 +14,7 @@
 // edit anything — a hallucinated id can never touch a real task.
 
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useRef, useState } from "react";
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Task } from "./types";
@@ -189,8 +190,6 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
 
 function SparkIcon({ spinning }: { spinning: boolean }) {
   return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={`h-4 w-4 ${spinning ? "animate-spin" : ""}`}>
-      <path d="M10 2a.75.75 0 01.7.48l1.2 3.12 3.12 1.2a.75.75 0 010 1.4l-3.12 1.2-1.2 3.12a.75.75 0 01-1.4 0l-1.2-3.12-3.12-1.2a.75.75 0 010-1.4l3.12-1.2 1.2-3.12A.75.75 0 0110 2z" />
-    </svg>
+    <SparklesIcon aria-hidden="true" className={`h-4 w-4 ${spinning ? "animate-spin" : ""}`} />
   );
 }

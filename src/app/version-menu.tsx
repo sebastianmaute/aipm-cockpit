@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { InformationCircleIcon } from "@heroicons/react/24/outline";
 import { PopoverPanel } from "./popover-panel";
 import { type Lang, t } from "./i18n";
 import { VersionInfo } from "./version-info";
@@ -21,18 +22,7 @@ export function VersionMenu({ lang }: { lang: Lang }) {
         title={t(lang, "version")}
         className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-          className="h-5 w-5"
-        >
-          <path
-            fillRule="evenodd"
-            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h.01a1 1 0 100-2H10V10a1 1 0 00-1-1z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <InformationCircleIcon aria-hidden="true" className="h-5 w-5" />
       </button>
 
       <PopoverPanel

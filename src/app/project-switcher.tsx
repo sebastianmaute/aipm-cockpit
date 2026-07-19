@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ArrowPathIcon, BriefcaseIcon, CheckIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { type Lang, t } from "./i18n";
 import { type ProjectRegistryEntry } from "./projects-registry";
@@ -132,14 +133,7 @@ export function ProjectSwitcher({
         title={label}
         className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey"
       >
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-ui-green-strong"
-        >
-          <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-        </svg>
+        <BriefcaseIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-ui-green-strong" />
         <span className="truncate">{label}</span>
       </div>
     );
@@ -157,27 +151,9 @@ export function ProjectSwitcher({
         title={t(lang, "projectCurrentLabel")}
         className="flex max-w-[16rem] items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 text-sm font-semibold text-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey dark:hover:bg-surface"
       >
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-ui-green-strong"
-        >
-          <path d="M2 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-        </svg>
+        <BriefcaseIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-ui-green-strong" />
         <span className="truncate">{label}</span>
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-muted-foreground"
-        >
-          <path
-            fillRule="evenodd"
-            d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <ChevronDownIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
       </button>
 
       {open && (
@@ -220,18 +196,7 @@ export function ProjectSwitcher({
                   )}
                 </span>
                 {isCurrent && (
-                  <svg
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                    className="h-4 w-4 shrink-0 text-ui-green-strong"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 011.4-1.4l2.8 2.79 6.8-6.79a1 1 0 011.4 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
+                  <CheckIcon aria-hidden="true" className="h-4 w-4 shrink-0 text-ui-green-strong" />
                 )}
               </button>
             );
@@ -276,13 +241,7 @@ export function ProjectSwitcher({
         title={t(lang, "reloadProjectHint")}
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-muted text-ui-dark-blue hover:bg-surface focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-ui-light-grey"
       >
-        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-          <path
-            fillRule="evenodd"
-            d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h1.633a.75.75 0 000-1.5H3.744a.75.75 0 00-.75.75v3.994a.75.75 0 001.5 0v-1.68l.311.311a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V3.176a.75.75 0 00-1.5 0v1.683l-.312-.311A7 7 0 003.489 7.686a.75.75 0 101.449.39 5.5 5.5 0 019.201-2.466l.312.311H12.82a.75.75 0 000 1.5h3.994a.75.75 0 00.53-.219z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <ArrowPathIcon aria-hidden="true" className="h-4 w-4" />
       </button>
     )}
     </div>

@@ -9,6 +9,7 @@
 // row AND on the Kanban card — the board renders cards OUTSIDE RowContextProvider,
 // so the badge must never call useTaskRowContext(). Imports nothing from task-row.
 import { memo, type ReactNode } from "react";
+import { ArrowPathRoundedSquareIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -29,26 +30,12 @@ const BADGE_CLASS =
 // chip's brand-token text color (palette-safe — no hardcoded color); aria-hidden
 // because the chip text + title carry the meaning (no label-bleed).
 const lockIcon: ReactNode = (
-  <svg
-    aria-hidden="true"
-    viewBox="0 0 24 24"
-    className="inline-block h-2.5 w-2.5 mr-0.5 align-[-1px]"
-    fill="currentColor"
-  >
-    <path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 5a3 3 0 0 1 6 0v3H9V7zm3 8a1.5 1.5 0 0 1 .75 2.8V19a.75.75 0 0 1-1.5 0v-1.2A1.5 1.5 0 0 1 12 15z" />
-  </svg>
+  <LockClosedIcon aria-hidden="true" className="inline-block h-2.5 w-2.5 mr-0.5 align-[-1px]" />
 );
 
 // Two circular arrows — signals a two-way synced link (vs the read-only padlock).
 const syncIcon: ReactNode = (
-  <svg
-    aria-hidden="true"
-    viewBox="0 0 24 24"
-    className="inline-block h-2.5 w-2.5 mr-0.5 align-[-1px]"
-    fill="currentColor"
-  >
-    <path d="M12 4V1L8 5l4 4V6a6 6 0 0 1 6 6h2a8 8 0 0 0-8-8zm-6 8H4a8 8 0 0 0 8 8v3l4-4-4-4v3a6 6 0 0 1-6-6z" />
-  </svg>
+  <ArrowPathRoundedSquareIcon aria-hidden="true" className="inline-block h-2.5 w-2.5 mr-0.5 align-[-1px]" />
 );
 
 function JiraBadgeImpl({ jiraKey, lang, href, issueType, readOnlyProject = false }: JiraBadgeProps) {

@@ -4,6 +4,7 @@
 // the action menus) and the VersionInfoModal (opened from the sidebar version
 // line and the Settings footer). Single source of truth for the "about" panel.
 
+import { XMarkIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { Modal } from "./modal";
@@ -39,9 +40,7 @@ export function VersionInfoModal({
             aria-label={t(lang, "alertModalClose")}
             className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
           >
-            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
+            <XMarkIcon aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
         <VersionInfo lang={lang} />

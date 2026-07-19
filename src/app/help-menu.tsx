@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { QuestionMarkCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
 import { HelpContentPane } from "./help-content-pane";
@@ -161,18 +162,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
         title={t(lang, "help")}
         className="rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey"
       >
-        <svg
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-          className="h-5 w-5"
-        >
-          <path
-            fillRule="evenodd"
-            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.94 6.94A1.5 1.5 0 0110 6.5c.83 0 1.5.67 1.5 1.5 0 .61-.36.94-.96 1.27-.7.39-1.54.86-1.54 2.23a.75.75 0 001.5 0c0-.45.23-.62.83-.95.74-.41 1.67-.93 1.67-2.55a3 3 0 10-6 0 .75.75 0 001.5 0c0-.4.16-.78.44-1.06zM10 14a1 1 0 100 2 1 1 0 000-2z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <QuestionMarkCircleIcon aria-hidden="true" className="h-5 w-5" />
       </button>
 
       {open && pos && (
@@ -201,14 +191,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
               aria-label="Close"
               className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
             >
-              <svg
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-                className="h-4 w-4"
-              >
-                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-              </svg>
+              <XMarkIcon aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
 

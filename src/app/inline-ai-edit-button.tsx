@@ -4,6 +4,7 @@
 // (RAID / change / milestone / stakeholder). The tasks table keeps its own
 // inline button in task-row.tsx (shipped SP1); this component de-dups the four
 // SP2 panels so the ✨ markup lives in one place. Presentational + props-only.
+import { SparklesIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -28,9 +29,7 @@ export function InlineAiEditButton({ lang, label, onClick }: InlineAiEditButtonP
       title={t(lang, "inlineAiEdit")}
       className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
     >
-      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-        <path d="M10 2l1.6 4.4L16 8l-4.4 1.6L10 14l-1.6-4.4L4 8l4.4-1.6L10 2z" />
-      </svg>
+      <SparklesIcon aria-hidden="true" className="h-4 w-4" />
     </button>
   );
 }

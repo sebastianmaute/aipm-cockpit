@@ -14,6 +14,7 @@
 // useTemplates()/useWorkspace() and builds the workspace + toast side effects.
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { BookmarkIcon, RectangleStackIcon } from "@heroicons/react/24/outline";
 import { PopoverPanel } from "./popover-panel";
 import { Checkbox, Input, Select } from "./form-controls";
 import { type Lang, t } from "./i18n";
@@ -33,20 +34,12 @@ const PRIMARY_BTN_CLASS =
 
 /** A "save as template" tray icon (a tagged bookmark). */
 function SaveIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
-      <path d="M5 2.75A1.75 1.75 0 016.75 1h6.5A1.75 1.75 0 0115 2.75v14.5a.75.75 0 01-1.2.6L10 15l-3.8 2.85a.75.75 0 01-1.2-.6V2.75z" />
-    </svg>
-  );
+  return <BookmarkIcon aria-hidden="true" className="h-5 w-5" />;
 }
 
 /** An "apply template" stacked-layers icon. */
 function ApplyIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
-      <path d="M10 1.5l8 4-8 4-8-4 8-4zM2.6 9.2l7.4 3.7 7.4-3.7 1.6.8-9 4.5-9-4.5 1.6-.8zm0 4l7.4 3.7 7.4-3.7 1.6.8-9 4.5-9-4.5 1.6-.8z" />
-    </svg>
-  );
+  return <RectangleStackIcon aria-hidden="true" className="h-5 w-5" />;
 }
 
 export interface SaveTemplateMenuProps {

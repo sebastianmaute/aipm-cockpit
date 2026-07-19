@@ -2,6 +2,7 @@
 // the filter/sort toolbar, the month/day time-axis header, and the
 // dependency/connector arrow overlay. All pure (no local state); GanttPanel
 // owns the data + handlers and passes them in.
+import { BoltIcon, EllipsisVerticalIcon, FlagIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { Input, Select } from "./form-controls";
@@ -166,23 +167,7 @@ export function GanttToolbar({
         onToggle={toggleCriticalPath}
         accent="pink"
         title={t(lang, "ganttCriticalPathHint")}
-        icon={
-          /* Diverging-paths glyph — two lines branching from a common origin. */
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            className="h-3.5 w-3.5"
-          >
-            <path d="M4 16 L8 10 L12 13 L16 4" />
-            <circle cx="4" cy="16" r="1.2" fill="currentColor" />
-            <circle cx="16" cy="4" r="1.2" fill="currentColor" />
-          </svg>
-        }
+        icon={<BoltIcon aria-hidden="true" className="h-3.5 w-3.5" />}
       >
         {t(lang, "ganttCriticalPath")}
       </ToggleButton>
@@ -191,20 +176,7 @@ export function GanttToolbar({
           pressed={prefs.showBaseline}
           onToggle={toggleBaseline}
           title={t(lang, "ganttBaselineHint")}
-          icon={
-            /* ghost + solid diamond glyph — baseline vs current */
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.6}
-              aria-hidden="true"
-              className="h-3.5 w-3.5"
-            >
-              <rect x={2} y={7} width={5} height={5} transform="rotate(45 4.5 9.5)" />
-              <rect x={11} y={7} width={5} height={5} transform="rotate(45 13.5 9.5)" fill="currentColor" />
-            </svg>
-          }
+          icon={<FlagIcon aria-hidden="true" className="h-3.5 w-3.5" />}
         >
           {t(lang, "ganttBaseline")}
         </ToggleButton>
@@ -217,23 +189,7 @@ export function GanttToolbar({
           pressed={prefs.milestonePlacement === "inline"}
           onToggle={toggleMilestonePlacement}
           title={t(lang, "ganttMilestonesInlineHint")}
-          icon={
-            /* Diamond-between-rows glyph — a milestone marker interleaved among
-               horizontal task rows. */
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.6}
-              strokeLinecap="round"
-              aria-hidden="true"
-              className="h-3.5 w-3.5"
-            >
-              <line x1={3} y1={5} x2={17} y2={5} />
-              <line x1={3} y1={15} x2={17} y2={15} />
-              <rect x={8} y={8} width={4} height={4} transform="rotate(45 10 10)" fill="currentColor" stroke="none" />
-            </svg>
-          }
+          icon={<MapPinIcon aria-hidden="true" className="h-3.5 w-3.5" />}
         >
           {t(lang, "ganttMilestonesInline")}
         </ToggleButton>
@@ -288,11 +244,7 @@ export function GanttHeader({
             onMouseDown={onStartNameColResize}
             className="absolute right-0 top-0 z-40 flex h-full w-2 cursor-col-resize select-none items-center justify-center text-muted-foreground/60 transition-colors hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue active:text-ui-dark-blue print:hidden"
           >
-            <svg viewBox="0 0 2 12" width="2" height="12" fill="currentColor" aria-hidden="true">
-              <circle cx="1" cy="2" r="1" />
-              <circle cx="1" cy="6" r="1" />
-              <circle cx="1" cy="10" r="1" />
-            </svg>
+            <EllipsisVerticalIcon aria-hidden="true" className="h-4 w-4" />
           </div>
         )}
       </div>
