@@ -29,7 +29,7 @@ import { Tile } from "./report-table";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
-import { Input, Select } from "./form-controls";
+import { Checkbox, Input, Select } from "./form-controls";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -674,13 +674,12 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
               <DataTable className="w-full text-sm" head={<>
                   <tr>
                     <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.select, minWidth: colWidths.select }}>
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         aria-label={t(lang, "selectAllVisibleRows")}
                         disabled={isPopout}
                         checked={sel.allSelected(visibleFilteredIds)}
                         onChange={() => sel.toggleAllVisible(visibleFilteredIds)}
-                        className={`align-middle ${FOCUS_RING}`}
+                        className="align-middle"
                       />
                       <ColumnResizeHandle col="select" onMouseDown={startColResize} />
                     </th>
@@ -715,13 +714,12 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                     return (
                       <tr key={u.userId} className="border-b border-line last:border-0">
                         <td className="py-2 pr-2">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             aria-label={rowSelectLabel}
                             disabled={isPopout}
                             checked={sel.isSelected(u.userId)}
                             onChange={() => sel.toggle(u.userId)}
-                            className={`align-middle ${FOCUS_RING}`}
+                            className="align-middle"
                           />
                         </td>
                         <td className="py-2 pr-3 text-foreground">
@@ -806,12 +804,11 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                 "Load my projects" still reads the same header customer selection —
                 a customer loads that client's projects, else my managed (PM) ones. */}
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={includeClosedProjects}
                 disabled={isPopout}
                 onChange={(e) => setIncludeClosedProjects(e.target.checked)}
-                className={`align-middle ${FOCUS_RING}`}
+                className="align-middle"
               />
               {t(lang, "timelogIncludeClosed")}
             </label>

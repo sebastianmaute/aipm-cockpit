@@ -11,7 +11,7 @@
 import type React from "react";
 import { t } from "./i18n";
 import { openPopoutWindow } from "./broadcast-sync";
-import { TabButton, ResetSizeIcon } from "./task-manager-ui";
+import { TabButton, ResetSizeButton } from "./task-manager-ui";
 import { useTablistRoving } from "./use-tablist-roving";
 import { navLabelKey } from "./nav-config";
 import { isModuleEnabled } from "./feature-modules";
@@ -155,15 +155,11 @@ export function WorkspaceTabStrip({
           {t(lang, "tabActivity")}
         </TabButton>
         {!workspaceCollapsed && (
-          <button
-            type="button"
+          <ResetSizeButton
             onClick={resetWorkspaceSize}
-            aria-label={t(lang, "tableResetSizeHint")}
-            title={t(lang, "tableResetSizeHint")}
-            className="ml-auto mb-1 rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground"
-          >
-            <ResetSizeIcon />
-          </button>
+            lang={lang}
+            className="ml-auto mb-1"
+          />
         )}
         <button
           type="button"

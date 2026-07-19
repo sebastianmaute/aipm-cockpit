@@ -1,15 +1,12 @@
 // src/app/operating-guide-schema.ts — pure SQL builders + row decode for the
 // GLOBAL operating_guides table. Cross-project; MUST stay out of TABLE_NAMES so
 // the workspace overwrite never touches it (mirrors comm-templates-schema).
-import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import { rowObjects, txt, int, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 import type { GuideScope, OperatingGuide } from "./operating-guide";
 
 export const OPERATING_GUIDE_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS operating_guides (id TEXT PRIMARY KEY, name TEXT, content TEXT, enabled INTEGER, priority INTEGER, scope TEXT, built_in INTEGER, created_at TEXT, updated_at TEXT)`,
 ];
-
-const txt = (value: string) => ({ type: "text" as const, value });
-const int = (value: number) => ({ type: "integer" as const, value: String(value) });
 
 export const guideSelect = (): SqlStmt[] => [{ sql: `SELECT * FROM operating_guides` }];
 
@@ -26,19 +23,6 @@ export function upsertStatements(g: OperatingGuide, now = ""): SqlStmt[] {
 
 export function deleteStatements(id: string): SqlStmt[] {
   return [{ sql: `DELETE FROM operating_guides WHERE id = ?`, args: [txt(id)] }];
-}
-
-function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
-  const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
-  const rows = res?.response?.result?.rows ?? [];
-  return rows.map((row) => {
-    const obj: Record<string, string> = {};
-    names.forEach((n, i) => {
-      const cell = row[i];
-      obj[n] = cell == null || cell.value == null ? "" : String(cell.value);
-    });
-    return obj;
-  });
 }
 
 function parseScope(raw: string): GuideScope {

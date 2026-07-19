@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { type EditPlan } from "./inline-ai-edit/plan";
 import { type InlinePhase } from "./use-inline-ai-edit";
 import { usePopoverDismiss } from "./use-popover-dismiss";
+import { useFocusTrap } from "./use-focus-trap";
 import { MODAL_BACKDROP_CLASS } from "./modal";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Button } from "./button";
@@ -28,28 +29,10 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   usePopoverDismiss(true, ref, onCancel);
-  // Focus management for the aria-modal dialog: move focus to the NL input on
-  // open and RESTORE it to the trigger (the ✨ button) on close. Not a state
-  // update, so no set-state-in-effect concern.
-  useEffect(() => {
-    const prevFocus = document.activeElement as HTMLElement | null;
-    inputRef.current?.focus();
-    return () => prevFocus?.focus?.();
-  }, []);
-  // Trap Tab within the dialog so keyboard focus can't escape to the background
-  // (parity with the shared Modal; the bespoke overlay isn't a Modal instance).
-  const onKeyDownTrap = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Tab") return;
-    const focusables = ref.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
-    );
-    const list = focusables ? Array.from(focusables) : [];
-    if (list.length === 0) return;
-    const first = list[0];
-    const last = list[list.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  };
+  // Focus the NL input on open, trap Tab within the aria-modal dialog, and
+  // restore focus to the trigger (✨ button) on close — via the shared
+  // focus-trap primitive (usePopoverDismiss already owns Escape + outside-click).
+  useFocusTrap(ref, true, undefined, inputRef);
   const busy = phase === "thinking" || phase === "applying";
 
   return (
@@ -59,7 +42,6 @@ export function InlineAiEditPopover(props: InlineAiEditPopoverProps) {
         role="dialog"
         aria-modal="true"
         aria-label={t(lang, "inlineAiEdit")}
-        onKeyDown={onKeyDownTrap}
         className="w-[420px] max-w-[95vw] rounded-xl border border-line bg-surface p-4"
       >
         <div className="mb-2 flex items-start justify-between gap-2">

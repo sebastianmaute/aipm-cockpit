@@ -8,6 +8,39 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.36] - 2026-07-19 "Pinsker"
+
+### Changed
+
+**Consolidation sweep (Tier A + B)** — primitive adoption and pure deduplication
+uncovered by a post-DS-program consolidation audit. No behavior change beyond the
+noted accessibility fixes; internal only.
+
+- **Accessibility fixes (via primitive adoption):**
+  - The RAID / Change / Milestones / Stakeholders / Resource-directory bulk-select
+    checkboxes (select-all + per-row), plus the History compare and Version-diff
+    restore checkboxes and the Time-bookings select checkboxes, now use the shared
+    `Checkbox` primitive. This replaces a hand-rolled class that set the inert
+    `text-ui-dark-blue` (which does nothing on a checkbox) with the real
+    `accent-ui-dark-blue` + a visible focus ring. The History / Version-diff /
+    Time-bookings checkboxes, previously native-styled, also gain the standard
+    rounded-border box for visual consistency.
+  - The task-row dependency editor popover now renders through the shared
+    `PopoverPanel` portal, so it can no longer be clipped by the table's scroll
+    container; its pencil trigger uses the `IconButton` primitive.
+- **Primitive swaps:** task-row priority pill → `Badge`; Open Points / workspace
+  reset buttons → `ResetSizeButton`; the Action-Center learning pill → `Badge`; the
+  resource picker's outside-click → the shared `usePopoverDismiss`.
+- **Pure deduplication (no behavior change):**
+  - The Turso `txt` / `int` / `rowObjects` SQL helpers, copied across eight
+    out-of-workspace schema modules, are now single-sourced from `turso-schema`.
+  - `scheme-contrast` reuses the colour math (`hexToRgb` / `relLuminance`) from
+    `scheme-tokens` instead of re-implementing it.
+  - The RAID and Change registers share one `groupByLinkedTaskIds` index builder.
+  - The edit-modal chip pickers share one `filterPickerOptions` helper.
+  - The inline-AI edit popover reuses the shared `useFocusTrap` (extended with an
+    optional initial-focus target) instead of a hand-rolled Tab trap.
+
 ## [0.190.35] - 2026-07-19 "Pinsker"
 
 ### Changed

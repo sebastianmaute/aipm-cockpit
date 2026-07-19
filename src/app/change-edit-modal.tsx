@@ -27,6 +27,7 @@ import { useModalVisibility } from "./use-modal-visibility";
 import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
+import { filterPickerOptions } from "./picker-filter";
 import { useToastContext } from "./toast-context";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
@@ -132,31 +133,27 @@ export function ChangeEditModal({
 
   useEscapeKey(onCancel);
 
-  const availableTasks = useMemo(() => {
-    const linked = new Set(draft.linkedTaskIds);
-    const q = taskPickerQuery.trim().toLowerCase();
-    return tasks
-      .filter((tk) => !linked.has(tk.id))
-      .filter((tk) => {
-        if (!q) return true;
-        if (String(tk.id) === q) return true;
-        return tk.taskName.toLowerCase().includes(q);
-      })
-      .slice(0, 20);
-  }, [tasks, draft.linkedTaskIds, taskPickerQuery]);
+  const availableTasks = useMemo(
+    () =>
+      filterPickerOptions(tasks, {
+        query: taskPickerQuery,
+        excludeIds: new Set(draft.linkedTaskIds),
+        getId: (tk) => tk.id,
+        getText: (tk) => tk.taskName,
+      }),
+    [tasks, draft.linkedTaskIds, taskPickerQuery],
+  );
 
-  const availableRaid = useMemo(() => {
-    const linked = new Set(draft.linkedRaidIds);
-    const q = raidPickerQuery.trim().toLowerCase();
-    return raid
-      .filter((r) => !linked.has(r.id))
-      .filter((r) => {
-        if (!q) return true;
-        if (String(r.id) === q) return true;
-        return r.title.toLowerCase().includes(q);
-      })
-      .slice(0, 20);
-  }, [raid, draft.linkedRaidIds, raidPickerQuery]);
+  const availableRaid = useMemo(
+    () =>
+      filterPickerOptions(raid, {
+        query: raidPickerQuery,
+        excludeIds: new Set(draft.linkedRaidIds),
+        getId: (r) => r.id,
+        getText: (r) => r.title,
+      }),
+    [raid, draft.linkedRaidIds, raidPickerQuery],
+  );
 
   function update<K extends keyof ChangeItem>(key: K, value: ChangeItem[K]) {
     setError(null);

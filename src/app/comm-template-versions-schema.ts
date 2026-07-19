@@ -2,7 +2,7 @@
 // the GLOBAL append-only comm_template_versions table. MUST stay OUT of
 // turso-schema's TABLE_NAMES (a guard test enforces it) so the workspace save's
 // per-table DELETE never touches it.
-import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import { rowObjects, txt, int, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 
 export interface CommTemplateVersion {
   id: string;
@@ -17,9 +17,6 @@ export const COMM_TEMPLATE_VERSION_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS comm_template_versions (id TEXT PRIMARY KEY, template_id TEXT, name TEXT, body TEXT, is_auto INTEGER, created_at TEXT)`,
 ];
 
-const txt = (value: string) => ({ type: "text" as const, value });
-const int = (value: number) => ({ type: "integer" as const, value: String(value) });
-
 export const versionsSelect = (templateId: string): SqlStmt[] => [
   { sql: `SELECT * FROM comm_template_versions WHERE template_id = ? ORDER BY created_at DESC`, args: [txt(templateId)] },
 ];
@@ -33,19 +30,6 @@ export function insertVersionStatements(v: CommTemplateVersion): SqlStmt[] {
 
 export function deleteVersionStatements(id: string): SqlStmt[] {
   return [{ sql: `DELETE FROM comm_template_versions WHERE id = ?`, args: [txt(id)] }];
-}
-
-function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
-  const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
-  const rows = res?.response?.result?.rows ?? [];
-  return rows.map((row) => {
-    const obj: Record<string, string> = {};
-    names.forEach((n, i) => {
-      const cell = row[i];
-      obj[n] = cell == null || cell.value == null ? "" : String(cell.value);
-    });
-    return obj;
-  });
 }
 
 export function rowsToVersions(res: PipelineResultLike | undefined): CommTemplateVersion[] {

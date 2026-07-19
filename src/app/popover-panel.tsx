@@ -28,6 +28,7 @@ export function PopoverPanel({
   className = "",
   role,
   ariaLabel,
+  autoFocus = true,
   children,
 }: {
   open: boolean;
@@ -37,6 +38,11 @@ export function PopoverPanel({
   className?: string;
   role?: "dialog" | "menu";
   ariaLabel?: string;
+  /** Move focus to the first control on open (default true — correct for menus).
+   *  Set false when the first control is destructive (e.g. a one-click "remove")
+   *  so opening the panel can't land focus on it; focus then stays on the trigger,
+   *  as it did before this panel was portaled. */
+  autoFocus?: boolean;
   children: ReactNode;
 }) {
   const panelRef = useRef<HTMLSpanElement>(null);
@@ -105,10 +111,10 @@ export function PopoverPanel({
   // Focus the first control once mounted+positioned. preventScroll so the
   // programmatic focus can't scroll an ancestor and fire close-on-scroll.
   useEffect(() => {
-    if (open && pos) {
+    if (autoFocus && open && pos) {
       panelRef.current?.querySelector<HTMLElement>("input,button,[tabindex]")?.focus({ preventScroll: true });
     }
-  }, [open, pos]);
+  }, [autoFocus, open, pos]);
 
   useEffect(() => {
     if (!open) return;

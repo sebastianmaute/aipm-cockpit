@@ -6,6 +6,7 @@
 // destructured to the same local names the inline JSX used, so the markup is
 // reproduced verbatim.
 import type React from "react";
+import { Checkbox } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import { Badge } from "./badge";
 import { TextButton } from "./text-button";
@@ -17,7 +18,7 @@ import { effectivePersonName } from "./resource-foundation";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { RagDot } from "./rag-dot";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { useRowSelection } from "./use-row-selection";
@@ -90,13 +91,12 @@ export function RaidTable({
     <DataTable className="min-w-full text-left text-sm" head={<>
         <tr>
           <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
-            <input
-              type="checkbox"
+            <Checkbox
               aria-label={t(lang, "selectAllVisibleRows")}
               checked={sel.allSelected(visibleIds)}
               onChange={() => sel.toggleAllVisible(visibleIds)}
-              className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-            />
+              className="cursor-pointer"
+              />
           </th>
           {!hiddenSet.has("id") && (
           <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
@@ -196,13 +196,12 @@ export function RaidTable({
                 .join(" ")}
             >
               <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   aria-label={t(lang, "selectItem", item.title)}
                   checked={sel.isSelected(item.id)}
                   onChange={() => sel.toggle(item.id)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-                />
+                  className="cursor-pointer"
+                  />
               </td>
               {!hiddenSet.has("id") && (
               <td className="px-3 py-2 font-mono text-muted-foreground">

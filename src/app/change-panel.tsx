@@ -51,8 +51,8 @@ import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { RagDot } from "./rag-dot";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { Select } from "./form-controls";
+import { INTERACTIVE } from "./interaction-styles";
+import { Checkbox, Select } from "./form-controls";
 import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { selectField, textField, type BulkField } from "./bulk-edit-panel";
@@ -468,13 +468,12 @@ function ChangePanelBody({
           head={<>
             <tr>
               <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   aria-label={t(lang, "selectAllVisibleRows")}
                   checked={sel.allSelected(visibleIds)}
                   onChange={() => sel.toggleAllVisible(visibleIds)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-                />
+                  className="cursor-pointer"
+                  />
               </th>
               {!hiddenSet.has("id") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={ariaSort("id")}>
@@ -555,13 +554,12 @@ function ChangePanelBody({
                     .join(" ")}
                 >
                   <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       aria-label={t(lang, "selectItem", item.title)}
                       checked={sel.isSelected(item.id)}
                       onChange={() => sel.toggle(item.id)}
-                      className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
-                    />
+                      className="cursor-pointer"
+                      />
                   </td>
                   {!hiddenSet.has("id") && (
                   <td className="px-3 py-2 font-mono text-muted-foreground">

@@ -12,12 +12,13 @@
 // as a fallback when the FK is dangling (resource deleted). Keyboard + popover
 // behavior is lifted from the now-removed ContactInput.
 
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useId, useMemo, useRef, useState } from "react";
 import type React from "react";
 import type { Contact } from "./contacts";
 import { type Lang, t } from "./i18n";
 import { resourceDisplayName } from "./resource-foundation";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { usePopoverDismiss } from "./use-popover-dismiss";
 import type { Resource } from "./types";
 
 export interface ResourcePickerValue {
@@ -116,14 +117,8 @@ export function ResourcePicker({
     setHighlight(0);
   }
 
-  useEffect(() => {
-    if (!open) return;
-    function onMouseDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [open]);
+  const closePicker = useCallback(() => setOpen(false), []);
+  usePopoverDismiss(open, rootRef, closePicker);
 
   function choose(row: Row) {
     if (row.kind === "resource") {

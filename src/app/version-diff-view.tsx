@@ -11,6 +11,7 @@ import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import type { VersionChange, ChangeType } from "./version-diff";
 import { changeKey, type RestoreSelection } from "./version-restore";
+import { Checkbox } from "./form-controls";
 
 const TYPE_KEY: Record<ChangeType, "historyAdded" | "historyRemoved" | "historyModified"> = {
   added: "historyAdded", removed: "historyRemoved", modified: "historyModified",
@@ -131,12 +132,11 @@ export function VersionDiffView({
                 <li key={k} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
                   <div className="flex items-center gap-1">
                     {selectable && (
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selection[keyOf(c)] !== undefined}
                         onChange={() => onToggleRecord?.(keyOf(c))}
                         aria-label={c.recordLabel}
-                        className="accent-ui-dark-blue mr-2"
+                        className="mr-2"
                       />
                     )}
                     <button
@@ -163,12 +163,12 @@ export function VersionDiffView({
                       {c.fields.map((f) => (
                         <li key={f.field} className="flex flex-wrap items-center gap-1 text-xs">
                           {selectable && (
-                            <input
-                              type="checkbox"
+                            <Checkbox
+                              size="sm"
                               checked={selection[keyOf(c)] === "all" || (Array.isArray(selection[keyOf(c)]) && (selection[keyOf(c)] as string[]).includes(f.field))}
                               onChange={() => onToggleField?.(keyOf(c), f.field)}
                               aria-label={f.label}
-                              className="accent-ui-dark-blue mr-1"
+                              className="mr-1"
                             />
                           )}
                           <span className="font-medium text-muted-foreground">{f.label}:</span>

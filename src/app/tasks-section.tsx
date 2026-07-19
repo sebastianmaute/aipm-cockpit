@@ -45,7 +45,7 @@ import {
   EraserIcon,
   PrintButton,
   ResetColWidthsButton,
-  ResetSizeIcon,
+  ResetSizeButton,
   Th,
 } from "./task-manager-ui";
 import { SortResizeTh } from "./report-table";
@@ -699,15 +699,7 @@ export function TasksSection({
           </>
         )}
         <PrintButton lang={lang} iconOnly />
-        <button
-          type="button"
-          onClick={resetTableSize}
-          aria-label={t(lang, "tableResetSizeHint")}
-          title={t(lang, "tableResetSizeHint")}
-          className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
-        >
-          <ResetSizeIcon />
-        </button>
+        <ResetSizeButton onClick={resetTableSize} lang={lang} />
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
         <button
           type="button"

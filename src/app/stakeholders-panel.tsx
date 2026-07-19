@@ -1,4 +1,5 @@
 "use client";
+import { Checkbox } from "./form-controls";
 
 // Stakeholder Register panel — sortable, searchable table of stakeholders.
 // Mirrors change-panel.tsx: Add button BEFORE the search, local draft/isNew
@@ -31,7 +32,7 @@ import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { resourceDisplayName } from "./resource-foundation";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
 import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { PanelTableScaffold } from "./panel-table-scaffold";
@@ -356,12 +357,11 @@ function StakeholdersPanelBody({
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
               <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   aria-label={t(lang, "selectAllVisibleRows")}
                   checked={sel.allSelected(visibleIds)}
                   onChange={() => sel.toggleAllVisible(visibleIds)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                  className="cursor-pointer"
                 />
               </th>
               {!hiddenSet.has("name") && (
@@ -500,12 +500,11 @@ function StakeholdersPanelBody({
                   onClick={() => openEdit(item)}
                 >
                   <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       aria-label={t(lang, "selectItem", item.name)}
                       checked={sel.isSelected(item.id)}
                       onChange={() => sel.toggle(item.id)}
-                      className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                      className="cursor-pointer"
                     />
                   </td>
                   {!hiddenSet.has("name") && (

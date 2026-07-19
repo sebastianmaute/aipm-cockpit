@@ -4,7 +4,7 @@
 // APPEND-ONLY and MUST stay disjoint from turso-schema's TABLE_NAMES so the
 // workspace overwrite (DELETE FROM ... per save) never touches them.
 
-import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import { rowObjects, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 import type {
   SnapshotCadence, SnapshotMilestone, SnapshotRecord, SnapshotSeriesPoint, SnapshotTrigger,
 } from "./snapshot";
@@ -96,19 +96,6 @@ export function deleteStatements(id: string, projectId: string): SqlStmt[] {
 }
 
 // --- decode ---------------------------------------------------------------
-
-function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
-  const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
-  const rows = res?.response?.result?.rows ?? [];
-  return rows.map((row) => {
-    const obj: Record<string, string> = {};
-    names.forEach((n, i) => {
-      const cell = row[i];
-      obj[n] = cell == null || cell.value == null ? "" : String(cell.value);
-    });
-    return obj;
-  });
-}
 
 const numOrNull = (s: string): number | null => (s === "" ? null : Number(s));
 const ragOf = (s: string): Health | "" => (s === "R" || s === "A" || s === "G" ? s : "");

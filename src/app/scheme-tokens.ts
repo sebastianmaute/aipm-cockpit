@@ -39,7 +39,7 @@ export const ADVANCED_TOKENS: readonly TokenSpec[] = [
   { token: "--segment-active-fg", labelKey: "schemeTokenSegmentActiveFg" },
 ] as const;
 
-function hexToRgb(hex: string): [number, number, number] {
+export function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
   const n = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
   return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
@@ -48,7 +48,7 @@ function rgbToHex(r: number, g: number, b: number): string {
   const c = (v: number) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
   return `#${c(r)}${c(g)}${c(b)}`;
 }
-function relLuminance([r, g, b]: [number, number, number]): number {
+export function relLuminance([r, g, b]: [number, number, number]): number {
   const f = (v: number) => {
     const s = v / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
