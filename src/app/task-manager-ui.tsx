@@ -2,6 +2,7 @@
 import type React from "react";
 import { type Lang, t } from "./i18n";
 import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
+import { IconButton } from "./icon-button";
 
 export function TabButton({
   active,
@@ -233,15 +234,15 @@ export function ResetColWidthsButton({
   lang: Lang;
 }) {
   return (
-    <button
-      type="button"
+    <IconButton
+      variant="bordered"
+      size="md"
       onClick={onClick}
-      aria-label={t(lang, "colResetWidthsHint")}
+      label={t(lang, "colResetWidthsHint")}
       title={t(lang, "colResetWidthsHint")}
-      className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
     >
       <ResetColWidthsIcon />
-    </button>
+    </IconButton>
   );
 }
 
@@ -281,14 +282,15 @@ export function ResetSizeButton({
   className?: string;
 }) {
   return (
-    <button
-      type="button"
+    <IconButton
+      variant="bordered"
+      size="md"
       onClick={onClick}
-      aria-label={t(lang, "tableResetSizeHint")}
+      label={t(lang, "tableResetSizeHint")}
       title={t(lang, "tableResetSizeHint")}
-      className={`rounded-md border border-line bg-surface p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE} ${className ?? ""}`}
+      className={className}
     >
       <ResetSizeIcon />
-    </button>
+    </IconButton>
   );
 }

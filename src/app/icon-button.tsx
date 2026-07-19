@@ -11,7 +11,7 @@ import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 
 export type IconButtonSize = "sm" | "md";
-export type IconButtonVariant = "ghost" | "danger";
+export type IconButtonVariant = "ghost" | "danger" | "bordered";
 
 // Square padding by size (the icon sets its own dimensions).
 const SIZE_CLASS: Record<IconButtonSize, string> = {
@@ -24,6 +24,10 @@ const VARIANT_CLASS: Record<IconButtonVariant, string> = {
   ghost: "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
   // Destructive affordance (delete/remove): muted at rest, pink on hover.
   danger: "text-muted-foreground hover:bg-ui-pink/10 hover:text-ui-pink-strong",
+  // Quiet bordered box — the house style for toolbar reset/utility icons
+  // (codifies the recipe ResetSizeButton/ResetColWidthsButton already used).
+  bordered:
+    "border border-line bg-surface text-muted-foreground hover:bg-surface-muted hover:text-foreground",
 };
 
 const BASE_CLASS =

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.37";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.37: consolidation sweep (Tier C) — stakeholder/RACI chips → Badge + shared RaciAccountableWarning (deletes a hand-rolled Badge clone); the three Action-Center popovers (escalate/reschedule/rebaseline) → shared ActionPopoverTrigger scaffold + POPOVER_CONFIRM_BTN const; the two Outlook import modals (contacts/calendar) → shared useImportSelection hook + PickListImportModal shell (Pinsker)
+export const APP_VERSION = "0.190.38";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.38: consolidation sweep (Tier D) — useColumnManager (Open Points) now composes the shared useColumnResize + usePopoverDismiss instead of hand-rolling width/persist/resize + the colConfig outside-click (storage key is now tableId-scoped, so a saved Open-Points width resets once); new IconButton "bordered" variant codifies the toolbar reset-icon recipe — ResetSizeButton, ResetColWidthsButton, and the Gantt name-column reset adopt it (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
