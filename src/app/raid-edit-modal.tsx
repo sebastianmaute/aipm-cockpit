@@ -41,6 +41,7 @@ import { categoryLabel, severityLabel, statusLabel } from "./raid-labels";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
+import { filterPickerOptions } from "./picker-filter";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
@@ -138,37 +139,32 @@ export function RaidEditModal({
 
   const statusOpts = statusOptionsFor(draft.category);
 
-  const availableTasks = useMemo(() => {
-    const linked = new Set(draft.linkedTaskIds);
-    const q = taskPickerQuery.trim().toLowerCase();
-    return tasks
-      .filter((tk) => !linked.has(tk.id))
-      .filter((tk) => {
-        if (!q) return true;
-        if (String(tk.id) === q) return true;
-        return tk.taskName.toLowerCase().includes(q);
-      })
-      .slice(0, 20);
-  }, [tasks, draft.linkedTaskIds, taskPickerQuery]);
+  const availableTasks = useMemo(
+    () =>
+      filterPickerOptions(tasks, {
+        query: taskPickerQuery,
+        excludeIds: new Set(draft.linkedTaskIds),
+        getId: (tk) => tk.id,
+        getText: (tk) => tk.taskName,
+      }),
+    [tasks, draft.linkedTaskIds, taskPickerQuery],
+  );
 
   // RAID items eligible to be added as a cause of this draft. Excludes the
   // draft itself, already-selected parents, and any item whose selection
-  // would close a cycle. Filtering happens before the search query is
-  // applied so typing can't bring an invalid pick back into view.
-  const availableCauses = useMemo(() => {
-    const q = causePickerQuery.trim().toLowerCase();
-    const selected = new Set(draft.causedByRaidIds);
-    return raid
-      .filter((r) => r.id !== draft.id)
-      .filter((r) => !selected.has(r.id))
-      .filter((r) => !wouldCreateCycle(raid, draft.id, r.id))
-      .filter((r) => {
-        if (!q) return true;
-        if (String(r.id) === q) return true;
-        return r.title.toLowerCase().includes(q);
-      })
-      .slice(0, 20);
-  }, [raid, draft.id, draft.causedByRaidIds, causePickerQuery]);
+  // would close a cycle (via extraFilter, applied before the search query so
+  // typing can't bring an invalid pick back into view).
+  const availableCauses = useMemo(
+    () =>
+      filterPickerOptions(raid, {
+        query: causePickerQuery,
+        excludeIds: new Set(draft.causedByRaidIds),
+        getId: (r) => r.id,
+        getText: (r) => r.title,
+        extraFilter: (r) => r.id !== draft.id && !wouldCreateCycle(raid, draft.id, r.id),
+      }),
+    [raid, draft.id, draft.causedByRaidIds, causePickerQuery],
+  );
 
   // Items whose `causedByRaidIds` includes this draft — only meaningful for
   // saved items (a brand-new draft can't have caused anything yet).

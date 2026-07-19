@@ -99,6 +99,13 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
   local gate and fail ONLY in CI.
+  ★★ After ANY `globals.css` `@theme` edit or large class/token rename, run axe on a FRESH ISOLATED
+  server (`PORT=3100 npm run dev`, stop with `PORT=3100 npm run stop`) — NEVER the reused long-running
+  dev server. Playwright's `reuseExistingServer:!CI` will attach to a stale `:3000` whose Tailwind
+  hasn't regenerated the new `bg-ui-*` utilities → phantom transparent-fill axe FAILS that a prod build
+  + a fresh port both pass (cost ~5 debug cycles once). Also re-run after killing a `PORT=3100` axe
+  server if `.next/dev/types/*` got corrupted (phantom tsc errors in GENERATED files → `Remove-Item
+  -Recurse -Force .next`, not source).
 - **CI is GitLab** (not GitHub),  (GitLab). Pipeline: install → quality (lint · typecheck · **semgrep** SAST
   BLOCKING [two-scan: a full-severity `--gitlab-sast` report for the widget + a separate `--severity ERROR
   --error` gate] · **dependency-audit** blocking · **file-size-ratchet** BLOCKING · **duplication-gate**
@@ -1087,6 +1094,29 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   those, add motion only. ★ Weak legacy `focus:ring-1 focus:ring-ui-green` fragments are normalized to the
   `ring-2` standard. The shared report/table primitives (`Tile`/`SortHeaderButton`/`TableFilter` in
   `report-table.tsx`, `task-manager-ui.tsx` tabs/reset/print/sort) already carry the atoms.
+- **Design-system primitives (USE these; do NOT hand-roll — see the no-handroll rule):** the
+  DS-sprawl program (0.190.2–0.190.35) built a full primitive layer. Reach for the primitive
+  (or adapt it); ASK before introducing a new control. Controls: `Button` (`button.tsx`;
+  primary/secondary/ghost/destructive × xs/sm/md, `ref`-forwarding, `cursor-pointer` base, folds
+  `AddButton`), `IconButton`/`TextButton` (icon-only / inline action-link, both ref-forwarding),
+  `Input`/`Select`/`Textarea`/`Checkbox` (`form-controls.tsx`; `size` md/xs, `invalid` prop,
+  `<Textarea autoGrow>`), `SegmentedControl`, `ToggleButton`. Surfaces: `Modal`/`ModalHeader`/
+  `EditModalShell` (`modal.tsx` — owns backdrop + focus-trap/restore + Escape + topmost-only
+  stack; default tint `MODAL_BACKDROP_CLASS` = `bg-ui-dark-blue/40`; initial focus seeds the FIRST
+  focusable child, not the un-ringed root), `PopoverPanel` (portal dropdown), `Card` (polymorphic
+  `as`), `Banner` (auto-derives live-region role from severity). Empty/table:
+  `EmptyState`/`AddFirstItemButton`/`Skeleton`/`PanelSkeleton`, `DataTable` + `SortResizeTh`/
+  `SortHeaderButton`/`ColumnResizeHandle`. Display: `RagDot`/`RagBadge`, `Badge`, `CountBadge`,
+  `ProgressTrack`, `FieldError`/`ModalFieldError`/`FieldHint`, `InfoTooltip`, interaction atoms
+  `INTERACTIVE`/`FOCUS_RING`/`TRANSITION`/`PRESS` (`interaction-styles.ts`).
+  ★★ LANDMINES: primitives concatenate `className` with NO tailwind-merge → a class that fights a
+  variant/size PROP loses by CSS source-order (pick the right variant, don't override); ONLY
+  `Button`/`IconButton`/`TextButton` forward `ref` — `Input`/`Select`/`Textarea` do NOT (a
+  ref-needing field stays bespoke); `PopoverPanel` is RIGHT-ALIGN-ONLY + `onClose` must be a stable
+  `useCallback` + `anchorRef`→the trigger button; a growable textarea needs `autoGrow` (the
+  primitive forces `resize-none`). ★ Deliberately BESPOKE (not sprawl — don't migrate): help-menu
+  (draggable window), project-switcher / ask-claude-menu (menu/dialog popovers), colConfig popover,
+  filled-semantic one-offs (chat pink Stop, purple consent w/ bespoke ring).
 - **Empty + loading primitives:** `empty-state.tsx` `EmptyState` (presentational; `title`/`description`/
   `actions[]` props, i18n done by caller; CTA buttons carry `INTERACTIVE`; `compact` for inline card slots) —
   use it instead of a bare `<p>no data</p>` for true "no rows" messages (NOT `<td>`-cell or dashed-`<div>`

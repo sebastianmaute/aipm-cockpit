@@ -7,6 +7,7 @@ import { Button } from "./button";
 import { TextButton } from "./text-button";
 import { Spinner } from "./spinner";
 import { Card } from "./card";
+import { Badge } from "./badge";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -117,13 +118,14 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-ui-dark-blue/40 hover:bg-surface-muted"
             >
               <span>{t(lang, "actionLearningPrefix")}</span>
-              <span
-                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+              <Badge
+                size="sm"
+                className={`font-semibold uppercase tracking-wide ${
                   learningEnabled ? "bg-ui-green text-white" : "bg-surface-muted text-muted-foreground"
                 }`}
               >
                 {t(lang, learningEnabled ? "actionLearningOn" : "actionLearningOff")}
-              </span>
+              </Badge>
             </button>
           )}
           <PrintButton lang={lang} />

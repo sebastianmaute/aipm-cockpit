@@ -20,7 +20,7 @@ import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
 import { effectiveAssignee } from "./resource-foundation";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { DependenciesEditor } from "./dependencies-editor";
-import { usePopoverDismiss } from "./use-popover-dismiss";
+import { IconButton } from "./icon-button";
 import { PopoverPanel } from "./popover-panel";
 import type { Contact } from "./contacts";
 import { PRIORITIES, type ChangeItem, type Priority, type Resource, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
@@ -591,9 +591,9 @@ function TaskRowImpl({
               </Badge>
             </button>
           ) : (
-            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityStyle[task.priority]}`}>
+            <Badge pill className={`font-medium ${priorityStyle[task.priority]}`}>
               {priorityLabel(lang, task.priority)}
-            </span>
+            </Badge>
           )}
         </Td>
       )}
@@ -813,37 +813,42 @@ function DepRelationsCellImpl({ task, editable }: DepRelationsCellProps) {
   const { lang, onInlinePatch } = useTaskRowContext();
   const tasksById = useTaskLookup();
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(open, wrapRef, () => setOpen(false));
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
   const deps = task.dependencies ?? [];
   // Only materialise the predecessor list while the popover is open — otherwise
   // every mounted row would re-spread the whole task Map on any edit (the cell
   // is a lookup-context consumer). One popover open at a time ⇒ O(n), not O(rows·n).
   const allTasks = useMemo(() => (open ? [...tasksById.values()] : EMPTY_TASKS), [open, tasksById]);
   return (
-    <div ref={wrapRef} className="relative">
+    <div>
       <div className="flex items-start gap-1">
         <DependencyChips deps={deps} />
         {editable && (
-          <button
-            type="button"
+          <IconButton
+            ref={btnRef}
             onClick={() => setOpen((o) => !o)}
-            aria-label={`${t(lang, "depEditRelations")} – ${task.taskName}`}
+            label={`${t(lang, "depEditRelations")} – ${task.taskName}`}
             title={t(lang, "depEditRelations")}
             aria-expanded={open}
-            className={`shrink-0 rounded-md p-1 text-muted-foreground hover:bg-surface-muted hover:text-foreground ${INTERACTIVE}`}
+            className="shrink-0"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-3.5 w-3.5">
               <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5a1 1 0 01-.464.263l-3 .857a.5.5 0 01-.618-.618l.857-3a1 1 0 01.263-.464l8.5-8.5z" />
             </svg>
-          </button>
+          </IconButton>
         )}
       </div>
-      {open && editable && (
-        <div
+      {/* Portal popover escapes the table scroller's overflow clip. */}
+      {editable && (
+        <PopoverPanel
+          open={open}
+          anchorRef={btnRef}
+          onClose={close}
           role="dialog"
-          aria-label={t(lang, "depEditRelations")}
-          className="absolute left-0 top-full z-40 mt-1 w-80 rounded-lg border border-line bg-surface p-3"
+          ariaLabel={t(lang, "depEditRelations")}
+          className="w-80 p-3"
+          autoFocus={false}
         >
           <DependenciesEditor
             lang={lang}
@@ -852,7 +857,7 @@ function DepRelationsCellImpl({ task, editable }: DepRelationsCellProps) {
             ownTaskId={task.id}
             onChange={(next) => onInlinePatch(task.id, { dependencies: next })}
           />
-        </div>
+        </PopoverPanel>
       )}
     </div>
   );

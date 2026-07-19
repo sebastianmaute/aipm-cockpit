@@ -23,7 +23,7 @@ import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
-import { Input } from "./form-controls";
+import { Checkbox, Input } from "./form-controls";
 
 interface HistoryPanelProps {
   lang: Lang;
@@ -264,12 +264,10 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
           {versions.map((v) => (
             <li key={v.id} className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-2 text-sm">
               <span className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={selected.includes(v.id)}
                   onChange={() => toggleSelect(v.id)}
                   aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}`}
-                  className="accent-ui-dark-blue"
                 />
                 <Badge size="md" className={v.trigger === "manual" ? "bg-ui-green/15 text-ui-dark-blue dark:text-ui-light-grey" : "bg-surface-muted text-muted-foreground"}>
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}

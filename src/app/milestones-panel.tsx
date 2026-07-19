@@ -38,8 +38,8 @@ import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS, INNER_TABLE_CLASS } from "./view-styles";
 import { ViewCallout } from "./view-callout";
 import { DataTable } from "./data-table";
-import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { Select } from "./form-controls";
+import { INTERACTIVE } from "./interaction-styles";
+import { Checkbox, Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { useRowSelection } from "./use-row-selection";
@@ -395,12 +395,11 @@ function MilestonesPanelBody({
           head={<>
             <tr className="text-left">
               <th className="px-3 py-1" style={{ width: 36, minWidth: 36 }}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   aria-label={t(lang, "selectAllVisibleRows")}
                   checked={sel.allSelected(visibleIds)}
                   onChange={() => sel.toggleAllVisible(visibleIds)}
-                  className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                  className="cursor-pointer"
                 />
               </th>
               {!hiddenSet.has("name") && (
@@ -454,12 +453,11 @@ function MilestonesPanelBody({
                   className={["group border-t border-line", flashOutlineClass(flashId === m.id)].filter(Boolean).join(" ")}
                 >
                   <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       aria-label={t(lang, "selectItem", m.name)}
                       checked={sel.isSelected(m.id)}
                       onChange={() => sel.toggle(m.id)}
-                      className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                      className="cursor-pointer"
                     />
                   </td>
                   {!hiddenSet.has("name") && (

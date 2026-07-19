@@ -88,6 +88,13 @@ export function selectStatements(): SqlStmt[] {
   return TABLE_NAMES.map((t) => ({ sql: `SELECT * FROM ${t}` }));
 }
 
+/** SqlArg builders shared by the out-of-TABLE_NAMES schema modules (comm-templates,
+ *  comm/committee-report versions, learning, operating-guides, snapshots, version
+ *  history, color-schemes). Single-source the text/integer arg shape so a booking
+ *  in any of them can't drift from the workspace codec. */
+export const txt = (value: string) => ({ type: "text" as const, value });
+export const int = (value: number) => ({ type: "integer" as const, value: String(value) });
+
 export function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
   const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
   const rows = res?.response?.result?.rows ?? [];

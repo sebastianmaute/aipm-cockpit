@@ -2,7 +2,7 @@
 // the GLOBAL append-only committee_report_versions table (steering-committee meeting
 // report snapshots). MUST stay OUT of turso-schema's TABLE_NAMES (a guard test enforces
 // it) so the workspace save's per-table DELETE never touches it.
-import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import { rowObjects, txt, int, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 
 export interface MeetingReportVersion {
   id: string;
@@ -16,9 +16,6 @@ export interface MeetingReportVersion {
 export const MEETING_REPORT_VERSION_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS committee_report_versions (id TEXT PRIMARY KEY, project_id TEXT, meeting_id INTEGER, html TEXT, is_auto INTEGER, captured_at TEXT)`,
 ];
-
-const txt = (value: string) => ({ type: "text" as const, value });
-const int = (value: number) => ({ type: "integer" as const, value: String(value) });
 
 export const versionsSelect = (projectId: string, meetingId: number): SqlStmt[] => [
   { sql: `SELECT * FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? ORDER BY captured_at DESC`, args: [txt(projectId), int(meetingId)] },
@@ -46,19 +43,6 @@ export function pruneVersionsStatements(projectId: string, meetingId: number, ke
     sql: `DELETE FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? AND id NOT IN (SELECT id FROM committee_report_versions WHERE project_id = ? AND meeting_id = ? ORDER BY captured_at DESC, id DESC LIMIT ?)`,
     args: [txt(projectId), int(meetingId), txt(projectId), int(meetingId), int(keep)],
   }];
-}
-
-function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
-  const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
-  const rows = res?.response?.result?.rows ?? [];
-  return rows.map((row) => {
-    const obj: Record<string, string> = {};
-    names.forEach((n, i) => {
-      const cell = row[i];
-      obj[n] = cell == null || cell.value == null ? "" : String(cell.value);
-    });
-    return obj;
-  });
 }
 
 export function rowsToVersions(res: PipelineResultLike | undefined): MeetingReportVersion[] {

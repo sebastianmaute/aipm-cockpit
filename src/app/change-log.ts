@@ -1,6 +1,7 @@
 // Pure helpers for the Change-control Log. No React, no DOM. Sibling to raid.ts.
 import type { Health } from "./health";
 import { mintId } from "./id-mint-session";
+import { groupByLinkedTaskIds } from "./linked-task-index";
 import { severityRag } from "./raid";
 import {
   CHANGE_STATUSES, CHANGE_TYPES,
@@ -44,15 +45,7 @@ export function countByStatus(items: readonly ChangeItem[]): Record<ChangeStatus
 
 /** Reverse index: task id → change items that link it. */
 export function buildChangeByTaskIndex(items: readonly ChangeItem[]): Map<number, ChangeItem[]> {
-  const idx = new Map<number, ChangeItem[]>();
-  for (const item of items) {
-    for (const tid of item.linkedTaskIds) {
-      const list = idx.get(tid);
-      if (list) list.push(item);
-      else idx.set(tid, [item]);
-    }
-  }
-  return idx;
+  return groupByLinkedTaskIds(items);
 }
 
 export type ChangeSortKey =

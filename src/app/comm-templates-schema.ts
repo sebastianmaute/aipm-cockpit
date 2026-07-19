@@ -1,16 +1,13 @@
 // src/app/comm-templates-schema.ts — pure SQL builders + row decoder for the
 // GLOBAL comm_templates table. This table is cross-project and MUST stay out of
 // turso-schema's TABLE_NAMES so the workspace overwrite never touches it.
-import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import { rowObjects, txt, int, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 import { COMM_TEMPLATE_CATEGORIES } from "./comm-templates";
 import type { CommTemplate, CommTemplateCategory } from "./comm-templates";
 
 export const COMM_TEMPLATE_DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS comm_templates (id TEXT PRIMARY KEY, category TEXT, name TEXT, body TEXT, is_default INTEGER, created_at TEXT, updated_at TEXT)`,
 ];
-
-const txt = (value: string) => ({ type: "text" as const, value });
-const int = (value: number) => ({ type: "integer" as const, value: String(value) });
 
 export const templateSelect = (): SqlStmt[] => [{ sql: `SELECT * FROM comm_templates` }];
 
@@ -30,20 +27,6 @@ export function setDefaultStatements(category: CommTemplateCategory, id: string)
     { sql: `UPDATE comm_templates SET is_default = 0 WHERE category = ?`, args: [txt(category)] },
     { sql: `UPDATE comm_templates SET is_default = 1 WHERE id = ?`, args: [txt(id)] },
   ];
-}
-
-// Decode helper mirrors snapshot-schema's private rowObjects: cols[i].name -> rows[r][i].value
-function rowObjects(res: PipelineResultLike | undefined): Record<string, string>[] {
-  const names = (res?.response?.result?.cols ?? []).map((c) => c?.name ?? "");
-  const rows = res?.response?.result?.rows ?? [];
-  return rows.map((row) => {
-    const obj: Record<string, string> = {};
-    names.forEach((n, i) => {
-      const cell = row[i];
-      obj[n] = cell == null || cell.value == null ? "" : String(cell.value);
-    });
-    return obj;
-  });
 }
 
 export function rowsToTemplates(res: PipelineResultLike | undefined): CommTemplate[] {

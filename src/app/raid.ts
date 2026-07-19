@@ -5,6 +5,7 @@
 import type { Health } from "./health";
 import type { Resource } from "./types";
 import { mintId } from "./id-mint-session";
+import { groupByLinkedTaskIds } from "./linked-task-index";
 import { effectivePersonName } from "./resource-foundation";
 import {
   ASSUMPTION_STATUSES,
@@ -105,15 +106,7 @@ export function defaultStatusForCategory(category: RaidCategory): RaidStatus {
 export function buildRaidByTaskIndex(
   raid: readonly RaidItem[],
 ): Map<number, RaidItem[]> {
-  const idx = new Map<number, RaidItem[]>();
-  for (const item of raid) {
-    for (const tid of item.linkedTaskIds) {
-      const list = idx.get(tid);
-      if (list) list.push(item);
-      else idx.set(tid, [item]);
-    }
-  }
-  return idx;
+  return groupByLinkedTaskIds(raid);
 }
 
 /** Counts per-category for a list of RAID items. */

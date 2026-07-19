@@ -21,7 +21,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton 
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
-import { Input } from "./form-controls";
+import { Checkbox, Input } from "./form-controls";
 import { AddButton } from "./pane-toolbar";
 
 const DIRECTORY_COL_WIDTHS = {
@@ -290,12 +290,11 @@ function ResourceDirectoryInner({
               <tr>
                 {bulkEnabled && (
                   <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       aria-label={t(lang, "selectAllVisibleRows")}
                       checked={sel.allSelected(visibleIds)}
                       onChange={() => sel.toggleAllVisible(visibleIds)}
-                      className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                      className="cursor-pointer"
                     />
                   </th>
                 )}
@@ -347,12 +346,11 @@ function ResourceDirectoryInner({
                 <tr key={r.id} className="cursor-pointer align-middle hover:bg-surface-muted" onClick={() => onEditResource(r)}>
                   {bulkEnabled && (
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         aria-label={t(lang, "selectItem", resourceDisplayName(r))}
                         checked={sel.isSelected(r.id)}
                         onChange={() => sel.toggle(r.id)}
-                        className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
+                        className="cursor-pointer"
                       />
                     </td>
                   )}

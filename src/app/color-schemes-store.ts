@@ -13,7 +13,7 @@
 // (fresh device, mid-mount-refresh window) — a lost-update wipe. Per-row ops only
 // ever touch the row being changed, so other devices' schemes are never lost.
 import { runTursoPipeline } from "./turso-pipeline";
-import type { PipelineResultLike, SqlStmt } from "./turso-schema";
+import { txt, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
 import { loadSchemes, cleanScheme, type ColorScheme } from "./color-schemes";
 
@@ -23,7 +23,6 @@ const DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS ${COLOR_SCHEMES_TABLE} (id TEXT PRIMARY KEY, data TEXT)`,
 ];
 const ddl = (): SqlStmt[] => DDL.map((sql) => ({ sql }));
-const txt = (value: string) => ({ type: "text" as const, value });
 const schemesSelect = (): SqlStmt[] => [{ sql: `SELECT id, data FROM ${COLOR_SCHEMES_TABLE}` }];
 
 /** Decode + SANITIZE DB rows. color_schemes is a SHARED-TENANT surface (any

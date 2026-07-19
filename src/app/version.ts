@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.35";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.35: modal a11y follow-ups — shared Modal seeds focus on the first focusable child (not the un-ringed root, WCAG 2.4.7); comm send-preview locks dismissal while sending (Escape/backdrop/Cancel can't pretend-cancel an in-flight send), marks Send aria-busy with a "Sending…" label, and names the dialog via its heading (Pinsker)
+export const APP_VERSION = "0.190.36";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.36: consolidation sweep (Tier A+B) — primitive swaps + pure dedupe: task-row dep popover→PopoverPanel (fixes table-scroller clip) + IconButton + Badge; register/history/version-diff/timelog select checkboxes→Checkbox (fixes the inert text-ui-dark-blue accent a11y gap); reset buttons→ResetSizeButton; resource-picker outside-click→usePopoverDismiss; Turso txt/int/rowObjects single-sourced from turso-schema (8 files); scheme-contrast color math→scheme-tokens; RAID/Change buildByTaskIndex→shared groupByLinkedTaskIds; edit-modal pickers→filterPickerOptions; inline-AI focus trap→useFocusTrap (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

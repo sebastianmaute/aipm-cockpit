@@ -5,9 +5,11 @@ const FOCUSABLE_SELECTOR =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 /**
- * Trap keyboard focus within `ref` while `active`. On activation it focuses the
- * first focusable element; Tab/Shift+Tab wrap within the container; Escape calls
- * `onEscape`; on deactivation focus is restored to whatever had it before.
+ * Trap keyboard focus within `ref` while `active`. On activation it focuses
+ * `initialFocusRef` if supplied (e.g. a text input that should receive the
+ * caret), else the first focusable element; Tab/Shift+Tab wrap within the
+ * container; Escape calls `onEscape`; on deactivation focus is restored to
+ * whatever had it before.
  *
  * Used by the mobile sidebar drawer (#25) — the app's first real off-canvas
  * surface with a focus trap. `onEscape` must be stable (wrap in useCallback) or
@@ -17,6 +19,7 @@ export function useFocusTrap(
   ref: RefObject<HTMLElement | null>,
   active: boolean,
   onEscape?: () => void,
+  initialFocusRef?: RefObject<HTMLElement | null>,
 ): void {
   useEffect(() => {
     if (!active) return;
@@ -26,7 +29,7 @@ export function useFocusTrap(
     const focusables = () =>
       Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
 
-    focusables()[0]?.focus();
+    (initialFocusRef?.current ?? focusables()[0])?.focus();
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
@@ -54,5 +57,5 @@ export function useFocusTrap(
       document.removeEventListener("keydown", onKeyDown, true);
       prevFocus?.focus?.();
     };
-  }, [active, ref, onEscape]);
+  }, [active, ref, onEscape, initialFocusRef]);
 }
