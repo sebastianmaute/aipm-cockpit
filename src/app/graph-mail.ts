@@ -3,6 +3,12 @@
 // contacts/calendar integrations; SP4 only adds the Mail.* scopes.
 const GRAPH = "https://graph.microsoft.com/v1.0";
 
+// Bound every Graph POST so a stalled network (captive portal, hung TLS) can't
+// leave the caller waiting forever. The send-preview modal locks dismissal
+// while a send is in flight, so an unbounded fetch here would become a keyboard
+// trap (WCAG 2.1.2); this guarantees the promise settles and the lock releases.
+const GRAPH_POST_TIMEOUT_MS = 30_000;
+
 export const MAIL_READWRITE_SCOPE = ["Mail.ReadWrite"] as const;
 export const MAIL_SEND_SCOPE = ["Mail.Send"] as const;
 
@@ -39,6 +45,7 @@ async function graphPost(token: string, path: string, payload: unknown): Promise
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(GRAPH_POST_TIMEOUT_MS),
   });
   if (!res.ok) throw new GraphMailError(res.status, `Graph ${path} failed (${res.status})`);
   return res;

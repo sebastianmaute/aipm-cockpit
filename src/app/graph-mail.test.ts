@@ -56,6 +56,13 @@ describe("graph mail calls", () => {
     expect(JSON.parse(opts.body).message.toRecipients[0].emailAddress.address).toBe("a@b.com");
   });
 
+  it("bounds the POST with an abort signal (so a hung send can't trap the caller)", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 202, json: async () => ({}) });
+    await sendMail("tok", buildGraphMessage("a@b.com", "S", "<p>b</p>"));
+    const [, opts] = fetchMock.mock.calls[0];
+    expect(opts.signal).toBeInstanceOf(AbortSignal);
+  });
+
   it("throws GraphMailError on non-2xx", async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
     await expect(sendMail("tok", buildGraphMessage("a@b.com", "S", "<p>b</p>"))).rejects.toBeInstanceOf(GraphMailError);

@@ -81,6 +81,20 @@ describe("Modal", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  test("focuses the first focusable child when no initialFocusRef is given", () => {
+    render(
+      <Modal open onClose={() => {}} ariaLabel="Test">
+        <div>
+          <button type="button" data-testid="first">First</button>
+          <button type="button" data-testid="second">Second</button>
+        </div>
+      </Modal>,
+    );
+    // Focus must land on a real control (visible ring), not the tabIndex=-1
+    // dialog root (un-ringed backdrop — WCAG 2.4.7).
+    expect(screen.getByTestId("first")).toHaveFocus();
+  });
+
   test("focuses initialFocusRef on open", () => {
     function Harness() {
       const ref = useRef<HTMLInputElement | null>(null);

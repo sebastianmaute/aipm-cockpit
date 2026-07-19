@@ -1,7 +1,7 @@
 {
   "src/app/chat-panel.tsx": 981,
   "src/app/resources-panel.tsx": 828,
-  "src/app/task-manager.tsx": 2510,
+  "src/app/task-manager.tsx": 2511,
   "src/app/task-row.tsx": 863,
   "src/app/tasks-section.tsx": 955,
   "src/app/timelog-panel.tsx": 957,
