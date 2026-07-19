@@ -1,17 +1,17 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
 import { t } from "./i18n";
 import { useSettings } from "./use-settings";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { collectDocuments, type DocRef, type DocSource, type DocSourceKind } from "./knowledge";
-import { isSafeHttpUrl, type KnowledgeLink, type KnowledgeLinkKind } from "./document-link";
+import { isSafeHttpUrl, type KnowledgeItem, type KnowledgeLink, type KnowledgeLinkKind } from "./document-link";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { isSharePointEnabled } from "./m365-sharepoint";
-import { INTERACTIVE } from "./interaction-styles";
+import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { Input, Select } from "./form-controls";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
@@ -116,7 +116,12 @@ export function KnowledgePanel() {
   const [manualName, setManualName] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualKind, setManualKind] = useState<KnowledgeLinkKind>("url");
+  // Task ids to attach when creating a STANDALONE item (the optional 2nd step).
+  const [linkTaskIds, setLinkTaskIds] = useState<number[]>([]);
   const manualValid = manualName.trim() !== "" && isSafeHttpUrl(manualUrl.trim());
+  const STANDALONE_KEY = "__standalone__";
+  const isStandalone = targetKey === STANDALONE_KEY;
+  const kItems: readonly KnowledgeItem[] = ws.knowledgeItems ?? [];
   const targets: DocSource[] = useMemo(
     () => [
       ...tasks.map((x) => ({ kind: "task" as const, id: x.id, name: x.taskName, view: "open-points" as const })),
@@ -146,6 +151,43 @@ export function KnowledgePanel() {
     setManualName("");
     setManualUrl("");
   }
+
+  // --- Standalone Knowledge-library items (Workspace.knowledgeItems) ----------
+
+  function addStandaloneItem() {
+    if (!manualValid) return;
+    const url = manualUrl.trim();
+    if (kItems.some((it) => it.url === url)) return; // dedupe by URL
+    const item: KnowledgeItem = {
+      id: url,
+      kind: "file",
+      name: manualName.trim(),
+      url,
+      addedAt: new Date().toISOString(),
+    };
+    if (manualKind !== "document") item.linkKind = manualKind;
+    if (linkTaskIds.length) item.taskIds = [...linkTaskIds];
+    ws.setKnowledgeItems((prev) => [...(prev ?? []), item]);
+    setManualName("");
+    setManualUrl("");
+    setLinkTaskIds([]);
+  }
+  function removeStandalone(idx: number) {
+    ws.setKnowledgeItems((prev) => (prev ?? []).filter((_, i) => i !== idx));
+  }
+  function setStandaloneTasks(idx: number, taskIds: number[]) {
+    ws.setKnowledgeItems((prev) =>
+      (prev ?? []).map((it, i) => {
+        if (i !== idx) return it;
+        const next: KnowledgeItem = { ...it };
+        if (taskIds.length) next.taskIds = taskIds;
+        else delete next.taskIds;
+        return next;
+      }),
+    );
+  }
+  const selectedTaskIds = (e: ChangeEvent<HTMLSelectElement>): number[] =>
+    Array.from(e.target.selectedOptions, (o) => Number(o.value));
 
   const counts = sourceCounts(docs);
   const chipKinds = SOURCE_ORDER.filter((k) => counts[k] > 0);
@@ -184,6 +226,7 @@ export function KnowledgePanel() {
                 className="ml-2"
               >
                 <option value="">—</option>
+                <option value={STANDALONE_KEY}>{t(lang, "knowledgeStandaloneOption")}</option>
                 {targets.map((s) => (
                   <option key={`${s.kind}:${s.id}`} value={`${s.kind}:${s.id}`}>
                     {t(lang, SOURCE_LABEL[s.kind])}: {s.name}
@@ -199,7 +242,7 @@ export function KnowledgePanel() {
               {t(lang, "cancel")}
             </Button>
           </div>
-          {target && (
+          {(target || isStandalone) && (
             <>
               <div className="mb-2 flex flex-wrap items-end gap-2">
                 <label className="flex flex-col gap-1 text-xs text-foreground">
@@ -235,23 +278,47 @@ export function KnowledgePanel() {
                     aria-label={t(lang, "documentsManualUrl")}
                     onChange={(e) => setManualUrl(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") addManualLink(target);
+                      if (e.key === "Enter") {
+                        if (isStandalone) addStandaloneItem();
+                        else if (target) addManualLink(target);
+                      }
                     }}
                     size="xs"
                     className="w-full min-w-[12rem]"
                   />
                 </label>
+                {isStandalone && (
+                  <label className="flex flex-col gap-1 text-xs text-foreground">
+                    <span>{t(lang, "knowledgeLinkedTasks")}</span>
+                    <select
+                      multiple
+                      aria-label={t(lang, "knowledgeLinkedTasks")}
+                      value={linkTaskIds.map(String)}
+                      onChange={(e) => setLinkTaskIds(selectedTaskIds(e))}
+                      className={`h-20 min-w-[10rem] rounded border border-line bg-surface p-1 text-xs ${FOCUS_RING}`}
+                    >
+                      {tasks.map((tk) => (
+                        <option key={tk.id} value={tk.id}>
+                          {tk.taskName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => addManualLink(target)}
+                  onClick={() => {
+                    if (isStandalone) addStandaloneItem();
+                    else if (target) addManualLink(target);
+                  }}
                   disabled={!manualValid}
                 >
                   {t(lang, "documentsManualAdd")}
                 </Button>
               </div>
               <p className="mb-2 text-xs text-muted-foreground">{t(lang, "documentsManualHint")}</p>
-              {canAddDocument && (
+              {canAddDocument && target && (
                 <KnowledgeLinksFieldGated
                   value={linksOf(target)}
                   onChange={(next) => setDocsForSource(target, next)}
@@ -263,7 +330,7 @@ export function KnowledgePanel() {
         </div>
       )}
 
-      {docs.length === 0 ? (
+      {docs.length === 0 && kItems.length === 0 ? (
         <AddFirstItemButton
           onAdd={() => setAddOpen(true)}
           text={t(lang, "documentsTabEmpty")}
@@ -330,8 +397,67 @@ export function KnowledgePanel() {
             <ResetSizeButton onClick={reset} lang={lang} />
           </div>
 
+          {kItems.length > 0 && (
+            <section className="mb-4">
+              <h3 className="mb-2 text-sm font-medium text-foreground">{t(lang, "knowledgeLibraryHeading")}</h3>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {kItems.map((it, idx) => {
+                  const ft = fileTypeOf(it);
+                  const safe = isSafeHttpUrl(it.url);
+                  return (
+                    <Card key={`${it.id}:${idx}`} className="relative flex flex-col gap-2 p-3">
+                      <IconButton
+                        variant="danger"
+                        label={`${t(lang, "documentsRemove")} – ${it.name}`}
+                        title={t(lang, "documentsRemove")}
+                        onClick={() => removeStandalone(idx)}
+                        className="absolute right-2 top-2 text-xs"
+                      >
+                        ✕
+                      </IconButton>
+                      <div className="text-2xl" aria-hidden="true">{ft.icon}</div>
+                      <div className="pr-5">
+                        {safe ? (
+                          <a
+                            href={it.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-ui-dark-blue hover:underline dark:text-ui-light-grey"
+                          >
+                            {it.name} ↗
+                          </a>
+                        ) : (
+                          <span className="font-medium text-foreground">{it.name}</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{t(lang, DOC_TYPE_LABEL[ft.labelKey])}</div>
+                      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                        <span>{t(lang, "knowledgeLinkedTasks")}</span>
+                        <select
+                          multiple
+                          aria-label={`${t(lang, "knowledgeLinkedTasks")} – ${it.name} (${idx + 1})`}
+                          value={(it.taskIds ?? []).map(String)}
+                          onChange={(e) => setStandaloneTasks(idx, selectedTaskIds(e))}
+                          className={`h-16 rounded border border-line bg-surface p-1 ${FOCUS_RING}`}
+                        >
+                          {tasks.map((tk) => (
+                            <option key={tk.id} value={tk.id}>
+                              {tk.taskName}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {visible.length === 0 ? (
-            <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t(lang, "documentsNoneForSource")}</p>
+            docs.length > 0 ? (
+              <p className="px-1 py-6 text-center text-sm text-muted-foreground">{t(lang, "documentsNoneForSource")}</p>
+            ) : null
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {visible.map((r, i) => {

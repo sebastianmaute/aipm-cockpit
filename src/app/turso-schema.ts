@@ -26,6 +26,7 @@ import {
   sanitizeSteeringCommittee,
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
+import { sanitizeKnowledgeItems } from "./document-link";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -173,6 +174,15 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave undefined
     }
   }
+  const kiRow = rowObjects(byTable.get("meta")).find((r) => r.key === "knowledge_items");
+  if (kiRow?.value) {
+    try {
+      const ki = sanitizeKnowledgeItems(JSON.parse(kiRow.value));
+      if (ki.length) ws.knowledgeItems = ki;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
   return migrateWorkspaceV10(ws);
 }
 
@@ -215,6 +225,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.features !== next.features) dirty.add("meta");
   if (prev.steeringCommittee !== next.steeringCommittee) dirty.add("meta");
   if (prev.timelogLinks !== next.timelogLinks) dirty.add("meta");
+  if (prev.knowledgeItems !== next.knowledgeItems) dirty.add("meta");
   return dirty;
 }
 
@@ -291,6 +302,15 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "timelog_links" },
           { type: "text", value: JSON.stringify(ws.timelogLinks) },
+        ],
+      });
+    }
+    if (ws.knowledgeItems && ws.knowledgeItems.length) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "knowledge_items" },
+          { type: "text", value: JSON.stringify(ws.knowledgeItems) },
         ],
       });
     }

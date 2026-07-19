@@ -580,6 +580,7 @@ const enUS = {
   chatGuidesLoading: "Loading operating guides…",
   chatSend: "Send",
   chatThinking: "Thinking…",
+  chatConfigureAi: "Configure AI",
   chatNoApiKey:
     "Add your Anthropic API key in Settings to start chatting.",
   secretLockPassphrase: "Require a passphrase to unlock",
@@ -3012,6 +3013,10 @@ const enUS = {
   exportLabelShifts: "Shifts",
   exportLabelProject: "Project details",
   exportLabelStatus: "Status report",
+  exportLabelKnowledgeItems: "Knowledge items",
+  knowledgeStandaloneOption: "Standalone item (Knowledge library)",
+  knowledgeLibraryHeading: "Knowledge library",
+  knowledgeLinkedTasks: "Linked tasks",
 
   settingsSectionInformationFlows: "Information flows",
   settingsExpertMode: "Expert mode",
@@ -3384,6 +3389,8 @@ const enUS = {
   versionHighlightThemeDecouple: "AIPM and Dashboard are now optional importable themes (Settings - Appearance - Theme gallery); Harbor is the default look.",
   versionHighlightUiTokenRename: "Internal palette tokens renamed to a neutral prefix; no visual change.",
   versionHighlightHeroicons: "Unified Heroicons icon set across the whole UI; no functional change.",
+  versionHighlightKnowledgeItems: "Knowledge library: add standalone documents, Confluence pages, and web links that aren't tied to an item, and optionally link each to one or more tasks.",
+  versionHighlightAiSettingsTool: "The AI assistant can now adjust safe app settings on request (density, view hints, table/board mode, feature modules, next-actions weights) - never keys, secrets, or storage.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

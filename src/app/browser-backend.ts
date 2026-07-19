@@ -7,6 +7,7 @@
 import { defaultResourcePlan } from "./resource-foundation";
 import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
+import { sanitizeKnowledgeItems } from "./document-link";
 import { migrateTaskStatus } from "./task-status";
 import {
   type Absence,
@@ -60,6 +61,7 @@ const KV_FIELDVIS_KEY = "fieldVisibility";
 const KV_FEATURES_KEY = "features";
 const KV_STEERING_KEY = "steeringCommittee";
 const KV_TIMELOG_LINKS_KEY = "timelogLinks";
+const KV_KNOWLEDGE_ITEMS_KEY = "knowledgeItems";
 import {
   type StorageBackend,
   type Workspace,
@@ -126,6 +128,7 @@ export class BrowserBackend implements StorageBackend {
     let features: readonly FeatureModuleId[] | undefined;
     let steeringCommittee: SteeringCommittee | undefined;
     let timelogLinks: Workspace["timelogLinks"] | undefined;
+    let knowledgeItems: Workspace["knowledgeItems"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -150,6 +153,7 @@ export class BrowserBackend implements StorageBackend {
         idbFeatures,
         idbSteeringCommittee,
         idbTimelogLinks,
+        idbKnowledgeItems,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -171,6 +175,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_FEATURES_KEY),
         idbGet(KV_STEERING_KEY),
         idbGet(KV_TIMELOG_LINKS_KEY),
+        idbGet(KV_KNOWLEDGE_ITEMS_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -200,6 +205,11 @@ export class BrowserBackend implements StorageBackend {
       steeringCommittee = sanitizeSteeringCommittee(idbSteeringCommittee);
       // Optional singleton: junk/empty links sanitize to undefined.
       timelogLinks = sanitizeTimelogLinks(idbTimelogLinks);
+      // Optional list: junk/empty knowledge items sanitize to [] → keep undefined.
+      {
+        const ki = sanitizeKnowledgeItems(idbKnowledgeItems);
+        knowledgeItems = ki.length ? ki : undefined;
+      }
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -223,6 +233,7 @@ export class BrowserBackend implements StorageBackend {
     if (features !== undefined) raw.features = features;
     if (steeringCommittee) raw.steeringCommittee = steeringCommittee;
     if (timelogLinks) raw.timelogLinks = timelogLinks;
+    if (knowledgeItems) raw.knowledgeItems = knowledgeItems;
     const ws = migrateWorkspaceV10(raw);
 
     try {
@@ -351,6 +362,10 @@ export class BrowserBackend implements StorageBackend {
       ws.timelogLinks
         ? idbSet(KV_TIMELOG_LINKS_KEY, ws.timelogLinks)
         : idbDelete(KV_TIMELOG_LINKS_KEY),
+      // Delete-on-absent so cleared knowledge items don't linger and reload stale.
+      ws.knowledgeItems && ws.knowledgeItems.length
+        ? idbSet(KV_KNOWLEDGE_ITEMS_KEY, ws.knowledgeItems)
+        : idbDelete(KV_KNOWLEDGE_ITEMS_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's

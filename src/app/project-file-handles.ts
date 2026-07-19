@@ -12,7 +12,6 @@
  */
 
 import type { FsHandle } from "./storage";
-import { ensureStorageMigrated } from "./storage-migration";
 
 const HANDLES_DB_NAME = "aipm-cockpit-project-handles";
 const HANDLES_DB_VERSION = 1;
@@ -24,7 +23,6 @@ function idbAvailable(): boolean {
 }
 
 async function openHandlesDb(): Promise<IDBDatabase> {
-  await ensureStorageMigrated(); // migrate legacy storage namespace before first open
   return new Promise((resolve, reject) => {
     const req = window.indexedDB.open(HANDLES_DB_NAME, HANDLES_DB_VERSION);
     req.onupgradeneeded = () => {

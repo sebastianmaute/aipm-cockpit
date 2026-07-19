@@ -204,7 +204,7 @@ export const TOOL_DEFS = [
   {
     name: "list_tasks",
     description:
-      "List every task in the LOP with all fields. Use this whenever you need to know what's in the app.",
+      "List every task in the app with all fields. Use this whenever you need to know what's in the app.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -252,7 +252,7 @@ export const TOOL_DEFS = [
   {
     name: "delete_all_tasks",
     description:
-      "Delete every task in the LOP. Always confirm with the user in chat before calling this.",
+      "Delete every task in the app. Always confirm with the user in chat before calling this.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -475,6 +475,57 @@ export const TOOL_DEFS = [
       type: "object",
       properties: { id: { type: "number" } },
       required: ["id"],
+    },
+  },
+  {
+    name: "update_settings",
+    description:
+      "Update a SAFE subset of the app's own settings when the user asks to change how the app looks or behaves: dashboard density, per-view hint banners, the Open Points table/board mode, which feature modules are enabled, and next-actions ranking weights. It CANNOT touch API keys, secrets, storage/backends, or any integration credential. All values are validated and clamped; unknown fields are ignored. Only pass the fields the user wants changed.",
+    input_schema: {
+      type: "object",
+      properties: {
+        dashboardDensity: {
+          type: "string",
+          enum: ["comfortable", "compact"],
+          description: "Dashboard spacing density.",
+        },
+        showViewHints: {
+          type: "boolean",
+          description: "Whether the per-view 'Learn more' hint banners are shown.",
+        },
+        tasksViewMode: {
+          type: "string",
+          enum: ["table", "board"],
+          description: "Open Points layout: sortable table or Kanban board.",
+        },
+        enabledModules: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: [
+              "dashboard",
+              "trends",
+              "gantt",
+              "milestones",
+              "resources",
+              "budget",
+              "raid",
+              "changes",
+              "stakeholders",
+              "history",
+              "knowledge",
+              "timelog",
+            ],
+          },
+          description:
+            "The COMPLETE set of feature modules that should be enabled (this REPLACES the current set — include every module the user wants on). Invalid ids are dropped. Call get_app_state first to see the current enabledModules.",
+        },
+        nextActionsWeights: {
+          type: "object",
+          description:
+            "Map of next-actions ranking/tuning field → numeric value. Unknown fields are ignored and every value is clamped to its safe range.",
+        },
+      },
     },
   },
 ];

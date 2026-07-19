@@ -87,6 +87,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     stakeholders, setStakeholders,
     setSteeringCommittee,
     setTimelogLinks,
+    knowledgeItems, setKnowledgeItems,
   } = useWorkspace();
 
   // Reactive refs — synced via useEffect so effects don't re-register on every render
@@ -171,6 +172,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     setStakeholders(workspace.stakeholders ?? []);
     setSteeringCommittee(workspace.steeringCommittee);
     setTimelogLinks(workspace.timelogLinks);
+    setKnowledgeItems(workspace.knowledgeItems);
     // Seed the session id-minter's high-water from the loaded set so the next
     // mint after a delete can never reuse a just-freed id. RESET (default) for a
     // possibly-DIFFERENT loaded workspace — initial load / project switch /
@@ -266,7 +268,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // "AbortError: Aborted due to security policy". Skipping it here removes
     // both problems.
     if (args.isPopout) return;
-    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders } as Workspace;
+    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, knowledgeItems } as Workspace;
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -300,7 +302,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // routes every rejection to the storage-outcome/toast path, so neither the
     // timer nor the flush-on-hide below can produce an unhandled rejection.
     const doSave = () => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders }).then(() => {
+      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, knowledgeItems }).then(() => {
         args.onStorageOutcome?.(null);
       }).catch((err) => {
         args.onStorageOutcome?.(err);
@@ -354,7 +356,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       window.removeEventListener("pagehide", flush);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, args.hydrated, args.isPopout, backend]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, knowledgeItems, args.hydrated, args.isPopout, backend]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -380,7 +382,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders });
+      await backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, knowledgeItems });
       await refreshBackendStatus();
       args.showToast("info", t(langRef.current, "storageSwitchedToast"));
     } catch (err) {
@@ -468,7 +470,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     try {
       const pick = pickFileForBackend(target);
       if (pick) await pick;
-      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders });
+      await target.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, knowledgeItems });
       suppressNextLoadRef.current = true;
       args.setStorageConfig(newConfig);
       args.showToast("info", t(langRef.current, "storageConvertedToast", label));
@@ -499,7 +501,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the file handlers above. Must NOT be memoized or it would capture stale
   // state.
   function currentWorkspace(): Workspace {
-    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders };
+    return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, knowledgeItems };
   }
 
   // Persist the registry AND surface the change to the caller so its observable

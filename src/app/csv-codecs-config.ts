@@ -38,6 +38,7 @@ import {
   CSV_SECTION_STATUS,
   CSV_SECTION_STEERING,
   CSV_SECTION_TIMELOG_LINKS,
+  CSV_SECTION_KNOWLEDGE_ITEMS,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -55,6 +56,7 @@ import {
   stakeholdersToCsv,
   tasksToCsv,
 } from "./csv-codecs-core";
+import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 
 // --- Project Status CSV encoder / decoder ------------------------------------
 
@@ -156,6 +158,27 @@ export function csvToTimelogLinks(text: string): TimelogLinks | undefined {
   if (rows.length === 0) return undefined;
   try {
     return sanitizeTimelogLinks(JSON.parse(rows[0][1]));
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Standalone knowledge-items encoder / decoder ----------------------------
+//
+// Like the timelog/steering blobs this is a single `config,<json>` row, but —
+// unlike them — it is a first-class EXPORTABLE section (gated by the
+// `knowledgeItems` export key), not storage-only.
+
+export function knowledgeItemsToCsv(items: readonly KnowledgeItem[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(items), neutralize)].join(",");
+}
+
+export function csvToKnowledgeItems(text: string): KnowledgeItem[] | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    const items = sanitizeKnowledgeItems(JSON.parse(rows[0][1]));
+    return items.length ? items : undefined;
   } catch {
     return undefined;
   }
@@ -470,5 +493,9 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // Timelog links — storage-only, same byte-stability gate as steering.
   if (config === undefined && ws.timelogLinks)
     csvPush(CSV_SECTION_TIMELOG_LINKS, timelogLinksToCsv(ws.timelogLinks, neutralize));
+  // Standalone knowledge items — EXPORTABLE (gated by the export key), emitted
+  // only when present so committee-less/legacy files stay byte-stable.
+  if (enabled("knowledgeItems") && ws.knowledgeItems && ws.knowledgeItems.length)
+    csvPush(CSV_SECTION_KNOWLEDGE_ITEMS, knowledgeItemsToCsv(ws.knowledgeItems, neutralize));
   return parts.join("\r\n");
 }

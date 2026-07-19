@@ -41,6 +41,7 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "fxRates", label: "FX rates", kind: "singleton" },
   { key: "steeringCommittee", label: "Steering committee", kind: "singleton" },
   { key: "timelogLinks", label: "TimeLog links", kind: "singleton" },
+  { key: "knowledgeItems", label: "Knowledge items", kind: "singleton" },
 ];
 
 const IGNORED_FIELDS = new Set(["localModifiedAt"]);

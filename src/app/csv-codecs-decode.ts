@@ -66,6 +66,7 @@ import {
   CSV_SECTION_STEERING,
   CSV_SECTION_TASKS,
   CSV_SECTION_TIMELOG_LINKS,
+  CSV_SECTION_KNOWLEDGE_ITEMS,
   buildChangeFromObj,
   buildMilestoneFromObj,
   buildRaidItemFromObj,
@@ -80,6 +81,7 @@ import {
   csvToStatus,
   csvToSteeringCommittee,
   csvToTimelogLinks,
+  csvToKnowledgeItems,
 } from "./csv-codecs-config";
 
 
@@ -119,9 +121,10 @@ function splitCsvSections(csv: string): {
   functionsText: string;
   steeringText: string;
   timelogLinksText: string;
+  knowledgeItemsText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -142,6 +145,7 @@ function splitCsvSections(csv: string): {
   const functionsLines: string[] = [];
   const steeringLines: string[] = [];
   const timelogLinksLines: string[] = [];
+  const knowledgeItemsLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
     if (trimmed.startsWith(CSV_SECTION_BUDGETS)) { mode = "budgets"; continue; }
@@ -159,6 +163,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_FUNCTIONS)) { mode = "functions"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STEERING)) { mode = "steering"; continue; }
     if (trimmed.startsWith(CSV_SECTION_TIMELOG_LINKS)) { mode = "timelogLinks"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_KNOWLEDGE_ITEMS)) { mode = "knowledgeItems"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
     if (trimmed.startsWith(CSV_SECTION_MILESTONES)) { mode = "milestones"; continue; }
@@ -184,6 +189,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "functions") functionsLines.push(line);
     else if (mode === "steering") steeringLines.push(line);
     else if (mode === "timelogLinks") timelogLinksLines.push(line);
+    else if (mode === "knowledgeItems") knowledgeItemsLines.push(line);
     // (else: line before the first marker — drop it.)
   }
   return {
@@ -207,6 +213,7 @@ function splitCsvSections(csv: string): {
     functionsText: functionsLines.join("\r\n"),
     steeringText: steeringLines.join("\r\n"),
     timelogLinksText: timelogLinksLines.join("\r\n"),
+    knowledgeItemsText: knowledgeItemsLines.join("\r\n"),
   };
 }
 
@@ -399,6 +406,10 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   if (s.timelogLinksText.trim()) {
     const tl = csvToTimelogLinks(s.timelogLinksText);
     if (tl) ws.timelogLinks = tl;
+  }
+  if (s.knowledgeItemsText.trim()) {
+    const ki = csvToKnowledgeItems(s.knowledgeItemsText);
+    if (ki) ws.knowledgeItems = ki;
   }
   return migrateWorkspaceV10(ws);
 }

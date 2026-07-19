@@ -166,17 +166,11 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   detach-only ("no file/DB deletion"). Any new clear/reset path obeys the same split. IDB deletes
   are fire-and-forget (awaiting can hang on `onblocked` across tabs).
 - **Storage namespace = `aipm-cockpit`** (renamed from legacy `lop-app`; MR rename-aipm-cockpit).
-  `storage-migration.ts` runs a ONE-TIME idempotent migration: `migrateLocalStorage()` renames every
-  `lop-app:*` key + the 5 non-prefixed boot keys (`lop-style`/`-theme`/`-active-scheme-colors`/
-  `-active-scheme-structural`/`-scheme-supports-dark`) → `aipm-cockpit*`; `migrateIndexedDb()`
-  copy-migrates the 3 IDB DBs (workspace `aipm-cockpit`, device-key `aipm-cockpit-secrets`, FS-handles
-  `aipm-cockpit-project-handles`) by CONTENT (never `indexedDB.databases()` — Firefox lacks it),
-  read-back-verifying before deleting the old, and NEVER clobbering a non-empty new DB. `ensureStorageMigrated()`
-  (memoized) is awaited at all 3 IDB-open entry points (`idb.ts`/`secrets.ts`/`project-file-handles.ts`)
-  BEFORE opening, and the boot IIFE (`boot-theme-script.ts`) duplicates the localStorage rename pre-paint
-  (it can't import the TS module). A `aipm-cockpit:idb-migrated` flag makes post-migration boots zero-work.
-  ★ storage-migration.ts / its test / boot-theme-script.ts / layout-boot-script.test.ts intentionally hold
-  BOTH legacy + new literals — do NOT "clean up" the `lop-app`/`lop-*` strings there.
+  The one-time `lop-app`→`aipm-cockpit` migration (`storage-migration.ts` + its boot-IIFE duplicate) was
+  REMOVED in 0.190.41 once complete — there is no longer any `lop-app*`/`lop-*` runtime literal, migration
+  gate (`ensureStorageMigrated`), or `aipm-cockpit:idb-migrated` flag. The IDB-open entry points
+  (`idb.ts`/`secrets.ts`/`project-file-handles.ts`) open the new-name DBs directly. A device that never
+  opened the app post-rename would not carry its old-key data forward (accepted — migration is done).
 
 ## Architecture pointers
 
@@ -1078,6 +1072,23 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   has a type selector (Web URL / Confluence page / Document); confluence/url are stored as ordinary
   `isSafeHttpUrl`-validated links (no fetch to store) with a kind-appropriate icon; `fileTypeOf` takes the kind
   (kind wins over the file heuristics).
+  ★★ **Standalone knowledge items (`Workspace.knowledgeItems`, v0.190.41):** a NEW persisted workspace-level
+  field for Knowledge-library items that live on their OWN (not attached to an entity), each a `KnowledgeItem`
+  = `KnowledgeLink & { taskIds?: number[] }` (optional multi-task link, the "second step"). Type + validator
+  `sanitizeKnowledgeItems` live in `document-link.ts`. Persisted as a JSON blob across ALL SIX write paths like
+  `timelogLinks` (JSON in/out in `workspace.ts`; CSV `# KNOWLEDGE ITEMS` section in `csv-codecs-config`/`-decode`;
+  MD `## Knowledge Items` fenced block in `markdown-codecs-core`/`-decode`; Turso single meta row + tenant meta
+  row keyed `knowledge_items`; IDB KV `knowledgeItems` in `browser-backend.ts`) — BUT unlike timelog/steering it
+  is EXPORTABLE, so it is gated by a NEW `knowledgeItems` `ExportSectionKey` (`enabled("knowledgeItems")`, default
+  OFF) rather than `config === undefined`, and has a `buildExportSections` PDF builder. Empty ⇒ byte-stable (no
+  golden regen). ★ App-level save/load wiring MIRRORS neither timelog nor steering exactly: the value+setter are
+  threaded through `workspace-context` (`knowledgeItems`/`setKnowledgeItems`), set on load in BOTH
+  `use-storage-backend.applyWorkspace` AND `task-manager`'s restore effect, and — CRUCIALLY — INCLUDED in the
+  three `backend.save({…})` literals + `currentWorkspace()` in `use-storage-backend.ts` (steering/timelog are
+  NOT in those literals; knowledge is, so it actually autosaves). `version-diff` singleton entry. Panel: the add
+  form's target `<select>` gains a "Standalone" option → `addStandaloneItem` pushes to `setKnowledgeItems`; a
+  "Knowledge library" card grid renders `ws.knowledgeItems` with remove + a per-item `<select multiple>` task
+  linker. Guarded by `knowledge-items-persistence.test.ts`.
 - **Responsive metric grids:** a multi-column grid of CONTENT cards (KPI tiles, budget CCI cards, hours
   breakdown, checkbox lists) must carry a `grid-cols-1` (or `grid-cols-2`) mobile base and only widen at
   `sm:`/`lg:` — a bare `grid grid-cols-3`/`grid-cols-4` overflows a phone/narrow-tablet viewport (the
@@ -1260,6 +1271,16 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `aiModelNeedsKey` hint (`ai-section.tsx`). Pure
   `chat-models.ts` `buildModelOptions`/`isValidAnthropicApiKey` (format `sk-ant-…`). ★ the AI key seals only when
   format-valid and is DISCARDED on blur with a toast (`ai-section.tsx`).
+- **AI `update_settings` tool (safe-subset, v0.190.41):** a NON-entity write tool letting the assistant change
+  a whitelisted slice of app settings on request — `dashboardDensity`, `showViewHints`, `tasksViewMode`,
+  `enabledModules` (full desired set → `sanitizeFeatures`), and `nextActionsWeights` (each key coerced by the
+  SAME `NEXT_ACTIONS_FIELD_COERCE` the settings UI + weight-suggestion flow use). Schema in `chat-tool-defs.ts`,
+  routing in `chat-tools.ts` (`SettingsUpdateInput` + `updateSettings` on `ToolDispatcher`; the case throws if
+  NO recognized field applied), impl in `use-chat-dispatcher.ts` (reads `settingsRef.current`, applies via
+  `args.setSettings` → persists through the normal `writeSettings` effect, `isReadOnly` popout-guarded). ★★
+  SECURITY: secrets / API keys / storage / integration config are DELIBERATELY unreachable — never widen this
+  allowlist to a raw settings setter, and every value must stay routed through a validator/coercer. Guarded by
+  `chat-tools.test.ts`.
 - **AI write tools:** tool SCHEMAS (`TOOL_DEFS` + per-entity field-property helpers `taskFields`/`raidFields`/…
   + `ALL_RAID_STATUSES`) live in pure `chat-tool-defs.ts`; `chat-tools.ts` re-exports `TOOL_DEFS` (so
   `chat-api` imports it unchanged) and holds `runTool` routing + the `ToolDispatcher` type + arg-coercion/
@@ -1503,7 +1524,7 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
   `warn`/`error` survive an info/error storm). ★★ Redaction (`diagnostics-redact.ts`) is TWO-layer: a
   secret-KEY denylist (key normalized before match) AND a secret-VALUE scrub (`sk-ant-*`/`Bearer`/JWT/
   `ATATT…`/`Basic <base64>`/`key=value`) — the EXPORTED bundle (`buildDiagnosticBundle`) must never carry a
-  secret. Inspect via `window.__lopDiag()`. Panel = Settings → Diagnostics (level/code filter + summary;
+  secret. Inspect via `window.__aipmDiag()`. Panel = Settings → Diagnostics (level/code filter + summary;
   ★ Copy/Download export the FULL ring, never the filtered view). `dataloss-forensics.ts` folds in under
   `dataloss.*` codes. ★ load() must THROW on a malformed/partial read, never mask it as an empty project
   (`relationalReadIsEmpty`); the save effect refuses a full-wipe / mass-deletion over a populated project

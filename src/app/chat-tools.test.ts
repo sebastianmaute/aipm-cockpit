@@ -123,6 +123,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       id === 40 ? { id: 40, name: "S", category: "Other", influence: "Medium", interest: "Medium" } : null,
     ),
     deleteStakeholder: vi.fn((id: number) => id === 40),
+    updateSettings: vi.fn((patch) => ({ ...(patch as Record<string, unknown>) })),
     listResources: vi.fn(() => [
       { id: 7, firstName: "Ada", lastName: "Lovelace", email: "ada@x.com" },
     ]),
@@ -149,6 +150,23 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     ...over,
   };
 }
+
+describe("runTool — update_settings", () => {
+  it("routes a recognized settings patch and returns the applied fields", async () => {
+    const d = makeDispatcher();
+    const patch = { dashboardDensity: "compact", showViewHints: false };
+    const result = await runTool(d, "update_settings", patch);
+    expect(d.updateSettings).toHaveBeenCalledWith(patch);
+    expect(result).toEqual({ applied: patch });
+  });
+
+  it("throws when no recognized settings field was applied", async () => {
+    const d = makeDispatcher({ updateSettings: vi.fn(() => ({})) });
+    await expect(runTool(d, "update_settings", { bogus: 1 })).rejects.toThrow(
+      "no recognized settings fields to update",
+    );
+  });
+});
 
 describe("runTool — list_tasks / get_task", () => {
   it("list_tasks returns the dispatcher's task list", async () => {

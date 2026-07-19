@@ -26,6 +26,7 @@ const LABEL_KEYS: Record<ExportSectionKey, TranslationKey> = {
   absences: "exportLabelAbsences",
   shifts: "exportLabelShifts",
   status: "exportLabelStatus",
+  knowledgeItems: "exportLabelKnowledgeItems",
 };
 
 export function ExportSection({ lang, settings, onChange }: ExportSectionProps) {

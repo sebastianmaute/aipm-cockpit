@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.40";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.40: adopt @heroicons/react for all ~69 UI chrome icons (nav sidebar, top bar, menus, toolbars, action buttons, Jira badges) — hand-rolled inline <svg> glyphs replaced with @heroicons/react/24/outline; data-viz graphics (sparkline, gantt bars/arrows, charts, node-graph) stay hand-rolled; bespoke glyphs force-fit to nearest heroicon. aria-hidden + size/rotate/opacity classes preserved (Pinsker)
+export const APP_VERSION = "0.190.41";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.41: standalone Knowledge-library items (documents / Confluence / URLs that live on their own, optionally linked to one or more tasks) persisted across all six storage paths + exports; an `update_settings` AI tool (safe subset only — density/view-hints/tasks-view-mode/feature-modules/next-actions-weights, never secrets); internal rename of the last `lop`/`LOP` identifiers (Turso write-lock, `__aipmDiag` devtools global, `# AIPM Tasks` markdown header); the completed `lop-app`→`aipm-cockpit` one-time storage migration removed (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
@@ -228,4 +228,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightThemeDecouple",
   "versionHighlightUiTokenRename",
   "versionHighlightHeroicons",
+  "versionHighlightKnowledgeItems",
+  "versionHighlightAiSettingsTool",
 ] as const;

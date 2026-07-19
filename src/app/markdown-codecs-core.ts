@@ -11,6 +11,7 @@ import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-vis
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
+import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import type { TimelogLinks } from "./timelog-types";
 import {
   type Absence,
@@ -262,6 +263,21 @@ export function markdownToTimelogLinks(md: string): TimelogLinks | undefined {
   }
 }
 
+export function knowledgeItemsToMarkdown(items: readonly KnowledgeItem[]): string {
+  return ["## Knowledge Items", "", "```json", JSON.stringify(items, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToKnowledgeItems(md: string): KnowledgeItem[] | undefined {
+  const m = /## Knowledge Items\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    const items = sanitizeKnowledgeItems(JSON.parse(m[1]));
+    return items.length ? items : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 
 /** Serializes ProjectMeta as "## Project Meta" + "- field: value" bullets
  *  (mirrors statusToMarkdown). Values are single-line via projectFieldToString. */
@@ -334,7 +350,7 @@ export function mdUnescape(value: string): string {
 function tasksToMarkdown(tasks: readonly Task[]): string {
   const header = `| ${MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
   const sep = `| ${MD_COLUMNS.map(() => "---").join(" | ")} |`;
-  const lines = ["# LOP Tasks", "", header, sep];
+  const lines = ["# AIPM Tasks", "", header, sep];
   for (const t of tasks) {
     const row = MD_COLUMNS.map((c) =>
       mdEscape(fieldToString(t, c.key)),
@@ -615,6 +631,10 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // Timelog links — storage-only, same byte-stability gate as steering.
   if (config === undefined && ws.timelogLinks)
     mdParts.push(timelogLinksToMarkdown(ws.timelogLinks));
+  // Standalone knowledge items — EXPORTABLE (gated by the export key), emitted
+  // only when present so legacy workspaces round-trip byte-identically.
+  if (enabled("knowledgeItems") && ws.knowledgeItems && ws.knowledgeItems.length)
+    mdParts.push(knowledgeItemsToMarkdown(ws.knowledgeItems));
   const out = mdParts.join("\n");
   return out;
 }

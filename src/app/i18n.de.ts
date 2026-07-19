@@ -586,6 +586,7 @@ export const de: Record<TranslationKey, string> = {
   chatGuidesLoading: "Betriebsleitfäden werden geladen…",
   chatSend: "Senden",
   chatThinking: "Denke nach…",
+  chatConfigureAi: "KI konfigurieren",
   chatNoApiKey:
     "API-Schlüssel in den Einstellungen hinterlegen, um den Chat zu nutzen.",
   secretLockPassphrase: "Passphrase zum Entsperren verlangen",
@@ -2993,6 +2994,10 @@ export const de: Record<TranslationKey, string> = {
   exportLabelShifts: "Schichten",
   exportLabelProject: "Projektdetails",
   exportLabelStatus: "Statusbericht",
+  exportLabelKnowledgeItems: "Wissenselemente",
+  knowledgeStandaloneOption: "Eigenständiges Element (Wissensbibliothek)",
+  knowledgeLibraryHeading: "Wissensbibliothek",
+  knowledgeLinkedTasks: "Verknüpfte Aufgaben",
 
   settingsSectionInformationFlows: "Informationsflüsse",
   settingsExpertMode: "Expertenmodus",
@@ -3365,4 +3370,6 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightThemeDecouple: "AIPM und Dashboard sind jetzt optionale importierbare Designs (Einstellungen - Darstellung - Design-Galerie); Harbor ist die Standardoptik.",
   versionHighlightUiTokenRename: "Interne Paletten-Tokens auf ein neutrales Präfix umbenannt; keine visuelle Änderung.",
   versionHighlightHeroicons: "Einheitlicher Heroicons-Symbolsatz in der gesamten Oberfläche; keine Funktionsänderung.",
+  versionHighlightKnowledgeItems: "Wissensbibliothek: eigenständige Dokumente, Confluence-Seiten und Weblinks ohne Bezug zu einem Element hinzufügen und optional mit einer oder mehreren Aufgaben verknüpfen.",
+  versionHighlightAiSettingsTool: "Der KI-Assistent kann jetzt auf Wunsch sichere App-Einstellungen anpassen (Dichte, Hinweise, Tabellen-/Board-Ansicht, Funktionsmodule, Gewichtungen) - niemals Schlüssel, Geheimnisse oder Speicher.",
 };

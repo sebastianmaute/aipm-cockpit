@@ -226,7 +226,7 @@ describe("buildExportSections", () => {
       project: false,
       tasks: false, raid: false, changes: false, milestones: false,
       stakeholders: false, budgets: false, resources: false, roles: false,
-      absences: false, shifts: false, status: false,
+      absences: false, shifts: false, status: false, knowledgeItems: false,
     };
     const ws: Workspace = {
       ...makeBaseWorkspace(),

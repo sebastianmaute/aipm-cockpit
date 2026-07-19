@@ -7,7 +7,6 @@
 // redacted). All localStorage access is guarded; nothing throws to callers.
 
 import { type Lang, migrateLang } from "./i18n";
-import { migrateLocalStorage } from "./storage-migration";
 
 // Literal copies of the real key names (asserted equal to the source consts in
 // recovery-config.test.ts, so they can't drift). Kept literal so this pure
@@ -89,7 +88,6 @@ export function restoreConfig(id: string): boolean {
   const store = ls();
   if (!store) return false;
   try {
-    migrateLocalStorage(); // normalize any pre-upgrade lop-app: backup keys first
     const entry = readIndex(store).find((b) => b.id === id);
     if (!entry) return false;
     for (const key of entry.keys) {
@@ -106,7 +104,6 @@ export function restoreConfig(id: string): boolean {
 export function listBackups(): BackupMeta[] {
   const store = ls();
   if (!store) return [];
-  migrateLocalStorage(); // normalize any pre-upgrade lop-app: backup index first
   return readIndex(store);
 }
 

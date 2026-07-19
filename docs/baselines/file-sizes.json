@@ -1,10 +1,10 @@
 {
   "src/app/chat-panel.tsx": 981,
   "src/app/resources-panel.tsx": 828,
-  "src/app/task-manager.tsx": 2511,
-  "src/app/task-row.tsx": 868,
-  "src/app/tasks-section.tsx": 947,
-  "src/app/timelog-panel.tsx": 954,
+  "src/app/task-manager.tsx": 2512,
+  "src/app/task-row.tsx": 865,
+  "src/app/tasks-section.tsx": 933,
+  "src/app/timelog-panel.tsx": 950,
   "src/app/use-resource-planner.ts": 1033,
   "src/app/workspace-section.tsx": 917
 }
