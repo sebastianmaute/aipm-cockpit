@@ -13,6 +13,8 @@ import { sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import type { TimelogLinks } from "./timelog-types";
+import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import type { SettingsOverrides } from "./settings-types";
 import {
   type Absence,
   type BudgetBucket,
@@ -273,6 +275,21 @@ export function markdownToKnowledgeItems(md: string): KnowledgeItem[] | undefine
   try {
     const items = sanitizeKnowledgeItems(JSON.parse(m[1]));
     return items.length ? items : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function settingsOverridesToMarkdown(overrides: SettingsOverrides): string {
+  return ["## Settings Overrides", "", "```json", JSON.stringify(overrides, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToSettingsOverrides(md: string): SettingsOverrides | undefined {
+  const m = /## Settings Overrides\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    const o = sanitizeSettingsOverrides(JSON.parse(m[1]));
+    return hasAnyOverride(o) ? o : undefined;
   } catch {
     return undefined;
   }
@@ -631,6 +648,10 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // Timelog links — storage-only, same byte-stability gate as steering.
   if (config === undefined && ws.timelogLinks)
     mdParts.push(timelogLinksToMarkdown(ws.timelogLinks));
+  // Settings overrides — storage-only, same byte-stability gate; absent/empty
+  // emits nothing so override-less workspaces round-trip byte-identically.
+  if (config === undefined && ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides))
+    mdParts.push(settingsOverridesToMarkdown(ws.settingsOverrides));
   // Standalone knowledge items — EXPORTABLE (gated by the export key), emitted
   // only when present so legacy workspaces round-trip byte-identically.
   if (enabled("knowledgeItems") && ws.knowledgeItems && ws.knowledgeItems.length)

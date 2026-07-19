@@ -41,6 +41,7 @@ import {
 import {
   resolveTimezone,
 } from "./timezone";
+import { useEffectiveSettings } from "./use-effective-settings";
 import {
   ResourceDirectory,
 } from "./resource-directory";
@@ -212,6 +213,12 @@ export function WorkspaceSection({
     [setSettings],
   );
   const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee } = useWorkspace();
+  // Per-project EFFECTIVE settings — device folded with this project's policy
+  // overrides (nextActions/notifications/timezone) AND its per-device appearance
+  // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
+  // re-renders via the store. With no override this equals the device values;
+  // `settings` stays device for non-overridable reads.
+  const effectiveSettings = useEffectiveSettings(currentProjectId ?? "default");
   const { activeTab, setActiveTab, isPopout, pendingChatSeed, clearChatSeed, requestOpen, pendingHelpConcept, requestHelpConcept, clearHelpConcept, getChatConversation, saveChatConversation } = useWorkspaceTab();
   const { raidFilterTaskId } = useFilters();
   // Directory map for resolving a linked owner/assignee's LIVE name in the
@@ -252,7 +259,7 @@ export function WorkspaceSection({
   // Panel wrappers. The pt-4 offset clears the tab strip in classic/popout mode;
   // in fullBleed the strip is hidden, so we drop it to align the per-view card
   // with the modern shell's inset edge (matching the Tasks pane exactly).
-  const effectiveTz = resolveTimezone(settings.timezone, project?.operatingTimezone);
+  const effectiveTz = resolveTimezone(effectiveSettings.timezone, project?.operatingTimezone);
   const panelClass = fullBleed ? "min-h-0 flex-1" : "min-h-0 flex-1 pt-4";
   const panelScrollClass = fullBleed
     ? "min-h-0 flex-1 overflow-y-auto"
@@ -393,7 +400,7 @@ export function WorkspaceSection({
               onEditMilestone={milestonesEnabled
                 ? () => setActiveTab("milestones")
                 : undefined}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
               baselineMilestoneDates={baselineMilestoneDates}
@@ -425,7 +432,7 @@ export function WorkspaceSection({
             onCaptureBulk={onCaptureRaidBulk}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
-            showHints={settings.showViewHints !== false}
+            showHints={effectiveSettings.showViewHints !== false}
             isPopout={isPopout}
             onLearnMore={requestHelpConcept}
             m365Configured={m365Configured}
@@ -457,7 +464,7 @@ export function WorkspaceSection({
               absences={absences}
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
             />
@@ -493,8 +500,8 @@ export function WorkspaceSection({
             role="tabpanel"
             className={panelClass}
           >
-            {activeTab === "calendar" && (settings.additionalTimezones?.length ?? 0) > 0 && (
-              <TzClockStrip lang={lang} defaultTz={effectiveTz} zones={settings.additionalTimezones ?? []} />
+            {activeTab === "calendar" && (effectiveSettings.additionalTimezones?.length ?? 0) > 0 && (
+              <TzClockStrip lang={lang} defaultTz={effectiveTz} zones={effectiveSettings.additionalTimezones ?? []} />
             )}
             <ResourcesPanel
               view={activeTab}
@@ -531,7 +538,7 @@ export function WorkspaceSection({
               calendarPushBusy={absenceCalendar?.pushBusy}
               onPullCalendar={absenceCalendar?.onPull}
               calendarPullBusy={absenceCalendar?.pullBusy}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
             />
@@ -592,7 +599,7 @@ export function WorkspaceSection({
               raidEnabled={raidEnabledForChanges}
               stakeholdersEnabled={stakeholdersEnabled}
               stakeholders={stakeholders}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
               m365Configured={m365Configured}
@@ -627,7 +634,7 @@ export function WorkspaceSection({
               onCaptureBulk={onCaptureStakeholderBulk}
               commsPendingStakeholderIds={commsPendingStakeholderIds}
               onJumpToComms={onJumpToComms}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
               onAiEdit={stakeholderInlineAi.onAiEdit}
@@ -644,7 +651,7 @@ export function WorkspaceSection({
               stakeholders={stakeholders}
               milestones={milestones}
               onSave={handleSaveStakeholder}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
             />
@@ -658,7 +665,7 @@ export function WorkspaceSection({
               stakeholders={stakeholders}
               onOpenStakeholder={isPopout ? undefined : (id) => requestOpen("stakeholders", id)}
               onSaveStakeholder={isPopout ? undefined : handleSaveStakeholder}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
             />
@@ -684,7 +691,7 @@ export function WorkspaceSection({
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}
               fxLoading={fxLoading}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
             />
@@ -705,7 +712,7 @@ export function WorkspaceSection({
               fxRates={fxRates}
               tasks={tasks}
               today={today}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
             />
@@ -728,7 +735,7 @@ export function WorkspaceSection({
               calendarPushBusy={calendarPushBusy}
               onPullFromOutlook={onPullMilestonesFromOutlook}
               calendarPullBusy={calendarPullBusy}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
               onAiEdit={milestoneInlineAi.onAiEdit}
@@ -748,7 +755,7 @@ export function WorkspaceSection({
               today={today}
               outlookPush={committeeOutlookPush}
               report={committeeReport}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
             />
@@ -805,7 +812,7 @@ export function WorkspaceSection({
                 if (section && onOpenSettingsSection) onOpenSettingsSection(section);
               }}
               aiConfigured={isAiEnabled(settings.ai)}
-              density={settings.dashboardDensity ?? "comfortable"}
+              density={effectiveSettings.dashboardDensity ?? "comfortable"}
             />
           </div>
         )}
@@ -825,7 +832,7 @@ export function WorkspaceSection({
               setBaseline={trends.setBaseline}
               deleteSnapshot={trends.deleteSnapshot}
               deleteSnapshots={trends.deleteSnapshots}
-              showHints={settings.showViewHints !== false}
+              showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
             />

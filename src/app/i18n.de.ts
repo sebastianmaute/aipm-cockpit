@@ -3005,6 +3005,11 @@ export const de: Record<TranslationKey, string> = {
   settingsExpertMode: "Expertenmodus",
   settingsExpertModeHint: "Erweiterte Einstellungen (Modus, Vorlagen, Benachrichtigungen, Nächste Aktionen, Export) sowie die Aktionen zum Speichern/Anwenden von Vorlagen in der Symbolleiste anzeigen.",
   settingsSectionNextActions: "Nächste Aktionen",
+  settingsProjectOverrides: "Dieses Projekt",
+  projectOverridesIntro: "Ausgewählte Einstellungen nur für dieses Projekt überschreiben; andernfalls gelten die geräteweiten Einstellungen.",
+  projectOverrideUseDevice: "Geräte-Standard verwenden",
+  projectOverrideOn: "Für dieses Projekt überschreiben",
+  projectOverrideToggle: "Überschreibungsbereich",
   nextActionsTooltip: "Überschreiben Sie die eingebauten Schwellenwerte, die bestimmen, wann eine vorgeschlagene nächste Aktion ausgelöst wird.",
   nextActionsHint: "Diese Schwellenwerte steuern, welche Signale eine vorgeschlagene Aktion auslösen. Tagesbasierte Vorlaufzeiten liegen unter Benachrichtigungen. Ungültige Werte verwenden den Standard.",
   nextActionsReset: "Auf Standard zurücksetzen",
@@ -3374,4 +3379,5 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightHeroicons: "Einheitlicher Heroicons-Symbolsatz in der gesamten Oberfläche; keine Funktionsänderung.",
   versionHighlightKnowledgeItems: "Wissensbibliothek: eigenständige Dokumente, Confluence-Seiten und Weblinks ohne Bezug zu einem Element hinzufügen und optional mit einer oder mehreren Aufgaben verknüpfen.",
   versionHighlightAiSettingsTool: "Der KI-Assistent kann jetzt auf Wunsch sichere App-Einstellungen anpassen (Dichte, Hinweise, Tabellen-/Board-Ansicht, Funktionsmodule, Gewichtungen) - niemals Schlüssel, Geheimnisse oder Speicher.",
+  versionHighlightProjectOverrides: "Projektbezogene Einstellungsüberschreibungen: Ein Bereich \"Dieses Projekt\" überschreibt Nächste-Aktionen-Priorisierung, Benachrichtigungen und Zeitzone für ein einzelnes Projekt (reist mit) sowie Dashboard-Dichte und Hinweisbanner pro Gerät.",
 };

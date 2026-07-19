@@ -3024,6 +3024,11 @@ const enUS = {
   settingsExpertMode: "Expert mode",
   settingsExpertModeHint: "Reveal advanced settings (Mode, Templates, Notifications, Next actions, Export) and the save-as-template / apply-template actions in the toolbar.",
   settingsSectionNextActions: "Next actions",
+  settingsProjectOverrides: "This project",
+  projectOverridesIntro: "Override selected settings for this project only; otherwise it follows your device-wide settings.",
+  projectOverrideUseDevice: "Use device default",
+  projectOverrideOn: "Override for this project",
+  projectOverrideToggle: "override scope",
   nextActionsTooltip: "Override the built-in thresholds that decide when a suggested next action fires.",
   nextActionsHint: "These thresholds tune which signals raise a suggested action. Day-based lead times live under Notifications. Invalid values fall back to the default.",
   nextActionsReset: "Reset to defaults",
@@ -3393,6 +3398,7 @@ const enUS = {
   versionHighlightHeroicons: "Unified Heroicons icon set across the whole UI; no functional change.",
   versionHighlightKnowledgeItems: "Knowledge library: add standalone documents, Confluence pages, and web links that aren't tied to an item, and optionally link each to one or more tasks.",
   versionHighlightAiSettingsTool: "The AI assistant can now adjust safe app settings on request (density, view hints, table/board mode, feature modules, next-actions weights) - never keys, secrets, or storage.",
+  versionHighlightProjectOverrides: "Per-project setting overrides: a \"This project\" settings section can override next-actions ranking, notifications, and timezone for a single project (they travel with it), plus dashboard density and view-hint banners per device.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

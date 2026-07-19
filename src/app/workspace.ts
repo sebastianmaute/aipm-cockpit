@@ -35,6 +35,8 @@ import {
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
+import type { SettingsOverrides } from "./settings-types";
+import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import {
   type Absence,
   type BudgetBucket,
@@ -111,6 +113,10 @@ export type Workspace = {
    *  that live on their own, optionally cross-linked to tasks. Optional &
    *  additive: undefined/empty serializes to nothing (byte-stable). */
   knowledgeItems?: readonly KnowledgeItem[];
+  /** Per-project policy overrides (next-actions weights, notification cadence,
+   *  timezone) that travel WITH the project. Optional & additive: undefined
+   *  serializes to nothing (byte-stable). Sanitized by sanitizeSettingsOverrides. */
+  settingsOverrides?: Readonly<SettingsOverrides>;
 };
 
 const SCHEMA_VERSION = 11;
@@ -430,6 +436,9 @@ export function workspaceToJson(ws: Workspace): string {
       ...(ws.knowledgeItems && ws.knowledgeItems.length
         ? { knowledgeItems: ws.knowledgeItems }
         : {}),
+      // Additive: only present when the project carries policy overrides, so
+      // override-less files stay free of a `settingsOverrides` key.
+      ...(hasAnyOverride(ws.settingsOverrides) ? { settingsOverrides: ws.settingsOverrides } : {}),
     },
     null,
     2,
@@ -544,6 +553,12 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     if (p.knowledgeItems !== undefined) {
       const items = sanitizeKnowledgeItems(p.knowledgeItems);
       if (items.length) raw.knowledgeItems = items;
+    }
+    // Additive: sanitize incoming per-project policy overrides when present;
+    // an all-junk override sanitizes to {} (no valid sub-key) and the key stays off.
+    if (p.settingsOverrides !== undefined) {
+      const overrides = sanitizeSettingsOverrides(p.settingsOverrides);
+      if (hasAnyOverride(overrides)) raw.settingsOverrides = overrides;
     }
     return migrateWorkspaceV10(raw);
   } catch (err) {

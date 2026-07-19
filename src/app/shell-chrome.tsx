@@ -38,6 +38,10 @@ export interface ShellChromeDeps {
   onRequestStorageSwitch: AppHeaderProps["onRequestStorageSwitch"];
   setSettings: AppHeaderProps["setSettings"];
   settings: AppHeaderProps["settings"];
+  /** EFFECTIVE additional timezones (device list folded with the active
+   *  project's timezone override) for the display-tz switcher options. Passed
+   *  explicitly so `settings` (forwarded wholesale to AppHeader) stays device. */
+  additionalTimezones: readonly string[];
   projectSwitcher: AppHeaderProps["projectSwitcher"];
   // values
   lang: Lang;
@@ -75,6 +79,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
     onRequestStorageSwitch,
     setSettings,
     settings,
+    additionalTimezones,
     projectSwitcher,
     lang,
     activeTab,
@@ -92,7 +97,7 @@ export function buildShellChrome(deps: ShellChromeDeps): { appHeaderEl: ReactNod
   // Session display-timezone switcher. Sits in both header sites alongside the
   // Ask-Claude pill (dual-header rule); never in popouts (they have no header).
   const displayTzSwitcherEl = settings.showDisplayTzSwitcher ? (
-    <DisplayTzSwitcherConnected lang={lang} additionalTimezones={settings.additionalTimezones ?? []} />
+    <DisplayTzSwitcherConnected lang={lang} additionalTimezones={additionalTimezones} />
   ) : null;
 
   const topBarMenus = (

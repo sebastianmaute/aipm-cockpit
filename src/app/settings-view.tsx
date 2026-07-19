@@ -17,6 +17,7 @@ import { GeneralSection } from "./settings-sections/general-section";
 import { TimezoneSettingsSection } from "./settings-sections/timezone-settings-section";
 import { NotificationsSection } from "./settings-sections/notifications-section";
 import { NextActionsSection } from "./settings-sections/next-actions-section";
+import { ProjectOverridesSection } from "./settings-sections/project-overrides-section";
 import { type SuggestionScope } from "./next-actions-tuning";
 import { AiSection } from "./settings-sections/ai-section";
 import { IntegrationsSection } from "./settings-sections/integrations-section";
@@ -73,6 +74,9 @@ interface SettingsViewProps {
   onSectionConsumed?: () => void;
   /** When true (popout window) the "Run setup wizard" launch button is hidden. */
   isPopout?: boolean;
+  /** Active project id — for the "This project" per-project overrides section
+   *  (its appearance overrides are stored per-device-per-project). */
+  projectId?: string;
   /** Resource directory for the Appearance "I am this resource" picker. */
   resources?: readonly import("./types").Resource[];
 }
@@ -80,7 +84,7 @@ interface SettingsViewProps {
 type SectionId =
   | "mode" | "templates" | "appearance" | "localization" | "general" | "notifications"
   | "nextActions" | "ai" | "jira" | "storage" | "integrations" | "export" | "informationFlows"
-  | "commTemplates" | "scheduledJobs" | "diagnostics" | "dictation";
+  | "commTemplates" | "scheduledJobs" | "diagnostics" | "dictation" | "projectOverrides";
 
 const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "mode", labelKey: "settingsSectionMode" },
@@ -95,6 +99,7 @@ const RAIL: { id: SectionId; labelKey: TranslationKey }[] = [
   { id: "integrations", labelKey: "settingsSectionIntegrations" },
   { id: "export", labelKey: "settingsSectionExport" },
   { id: "nextActions", labelKey: "settingsSectionNextActions" },
+  { id: "projectOverrides", labelKey: "settingsProjectOverrides" },
   { id: "informationFlows", labelKey: "settingsSectionInformationFlows" },
   { id: "commTemplates", labelKey: "settingsSectionCommTemplates" },
   { id: "diagnostics", labelKey: "diagnosticsTitle" },
@@ -161,6 +166,7 @@ export function SettingsView(props: SettingsViewProps) {
   const active: SectionId =
     activeRaw === "storage" ||
     (activeRaw === "nextActions" && !expert) ||
+    (activeRaw === "projectOverrides" && props.isPopout) ||
     (activeRaw === "commTemplates" && !commTemplatesVisible)
       ? "general"
       // Jira folded into Integrations — a stale/deep-linked "jira" lands there.
@@ -180,6 +186,7 @@ export function SettingsView(props: SettingsViewProps) {
       r.id !== DIAGNOSTICS_ID &&
       r.id !== "commTemplates" &&
       !INTEGRATION_IDS.includes(r.id) &&
+      !(r.id === "projectOverrides" && props.isPopout) &&
       (expert || !EXPERT_IDS.includes(r.id)),
   ).sort(byLabel);
   // When shown, Comm Templates sits directly below Templates (not in alpha order).
@@ -295,6 +302,9 @@ export function SettingsView(props: SettingsViewProps) {
         )}
         {active === "appearance" && (
           <AppearanceSection lang={lang} settings={settings} onChange={onChange} resources={props.resources} />
+        )}
+        {active === "projectOverrides" && (
+          <ProjectOverridesSection lang={lang} settings={settings} projectId={props.projectId ?? "default"} />
         )}
         {active === "general" && (
           <>

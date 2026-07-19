@@ -8,6 +8,7 @@ import { defaultResourcePlan } from "./resource-foundation";
 import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
+import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { migrateTaskStatus } from "./task-status";
 import {
   type Absence,
@@ -62,6 +63,7 @@ const KV_FEATURES_KEY = "features";
 const KV_STEERING_KEY = "steeringCommittee";
 const KV_TIMELOG_LINKS_KEY = "timelogLinks";
 const KV_KNOWLEDGE_ITEMS_KEY = "knowledgeItems";
+const KV_SETTINGS_OVERRIDES_KEY = "settingsOverrides";
 import {
   type StorageBackend,
   type Workspace,
@@ -129,6 +131,7 @@ export class BrowserBackend implements StorageBackend {
     let steeringCommittee: SteeringCommittee | undefined;
     let timelogLinks: Workspace["timelogLinks"] | undefined;
     let knowledgeItems: Workspace["knowledgeItems"] | undefined;
+    let settingsOverrides: Workspace["settingsOverrides"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -154,6 +157,7 @@ export class BrowserBackend implements StorageBackend {
         idbSteeringCommittee,
         idbTimelogLinks,
         idbKnowledgeItems,
+        idbSettingsOverrides,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -176,6 +180,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_STEERING_KEY),
         idbGet(KV_TIMELOG_LINKS_KEY),
         idbGet(KV_KNOWLEDGE_ITEMS_KEY),
+        idbGet(KV_SETTINGS_OVERRIDES_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -210,6 +215,11 @@ export class BrowserBackend implements StorageBackend {
         const ki = sanitizeKnowledgeItems(idbKnowledgeItems);
         knowledgeItems = ki.length ? ki : undefined;
       }
+      // Optional singleton: junk/empty overrides sanitize to {} → keep undefined.
+      {
+        const so = sanitizeSettingsOverrides(idbSettingsOverrides);
+        settingsOverrides = hasAnyOverride(so) ? so : undefined;
+      }
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -234,6 +244,7 @@ export class BrowserBackend implements StorageBackend {
     if (steeringCommittee) raw.steeringCommittee = steeringCommittee;
     if (timelogLinks) raw.timelogLinks = timelogLinks;
     if (knowledgeItems) raw.knowledgeItems = knowledgeItems;
+    if (settingsOverrides) raw.settingsOverrides = settingsOverrides;
     const ws = migrateWorkspaceV10(raw);
 
     try {
@@ -366,6 +377,10 @@ export class BrowserBackend implements StorageBackend {
       ws.knowledgeItems && ws.knowledgeItems.length
         ? idbSet(KV_KNOWLEDGE_ITEMS_KEY, ws.knowledgeItems)
         : idbDelete(KV_KNOWLEDGE_ITEMS_KEY),
+      // Delete-on-absent so cleared overrides don't linger and reload stale.
+      ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides)
+        ? idbSet(KV_SETTINGS_OVERRIDES_KEY, ws.settingsOverrides)
+        : idbDelete(KV_SETTINGS_OVERRIDES_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's
