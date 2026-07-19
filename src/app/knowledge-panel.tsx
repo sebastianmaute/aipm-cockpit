@@ -16,6 +16,7 @@ import { Input, Select } from "./form-controls";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
+import { Card } from "./card";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { hostLabel, fileTypeOf, filterDocs, sortDocs, sourceCounts, effectiveSourceFilter, type DocSort, type DocTypeKey } from "./knowledge-meta";
 import { formatExpiryDate } from "./date-format";
@@ -338,9 +339,9 @@ export function KnowledgePanel() {
                 const safe = isSafeHttpUrl(r.link.url);
                 const host = safe ? hostLabel(r.link.url) || t(lang, "documentsHostWeb") : "";
                 return (
-                  <div
+                  <Card
                     key={`${r.source.kind}:${r.source.id}:${r.index}:${i}`}
-                    className="relative flex flex-col gap-2 rounded-lg border border-line bg-surface p-3"
+                    className="relative flex flex-col gap-2 p-3"
                   >
                     <IconButton
                       variant="danger"
@@ -384,7 +385,7 @@ export function KnowledgePanel() {
                         <span>· {t(lang, "documentsAdded", formatExpiryDate(r.link.addedAt.slice(0, 10), lang))}</span>
                       )}
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>

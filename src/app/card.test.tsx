@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Card } from "./card";
 
+describe("Card as", () => {
+  it("renders a div by default and the requested element via `as`", () => {
+    const { container, rerender } = render(<Card>x</Card>);
+    expect(container.firstChild?.nodeName).toBe("DIV");
+    rerender(<Card as="section" aria-label="s">x</Card>);
+    expect(screen.getByLabelText("s").nodeName).toBe("SECTION");
+    expect(screen.getByLabelText("s").className).toContain("rounded-lg border border-line bg-surface");
+  });
+});
+
 describe("Card primitive", () => {
   it("renders its children", () => {
     render(<Card>hello</Card>);

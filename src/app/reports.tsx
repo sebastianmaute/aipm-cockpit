@@ -11,6 +11,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { RagDot } from "./rag-dot";
 import { DataTable } from "./data-table";
 import { ReportCard, Section, Tile } from "./report-table";
+import { Card } from "./card";
 import {
   computeGroupHealth,
   type GroupHealth,
@@ -297,9 +298,9 @@ export function ReportsPanel({
       <Section title={t(lang, "reportsGroupHealth")}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {groupHealth.map((row) => (
-            <div
+            <Card
               key={row.name}
-              className="flex items-start gap-3 rounded-lg border border-line bg-surface p-3"
+              className="flex items-start gap-3 p-3"
             >
               <RagDot level={row.health.color} size="lg" className="mt-1" />
               <div className="min-w-0 flex-1">
@@ -330,7 +331,7 @@ export function ReportsPanel({
                   </div>
                 )}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </Section>

@@ -14,18 +14,25 @@ import type React from "react";
  *    different pad (e.g. `p-3`, density `dc.cardPad`) pass it via `className`.
  *
  * Shadow is opt-in on purpose: many card boxes (report/resource summary tiles)
- * are intentionally flat. All other div props (`id`, `role`, `data-*`, event
+ * are intentionally flat. All other props (`id`, `role`, `data-*`, event
  * handlers) pass straight through; `className` is appended AFTER the canonical
  * classes so a caller can extend but the base tokens always win first.
+ *
+ * `as` renders the same card chrome on a different element (e.g. `as="section"`
+ * for a landmark content section). Props are typed against `HTMLElement`, so an
+ * element-specific attribute (a `<details>` `open`) needs a cast at the call
+ * site — plain `as="section"`/`"article"` sections need nothing extra.
  */
-export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface CardProps extends React.HTMLAttributes<HTMLElement> {
+  /** Element to render (default `div`). Use `"section"`/`"article"` for a landmark. */
+  as?: React.ElementType;
   /** Add the `--shadow-card` elevation token. */
   boxed?: boolean;
   /** Add `p-4` padding. */
   padded?: boolean;
 }
 
-export function Card({ boxed = false, padded = false, className, children, ...rest }: CardProps) {
+export function Card({ as: Tag = "div", boxed = false, padded = false, className, children, ...rest }: CardProps) {
   const cls = [
     "rounded-lg border border-line bg-surface",
     boxed ? "shadow-[var(--shadow-card)]" : "",
@@ -35,8 +42,8 @@ export function Card({ boxed = false, padded = false, className, children, ...re
     .filter(Boolean)
     .join(" ");
   return (
-    <div className={cls} {...rest}>
+    <Tag className={cls} {...rest}>
       {children}
-    </div>
+    </Tag>
   );
 }

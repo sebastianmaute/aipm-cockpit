@@ -6,6 +6,7 @@
 
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { EmptyState } from "./empty-state";
+import { Card } from "./card";
 import { InfoTooltip } from "./info-tooltip";
 import { DataTable } from "./data-table";
 import {
@@ -80,20 +81,20 @@ export function StakeholderReportPanel({
       <div className="space-y-6">
         {/* Summary tiles */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-line bg-surface p-3">
+          <Card className="p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               {t(lang, "navStakeholders")}
             </p>
             <p className="mt-1 text-2xl font-semibold text-ui-dark-blue dark:text-ui-light-grey">
               {stakeholders.length}
             </p>
-          </div>
+          </Card>
           {byCategory
             .filter((c) => c.count > 0)
             .map((c) => (
-              <div
+              <Card
                 key={c.category}
-                className="rounded-lg border border-line bg-surface p-3"
+                className="p-3"
               >
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
                   {t(lang, CATEGORY_KEY[c.category])}
@@ -101,7 +102,7 @@ export function StakeholderReportPanel({
                 <p className="mt-1 text-2xl font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                   {c.count}
                 </p>
-              </div>
+              </Card>
             ))}
         </div>
 

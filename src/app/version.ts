@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.31";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.31: design-system form-field sweep (3b/3, COMPLETE) — remaining panel/editor/misc fields migrated to Input/Select/Textarea (~30 files); form-field primitive adoption program done (Pinsker)
+export const APP_VERSION = "0.190.32";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.32: design-system Card adoption — 10 genuine content-card surfaces migrated to the <Card> primitive (incl. a polymorphic `as` prop for <section> landmarks); floating menus + modal panels left for their own primitive-adoption passes (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

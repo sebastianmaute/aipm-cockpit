@@ -34,6 +34,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
 import { Input, Textarea } from "./form-controls";
 import { Spinner } from "./spinner";
+import { Card } from "./card";
 
 /** Cap on files accepted in a single multi-upload (extras → "too-many" skip). */
 const MAX_IMPORT_FILES = 10;
@@ -448,10 +449,10 @@ export function Step0ImportPanel({
           align="center"
           zIndex={70}
         >
-          <div
+          <Card
             role="status"
             aria-live="polite"
-            className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
+            className="flex flex-col items-center gap-4 px-8 py-6 text-foreground"
           >
             <Spinner />
             <span className="text-sm font-medium">
@@ -465,7 +466,7 @@ export function Step0ImportPanel({
             >
               {t(lang, "cancel")}
             </button>
-          </div>
+          </Card>
         </Modal>
       )}
     </>
