@@ -1277,9 +1277,12 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   the project = `Workspace.settingsOverrides` blob (storage-only, all 6 paths, gated `config===undefined &&
   hasAnyOverride`, EXCLUDED from exports — mirrors `timelogLinks`; `sanitizeSettingsOverrides`+`hasAnyOverride` in
   `settings-overrides.ts`; rides the SAME save/load wiring as `knowledgeItems` incl. the autosave-effect DEPS
-  array). APPEARANCE overrides (density + showViewHints only; tasksViewMode + theme/scheme EXCLUDED) = per-device-
+  array). APPEARANCE overrides (density + showViewHints + tasksViewMode; theme/scheme EXCLUDED) = per-device-
   per-project `project-appearance-prefs.ts` (key `aipm-cockpit:project-appearance`, reactive via
-  `subscribeAppearance`/`getAppearanceSnapshot` + `useSyncExternalStore`). Pure `resolveEffectiveSettings(device,
+  `subscribeAppearance`/`getAppearanceSnapshot` + `useSyncExternalStore`). ★ tasksViewMode: the Open Points
+  pane's own Table/Board toggle is SCOPE-AWARE — while this project's appearance override is on it writes the
+  project store (`saveProjectAppearance`), else device `setSettings`; the pane reads `effective.tasksViewMode`
+  so an override no longer snaps back when toggled. Pure `resolveEffectiveSettings(device,
   policy, appearance)` (`settings-effective.ts`) merges OVERRIDE-else-DEVICE (partial-merge nextActions/
   notifications, whole-replace timezone/appearance); `useEffectiveSettings(projectId)` is the reactive hook. ★★
   CONSUMERS read EFFECTIVE (task-manager: nextActions RANKING/`buildActionInput` + reminders + timezone/today;

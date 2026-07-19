@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { t } from "./i18n";
+import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
 vi.mock("./filters-context", () => ({ useFilters: vi.fn() }));
@@ -529,6 +530,66 @@ describe("TasksSection", () => {
     const next = updater({ hideFinishedTasks: true, language: "en-US" } as Settings);
     expect(next.hideFinishedTasks).toBe(false);
     expect(next.language).toBe("en-US");
+  });
+
+  it("view-mode toggle writes device settings when the project has no override", () => {
+    const setSettings = vi.fn();
+    mockUseSettings.mockReturnValue({
+      settings: {
+        holidayCountries: [],
+        jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        ai: { consentAccepted: false },
+        lang: "en-US",
+        popout: { reuseWindow: false },
+        tasksViewMode: "table",
+      },
+      setSettings,
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US",
+    });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} settingsProjectId="p-vm-device" />);
+    fireEvent.click(screen.getByRole("radio", { name: t("en-US", "tasksViewBoard") }));
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
+    expect(updater({ tasksViewMode: "table" } as Settings).tasksViewMode).toBe("board");
+    // No project appearance override was created.
+    expect(getAppearanceSnapshot("p-vm-device").tasksViewMode).toBeUndefined();
+  });
+
+  it("view-mode toggle writes the project appearance store when an override is active", () => {
+    const pid = "p-vm-override";
+    saveProjectAppearance(pid, { tasksViewMode: "table" });
+    const setSettings = vi.fn();
+    mockUseSettings.mockReturnValue({
+      settings: {
+        holidayCountries: [],
+        jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        ai: { consentAccepted: false },
+        lang: "en-US",
+        popout: { reuseWindow: false },
+        tasksViewMode: "table",
+      },
+      setSettings,
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US",
+    });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    try {
+      render(<TasksSection {...makeProps()} settingsProjectId={pid} />);
+      fireEvent.click(screen.getByRole("radio", { name: t("en-US", "tasksViewBoard") }));
+      // The active-scope write went to the project store, NOT device settings.
+      expect(setSettings).not.toHaveBeenCalled();
+      expect(getAppearanceSnapshot(pid).tasksViewMode).toBe("board");
+    } finally {
+      saveProjectAppearance(pid, {}); // store persists across tests — clean up even on failure
+    }
   });
 
   it("gives the tasks search box a descriptive tooltip", () => {

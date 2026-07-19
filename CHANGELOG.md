@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.43] - 2026-07-19 "Pinsker"
+
+### Added
+
+- **Per-project Table/Board view mode.** The Open Points view mode joins the
+  "This project" appearance overrides (alongside dashboard density and view-hint
+  banners). The pane's own Table/Board toggle is now scope-aware: while a project
+  has the appearance override on it writes the per-project store, otherwise the
+  device default — so a per-project view no longer snaps back when toggled. With
+  no override, behaviour is unchanged.
+
 ## [0.190.42] - 2026-07-19 "Pinsker"
 
 ### Added

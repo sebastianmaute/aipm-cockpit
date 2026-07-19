@@ -3380,4 +3380,5 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightKnowledgeItems: "Wissensbibliothek: eigenständige Dokumente, Confluence-Seiten und Weblinks ohne Bezug zu einem Element hinzufügen und optional mit einer oder mehreren Aufgaben verknüpfen.",
   versionHighlightAiSettingsTool: "Der KI-Assistent kann jetzt auf Wunsch sichere App-Einstellungen anpassen (Dichte, Hinweise, Tabellen-/Board-Ansicht, Funktionsmodule, Gewichtungen) - niemals Schlüssel, Geheimnisse oder Speicher.",
   versionHighlightProjectOverrides: "Projektbezogene Einstellungsüberschreibungen: Ein Bereich \"Dieses Projekt\" überschreibt Nächste-Aktionen-Priorisierung, Benachrichtigungen und Zeitzone für ein einzelnes Projekt (reist mit) sowie Dashboard-Dichte und Hinweisbanner pro Gerät.",
+  versionHighlightProjectViewMode: "Tabellen-/Board-Ansicht pro Projekt: Der Ansichtsmodus der Offenen Punkte gehört jetzt zu den \"Dieses Projekt\"-Darstellungsüberschreibungen, und der Umschalter der Ansicht bleibt pro Projekt erhalten, statt auf die Geräteeinstellung zurückzuspringen.",
 };

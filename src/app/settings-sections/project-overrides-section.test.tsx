@@ -59,7 +59,7 @@ describe("ProjectOverridesSection", () => {
     expect(state.setOverrides).toHaveBeenCalledTimes(1);
   });
 
-  test("toggling appearance ON writes density + view-hints to the appearance store", () => {
+  test("toggling appearance ON seeds density + view-hints + view-mode into the appearance store", () => {
     renderSection();
     const apGroup = screen.getByRole("radiogroup", { name: /appearance/i });
     fireEvent.click(within(apGroup).getByRole("radio", { name: /override for this project/i }));
@@ -67,7 +67,7 @@ describe("ProjectOverridesSection", () => {
     const [, pref] = state.saveAppearance.mock.calls[0];
     expect(pref).toMatchObject({ dashboardDensity: expect.any(String) });
     expect(pref).toHaveProperty("showViewHints");
-    expect(pref).not.toHaveProperty("tasksViewMode"); // excluded from the UI
+    expect(pref).toHaveProperty("tasksViewMode"); // now included in the appearance group
   });
 
   test("an existing appearance override shows the group as overridden (controls revealed)", () => {
