@@ -13,8 +13,8 @@
 // data-fetching inside, so they're unit-testable in isolation. The parent owns
 // useTemplates()/useWorkspace() and builds the workspace + toast side effects.
 
-import { useId, useMemo, useRef, useState } from "react";
-import { usePopoverDismiss } from "./use-popover-dismiss";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { PopoverPanel } from "./popover-panel";
 import { Checkbox, Input, Select } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import type { ProjectTemplate } from "./templates";
@@ -23,21 +23,13 @@ import type { SaveTemplateInput } from "./templates";
 const TRIGGER_CLASS =
   "rounded-md p-2 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue focus:outline-none focus:ring-2 focus:ring-ui-green dark:text-muted-foreground dark:hover:text-ui-light-grey";
 
-const POPOVER_CLASS =
-  "absolute right-0 top-full z-40 mt-2 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-3";
+const POPOVER_CLASS = "w-72 overflow-y-auto p-3";
 
 const HEADING_CLASS =
   "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground";
 
 const PRIMARY_BTN_CLASS =
   "rounded-md bg-ui-green px-3 py-1.5 text-sm font-medium text-ui-dark-blue hover:bg-ui-dark-blue hover:text-ui-white focus:outline-none focus:ring-2 focus:ring-ui-green disabled:cursor-not-allowed disabled:opacity-50";
-
-/** Close the popover on outside-click / Escape; owns the wrapper ref. */
-function useDismiss(open: boolean, close: () => void) {
-  const ref = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(open, ref, close);
-  return ref;
-}
 
 /** A "save as template" tray icon (a tagged bookmark). */
 function SaveIcon() {
@@ -66,7 +58,8 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [includeContent, setIncludeContent] = useState(false);
-  const ref = useDismiss(open, () => setOpen(false));
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
   const checkboxId = useId();
 
   const trimmed = name.trim();
@@ -80,8 +73,9 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={t(lang, "templateSaveTitle")}
@@ -92,9 +86,15 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
         <SaveIcon />
       </button>
 
-      {open && (
-        <div role="dialog" aria-label={t(lang, "templateSaveTitle")} className={POPOVER_CLASS}>
-          <h3 className={HEADING_CLASS}>{t(lang, "templateSaveTitle")}</h3>
+      <PopoverPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={t(lang, "templateSaveTitle")}
+        className={POPOVER_CLASS}
+      >
+        <h3 className={HEADING_CLASS}>{t(lang, "templateSaveTitle")}</h3>
           <div className="space-y-3">
             <Input
               type="text"
@@ -128,8 +128,7 @@ export function SaveTemplateMenu({ lang, onSave }: SaveTemplateMenuProps) {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </PopoverPanel>
     </div>
   );
 }
@@ -181,7 +180,8 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
   // during render — no effect / no cascading set-state.
   const [picked, setPicked] = useState<string | null>(null);
   const [includeSeed, setIncludeSeed] = useState(false);
-  const ref = useDismiss(open, () => setOpen(false));
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
   const checkboxId = useId();
   const seedDescId = useId();
 
@@ -206,8 +206,9 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={t(lang, "templateApplyTitle")}
@@ -218,9 +219,15 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
         <ApplyIcon />
       </button>
 
-      {open && (
-        <div role="dialog" aria-label={t(lang, "templateApplyTitle")} className={POPOVER_CLASS}>
-          <h3 className={HEADING_CLASS}>{t(lang, "templateApplyTitle")}</h3>
+      <PopoverPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={t(lang, "templateApplyTitle")}
+        className={POPOVER_CLASS}
+      >
+        <h3 className={HEADING_CLASS}>{t(lang, "templateApplyTitle")}</h3>
           <div className="space-y-3">
             <Select
               size="xs"
@@ -265,8 +272,7 @@ export function ApplyTemplateMenu({ lang, templates, onApply }: ApplyTemplateMen
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </PopoverPanel>
     </div>
   );
 }

@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.33] - 2026-07-19 "Pinsker"
+
+### Changed
+
+Design-system **`PopoverPanel` adoption** — migrated 5 hand-rolled dropdown menus to the shared `PopoverPanel` portal component (one source for floating-panel positioning, `overflow`-clip escape, outside-click/Escape dismiss, and focus-on-open):
+
+- export-menu, settings-menu, version-menu, template-menus (both Save + Apply popovers), and the modal-field-controls cog popover (which gains outside-click/Escape dismiss it previously lacked). Each drops its `usePopoverDismiss` call + inline `absolute z-40` panel in favour of the portal; radius normalizes `rounded-lg`→`rounded-md`.
+- **Left as-is by design** (don't fit / would regress): ask-claude-menu + project-switcher (left-aligned; PopoverPanel is right-align-only), project-switcher's APG roving-menu machinery, help-menu (a draggable/resizable position-persisted *window*, not an anchor popover), tasks-section column-config (cross-file state + wrapper-ref dismiss the portal would break).
+
 ## [0.190.32] - 2026-07-19 "Pinsker"
 
 ### Changed

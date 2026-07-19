@@ -11,11 +11,12 @@
 // the whole strip vanishes — no empty bordered band left behind. Callers render
 // <ModalFieldControls/> directly, never wrapping it in that strip themselves.
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import { MODAL_FIELDS, type FieldTier, type ModalId } from "./modal-fields";
 import { Checkbox } from "./form-controls";
+import { PopoverPanel } from "./popover-panel";
 import { useModalVisibility } from "./use-modal-visibility";
 import { useSettings } from "./use-settings";
 
@@ -40,6 +41,8 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
   const { mode, isVisible, setMode, toggleField, reset } = useModalVisibility(modalId);
   const { settings } = useSettings();
   const [cogOpen, setCogOpen] = useState(false);
+  const cogTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeCog = useCallback(() => setCogOpen(false), []);
 
   // Per-device opt-out: hide the field-tier switch + per-field cog entirely.
   // Returning null removes the bordered header strip too (owned below).
@@ -79,6 +82,7 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
 
       <div className="relative">
         <button
+          ref={cogTriggerRef}
           type="button"
           aria-label={t(lang, "configureFields")}
           aria-expanded={cogOpen}
@@ -87,35 +91,36 @@ export function ModalFieldControls({ modalId, lang }: ModalFieldControlsProps) {
         >
           <span aria-hidden="true">⚙</span>
         </button>
-        {cogOpen && (
-          <div
-            role="group"
-            aria-label={t(lang, "configureFields")}
-            className="absolute right-0 top-full z-40 mt-2 w-56 rounded-lg border border-line bg-surface p-3 shadow-[var(--shadow-control)]"
+        <PopoverPanel
+          open={cogOpen}
+          anchorRef={cogTriggerRef}
+          onClose={closeCog}
+          role="dialog"
+          ariaLabel={t(lang, "configureFields")}
+          className="w-56 p-3 shadow-[var(--shadow-control)]"
+        >
+          <ul className="max-h-64 space-y-1 overflow-auto text-sm">
+            {MODAL_FIELDS[modalId].map((f) => (
+              <li key={f.id}>
+                <label className="flex items-center gap-2 text-foreground">
+                  <Checkbox
+                    checked={isVisible(f.id)}
+                    disabled={f.required}
+                    onChange={() => toggleField(f.id)}
+                  />
+                  <span>{t(lang, f.labelKey)}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-3 w-full rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
           >
-            <ul className="max-h-64 space-y-1 overflow-auto text-sm">
-              {MODAL_FIELDS[modalId].map((f) => (
-                <li key={f.id}>
-                  <label className="flex items-center gap-2 text-foreground">
-                    <Checkbox
-                      checked={isVisible(f.id)}
-                      disabled={f.required}
-                      onChange={() => toggleField(f.id)}
-                    />
-                    <span>{t(lang, f.labelKey)}</span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              onClick={reset}
-              className="mt-3 w-full rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ui-green"
-            >
-              {t(lang, "resetToDefault")}
-            </button>
-          </div>
-        )}
+            {t(lang, "resetToDefault")}
+          </button>
+        </PopoverPanel>
       </div>
       </div>
     </div>

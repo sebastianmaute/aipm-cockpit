@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { usePopoverDismiss } from "./use-popover-dismiss";
+import { PopoverPanel } from "./popover-panel";
 import { t } from "./i18n";
 import { JiraSettingsSection } from "./jira-settings";
 import { type StorageKind } from "./storage";
@@ -49,14 +49,14 @@ export function SettingsMenu({
     },
     [onOpenChange],
   );
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), [setOpen]);
   const lang = settings.language;
 
-  usePopoverDismiss(open, ref, () => setOpen(false));
-
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(!open)}
         aria-label={t(lang, "settings")}
@@ -77,15 +77,17 @@ export function SettingsMenu({
         </svg>
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-label={t(lang, "settings")}
-          className="absolute right-0 top-full z-20 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-lg border border-line bg-surface p-4"
-        >
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t(lang, "settings")}
-          </h3>
+      <PopoverPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={t(lang, "settings")}
+        className="max-h-[80vh] w-80 overflow-y-auto p-4"
+      >
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t(lang, "settings")}
+        </h3>
 
           <AppearanceSection lang={lang} settings={settings} onChange={onChange} />
 
@@ -137,8 +139,7 @@ export function SettingsMenu({
           <hr className="my-4 border-line" />
 
           <IntegrationsSection lang={lang} settings={settings} onChange={onChange} onMigrateToTurso={onMigrateToTurso} />
-        </div>
-      )}
+      </PopoverPanel>
     </div>
   );
 }

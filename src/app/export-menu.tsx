@@ -8,8 +8,8 @@
 // Format-specific hints are surfaced in the popover so users know roughly
 // what each output looks like before they pick one.
 
-import { useRef, useState } from "react";
-import { usePopoverDismiss } from "./use-popover-dismiss";
+import { useCallback, useRef, useState } from "react";
+import { PopoverPanel } from "./popover-panel";
 import { INTERACTIVE } from "./interaction-styles";
 import { type ExportFormat, exportWorkspace } from "./export";
 import { type Lang, type TranslationKey, t } from "./i18n";
@@ -61,10 +61,9 @@ export function ExportMenu({
   exportConfig?: ExportConfig;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
   const showToast = useToastContext();
-
-  usePopoverDismiss(open, ref, () => setOpen(false));
 
   function pick(format: ExportFormat) {
     setOpen(false);
@@ -78,8 +77,9 @@ export function ExportMenu({
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={t(lang, "exportTitle")}
@@ -102,15 +102,17 @@ export function ExportMenu({
         </svg>
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-label={t(lang, "exportTitle")}
-          className="absolute right-0 top-full z-40 mt-2 w-72 overflow-y-auto rounded-lg border border-line bg-surface p-3"
-        >
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t(lang, "exportTitle")}
-          </h3>
+      <PopoverPanel
+        open={open}
+        anchorRef={triggerRef}
+        onClose={close}
+        role="dialog"
+        ariaLabel={t(lang, "exportTitle")}
+        className="w-72 overflow-y-auto p-3"
+      >
+        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {t(lang, "exportTitle")}
+        </h3>
           <p className="mb-2 text-xs text-foreground">
             {t(lang, "exportSubtitle", tasks.length)}
           </p>
@@ -132,8 +134,7 @@ export function ExportMenu({
               </li>
             ))}
           </ul>
-        </div>
-      )}
+      </PopoverPanel>
     </div>
   );
 }
