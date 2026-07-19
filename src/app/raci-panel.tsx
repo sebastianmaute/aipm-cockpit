@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Input } from "./form-controls";
 import { DataTable } from "./data-table";
+import { RaciAccountableWarning } from "./raci-accountable-warning";
 import { VIEW_PANE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { type Lang, t } from "./i18n";
 import {
@@ -224,16 +225,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
                   <td className="px-3 py-2 font-medium text-foreground">
                     <span className="inline-flex items-center gap-2">
                       {row.milestone.name}
-                      {warning === "missing" && (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-ui-dark-blue dark:text-ui-light-grey">
-                          {t(lang, "raciAccountableMissing")}
-                        </span>
-                      )}
-                      {warning === "multiple" && (
-                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-[var(--rag-amber)]/20 text-ui-dark-blue dark:text-ui-light-grey">
-                          {t(lang, "raciAccountableMultiple")}
-                        </span>
-                      )}
+                      <RaciAccountableWarning lang={lang} warning={warning} />
                     </span>
                   </td>
                   {row.cells.filter((c) => visibleIds.has(c.stakeholderId)).map((cell) => {

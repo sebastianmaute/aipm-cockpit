@@ -6,8 +6,8 @@ import type { RaidItem, Resource } from "./types";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { isValidEmail } from "./sanitize";
 import { planEscalation } from "./action-escalate";
-import { popoverTriggerClass } from "./action-cta-styles";
-import { PopoverPanel } from "./popover-panel";
+import { POPOVER_CONFIRM_BTN } from "./action-cta-styles";
+import { ActionPopoverTrigger } from "./action-popover-trigger";
 import { Input } from "./form-controls";
 
 export interface EscalateBundle {
@@ -67,25 +67,17 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
   };
 
   return (
-    <span className="relative">
-      <button
-        ref={btnRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
-        className={popoverTriggerClass(prominent)}
-      >
-        {t(lang, "actionEscalate")}
-      </button>
-      <PopoverPanel
-        open={open && !!plan}
-        anchorRef={btnRef}
-        onClose={close}
-        role="dialog"
-        ariaLabel={t(lang, "actionEscalateTitle")}
-        className="w-72 p-2"
-      >
+    <ActionPopoverTrigger
+      label={t(lang, "actionEscalate")}
+      ariaLabel={t(lang, "actionEscalateTitle")}
+      open={open}
+      panelOpen={open && !!plan}
+      onToggle={toggleOpen}
+      onClose={close}
+      btnRef={btnRef}
+      prominent={prominent}
+      panelClassName="w-72 p-2"
+    >
         {plan && (
           <>
           <p className="mb-2 text-xs text-foreground">
@@ -122,14 +114,13 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
               type="button"
               disabled={!canConfirm}
               onClick={(e) => { e.stopPropagation(); confirm(); }}
-              className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey"
+              className={POPOVER_CONFIRM_BTN}
             >
               {t(lang, "actionEscalateConfirm")}
             </button>
           </div>
           </>
         )}
-      </PopoverPanel>
-    </span>
+    </ActionPopoverTrigger>
   );
 }

@@ -17,3 +17,8 @@ export const POPOVER_PROMINENT =
 export function popoverTriggerClass(prominent?: boolean): string {
   return prominent ? POPOVER_PROMINENT : POPOVER_GHOST;
 }
+
+/** Confirm button inside an action popover (reschedule/escalate/rebaseline) —
+ *  the compact bordered-ghost affordance the three panels repeated verbatim. */
+export const POPOVER_CONFIRM_BTN =
+  "cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey";

@@ -4,8 +4,8 @@ import { type Lang, t } from "./i18n";
 import type { SuggestedAction } from "./next-actions/types";
 import type { Milestone, Task } from "./types";
 import { milestoneRebaselineDate, isValidIsoDate } from "./action-rebaseline";
-import { PopoverPanel } from "./popover-panel";
-import { popoverTriggerClass } from "./action-cta-styles";
+import { POPOVER_CONFIRM_BTN } from "./action-cta-styles";
+import { ActionPopoverTrigger } from "./action-popover-trigger";
 import { Input } from "./form-controls";
 
 export interface RebaselineBundle {
@@ -62,25 +62,17 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
   const canRender = isMilestone ? milestone != null : true;
 
   return (
-    <span className="relative">
-      <button
-        ref={btnRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
-        className={popoverTriggerClass(prominent)}
-      >
-        {t(lang, "actionRebaseline")}
-      </button>
-      <PopoverPanel
-        open={open && canRender}
-        anchorRef={btnRef}
-        onClose={close}
-        role="dialog"
-        ariaLabel={t(lang, "actionRebaselineTitle")}
-        className="w-72 p-2"
-      >
+    <ActionPopoverTrigger
+      label={t(lang, "actionRebaseline")}
+      ariaLabel={t(lang, "actionRebaselineTitle")}
+      open={open}
+      panelOpen={open && canRender}
+      onToggle={toggleOpen}
+      onClose={close}
+      btnRef={btnRef}
+      prominent={prominent}
+      panelClassName="w-72 p-2"
+    >
           {isMilestone && milestone ? (
             <>
               <p className="mb-2 text-xs text-foreground">
@@ -103,7 +95,7 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
                   type="button"
                   disabled={!isValidIsoDate(date)}
                   onClick={(e) => { e.stopPropagation(); confirmMilestone(); }}
-                  className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey"
+                  className={POPOVER_CONFIRM_BTN}
                 >
                   {t(lang, "actionRebaselineConfirm")}
                 </button>
@@ -117,14 +109,13 @@ export function RebaselinePopover({ lang, action, bundle, prominent }: Rebaselin
                   type="button"
                   disabled={bundle.busy}
                   onClick={(e) => { e.stopPropagation(); confirmSnapshot(); }}
-                  className="cursor-pointer rounded-md border border-line px-3 py-1 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey"
+                  className={POPOVER_CONFIRM_BTN}
                 >
                   {t(lang, "actionRebaselineConfirm")}
                 </button>
               </div>
             </>
           )}
-      </PopoverPanel>
-    </span>
+    </ActionPopoverTrigger>
   );
 }

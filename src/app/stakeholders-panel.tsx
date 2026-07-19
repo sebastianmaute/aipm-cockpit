@@ -1,5 +1,6 @@
 "use client";
 import { Checkbox } from "./form-controls";
+import { Badge } from "./badge";
 
 // Stakeholder Register panel — sortable, searchable table of stakeholders.
 // Mirrors change-panel.tsx: Add button BEFORE the search, local draft/isNew
@@ -113,15 +114,6 @@ const LEVEL_CHIP: Record<InfluenceInterest, string> = {
   High: "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/25 dark:text-ui-light-grey",
 };
 
-function Chip({ label, className }: { label: string; className?: string }) {
-  return (
-    <span
-      className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${className ?? "bg-surface-muted text-foreground"}`}
-    >
-      {label}
-    </span>
-  );
-}
 
 // --- Component --------------------------------------------------------------
 
@@ -528,26 +520,23 @@ function StakeholdersPanelBody({
                   {!hiddenSet.has("title") && <td className="px-3 py-2 text-foreground">{item.title ?? ""}</td>}
                   {!hiddenSet.has("category") && (
                   <td className="px-3 py-2">
-                    <Chip
-                      label={t(lang, CATEGORY_KEY[item.category])}
-                      className="bg-surface-muted text-foreground"
-                    />
+                    <Badge className="font-medium bg-surface-muted text-foreground">
+                      {t(lang, CATEGORY_KEY[item.category])}
+                    </Badge>
                   </td>
                   )}
                   {!hiddenSet.has("influence") && (
                   <td className="px-3 py-2">
-                    <Chip
-                      label={t(lang, LEVEL_KEY[item.influence])}
-                      className={LEVEL_CHIP[item.influence]}
-                    />
+                    <Badge className={`font-medium ${LEVEL_CHIP[item.influence]}`}>
+                      {t(lang, LEVEL_KEY[item.influence])}
+                    </Badge>
                   </td>
                   )}
                   {!hiddenSet.has("interest") && (
                   <td className="px-3 py-2">
-                    <Chip
-                      label={t(lang, LEVEL_KEY[item.interest])}
-                      className={LEVEL_CHIP[item.interest]}
-                    />
+                    <Badge className={`font-medium ${LEVEL_CHIP[item.interest]}`}>
+                      {t(lang, LEVEL_KEY[item.interest])}
+                    </Badge>
                   </td>
                   )}
                   {!hiddenSet.has("resource") && (

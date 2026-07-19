@@ -8,6 +8,29 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.37] - 2026-07-19 "Pinsker"
+
+### Changed
+
+**Consolidation sweep (Tier C)** — the moderate cross-file dedup follow-up to
+Tier A+B. Behavior-neutral; internal only.
+
+- **Stakeholder / RACI chips → `Badge`:** the stakeholder table's category /
+  influence / interest chips dropped their local hand-rolled `Chip` (a
+  reimplementation of the `Badge` primitive) and use `Badge` directly. The RACI
+  "Accountable missing/multiple" amber warning — duplicated verbatim in the RACI
+  panel and the stakeholder report — is now one shared `RaciAccountableWarning`.
+- **Action-Center popovers:** escalate / reschedule / rebaseline shared an
+  identical trigger-button + `PopoverPanel` scaffold (with the ARIA +
+  `stopPropagation` the row click-guard depends on); that wrapper is now one
+  `ActionPopoverTrigger`, and their four identical confirm buttons share a
+  `POPOVER_CONFIRM_BTN` class const.
+- **Outlook import modals:** the contacts and calendar import modals shared a
+  near-verbatim multi-select + modal chrome. The selection state is now the
+  shared `useImportSelection` hook and the chrome is the shared
+  `PickListImportModal` shell (per-row content stays per-modal). Their pick-list
+  checkboxes also adopt the shared `Checkbox` primitive.
+
 ## [0.190.36] - 2026-07-19 "Pinsker"
 
 ### Changed
