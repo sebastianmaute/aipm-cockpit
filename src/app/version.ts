@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.33";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.33: design-system PopoverPanel adoption — 5 hand-rolled top-bar/cog menus migrated to the shared PopoverPanel portal (single popover source; overflow-safe, dismiss-owning); bespoke/left-aligned/APG-roving menus left as-is (Pinsker)
+export const APP_VERSION = "0.190.34";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.34: design-system Modal adoption — the comm send-preview modal moved onto the shared Modal primitive (canonical dark-blue backdrop, focus-trap/restore, backdrop-click-close, modal stack); completes the Modal-adoption phase (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
