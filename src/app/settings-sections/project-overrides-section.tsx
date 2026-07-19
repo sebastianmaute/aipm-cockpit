@@ -114,13 +114,14 @@ export function ProjectOverridesSection({
       saveProjectAppearance(projectId, {});
       return;
     }
-    // Only density + view-hints are project-overridable in the UI. tasksViewMode
-    // is EXCLUDED: the Open Points pane has its own table/board toggle (writes
-    // the device default), so a per-project override would fight it (the pane
-    // would snap back). It stays a pure device preference.
+    // Seed all three appearance fields from the current EFFECTIVE value so
+    // nothing visibly changes at toggle time. The Open Points pane's own
+    // table/board toggle is scope-aware — while this override is on it writes
+    // here (per project), so it no longer fights the override.
     saveProjectAppearance(projectId, {
       dashboardDensity: effective.dashboardDensity ?? "comfortable",
       showViewHints: effective.showViewHints !== false,
+      tasksViewMode: effective.tasksViewMode ?? "table",
     });
   }
   const appearanceOn = Object.keys(appearance).length > 0;
@@ -203,6 +204,18 @@ export function ProjectOverridesSection({
                 { value: "hidden", label: t(lang, "viewHintsHidden") },
               ]}
               onChange={(v) => setAppearance({ showViewHints: v === "shown" })}
+            />
+          </label>
+          <label className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground">
+            {t(lang, "tasksViewModeLabel")}
+            <SegmentedControl<"table" | "board">
+              value={effective.tasksViewMode ?? "table"}
+              ariaLabel={t(lang, "tasksViewModeLabel")}
+              options={[
+                { value: "table", label: t(lang, "tasksViewTable") },
+                { value: "board", label: t(lang, "tasksViewBoard") },
+              ]}
+              onChange={(v) => setAppearance({ tasksViewMode: v })}
             />
           </label>
         </div>

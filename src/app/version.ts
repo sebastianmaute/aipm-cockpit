@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.42";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.42: per-project setting overrides — a "This project" settings section lets a project override next-actions ranking, notifications, and timezone (policy overrides that travel WITH the project across all storage backends) plus dashboard density and view-hint banners (per-device-per-project). Effective config resolves override-else-device and drives ranking / reminders / timezone / appearance; no override leaves everything unchanged (Pinsker)
+export const APP_VERSION = "0.190.43";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.43: per-project Table/Board view mode — the Open Points view mode joins the "This project" appearance overrides; the pane's own Table/Board toggle is scope-aware (writes the project override when on, else the device default) so a per-project view no longer snaps back (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
@@ -231,4 +231,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightKnowledgeItems",
   "versionHighlightAiSettingsTool",
   "versionHighlightProjectOverrides",
+  "versionHighlightProjectViewMode",
 ] as const;

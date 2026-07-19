@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowPathIcon, Cog6ToothIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
@@ -9,6 +9,8 @@ import { TaskKanban } from "./task-kanban-board";
 import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
 import { useSettings } from "./use-settings";
+import { useEffectiveSettings } from "./use-effective-settings";
+import { getAppearanceSnapshot, saveProjectAppearance, subscribeAppearance } from "./project-appearance-prefs";
 import { useHolidaySet } from "./use-holiday-set";
 import { type SortKey, useFilters } from "./filters-context";
 import { useWorkspace } from "./workspace-context";
@@ -146,9 +148,13 @@ export interface TasksSectionProps {
   isPopout?: boolean;
   onLearnMoreHint?: (conceptId: string) => void;
   // Outlook calendar write-back (SP1): threaded from task-manager. `projectId`
-  // is the stable Outlook event-category id; `m365Configured` gates the toggle +
-  // Push button (hidden when M365 is not configured).
+  // is the stable Outlook event-category id (falls back to project.code), NOT the
+  // per-project settings key; `m365Configured` gates the toggle + Push button.
   projectId?: string;
+  // Per-project settings/appearance key — MUST match SettingsView + workspace-section
+  // (`portfolioCurrentId ?? "default"`), which differs from the calendar `projectId`
+  // (the calendar id has a `project.code` fallback). Used for the effective view mode.
+  settingsProjectId?: string;
   m365Configured?: boolean;
   // Inline "Ask Claude" task edit (SP1): the ToolDispatcher backing the single
   // useInlineAiEdit instance owned here, plus optional activity logging —
@@ -214,6 +220,7 @@ export function TasksSection({
   isPopout,
   onLearnMoreHint,
   projectId,
+  settingsProjectId,
   m365Configured,
   dispatcher,
   logActivity,
@@ -265,7 +272,29 @@ export function TasksSection({
   });
 
   const hideFinished = settings.hideFinishedTasks ?? false;
-  const tasksViewMode = settings.tasksViewMode ?? "table";
+  // View mode reads the EFFECTIVE value (device default OR this project's
+  // appearance override). The in-pane toggle below writes to whichever scope is
+  // active, so an override no longer snaps back when toggled. Keys off
+  // `settingsProjectId` (canonical `portfolioCurrentId ?? "default"`) — NOT the
+  // calendar `projectId`, whose `project.code` fallback would land the override
+  // under a different key than SettingsView writes.
+  const pid = settingsProjectId ?? "default";
+  const effectiveSettings = useEffectiveSettings(pid);
+  const projectAppearance = useSyncExternalStore(
+    subscribeAppearance,
+    () => getAppearanceSnapshot(pid),
+    () => getAppearanceSnapshot(pid),
+  );
+  const tasksViewMode = effectiveSettings.tasksViewMode ?? "table";
+  const viewModeOverridden = projectAppearance.tasksViewMode !== undefined;
+  const setTasksViewMode = useCallback(
+    (mode: "table" | "board") => {
+      if (viewModeOverridden)
+        saveProjectAppearance(pid, { ...projectAppearance, tasksViewMode: mode });
+      else setSettings((s) => ({ ...s, tasksViewMode: mode }));
+    },
+    [viewModeOverridden, pid, projectAppearance, setSettings],
+  );
 
   // Outlook calendar write-back (SP1): manual push of unfinished, dated tasks.
   // The hook is called unconditionally (rules of hooks); `enabled` gates the
@@ -510,7 +539,7 @@ export function TasksSection({
             { value: "table", label: t(lang, "tasksViewTable") },
             { value: "board", label: t(lang, "tasksViewBoard") },
           ]}
-          onChange={(mode) => setSettings((s) => ({ ...s, tasksViewMode: mode }))}
+          onChange={setTasksViewMode}
           ariaLabel={t(lang, "tasksViewModeLabel")}
         />
         <Input

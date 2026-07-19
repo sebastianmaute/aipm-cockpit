@@ -1939,6 +1939,7 @@ function TaskManagerInner() {
       isPopout={isPopout}
       onLearnMoreHint={requestHelpConcept}
       projectId={calendarProjectId}
+      settingsProjectId={portfolioCurrentId ?? "default"}
       m365Configured={m365Enabled}
       dispatcher={dispatcher}
       logActivity={logActivity}

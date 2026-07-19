@@ -3399,6 +3399,7 @@ const enUS = {
   versionHighlightKnowledgeItems: "Knowledge library: add standalone documents, Confluence pages, and web links that aren't tied to an item, and optionally link each to one or more tasks.",
   versionHighlightAiSettingsTool: "The AI assistant can now adjust safe app settings on request (density, view hints, table/board mode, feature modules, next-actions weights) - never keys, secrets, or storage.",
   versionHighlightProjectOverrides: "Per-project setting overrides: a \"This project\" settings section can override next-actions ranking, notifications, and timezone for a single project (they travel with it), plus dashboard density and view-hint banners per device.",
+  versionHighlightProjectViewMode: "Per-project Table/Board view: the Open Points view mode joins the \"This project\" appearance overrides, and the pane's own toggle now sticks per project instead of snapping back to the device default.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
