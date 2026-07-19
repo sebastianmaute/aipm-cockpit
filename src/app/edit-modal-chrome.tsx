@@ -40,6 +40,14 @@ interface EditModalShellProps {
   /** Extra panel classes appended after the shared panel chrome (e.g. a
    *  `max-h-[95vh]` cap on a tall start-aligned modal). */
   panelClassName?: string;
+  /** Panel width classes. Default `"w-[720px] min-w-[460px]"` (the wide
+   *  change/raid/stakeholder modals); the narrower register modals
+   *  (absence/milestone/resource) pass `"w-[560px] min-w-[320px]"`. */
+  widthClassName?: string;
+  /** `<form>` classes. Default is the two-column grid the wide modals use;
+   *  narrower modals override the padding, and the milestone modal opts into a
+   *  single-column flow. */
+  formClassName?: string;
   children: ReactNode;
 }
 
@@ -63,6 +71,8 @@ export function EditModalShell({
   align = "center",
   backdropScroll = false,
   panelClassName,
+  widthClassName = "w-[720px] min-w-[460px]",
+  formClassName = "grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2",
   children,
 }: EditModalShellProps) {
   const { ref: sizeRef, reset: sizeReset } = useResizable(sizeKey);
@@ -80,7 +90,7 @@ export function EditModalShell({
         ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className={`relative flex w-[720px] min-w-[460px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface${panelClassName ? ` ${panelClassName}` : ""}`}
+        className={`relative flex ${widthClassName} max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface${panelClassName ? ` ${panelClassName}` : ""}`}
       >
         <ModalHeader
           lang={lang}
@@ -95,7 +105,7 @@ export function EditModalShell({
 
         <ModalFieldControls modalId={modalId} lang={lang} />
 
-        <form onSubmit={onSubmit} className="grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2">
+        <form onSubmit={onSubmit} className={formClassName}>
           {children}
         </form>
       </div>

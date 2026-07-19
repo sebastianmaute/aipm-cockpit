@@ -3,27 +3,17 @@
 // Per-action snooze store: actionId -> snoozed-until epoch ms. Feeds the
 // next-actions engine's `dismissed` set so snoozed actions drop out of the
 // queue until their timer expires. localStorage-backed, fully guarded.
+import { readDeviceJson, writeDeviceJson } from "./device-store";
+
 export const ACTION_SNOOZE_KEY = "aipm-cockpit:action-snooze";
 
 function read(): Record<string, number> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(ACTION_SNOOZE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
-  } catch {
-    return {};
-  }
+  const parsed = readDeviceJson<unknown>(ACTION_SNOOZE_KEY, null);
+  return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
 }
 
 function write(map: Record<string, number>): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(ACTION_SNOOZE_KEY, JSON.stringify(map));
-  } catch {
-    /* quota / disabled - non-fatal */
-  }
+  writeDeviceJson(ACTION_SNOOZE_KEY, map);
 }
 
 /** Snoozed action ids whose timer is still in the future. Prunes expired

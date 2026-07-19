@@ -2,6 +2,7 @@
 // panel cycles a column through "off" via useSortableFilter, so the persisted
 // sort must be able to hold it (filters-context's SortDir omits "off", which
 // would silently fail validation and drop the saved view on reload).
+import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { SortDir } from "./report-table";
 
 export type PanelViewKind = "raid" | "milestones" | "changes" | "stakeholders";
@@ -60,14 +61,9 @@ function isValidView(entry: unknown): entry is PanelView {
 }
 
 export function loadPanelViews(): PanelView[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const parsed = JSON.parse(localStorage.getItem(PANEL_VIEWS_KEY) ?? "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidView);
-  } catch {
-    return [];
-  }
+  const parsed = readDeviceJson<unknown>(PANEL_VIEWS_KEY, []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(isValidView);
 }
 
 export function panelViewsFor(list: readonly PanelView[], view: PanelViewKind): PanelView[] {
@@ -93,10 +89,5 @@ export function removePanelView(list: readonly PanelView[], id: number): PanelVi
 }
 
 export function savePanelViews(list: readonly PanelView[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(PANEL_VIEWS_KEY, JSON.stringify(list));
-  } catch {
-    // ignore quota / serialization errors
-  }
+  writeDeviceJson(PANEL_VIEWS_KEY, list);
 }

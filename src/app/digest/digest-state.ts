@@ -2,6 +2,7 @@
 // Mirrors landing-state.ts: single localStorage key, capped, validated load,
 // OUT of exports/Turso, swept by clearAppConfig's `aipm-cockpit:*` sweep. NOT a
 // Workspace field (zero backend write paths).
+import { readDeviceJson, removeDeviceKey, writeDeviceJson } from "../device-store";
 import type { Health } from "../health";
 
 export const DIGEST_STATE_KEY = "aipm-cockpit:digest-state";
@@ -37,30 +38,20 @@ function isState(v: unknown): v is DigestState {
 }
 
 function loadMap(): StateMap {
-  try {
-    const raw = localStorage.getItem(DIGEST_STATE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== "object" || parsed === null) return {};
-    const out: StateMap = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (isState(v)) out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
+  const parsed = readDeviceJson<unknown>(DIGEST_STATE_KEY, null);
+  if (typeof parsed !== "object" || parsed === null) return {};
+  const out: StateMap = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (isState(v)) out[k] = v;
   }
+  return out;
 }
 
 function saveMap(map: StateMap): void {
   // Cap: keep the most-recently-run projects (by lastRunAt desc).
   const entries = Object.entries(map).sort((a, b) => b[1].lastRunAt.localeCompare(a[1].lastRunAt));
   const capped = Object.fromEntries(entries.slice(0, DIGEST_STATE_MAX_PROJECTS));
-  try {
-    localStorage.setItem(DIGEST_STATE_KEY, JSON.stringify(capped));
-  } catch {
-    /* storage full / unavailable — non-fatal (digest is advisory) */
-  }
+  writeDeviceJson(DIGEST_STATE_KEY, capped);
 }
 
 export function loadDigestState(projectId: string): DigestState | null {
@@ -89,9 +80,5 @@ export function isDigestDue(state: DigestState, now: string): boolean {
 }
 
 export function clearDigestState(): void {
-  try {
-    localStorage.removeItem(DIGEST_STATE_KEY);
-  } catch {
-    /* non-fatal */
-  }
+  removeDeviceKey(DIGEST_STATE_KEY);
 }

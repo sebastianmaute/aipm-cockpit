@@ -7,23 +7,20 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Input, Textarea } from "./form-controls";
-import { Modal } from "./modal";
-import { ModalHeader } from "./modal-header";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";
-import { useResizable } from "./use-resizable";
 import { birthdayHasYear, birthdayMonthDay } from "./birthdays";
 import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { ASSIGNEE_MAX, EMAIL_MAX } from "./sanitize";
 import { useToastContext } from "./toast-context";
-import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { useConfirm } from "./confirm-dialog";
+import { useDraftState } from "./use-draft-state";
 
 interface Props {
   lang: Lang;
@@ -61,8 +58,7 @@ export function ResourceEditModal({
   onClose,
 }: Props) {
   const [prevResource, setPrevResource] = useState(resource);
-  const [draft, setDraft] = useState<Resource | null>(resource);
-  const [error, setError] = useState<string | null>(null);
+  const { draft, setDraft, update, error, setError } = useDraftState<Resource>(resource);
   const [yearUnknown, setYearUnknown] = useState(() => !birthdayHasYear(resource?.birthday));
 
   if (prevResource !== resource) {
@@ -81,14 +77,8 @@ export function ResourceEditModal({
     draft !== null,
     "aipm-cockpit:modal-pos:resource-edit",
   );
-  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:resource-edit");
 
-  function update<K extends keyof Resource>(key: K, value: Resource[K]) {
-    setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
-    setError(null);
-  }
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!draft) return;
     adj.reset();
@@ -128,37 +118,23 @@ export function ResourceEditModal({
 
   if (!draft) return null;
 
+  const title = isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle");
+
   return (
-    <Modal
-      open
+    <EditModalShell
+      lang={lang}
+      title={title}
+      modalId="resource"
       onClose={onClose}
-      ariaLabel={isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle")}
-      align="center"
-      zIndex={50}
+      onSubmit={handleSubmit}
+      offset={offset}
+      dragHandleProps={handleProps}
+      onDragReset={dragReset}
+      sizeKey="aipm-cockpit:modal-size:resource-edit"
+      widthClassName="w-[560px] min-w-[320px]"
+      panelClassName="max-h-[95vh]"
+      formClassName="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
-      <div
-        ref={sizeRef}
-        data-modal-panel
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex max-h-[95vh] w-[560px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
-      >
-        <ModalHeader
-          lang={lang}
-          title={isNew ? t(lang, "resourceNewTitle") : t(lang, "resourceEditTitle")}
-          onClose={onClose}
-          dragHandleProps={handleProps}
-          onResetLayout={() => {
-            dragReset();
-            sizeReset();
-          }}
-        />
-
-        <ModalFieldControls modalId="resource" lang={lang} />
-
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
-        >
           {/* First name */}
           <label className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1 font-medium text-foreground">
@@ -391,8 +367,6 @@ export function ResourceEditModal({
             onCancel={onClose}
             saveLabelKey="resourceSave"
           />
-        </form>
-      </div>
-    </Modal>
+    </EditModalShell>
   );
 }

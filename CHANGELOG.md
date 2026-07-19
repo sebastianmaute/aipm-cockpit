@@ -8,6 +8,41 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.39] - 2026-07-19 "Pinsker"
+
+### Changed
+
+**Consolidation sweep (Tier E)** — the last real duplication tail after the DS
+and Tier A–D programs. All behavior-preserving; new shared modules, no feature
+or serialization change.
+
+- **`device-store.ts` JSON envelope.** `readDeviceJson`/`writeDeviceJson`/
+  `removeDeviceKey` centralize the per-device localStorage SSR-guard + try/catch
+  parse/stringify boilerplate that ~14 stores hand-rolled (saved/panel/reports
+  views, landing-state, search-recents, view-hints, calendar-sync-baseline,
+  timelog-actuals, digest-state, action-snooze, contacts, learning, and the
+  read paths of scheduled-jobs/operating-guide). Each store keeps its own
+  validation/cap/dedupe. `reminder-snooze` (raw number, not JSON) left as-is.
+- **`capped-list-store.ts` factory.** `createCappedListStore` builds the
+  validated-load / `max-id+1` add / remove / rename / cap-slice CRUD on top of
+  the device-store envelope; `saved-views` and `reports-views` adopt it.
+  `panel-views` (per-view cap) and `search-recents` (dedupe) stay bespoke.
+- **`ai-forced-call.ts` — one audited Anthropic forced-tool envelope.** The
+  duplicated never-log fetch+throw path (scheduled-job analysis, weight
+  suggestion, task dedup, meeting report, digest narrative, project proposal)
+  is now a single `runForcedToolCall`; each caller keeps its own parse/ground.
+  A secret/body-leak fix now lives in one place instead of six. The multi-turn
+  chat loop (`callClaude`) is deliberately not folded in.
+- **`EditModalShell` adoption.** The absence / milestone / resource edit-modals
+  stopped hand-rolling the resizable/draggable panel + header and now use the
+  shared shell (change/raid/stakeholder already did). Shell gained defaulted
+  `widthClassName`/`formClassName` props so existing adopters stay byte-identical.
+- **Smaller extracts.** `guardTurso` preamble helper (`use-storage-turso-ops`),
+  `useTaskPickerOptions` (change/raid edit-modals), `useDraftState` (absence/
+  milestone/resource edit-modals), `EntityPaneCalendarHintsProps` interface
+  mixin (change/raid/stakeholders panes), and jira `parseIssueFields`
+  (create/update issue routes — SSRF guard untouched).
+
 ## [0.190.38] - 2026-07-19 "Pinsker"
 
 ### Changed

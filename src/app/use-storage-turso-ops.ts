@@ -60,13 +60,22 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
     }
   }
 
-  async function switchToTursoProject(id: string): Promise<void> {
-    if (deps.isPopout) return;
+  // Shared Turso-guard preamble for every project op: popouts never mutate, and
+  // a missing/quarantined Turso config surfaces the same unreachable toast and
+  // bails. Returns the live config, or null when the caller should return.
+  const guardTurso = (): TursoConfig | null => {
+    if (deps.isPopout) return null;
     const cfg = deps.tursoConfigNow();
     if (!cfg) {
       deps.showToast("error", t(deps.langRef.current, "projectsTursoUnreachable"));
-      return;
+      return null;
     }
+    return cfg;
+  };
+
+  async function switchToTursoProject(id: string): Promise<void> {
+    const cfg = guardTurso();
+    if (!cfg) return;
     if (deps.tursoProjectId === id) return;
     try {
       // Flush the outgoing project to the active backend before switching.
@@ -85,12 +94,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   }
 
   async function createTursoProject(meta: ProjectMeta, opts: NewProjectOpts = {}): Promise<void> {
-    if (deps.isPopout) return;
-    const cfg = deps.tursoConfigNow();
-    if (!cfg) {
-      deps.showToast("error", t(deps.langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
+    const cfg = guardTurso();
+    if (!cfg) return;
     // Flush the outgoing project first (setting suppressNextSaveRef below cancels
     // the pending debounced save). Mirrors the file createProject flush.
     await flushOutgoing(deps.currentWorkspace());
@@ -131,12 +136,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   // the migrated project is the active one. Unlike createTursoProject (which
   // builds a fresh workspace), this copies the live workspace verbatim.
   async function migrateCurrentProjectToTurso(): Promise<void> {
-    if (deps.isPopout) return;
-    const cfg = deps.tursoConfigNow();
-    if (!cfg) {
-      deps.showToast("error", t(deps.langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
+    const cfg = guardTurso();
+    if (!cfg) return;
     const ws = deps.currentWorkspace();
     const meta = ws.project;
     if (!meta) {
@@ -168,12 +169,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   }
 
   async function archiveTursoProject(id: string): Promise<void> {
-    if (deps.isPopout) return;
-    const cfg = deps.tursoConfigNow();
-    if (!cfg) {
-      deps.showToast("error", t(deps.langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
+    const cfg = guardTurso();
+    if (!cfg) return;
     try {
       await portfolioArchive(cfg, id);
       deps.showToast("info", t(deps.langRef.current, "projectArchivedToast"));
@@ -183,12 +180,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   }
 
   async function restoreTursoProject(id: string): Promise<void> {
-    if (deps.isPopout) return;
-    const cfg = deps.tursoConfigNow();
-    if (!cfg) {
-      deps.showToast("error", t(deps.langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
+    const cfg = guardTurso();
+    if (!cfg) return;
     try {
       await portfolioRestore(cfg, id);
       deps.showToast("info", t(deps.langRef.current, "projectRestoredToast"));
@@ -198,12 +191,8 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
   }
 
   async function hardDeleteTursoProject(id: string): Promise<void> {
-    if (deps.isPopout) return;
-    const cfg = deps.tursoConfigNow();
-    if (!cfg) {
-      deps.showToast("error", t(deps.langRef.current, "projectsTursoUnreachable"));
-      return;
-    }
+    const cfg = guardTurso();
+    if (!cfg) return;
     try {
       await portfolioHardDelete(cfg, id);
       deps.showToast("info", t(deps.langRef.current, "projectHardDeletedToast"));

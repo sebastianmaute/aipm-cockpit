@@ -28,6 +28,7 @@ import {
   type Stakeholder,
   type StakeholderCategory,
 } from "./types";
+import type { EntityPaneHintsProps } from "./workspace-section-types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
@@ -69,7 +70,7 @@ const STAKEHOLDER_CONFIG_COLS: readonly ColumnConfigCol[] = [
 
 // --- Props ------------------------------------------------------------------
 
-export interface StakeholdersPanelProps {
+export interface StakeholdersPanelProps extends EntityPaneHintsProps {
   lang: Lang;
   stakeholders: readonly Stakeholder[];
   resources: readonly Resource[];
@@ -82,9 +83,6 @@ export interface StakeholdersPanelProps {
   commsPendingStakeholderIds?: ReadonlySet<number>;
   /** Jump to the Action Center for the given stakeholder. */
   onJumpToComms?: (stakeholderId: number) => void;
-  showHints?: boolean;
-  isPopout?: boolean;
-  onLearnMore?: (conceptId: string) => void;
   /** Open the inline "Ask Claude" edit popover for a stakeholder (SP2). */
   onAiEdit?: (item: Stakeholder) => void;
   /** Whether the ✨ inline-AI-edit affordance should render for this stakeholder. */

@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.38";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.38: consolidation sweep (Tier D) — useColumnManager (Open Points) now composes the shared useColumnResize + usePopoverDismiss instead of hand-rolling width/persist/resize + the colConfig outside-click (storage key is now tableId-scoped, so a saved Open-Points width resets once); new IconButton "bordered" variant codifies the toolbar reset-icon recipe — ResetSizeButton, ResetColWidthsButton, and the Gantt name-column reset adopt it (Pinsker)
+export const APP_VERSION = "0.190.39";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.39: consolidation sweep (Tier E) — extracted shared modules for the last real dedup tail: device-store JSON envelope (readDeviceJson/writeDeviceJson/removeDeviceKey, 14 per-device stores adopt), capped-list-store factory (saved/reports-views), guardTurso preamble (use-storage-turso-ops), EditModalShell adoption (absence/milestone/resource edit-modals), ai-forced-call (ONE audited never-log Anthropic forced-tool envelope, 6 call sites), useTaskPickerOptions, useDraftState, EntityPaneCalendarHintsProps mixin, jira parseIssueFields. Behavior-preserving (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";

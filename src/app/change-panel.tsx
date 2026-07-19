@@ -46,6 +46,7 @@ import {
   type Stakeholder,
   type Task,
 } from "./types";
+import type { EntityPaneCalendarHintsProps } from "./workspace-section-types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -85,7 +86,7 @@ const REQUESTED_BY_MAX = 200;
 
 // --- Props ---------------------------------------------------------------
 
-export type ChangePanelProps = {
+export type ChangePanelProps = EntityPaneCalendarHintsProps & {
   lang: Lang;
   tasks: readonly Task[];
   raid: readonly RaidItem[];
@@ -102,22 +103,6 @@ export type ChangePanelProps = {
   stakeholdersEnabled?: boolean;
   /** Selectable stakeholders for the picker; empty when the module is off. */
   stakeholders?: readonly Stakeholder[];
-  /** Show the per-view Help callout (default true when `onLearnMore` is provided). */
-  showHints?: boolean;
-  /** Popout windows render the callout read-only (no dismiss). */
-  isPopout?: boolean;
-  /** Deep-link a Help concept; when absent the callout is not rendered. */
-  onLearnMore?: (conceptId: string) => void;
-  /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
-  m365Configured?: boolean;
-  /** Change decision-date Outlook write-back (SP3). Absent in popouts. */
-  calendarEnabled?: boolean;
-  onToggleCalendar?: (enabled: boolean) => void;
-  onPushCalendar?: () => void;
-  calendarPushBusy?: boolean;
-  /** Change Pull-from-Outlook (two-way SP3). Absent in popouts. */
-  onPullCalendar?: () => void;
-  calendarPullBusy?: boolean;
   /** Inline "Ask Claude" per-row edit (SP2). Absent when AI is off / in popouts. */
   onAiEdit?: (item: ChangeItem) => void;
   /** Per-row gate for the ✨ button (AI enabled && !jira-synced-style predicate). */

@@ -11,19 +11,16 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Input, Textarea } from "./form-controls";
-import { Modal } from "./modal";
-import { ModalHeader } from "./modal-header";
 import { AssigneeField } from "./modal-edit-fields";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
-import { useResizable } from "./use-resizable";
 import { ABSENCE_TYPES, type Absence, type AbsenceType } from "./types";
-import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { InfoTooltip } from "./info-tooltip";
 import { useConfirm } from "./confirm-dialog";
+import { useDraftState } from "./use-draft-state";
 
 interface Props {
   lang: Lang;
@@ -52,8 +49,7 @@ export function AbsenceEditModal({
   // Local draft mirrors the absence prop. Reset whenever the prop changes
   // (open with a new record, or switch from one absence to another).
   const [prevAbsence, setPrevAbsence] = useState(absence);
-  const [draft, setDraft] = useState<Absence | null>(absence);
-  const [error, setError] = useState<string | null>(null);
+  const { draft, setDraft, update, error, setError } = useDraftState<Absence>(absence);
 
   const { isVisible } = useModalVisibility("absence");
   const confirm = useConfirm();
@@ -66,12 +62,7 @@ export function AbsenceEditModal({
 
   // Escape, focus management, and backdrop-click are owned by <Modal>.
 
-  function update<K extends keyof Absence>(key: K, value: Absence[K]) {
-    setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
-    setError(null);
-  }
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!draft) return;
     const assignee = draft.assignee.trim();
@@ -108,45 +99,28 @@ export function AbsenceEditModal({
     draft !== null,
     "aipm-cockpit:modal-pos:absence-edit",
   );
-  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:absence-edit");
 
   if (!draft) return null;
 
+  const title = isNew
+    ? t(lang, "absenceNewItem")
+    : t(lang, "absenceEditItem", draft.id);
+
   return (
-    <Modal
-      open
+    <EditModalShell
+      lang={lang}
+      title={title}
+      modalId="absence"
       onClose={onClose}
-      ariaLabel={
-        isNew
-          ? t(lang, "absenceNewItem")
-          : t(lang, "absenceEditItem", draft.id)
-      }
-      align="center"
-      zIndex={50}
+      onSubmit={handleSubmit}
+      offset={offset}
+      dragHandleProps={handleProps}
+      onDragReset={dragReset}
+      sizeKey="aipm-cockpit:modal-size:absence-edit"
+      widthClassName="w-[560px] min-w-[320px]"
+      panelClassName="max-h-[95vh]"
+      formClassName="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
-      <div
-        ref={sizeRef}
-        data-modal-panel
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex max-h-[95vh] w-[560px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
-      >
-        <ModalHeader
-          lang={lang}
-          title={isNew ? t(lang, "absenceNewItem") : t(lang, "absenceEditItem", draft.id)}
-          onClose={onClose}
-          dragHandleProps={handleProps}
-          onResetLayout={() => {
-            dragReset();
-            sizeReset();
-          }}
-        />
-
-        <ModalFieldControls modalId="absence" lang={lang} />
-
-        <form
-          onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
-        >
           {/* Assignee (required) + optional email (Full-only via `email`). */}
           <AssigneeField
             datalistId={DATALIST_ID}
@@ -241,8 +215,6 @@ export function AbsenceEditModal({
             onCancel={onClose}
             saveLabelKey="absenceSave"
           />
-        </form>
-      </div>
-    </Modal>
+    </EditModalShell>
   );
 }

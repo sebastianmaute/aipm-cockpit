@@ -4,6 +4,7 @@
 // would wipe it (mirrors operating-guide-store / comm-templates / learning).
 //   tursoConfig === null -> localStorage (always-available default)
 //   tursoConfig !== null -> global Turso table (cross-device), out of TABLE_NAMES.
+import { readDeviceJson } from "./device-store";
 import { runTursoPipeline } from "./turso-pipeline";
 import type { PipelineResultLike, SqlStmt } from "./turso-schema";
 import type { TursoConfig } from "./turso-config";
@@ -109,13 +110,7 @@ function sanitizeJobs(raw: unknown): ScheduledJob[] {
 // ---- localStorage backend ---------------------------------------------------
 
 function readLocal(): ScheduledJob[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    if (!raw) return [];
-    return sanitizeJobs(JSON.parse(raw) as unknown);
-  } catch {
-    return [];
-  }
+  return sanitizeJobs(readDeviceJson<unknown>(LOCAL_KEY, null));
 }
 function writeLocal(jobs: readonly ScheduledJob[]): void {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(jobs));

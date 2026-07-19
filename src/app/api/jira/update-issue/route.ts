@@ -1,8 +1,8 @@
 import {
   callJira,
   forwardJsonResponse,
+  parseIssueFields,
   parseJiraRequest,
-  sanitizeIssueFields,
 } from "../_helpers";
 
 export const runtime = "nodejs";
@@ -18,17 +18,9 @@ export async function POST(request: Request) {
   if (!key || !/^[A-Z][A-Z0-9_]+-\d+$/i.test(key)) {
     return Response.json({ error: "missing-or-bad-key" }, { status: 400 });
   }
-  const rawFields =
-    b.fields && typeof b.fields === "object" && !Array.isArray(b.fields)
-      ? (b.fields as Record<string, unknown>)
-      : null;
-  if (!rawFields) {
-    return Response.json({ error: "missing-fields" }, { status: 400 });
-  }
-  const fields = sanitizeIssueFields(rawFields);
-  if (!fields) {
-    return Response.json({ error: "invalid-fields" }, { status: 400 });
-  }
+  const parsedFields = parseIssueFields(b);
+  if ("error" in parsedFields) return parsedFields.error;
+  const { fields } = parsedFields;
 
   const upstream = await callJira(
     creds,

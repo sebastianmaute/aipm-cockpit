@@ -11,6 +11,7 @@
 // value's `name` field.
 
 import type { Task } from "./types";
+import { readDeviceJson, writeDeviceJson } from "./device-store";
 import {
   isPlainObject,
   isValidEmail,
@@ -52,34 +53,22 @@ function normalizeKey(name: string): string {
 }
 
 export function loadContacts(): ContactsMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(CONTACTS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (!isPlainObject(parsed)) return {};
-    const out: ContactsMap = {};
-    for (const [k, v] of Object.entries(parsed)) {
-      if (typeof k !== "string") continue;
-      if (!isPlainObject(v)) continue;
-      const name = sanitizeAssignee(v.name);
-      const email = sanitizeEmail(v.email);
-      if (!name) continue;
-      out[normalizeKey(name)] = { name, email };
-    }
-    return out;
-  } catch {
-    return {};
+  const parsed = readDeviceJson<unknown>(CONTACTS_KEY, null);
+  if (!isPlainObject(parsed)) return {};
+  const out: ContactsMap = {};
+  for (const [k, v] of Object.entries(parsed)) {
+    if (typeof k !== "string") continue;
+    if (!isPlainObject(v)) continue;
+    const name = sanitizeAssignee(v.name);
+    const email = sanitizeEmail(v.email);
+    if (!name) continue;
+    out[normalizeKey(name)] = { name, email };
   }
+  return out;
 }
 
 export function saveContacts(c: ContactsMap): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(CONTACTS_KEY, JSON.stringify(c));
-  } catch {
-    // Quota / disabled storage — silently drop.
-  }
+  writeDeviceJson(CONTACTS_KEY, c);
 }
 
 /**
