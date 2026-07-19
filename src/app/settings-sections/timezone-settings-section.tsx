@@ -14,9 +14,18 @@ interface TimezoneSettingsSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
+  /** Hide the "show display-tz switcher" checkbox — it writes a device-only
+   *  display flag that the per-project override context can't capture, so it's
+   *  omitted there rather than rendered as a dead control. */
+  hideDisplaySwitcher?: boolean;
 }
 
-export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSettingsSectionProps) {
+export function TimezoneSettingsSection({
+  lang,
+  settings,
+  onChange,
+  hideDisplaySwitcher = false,
+}: TimezoneSettingsSectionProps) {
   const zones = tzZones();
   const additional = settings.additionalTimezones ?? [];
   const [pending, setPending] = useState("");
@@ -106,18 +115,20 @@ export function TimezoneSettingsSection({ lang, settings, onChange }: TimezoneSe
         )}
       </div>
 
-      <div className="mt-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={!!settings.showDisplayTzSwitcher}
-            onChange={(e) => onChange({ ...settings, showDisplayTzSwitcher: e.target.checked })}
-            className={`${FOCUS_RING} ${TRANSITION}`}
-          />
-          {t(lang, "tzShowSwitcher")}
-        </label>
-        <FieldHint className="mt-1">{t(lang, "tzShowSwitcherHint")}</FieldHint>
-      </div>
+      {!hideDisplaySwitcher && (
+        <div className="mt-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={!!settings.showDisplayTzSwitcher}
+              onChange={(e) => onChange({ ...settings, showDisplayTzSwitcher: e.target.checked })}
+              className={`${FOCUS_RING} ${TRANSITION}`}
+            />
+            {t(lang, "tzShowSwitcher")}
+          </label>
+          <FieldHint className="mt-1">{t(lang, "tzShowSwitcherHint")}</FieldHint>
+        </div>
+      )}
     </>
   );
 }

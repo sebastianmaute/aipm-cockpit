@@ -18,6 +18,7 @@ import {
   ENTITY_SPECS, PLAN_COLUMNS, FX_COLUMNS, rowObjects, TABLE_NAMES,
   type SqlStmt, type PipelineResultLike,
 } from "./turso-schema";
+import { hasAnyOverride } from "./settings-overrides";
 import {
   PROJECT_CSV_COLUMNS, projectFieldToString, buildProjectFromObjLenient,
 } from "./csv-codecs";
@@ -133,6 +134,9 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     }
     if (ws.knowledgeItems && ws.knowledgeItems.length) {
       out.push(tenantInsert("meta", ["key", "value"], ["knowledge_items", JSON.stringify(ws.knowledgeItems)], projectId));
+    }
+    if (ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides)) {
+      out.push(tenantInsert("meta", ["key", "value"], ["settings_overrides", JSON.stringify(ws.settingsOverrides)], projectId));
     }
   }
   out.push({ sql: "COMMIT" });

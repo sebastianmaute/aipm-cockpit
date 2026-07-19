@@ -181,6 +181,7 @@ export const CSV_SECTION_FUNCTIONS = "# FUNCTIONS";
 export const CSV_SECTION_STEERING = "# STEERING COMMITTEE";
 export const CSV_SECTION_TIMELOG_LINKS = "# TIMELOG LINKS";
 export const CSV_SECTION_KNOWLEDGE_ITEMS = "# KNOWLEDGE ITEMS";
+export const CSV_SECTION_SETTINGS_OVERRIDES = "# SETTINGS OVERRIDES";
 
 export function shiftFieldToString(s: Shift, col: string): string {
   switch (col) {

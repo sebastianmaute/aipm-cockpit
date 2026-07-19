@@ -9,6 +9,7 @@ import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
+import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import {
   type ContactPerson,
@@ -16,7 +17,7 @@ import {
   type ProjectStatus,
   type SteeringCommittee,
 } from "./types";
-import type { ExportConfig } from "./settings-types";
+import type { ExportConfig, SettingsOverrides } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
@@ -39,6 +40,7 @@ import {
   CSV_SECTION_STEERING,
   CSV_SECTION_TIMELOG_LINKS,
   CSV_SECTION_KNOWLEDGE_ITEMS,
+  CSV_SECTION_SETTINGS_OVERRIDES,
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
@@ -158,6 +160,28 @@ export function csvToTimelogLinks(text: string): TimelogLinks | undefined {
   if (rows.length === 0) return undefined;
   try {
     return sanitizeTimelogLinks(JSON.parse(rows[0][1]));
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Settings-overrides encoder / decoder ------------------------------------
+//
+// Per-project policy overrides — a single nested config blob (like the
+// timelog/steering blobs), so it serializes as one `config,<json>` row.
+// Storage-only, NOT a user-exportable section: emission is gated purely on the
+// value being present + carrying >= 1 valid override.
+
+export function settingsOverridesToCsv(overrides: SettingsOverrides, neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(overrides), neutralize)].join(",");
+}
+
+export function csvToSettingsOverrides(text: string): SettingsOverrides | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    const o = sanitizeSettingsOverrides(JSON.parse(rows[0][1]));
+    return hasAnyOverride(o) ? o : undefined;
   } catch {
     return undefined;
   }
@@ -493,6 +517,10 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // Timelog links — storage-only, same byte-stability gate as steering.
   if (config === undefined && ws.timelogLinks)
     csvPush(CSV_SECTION_TIMELOG_LINKS, timelogLinksToCsv(ws.timelogLinks, neutralize));
+  // Settings overrides — storage-only, same byte-stability gate; absent/empty
+  // emits nothing so override-less files round-trip byte-identically.
+  if (config === undefined && ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides))
+    csvPush(CSV_SECTION_SETTINGS_OVERRIDES, settingsOverridesToCsv(ws.settingsOverrides, neutralize));
   // Standalone knowledge items — EXPORTABLE (gated by the export key), emitted
   // only when present so committee-less/legacy files stay byte-stable.
   if (enabled("knowledgeItems") && ws.knowledgeItems && ws.knowledgeItems.length)

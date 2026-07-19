@@ -1271,6 +1271,24 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `aiModelNeedsKey` hint (`ai-section.tsx`). Pure
   `chat-models.ts` `buildModelOptions`/`isValidAnthropicApiKey` (format `sk-ant-…`). ★ the AI key seals only when
   format-valid and is DISCARDED on blur with a toast (`ai-section.tsx`).
+- **Per-project setting overrides (`Workspace.settingsOverrides`, v0.190.42):** a "This project" Settings section
+  (`settings-sections/project-overrides-section.tsx`, SectionId `projectOverrides`, hidden in popouts) overrides
+  otherwise-per-device settings. SPLIT storage: POLICY overrides (nextActions/notifications/timezone) travel WITH
+  the project = `Workspace.settingsOverrides` blob (storage-only, all 6 paths, gated `config===undefined &&
+  hasAnyOverride`, EXCLUDED from exports — mirrors `timelogLinks`; `sanitizeSettingsOverrides`+`hasAnyOverride` in
+  `settings-overrides.ts`; rides the SAME save/load wiring as `knowledgeItems` incl. the autosave-effect DEPS
+  array). APPEARANCE overrides (density + showViewHints only; tasksViewMode + theme/scheme EXCLUDED) = per-device-
+  per-project `project-appearance-prefs.ts` (key `aipm-cockpit:project-appearance`, reactive via
+  `subscribeAppearance`/`getAppearanceSnapshot` + `useSyncExternalStore`). Pure `resolveEffectiveSettings(device,
+  policy, appearance)` (`settings-effective.ts`) merges OVERRIDE-else-DEVICE (partial-merge nextActions/
+  notifications, whole-replace timezone/appearance); `useEffectiveSettings(projectId)` is the reactive hook. ★★
+  CONSUMERS read EFFECTIVE (task-manager: nextActions RANKING/`buildActionInput` + reminders + timezone/today;
+  workspace-section: density/showViewHints/world-clock) — the next-actions/timezone EDITORS stay DEVICE; no
+  override ⇒ identical to before. ★★ the appearance store's projectId MUST be `portfolioCurrentId` (= tursoProjectId
+  in Turso mode), NOT raw `registry.currentProjectId` — SettingsView + workspace-section must agree or the override
+  lands under the wrong key in Turso portfolio mode (a caught review HIGH). The "This project" UI REUSES
+  `NextActions`/`Notifications`/`TimezoneSettingsSection` fed effective + an override-writing onChange (Timezone
+  passes `hideDisplaySwitcher` — the device-only switcher flag can't be captured into the override).
 - **AI `update_settings` tool (safe-subset, v0.190.41):** a NON-entity write tool letting the assistant change
   a whitelisted slice of app settings on request — `dashboardDensity`, `showViewHints`, `tasksViewMode`,
   `enabledModules` (full desired set → `sanitizeFeatures`), and `nextActionsWeights` (each key coerced by the

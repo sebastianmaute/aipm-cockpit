@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.41";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.41: standalone Knowledge-library items (documents / Confluence / URLs that live on their own, optionally linked to one or more tasks) persisted across all six storage paths + exports; an `update_settings` AI tool (safe subset only — density/view-hints/tasks-view-mode/feature-modules/next-actions-weights, never secrets); internal rename of the last `lop`/`LOP` identifiers (Turso write-lock, `__aipmDiag` devtools global, `# AIPM Tasks` markdown header); the completed `lop-app`→`aipm-cockpit` one-time storage migration removed (Pinsker)
+export const APP_VERSION = "0.190.42";
+export const APP_BUILD_DATE = "2026-07-19"; // 0.190.42: per-project setting overrides — a "This project" settings section lets a project override next-actions ranking, notifications, and timezone (policy overrides that travel WITH the project across all storage backends) plus dashboard density and view-hint banners (per-device-per-project). Effective config resolves override-else-device and drives ranking / reminders / timezone / appearance; no override leaves everything unchanged (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
@@ -230,4 +230,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightHeroicons",
   "versionHighlightKnowledgeItems",
   "versionHighlightAiSettingsTool",
+  "versionHighlightProjectOverrides",
 ] as const;

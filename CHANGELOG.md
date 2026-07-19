@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.42] - 2026-07-19 "Pinsker"
+
+### Added
+
+**Per-project setting overrides.** A new **"This project"** section in Settings lets a project override settings that are otherwise per-device, each behind a "Use device default | Override for this project" toggle:
+
+- **Policy overrides** — next-actions ranking weights, notification lead times / channels / RAID-review interval, and timezone (display + additional zones) — **travel with the project** (persisted in a new `Workspace.settingsOverrides` blob across all six storage backends; excluded from exports). They drive the Action-Center ranking, all reminders, and the day-boundary / timezone logic.
+- **Appearance overrides** — dashboard density and per-view hint banners — are **per-device-per-project** (local, reactive via `useSyncExternalStore`).
+
+A pure `resolveEffectiveSettings(device, policy, appearance)` merges override-else-device; with **no override every read is identical to before**. Theme/scheme and the Open Points table/board mode are intentionally not per-project (the latter keeps its own in-pane toggle).
+
 ## [0.190.41] - 2026-07-19 "Pinsker"
 
 ### Added

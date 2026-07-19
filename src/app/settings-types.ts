@@ -402,6 +402,18 @@ export function resolveNextActionsConfig(raw: unknown): NextActionsConfig {
   };
 }
 
+/** Per-project POLICY overrides that travel WITH the project (persisted on the
+ *  Workspace, not per-device Settings). Each sub-key is a PARTIAL of the matching
+ *  global config, carrying ONLY the fields the project overrides — an absent
+ *  sub-key (or field) means "inherit the global/device value". Sanitized by
+ *  `sanitizeSettingsOverrides` (settings-overrides.ts). Additive & optional: a
+ *  project with no overrides serializes to nothing (byte-stable). */
+export interface SettingsOverrides {
+  nextActions?: Partial<NextActionsConfig>;
+  notifications?: Partial<NotificationsConfig>;
+  timezone?: { timezone?: string; additionalTimezones?: string[] };
+}
+
 export type LearningStoreKind = "local" | "turso";
 export type NextActionsLearningConfig = { enabled: boolean; store: LearningStoreKind };
 export const defaultNextActionsLearning: NextActionsLearningConfig = { enabled: false, store: "local" };

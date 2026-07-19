@@ -92,6 +92,7 @@ import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { getTursoConfig } from "./turso-config";
 import { aiKeyIfEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
 import { makeEditGuard } from "./read-only-guard";
@@ -260,6 +261,8 @@ function TaskManagerInner() {
     timelogLinks,
     setTimelogLinks,
     setKnowledgeItems,
+    settingsOverrides,
+    setSettingsOverrides,
     setFieldVisibility,
     fxRates,
     project,
@@ -311,7 +314,22 @@ function TaskManagerInner() {
   );
   const { ref: modalRef } = useResizable("aipm-cockpit:task-modal-size");
 
-  const effectiveTz = resolveTimezone(settings.timezone, project?.operatingTimezone);
+  // Per-project EFFECTIVE settings: fold the project's POLICY overrides
+  // (Workspace.settingsOverrides) onto the device settings. Appearance is Phase 6
+  // (undefined here). With no override this is identity (=== device fields), so
+  // every consumer below is behavior-preserving for the common case; only the
+  // specific overridable-field READS (nextActions ranking / notifications
+  // reminders / timezone) switch to the effective value.
+  const effectiveSettings = useMemo(
+    () => resolveEffectiveSettings(settings, settingsOverrides, undefined),
+    [settings, settingsOverrides],
+  );
+  // Hoisted scalars so the ranking/reminder memos depend on these, not the fresh
+  // `effectiveSettings` object each render (exhaustive-deps hygiene).
+  const effectiveNextActions = effectiveSettings.nextActions;
+  const effectiveNotifications = effectiveSettings.notifications;
+
+  const effectiveTz = resolveTimezone(effectiveSettings.timezone, project?.operatingTimezone);
   const today = effectiveToday(effectiveTz);
 
   // Set the browser tab title in popout mode. The main-window title is
@@ -500,7 +518,9 @@ function TaskManagerInner() {
   const milestonesEnabled = isModuleEnabled("milestones", settings.features);
 
   const { birthdayDismissed, setBirthdayDismissed } = useBirthdayAlerts({
-    hydrated, resources, today, settings, holidaySet, absences, showToast,
+    // Effective so birthday desktop-alert lead days follow a project's
+    // notifications override (the hook reads only settings.notifications).
+    hydrated, resources, today, settings: effectiveSettings, holidaySet, absences, showToast,
   });
 
   const birthdaySnooze = useReminderSnooze("birthday");
@@ -508,8 +528,8 @@ function TaskManagerInner() {
   const actionSnooze = useActionSnooze();
   const [jiraTokenDismissed, setJiraTokenDismissed] = useState(false);
   const jiraTokenAlert = useMemo(
-    () => getJiraTokenAlert(settings.jira, today, settings.notifications.reminderLeadDays),
-    [settings.jira, today, settings.notifications.reminderLeadDays],
+    () => getJiraTokenAlert(settings.jira, today, effectiveNotifications.reminderLeadDays),
+    [settings.jira, today, effectiveNotifications.reminderLeadDays],
   );
 
   // --- RAID CRUD handlers ---------------------------------------------
@@ -680,7 +700,9 @@ function TaskManagerInner() {
     milestones,
     raid,
     changes,
-    settings,
+    // Effective so stakeholder-comms reminder lead days follow a project's
+    // notifications override (the hook reads only settings.notifications).
+    settings: effectiveSettings,
     flags: { stakeholdersEnabled, milestonesEnabled, raidEnabled, changesEnabled },
   });
 
@@ -703,10 +725,10 @@ function TaskManagerInner() {
     () => buildWorkloadAlerts({
       resources, tasks, absences, shifts, raid, plan, today,
       workdayHours: settings.resources.workdayHours, holidaySet,
-      overdueThreshold: settings.nextActions?.workloadOverdueThreshold,
-      overAllocatedPct: settings.nextActions?.workloadAllocatedPct,
+      overdueThreshold: effectiveNextActions?.workloadOverdueThreshold,
+      overAllocatedPct: effectiveNextActions?.workloadAllocatedPct,
     }),
-    [resources, tasks, absences, shifts, raid, plan, today, settings.resources.workdayHours, holidaySet, settings.nextActions],
+    [resources, tasks, absences, shifts, raid, plan, today, settings.resources.workdayHours, holidaySet, effectiveNextActions],
   );
 
   // Hoisted so the memo/callbacks can depend on these directly (exhaustive-deps
@@ -731,27 +753,27 @@ function TaskManagerInner() {
           projectName: project?.name ?? "",
           today,
           now: new Date(),
-          reminderLeadDays: settings.notifications.reminderLeadDays,
-          dueSoonWorkdays: settings.notifications.dueSoonWorkdays,
-          raidReviewIntervalDays: settings.notifications.raidReviewIntervalDays,
-          scopePendingRed: settings.nextActions?.scopePendingRed,
-          scheduleSpiWarn: settings.nextActions?.scheduleSpiWarn,
-          scheduleSpiCritical: settings.nextActions?.scheduleSpiCritical,
-          workloadAllocatedCritical: settings.nextActions?.workloadAllocatedCritical,
-          workloadOverdueUrgent: settings.nextActions?.workloadOverdueUrgent,
+          reminderLeadDays: effectiveNotifications.reminderLeadDays,
+          dueSoonWorkdays: effectiveNotifications.dueSoonWorkdays,
+          raidReviewIntervalDays: effectiveNotifications.raidReviewIntervalDays,
+          scopePendingRed: effectiveNextActions?.scopePendingRed,
+          scheduleSpiWarn: effectiveNextActions?.scheduleSpiWarn,
+          scheduleSpiCritical: effectiveNextActions?.scheduleSpiCritical,
+          workloadAllocatedCritical: effectiveNextActions?.workloadAllocatedCritical,
+          workloadOverdueUrgent: effectiveNextActions?.workloadOverdueUrgent,
           trends: actionTrends,
-          clarityBonus: settings.nextActions?.clarityBonus,
-          semiClarityBonus: settings.nextActions?.semiClarityBonus,
-          staticPenalty: settings.nextActions?.staticPenalty,
+          clarityBonus: effectiveNextActions?.clarityBonus,
+          semiClarityBonus: effectiveNextActions?.semiClarityBonus,
+          staticPenalty: effectiveNextActions?.staticPenalty,
           // Due actions stay always-on (core). The RAID review toggle below
           // defaults true and is a safe gate.
-          raidReviewEnabled: settings.notifications.raidReview.enabled,
+          raidReviewEnabled: effectiveNotifications.raidReview.enabled,
           workloadAlerts,
           dismissed: actionSnooze.dismissed,
           learnedBias,
         }),
       ),
-    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, settings.notifications, settings.nextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
+    [tasks, raid, changes, milestones, stakeholders, steeringCommittee, dashboardModel, comms.items, settings.features, effectiveNotifications, effectiveNextActions, project, today, workloadAlerts, actionSnooze.dismissed, actionTrends, learnedBias],
   );
   const nowCount = nextActions.filter((a) => a.tier === "now").length;
   // Stakeholder ids with a pending stakeholder-comms next-action. Feeds the
@@ -822,7 +844,7 @@ function TaskManagerInner() {
 
   useActionNotifications({
     actions: nextActions,
-    enabled: settings.notifications.desktopUrgent.enabled,
+    enabled: effectiveNotifications.desktopUrgent.enabled,
     isPopout,
     lang,
     requestOpen,
@@ -856,12 +878,13 @@ function TaskManagerInner() {
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
+    setSettingsOverrides(w.settingsOverrides);
     // Version restore replaces the SAME project's data — RAISE the id-minter
     // high-water (never lower it) so an id freed by restoring an older (smaller)
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems]);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setSettingsOverrides]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the
@@ -1357,7 +1380,10 @@ function TaskManagerInner() {
     handleCommand,
   } = useBulkOperations({
     lang,
-    settings,
+    // Effective settings so bulk-op day-boundary math (`args.settings.timezone`)
+    // follows the per-project timezone override; the device writer stays on
+    // `setSettings`.
+    settings: effectiveSettings,
     setSettings,
     handlers: { onEdit, onDelete, onSendInquiry },
     onCancelEdit: handleCancelEdit,
@@ -1378,15 +1404,15 @@ function TaskManagerInner() {
   const { handleGanttBarUpdate } = useGanttHandlers({ tasksRef, setTasks, today });
 
   const birthdayItems = useMemo(
-    () => settings.notifications.birthday.enabled
-      ? getUpcomingBirthdays(resources, today, effectiveLeadDays(settings.notifications, "birthday"), holidaySet, absences)
+    () => effectiveNotifications.birthday.enabled
+      ? getUpcomingBirthdays(resources, today, effectiveLeadDays(effectiveNotifications, "birthday"), holidaySet, absences)
       : [],
-    [resources, settings.notifications, today, holidaySet, absences],
+    [resources, effectiveNotifications, today, holidaySet, absences],
   );
 
   const bucketReminders = useMemo(
-    () => getBucketReminders(budgets, settings.notifications.reminderLeadDays, today),
-    [budgets, settings.notifications.reminderLeadDays, today],
+    () => getBucketReminders(budgets, effectiveNotifications.reminderLeadDays, today),
+    [budgets, effectiveNotifications.reminderLeadDays, today],
   );
 
   const bucketReminderKey = bucketReminders.map((r) => r.bucket.id).join(",");
@@ -1779,7 +1805,7 @@ function TaskManagerInner() {
     onSetUtilization: guardEdit(handleSetUtilization),
     // Same threshold the over-allocation ALERT uses so the workload cell's pink
     // highlight fires exactly when the alert does (#24 review).
-    overAllocatedPct: settings.nextActions?.workloadAllocatedPct ?? 100,
+    overAllocatedPct: effectiveNextActions?.workloadAllocatedPct ?? 100,
     // Workload overdue-task triage (#24) — functional setter so bulk edits from
     // the popover compose; reassign copies the resource's identity onto the task.
     onReassignTask: guardEdit((taskId: number, resource: Resource | null) =>
@@ -2028,6 +2054,10 @@ function TaskManagerInner() {
       lang={lang}
       settings={settings}
       onChange={setSettings}
+      // portfolioCurrentId (NOT raw currentProjectId) — matches the key the views
+      // read appearance under (workspace-section uses portfolioCurrentId), so a
+      // per-project appearance override applies in Turso portfolio mode too.
+      projectId={portfolioCurrentId ?? "default"}
       onCommitFeatures={handleCommitFeatures}
       storageDescription={storageDescription}
       storageReady={storageOk}
@@ -2140,6 +2170,7 @@ function TaskManagerInner() {
     onRequestStorageSwitch,
     setSettings,
     settings,
+    additionalTimezones: effectiveSettings.additionalTimezones ?? [],
     projectSwitcher,
     lang,
     activeTab,
@@ -2163,7 +2194,7 @@ function TaskManagerInner() {
       {!isPopout && !birthdaySnooze.isSnoozed && !birthdayDismissed && birthdayItems.length > 0 && (
         <BirthdayBanner items={birthdayItems} lang={lang} onDismiss={() => setBirthdayDismissed(true)} onSnooze={birthdaySnooze.snooze} />
       )}
-      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && settings.notifications.jiraTokenError.enabled && (
+      {!isPopout && jiraTokenAlert && !jiraTokenSnooze.isSnoozed && !jiraTokenDismissed && effectiveNotifications.jiraTokenError.enabled && (
         <JiraTokenBanner
           alert={jiraTokenAlert}
           lang={lang}
