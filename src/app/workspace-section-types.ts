@@ -78,6 +78,39 @@ export interface EntityCalendarProps {
   pullBusy?: boolean;
 }
 
+/**
+ * Per-view Help-callout controls shared by the register panes (Change / RAID /
+ * Stakeholders). The pane renders a dismissable callout that deep-links a Help
+ * concept.
+ */
+export interface EntityPaneHintsProps {
+  /** Show the per-view Help callout (default true when `onLearnMore` is provided). */
+  showHints?: boolean;
+  /** Popout windows render the callout read-only (no dismiss control). */
+  isPopout?: boolean;
+  /** Deep-link the matching Help concept; when absent the callout is not rendered. */
+  onLearnMore?: (conceptId: string) => void;
+}
+
+/**
+ * Flat Outlook two-way calendar controls a register pane consumes (workspace-section
+ * spreads an `EntityCalendarProps` bag into these members), plus the shared
+ * Help-callout members. Shared by the calendar-capable register panes (Change /
+ * RAID). Calendar members are absent in popouts.
+ */
+export interface EntityPaneCalendarHintsProps extends EntityPaneHintsProps {
+  /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
+  m365Configured?: boolean;
+  /** Decision/target-date Outlook write-back. Absent in popouts. */
+  calendarEnabled?: boolean;
+  onToggleCalendar?: (enabled: boolean) => void;
+  onPushCalendar?: () => void;
+  calendarPushBusy?: boolean;
+  /** Pull-from-Outlook (two-way). Absent in popouts. */
+  onPullCalendar?: () => void;
+  calendarPullBusy?: boolean;
+}
+
 export interface WorkspaceSectionProps {
   today: string;
   holidaySet: Set<string>;

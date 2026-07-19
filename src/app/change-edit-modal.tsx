@@ -28,6 +28,7 @@ import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback
 import { describeTextCap, describeClamp } from "./sanitize-report";
 import { BUDGET_NAME_MAX, TEXTAREA_MAX, AMOUNT_MAX } from "./sanitize";
 import { filterPickerOptions } from "./picker-filter";
+import { useTaskPickerOptions } from "./use-task-picker-options";
 import { useToastContext } from "./toast-context";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
@@ -133,15 +134,10 @@ export function ChangeEditModal({
 
   useEscapeKey(onCancel);
 
-  const availableTasks = useMemo(
-    () =>
-      filterPickerOptions(tasks, {
-        query: taskPickerQuery,
-        excludeIds: new Set(draft.linkedTaskIds),
-        getId: (tk) => tk.id,
-        getText: (tk) => tk.taskName,
-      }),
-    [tasks, draft.linkedTaskIds, taskPickerQuery],
+  const availableTasks = useTaskPickerOptions(
+    tasks,
+    draft.linkedTaskIds,
+    taskPickerQuery,
   );
 
   const availableRaid = useMemo(

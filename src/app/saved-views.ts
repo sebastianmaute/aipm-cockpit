@@ -1,3 +1,4 @@
+import { createCappedListStore } from "./capped-list-store";
 import type { SortKey, SortDir } from "./filters-context";
 import type { HealthFilter } from "./health";
 import type { Priority } from "./types";
@@ -56,16 +57,15 @@ function isValidView(entry: unknown): entry is SavedView {
   return Number.isFinite(e.id) && typeof e.name === "string" && isValidPayload(e.payload);
 }
 
+const store = createCappedListStore<SavedView>(
+  SAVED_VIEWS_KEY,
+  MAX_SAVED_VIEWS,
+  (raw) => (Array.isArray(raw) ? raw.filter(isValidView) : []),
+  { capOnLoad: true },
+);
+
 export function loadSavedViews(): SavedView[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const parsed = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) ?? "[]");
-    if (!Array.isArray(parsed)) return [];
-    const valid = parsed.filter(isValidView);
-    return valid.length > MAX_SAVED_VIEWS ? valid.slice(valid.length - MAX_SAVED_VIEWS) : valid;
-  } catch {
-    return [];
-  }
+  return store.load();
 }
 
 export function addSavedView(
@@ -73,14 +73,11 @@ export function addSavedView(
   name: string,
   payload: SavedViewPayload,
 ): SavedView[] {
-  const id = (list.length ? Math.max(...list.map((v) => v.id)) : 0) + 1;
-  const view: SavedView = { id, name, payload };
-  const next = [...list, view];
-  return next.length > MAX_SAVED_VIEWS ? next.slice(next.length - MAX_SAVED_VIEWS) : next;
+  return store.add(list, { name, payload });
 }
 
 export function removeSavedView(list: readonly SavedView[], id: number): SavedView[] {
-  return list.filter((v) => v.id !== id);
+  return store.remove(list, id);
 }
 
 export function renameSavedView(
@@ -88,14 +85,9 @@ export function renameSavedView(
   id: number,
   name: string,
 ): SavedView[] {
-  return list.map((v) => (v.id === id ? { ...v, name } : v));
+  return store.rename(list, id, name);
 }
 
 export function saveSavedViews(list: readonly SavedView[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(list));
-  } catch {
-    // ignore quota / serialization errors
-  }
+  store.save(list);
 }

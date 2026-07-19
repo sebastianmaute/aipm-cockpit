@@ -202,6 +202,29 @@ export function sanitizeIssueFields(
   return out;
 }
 
+/**
+ * Extract and sanitize the issue `fields` payload shared by the create-issue and
+ * update-issue routes. Returns a ready-to-return error Response when `fields` is
+ * missing/malformed, or the allowlisted `fields` object on success. Route-specific
+ * concerns (project/issuetype attachment, issue-key validation) stay in each route.
+ */
+export function parseIssueFields(
+  body: Record<string, unknown>,
+): { error: Response } | { fields: Record<string, unknown> } {
+  const rawFields =
+    body.fields && typeof body.fields === "object" && !Array.isArray(body.fields)
+      ? (body.fields as Record<string, unknown>)
+      : null;
+  if (!rawFields) {
+    return { error: Response.json({ error: "missing-fields" }, { status: 400 }) };
+  }
+  const fields = sanitizeIssueFields(rawFields);
+  if (!fields) {
+    return { error: Response.json({ error: "invalid-fields" }, { status: 400 }) };
+  }
+  return { fields };
+}
+
 /** Read body as JSON, falling back to text. Forwards Jira's status to the client. */
 export async function forwardJsonResponse(upstream: Response): Promise<Response> {
   const text = await upstream.text();

@@ -3,6 +3,7 @@
 // ("asc"|"desc"|"off") — the tables cycle through "off" via useSortableFilter,
 // so the persisted sort must hold it (a narrower union would fail validation
 // and silently drop the saved view on reload).
+import { createCappedListStore } from "./capped-list-store";
 import type { SortDir } from "./report-table";
 
 export interface ReportsTableState {
@@ -50,15 +51,14 @@ function isValidView(entry: unknown): entry is ReportsSavedView {
   return Number.isFinite(e.id) && typeof e.name === "string" && isValidState(e.state);
 }
 
+const store = createCappedListStore<ReportsSavedView>(
+  REPORTS_VIEWS_KEY,
+  MAX_REPORTS_VIEWS,
+  (raw) => (Array.isArray(raw) ? raw.filter(isValidView) : []),
+);
+
 export function loadReportsViews(): ReportsSavedView[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const parsed = JSON.parse(localStorage.getItem(REPORTS_VIEWS_KEY) ?? "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidView);
-  } catch {
-    return [];
-  }
+  return store.load();
 }
 
 export function addReportsView(
@@ -66,21 +66,13 @@ export function addReportsView(
   name: string,
   state: ReportsViewState,
 ): ReportsSavedView[] {
-  const id = (list.length ? Math.max(...list.map((v) => v.id)) : 0) + 1;
-  const next = [...list, { id, name, state }];
-  if (next.length <= MAX_REPORTS_VIEWS) return next;
-  return next.slice(next.length - MAX_REPORTS_VIEWS);
+  return store.add(list, { name, state });
 }
 
 export function removeReportsView(list: readonly ReportsSavedView[], id: number): ReportsSavedView[] {
-  return list.filter((v) => v.id !== id);
+  return store.remove(list, id);
 }
 
 export function saveReportsViews(list: readonly ReportsSavedView[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(REPORTS_VIEWS_KEY, JSON.stringify(list));
-  } catch {
-    // ignore quota / serialization errors
-  }
+  store.save(list);
 }

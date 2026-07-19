@@ -2,30 +2,20 @@
 // each pushed event, so the pull engine can tell whether the ENTITY changed
 // locally since the last sync (app-wins conflict rule). Per-BROWSER, per-project;
 // NOT workspace data — out of exports/Turso, cleared by clearAppConfig's aipm-cockpit:* sweep.
+import { readDeviceJson, writeDeviceJson } from "./device-store";
+
 const KEY = "aipm-cockpit:calendar-sync-baseline";
 
 function loadMap(): Record<string, string> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return {};
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(parsed)) if (typeof v === "string") out[k] = v;
-    return out;
-  } catch {
-    return {};
-  }
+  const parsed = readDeviceJson<unknown>(KEY, null);
+  if (!parsed || typeof parsed !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(parsed)) if (typeof v === "string") out[k] = v;
+  return out;
 }
 
 function saveMap(map: Record<string, string>): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(map));
-  } catch {
-    /* quota/SSR — ignore */
-  }
+  writeDeviceJson(KEY, map);
 }
 
 const keyFor = (projectId: string, entityType: string, eventId: string) => `${projectId}:${entityType}:${eventId}`;

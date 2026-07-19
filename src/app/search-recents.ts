@@ -1,3 +1,4 @@
+import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { SearchResult, SearchResultType } from "./global-search";
 
 export const RECENTS_KEY = "aipm-cockpit:search-recents";
@@ -29,18 +30,11 @@ function isValidResult(value: unknown): value is SearchResult {
 
 /** Load recents from localStorage; [] on absent/malformed; never throws. */
 export function loadRecents(): SearchResult[] {
-  if (typeof window === "undefined" || typeof localStorage === "undefined") {
+  const parsed = readDeviceJson<unknown>(RECENTS_KEY, []);
+  if (!Array.isArray(parsed)) {
     return [];
   }
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]");
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(isValidResult).slice(0, MAX_RECENTS);
-  } catch {
-    return [];
-  }
+  return parsed.filter(isValidResult).slice(0, MAX_RECENTS);
 }
 
 /** Pure: prepend r, dedupe by type+id (newest wins, moved to front), cap to MAX_RECENTS. */
@@ -56,12 +50,5 @@ export function pushRecent(
 
 /** Persist; swallow errors (quota/unavailable). */
 export function saveRecents(list: readonly SearchResult[]): void {
-  if (typeof window === "undefined" || typeof localStorage === "undefined") {
-    return;
-  }
-  try {
-    localStorage.setItem(RECENTS_KEY, JSON.stringify(list));
-  } catch {
-    /* swallow */
-  }
+  writeDeviceJson(RECENTS_KEY, list);
 }

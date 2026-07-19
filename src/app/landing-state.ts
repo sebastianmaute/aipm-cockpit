@@ -4,6 +4,7 @@
 // bounded size. NOT a Workspace field — never exported, never in Turso, cleared
 // by app-reset's `aipm-cockpit:*` sweep.
 
+import { readDeviceJson, removeDeviceKey, writeDeviceJson } from "./device-store";
 import type { LandingState } from "./dashboard-delta";
 
 const LANDING_STATE_KEY = "aipm-cockpit:landing-state";
@@ -21,20 +22,13 @@ function isLandingState(v: unknown): v is LandingState {
 }
 
 function readMap(): StateMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(LANDING_STATE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    const out: StateMap = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (isLandingState(v)) out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
+  const parsed = readDeviceJson<unknown>(LANDING_STATE_KEY, null);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  const out: StateMap = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (isLandingState(v)) out[k] = v;
   }
+  return out;
 }
 
 export function loadLandingState(projectId: string): LandingState {
@@ -42,29 +36,19 @@ export function loadLandingState(projectId: string): LandingState {
 }
 
 export function saveLandingState(projectId: string, state: LandingState): void {
-  if (typeof window === "undefined") return;
-  try {
-    const map = readMap();
-    map[projectId] = state;
-    const entries = Object.entries(map);
-    if (entries.length > LANDING_STATE_MAX_PROJECTS) {
-      entries.sort((a, b) => (b[1].lastVisitAt ?? "").localeCompare(a[1].lastVisitAt ?? ""));
-      const kept: StateMap = {};
-      for (const [k, v] of entries.slice(0, LANDING_STATE_MAX_PROJECTS)) kept[k] = v;
-      window.localStorage.setItem(LANDING_STATE_KEY, JSON.stringify(kept));
-      return;
-    }
-    window.localStorage.setItem(LANDING_STATE_KEY, JSON.stringify(map));
-  } catch {
-    // quota / disabled — non-fatal; strip just won't advance.
+  const map = readMap();
+  map[projectId] = state;
+  const entries = Object.entries(map);
+  if (entries.length > LANDING_STATE_MAX_PROJECTS) {
+    entries.sort((a, b) => (b[1].lastVisitAt ?? "").localeCompare(a[1].lastVisitAt ?? ""));
+    const kept: StateMap = {};
+    for (const [k, v] of entries.slice(0, LANDING_STATE_MAX_PROJECTS)) kept[k] = v;
+    writeDeviceJson(LANDING_STATE_KEY, kept);
+    return;
   }
+  writeDeviceJson(LANDING_STATE_KEY, map);
 }
 
 export function clearLandingState(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(LANDING_STATE_KEY);
-  } catch {
-    // non-fatal
-  }
+  removeDeviceKey(LANDING_STATE_KEY);
 }

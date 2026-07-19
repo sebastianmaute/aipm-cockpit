@@ -6,20 +6,17 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
-import { ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Input, Textarea } from "./form-controls";
-import { Modal } from "./modal";
-import { ModalHeader } from "./modal-header";
 import { useDraggable } from "./use-draggable";
-import { useResizable } from "./use-resizable";
 import { KnowledgeLinksFieldGated } from "./knowledge-links-field-gated";
-import { ModalFieldControls } from "./modal-field-controls";
 import { useModalVisibility } from "./use-modal-visibility";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
 import { useSettings } from "./use-settings";
 import { useConfirm } from "./confirm-dialog";
+import { useDraftState } from "./use-draft-state";
 import type { Milestone, Task } from "./types";
 
 interface Props {
@@ -47,8 +44,7 @@ export function MilestoneEditModal({
   // Local draft mirrors the milestone prop. Reset whenever the prop changes
   // (open with a new record, or switch from one milestone to another).
   const [prev, setPrev] = useState(milestone);
-  const [draft, setDraft] = useState<Milestone | null>(milestone);
-  const [error, setError] = useState<string | null>(null);
+  const { draft, setDraft, update, error, setError } = useDraftState<Milestone>(milestone);
   const { isVisible } = useModalVisibility("milestone");
   const { settings } = useSettings();
   const confirm = useConfirm();
@@ -75,11 +71,6 @@ export function MilestoneEditModal({
     setError(null);
   }
 
-  function update<K extends keyof Milestone>(key: K, value: Milestone[K]) {
-    setDraft((p) => (p ? { ...p, [key]: value } : p));
-    setError(null);
-  }
-
   function toggleLinked(id: number) {
     setDraft((p) => {
       if (!p) return p;
@@ -93,7 +84,7 @@ export function MilestoneEditModal({
     });
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!draft) return;
     const name = draft.name.trim();
@@ -121,49 +112,28 @@ export function MilestoneEditModal({
     draft !== null,
     "aipm-cockpit:modal-pos:milestone-edit",
   );
-  const { ref: sizeRef, reset: sizeReset } = useResizable("aipm-cockpit:modal-size:milestone-edit");
 
   if (!draft) return null;
 
+  const title = isNew
+    ? t(lang, "milestoneNew")
+    : t(lang, "milestoneEdit", draft.id);
+
   return (
-    <Modal
-      open
+    <EditModalShell
+      lang={lang}
+      title={title}
+      modalId="milestone"
       onClose={onClose}
-      ariaLabel={
-        isNew
-          ? t(lang, "milestoneNew")
-          : t(lang, "milestoneEdit", draft.id)
-      }
-      align="center"
-      zIndex={50}
+      onSubmit={handleSubmit}
+      offset={offset}
+      dragHandleProps={handleProps}
+      onDragReset={dragReset}
+      sizeKey="aipm-cockpit:modal-size:milestone-edit"
+      widthClassName="w-[560px] min-w-[320px]"
+      panelClassName="max-h-[95vh]"
+      formClassName="flex flex-col gap-4 overflow-y-auto p-5"
     >
-      <div
-        ref={sizeRef}
-        data-modal-panel
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex max-h-[95vh] w-[560px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
-      >
-        <ModalHeader
-          lang={lang}
-          title={
-            isNew
-              ? t(lang, "milestoneNew")
-              : t(lang, "milestoneEdit", draft.id)
-          }
-          onClose={onClose}
-          dragHandleProps={handleProps}
-          onResetLayout={() => {
-            dragReset();
-            sizeReset();
-          }}
-        />
-
-        <ModalFieldControls modalId="milestone" lang={lang} />
-
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4 overflow-y-auto p-5"
-        >
           <label className="flex flex-col gap-1 text-sm">
             <span className="flex items-center gap-1 font-medium text-foreground">
               {t(lang, "milestoneName")} *
@@ -281,8 +251,6 @@ export function MilestoneEditModal({
             onCancel={onClose}
             saveLabelKey="milestoneSave"
           />
-        </form>
-      </div>
-    </Modal>
+    </EditModalShell>
   );
 }

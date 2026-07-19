@@ -1,8 +1,8 @@
 import {
   callJira,
   forwardJsonResponse,
+  parseIssueFields,
   parseJiraRequest,
-  sanitizeIssueFields,
 } from "../_helpers";
 
 export const runtime = "nodejs";
@@ -26,17 +26,9 @@ export async function POST(request: Request) {
   if (!issueType) {
     return Response.json({ error: "missing-issue-type" }, { status: 400 });
   }
-  const rawFields =
-    b.fields && typeof b.fields === "object" && !Array.isArray(b.fields)
-      ? (b.fields as Record<string, unknown>)
-      : null;
-  if (!rawFields) {
-    return Response.json({ error: "missing-fields" }, { status: 400 });
-  }
-  const fields = sanitizeIssueFields(rawFields);
-  if (!fields) {
-    return Response.json({ error: "invalid-fields" }, { status: 400 });
-  }
+  const parsedFields = parseIssueFields(b);
+  if ("error" in parsedFields) return parsedFields.error;
+  const { fields } = parsedFields;
 
   // Attach project + issuetype on the server side so the caller can't pick
   // arbitrary projects or types beyond the configured scope.

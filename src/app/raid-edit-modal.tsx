@@ -42,6 +42,7 @@ import { CharCounter, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap } from "./sanitize-report";
 import { TASK_NAME_MAX, TEXTAREA_MAX, ASSIGNEE_MAX } from "./sanitize";
 import { filterPickerOptions } from "./picker-filter";
+import { useTaskPickerOptions } from "./use-task-picker-options";
 import { useToastContext } from "./toast-context";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
@@ -139,15 +140,10 @@ export function RaidEditModal({
 
   const statusOpts = statusOptionsFor(draft.category);
 
-  const availableTasks = useMemo(
-    () =>
-      filterPickerOptions(tasks, {
-        query: taskPickerQuery,
-        excludeIds: new Set(draft.linkedTaskIds),
-        getId: (tk) => tk.id,
-        getText: (tk) => tk.taskName,
-      }),
-    [tasks, draft.linkedTaskIds, taskPickerQuery],
+  const availableTasks = useTaskPickerOptions(
+    tasks,
+    draft.linkedTaskIds,
+    taskPickerQuery,
   );
 
   // RAID items eligible to be added as a cause of this draft. Excludes the

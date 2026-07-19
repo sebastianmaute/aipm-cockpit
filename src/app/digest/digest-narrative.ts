@@ -1,17 +1,17 @@
 // Optional AI narrative for the weekly digest. ONE forced-tool Anthropic call
-// (no agentic loop), mirroring scheduled-job-analysis.ts EXACTLY for security:
-// the api key and response body are NEVER logged or echoed — thrown errors carry
-// only the HTTP status (as digits) or the token "parse". (Deliberately a direct
+// (no agentic loop) via the shared runForcedToolCall envelope, mirroring
+// scheduled-job-analysis.ts for security: the api key and response body are NEVER
+// logged or echoed — thrown errors carry only the HTTP status (AiHttpError,
+// message status-only) or the token "parse". (Deliberately a direct one-shot
 // fetch rather than chat-api's callClaude, which embeds the response body in its
 // thrown message and would leak it.)
 import type { Lang } from "../i18n";
 import type { DigestModel } from "./digest-model";
+import { runForcedToolCall } from "../ai-forced-call";
 
 // Shared control-char scrub (hex escapes — never literal control bytes).
 const CONTROL_CHARS = /[\x00-\x1f]/g;
 const MAX_NARRATIVE = 2000;
-
-const ANTHROPIC_VERSION = "2023-06-01";
 
 /** Forced tool: the model must return the paragraph as a single string field. */
 const NARRATIVE_TOOL = {
@@ -25,12 +25,6 @@ const NARRATIVE_TOOL = {
     required: ["narrative"],
   },
 } as const;
-
-interface ToolUseBlock {
-  type: string;
-  name?: string;
-  input?: unknown;
-}
 
 export function buildDigestNarrativePrompt(model: DigestModel, lang: Lang): string {
   const rag = model.rag === "R" ? "Red" : model.rag === "A" ? "Amber" : "Green";
@@ -58,38 +52,24 @@ export interface DigestNarrativeCtx {
 }
 
 /** Run one forced write_digest_narrative tool call and return the parsed
- *  paragraph. Throws Error(status) on a non-OK response and Error("parse") on
- *  malformed/empty tool output. The api key and response body are NEVER included
- *  in the thrown message. */
+ *  paragraph. Throws AiHttpError(status) on a non-OK response (message
+ *  status-only) and Error("parse") on absent/malformed/empty tool output. The
+ *  api key and response body are NEVER included in the thrown message. */
 export async function runDigestNarrative(
   digest: DigestModel,
   ctx: DigestNarrativeCtx,
   signal?: AbortSignal,
 ): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": ctx.apiKey,
-      "anthropic-version": ANTHROPIC_VERSION,
-      "anthropic-dangerous-direct-browser-access": "true",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: ctx.model,
-      max_tokens: 1024,
-      messages: [{ role: "user", content: buildDigestNarrativePrompt(digest, ctx.lang) }],
-      tools: [NARRATIVE_TOOL],
-      tool_choice: { type: "tool", name: "write_digest_narrative" },
-    }),
+  const input = await runForcedToolCall({
+    apiKey: ctx.apiKey,
+    model: ctx.model,
+    tools: [NARRATIVE_TOOL],
+    toolName: "write_digest_narrative",
+    messages: [{ role: "user", content: buildDigestNarrativePrompt(digest, ctx.lang) }],
+    maxTokens: 1024,
     signal,
   });
-  if (!res.ok) throw new Error(String(res.status)); // status only — never echo key/body
-  const json = (await res.json()) as { content?: ToolUseBlock[] };
-  const toolUse = (json.content ?? []).find(
-    (b) => b.type === "tool_use" && b.name === "write_digest_narrative",
-  );
-  const input = toolUse?.input as { narrative?: unknown } | undefined;
-  const narrative = parseDigestNarrative(input?.narrative);
+  const narrative = parseDigestNarrative((input as { narrative?: unknown }).narrative);
   if (!narrative) throw new Error("parse");
   return narrative;
 }

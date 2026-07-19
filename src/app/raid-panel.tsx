@@ -38,6 +38,7 @@ import {
   type Task,
 } from "./types";
 import type { Contact } from "./contacts";
+import type { EntityPaneCalendarHintsProps } from "./workspace-section-types";
 import { RaidEditModal } from "./raid-edit-modal";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
@@ -58,7 +59,7 @@ const RAID_FILTER_DEFAULTS: PanelFiltersState = {
 
 // --- Props ---------------------------------------------------------------
 
-export type RaidPanelProps = {
+export type RaidPanelProps = EntityPaneCalendarHintsProps & {
   lang: Lang;
   tasks: readonly Task[];
   raid: readonly RaidItem[];
@@ -89,22 +90,6 @@ export type RaidPanelProps = {
   /** Open the task edit modal for the given task id (used by linked-task
    *  chip clicks). */
   onJumpToTask: (taskId: number) => void;
-  /** When false, the per-view Help callout is suppressed. Default true. */
-  showHints?: boolean;
-  /** Read-only popout context — callout suppresses its dismiss control. */
-  isPopout?: boolean;
-  /** Deep-link to the matching Help concept; absence hides the callout. */
-  onLearnMore?: (conceptId: string) => void;
-  /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
-  m365Configured?: boolean;
-  /** RAID review-date Outlook write-back (SP2). Absent in popouts. */
-  calendarEnabled?: boolean;
-  onToggleCalendar?: (enabled: boolean) => void;
-  onPushCalendar?: () => void;
-  calendarPushBusy?: boolean;
-  /** RAID Pull-from-Outlook (two-way SP3). Absent in popouts. */
-  onPullCalendar?: () => void;
-  calendarPullBusy?: boolean;
   /** Inline "Ask Claude" per-row edit (SP2). Absent when AI is off/popout. */
   onAiEdit?: (item: RaidItem) => void;
   /** Gate the per-row ✨ button (e.g. AI enabled && not Jira-synced). */

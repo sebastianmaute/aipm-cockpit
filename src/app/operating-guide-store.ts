@@ -1,6 +1,7 @@
 // src/app/operating-guide-store.ts — dual-backend CRUD for operating guides.
 // config === null  -> localStorage (always-available default)
 // config !== null  -> global Turso table (cross-device), out of TABLE_NAMES.
+import { readDeviceJson } from "./device-store";
 import { runTursoPipeline } from "./turso-pipeline";
 import {
   OPERATING_GUIDE_DDL, guideSelect, upsertStatements, deleteStatements, rowsToGuides,
@@ -14,14 +15,8 @@ export const LOCAL_KEY = "aipm-cockpit:operating-guides";
 const ddl = (): SqlStmt[] => OPERATING_GUIDE_DDL.map((sql) => ({ sql }));
 
 function readLocal(): OperatingGuide[] {
-  try {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    if (!raw) return [];
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? (v as OperatingGuide[]) : [];
-  } catch {
-    return [];
-  }
+  const v = readDeviceJson<unknown>(LOCAL_KEY, null);
+  return Array.isArray(v) ? (v as OperatingGuide[]) : [];
 }
 function writeLocal(list: OperatingGuide[]): void {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(list));

@@ -2,6 +2,7 @@
 // a single localStorage key, defensive parse, SSR guard, bounded size.
 // NOT a Workspace field — never exported, never in Turso, cleared by
 // app-reset's `aipm-cockpit:*` sweep.
+import { readDeviceJson, writeDeviceJson } from "./device-store";
 import type { ActualsAggregate } from "./timelog-actuals";
 import type { TimelogProjectRef } from "./timelog-match";
 import type { TimelogUser } from "./timelog-types";
@@ -34,20 +35,13 @@ function isEntry(v: unknown): v is ActualsCacheEntry {
 }
 
 function readMap(): CacheMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(TIMELOG_ACTUALS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    const out: CacheMap = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (isEntry(v)) out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
+  const parsed = readDeviceJson<unknown>(TIMELOG_ACTUALS_KEY, null);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  const out: CacheMap = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    if (isEntry(v)) out[k] = v;
   }
+  return out;
 }
 
 export function loadActualsCache(projectId: string): ActualsCacheEntry | undefined {
@@ -55,32 +49,22 @@ export function loadActualsCache(projectId: string): ActualsCacheEntry | undefin
 }
 
 export function clearActualsCache(projectId: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    const map = readMap();
-    if (!(projectId in map)) return;
-    delete map[projectId];
-    window.localStorage.setItem(TIMELOG_ACTUALS_KEY, JSON.stringify(map));
-  } catch {
-    // quota / disabled — non-fatal
-  }
+  const map = readMap();
+  if (!(projectId in map)) return;
+  delete map[projectId];
+  writeDeviceJson(TIMELOG_ACTUALS_KEY, map);
 }
 
 export function saveActualsCache(projectId: string, entry: ActualsCacheEntry): void {
-  if (typeof window === "undefined") return;
-  try {
-    const map = readMap();
-    map[projectId] = entry;
-    const entries = Object.entries(map);
-    if (entries.length > MAX_PROJECTS) {
-      entries.sort((a, b) => b[1].fetchedAt.localeCompare(a[1].fetchedAt));
-      const kept: CacheMap = {};
-      for (const [k, v] of entries.slice(0, MAX_PROJECTS)) kept[k] = v;
-      window.localStorage.setItem(TIMELOG_ACTUALS_KEY, JSON.stringify(kept));
-      return;
-    }
-    window.localStorage.setItem(TIMELOG_ACTUALS_KEY, JSON.stringify(map));
-  } catch {
-    // quota / disabled — non-fatal
+  const map = readMap();
+  map[projectId] = entry;
+  const entries = Object.entries(map);
+  if (entries.length > MAX_PROJECTS) {
+    entries.sort((a, b) => b[1].fetchedAt.localeCompare(a[1].fetchedAt));
+    const kept: CacheMap = {};
+    for (const [k, v] of entries.slice(0, MAX_PROJECTS)) kept[k] = v;
+    writeDeviceJson(TIMELOG_ACTUALS_KEY, kept);
+    return;
   }
+  writeDeviceJson(TIMELOG_ACTUALS_KEY, map);
 }
