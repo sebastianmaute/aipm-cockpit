@@ -8,6 +8,16 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.32] - 2026-07-19 "Pinsker"
+
+### Changed
+
+Design-system **`Card` adoption** — migrated 10 genuine hand-rolled content-card surfaces to the `<Card>` primitive:
+
+- 3 identical `role="status"` loading boxes (actions-panel, step0-import, timelog-panel), the knowledge-link card, the reports group-health card, and 2 stakeholder-report summary tiles.
+- `Card` gained a polymorphic **`as`** prop (default `div`), used to fold in the `<section>` landmark cards (recovery-panel ×2, settings-view) without losing their element semantics.
+- Deliberately NOT migrated (they use card chrome but belong to other primitives — queued as separate efforts): the ~9 floating dropdown/popover menus (a `PopoverPanel`-adoption concern) and the ~6 modal/dialog panels (a `Modal`/`EditModalShell`-adoption concern); plus `bg-surface-muted` boxes and the `<details>` disclosure (marginal).
+
 ## [0.190.31] - 2026-07-19 "Pinsker"
 
 ### Changed

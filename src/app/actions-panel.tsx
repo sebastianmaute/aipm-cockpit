@@ -6,6 +6,7 @@ import { FieldError } from "./field-feedback";
 import { Button } from "./button";
 import { TextButton } from "./text-button";
 import { Spinner } from "./spinner";
+import { Card } from "./card";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -232,10 +233,10 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
           Timelog fetch modal). Not dismissible by backdrop; Cancel aborts the call. */}
       {aiAnalysis?.busy && (
         <Modal open onClose={aiAnalysis.onCancel} ariaLabel={t(lang, "actionAiAnalyzing")} align="center" zIndex={70}>
-          <div
+          <Card
             role="status"
             aria-live="polite"
-            className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
+            className="flex flex-col items-center gap-4 px-8 py-6 text-foreground"
           >
             <Spinner />
             <span className="text-sm font-medium">{t(lang, "actionAiAnalyzing")}</span>
@@ -246,7 +247,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             >
               {t(lang, "cancel")}
             </button>
-          </div>
+          </Card>
         </Modal>
       )}
     </div>

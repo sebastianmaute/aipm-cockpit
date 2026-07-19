@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t, localeFor } from "./i18n";
 import type { Settings, NextActionsLearningConfig } from "./settings-types";
 import type { StorageKind } from "./storage";
+import { Card } from "./card";
 import { APP_LICENSE, APP_LICENSE_URL, APP_VERSION_LABEL } from "./version";
 import { VersionInfoModal } from "./version-info";
 import { InfoTooltip } from "./info-tooltip";
@@ -267,7 +268,7 @@ export function SettingsView(props: SettingsViewProps) {
         )}
       </nav>
 
-      <section className="min-w-0 flex-1 rounded-lg border border-line bg-surface p-6">
+      <Card as="section" className="min-w-0 flex-1 p-6">
         {/* Uniform section heading (the rail label) for every window. Mode,
             Templates and Comm-templates are excluded — they already render their
             own identical heading + an intro line. */}
@@ -386,7 +387,7 @@ export function SettingsView(props: SettingsViewProps) {
         {active === "dictation" && (
           <DictationSection lang={lang} settings={settings} onChange={onChange} />
         )}
-      </section>
+      </Card>
     </div>
 
     <footer className="mx-auto mt-6 flex w-full max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-line pt-4 text-xs text-muted-foreground">

@@ -22,6 +22,7 @@ import { defaultTimelogConfig, type TimelogLinks } from "./timelog-types";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Spinner } from "./spinner";
+import { Card } from "./card";
 import { useConfirm } from "./confirm-dialog";
 import { DataTable } from "./data-table";
 import { Tile } from "./report-table";
@@ -933,10 +934,10 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           429 backoff). Not dismissible: onClose is a no-op and no close control. */}
       {sync.busy && (
         <Modal open onClose={sync.cancel} ariaLabel={t(lang, "loadingTimelog")} align="center" zIndex={70}>
-          <div
+          <Card
             role="status"
             aria-live="polite"
-            className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-8 py-6 text-foreground"
+            className="flex flex-col items-center gap-4 px-8 py-6 text-foreground"
           >
             <Spinner />
             <span className="text-sm font-medium">{t(lang, "loadingTimelog")}</span>
@@ -947,7 +948,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
             >
               {t(lang, "cancel")}
             </button>
-          </div>
+          </Card>
         </Modal>
       )}
     </div>

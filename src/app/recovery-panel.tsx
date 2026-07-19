@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { t } from "./i18n";
 import { Button } from "./button";
+import { Card } from "./card";
 import { FieldError } from "./field-feedback";
 import {
   exportConfig,
@@ -124,7 +125,7 @@ export function RecoveryPanel() {
       <p className="text-sm text-muted-foreground">{t(lang, "recoveryPageIntro")}</p>
       {!storageOk && <FieldError>{t(lang, "recoveryError")}</FieldError>}
 
-      <section className="rounded-lg border border-line bg-surface p-4">
+      <Card as="section" className="p-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t(lang, "recoveryCurrentConfig")}
         </h2>
@@ -138,14 +139,14 @@ export function RecoveryPanel() {
             {t(lang, summary.tursoConfigured ? "recoveryYes" : "recoveryNo")}
           </dd>
         </dl>
-      </section>
+      </Card>
 
-      <section className="rounded-lg border border-line bg-surface p-4">
+      <Card as="section" className="p-4">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t(lang, "diagnosticsTitle")}
         </h2>
         <DiagnosticsPanel lang={lang} />
-      </section>
+      </Card>
 
       {message && <p className="text-sm text-ui-green-strong">{message}</p>}
 
