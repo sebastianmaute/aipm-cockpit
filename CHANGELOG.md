@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.191.0] - 2026-07-20 "Le Guin"
+
+### Added
+
+- **Insights → action loop (SP2): proactive AI recommendations.** An insight can
+  now carry an AI-proposed, *executable* recommendation. Claude proposes a
+  concrete set of tool calls that resolve the insight; you review them as a
+  plan-then-apply diff and apply them through the existing chat `runTool`
+  dispatcher (every value re-sanitized per entity). Pure `insights/` engines:
+  `recommend.ts` holds the forced-tool contract and re-grounds every entity id
+  against the live workspace (a hallucinated id can never reach a tool),
+  `recommend-context.ts` builds the per-insight digest, `recommend-call.ts`
+  routes the single forced call through the shared never-log envelope, and
+  `recommend-plan.ts` builds the diff preview by reusing the inline-ai-edit
+  descriptor engine.
+- **Two triggers, one generate path.** A per-insight **Recommend fix** button
+  generates on demand; an opt-in `ai.insightRecommendations` background runner
+  (default off, mirrors scheduled jobs) proposes recommendations for active
+  insights while the app is open — serial, capped per tick, and never logging
+  the key or response body. The recommendation and its applied/rejected outcome
+  persist on the insight (riding the existing insights blob — no new backend
+  path, byte-stable when empty) so the record survives a background proposal and
+  seeds later outcome measurement.
+- **Overdue-trend insights now fire.** The SP1 overdue-trend detector, inert
+  pending a prior count, now reads the per-project landing-state overdue
+  snapshot, so a rising overdue count surfaces an insight.
+
 ## [0.190.44] - 2026-07-20 "Pinsker"
 
 ### Added

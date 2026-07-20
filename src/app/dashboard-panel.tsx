@@ -77,9 +77,12 @@ interface DashboardPanelProps {
   aiConfigured?: boolean;
   /** Per-device cockpit density (spacing only). Default "comfortable". Set via Settings → Appearance. */
   density?: DashboardDensity;
-  /** Insights lifecycle callbacks (#6B SP1). The insights review card that
-   *  invokes these is built in Task 6/7; declared now for the wiring contract. */
+  /** Insights lifecycle callbacks (#6B SP1/SP2). Forwarded to InsightsCard. */
   insightActions?: InsightActions;
+  /** Id of the insight (if any) whose AI recommendation is generating (#6B
+   *  SP2) — forwarded to InsightsCard for a busy state. */
+  insightGeneratingId?: number | null;
+  insightAiEnabled?: boolean;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -307,6 +310,8 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 lang={lang}
                 dc={dc}
                 actions={props.insightActions}
+                generatingId={props.insightGeneratingId}
+                aiEnabled={props.insightAiEnabled}
                 onOpen={openInsightEntity}
                 isPopout={props.isPopout}
               />

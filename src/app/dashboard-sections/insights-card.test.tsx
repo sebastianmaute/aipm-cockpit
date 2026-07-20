@@ -79,7 +79,10 @@ describe("InsightsCard", () => {
         insights={[insight]}
         lang="en-US"
         dc={dc}
-        actions={{ onAcknowledge, onAct, onDismiss }}
+        actions={{
+          onAcknowledge, onAct, onDismiss,
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
       />,
     );
     await user.click(screen.getByRole("button", { name: `Acknowledge – ${title}` }));
@@ -106,10 +109,186 @@ describe("InsightsCard", () => {
         insights={[makeInsight()]}
         lang="en-US"
         dc={dc}
-        actions={{ onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn() }}
+        actions={{
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
         isPopout
       />,
     );
     expect(screen.queryByRole("button", { name: /Acknowledge/ })).not.toBeInTheDocument();
+  });
+
+  describe("recommendation UI (#6B SP2)", () => {
+    it("shows a 'Recommend fix' CTA when the insight has no recommendation yet", async () => {
+      const user = userEvent.setup();
+      const onGenerateRecommendation = vi.fn();
+      const insight = makeInsight({ id: 3 });
+      const title = insightTitle(insight, "en-US");
+      render(
+        <InsightsCard
+          insights={[insight]}
+          lang="en-US"
+          dc={dc}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation, onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+        />,
+      );
+      const cta = screen.getByRole("button", { name: `Generate recommendation – ${title}` });
+      await user.click(cta);
+      expect(onGenerateRecommendation).toHaveBeenCalledWith(3);
+    });
+
+    it("hides the Generate CTA when AI is disabled (aiEnabled=false)", () => {
+      const insight = makeInsight({ id: 3 });
+      render(
+        <InsightsCard
+          insights={[insight]}
+          lang="en-US"
+          dc={dc}
+          aiEnabled={false}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+        />,
+      );
+      expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
+    });
+
+    it("disables the CTA and shows a generating label while this insight is generating", () => {
+      const insight = makeInsight({ id: 3 });
+      const title = insightTitle(insight, "en-US");
+      render(
+        <InsightsCard
+          insights={[insight]}
+          lang="en-US"
+          dc={dc}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+          generatingId={3}
+        />,
+      );
+      const cta = screen.getByRole("button", { name: `Generating… – ${title}` });
+      expect(cta).toBeDisabled();
+    });
+
+    it("shows the AI summary + Review/Reject buttons when a recommendation is proposed", async () => {
+      const user = userEvent.setup();
+      const onApplyRecommendation = vi.fn();
+      const onRejectRecommendation = vi.fn();
+      const insight = makeInsight({
+        id: 4,
+        recommendation: {
+          summary: "Reassign the overdue task",
+          proposedCalls: [],
+          generatedAt: "2026-06-10T00:00:00.000Z",
+          status: "proposed",
+        },
+      });
+      const title = insightTitle(insight, "en-US");
+      render(
+        <InsightsCard
+          insights={[insight]}
+          lang="en-US"
+          dc={dc}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation: vi.fn(), onApplyRecommendation, onRejectRecommendation,
+          }}
+        />,
+      );
+      expect(screen.getByText("AI suggests: Reassign the overdue task")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: `Apply recommendation – ${title}` }));
+      expect(onApplyRecommendation).toHaveBeenCalledWith(4);
+      await user.click(screen.getByRole("button", { name: `Reject – ${title}` }));
+      expect(onRejectRecommendation).toHaveBeenCalledWith(4);
+    });
+
+    it("shows a muted applied note and no action buttons once applied", () => {
+      const insight = makeInsight({
+        id: 5,
+        recommendation: {
+          summary: "Reassign the overdue task",
+          proposedCalls: [],
+          generatedAt: "2026-06-10T00:00:00.000Z",
+          status: "applied",
+          appliedAt: "2026-06-11T00:00:00.000Z",
+        },
+      });
+      render(
+        <InsightsCard
+          insights={[insight]}
+          lang="en-US"
+          dc={dc}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+        />,
+      );
+      expect(screen.getByText("Recommendation applied.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Apply recommendation/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Reject/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
+    });
+
+    it("shows a muted rejected note and no action buttons once rejected", () => {
+      const insight = makeInsight({
+        id: 6,
+        recommendation: {
+          summary: "Reassign the overdue task",
+          proposedCalls: [],
+          generatedAt: "2026-06-10T00:00:00.000Z",
+          status: "rejected",
+        },
+      });
+      render(
+        <InsightsCard
+          insights={[insight]}
+          lang="en-US"
+          dc={dc}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+        />,
+      );
+      expect(screen.getByText("Recommendation dismissed.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Apply recommendation/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Reject/ })).not.toBeInTheDocument();
+    });
+
+    it("renders no recommendation UI in a popout even with a proposed recommendation", () => {
+      const insight = makeInsight({
+        id: 7,
+        recommendation: {
+          summary: "Reassign the overdue task",
+          proposedCalls: [],
+          generatedAt: "2026-06-10T00:00:00.000Z",
+          status: "proposed",
+        },
+      });
+      render(
+        <InsightsCard
+          insights={[insight]}
+          lang="en-US"
+          dc={dc}
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+          isPopout
+        />,
+      );
+      expect(screen.queryByRole("button", { name: /Apply recommendation/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Reject/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
+      expect(screen.queryByText("AI suggests: Reassign the overdue task")).not.toBeInTheDocument();
+    });
   });
 });

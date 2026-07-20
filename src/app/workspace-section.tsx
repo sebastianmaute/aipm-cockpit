@@ -175,6 +175,7 @@ export function WorkspaceSection({
   nextActions,
   onOpenAction,
   insightActions,
+  insightGeneratingId,
   onSnooze,
   onCreateTask,
   onDraftMessage,
@@ -816,6 +817,8 @@ export function WorkspaceSection({
               aiConfigured={isAiEnabled(settings.ai)}
               density={effectiveSettings.dashboardDensity ?? "comfortable"}
               insightActions={insightActions}
+              insightGeneratingId={insightGeneratingId}
+              insightAiEnabled={isAiEnabled(settings.ai)}
             />
           </div>
         )}
@@ -882,6 +885,8 @@ export function WorkspaceSection({
               insights={insights ?? []}
               lang={lang}
               actions={isPopout ? undefined : insightActions}
+              generatingId={isPopout ? undefined : insightGeneratingId}
+              aiEnabled={isAiEnabled(settings.ai)}
               onOpen={(refItem) => {
                 if (refItem.id < 0) setActiveTab(refItem.view);
                 else requestOpen(refItem.view, refItem.id);

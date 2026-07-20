@@ -1254,6 +1254,33 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   SUB-CHILD of `dashboard` in `nav-config.ts`, NOT Turso-gated, IS in axe `A11Y_VIEWS` as `#insights`). ★ severity
   rides a `RagDot` (non-text, AA-exempt), NEVER tinted small text. AI-aware: `buildInsightsPromptBlock` is appended
   AFTER the chat cache breakpoint (volatile — reflects the live record without busting prompt caching).
+- **SP2 — proactive AI recommendations (0.191.0):** an `Insight` gains an optional persisted
+  `recommendation` (`{summary, proposedCalls[], generatedAt, status: proposed|applied|rejected, appliedSummary?,
+  appliedAt?}`) that rides the SAME insights blob (no new backend path, byte-stable when empty). ★★ THREE landmines:
+  (1) `insightsMateriallyEqual` (reconcile) MUST compare the recommendation, else a freshly-generated rec is
+  silently dropped by the churn guard (the SP1 data-loss class — pinned by a test); (2) `reconcile` upsert carries
+  the rec forward via `...prev`, and a re-fire DROPS it (a stale proposal no longer fits the recurring problem);
+  (3) `sanitizeInsights` only shape/size-guards `proposedCalls[].input` — the real per-entity validation happens at
+  APPLY time in `runTool`. Pure engines: `insights/recommend.ts` (forced-tool `propose_insight_actions` +
+  `parseRecommendation` re-grounding every entity id against the live workspace via `action-ai` `GroundingIndex`,
+  allow-set = safe update/create tools only, NO delete/settings), `recommend-context.ts` (per-insight digest +
+  cacheable system prompt, i18n-free English), `recommend-plan.ts` (`describeRecommendationPlan(calls, ws)` → an
+  `EditPlan` preview reusing the inline-ai-edit descriptor engine, grounding each call by ITS OWN id). The call
+  (`recommend-call.ts` `runInsightRecommendation`) mirrors `task-dedup-call` — ONE forced call through the shared
+  never-log `runForcedToolCall`. TWO triggers share the generate path: on-demand hook `use-insight-recommend.ts`
+  (per-insight ✨ button) + opt-in background `use-insight-recommend-runner.ts` (mirrors `use-scheduled-job-runner`
+  — `[]`-dep refs, mount+visibility+15-min tick, serial, capped `MAX_BG_RECS_PER_TICK`, breaks the tick on a
+  limit/auth error; gated `isAiEnabled && settings.ai.insightRecommendations === true && !isPopout`, default OFF).
+  ★★ APPLY replays `rec.proposedCalls` DIRECTLY through the chat `runTool` dispatcher (each `{name,input}` carries
+  its id; the `EditPlan` is PREVIEW-ONLY — its `updates` carry no id, so a multi-call rec can't apply from the
+  plan). task-manager owns the generate/apply/reject handlers (the `insightActions` bag moved AFTER
+  `useChatDispatcher` so apply can reach `dispatcher`/`runTool`) + the `recommendation-review-modal.tsx` (Confirm →
+  replay → `recommendation.status="applied"` + insight `acted`, no undo; logs `ai.insightRecommendation`). Shared
+  row controls in `insight-recommendation-controls.tsx` (both surfaces). ★ `overdueTrend` NOW FIRES:
+  `buildInsightInput` reads the prior overdue count from the per-project `landing-state` `metrics.overdue`
+  (key = `portfolioCurrentId ?? "default"`, the SAME key workspace-section writes; memo captured at mount, NOT
+  re-read on activity — that would race `use-landing-delta`'s ~4s snapshot advance). SP3 = outcome measurement
+  (`metricAtAction`), SP4 = digest.
 
 ### AI Assistant
 

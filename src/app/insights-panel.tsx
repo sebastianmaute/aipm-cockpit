@@ -31,6 +31,7 @@ import {
   type InsightStatus,
   type InsightType,
 } from "./insights/insight";
+import { InsightRecommendationControls } from "./insight-recommendation-controls";
 import type { Health } from "./health";
 
 // Severity rides the DOT (non-text, AA-exempt) — never tinted small text.
@@ -65,13 +66,24 @@ export interface InsightsPanelProps {
   lang: Lang;
   /** Lifecycle callbacks; omit (or `isPopout`) for a read-only log. */
   actions?: InsightActions;
+  /** Id of the insight (if any) whose AI recommendation is generating (#6B SP2). */
+  generatingId?: number | null;
+  aiEnabled?: boolean;
   /** Deep-link to the insight's entity (only rendered when `entityRef` is set). */
   onOpen?: (ref: InsightEntityRef) => void;
   isPopout?: boolean;
 }
 
 /** Full insight log with filters + lifecycle controls. */
-export function InsightsPanel({ insights, lang, actions, onOpen, isPopout }: InsightsPanelProps) {
+export function InsightsPanel({
+  insights,
+  lang,
+  actions,
+  generatingId,
+  aiEnabled,
+  onOpen,
+  isPopout,
+}: InsightsPanelProps) {
   const { ref: paneRef, reset: resetSize } = useResizable("aipm-cockpit:insights-size");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
@@ -218,6 +230,14 @@ export function InsightsPanel({ insights, lang, actions, onOpen, isPopout }: Ins
                               {t(lang, "insightDismiss")}
                             </Button>
                           ) : null}
+                          <InsightRecommendationControls
+                            insight={insight}
+                            title={title}
+                            lang={lang}
+                            actions={actions!}
+                            generatingId={generatingId}
+                            aiEnabled={aiEnabled}
+                          />
                         </>
                       ) : null}
                     </div>

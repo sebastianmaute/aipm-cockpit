@@ -53,6 +53,7 @@ export type ActivityKind =
   | "calendar.autoPulled"
   | "ai.inlineEdit"
   | "ai.taskDedup"
+  | "ai.insightRecommendation"
   | "undo"
   | "redo";
 
@@ -200,6 +201,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "calendar.autoPulled": "activityCalendarAutoPulled",
   "ai.inlineEdit": "activityAiInlineEdit",
   "ai.taskDedup": "activityAiTaskDedup",
+  "ai.insightRecommendation": "activityAiInsightRecommendation",
   "undo": "activityUndo",
   "redo": "activityRedo",
 };
