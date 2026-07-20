@@ -7,6 +7,7 @@ import {
   type DetectedInsight,
   type Insight,
 } from "./insight";
+import { baselineOf, computeClearedOutcome, computeOutcome, insightMetricValue } from "./outcome";
 
 /** True when a user has interacted with the insight (ack/act/dismiss). */
 function hadUserAction(i: Insight): boolean {
@@ -15,6 +16,16 @@ function hadUserAction(i: Insight): boolean {
     i.actedAt !== undefined ||
     i.dismissedAt !== undefined
   );
+}
+
+/** Attach a freshly measured outcome to an ACTED insight. No captured baseline
+ *  or no extractable current metric ⇒ leave the record untouched. Idempotent:
+ *  same data + same today ⇒ same outcome, so repeated reconciles converge. */
+function withMeasuredOutcome(i: Insight, today: string): Insight {
+  const baseline = baselineOf(i);
+  const current = insightMetricValue(i.type, i.data);
+  if (baseline === null || current === null) return i;
+  return { ...i, outcome: computeOutcome(baseline, current, today) };
 }
 
 /** Fold a detection into an existing stored record (upsert / re-fire). */
@@ -27,7 +38,11 @@ function upsert(prev: Insight, det: DetectedInsight, today: string): Insight {
     lastSeenAt: today,
     occurrences: prev.occurrences + 1,
   };
-  if (prev.status !== "dismissed" && prev.status !== "resolved") return next;
+  if (prev.status !== "dismissed" && prev.status !== "resolved") {
+    // SP3: an acted insight that is STILL detected gets its outcome re-measured
+    // against the captured baseline using the fresh detection data.
+    return prev.status === "acted" ? withMeasuredOutcome(next, today) : next;
+  }
   // Re-fire: the condition is firing again → active, and any prior resolution or
   // dismissal no longer holds. Rebuild without resolvedAt/dismissedAt/dismissReason.
   // recommendation intentionally dropped on re-fire — a stale proposal no longer
@@ -45,7 +60,19 @@ function upsert(prev: Insight, det: DetectedInsight, today: string): Insight {
     occurrences: next.occurrences,
     ...(next.acknowledgedAt !== undefined ? { acknowledgedAt: next.acknowledgedAt } : {}),
     ...(next.actedAt !== undefined ? { actedAt: next.actedAt } : {}),
-    ...(next.metricAtAction !== undefined ? { metricAtAction: next.metricAtAction } : {}),
+    // ★★ `outcome` is DROPPED for BOTH branches — a stale measurement describes the
+    // previous state either way. `metricAtAction` is dropped ONLY on a genuine
+    // RESOLVED→detected re-fire: the condition actually cleared and came back, so
+    // that is a NEW problem instance deserving a new "before" value (keeping it
+    // would make the next act a no-op for `metricAtActionPatch` — "first act wins" —
+    // and measure a July recurrence against a March baseline).
+    // A DISMISSED record is different: it is typically dismissed while STILL firing,
+    // so the problem instance never ended and its baseline is still the true "before".
+    // Dropping it here would re-create the very wrong-baseline bug this guard exists
+    // to prevent, just via the other branch.
+    ...(prev.status === "resolved" || next.metricAtAction === undefined
+      ? {}
+      : { metricAtAction: next.metricAtAction }),
   };
 }
 
@@ -75,7 +102,19 @@ function clear(prev: Insight, today: string): Insight | null {
   if (prev.status === "dismissed") return prev;
   if (prev.status === "resolved") return prev;
   if (hadUserAction(prev)) {
-    return { ...prev, status: "resolved", resolvedAt: today };
+    const resolved: Insight = { ...prev, status: "resolved", resolvedAt: today };
+    if (prev.status !== "acted") return resolved;
+    const baseline = baselineOf(prev);
+    // SP3 — DIRECTION-ONLY: the condition cleared, but four of the five detectors
+    // are threshold-gated, so "cleared" means BELOW THRESHOLD, not zero, and there
+    // is no detection left to read the true value from. Emitting a magnitude here
+    // would overstate the win. `baseline` is passed through UNCLAMPED: it is the
+    // one number this feature exists to preserve faithfully, and clamping would
+    // report a "before" value the user never had. (Direction cannot read as
+    // "worsened" regardless — computeClearedOutcome always emits "improved".)
+    return baseline === null
+      ? resolved
+      : { ...resolved, outcome: computeClearedOutcome(baseline, today) };
   }
   return null;
 }
@@ -174,6 +213,18 @@ function recommendationEqual(
   );
 }
 
+function outcomeEqual(a: Insight["outcome"], b: Insight["outcome"]): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return (
+    a.direction === b.direction &&
+    a.baseline === b.baseline &&
+    a.current === b.current &&
+    a.delta === b.delta &&
+    a.measuredAt === b.measuredAt
+  );
+}
+
 /**
  * True when `a` and `b` are the SAME set of insights differing ONLY in
  * `occurrences` and/or `lastSeenAt`. Both come from `reconcileInsights`, whose
@@ -205,7 +256,8 @@ export function insightsMateriallyEqual(
       !entityRefEqual(x.entityRef, y.entityRef) ||
       !shallowRecordEqual(x.data, y.data) ||
       !shallowRecordEqual(x.metricAtAction, y.metricAtAction) ||
-      !recommendationEqual(x.recommendation, y.recommendation)
+      !recommendationEqual(x.recommendation, y.recommendation) ||
+      !outcomeEqual(x.outcome, y.outcome)
     ) {
       return false;
     }

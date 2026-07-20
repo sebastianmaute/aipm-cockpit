@@ -3387,6 +3387,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightProjectViewMode: "Tabellen-/Board-Ansicht pro Projekt: Der Ansichtsmodus der Offenen Punkte gehört jetzt zu den \"Dieses Projekt\"-Darstellungsüberschreibungen, und der Umschalter der Ansicht bleibt pro Projekt erhalten, statt auf die Geräteeinstellung zurückzuspringen.",
   versionHighlightInsights: "Erkenntnisse: Die App zeigt jetzt deterministische Projekt-Erkenntnisse (Meilenstein-Verzögerungen, ins Stocken geratene Arbeit, Budget- und RAID-Alterung) mit einem Lebenszyklus zum Handeln, Verwerfen oder Auflösen – im Dashboard und einer eigenen Erkenntnisse-Ansicht.",
   versionHighlightInsightsRecommend: "Erkenntnis-Empfehlungen: Claude kann jetzt eine konkrete, prüfbare Lösung für eine Erkenntnis vorschlagen – auf Anfrage pro Erkenntnis oder, optional, im Hintergrund – die Sie als Vorschau-dann-Anwenden-Diff über die vorhandenen Werkzeuge anwenden. Steigende Überfälligkeits-Trends werden nun ebenfalls angezeigt.",
+  versionHighlightInsightsOutcome: "Erkenntnis-Ergebnisse: Wenn Sie auf eine Erkenntnis reagieren, wird die zugehörige Kennzahl festgehalten. Die App misst anschließend, ob sich diese Zahl tatsächlich bewegt hat – verbessert, unverändert oder verschlechtert – und schließt die Erkenntnis ab, sobald das Problem behoben ist.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",
@@ -3420,6 +3421,12 @@ export const de: Record<TranslationKey, string> = {
   insightStatusResolved: "Erledigt",
   insightTypeAll: "Alle Typen",
   insightLastSeen: "Zuletzt gesehen {0}",
+
+  // Insight-Ergebnismessung (#6B SP3)
+  insightOutcomeImproved: "Um {0} verbessert seit Ihrer Aktion",
+  insightOutcomeUnchanged: "Keine Änderung seit Ihrer Aktion",
+  insightOutcomeResolved: "Seit Ihrer Aktion behoben",
+  insightOutcomeWorsened: "Um {0} verschlechtert seit Ihrer Aktion",
 
   // Insight-KI-Empfehlungen (#6B SP2)
   insightGenerateRecommendation: "Empfehlung generieren",

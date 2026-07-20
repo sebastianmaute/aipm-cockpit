@@ -25,7 +25,7 @@ export interface RecommendCallArgs {
  *  status + safe body tokens. */
 export async function runInsightRecommendation(
   args: RecommendCallArgs,
-): Promise<InsightRecommendation | null> {
+): Promise<InsightRecommendation> {
   const input = await runForcedToolCall({
     apiKey: args.apiKey,
     model: args.model,

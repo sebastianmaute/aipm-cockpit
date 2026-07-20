@@ -8,6 +8,60 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.192.0] - 2026-07-20 "Pullman"
+
+### Added
+
+- **Insights → action loop (SP3): outcome measurement.** Acting on an insight now
+  records the one number that insight is about (`metricAtAction`), and a later
+  reconcile measures the live number against that baseline — labelling the result
+  **improved / unchanged / worsened** with the delta. This closes the loop the
+  first two slices opened: SP1 surfaced problems, SP2 proposed fixes, SP3 answers
+  whether the fix actually worked. Pure i18n-free `insights/outcome.ts` owns the
+  per-type metric map (`milestoneSlip → daysOverdue`, `overdueTrend → current`,
+  `stalledWork → count`, `budgetVariance → variancePct`,
+  `raidAging → daysSinceUpdate`; every metric is lower-is-better) plus the
+  extraction, snapshot and comparison helpers.
+- **Baseline captured on ANY act.** Both the manual **Act** control and an applied
+  AI recommendation route through one shared `metricAtActionPatch` helper, so
+  outcomes cover all user action rather than only AI-driven fixes. The first act
+  wins — a re-act never overwrites the original "before" value.
+- **Auto-resolve is now labelled.** An acted insight whose condition clears was
+  already auto-resolved; it now carries an `improved` outcome. That case is
+  deliberately **direction-only, with no magnitude**: four of the five detectors
+  are threshold-gated (stalled work stops firing below 3 items, budget variance
+  below 10%, RAID aging below 7 days, overdue-trend once it stops growing), so
+  "cleared" means *below threshold*, not zero — quoting a number there would
+  overstate the win. The badge reads "Resolved since you acted".
+- A re-firing insight drops **both** its stale outcome and its stale baseline: a
+  recurrence is a new problem instance and gets a fresh "before" value, so a
+  months-old baseline can never be used to measure today's recurrence.
+- **Outcome badge** in the Insights view: a coloured dot carries the direction
+  (non-text, so it stays AA-legible in every theme) beside muted wording that
+  states the result on its own — never colour-only. EN + DE.
+
+### Changed
+
+- **Recommendation prompts now see the linked entity.** The AI recommendation
+  context previously always read "(no linked entity)"; it now includes a bounded
+  digest of the milestone or RAID row being fixed — including the existing
+  **mitigation plan**, so the model stops re-proposing a fix that is already in
+  place. The RAID owner resolves through the live-name helper rather than the
+  cached string, so a renamed resource can't leak a stale name into the prompt.
+- **A rejected recommendation is no longer a dead end** — the *Recommend fix* CTA
+  returns on a dismissed suggestion so a different proposal can be generated,
+  under the same AI/popout gating as the first one.
+
+### Fixed
+
+- Dropped a vestigial `| null` from `runInsightRecommendation`'s return type (every
+  failure path throws) and the redundant null checks at its call sites.
+- Removed an unused injected clock argument from the insight recommendation
+  background runner.
+- Removed an unreachable outcome-badge mount from the dashboard insights card: the
+  card renders only `active`/`acknowledged` rows while outcomes exist only on
+  `acted`/`resolved` ones, so the branch could never execute.
+
 ## [0.191.0] - 2026-07-20 "Le Guin"
 
 ### Added

@@ -53,7 +53,7 @@ export function useInsightRecommend(args: UseInsightRecommendArgs): UseInsightRe
         index: current.buildIndex(),
         today: current.today,
       });
-      if (rec) current.applyRecommendation(insightId, rec);
+      current.applyRecommendation(insightId, rec);
     } catch (e) {
       // NEVER log/echo the api key or response body — classify + surface only.
       current.onError?.(e instanceof AiHttpError ? classifyAiError(e.status, e.errorType) : "generic");

@@ -55,7 +55,6 @@ function renderRunner(overrides: Partial<InsightRecommendRunnerArgs> = {}) {
     buildIndex: () => emptyIndex,
     buildContextFor: (i) => `context for ${i.id}`,
     applyRecommendation,
-    now: () => new Date("2026-01-01T00:00:00Z"),
     ...overrides,
   };
   const view = renderHook(() => useInsightRecommendRunner(args));
