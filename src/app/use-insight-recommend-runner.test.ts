@@ -52,6 +52,7 @@ function renderRunner(overrides: Partial<InsightRecommendRunnerArgs> = {}) {
     insights: [],
     ai: { apiKey: "sk-ant-test", model: "claude-test" },
     today: "2026-01-01",
+    intervalMinutes: 60,
     buildIndex: () => emptyIndex,
     buildContextFor: (i) => `context for ${i.id}`,
     applyRecommendation,
@@ -113,5 +114,85 @@ describe("useInsightRecommendRunner", () => {
     const { applyRecommendation } = renderRunner({ insights });
     await expect(act(async () => { await flushMicrotasks(); })).resolves.not.toThrow();
     expect(applyRecommendation).not.toHaveBeenCalled();
+  });
+});
+
+// The cadence is user-settable (SP4). These assertions are only meaningful with
+// a GENUINELY LIVE runner: with enabled:false or an empty insight list `tick`
+// returns early, so "no extra tick fired" would pass vacuously even if the
+// effect split were wrong. Hence enabled:true + a real candidate.
+describe("useInsightRecommendRunner cadence", () => {
+  function renderCadence<P>(
+    render: (p: P) => Partial<InsightRecommendRunnerArgs>,
+    initialProps: P,
+  ) {
+    const applyRecommendation = vi.fn();
+    const view = renderHook(
+      (p: P) =>
+        useInsightRecommendRunner({
+          enabled: true,
+          insights: [makeInsight(1)],
+          ai: { apiKey: "sk-ant-test", model: "claude-test" },
+          today: "2026-01-01",
+          intervalMinutes: 60,
+          buildIndex: () => emptyIndex,
+          buildContextFor: (i) => `context for ${i.id}`,
+          applyRecommendation,
+          ...render(p),
+        }),
+      { initialProps },
+    );
+    return { ...view, applyRecommendation };
+  }
+
+  test("arms the interval from intervalMinutes", () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const spy = vi.spyOn(globalThis, "setInterval");
+    renderCadence(() => ({ intervalMinutes: 60 }), {});
+    expect(spy).toHaveBeenCalledWith(expect.any(Function), 60 * 60 * 1000);
+  });
+
+  test("clamps an out-of-range interval rather than trusting the caller", () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const spy = vi.spyOn(globalThis, "setInterval");
+    renderCadence(() => ({ intervalMinutes: 0 }), {});
+    expect(spy).toHaveBeenCalledWith(expect.any(Function), 60 * 60 * 1000);
+  });
+
+  test("re-arms the interval when the setting changes WITHOUT firing an extra billed tick", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const setSpy = vi.spyOn(globalThis, "setInterval");
+    const clearSpy = vi.spyOn(globalThis, "clearInterval");
+    const { rerender, applyRecommendation } = renderCadence(
+      (p: { m: number }) => ({ intervalMinutes: p.m }),
+      { m: 60 },
+    );
+    // Let the mount tick's async chain settle so its call is genuinely counted —
+    // otherwise "still 1" below would hold simply because nothing had run yet.
+    await act(async () => { await flushMicrotasks(); });
+    expect(applyRecommendation).toHaveBeenCalledTimes(1);
+
+    setSpy.mockClear();
+    clearSpy.mockClear();
+    rerender({ m: 30 });
+
+    expect(clearSpy).toHaveBeenCalled();
+    expect(setSpy).toHaveBeenCalledWith(expect.any(Function), 30 * 60 * 1000);
+    // The mount tick must NOT re-fire. Still exactly one call, not two.
+    await act(async () => { await flushMicrotasks(); });
+    expect(applyRecommendation).toHaveBeenCalledTimes(1);
+  });
+
+  test("fires the mount tick exactly once across unrelated re-renders", async () => {
+    mockRun.mockResolvedValue(fakeRec);
+    const { rerender, applyRecommendation } = renderCadence(
+      (p: { t: string }) => ({ today: p.t }),
+      { t: "2026-01-01" },
+    );
+    await act(async () => { await flushMicrotasks(); });
+    expect(applyRecommendation).toHaveBeenCalledTimes(1);
+    rerender({ t: "2026-01-02" });
+    await act(async () => { await flushMicrotasks(); });
+    expect(applyRecommendation).toHaveBeenCalledTimes(1);
   });
 });

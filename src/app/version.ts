@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.192.0";
-export const APP_BUILD_DATE = "2026-07-20"; // 0.192.0: insights → action loop SP3 — outcome measurement (baseline captured on any act, measured in reconcile, badge + auto-resolve labelling) + the five SP2 fold-ins (Pullman)
+export const APP_VERSION = "0.193.0";
+export const APP_BUILD_DATE = "2026-07-20"; // 0.193.0: insights → action loop SP4 — rolling 7-day digest card (fired/acted/wins/regressions/open) + a user-settable background recommendation cadence, default 60 min (Strugatsky)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.192.x line is "Pullman" (Philip Pullman, fantasy author). */
-export const APP_MILESTONE = "Pullman";
+ *  0.193.x line is "Strugatsky" (Arkady & Boris Strugatsky, science-fiction authors). */
+export const APP_MILESTONE = "Strugatsky";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -235,4 +235,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightInsights",
   "versionHighlightInsightsRecommend",
   "versionHighlightInsightsOutcome",
+  "versionHighlightInsightsDigest",
 ] as const;

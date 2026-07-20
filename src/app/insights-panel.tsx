@@ -21,6 +21,8 @@ import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { insightTitle, insightDetail } from "./insights/insight-text";
 import { InsightOutcomeBadge } from "./insights/insight-outcome-badge";
+import { InsightDigestCard } from "./insights/insight-digest-card";
+import { computeInsightDigest } from "./insights/digest";
 import {
   INSIGHT_SEVERITY_RANK,
   INSIGHT_STATUSES,
@@ -65,6 +67,9 @@ const TERMINAL: ReadonlySet<InsightStatus> = new Set<InsightStatus>(["dismissed"
 export interface InsightsPanelProps {
   insights: readonly Insight[];
   lang: Lang;
+  /** Today in the effective timezone. Passed in — a `new Date()` in a render
+   *  body is a react-hooks purity violation (and would break test determinism). */
+  today: string;
   /** Lifecycle callbacks; omit (or `isPopout`) for a read-only log. */
   actions?: InsightActions;
   /** Id of the insight (if any) whose AI recommendation is generating (#6B SP2). */
@@ -79,6 +84,7 @@ export interface InsightsPanelProps {
 export function InsightsPanel({
   insights,
   lang,
+  today,
   actions,
   generatingId,
   aiEnabled,
@@ -106,6 +112,8 @@ export function InsightsPanel({
           b.lastSeenAt.localeCompare(a.lastSeenAt),
       );
   }, [insights, statusFilter, typeFilter, showHistory]);
+
+  const digest = useMemo(() => computeInsightDigest(insights, today), [insights, today]);
 
   const canWrite = !isPopout && !!actions;
 
@@ -155,6 +163,24 @@ export function InsightsPanel({
       </div>
 
       <div className="min-h-[240px] flex-1 overflow-auto pr-2">
+        {/* Inside the scroller (not above it) so the digest scrolls with the
+            content instead of squeezing the row list, and so it prints — the
+            pane is `print-root`. Deep-links reuse the EXISTING `onOpen`
+            channel; the card itself only ever offers a button on a row that
+            HAS an entityRef, and the adapter re-checks so `onOpen` can never
+            be called with undefined. */}
+        <InsightDigestCard
+          digest={digest}
+          lang={lang}
+          onOpenInsight={
+            onOpen
+              ? (insight) => {
+                  const ref = insight.entityRef;
+                  if (ref) onOpen(ref);
+                }
+              : undefined
+          }
+        />
         {insights.length === 0 ? (
           <EmptyState title={t(lang, "insightsViewEmpty")} />
         ) : rows.length === 0 ? (

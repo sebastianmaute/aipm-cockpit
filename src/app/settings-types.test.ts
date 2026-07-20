@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, sanitizeSelfResourceId } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN } from "./settings-types";
 
 describe("sanitizeSelfResourceId", () => {
   it("keeps a positive integer id", () => {
@@ -102,6 +102,42 @@ describe("sanitizeAiConfig suggestAllNextActionThresholds", () => {
   it("treats non-true truthy values as false", () => {
     expect(sanitizeAiConfig({ suggestAllNextActionThresholds: "x" }).suggestAllNextActionThresholds).toBe(false);
     expect(sanitizeAiConfig({ suggestAllNextActionThresholds: 1 }).suggestAllNextActionThresholds).toBe(false);
+  });
+});
+
+describe("clampInsightRecInterval", () => {
+  it("defaults to 60 minutes", () => {
+    expect(DEFAULT_INSIGHT_REC_INTERVAL_MIN).toBe(60);
+    expect(clampInsightRecInterval(undefined)).toBe(60);
+  });
+
+  it("accepts a value inside the range", () => {
+    expect(clampInsightRecInterval(15)).toBe(15);
+    expect(clampInsightRecInterval(120)).toBe(120);
+    expect(clampInsightRecInterval(1440)).toBe(1440);
+  });
+
+  it("rejects out-of-range and non-numeric values so billed calls stay bounded", () => {
+    expect(clampInsightRecInterval(1)).toBe(60); // below the floor
+    expect(clampInsightRecInterval(0)).toBe(60);
+    expect(clampInsightRecInterval(-30)).toBe(60);
+    expect(clampInsightRecInterval(5000)).toBe(60); // above the ceiling
+    expect(clampInsightRecInterval("abc")).toBe(60);
+    expect(clampInsightRecInterval(null)).toBe(60);
+    expect(clampInsightRecInterval({})).toBe(60);
+    expect(clampInsightRecInterval(Number.NaN)).toBe(60);
+    expect(clampInsightRecInterval(Number.POSITIVE_INFINITY)).toBe(60);
+  });
+
+  it("rounds a fractional value to whole minutes", () => {
+    expect(clampInsightRecInterval(59.6)).toBe(60);
+    expect(clampInsightRecInterval(30.2)).toBe(30);
+  });
+
+  it("is applied by sanitizeAiConfig on load", () => {
+    expect(sanitizeAiConfig({ insightRecommendationIntervalMinutes: 3 }).insightRecommendationIntervalMinutes).toBe(60);
+    expect(sanitizeAiConfig({ insightRecommendationIntervalMinutes: 90 }).insightRecommendationIntervalMinutes).toBe(90);
+    expect(sanitizeAiConfig({}).insightRecommendationIntervalMinutes).toBe(60);
   });
 });
 

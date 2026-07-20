@@ -8,6 +8,47 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.193.0] - 2026-07-20 "Strugatsky"
+
+### Added
+
+- **Insights → action loop (SP4): the digest.** The Insights view now opens with a
+  rolling seven-day summary card — how many insights fired, how many you acted on,
+  how many are open right now, plus two lists: what **resolved after you acted**
+  and what **got worse after you acted**. This closes the loop the first three
+  slices opened, and fixes an SP3 gap: an acted→resolved win was immediately
+  hidden behind the History toggle, so the one thing worth seeing was the one
+  thing you could not see. Wins now surface where the work happens.
+
+  Pure i18n-free `insights/digest.ts` owns `computeInsightDigest(insights, today,
+  windowDays?)`. The window is inclusive at both ends (seven days = today plus the
+  six prior), computed from a UTC-midnight parse with no clock in the module.
+  Future-dated events are excluded so a skewed clock or an imported record cannot
+  inflate the counts, and an unparseable date yields an empty digest rather than
+  throwing. `openNow` is deliberately **not** windowed — it is a current state,
+  not this week's news — so the card separates it visually from the two windowed
+  counts. The digest adds **no persisted field and no backend write path**: it is
+  pure derivation over timestamps SP1–SP3 already store.
+
+### Changed
+
+- **Background AI recommendations run on a cadence you set.** Previously a fixed
+  15 minutes; now `settings.ai.insightRecommendationIntervalMinutes`, defaulting
+  to **60**, adjustable in Settings → AI whenever background recommendations are
+  enabled. Because each tick can make billed API calls, every path to the value
+  goes through one clamp (`clampInsightRecInterval`, whole minutes in [15, 1440])
+  — the sanitizer on load, the settings input on edit, and the runner on read —
+  so a directly-typed or tampered value can never drive an unbounded call rate.
+  The runner's mount tick and its interval now live in two separate effects, so
+  changing the cadence re-arms the timer without spending an extra billed round.
+
+### Fixed
+
+- A resolved insight carrying a `worsened` outcome could be counted as both a win
+  and a regression in the digest. Resolved means the condition cleared, so it is a
+  win. Unreachable in-app, but `sanitizeInsights` re-derives direction from
+  baseline/current and admits the shape from an imported or hand-edited blob.
+
 ## [0.192.0] - 2026-07-20 "Pullman"
 
 ### Added

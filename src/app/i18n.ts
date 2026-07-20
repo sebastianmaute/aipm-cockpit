@@ -2446,6 +2446,8 @@ const enUS = {
   settingsAiActionSuggestionsHelp: "Show an “Analyze with AI” button in the Action Center.",
   aiInsightRecommendations: "Proactive insight recommendations",
   aiInsightRecommendationsDesc: "Let Claude propose fixes for detected insights in the background. Opt-in — uses billed API calls.",
+  aiInsightRecInterval: "Check every (minutes)",
+  aiInsightRecIntervalHint: "How often to look for new recommendations while the app is open. Each check can make billed API calls. Minimum 15, maximum 1440.",
   actionDraftMessage: "Draft message",
   actionCreateTask: "Create task",
   actionEscalate: "Escalate",
@@ -3407,6 +3409,7 @@ const enUS = {
   versionHighlightInsights: "Insights: the app now surfaces deterministic project insights (milestone slips, stalled work, budget & RAID aging) with a lifecycle you can act on, dismiss, or resolve — on the Dashboard and a dedicated Insights view.",
   versionHighlightInsightsRecommend: "Insight recommendations: Claude can now propose a concrete, reviewable fix for an insight — on demand per insight or, opt-in, in the background — which you apply as a plan-then-apply diff through the existing tools. Rising-overdue trends now surface too.",
   versionHighlightInsightsOutcome: "Insight outcomes: acting on an insight now records the number it was about, and the app measures whether that number actually moved — showing improved, unchanged or worse, and closing the insight out when the problem clears.",
+  versionHighlightInsightsDigest: "Insight digest: the Insights view opens with a rolling seven-day summary — what fired, what you acted on, what resolved after you acted, and what got worse — so wins no longer disappear into the history. Background AI recommendations now run on a cadence you set, defaulting to once an hour.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
@@ -3446,6 +3449,16 @@ const enUS = {
   insightOutcomeUnchanged: "No change since you acted",
   insightOutcomeResolved: "Resolved since you acted",
   insightOutcomeWorsened: "Worse by {0} since you acted",
+
+  // Insight digest (#6B SP4)
+  insightDigestTitle: "Last {0} days",
+  insightDigestFired: "{0} new",
+  insightDigestActed: "{0} acted on",
+  insightDigestOpen: "{0} open now",
+  insightDigestWins: "Resolved after you acted",
+  insightDigestRegressions: "Got worse after you acted",
+  insightDigestMore: "+{0} more",
+  insightDigestRowRef: "item {0}",
 
   // Insight AI recommendations (#6B SP2)
   insightGenerateRecommendation: "Generate recommendation",

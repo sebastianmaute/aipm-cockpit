@@ -104,7 +104,7 @@ import { RecommendationReviewModal } from "./insights/recommendation-review-moda
 import { buildGroundingIndex } from "./action-ai";
 import { runTool } from "./chat-tools";
 import { getTursoConfig } from "./turso-config";
-import { aiKeyIfEnabled, isAiEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { aiKeyIfEnabled, isAiEnabled, DEFAULT_INSIGHT_REC_INTERVAL_MIN, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -1709,6 +1709,7 @@ function TaskManagerInner() {
     insights: insights ?? [],
     ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
     today,
+    intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
     buildIndex: buildInsightGroundingIndex,
     buildContextFor: buildInsightRecommendContext,
     applyRecommendation: applyInsightRecommendation,
