@@ -8,6 +8,7 @@ import type { Lang } from "./i18n";
 import { selectActiveGuides, assembleGuideBlock, type OperatingGuide } from "./operating-guide";
 import type { AttachmentBlock } from "./chat-attachments";
 import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
+import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
@@ -129,11 +130,17 @@ export function buildSystemPrompt(
     "In simple mode keep actions minimal and never reference disabled modules.",
     "You are acting as a senior project & program manager.",
   ].join("\n");
+  // Active insights are VOLATILE (change as detectors reconcile) → this block
+  // MUST stay in the uncached suffix, or it would invalidate the cached prefix.
+  const insightsBlock = buildInsightsPromptBlock(snapshot.insights ?? []);
   const volatileText = [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
     appContext,
-  ].join("\n");
+    insightsBlock,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return [
     { type: "text", text: stableText, cache_control: { type: "ephemeral" } },

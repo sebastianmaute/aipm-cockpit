@@ -8,6 +8,32 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.190.44] - 2026-07-20 "Pinsker"
+
+### Added
+
+- **Insights → action loop (SP1).** The app now surfaces deterministic,
+  rule-based project insights and gives each a lifecycle you can act on. Pure
+  `insights/` engines — `detectInsights` runs five detectors (milestone slip,
+  stalled/no-progress work, budget aging, RAID aging, and an overdue-trend
+  detector that is inert in SP1 pending a prior-overdue count to compare
+  against) and `reconcileInsights` merges freshly-detected signals into the
+  stored record, deduping by a stable key and preserving each insight's
+  lifecycle state (active → acknowledged / acted / dismissed → resolved).
+- **Persisted, exportable insight record.** Insights live in a
+  `Workspace.insights` JSON blob written across all six storage backends
+  (JSON / CSV / Markdown / Turso single + tenant / IndexedDB) and gated by a new
+  default-off `insights` export section — an empty record stays byte-stable, so
+  no golden fixtures change. A debounced detect→reconcile runner in
+  `task-manager` refreshes the record (hydrated, non-popout only) via a
+  functional `setInsights` updater whose content key excludes lifecycle fields,
+  so acting on an insight can't re-trigger a detection loop.
+- **Surfaces.** A Dashboard insights card and a dedicated **Insights** view (an
+  Overview sub-child of the Dashboard; not Turso-gated) let you review, act on,
+  dismiss, or resolve insights. The assistant is insights-aware — a volatile
+  insights prompt block is appended to the chat context after the cache
+  breakpoint so it reflects the live record without breaking prompt caching.
+
 ## [0.190.43] - 2026-07-19 "Pinsker"
 
 ### Added

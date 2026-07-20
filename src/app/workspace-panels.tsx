@@ -88,6 +88,10 @@ export const ActionsPanel = dynamic(
   () => import("./actions-panel").then((m) => m.ActionsPanel),
   { ssr: false, loading },
 );
+export const InsightsPanel = dynamic(
+  () => import("./insights-panel").then((m) => m.InsightsPanel),
+  { ssr: false, loading },
+);
 export const KnowledgePanel = dynamic(
   () => import("./knowledge-panel").then((m) => m.KnowledgePanel),
   { ssr: false, loading },

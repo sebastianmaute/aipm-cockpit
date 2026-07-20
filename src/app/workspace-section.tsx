@@ -77,6 +77,7 @@ import {
   PortfolioHealthPanel,
   ProjectsPanel,
   ActionsPanel,
+  InsightsPanel,
   KnowledgePanel,
   TimelogPanel,
 } from "./workspace-panels";
@@ -173,6 +174,7 @@ export function WorkspaceSection({
   onHardDeleteProject,
   nextActions,
   onOpenAction,
+  insightActions,
   onSnooze,
   onCreateTask,
   onDraftMessage,
@@ -212,7 +214,7 @@ export function WorkspaceSection({
     () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
     [setSettings],
   );
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights } = useWorkspace();
   // Per-project EFFECTIVE settings — device folded with this project's policy
   // overrides (nextActions/notifications/timezone) AND its per-device appearance
   // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
@@ -813,6 +815,7 @@ export function WorkspaceSection({
               }}
               aiConfigured={isAiEnabled(settings.ai)}
               density={effectiveSettings.dashboardDensity ?? "comfortable"}
+              insightActions={insightActions}
             />
           </div>
         )}
@@ -870,6 +873,21 @@ export function WorkspaceSection({
         {activeTab === "actions" && (
           <div id="panel-actions" role="tabpanel" className={panelClass}>
             <ActionsPanel lang={lang} actions={nextActions} onOpen={onOpenAction} onSnooze={onSnooze} onCreateTask={onCreateTask} onDraftMessage={onDraftMessage} assignOwner={assignOwner} escalate={escalate} rebaseline={rebaseline} reschedule={reschedule} onMarkDone={onMarkDone} onClearBlocker={onClearBlocker} learningEnabled={learningEnabled} expertMode={expertMode} onOpenLearningSettings={onOpenLearningSettings} aiAnalysis={aiAnalysis} />
+          </div>
+        )}
+
+        {activeTab === "insights" && (
+          <div id="panel-insights" role="tabpanel" className={panelScrollClass}>
+            <InsightsPanel
+              insights={insights ?? []}
+              lang={lang}
+              actions={isPopout ? undefined : insightActions}
+              onOpen={(refItem) => {
+                if (refItem.id < 0) setActiveTab(refItem.view);
+                else requestOpen(refItem.view, refItem.id);
+              }}
+              isPopout={isPopout}
+            />
           </div>
         )}
 

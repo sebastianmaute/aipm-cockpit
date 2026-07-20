@@ -27,6 +27,7 @@ import {
 } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
+import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
@@ -184,6 +185,15 @@ export function rowsToWorkspace(results: PipelineResultLike[]): Workspace {
       // malformed — leave undefined
     }
   }
+  const insRow = rowObjects(byTable.get("meta")).find((r) => r.key === "insights");
+  if (insRow?.value) {
+    try {
+      const ins = sanitizeInsights(JSON.parse(insRow.value));
+      if (ins.length) ws.insights = ins;
+    } catch {
+      // malformed — leave undefined
+    }
+  }
   const soRow = rowObjects(byTable.get("meta")).find((r) => r.key === "settings_overrides");
   if (soRow?.value) {
     try {
@@ -236,6 +246,7 @@ export function dirtyWorkspaceTables(prev: Workspace, next: Workspace): Set<stri
   if (prev.steeringCommittee !== next.steeringCommittee) dirty.add("meta");
   if (prev.timelogLinks !== next.timelogLinks) dirty.add("meta");
   if (prev.knowledgeItems !== next.knowledgeItems) dirty.add("meta");
+  if (prev.insights !== next.insights) dirty.add("meta");
   if (prev.settingsOverrides !== next.settingsOverrides) dirty.add("meta");
   return dirty;
 }
@@ -322,6 +333,15 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
         args: [
           { type: "text", value: "knowledge_items" },
           { type: "text", value: JSON.stringify(ws.knowledgeItems) },
+        ],
+      });
+    }
+    if (ws.insights && ws.insights.length) {
+      out.push({
+        sql: `INSERT INTO meta (key, value) VALUES (?, ?)`,
+        args: [
+          { type: "text", value: "insights" },
+          { type: "text", value: JSON.stringify(ws.insights) },
         ],
       });
     }

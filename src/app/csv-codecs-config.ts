@@ -40,6 +40,7 @@ import {
   CSV_SECTION_STEERING,
   CSV_SECTION_TIMELOG_LINKS,
   CSV_SECTION_KNOWLEDGE_ITEMS,
+  CSV_SECTION_INSIGHTS,
   CSV_SECTION_SETTINGS_OVERRIDES,
   CSV_SECTION_TASKS,
   absencesToCsv,
@@ -59,6 +60,8 @@ import {
   tasksToCsv,
 } from "./csv-codecs-core";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
+import { sanitizeInsights } from "./insights/sanitize-insights";
+import type { Insight } from "./insights/insight";
 
 // --- Project Status CSV encoder / decoder ------------------------------------
 
@@ -203,6 +206,26 @@ export function csvToKnowledgeItems(text: string): KnowledgeItem[] | undefined {
   try {
     const items = sanitizeKnowledgeItems(JSON.parse(rows[0][1]));
     return items.length ? items : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Insights encoder / decoder ----------------------------------------------
+//
+// Same single `config,<json>` row shape as knowledge items; a first-class
+// EXPORTABLE section (gated by the `insights` export key).
+
+export function insightsToCsv(insights: readonly Insight[], neutralize = false): string {
+  return ["config", csvCellEscape(JSON.stringify(insights), neutralize)].join(",");
+}
+
+export function csvToInsights(text: string): Insight[] | undefined {
+  const rows = parseCsv(text).filter((r) => r.length >= 2 && r[0] === "config");
+  if (rows.length === 0) return undefined;
+  try {
+    const ins = sanitizeInsights(JSON.parse(rows[0][1]));
+    return ins.length ? ins : undefined;
   } catch {
     return undefined;
   }
@@ -525,5 +548,9 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // only when present so committee-less/legacy files stay byte-stable.
   if (enabled("knowledgeItems") && ws.knowledgeItems && ws.knowledgeItems.length)
     csvPush(CSV_SECTION_KNOWLEDGE_ITEMS, knowledgeItemsToCsv(ws.knowledgeItems, neutralize));
+  // Insights — EXPORTABLE (gated by the export key), emitted only when present
+  // so insight-less files stay byte-stable.
+  if (enabled("insights") && ws.insights && ws.insights.length)
+    csvPush(CSV_SECTION_INSIGHTS, insightsToCsv(ws.insights, neutralize));
   return parts.join("\r\n");
 }

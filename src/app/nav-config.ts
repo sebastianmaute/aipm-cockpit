@@ -8,6 +8,7 @@ export type AppView =
   | "open-points"
   | "dashboard"
   | "actions"
+  | "insights"
   | "trends"
   | "history"
   | "chat"
@@ -56,7 +57,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: "navGroupOverview",
     items: [
-      { view: "dashboard", children: [{ view: "actions" }, { view: "trends" }] },
+      { view: "dashboard", children: [{ view: "actions" }, { view: "insights" }, { view: "trends" }] },
       { view: "open-points" },
       { view: "chat" },
     ],
@@ -102,6 +103,7 @@ const LABEL_KEYS: Record<Exclude<AppView, "learning-insights">, TranslationKey> 
   "portfolio-health": "navPortfolioHealth",
   dashboard: "navDashboard",
   actions: "navActions",
+  insights: "navInsights",
   trends: "navTrends",
   history: "navHistory",
   "open-points": "navOpenPoints",

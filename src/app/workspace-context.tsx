@@ -36,6 +36,7 @@ import {
 } from "./types";
 import type { TimelogLinks } from "./timelog-types";
 import type { KnowledgeItem } from "./document-link";
+import type { Insight } from "./insights/insight";
 import type { SettingsOverrides } from "./settings-types";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
@@ -101,6 +102,9 @@ interface WorkspaceValue {
   knowledgeItems: readonly KnowledgeItem[] | undefined;
   setKnowledgeItems: Dispatch<SetStateAction<readonly KnowledgeItem[] | undefined>>;
 
+  insights: readonly Insight[] | undefined;
+  setInsights: Dispatch<SetStateAction<readonly Insight[] | undefined>>;
+
   settingsOverrides: Readonly<SettingsOverrides> | undefined;
   setSettingsOverrides: Dispatch<SetStateAction<Readonly<SettingsOverrides> | undefined>>;
 }
@@ -129,6 +133,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [steeringCommittee, setSteeringCommittee] = useState<SteeringCommittee | undefined>(undefined);
   const [timelogLinks, setTimelogLinks] = useState<TimelogLinks | undefined>(undefined);
   const [knowledgeItems, setKnowledgeItems] = useState<readonly KnowledgeItem[] | undefined>(undefined);
+  const [insights, setInsights] = useState<readonly Insight[] | undefined>(undefined);
   const [settingsOverrides, setSettingsOverrides] = useState<Readonly<SettingsOverrides> | undefined>(undefined);
   const {
     searchDebounced,
@@ -307,6 +312,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       steeringCommittee, setSteeringCommittee,
       timelogLinks, setTimelogLinks,
       knowledgeItems, setKnowledgeItems,
+      insights, setInsights,
       settingsOverrides, setSettingsOverrides,
     }),
     [
@@ -337,6 +343,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       steeringCommittee,
       timelogLinks,
       knowledgeItems,
+      insights,
       settingsOverrides,
     ],
   );

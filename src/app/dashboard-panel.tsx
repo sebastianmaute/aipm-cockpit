@@ -19,6 +19,7 @@ import { formatCurrency } from "./resource-cost";
 import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
 import type { SuggestedAction } from "./next-actions/types";
+import type { InsightActions } from "./insights/insight";
 import { useResizable } from "./use-resizable";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { VarianceSummary } from "./variance-summary";
@@ -40,6 +41,8 @@ import { densityClasses, type DashboardDensity } from "./dashboard-density";
 import { type AppView } from "./nav-config";
 import { NarrativeSummary, NarrativeEditor } from "./dashboard-sections/dashboard-narrative";
 import { DashboardHero } from "./dashboard-sections/dashboard-hero";
+import { InsightsCard } from "./dashboard-sections/insights-card";
+import type { Insight, InsightEntityRef } from "./insights/insight";
 
 interface DashboardPanelProps {
   lang: Lang;
@@ -74,6 +77,9 @@ interface DashboardPanelProps {
   aiConfigured?: boolean;
   /** Per-device cockpit density (spacing only). Default "comfortable". Set via Settings → Appearance. */
   density?: DashboardDensity;
+  /** Insights lifecycle callbacks (#6B SP1). The insights review card that
+   *  invokes these is built in Task 6/7; declared now for the wiring contract. */
+  insightActions?: InsightActions;
 }
 
 const CHANGE_STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
@@ -91,7 +97,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const density: DashboardDensity = props.density ?? "comfortable";
   const dc = densityClasses(density);
   const varianceRows = props.variance ?? [];
-  const { status, setStatus } = useWorkspace();
+  const { status, setStatus, insights } = useWorkspace();
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:dashboard-size");
 
   const locale = localeFor(lang);
@@ -201,6 +207,23 @@ export function DashboardPanel(props: DashboardPanelProps) {
     [taskCount, milestoneCount, budgetCount, showMilestones, showBudget, aiConfigured],
   );
 
+  // Insights review card (#6B SP1). Insights live in the live workspace state
+  // (mirrors `status`); the card self-hides when none are active, and the
+  // masonry wrapper is gated on the same count to avoid a dead cardGap margin.
+  const allInsights: readonly Insight[] = insights ?? [];
+  const activeInsightCount = allInsights.filter(
+    (i) => i.status === "active" || i.status === "acknowledged",
+  ).length;
+  const openInsightEntity = (ref: InsightEntityRef) => {
+    switch (ref.view) {
+      case "milestones": props.onOpenMilestone?.(ref.id); break;
+      case "raid": onOpenRaid?.(ref.id); break;
+      case "changes": props.onOpenChange?.(ref.id); break;
+      case "open-points": onOpenTask?.(ref.id); break;
+      default: props.onNavigate?.(ref.view); break;
+    }
+  };
+
   return (
     <ReportCard
       lang={lang}
@@ -275,6 +298,18 @@ export function DashboardPanel(props: DashboardPanelProps) {
           {topActions?.length ? (
             <div className={`break-inside-avoid ${dc.cardGap}`}>
               <DashboardTopActions lang={lang} topActions={topActions} onOpenAction={onOpenAction} dc={dc} />
+            </div>
+          ) : null}
+          {activeInsightCount > 0 ? (
+            <div className={`break-inside-avoid ${dc.cardGap}`}>
+              <InsightsCard
+                insights={allInsights}
+                lang={lang}
+                dc={dc}
+                actions={props.insightActions}
+                onOpen={openInsightEntity}
+                isPopout={props.isPopout}
+              />
             </div>
           ) : null}
           {showRaid && (
