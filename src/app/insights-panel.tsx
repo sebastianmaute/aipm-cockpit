@@ -20,6 +20,7 @@ import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { insightTitle, insightDetail } from "./insights/insight-text";
+import { InsightOutcomeBadge } from "./insights/insight-outcome-badge";
 import {
   INSIGHT_SEVERITY_RANK,
   INSIGHT_STATUSES,
@@ -186,6 +187,12 @@ export function InsightsPanel({
                       {`${insight.occurrences}×`}
                       {" · "}
                       {t(lang, "insightLastSeen", insight.lastSeenAt.slice(0, 10))}
+                      {insight.outcome ? (
+                        <>
+                          {" · "}
+                          <InsightOutcomeBadge outcome={insight.outcome} lang={lang} />
+                        </>
+                      ) : null}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-1 print:hidden">
                       {insight.entityRef && onOpen ? (

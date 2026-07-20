@@ -116,4 +116,139 @@ describe("sanitizeInsights", () => {
     expect(out.recommendation!.proposedCalls).toHaveLength(1);
     expect(out.recommendation!.proposedCalls[0].name).toBe("update_task");
   });
+
+  describe("outcome (SP3)", () => {
+    function actedRaw() {
+      return {
+        id: 1, key: "stalledWork:7", type: "stalledWork", severity: "high",
+        status: "acted", data: { count: 3 },
+        firstSeenAt: "2026-05-01", lastSeenAt: "2026-06-01", occurrences: 2,
+      };
+    }
+
+    test("keeps a well-formed outcome", () => {
+      const outcome = {
+        direction: "improved", baseline: 10, current: 4, delta: 6,
+        measuredAt: "2026-06-05",
+      };
+      const [out] = sanitizeInsights([{ ...actedRaw(), outcome }]);
+      expect(out.outcome).toEqual(outcome);
+    });
+
+    test("drops the outcome when direction is not in the enum", () => {
+      const [out] = sanitizeInsights([{
+        ...actedRaw(),
+        outcome: { direction: "sideways", baseline: 10, current: 4, delta: 6, measuredAt: "2026-06-05" },
+      }]);
+      expect(out.outcome).toBeUndefined();
+    });
+
+    test("drops the outcome when a number is non-finite or unparseable", () => {
+      const [a] = sanitizeInsights([{
+        ...actedRaw(),
+        outcome: { direction: "improved", baseline: "x", current: 4, delta: 6, measuredAt: "2026-06-05" },
+      }]);
+      expect(a.outcome).toBeUndefined();
+      const [b] = sanitizeInsights([{
+        ...actedRaw(),
+        outcome: { direction: "improved", baseline: 10, current: Infinity, delta: 6, measuredAt: "2026-06-05" },
+      }]);
+      expect(b.outcome).toBeUndefined();
+    });
+
+    // `delta` and `direction` are RE-DERIVED from baseline/current rather than
+    // trusted, so a bad/absent delta no longer invalidates the record — it is
+    // simply recomputed. (This assertion previously expected the whole outcome
+    // to be dropped; re-deriving is strictly safer, so the expectation moved.)
+    test("re-derives delta instead of trusting the persisted value", () => {
+      const [out] = sanitizeInsights([{
+        ...actedRaw(),
+        outcome: { direction: "improved", baseline: 10, current: 4, delta: null, measuredAt: "2026-06-05" },
+      }]);
+      expect(out.outcome).toEqual({
+        direction: "improved", baseline: 10, current: 4, delta: 6, measuredAt: "2026-06-05",
+      });
+    });
+
+    test("re-derives a direction that contradicts baseline/current", () => {
+      // A tampered blob claiming a huge improvement while current > baseline.
+      const [out] = sanitizeInsights([{
+        ...actedRaw(),
+        outcome: { direction: "improved", baseline: 1, current: 99, delta: 1e308, measuredAt: "2026-06-05" },
+      }]);
+      expect(out.outcome).toMatchObject({ direction: "worsened", baseline: 1, current: 99, delta: -98 });
+    });
+
+    test("drops an outcome whose magnitude is out of range", () => {
+      const [out] = sanitizeInsights([{
+        ...actedRaw(),
+        outcome: { direction: "improved", baseline: 1e300, current: 4, delta: 6, measuredAt: "2026-06-05" },
+      }]);
+      expect(out.outcome).toBeUndefined();
+    });
+
+    // Direction-only shape (the condition cleared a threshold): current/delta are
+    // legitimately ABSENT and must survive as such.
+    test("keeps a direction-only outcome with no current/delta", () => {
+      const [out] = sanitizeInsights([{
+        ...actedRaw(),
+        outcome: { direction: "improved", baseline: 10, measuredAt: "2026-06-05" },
+      }]);
+      expect(out.outcome).toEqual({ direction: "improved", baseline: 10, measuredAt: "2026-06-05" });
+    });
+
+    // ...but a PRESENT-yet-corrupt current must NOT be silently promoted to that
+    // shape — that would turn a corrupt record into a fabricated "cleared" win.
+    test("drops the outcome when current is present but invalid", () => {
+      for (const bad of [Infinity, "x", 1e300, NaN]) {
+        const [out] = sanitizeInsights([{
+          ...actedRaw(),
+          outcome: { direction: "improved", baseline: 10, current: bad, measuredAt: "2026-06-05" },
+        }]);
+        expect(out.outcome).toBeUndefined();
+      }
+    });
+
+    test("omits the outcome key entirely when absent (byte-stability)", () => {
+      const [out] = sanitizeInsights([actedRaw()]);
+      expect("outcome" in out).toBe(false);
+    });
+  });
+
+  // Regression: metricAtAction was silently dropped on EVERY load path because
+  // the constructed literal is explicit and omitted it. That both disabled
+  // measurement across a reload AND let a later re-act capture a WRONG baseline
+  // from already-improved data (the "first act wins" guard reads this field).
+  describe("metricAtAction round-trip (SP3)", () => {
+    function actedRaw() {
+      return {
+        id: 1, key: "stalledWork:7", type: "stalledWork", severity: "high",
+        status: "acted", data: { count: 3 },
+        firstSeenAt: "2026-05-01", lastSeenAt: "2026-06-01", occurrences: 2,
+      };
+    }
+
+    test("SURVIVES a load", () => {
+      const [out] = sanitizeInsights([{ ...actedRaw(), metricAtAction: { count: 10 } }]);
+      expect(out.metricAtAction).toEqual({ count: 10 });
+    });
+
+    test("drops non-numeric and out-of-range entries", () => {
+      const [out] = sanitizeInsights([{
+        ...actedRaw(),
+        metricAtAction: { count: 10, bogus: "abc", huge: 1e300, empty: "" },
+      }]);
+      expect(out.metricAtAction).toEqual({ count: 10 });
+    });
+
+    test("drops the field when nothing valid survives", () => {
+      const [out] = sanitizeInsights([{ ...actedRaw(), metricAtAction: { bogus: "abc" } }]);
+      expect("metricAtAction" in out).toBe(false);
+    });
+
+    test("omits the key entirely when absent (byte-stability)", () => {
+      const [out] = sanitizeInsights([actedRaw()]);
+      expect("metricAtAction" in out).toBe(false);
+    });
+  });
 });

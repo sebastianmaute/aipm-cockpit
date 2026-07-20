@@ -40,7 +40,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
-import { splitName, resourceDisplayName } from "./resource-foundation";
+import { splitName, resourceDisplayName, effectivePersonName } from "./resource-foundation";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
@@ -95,6 +95,7 @@ import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile
 import { loadLandingState } from "./landing-state";
 import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
 import { ALLOWED_REC_TOOLS } from "./insights/insight";
+import { metricAtActionPatch } from "./insights/outcome";
 import { useInsightRecommend } from "./use-insight-recommend";
 import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
 import { buildRecommendContext } from "./insights/recommend-context";
@@ -178,6 +179,11 @@ const VERSION_IDLE_MS = 180_000; // 3 minutes
 // Debounce before the insights detect→reconcile runner fires, so a burst of
 // edits collapses into one recompute (#6B Insights → Action Loop, SP1).
 const INSIGHTS_RECONCILE_DEBOUNCE_MS = 4_000;
+
+// Cap on any free-text field folded into the linked-entity digest of an insight
+// recommendation prompt — the digest rides a billed call, so an unbounded
+// description must not blow up the token count (SP3).
+const ENTITY_DIGEST_TEXT_CAP = 200;
 
 // Stable empty fallback so an unset `settings.jira.extraProjects` doesn't create
 // a fresh `[]` each render — that churns the task row context value and
@@ -814,7 +820,17 @@ function TaskManagerInner() {
       const target = (insights ?? []).find((i) => i.id === id);
       setInsights((prev) =>
         (prev ?? []).map((i) =>
-          i.id === id ? { ...i, status: "acted" as const, actedAt: today } : i,
+          i.id === id
+            ? {
+                ...i,
+                status: "acted" as const,
+                actedAt: today,
+                // SP3: baseline for outcome measurement. metricAtActionPatch is a
+                // no-op when a baseline already exists (first act wins) or when the
+                // insight has no extractable metric.
+                ...metricAtActionPatch(i),
+              }
+            : i,
         ),
       );
       // Route to the referenced entity via the shared deep-link channel.
@@ -1604,22 +1620,71 @@ function TaskManagerInner() {
     () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
     [tasks, raid, milestones, changes, stakeholders],
   );
+  // Resolve an insight's entityRef to a compact title + field digest for the
+  // recommendation context. Only milestoneSlip/raidAging carry an entityRef —
+  // the other detectors are project-level singletons, so there is deliberately
+  // no resolver for them. Bounded: a short fixed field list per view, never the
+  // whole row, and free text is capped — this text rides a billed prompt. The
+  // fields chosen EXCLUDE what `insight.data` already carries (name/date/
+  // daysOverdue, title/targetDate/daysSinceUpdate) so the digest adds signal
+  // rather than repeating it.
+  const resolveInsightEntity = useCallback(
+    (insight: Insight) => {
+      const ref = insight.entityRef;
+      if (!ref) return undefined;
+      if (ref.view === "milestones") {
+        const m = milestones.find((x) => x.id === ref.id);
+        if (!m) return undefined;
+        return {
+          view: ref.view,
+          id: m.id,
+          title: m.name,
+          fields: [
+            `achieved: ${m.achievedDate ?? "no"}`,
+            `linkedTasks: ${m.linkedTaskIds.length}`,
+            `description: ${(m.description ?? "").slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
+          ].join("\n"),
+        };
+      }
+      if (ref.view === "raid") {
+        const r = raid.find((x) => x.id === ref.id);
+        if (!r) return undefined;
+        // Owner via the shared live-name helper — the cached `owner` string can
+        // be stale after a rename/re-link (same rule every other surface uses).
+        const owner = effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById);
+        return {
+          view: ref.view,
+          id: r.id,
+          title: r.title,
+          fields: [
+            `category: ${r.category}`,
+            `status: ${r.status}`,
+            `severity: ${r.severity ?? "(unset)"}`,
+            `owner: ${owner || "(unassigned)"}`,
+            // Worth the extra field despite the free text: it tells the model what
+            // has ALREADY been tried, so it stops re-proposing the existing plan.
+            `mitigation: ${(r.mitigation ?? "").slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
+          ].join("\n"),
+        };
+      }
+      return undefined;
+    },
+    [milestones, raid, resourcesById],
+  );
   const buildInsightRecommendContext = useCallback(
-    (insight: Insight) =>
-      buildRecommendContext({
+    (insight: Insight) => {
+      const entity = resolveInsightEntity(insight);
+      return buildRecommendContext({
         projectName: project?.name ?? "",
         today,
         insightType: insight.type,
         severity: insight.severity,
         data: insight.data,
-        // The optional `entity` digest (the linked item's current fields) is
-        // deliberately NOT populated in SP2 — the model works from `insight.data`
-        // + the task list. Wiring `insight.entityRef` → the live entity's fields
-        // (to sharpen entity-linked proposals: milestoneSlip/raidAging/budgetVariance)
-        // is a scoped SP3 follow-up.
+        ...(entity ? { entity } : {}),
         relatedTasks: tasks.map((tk) => ({ id: tk.id, title: tk.taskName })),
-      }),
-    [project, today, tasks],
+      });
+    },
+    [project, today, tasks, resolveInsightEntity],
   );
   const applyInsightRecommendation = useCallback(
     (id: number, rec: InsightRecommendation) => {
@@ -1731,6 +1796,8 @@ function TaskManagerInner() {
               ...i,
               status: "acted" as const,
               actedAt: today,
+              // SP3: same shared baseline capture as the manual Act path.
+              ...metricAtActionPatch(i),
               recommendation: { ...rec, status: "applied" as const, appliedAt: today, appliedSummary: rec.summary },
             }
           : i,

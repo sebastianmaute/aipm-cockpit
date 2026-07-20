@@ -22,9 +22,11 @@ export interface InsightRecommendationControlsProps {
   aiEnabled?: boolean;
 }
 
-/** Priority: proposed → summary + Review/Reject; applied/rejected → a muted
- *  note (no buttons); else → the "Generate recommendation" CTA. */
-export function InsightRecommendationControls({
+/** The "Generate recommendation" CTA — rendered both for an insight with no
+ *  recommendation yet AND for a rejected one (regenerate). Returns null when AI
+ *  is off: generating needs AI, so a click would fire a guaranteed-401 call.
+ *  Every other AI CTA in the app gates visibility the same way. */
+function GenerateRecommendationCta({
   insight,
   title,
   lang,
@@ -32,31 +34,39 @@ export function InsightRecommendationControls({
   generatingId,
   aiEnabled,
 }: InsightRecommendationControlsProps) {
+  if (aiEnabled === false) return null;
+  const isGenerating = generatingId === insight.id;
+  const labelKey = isGenerating ? "insightRecommendationGenerating" : "insightGenerateRecommendation";
+  return (
+    <Button
+      variant="ghost"
+      size="xs"
+      disabled={isGenerating}
+      aria-label={`${t(lang, labelKey)} – ${title}`}
+      onClick={() => actions.onGenerateRecommendation(insight.id)}
+    >
+      {t(lang, labelKey)}
+    </Button>
+  );
+}
+
+/** Priority: proposed → summary + Review/Reject; applied → a muted note;
+ *  rejected → a muted note PLUS the CTA again (so a dismissed suggestion isn't
+ *  a dead end — regenerating overwrites it); else → the CTA alone. */
+export function InsightRecommendationControls(props: InsightRecommendationControlsProps) {
+  const { insight, title, lang, actions } = props;
   const rec = insight.recommendation;
-  if (!rec) {
-    // Generating a NEW recommendation needs AI — hide the CTA when it's off
-    // (a click would otherwise fire a guaranteed-401 call). Every other AI CTA
-    // in the app gates visibility the same way.
-    if (aiEnabled === false) return null;
-    const isGenerating = generatingId === insight.id;
-    const labelKey = isGenerating ? "insightRecommendationGenerating" : "insightGenerateRecommendation";
-    return (
-      <Button
-        variant="ghost"
-        size="xs"
-        disabled={isGenerating}
-        aria-label={`${t(lang, labelKey)} – ${title}`}
-        onClick={() => actions.onGenerateRecommendation(insight.id)}
-      >
-        {t(lang, labelKey)}
-      </Button>
-    );
-  }
+  if (!rec) return <GenerateRecommendationCta {...props} />;
   if (rec.status === "applied") {
     return <p className="text-xs text-muted-foreground">{t(lang, "insightRecommendationApplied")}</p>;
   }
   if (rec.status === "rejected") {
-    return <p className="text-xs text-muted-foreground">{t(lang, "insightRecommendationRejected")}</p>;
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        <p className="w-full text-xs text-muted-foreground">{t(lang, "insightRecommendationRejected")}</p>
+        <GenerateRecommendationCta {...props} />
+      </div>
+    );
   }
   return (
     <div className="flex flex-wrap items-center gap-1">

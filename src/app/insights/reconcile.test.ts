@@ -284,3 +284,159 @@ describe("insightsMateriallyEqual", () => {
     expect(insightsMateriallyEqual(a, b)).toBe(false);
   });
 });
+
+const TODAY = "2026-06-10";
+
+/** An ACTED stalledWork record whose captured baseline is count=10. */
+function actedStalled(over: Partial<Insight> = {}): Insight {
+  return stored("stalledWork", {
+    type: "stalledWork",
+    data: { count: 10 },
+    status: "acted",
+    actedAt: "2026-06-01",
+    metricAtAction: { count: 10 },
+    ...over,
+  });
+}
+
+function stalledDet(count: number): DetectedInsight {
+  return detected("stalledWork", {
+    type: "stalledWork",
+    severity: "medium",
+    data: { count },
+  });
+}
+
+describe("outcome measurement (SP3)", () => {
+  it("measures an improvement while the insight is STILL detected", () => {
+    const out = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY);
+    const rec = out.find((i) => i.key === "stalledWork")!;
+    expect(rec.status).toBe("acted");
+    expect(rec.outcome).toEqual({
+      direction: "improved",
+      baseline: 10,
+      current: 4,
+      delta: 6,
+      measuredAt: TODAY,
+    });
+  });
+
+  it("measures a worsening when the metric grew", () => {
+    const out = reconcileInsights([actedStalled()], [stalledDet(14)], TODAY);
+    const rec = out.find((i) => i.key === "stalledWork")!;
+    expect(rec.outcome).toMatchObject({ direction: "worsened", delta: -4 });
+  });
+
+  // Direction-only on clear: four of the five detectors are THRESHOLD-gated, so
+  // "cleared" means below threshold, not zero (stalledWork stops firing at
+  // count < 3, so a baseline of 10 could really be a move to 2, not to 0).
+  // Reporting a magnitude here would overstate the win.
+  it("records a direction-only win when the condition CLEARS and the record resolves", () => {
+    const out = reconcileInsights([actedStalled()], [], TODAY);
+    const rec = out.find((i) => i.key === "stalledWork")!;
+    expect(rec.status).toBe("resolved");
+    expect(rec.outcome).toEqual({
+      direction: "improved", baseline: 10, measuredAt: TODAY,
+    });
+    expect(rec.outcome?.current).toBeUndefined();
+    expect(rec.outcome?.delta).toBeUndefined();
+  });
+
+  it("writes NO outcome without a captured metricAtAction", () => {
+    const noBaseline = actedStalled({ metricAtAction: undefined });
+    expect(reconcileInsights([noBaseline], [stalledDet(4)], TODAY)[0].outcome).toBeUndefined();
+    expect(reconcileInsights([noBaseline], [], TODAY)[0]?.outcome).toBeUndefined();
+  });
+
+  it("writes NO outcome for a record that was never acted on", () => {
+    const active = actedStalled({ status: "active", actedAt: undefined });
+    const out = reconcileInsights([active], [stalledDet(4)], TODAY);
+    expect(out[0].outcome).toBeUndefined();
+  });
+
+  it("is idempotent: re-reconciling the measured record converges (no measure→persist loop)", () => {
+    const once = reconcileInsights([actedStalled()], [stalledDet(4)], TODAY);
+    const twice = reconcileInsights(once, [stalledDet(4)], TODAY);
+    // `occurrences` counts detections and legitimately bumps on every pass, so it
+    // is normalized out; EVERYTHING else — the outcome above all — must converge.
+    const norm = (l: readonly Insight[]) => l.map((i) => ({ ...i, occurrences: 0 }));
+    expect(norm(twice)).toEqual(norm(once));
+  });
+
+  // A DISMISSED record is typically dismissed while the condition is STILL firing,
+  // so the problem instance never ended and its baseline is still the true "before".
+  // Dropping it here would re-create the wrong-baseline bug via the other branch.
+  it("KEEPS the baseline when a dismissed record is still detected", () => {
+    const dismissed = actedStalled({
+      status: "dismissed",
+      dismissedAt: "2026-06-03",
+      outcome: {
+        direction: "improved", baseline: 10, current: 6, delta: 4, measuredAt: "2026-06-03",
+      },
+    });
+    const out = reconcileInsights([dismissed], [stalledDet(6)], TODAY);
+    const rec = out.find((i) => i.key === "stalledWork")!;
+    expect(rec.status).toBe("active");
+    // The stale measurement still goes — it describes the previous state.
+    expect(rec.outcome).toBeUndefined();
+    // ...but the baseline survives, so a later act still measures the real "before".
+    expect(rec.metricAtAction).toEqual({ count: 10 });
+  });
+
+  it("re-fire drops BOTH the stale outcome and the stale baseline", () => {
+    const stale = actedStalled({
+      status: "resolved",
+      resolvedAt: "2026-06-05",
+      outcome: {
+        direction: "improved",
+        baseline: 10,
+        current: 0,
+        delta: 10,
+        measuredAt: "2026-06-05",
+      },
+    });
+    const out = reconcileInsights([stale], [stalledDet(7)], TODAY);
+    const rec = out.find((i) => i.key === "stalledWork")!;
+    expect(rec.status).toBe("active");
+    expect(rec.outcome).toBeUndefined();
+    // A re-fire is a NEW problem instance and deserves a NEW baseline. Keeping the
+    // old one would make the next act a no-op for metricAtActionPatch ("first act
+    // wins"), silently measuring the new cycle against the previous cycle's number.
+    expect(rec.metricAtAction).toBeUndefined();
+  });
+});
+
+describe("insightsMateriallyEqual — outcome (data-loss guard)", () => {
+  const OUTCOME: NonNullable<Insight["outcome"]> = {
+    direction: "improved",
+    baseline: 10,
+    current: 4,
+    delta: 6,
+    measuredAt: TODAY,
+  };
+
+  it("is FALSE when an outcome is added", () => {
+    const a = [stored("a")];
+    const b = [stored("a", { outcome: OUTCOME })];
+    expect(insightsMateriallyEqual(a, b)).toBe(false);
+  });
+
+  // The optional-field transition: same direction + baseline, but the magnitude
+  // disappears (a measured outcome replaced by a direction-only one). A looser
+  // comparator — JSON.stringify, which drops undefined keys — would miss this and
+  // silently skip the persist write-back.
+  it("is FALSE when a measured outcome becomes direction-only", () => {
+    const measured = [stored("a", { outcome: OUTCOME })];
+    const directionOnly = [stored("a", {
+      outcome: { direction: "improved", baseline: 10, measuredAt: TODAY },
+    })];
+    expect(insightsMateriallyEqual(measured, directionOnly)).toBe(false);
+    expect(insightsMateriallyEqual(directionOnly, measured)).toBe(false);
+  });
+
+  it("is TRUE when both carry the same outcome", () => {
+    const a = [stored("a", { outcome: OUTCOME })];
+    const b = [stored("a", { outcome: { ...OUTCOME } })];
+    expect(insightsMateriallyEqual(a, b)).toBe(true);
+  });
+});

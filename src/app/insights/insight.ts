@@ -45,9 +45,11 @@ export interface Insight {
   readonly dismissedAt?: string;
   readonly resolvedAt?: string;
   readonly dismissReason?: string;
-  /** RESERVED for SP3 outcome feedback; unused in SP1. */
+  /** Baseline metric captured at the FIRST transition to `acted` (SP3). */
   readonly metricAtAction?: Readonly<Record<string, number>>;
   readonly recommendation?: InsightRecommendation;
+  /** Measured outcome vs `metricAtAction` (SP3). Derived — reconcile owns it. */
+  readonly outcome?: InsightOutcome;
 }
 
 /** A tool call the AI proposed as part of a recommendation. Mirrors the shape
@@ -68,6 +70,27 @@ export interface InsightRecommendation {
   readonly status: InsightRecommendationStatus;
   readonly appliedSummary?: string;
   readonly appliedAt?: string;
+}
+
+export const INSIGHT_OUTCOME_DIRECTIONS = ["improved", "unchanged", "worsened"] as const;
+export type InsightOutcomeDirection = (typeof INSIGHT_OUTCOME_DIRECTIONS)[number];
+
+/** SP3 outcome measurement: the acted-on baseline vs the live metric. */
+export interface InsightOutcome {
+  readonly direction: InsightOutcomeDirection;
+  readonly baseline: number;
+  /** ★ ABSENT when the insight simply stopped firing. Four of the five detectors
+   *  are THRESHOLD-gated (stalledWork `count < 3`, budgetVariance `pct < 10`,
+   *  raidAging `days < 7`, overdueTrend `current <= prior`), so "cleared" means
+   *  BELOW THRESHOLD, not zero — and reconcile has no detection left to read the
+   *  true value from. Reporting `current: 0` there would overstate the delta
+   *  (e.g. "improved by 10" for a real move of 8). Absent ⇒ direction is known,
+   *  magnitude is not. */
+  readonly current?: number;
+  /** baseline − current. Positive ⇒ better (ALL insight metrics are
+   *  lower-is-better). Absent whenever `current` is. */
+  readonly delta?: number;
+  readonly measuredAt: string;
 }
 
 export const INSIGHT_REC_SUMMARY_MAX = 500;

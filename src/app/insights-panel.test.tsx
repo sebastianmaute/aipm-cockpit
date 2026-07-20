@@ -247,6 +247,63 @@ describe("InsightsPanel", () => {
       expect(screen.queryByRole("button", { name: /^Reject/ })).not.toBeInTheDocument();
     });
 
+    it("offers a regenerate CTA alongside the rejected note (#6B SP3)", async () => {
+      const user = userEvent.setup();
+      const onGenerateRecommendation = vi.fn();
+      const insight = makeInsight({
+        id: 9,
+        type: "milestoneSlip",
+        status: "active",
+        recommendation: {
+          summary: "Reassign the overdue task",
+          proposedCalls: [],
+          generatedAt: "2026-06-10T00:00:00.000Z",
+          status: "rejected",
+        },
+      });
+      const title = titleOf("milestoneSlip");
+      render(
+        <InsightsPanel
+          insights={[insight]}
+          lang="en-US"
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation, onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+        />,
+      );
+      expect(screen.getByText("Recommendation dismissed.")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: `Generate recommendation – ${title}` }));
+      expect(onGenerateRecommendation).toHaveBeenCalledWith(9);
+    });
+
+    it("hides the regenerate CTA on a rejected recommendation when AI is off (#6B SP3)", () => {
+      const insight = makeInsight({
+        id: 10,
+        type: "milestoneSlip",
+        status: "active",
+        recommendation: {
+          summary: "Reassign the overdue task",
+          proposedCalls: [],
+          generatedAt: "2026-06-10T00:00:00.000Z",
+          status: "rejected",
+        },
+      });
+      render(
+        <InsightsPanel
+          insights={[insight]}
+          lang="en-US"
+          actions={{
+            onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+            onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+          }}
+          aiEnabled={false}
+        />,
+      );
+      expect(screen.getByText("Recommendation dismissed.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
+    });
+
     it("renders no recommendation UI in a popout even with a proposed recommendation", () => {
       const insight = makeInsight({
         id: 7,
@@ -274,6 +331,37 @@ describe("InsightsPanel", () => {
       expect(screen.queryByRole("button", { name: /^Reject/ })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Generate recommendation/ })).not.toBeInTheDocument();
       expect(screen.queryByText("AI suggests: Reassign the overdue task")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("outcome badge (#6B SP3)", () => {
+    it("renders the measured outcome on an acted insight", () => {
+      render(
+        <InsightsPanel
+          insights={[
+            makeInsight({
+              id: 8,
+              status: "acted",
+              outcome: {
+                direction: "improved",
+                baseline: 10,
+                current: 4,
+                delta: 6,
+                measuredAt: "2026-06-10",
+              },
+            }),
+          ]}
+          lang="en-US"
+        />,
+      );
+      expect(screen.getByText("Improved by 6 since you acted")).toBeInTheDocument();
+    });
+
+    it("renders no badge on an acted insight with no measured outcome", () => {
+      render(
+        <InsightsPanel insights={[makeInsight({ id: 8, status: "acted" })]} lang="en-US" />,
+      );
+      expect(screen.queryByText(/since you acted/)).toBeNull();
     });
   });
 });

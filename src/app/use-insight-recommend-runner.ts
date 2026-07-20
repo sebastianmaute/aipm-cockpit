@@ -27,8 +27,6 @@ export interface InsightRecommendRunnerArgs {
   buildContextFor: (insight: Insight) => string;
   /** Functional setInsights writer (Task 9 provides). */
   applyRecommendation: (id: number, rec: InsightRecommendation) => void;
-  /** Injectable for tests; default () => new Date(). */
-  now?: () => Date;
 }
 
 export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): void {
@@ -41,7 +39,6 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   const buildIndexRef = useRef(args.buildIndex);
   const buildContextForRef = useRef(args.buildContextFor);
   const applyRecommendationRef = useRef(args.applyRecommendation);
-  const nowRef = useRef(args.now);
   useEffect(() => { enabledRef.current = args.enabled; }, [args.enabled]);
   useEffect(() => { insightsRef.current = args.insights; }, [args.insights]);
   useEffect(() => { aiRef.current = args.ai; }, [args.ai]);
@@ -49,7 +46,6 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
   useEffect(() => { buildIndexRef.current = args.buildIndex; }, [args.buildIndex]);
   useEffect(() => { buildContextForRef.current = args.buildContextFor; }, [args.buildContextFor]);
   useEffect(() => { applyRecommendationRef.current = args.applyRecommendation; }, [args.applyRecommendation]);
-  useEffect(() => { nowRef.current = args.now; }, [args.now]);
 
   // Overlap guard: skip a tick while a previous async run is still in flight.
   const isRunningRef = useRef(false);
@@ -81,7 +77,7 @@ export function useInsightRecommendRunner(args: InsightRecommendRunnerArgs): voi
               index: buildIndexRef.current(),
               today: todayRef.current,
             });
-            if (rec) applyRecommendationRef.current(insight.id, rec);
+            applyRecommendationRef.current(insight.id, rec);
           } catch (e) {
             // NEVER log/echo the api key or response body. A limit/auth failure
             // is global (every remaining call this tick would fail the same

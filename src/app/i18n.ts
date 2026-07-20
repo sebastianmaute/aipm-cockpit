@@ -3406,6 +3406,7 @@ const enUS = {
   versionHighlightProjectViewMode: "Per-project Table/Board view: the Open Points view mode joins the \"This project\" appearance overrides, and the pane's own toggle now sticks per project instead of snapping back to the device default.",
   versionHighlightInsights: "Insights: the app now surfaces deterministic project insights (milestone slips, stalled work, budget & RAID aging) with a lifecycle you can act on, dismiss, or resolve — on the Dashboard and a dedicated Insights view.",
   versionHighlightInsightsRecommend: "Insight recommendations: Claude can now propose a concrete, reviewable fix for an insight — on demand per insight or, opt-in, in the background — which you apply as a plan-then-apply diff through the existing tools. Rising-overdue trends now surface too.",
+  versionHighlightInsightsOutcome: "Insight outcomes: acting on an insight now records the number it was about, and the app measures whether that number actually moved — showing improved, unchanged or worse, and closing the insight out when the problem clears.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
@@ -3439,6 +3440,12 @@ const enUS = {
   insightStatusResolved: "Resolved",
   insightTypeAll: "All types",
   insightLastSeen: "Last seen {0}",
+
+  // Insight outcome measurement (#6B SP3)
+  insightOutcomeImproved: "Improved by {0} since you acted",
+  insightOutcomeUnchanged: "No change since you acted",
+  insightOutcomeResolved: "Resolved since you acted",
+  insightOutcomeWorsened: "Worse by {0} since you acted",
 
   // Insight AI recommendations (#6B SP2)
   insightGenerateRecommendation: "Generate recommendation",

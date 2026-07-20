@@ -1279,8 +1279,48 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   row controls in `insight-recommendation-controls.tsx` (both surfaces). ★ `overdueTrend` NOW FIRES:
   `buildInsightInput` reads the prior overdue count from the per-project `landing-state` `metrics.overdue`
   (key = `portfolioCurrentId ?? "default"`, the SAME key workspace-section writes; memo captured at mount, NOT
-  re-read on activity — that would race `use-landing-delta`'s ~4s snapshot advance). SP3 = outcome measurement
-  (`metricAtAction`), SP4 = digest.
+  re-read on activity — that would race `use-landing-delta`'s ~4s snapshot advance). SP4 = digest.
+- **SP3 — outcome measurement (0.192.0):** acting on an insight captures the ONE number it is about into
+  `metricAtAction`; a later reconcile measures the live number against it into a persisted `outcome`
+  (`{direction: improved|unchanged|worsened, baseline, current, delta, measuredAt}`). Both ride the SAME
+  insights blob (no new backend path, byte-stable when absent). Pure i18n-free `insights/outcome.ts` owns
+  `METRIC_FIELD` (milestoneSlip→`daysOverdue` · overdueTrend→`current` · stalledWork→`count` ·
+  budgetVariance→`variancePct` · raidAging→`daysSinceUpdate`), `insightMetricValue`/`insightMetricSnapshot`/
+  `metricAtActionPatch`/`baselineOf`/`computeOutcome`. ★★ ALL metrics are LOWER-IS-BETTER, so `improved` ⇔
+  current < baseline and `delta = baseline − current` — there is deliberately NO per-type direction table;
+  a new detector whose metric is higher-is-better would break that assumption and needs one. ★ `delta` is
+  NEGATIVE when worsened — the UI must render `Math.abs(delta)`. ★★ CAPTURE is at EVERY acted transition
+  (manual `onActInsight` AND `confirmInsightRecommendation`), both spreading the SAME `metricAtActionPatch(i)`
+  — read `i` from the functional setter's `prev`, NEVER a closure-captured insight, and the FIRST act wins
+  (a re-act must not overwrite the baseline). ★★ MEASUREMENT lives in `reconcile`: `upsert` re-measures an
+  `acted`+still-detected record from the fresh `det.data`; `clear` labels the (pre-existing SP1) acted→resolved
+  auto-resolve as `improved` via `computeClearedOutcome` — ★★ DIRECTION-ONLY (no `current`/`delta`): four of
+  the five detectors are THRESHOLD-gated (`stalledWork count<3`, `budgetVariance pct<10`, `raidAging days<7`,
+  `overdueTrend current<=prior`), so "cleared" is BELOW THRESHOLD not zero, and reconcile has no detection left
+  to read the true value from — emitting `current: 0` OVERSTATES the delta (review-caught: "improved by 10" for
+  a real move of 8). `InsightOutcome.current`/`delta` are therefore OPTIONAL and the badge renders
+  `insightOutcomeResolved` when they are absent. ★★ re-fire DROPS BOTH `outcome` AND `metricAtAction` — a
+  recurrence is a NEW problem instance; keeping the baseline would make the next act a no-op for
+  `metricAtActionPatch` ("first act wins") and measure a July recurrence against a March baseline.
+  Measurement is idempotent (same data + same `today` ⇒ same outcome) so the reconcile→setInsights→re-run
+  cycle converges — a test pins it. ★★ DATA-LOSS LANDMINE (third time in this feature): `insightsMateriallyEqual`
+  MUST compare `outcome` (`outcomeEqual`) or the runner's churn guard skips the write-back and a freshly
+  measured outcome is silently lost — exactly the SP1/SP2 class. ★ the badge (`insights/insight-outcome-badge.tsx`)
+  renders in the Insights VIEW ONLY — the dashboard card filters to `active`/`acknowledged` while outcomes exist
+  only on `acted`/`resolved`, so a card mount is unreachable dead code (one was written and removed). Direction
+  rides the DOT; the wording carries the meaning so it is never colour-only. ★ the dot is a LOCAL
+  `DIRECTION_DOT` token map, deliberately NOT the shared `RagDot` — that primitive's `level` is `Health`
+  (`"R"|"A"|"G"`) and cannot express the neutral "unchanged" state (neutral→amber would read as "at risk").
+  This mirrors every other non-Health dot in the app (`TIER_RAG` in `actions-panel`/`action-chips`, the
+  resource-picker linked marker, tour step dots); `RagDot` stays reserved for genuine RAG health. Don't
+  "fix" it to RagDot. ★ SP2 fold-ins landed here too:
+  the recommendation context now includes a bounded linked-entity digest (milestones + raid only — the only
+  detectors with an `entityRef`; RAID owner via `effectivePersonName`, incl. the `mitigation` plan so the model
+  stops re-proposing an existing fix), a `rejected` recommendation re-offers the Generate CTA (shared
+  `GenerateRecommendationCta`, NOT duplicated JSX — the dup gate is blocking), `runInsightRecommendation` lost a
+  dead `| null`, and the background runner lost an unused `now` arg. ★ the apply preview re-derives against LIVE
+  entities at apply time by design (a background proposal can be stale); the allow-set is enforced at load AND
+  apply, so that divergence is safe.
 
 ### AI Assistant
 
