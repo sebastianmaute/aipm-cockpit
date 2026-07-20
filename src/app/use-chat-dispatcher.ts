@@ -87,6 +87,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     setStakeholders,
     resources,
     setResources,
+    insights,
   } = useWorkspace();
   const { editingId, setEditingId, setForm } = useTaskForm();
   const {
@@ -111,6 +112,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const milestonesRef = useRef(milestones);
   const stakeholdersRef = useRef(stakeholders);
   const resourcesRef = useRef(resources);
+  const insightsRef = useRef(insights);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -141,6 +143,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     resourcesRef.current = resources;
   }, [resources]);
+  useEffect(() => {
+    insightsRef.current = insights;
+  }, [insights]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
@@ -679,6 +684,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           mode: deriveMode(settingsRef.current.features),
           enabledModules: settingsRef.current.features as FeatureModuleId[],
           currentView: viewRef.current,
+          insights: insightsRef.current ?? [],
         };
       },
     }),

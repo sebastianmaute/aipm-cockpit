@@ -42,6 +42,7 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "steeringCommittee", label: "Steering committee", kind: "singleton" },
   { key: "timelogLinks", label: "TimeLog links", kind: "singleton" },
   { key: "knowledgeItems", label: "Knowledge items", kind: "singleton" },
+  { key: "insights", label: "Insights", kind: "singleton" },
   { key: "settingsOverrides", label: "Project overrides", kind: "singleton" },
 ];
 

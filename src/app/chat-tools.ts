@@ -13,6 +13,7 @@ import type { Lang } from "./i18n";
 
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
+import type { Insight } from "./insights/insight";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
 type TaskInput = {
@@ -223,6 +224,7 @@ export type ToolDispatcher = {
     mode: AppMode;
     enabledModules: FeatureModuleId[];
     currentView: AppView;
+    insights?: readonly Insight[];
   };
 };
 

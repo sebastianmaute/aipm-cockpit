@@ -55,6 +55,7 @@ import {
   markdownToSteeringCommittee,
   markdownToTimelogLinks,
   markdownToKnowledgeItems,
+  markdownToInsights,
   markdownToSettingsOverrides,
   mdUnescape,
   splitMdRow,
@@ -308,6 +309,8 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   if (tl) ws.timelogLinks = tl;
   const ki = markdownToKnowledgeItems(md);
   if (ki) ws.knowledgeItems = ki;
+  const ins = markdownToInsights(md);
+  if (ins) ws.insights = ins;
   const so = markdownToSettingsOverrides(md);
   if (so) ws.settingsOverrides = so;
   return migrateWorkspaceV10(ws);

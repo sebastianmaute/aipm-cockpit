@@ -12,6 +12,8 @@ import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
+import { sanitizeInsights } from "./insights/sanitize-insights";
+import type { Insight } from "./insights/insight";
 import type { TimelogLinks } from "./timelog-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import type { SettingsOverrides } from "./settings-types";
@@ -275,6 +277,21 @@ export function markdownToKnowledgeItems(md: string): KnowledgeItem[] | undefine
   try {
     const items = sanitizeKnowledgeItems(JSON.parse(m[1]));
     return items.length ? items : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function insightsToMarkdown(insights: readonly Insight[]): string {
+  return ["## Insights", "", "```json", JSON.stringify(insights, null, 2), "```", ""].join("\n");
+}
+
+export function markdownToInsights(md: string): Insight[] | undefined {
+  const m = /## Insights\s*\n+```json\s*\n([\s\S]*?)\n```/.exec(md);
+  if (!m) return undefined;
+  try {
+    const ins = sanitizeInsights(JSON.parse(m[1]));
+    return ins.length ? ins : undefined;
   } catch {
     return undefined;
   }
@@ -656,6 +673,10 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // only when present so legacy workspaces round-trip byte-identically.
   if (enabled("knowledgeItems") && ws.knowledgeItems && ws.knowledgeItems.length)
     mdParts.push(knowledgeItemsToMarkdown(ws.knowledgeItems));
+  // Insights — EXPORTABLE (gated by the export key), emitted only when present
+  // so insight-less workspaces round-trip byte-identically.
+  if (enabled("insights") && ws.insights && ws.insights.length)
+    mdParts.push(insightsToMarkdown(ws.insights));
   const out = mdParts.join("\n");
   return out;
 }

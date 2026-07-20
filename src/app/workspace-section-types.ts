@@ -1,6 +1,7 @@
 // Props contract for workspace-section.tsx (WorkspaceSection). Extracted so
 // the component file stays focused on view routing.
 import type React from "react";
+import type { InsightActions } from "./insights/insight";
 import type {
   ToolDispatcher,
 } from "./chat-tools";
@@ -228,6 +229,9 @@ export interface WorkspaceSectionProps {
   onHardDeleteProject?: (id: string) => void;
   nextActions: readonly SuggestedAction[];
   onOpenAction: (a: SuggestedAction) => void;
+  /** Insights lifecycle callbacks (#6B SP1). Forwarded to DashboardPanel; the
+   *  review UI that invokes them lands in Task 6/7. Undefined in popouts. */
+  insightActions?: InsightActions;
   onSnooze?: (a: SuggestedAction, ms: number) => void;
   onCreateTask?: (a: SuggestedAction) => void;
   onDraftMessage?: (a: SuggestedAction) => void;

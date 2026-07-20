@@ -135,6 +135,9 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
     if (ws.knowledgeItems && ws.knowledgeItems.length) {
       out.push(tenantInsert("meta", ["key", "value"], ["knowledge_items", JSON.stringify(ws.knowledgeItems)], projectId));
     }
+    if (ws.insights && ws.insights.length) {
+      out.push(tenantInsert("meta", ["key", "value"], ["insights", JSON.stringify(ws.insights)], projectId));
+    }
     if (ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides)) {
       out.push(tenantInsert("meta", ["key", "value"], ["settings_overrides", JSON.stringify(ws.settingsOverrides)], projectId));
     }

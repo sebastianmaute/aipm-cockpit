@@ -35,6 +35,8 @@ import {
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
+import { sanitizeInsights } from "./insights/sanitize-insights";
+import type { Insight } from "./insights/insight";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import {
@@ -113,6 +115,10 @@ export type Workspace = {
    *  that live on their own, optionally cross-linked to tasks. Optional &
    *  additive: undefined/empty serializes to nothing (byte-stable). */
   knowledgeItems?: readonly KnowledgeItem[];
+  /** Insights → Action Loop records (detected project signals + their lifecycle).
+   *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
+   *  Sanitized by sanitizeInsights. */
+  insights?: readonly Insight[];
   /** Per-project policy overrides (next-actions weights, notification cadence,
    *  timezone) that travel WITH the project. Optional & additive: undefined
    *  serializes to nothing (byte-stable). Sanitized by sanitizeSettingsOverrides. */
@@ -436,6 +442,10 @@ export function workspaceToJson(ws: Workspace): string {
       ...(ws.knowledgeItems && ws.knowledgeItems.length
         ? { knowledgeItems: ws.knowledgeItems }
         : {}),
+      // Additive: only present when insights exist, so legacy files stay free
+      // of an `insights` key. JSON is the complete round-trip, so this is
+      // always emitted (storage AND export) when present.
+      ...(ws.insights && ws.insights.length ? { insights: ws.insights } : {}),
       // Additive: only present when the project carries policy overrides, so
       // override-less files stay free of a `settingsOverrides` key.
       ...(hasAnyOverride(ws.settingsOverrides) ? { settingsOverrides: ws.settingsOverrides } : {}),
@@ -553,6 +563,11 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     if (p.knowledgeItems !== undefined) {
       const items = sanitizeKnowledgeItems(p.knowledgeItems);
       if (items.length) raw.knowledgeItems = items;
+    }
+    // Additive: sanitize incoming insights when present.
+    if (p.insights !== undefined) {
+      const ins = sanitizeInsights(p.insights);
+      if (ins.length) raw.insights = ins;
     }
     // Additive: sanitize incoming per-project policy overrides when present;
     // an all-junk override sanitizes to {} (no valid sub-key) and the key stays off.

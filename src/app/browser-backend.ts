@@ -8,6 +8,7 @@ import { defaultResourcePlan } from "./resource-foundation";
 import { sanitizeProjectMeta, sanitizeSteeringCommittee } from "./sanitize";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
+import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { migrateTaskStatus } from "./task-status";
 import {
@@ -63,6 +64,7 @@ const KV_FEATURES_KEY = "features";
 const KV_STEERING_KEY = "steeringCommittee";
 const KV_TIMELOG_LINKS_KEY = "timelogLinks";
 const KV_KNOWLEDGE_ITEMS_KEY = "knowledgeItems";
+const KV_INSIGHTS_KEY = "insights";
 const KV_SETTINGS_OVERRIDES_KEY = "settingsOverrides";
 import {
   type StorageBackend,
@@ -131,6 +133,7 @@ export class BrowserBackend implements StorageBackend {
     let steeringCommittee: SteeringCommittee | undefined;
     let timelogLinks: Workspace["timelogLinks"] | undefined;
     let knowledgeItems: Workspace["knowledgeItems"] | undefined;
+    let insights: Workspace["insights"] | undefined;
     let settingsOverrides: Workspace["settingsOverrides"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
@@ -157,6 +160,7 @@ export class BrowserBackend implements StorageBackend {
         idbSteeringCommittee,
         idbTimelogLinks,
         idbKnowledgeItems,
+        idbInsights,
         idbSettingsOverrides,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
@@ -180,6 +184,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_STEERING_KEY),
         idbGet(KV_TIMELOG_LINKS_KEY),
         idbGet(KV_KNOWLEDGE_ITEMS_KEY),
+        idbGet(KV_INSIGHTS_KEY),
         idbGet(KV_SETTINGS_OVERRIDES_KEY),
       ]);
       tasks = idbTasks;
@@ -215,6 +220,11 @@ export class BrowserBackend implements StorageBackend {
         const ki = sanitizeKnowledgeItems(idbKnowledgeItems);
         knowledgeItems = ki.length ? ki : undefined;
       }
+      // Optional list: junk/empty insights sanitize to [] → keep undefined.
+      {
+        const ins = sanitizeInsights(idbInsights);
+        insights = ins.length ? ins : undefined;
+      }
       // Optional singleton: junk/empty overrides sanitize to {} → keep undefined.
       {
         const so = sanitizeSettingsOverrides(idbSettingsOverrides);
@@ -244,6 +254,7 @@ export class BrowserBackend implements StorageBackend {
     if (steeringCommittee) raw.steeringCommittee = steeringCommittee;
     if (timelogLinks) raw.timelogLinks = timelogLinks;
     if (knowledgeItems) raw.knowledgeItems = knowledgeItems;
+    if (insights) raw.insights = insights;
     if (settingsOverrides) raw.settingsOverrides = settingsOverrides;
     const ws = migrateWorkspaceV10(raw);
 
@@ -377,6 +388,10 @@ export class BrowserBackend implements StorageBackend {
       ws.knowledgeItems && ws.knowledgeItems.length
         ? idbSet(KV_KNOWLEDGE_ITEMS_KEY, ws.knowledgeItems)
         : idbDelete(KV_KNOWLEDGE_ITEMS_KEY),
+      // Delete-on-absent so cleared insights don't linger and reload stale.
+      ws.insights && ws.insights.length
+        ? idbSet(KV_INSIGHTS_KEY, ws.insights)
+        : idbDelete(KV_INSIGHTS_KEY),
       // Delete-on-absent so cleared overrides don't linger and reload stale.
       ws.settingsOverrides && hasAnyOverride(ws.settingsOverrides)
         ? idbSet(KV_SETTINGS_OVERRIDES_KEY, ws.settingsOverrides)

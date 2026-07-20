@@ -32,6 +32,7 @@ import {
 } from "./storage";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
+import type { Insight } from "./insights/insight";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
@@ -252,6 +253,28 @@ function knowledgeItemsSection(items: readonly KnowledgeItem[], lang: Lang): Exp
   };
 }
 
+// English-only builder (consistent with budgets/roles/absences); the insight
+// text is derived from type+data by the React surfaces, so the export renders
+// the structural fields plus a compact key=value dump of `data`.
+function insightsSection(insights: readonly Insight[]): ExportSection {
+  const rows = insights.map((it) => [
+    it.type,
+    it.severity,
+    it.status,
+    Object.entries(it.data)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(" "),
+    String(it.occurrences),
+    it.lastSeenAt,
+  ]);
+  return {
+    key: "insights",
+    title: "Insights",
+    columns: ["type", "severity", "status", "data", "occurrences", "lastSeen"],
+    rows,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Builder map keyed by ExportSectionKey
 // ---------------------------------------------------------------------------
@@ -287,6 +310,10 @@ const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
   knowledgeItems: (ws, lang) => {
     const items = ws.knowledgeItems ?? [];
     return items.length > 0 ? knowledgeItemsSection(items, lang) : null;
+  },
+  insights: (ws) => {
+    const items = ws.insights ?? [];
+    return items.length > 0 ? insightsSection(items) : null;
   },
   resources: (ws, lang) => {
     const items = ws.resources;

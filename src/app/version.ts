@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.190.43";
-export const APP_BUILD_DATE = "2026-07-19"; // 0.190.43: per-project Table/Board view mode — the Open Points view mode joins the "This project" appearance overrides; the pane's own Table/Board toggle is scope-aware (writes the project override when on, else the device default) so a per-project view no longer snaps back (Pinsker)
+export const APP_VERSION = "0.190.44";
+export const APP_BUILD_DATE = "2026-07-20"; // 0.190.44: insights → action loop SP1 — a persistent deduped insight record with lifecycle, 5 deterministic detectors, Dashboard card + dedicated view, exportable, AI-aware (Pinsker)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.190.x line is "Pinsker" (Sample Pinsker, SF author). */
 export const APP_MILESTONE = "Pinsker";
@@ -232,4 +232,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightAiSettingsTool",
   "versionHighlightProjectOverrides",
   "versionHighlightProjectViewMode",
+  "versionHighlightInsights",
 ] as const;

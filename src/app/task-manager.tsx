@@ -90,6 +90,9 @@ import { useVersionHistory } from "./use-version-history";
 import { DEFAULT_VERSION_RETENTION } from "./version-history";
 import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
+import { detectInsights, type InsightInput } from "./insights/detect";
+import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
+import type { InsightActions } from "./insights/insight";
 import { getTursoConfig } from "./turso-config";
 import { aiKeyIfEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
@@ -162,6 +165,10 @@ function effectiveToday(tz: string): string {
 // Idle window before an auto version is captured after a save. Coalesces a
 // burst of saves into a single version.
 const VERSION_IDLE_MS = 180_000; // 3 minutes
+
+// Debounce before the insights detect→reconcile runner fires, so a burst of
+// edits collapses into one recompute (#6B Insights → Action Loop, SP1).
+const INSIGHTS_RECONCILE_DEBOUNCE_MS = 4_000;
 
 // Stable empty fallback so an unset `settings.jira.extraProjects` doesn't create
 // a fresh `[]` each render — that churns the task row context value and
@@ -261,6 +268,8 @@ function TaskManagerInner() {
     timelogLinks,
     setTimelogLinks,
     setKnowledgeItems,
+    insights,
+    setInsights,
     settingsOverrides,
     setSettingsOverrides,
     setFieldVisibility,
@@ -719,6 +728,96 @@ function TaskManagerInner() {
     [tasks, raid, budgets, plan, roles, resources, absences, settings.resources.workdayHours, holidaySet, status, activityLog, today, milestones, changes],
   );
 
+  // --- Insights → Action Loop (#6B SP1) --------------------------------------
+  // Assemble the detection input from live entities. `plan` is always present
+  // here (workspace-context seeds defaultResourcePlan) so it is passed as-is;
+  // `budgets` are forwarded raw (the budgetVariance detector self-gates on an
+  // empty list), mirroring the dashboardModel inputs above. `roles`/`resources`
+  // feed the budget engine so budgetFollowsPlan buckets derive real hours.
+  // `priorOverdueCount` is null in SP1 — the prior-overdue snapshot lives in
+  // workspace-section's per-project landing-state (not threadable here), so the
+  // overdueTrend detector no-ops (acceptable for SP1).
+  const buildInsightInput = useCallback(
+    (): InsightInput => ({
+      tasks,
+      milestones,
+      raid,
+      budgets,
+      roles,
+      resources,
+      plan,
+      priorOverdueCount: null,
+      holidaySet,
+    }),
+    [tasks, milestones, raid, budgets, roles, resources, plan, holidaySet],
+  );
+
+  // Detect → reconcile runner. Debounced so a burst of edits collapses into one
+  // recompute. Keyed on the DETECTION INPUTS (via buildInsightInput identity +
+  // today), NEVER on `insights`, so the setInsights below cannot re-trigger this
+  // effect — that would be the reconcile→setInsights→re-run loop (occurrences
+  // would climb without bound). Writes via the setter only (a side effect, not
+  // render-phase setState). Popout is read-only; pre-hydration is skipped.
+  useEffect(() => {
+    if (!hydrated || isPopout) return;
+    const timer = setTimeout(() => {
+      const detected = detectInsights(buildInsightInput(), today);
+      setInsights((prev) => {
+        const base = prev ?? [];
+        const next = reconcileInsights(base, detected, today);
+        return insightsMateriallyEqual(base, next) ? base : next;
+      });
+    }, INSIGHTS_RECONCILE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [buildInsightInput, today, hydrated, isPopout, setInsights]);
+
+  // Lifecycle handlers (threaded to the dashboard as an insightActions bag; the
+  // review UI that invokes them is built in Task 6/7). Each is a functional
+  // setter so a burst can't drop writes; popout is a no-op. Stamps use `today`
+  // (date-only) to match reconcile's own firstSeenAt/lastSeenAt convention.
+  const onAcknowledgeInsight = useCallback(
+    (id: number) => {
+      if (isPopout) return;
+      setInsights((prev) =>
+        (prev ?? []).map((i) =>
+          i.id === id ? { ...i, status: "acknowledged" as const, acknowledgedAt: today } : i,
+        ),
+      );
+    },
+    [isPopout, setInsights, today],
+  );
+  const onActInsight = useCallback(
+    (id: number) => {
+      if (isPopout) return;
+      const target = (insights ?? []).find((i) => i.id === id);
+      setInsights((prev) =>
+        (prev ?? []).map((i) =>
+          i.id === id ? { ...i, status: "acted" as const, actedAt: today } : i,
+        ),
+      );
+      // Route to the referenced entity via the shared deep-link channel.
+      if (target?.entityRef) requestOpen(target.entityRef.view, target.entityRef.id);
+    },
+    [isPopout, insights, setInsights, today, requestOpen],
+  );
+  const onDismissInsight = useCallback(
+    (id: number, reason?: string) => {
+      if (isPopout) return;
+      setInsights((prev) =>
+        (prev ?? []).map((i) =>
+          i.id === id
+            ? { ...i, status: "dismissed" as const, dismissedAt: today, ...(reason ? { dismissReason: reason } : {}) }
+            : i,
+        ),
+      );
+    },
+    [isPopout, setInsights, today],
+  );
+  const insightActions: InsightActions = useMemo(
+    () => ({ onAcknowledge: onAcknowledgeInsight, onAct: onActInsight, onDismiss: onDismissInsight }),
+    [onAcknowledgeInsight, onActInsight, onDismissInsight],
+  );
+
   // Pre-computed workload alerts (over-allocated / overload) for the `workload`
   // next-actions provider; computed once on the surface and fed into the engine.
   const workloadAlerts = useMemo(
@@ -878,13 +977,14 @@ function TaskManagerInner() {
     if (w.plan) setPlan(w.plan); setBudgets(w.budgets ?? []); setFxRates(w.fxRates ?? null); setStatus(w.status ?? {});
     setProject(w.project); setMilestones(w.milestones ?? []); setChanges(w.changes ?? []); setStakeholders(w.stakeholders ?? []);
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
+    setInsights(w.insights);
     setSettingsOverrides(w.settingsOverrides);
     // Version restore replaces the SAME project's data — RAISE the id-minter
     // high-water (never lower it) so an id freed by restoring an older (smaller)
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setSettingsOverrides]);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setSettingsOverrides]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the
@@ -1892,6 +1992,9 @@ function TaskManagerInner() {
     onHardDeleteProject: handleHardDeleteTursoProject,
     nextActions,
     onOpenAction: openAction,
+    // Insights lifecycle bag (#6B SP1) — the dashboard review UI that invokes
+    // these is built in Task 6/7; threaded now so the handlers have a sink.
+    insightActions: isPopout ? undefined : insightActions,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,

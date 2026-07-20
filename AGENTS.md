@@ -1229,6 +1229,32 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `interactive:true` pops an incremental-consent dialog for a new scope; background probes stay silent. New
   Graph host must be added to the CSP allowlist (above).
 
+### Insights → action loop
+
+- **Pure `insights/` engines (i18n-free):** `detect.ts` `detectInsights(input, today)` runs FIVE
+  deterministic detectors (milestone slip · stalled/no-progress work · budget aging · RAID aging ·
+  overdue-trend) → `DetectedInsight[]`; `reconcile.ts` `reconcileInsights(stored, detected, today)` merges
+  detected signals into the stored record, DEDUPES by a stable key, and PRESERVES each insight's lifecycle
+  (`active` → `acknowledged`/`acted`/`dismissed` → `resolved`). `sanitize-insights.ts` = the single validator
+  (never throws), `insight-text.ts` = i18n-free label/summary helpers, `insight-prompt.ts`
+  `buildInsightsPromptBlock(insights)` = the AI context block. ★ `overdueTrend` is INERT in SP1 — it needs a
+  prior-overdue count threaded in (SP2); do NOT treat its empty output as a bug.
+- **Persistence + export:** `Workspace.insights` is a JSON blob persisted across ALL SIX write paths
+  (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB) and is EXPORTABLE via a new `insights` `ExportSectionKey`
+  (default OFF, like `knowledgeItems`). ★★ An EMPTY record is BYTE-STABLE (no golden regen); mirrors the
+  `knowledgeItems` app-level save/load wiring — value+setter through `workspace-context`, set on load in
+  `applyWorkspace` + `task-manager` restore, and INCLUDED in the `backend.save({…})` literals + `currentWorkspace()`
+  so it actually autosaves. ★★ LANDMINE: the autosave-effect DEPS array MUST include insights or edits silently
+  drop (data-loss).
+- **Detect→reconcile runner (task-manager):** debounced, gated `hydrated && !isPopout`, functional
+  `setInsights((prev) => reconcileInsights(prev ?? [], detected, today))`. ★★ Its content-key EXCLUDES lifecycle
+  fields, so acting on / dismissing an insight can't re-trigger detection → the reconcile→setInsights→re-run loop
+  is avoided.
+- **Surfaces:** Dashboard `dashboard-sections/insights-card.tsx` + a dedicated `insights` AppView (an Overview
+  SUB-CHILD of `dashboard` in `nav-config.ts`, NOT Turso-gated, IS in axe `A11Y_VIEWS` as `#insights`). ★ severity
+  rides a `RagDot` (non-text, AA-exempt), NEVER tinted small text. AI-aware: `buildInsightsPromptBlock` is appended
+  AFTER the chat cache breakpoint (volatile — reflects the live record without busting prompt caching).
+
 ### AI Assistant
 
 - **Wire layer:** `chat-panel.tsx` is the React surface; the non-React WIRE LAYER (Anthropic protocol types
