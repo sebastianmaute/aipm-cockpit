@@ -2444,6 +2444,8 @@ const enUS = {
   actionAiErrorNetwork: "Network error. Check your connection and try again.",
   settingsAiActionSuggestions: "Action Center AI suggestions",
   settingsAiActionSuggestionsHelp: "Show an “Analyze with AI” button in the Action Center.",
+  aiInsightRecommendations: "Proactive insight recommendations",
+  aiInsightRecommendationsDesc: "Let Claude propose fixes for detected insights in the background. Opt-in — uses billed API calls.",
   actionDraftMessage: "Draft message",
   actionCreateTask: "Create task",
   actionEscalate: "Escalate",
@@ -3403,6 +3405,7 @@ const enUS = {
   versionHighlightProjectOverrides: "Per-project setting overrides: a \"This project\" settings section can override next-actions ranking, notifications, and timezone for a single project (they travel with it), plus dashboard density and view-hint banners per device.",
   versionHighlightProjectViewMode: "Per-project Table/Board view: the Open Points view mode joins the \"This project\" appearance overrides, and the pane's own toggle now sticks per project instead of snapping back to the device default.",
   versionHighlightInsights: "Insights: the app now surfaces deterministic project insights (milestone slips, stalled work, budget & RAID aging) with a lifecycle you can act on, dismiss, or resolve — on the Dashboard and a dedicated Insights view.",
+  versionHighlightInsightsRecommend: "Insight recommendations: Claude can now propose a concrete, reviewable fix for an insight — on demand per insight or, opt-in, in the background — which you apply as a plan-then-apply diff through the existing tools. Rising-overdue trends now surface too.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
@@ -3436,6 +3439,21 @@ const enUS = {
   insightStatusResolved: "Resolved",
   insightTypeAll: "All types",
   insightLastSeen: "Last seen {0}",
+
+  // Insight AI recommendations (#6B SP2)
+  insightGenerateRecommendation: "Generate recommendation",
+  insightRecommendationReviewTitle: "Review recommendation",
+  insightApplyRecommendation: "Apply recommendation",
+  insightRejectRecommendation: "Reject",
+  insightRecommendationEmptyPlan: "This recommendation has no remaining changes to apply.",
+  insightRecommendationError: "Couldn't generate a recommendation right now.",
+  insightRecommendationApplied: "Recommendation applied.",
+  insightRecommendationApplyFailed: "Some changes in this recommendation couldn't be applied.",
+  insightRecommendationSkipped: "{0} proposed change(s) no longer apply and will be skipped.",
+  insightRecommendationGenerating: "Generating…",
+  insightRecommendationSuggests: "AI suggests: {0}",
+  insightRecommendationRejected: "Recommendation dismissed.",
+  activityAiInsightRecommendation: "AI applied an insight recommendation: {1}",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

@@ -12,6 +12,7 @@ import {
   type InsightEntityRef,
   type InsightSeverity,
 } from "../insights/insight";
+import { InsightRecommendationControls } from "../insight-recommendation-controls";
 import type { Health } from "../health";
 import type { DensityClasses } from "../dashboard-density";
 
@@ -33,6 +34,9 @@ export interface InsightsCardProps {
   dc: DensityClasses;
   /** Lifecycle callbacks; omit (or `isPopout`) for a read-only card. */
   actions?: InsightActions;
+  /** Id of the insight (if any) whose AI recommendation is generating (#6B SP2). */
+  generatingId?: number | null;
+  aiEnabled?: boolean;
   /** Deep-link to the insight's entity (only rendered when `entityRef` is set). */
   onOpen?: (ref: InsightEntityRef) => void;
   isPopout?: boolean;
@@ -40,7 +44,16 @@ export interface InsightsCardProps {
 
 /** Dashboard Insights card (#6B SP1): active insights + their lifecycle CTAs.
  *  Presentational — self-hides (returns null) when no insight is active. */
-export function InsightsCard({ insights, lang, dc, actions, onOpen, isPopout }: InsightsCardProps) {
+export function InsightsCard({
+  insights,
+  lang,
+  dc,
+  actions,
+  generatingId,
+  aiEnabled,
+  onOpen,
+  isPopout,
+}: InsightsCardProps) {
   const active = insights
     .filter((i) => i.status === "active" || i.status === "acknowledged")
     .slice()
@@ -111,6 +124,14 @@ export function InsightsCard({ insights, lang, dc, actions, onOpen, isPopout }: 
                       >
                         {t(lang, "insightDismiss")}
                       </Button>
+                      <InsightRecommendationControls
+                        insight={insight}
+                        title={title}
+                        lang={lang}
+                        actions={actions}
+                        generatingId={generatingId}
+                        aiEnabled={aiEnabled}
+                      />
                     </>
                   ) : null}
                 </div>

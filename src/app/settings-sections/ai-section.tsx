@@ -634,6 +634,29 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
           {t(lang, "settingsAiActionSuggestionsHelp")}
         </FieldHint>
 
+        {/* Proactive insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls. */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "aiInsightRecommendations")}
+            checked={settings.ai.insightRecommendations === true}
+            onChange={() =>
+              onChange({
+                ...settings,
+                ai: {
+                  ...settings.ai,
+                  insightRecommendations: settings.ai.insightRecommendations !== true,
+                },
+              })
+            }
+          />
+          <span className="text-xs text-foreground">
+            {t(lang, "aiInsightRecommendations")}
+          </span>
+        </label>
+        <FieldHint className="mt-1">
+          {t(lang, "aiInsightRecommendationsDesc")}
+        </FieldHint>
+
         {og != null && (
           <>
             {overBudget && (

@@ -2351,6 +2351,8 @@ export const de: Record<TranslationKey, string> = {
   actionAiErrorNetwork: "Netzwerkfehler. Verbindung prüfen und erneut versuchen.",
   settingsAiActionSuggestions: "KI-Vorschläge im Action Center",
   settingsAiActionSuggestionsHelp: "Zeigt eine Schaltfläche „Mit KI analysieren“ im Action Center.",
+  aiInsightRecommendations: "Proaktive Insight-Empfehlungen",
+  aiInsightRecommendationsDesc: "Claude schlägt im Hintergrund Lösungen für erkannte Insights vor. Opt-in — verursacht kostenpflichtige API-Aufrufe.",
   actionDraftMessage: "Nachricht verfassen",
   actionCreateTask: "Aufgabe erstellen",
   actionEscalate: "Eskalieren",
@@ -3384,6 +3386,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightProjectOverrides: "Projektbezogene Einstellungsüberschreibungen: Ein Bereich \"Dieses Projekt\" überschreibt Nächste-Aktionen-Priorisierung, Benachrichtigungen und Zeitzone für ein einzelnes Projekt (reist mit) sowie Dashboard-Dichte und Hinweisbanner pro Gerät.",
   versionHighlightProjectViewMode: "Tabellen-/Board-Ansicht pro Projekt: Der Ansichtsmodus der Offenen Punkte gehört jetzt zu den \"Dieses Projekt\"-Darstellungsüberschreibungen, und der Umschalter der Ansicht bleibt pro Projekt erhalten, statt auf die Geräteeinstellung zurückzuspringen.",
   versionHighlightInsights: "Erkenntnisse: Die App zeigt jetzt deterministische Projekt-Erkenntnisse (Meilenstein-Verzögerungen, ins Stocken geratene Arbeit, Budget- und RAID-Alterung) mit einem Lebenszyklus zum Handeln, Verwerfen oder Auflösen – im Dashboard und einer eigenen Erkenntnisse-Ansicht.",
+  versionHighlightInsightsRecommend: "Erkenntnis-Empfehlungen: Claude kann jetzt eine konkrete, prüfbare Lösung für eine Erkenntnis vorschlagen – auf Anfrage pro Erkenntnis oder, optional, im Hintergrund – die Sie als Vorschau-dann-Anwenden-Diff über die vorhandenen Werkzeuge anwenden. Steigende Überfälligkeits-Trends werden nun ebenfalls angezeigt.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",
@@ -3417,4 +3420,19 @@ export const de: Record<TranslationKey, string> = {
   insightStatusResolved: "Erledigt",
   insightTypeAll: "Alle Typen",
   insightLastSeen: "Zuletzt gesehen {0}",
+
+  // Insight-KI-Empfehlungen (#6B SP2)
+  insightGenerateRecommendation: "Empfehlung generieren",
+  insightRecommendationReviewTitle: "Empfehlung prüfen",
+  insightApplyRecommendation: "Empfehlung anwenden",
+  insightRejectRecommendation: "Ablehnen",
+  insightRecommendationEmptyPlan: "Diese Empfehlung enthält keine anwendbaren Änderungen mehr.",
+  insightRecommendationError: "Es konnte gerade keine Empfehlung generiert werden.",
+  insightRecommendationApplied: "Empfehlung angewendet.",
+  insightRecommendationApplyFailed: "Einige Änderungen dieser Empfehlung konnten nicht angewendet werden.",
+  insightRecommendationSkipped: "{0} vorgeschlagene Änderung(en) sind nicht mehr anwendbar und werden übersprungen.",
+  insightRecommendationGenerating: "Wird erstellt…",
+  insightRecommendationSuggests: "KI schlägt vor: {0}",
+  insightRecommendationRejected: "Empfehlung verworfen.",
+  activityAiInsightRecommendation: "KI hat eine Insight-Empfehlung angewendet: {1}",
 };

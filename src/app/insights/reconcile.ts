@@ -30,6 +30,8 @@ function upsert(prev: Insight, det: DetectedInsight, today: string): Insight {
   if (prev.status !== "dismissed" && prev.status !== "resolved") return next;
   // Re-fire: the condition is firing again → active, and any prior resolution or
   // dismissal no longer holds. Rebuild without resolvedAt/dismissedAt/dismissReason.
+  // recommendation intentionally dropped on re-fire — a stale proposal no longer
+  // describes the now-recurring problem; regenerate.
   return {
     id: next.id,
     key: next.key,
@@ -144,6 +146,34 @@ function entityRefEqual(
   return a.view === b.view && a.id === b.id;
 }
 
+function toolCallsEqual(
+  a: readonly { name: string; input: unknown }[],
+  b: readonly { name: string; input: unknown }[],
+): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].name !== b[i].name) return false;
+    if (JSON.stringify(a[i].input) !== JSON.stringify(b[i].input)) return false;
+  }
+  return true;
+}
+
+function recommendationEqual(
+  a: Insight["recommendation"],
+  b: Insight["recommendation"],
+): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  return (
+    a.summary === b.summary &&
+    a.status === b.status &&
+    a.generatedAt === b.generatedAt &&
+    a.appliedAt === b.appliedAt &&
+    a.appliedSummary === b.appliedSummary &&
+    toolCallsEqual(a.proposedCalls, b.proposedCalls)
+  );
+}
+
 /**
  * True when `a` and `b` are the SAME set of insights differing ONLY in
  * `occurrences` and/or `lastSeenAt`. Both come from `reconcileInsights`, whose
@@ -174,7 +204,8 @@ export function insightsMateriallyEqual(
       x.dismissReason !== y.dismissReason ||
       !entityRefEqual(x.entityRef, y.entityRef) ||
       !shallowRecordEqual(x.data, y.data) ||
-      !shallowRecordEqual(x.metricAtAction, y.metricAtAction)
+      !shallowRecordEqual(x.metricAtAction, y.metricAtAction) ||
+      !recommendationEqual(x.recommendation, y.recommendation)
     ) {
       return false;
     }

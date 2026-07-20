@@ -92,9 +92,18 @@ import { workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
 import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
-import type { InsightActions } from "./insights/insight";
+import { loadLandingState } from "./landing-state";
+import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
+import { ALLOWED_REC_TOOLS } from "./insights/insight";
+import { useInsightRecommend } from "./use-insight-recommend";
+import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
+import { buildRecommendContext } from "./insights/recommend-context";
+import { describeRecommendationPlan } from "./insights/recommend-plan";
+import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
+import { buildGroundingIndex } from "./action-ai";
+import { runTool } from "./chat-tools";
 import { getTursoConfig } from "./turso-config";
-import { aiKeyIfEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { aiKeyIfEnabled, isAiEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -734,9 +743,22 @@ function TaskManagerInner() {
   // `budgets` are forwarded raw (the budgetVariance detector self-gates on an
   // empty list), mirroring the dashboardModel inputs above. `roles`/`resources`
   // feed the budget engine so budgetFollowsPlan buckets derive real hours.
-  // `priorOverdueCount` is null in SP1 — the prior-overdue snapshot lives in
-  // workspace-section's per-project landing-state (not threadable here), so the
-  // overdueTrend detector no-ops (acceptable for SP1).
+  // `priorOverdueCount` (SP2) reads the prior overdue snapshot from the
+  // per-project landing-state — the SAME key workspace-section writes
+  // (portfolioCurrentId ?? "default") — so a rising overdue count surfaces the
+  // overdueTrend insight. A fresh project has no snapshot yet → null → the
+  // detector stays inert (nothing to compare). ★ Deliberately keyed ONLY on
+  // landingProjectId (captured once per project, mirroring use-landing-delta's
+  // mount-time capture) — NOT re-read on every entity/activity change: the
+  // companion debounced advance effect (use-landing-delta) overwrites the
+  // stored snapshot with the LIVE overdue count ~4s after the Dashboard
+  // mounts, so a live-recomputed read here would quickly start comparing
+  // "current" against a snapshot of itself and never fire again this session.
+  const landingProjectId = portfolioMode === "turso" ? (tursoProjectId ?? "default") : (currentProjectId ?? "default");
+  const priorOverdueCount = useMemo(
+    () => loadLandingState(landingProjectId).metrics?.overdue ?? null,
+    [landingProjectId],
+  );
   const buildInsightInput = useCallback(
     (): InsightInput => ({
       tasks,
@@ -746,10 +768,10 @@ function TaskManagerInner() {
       roles,
       resources,
       plan,
-      priorOverdueCount: null,
+      priorOverdueCount,
       holidaySet,
     }),
-    [tasks, milestones, raid, budgets, roles, resources, plan, holidaySet],
+    [tasks, milestones, raid, budgets, roles, resources, plan, priorOverdueCount, holidaySet],
   );
 
   // Detect → reconcile runner. Debounced so a burst of edits collapses into one
@@ -813,10 +835,10 @@ function TaskManagerInner() {
     },
     [isPopout, setInsights, today],
   );
-  const insightActions: InsightActions = useMemo(
-    () => ({ onAcknowledge: onAcknowledgeInsight, onAct: onActInsight, onDismiss: onDismissInsight }),
-    [onAcknowledgeInsight, onActInsight, onDismissInsight],
-  );
+  // The SP2 generate/apply/reject handlers (+ the `insightActions` assembly
+  // that references them) need `dispatcher` (apply replays proposed tool calls
+  // through it), so they're defined further down, right after `dispatcher` is
+  // created — see "Insights → Action Loop (#6B SP2)" below.
 
   // Pre-computed workload alerts (over-allocated / overload) for the `workload`
   // next-actions provider; computed once on the surface and fed into the engine.
@@ -1572,6 +1594,155 @@ function TaskManagerInner() {
     currentView: activeTab,
   });
 
+  // --- Insights → Action Loop (#6B SP2) ---------------------------------
+  // Generate/apply/reject handlers for an insight's AI recommendation. Apply
+  // replays the recommendation's proposed tool calls through the SAME
+  // dispatcher the chat/inline-edit tools use (runTool re-sanitizes per
+  // entity — the security boundary — and no-ops a stale id gracefully), so
+  // these live here, after `dispatcher` exists.
+  const buildInsightGroundingIndex = useCallback(
+    () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
+    [tasks, raid, milestones, changes, stakeholders],
+  );
+  const buildInsightRecommendContext = useCallback(
+    (insight: Insight) =>
+      buildRecommendContext({
+        projectName: project?.name ?? "",
+        today,
+        insightType: insight.type,
+        severity: insight.severity,
+        data: insight.data,
+        // The optional `entity` digest (the linked item's current fields) is
+        // deliberately NOT populated in SP2 — the model works from `insight.data`
+        // + the task list. Wiring `insight.entityRef` → the live entity's fields
+        // (to sharpen entity-linked proposals: milestoneSlip/raidAging/budgetVariance)
+        // is a scoped SP3 follow-up.
+        relatedTasks: tasks.map((tk) => ({ id: tk.id, title: tk.taskName })),
+      }),
+    [project, today, tasks],
+  );
+  const applyInsightRecommendation = useCallback(
+    (id: number, rec: InsightRecommendation) => {
+      setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: rec } : i)));
+    },
+    [setInsights],
+  );
+  const { generatingId: insightGeneratingId, generate: generateInsightRecommendation } = useInsightRecommend({
+    insights: insights ?? [],
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
+    today,
+    buildIndex: buildInsightGroundingIndex,
+    buildContextFor: buildInsightRecommendContext,
+    applyRecommendation: applyInsightRecommendation,
+    isPopout,
+    onError: (kind) => {
+      showToast("error", t(lang, kind === "limit" ? "aiUsageLimitReached" : "insightRecommendationError"));
+    },
+  });
+  useInsightRecommendRunner({
+    enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout,
+    insights: insights ?? [],
+    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
+    today,
+    buildIndex: buildInsightGroundingIndex,
+    buildContextFor: buildInsightRecommendContext,
+    applyRecommendation: applyInsightRecommendation,
+  });
+
+  const onGenerateRecommendationInsight = useCallback(
+    (id: number) => { void generateInsightRecommendation(id); },
+    [generateInsightRecommendation],
+  );
+  // Opens the review modal; the modal's Confirm button runs the actual apply
+  // (confirmInsightRecommendation, below — it needs the live insight + its
+  // recommendation, read at confirm time so a stale id is a safe no-op).
+  const [reviewInsightId, setReviewInsightId] = useState<number | null>(null);
+  const onApplyRecommendationInsight = useCallback((id: number) => { setReviewInsightId(id); }, [setReviewInsightId]);
+  const onRejectRecommendationInsight = useCallback(
+    (id: number) => {
+      if (isPopout) return;
+      setInsights((prev) =>
+        (prev ?? []).map((i) =>
+          i.id === id && i.recommendation
+            ? { ...i, recommendation: { ...i.recommendation, status: "rejected" as const } }
+            : i,
+        ),
+      );
+    },
+    [isPopout, setInsights],
+  );
+  const insightActions: InsightActions = useMemo(
+    () => ({
+      onAcknowledge: onAcknowledgeInsight, onAct: onActInsight, onDismiss: onDismissInsight,
+      onGenerateRecommendation: onGenerateRecommendationInsight,
+      onApplyRecommendation: onApplyRecommendationInsight,
+      onRejectRecommendation: onRejectRecommendationInsight,
+    }),
+    [onAcknowledgeInsight, onActInsight, onDismissInsight, onGenerateRecommendationInsight,
+      onApplyRecommendationInsight, onRejectRecommendationInsight],
+  );
+
+  // The insight currently under review + a live preview of its recommendation's
+  // proposed calls (re-grounded against the CURRENT workspace, since a
+  // background-generated recommendation can be stale by the time it's reviewed).
+  const reviewInsight = (insights ?? []).find((i) => i.id === reviewInsightId) ?? null;
+  const reviewPlan = useMemo(
+    () =>
+      reviewInsight?.recommendation
+        ? describeRecommendationPlan(reviewInsight.recommendation.proposedCalls, {
+            tasks, raid, changes, milestones, stakeholders,
+          })
+        : null,
+    [reviewInsight, tasks, raid, changes, milestones, stakeholders],
+  );
+  const confirmInsightRecommendation = useCallback(async () => {
+    const insight = (insights ?? []).find((i) => i.id === reviewInsightId);
+    const rec = insight?.recommendation;
+    // Close the modal FIRST (before any await) — this is also the re-entrancy
+    // guard: a rapid double-click on Confirm finds reviewInsightId already null
+    // on the second fire and early-returns, so the same recommendation can't be
+    // applied twice (which would duplicate create_* entities). The insight/rec
+    // needed for the apply are already captured in this closure.
+    setReviewInsightId(null);
+    if (!insight || !rec) return;
+    // Security: re-enforce the allow-set at apply — a persisted/imported blob must
+    // never drive a destructive tool (delete_*/update_settings) through runTool,
+    // even if it slipped a stale load path. Load-time sanitize also strips these.
+    const calls = rec.proposedCalls.filter((c) => ALLOWED_REC_TOOLS.has(c.name));
+    // Per-call, NON-transactional apply. Each runTool is its own try/catch so one
+    // call that THROWS (e.g. an enum/date the entity's sanitizer rejects) can't
+    // abort the remaining calls. (A stale update id does NOT throw — the
+    // dispatcher's id-based find no-ops it — so `failed` counts hard errors, not
+    // silently-skipped stale updates.) We ALWAYS advance the insight to
+    // acted/applied afterwards (even on partial failure) so a retry can never
+    // re-run the calls that DID commit — that would duplicate create_* entities.
+    let failed = 0;
+    for (const call of calls) {
+      try {
+        await runTool(dispatcher, call.name, call.input as Record<string, unknown>);
+      } catch {
+        failed++;
+      }
+    }
+    setInsights((prev) =>
+      (prev ?? []).map((i) =>
+        i.id === insight.id
+          ? {
+              ...i,
+              status: "acted" as const,
+              actedAt: today,
+              recommendation: { ...rec, status: "applied" as const, appliedAt: today, appliedSummary: rec.summary },
+            }
+          : i,
+      ),
+    );
+    logActivity("ai.insightRecommendation", insight.id, rec.summary);
+    showToast(
+      failed > 0 ? "error" : "info",
+      t(lang, failed > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
+    );
+  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivity, showToast, lang]);
+
   const handleChangeBudgets = useCallback((next: BudgetBucket[]) => setBudgets(next), [setBudgets]);
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
   const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
@@ -1992,9 +2163,11 @@ function TaskManagerInner() {
     onHardDeleteProject: handleHardDeleteTursoProject,
     nextActions,
     onOpenAction: openAction,
-    // Insights lifecycle bag (#6B SP1) — the dashboard review UI that invokes
-    // these is built in Task 6/7; threaded now so the handlers have a sink.
+    // Insights lifecycle bag (#6B SP1/SP2).
     insightActions: isPopout ? undefined : insightActions,
+    // Which insight (if any) currently has an AI recommendation generating —
+    // lets a card/row show a busy state (rendering lands in Task 10).
+    insightGeneratingId: isPopout ? undefined : insightGeneratingId,
     onSnooze: snoozeAction,
     onCreateTask: isPopout ? undefined : handleCreateTaskFromAction,
     onDraftMessage: isPopout ? undefined : handleDraftMessageFromAction,
@@ -2319,6 +2492,15 @@ function TaskManagerInner() {
 
   const modalsBlock = (
     <>
+      {!isPopout && reviewInsight?.recommendation && reviewPlan && (
+        <RecommendationReviewModal
+          lang={lang}
+          summary={reviewInsight.recommendation.summary}
+          plan={reviewPlan}
+          onConfirm={() => { void confirmInsightRecommendation(); }}
+          onCancel={() => setReviewInsightId(null)}
+        />
+      )}
       <CalendarSummaryModals
         lang={lang}
         milestones={milestones}

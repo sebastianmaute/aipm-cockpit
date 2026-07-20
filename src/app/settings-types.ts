@@ -41,6 +41,7 @@ export type AiConfig = {
   groundInGuides: boolean;
   actionSuggestions?: boolean; // Action Center "Analyze with AI" button. Default ON (undefined = on).
   scheduledJobs?: boolean; // Scheduled Claude jobs (SP5). Default OFF (opt-in) — recurring billed calls.
+  insightRecommendations?: boolean; // Background insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls.
   suggestAllNextActionThresholds?: boolean; // AI weight suggestions (SP-C). Default OFF (opt-in).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
   tokenMultiplier?: number; // Multiplier applied to counted tokens before caps (>0, decimals ok). Default 5.
@@ -98,6 +99,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     enabled: obj.enabled === true,
     groundInGuides: obj.groundInGuides !== false,
     scheduledJobs: obj.scheduledJobs === true,
+    insightRecommendations: obj.insightRecommendations === true,
     suggestAllNextActionThresholds: obj.suggestAllNextActionThresholds === true,
     maxChatTurns: coerceTurns(obj.maxChatTurns),
     tokenMultiplier: coerceMultiplier(obj.tokenMultiplier),

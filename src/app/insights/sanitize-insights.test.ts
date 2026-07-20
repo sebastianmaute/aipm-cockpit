@@ -59,4 +59,61 @@ describe("sanitizeInsights", () => {
     expect((one.data.big as string).length).toBe(200);
     expect(one.data).not.toHaveProperty("bad");
   });
+
+  function baseRaw() {
+    return {
+      id: 1, key: "raidAging:5", type: "raidAging", severity: "high", status: "active",
+      data: {}, firstSeenAt: "2026-07-20", lastSeenAt: "2026-07-20", occurrences: 1,
+    };
+  }
+
+  test("keeps a valid recommendation", () => {
+    const rec = {
+      summary: "Reschedule task 12 to next week", status: "proposed", generatedAt: "2026-07-20",
+      proposedCalls: [{ name: "update_task", input: { id: 12, dueDate: "2026-07-27" } }],
+    };
+    const [out] = sanitizeInsights([{ ...baseRaw(), recommendation: rec }]);
+    expect(out.recommendation?.summary).toBe("Reschedule task 12 to next week");
+    expect(out.recommendation?.proposedCalls).toHaveLength(1);
+    expect(out.recommendation?.status).toBe("proposed");
+  });
+
+  test("drops recommendation with empty summary or non-array calls", () => {
+    const [a] = sanitizeInsights([{ ...baseRaw(), recommendation: { summary: "  ", proposedCalls: [] } }]);
+    expect(a.recommendation).toBeUndefined();
+    const [b] = sanitizeInsights([{ ...baseRaw(), recommendation: { summary: "x", proposedCalls: "nope" } }]);
+    expect(b.recommendation).toBeUndefined();
+  });
+
+  test("drops malformed proposedCalls and caps count", () => {
+    const calls = [
+      { name: "update_task", input: { id: 1 } },
+      { name: 123, input: {} },
+      { name: "update_task", input: "no" },
+      ...Array.from({ length: 10 }, () => ({ name: "update_task", input: { id: 2 } })),
+    ];
+    const [out] = sanitizeInsights([{ ...baseRaw(), recommendation: { summary: "s", proposedCalls: calls } }]);
+    expect(out.recommendation!.proposedCalls.length).toBeLessThanOrEqual(5);
+    expect(out.recommendation!.proposedCalls.every((c) => typeof c.name === "string" && typeof c.input === "object")).toBe(true);
+  });
+
+  test("defaults bad status to proposed", () => {
+    const [out] = sanitizeInsights([{ ...baseRaw(), recommendation: { summary: "s", status: "weird", proposedCalls: [{ name: "update_task", input: {} }] } }]);
+    expect(out.recommendation!.status).toBe("proposed");
+  });
+
+  test("drops a proposedCall whose tool is not in the allow-set (security)", () => {
+    const rec = {
+      summary: "s",
+      proposedCalls: [
+        { name: "update_task", input: { id: 1 } },
+        { name: "delete_all_tasks", input: {} },
+        { name: "delete_task", input: { id: 2 } },
+        { name: "update_settings", input: { dashboardDensity: "compact" } },
+      ],
+    };
+    const [out] = sanitizeInsights([{ ...baseRaw(), recommendation: rec }]);
+    expect(out.recommendation!.proposedCalls).toHaveLength(1);
+    expect(out.recommendation!.proposedCalls[0].name).toBe("update_task");
+  });
 });

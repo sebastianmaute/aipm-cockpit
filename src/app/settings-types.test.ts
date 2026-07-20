@@ -104,3 +104,13 @@ describe("sanitizeAiConfig suggestAllNextActionThresholds", () => {
     expect(sanitizeAiConfig({ suggestAllNextActionThresholds: 1 }).suggestAllNextActionThresholds).toBe(false);
   });
 });
+
+describe("sanitizeAiConfig insightRecommendations", () => {
+  it("defaults off and only true enables", () => {
+    expect(sanitizeAiConfig({}).insightRecommendations).toBeFalsy();
+    expect(sanitizeAiConfig({ insightRecommendations: true }).insightRecommendations).toBe(true);
+    expect(
+      sanitizeAiConfig({ insightRecommendations: "yes" as unknown as boolean }).insightRecommendations,
+    ).toBe(false);
+  });
+});

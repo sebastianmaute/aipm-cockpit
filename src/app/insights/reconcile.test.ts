@@ -31,6 +31,13 @@ function stored(key: string, over: Partial<Insight> = {}): Insight {
   };
 }
 
+const REC: NonNullable<Insight["recommendation"]> = {
+  summary: "do X",
+  proposedCalls: [{ name: "update_task", input: { id: 1 } }],
+  generatedAt: "2026-01-19",
+  status: "proposed",
+};
+
 describe("reconcileInsights", () => {
   it("creates a new active record for an unseen detection (id=max+1, timestamps=today, occurrences=1)", () => {
     const existing = stored("a", { id: 7 });
@@ -176,6 +183,27 @@ describe("reconcileInsights", () => {
     expect(out).toHaveLength(MAX_INSIGHTS);
   });
 
+  it("upsert preserves a pending recommendation", () => {
+    const existing = stored("a", { recommendation: REC });
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01");
+    const upserted = out.find((i) => i.key === "a")!;
+    expect(upserted.recommendation?.summary).toBe("do X");
+    expect(upserted.occurrences).toBe(2);
+  });
+
+  it("re-fire drops a stale applied recommendation", () => {
+    const applied = { ...REC, status: "applied" as const, appliedAt: "2026-01-19" };
+    const existing = stored("a", {
+      status: "dismissed",
+      dismissedAt: "2026-01-19",
+      recommendation: applied,
+    });
+    const out = reconcileInsights([existing], [detected("a")], "2026-02-01");
+    const rec = out.find((i) => i.key === "a")!;
+    expect(rec.status).toBe("active");
+    expect(rec.recommendation).toBeUndefined();
+  });
+
   it("does not mutate the stored input array or its objects", () => {
     const existing = stored("a", {
       id: 5,
@@ -242,5 +270,17 @@ describe("insightsMateriallyEqual", () => {
     expect(insightsMateriallyEqual(a, b)).toBe(false);
     const c = [stored("a", { status: "dismissed", dismissedAt: "2026-01-21", dismissReason: "noise" })];
     expect(insightsMateriallyEqual(a, c)).toBe(false);
+  });
+
+  it("is FALSE when a recommendation is added (data-loss guard)", () => {
+    const a = [stored("a")];
+    const b = [stored("a", { recommendation: REC })];
+    expect(insightsMateriallyEqual(a, b)).toBe(false);
+  });
+
+  it("is FALSE when a recommendation STATUS changes", () => {
+    const a = [stored("a", { recommendation: REC })];
+    const b = [stored("a", { recommendation: { ...REC, status: "applied" as const } })];
+    expect(insightsMateriallyEqual(a, b)).toBe(false);
   });
 });

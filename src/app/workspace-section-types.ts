@@ -229,9 +229,12 @@ export interface WorkspaceSectionProps {
   onHardDeleteProject?: (id: string) => void;
   nextActions: readonly SuggestedAction[];
   onOpenAction: (a: SuggestedAction) => void;
-  /** Insights lifecycle callbacks (#6B SP1). Forwarded to DashboardPanel; the
-   *  review UI that invokes them lands in Task 6/7. Undefined in popouts. */
+  /** Insights lifecycle callbacks (#6B SP1/SP2). Forwarded to DashboardPanel +
+   *  InsightsPanel. Undefined in popouts. */
   insightActions?: InsightActions;
+  /** Id of the insight (if any) whose AI recommendation is currently
+   *  generating (#6B SP2) — lets a card/row show a busy state. */
+  insightGeneratingId?: number | null;
   onSnooze?: (a: SuggestedAction, ms: number) => void;
   onCreateTask?: (a: SuggestedAction) => void;
   onDraftMessage?: (a: SuggestedAction) => void;
