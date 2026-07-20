@@ -4,7 +4,14 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AiSection } from "./ai-section";
 import { defaultSettings as baseSettings, type Settings } from "../settings-types";
-import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP } from "../settings-types";
+import {
+  DEFAULT_SESSION_TOKEN_CAP,
+  DEFAULT_WEEKLY_TOKEN_CAP,
+  DEFAULT_INSIGHT_REC_INTERVAL_MIN,
+  MIN_INSIGHT_REC_INTERVAL_MIN,
+  MAX_INSIGHT_REC_INTERVAL_MIN,
+  clampInsightRecInterval,
+} from "../settings-types";
 
 // The AI config UI is gated behind the "Enable AI assistant" master switch
 // (default OFF). These tests exercise the expanded config, so flip it on.
@@ -230,6 +237,92 @@ describe("AiSection", () => {
     fireEvent.click(toggle);
     const last = onChange.mock.calls.at(-1)?.[0];
     expect(last.ai.actionSuggestions).toBe(false);
+  });
+
+  // --- background recommendation cadence (SP4) ---
+
+  function withRecs(ai: Partial<Settings["ai"]>): Settings {
+    return {
+      ...defaultSettings,
+      ai: { ...defaultSettings.ai, insightRecommendations: true, ...ai },
+    };
+  }
+
+  it("hides the cadence input while insight recommendations are off", () => {
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{
+          ...defaultSettings,
+          ai: { ...defaultSettings.ai, insightRecommendations: false },
+        }}
+        onChange={vi.fn()}
+        operatingGuides={stubGuides()}
+      />,
+    );
+    expect(screen.queryByLabelText(t("en-US", "aiInsightRecInterval"))).toBeNull();
+  });
+
+  it("shows a labelled cadence input with the stored value once recommendations are on", () => {
+    render(
+      <AiSection
+        lang="en-US"
+        settings={withRecs({ insightRecommendationIntervalMinutes: 120 })}
+        onChange={vi.fn()}
+        operatingGuides={stubGuides()}
+      />,
+    );
+    const input = screen.getByLabelText(
+      t("en-US", "aiInsightRecInterval"),
+    ) as HTMLInputElement;
+    expect(Number(input.value)).toBe(120);
+  });
+
+  it("falls back to the 60-minute default when the cadence field is absent", () => {
+    render(
+      <AiSection
+        lang="en-US"
+        settings={withRecs({ insightRecommendationIntervalMinutes: undefined })}
+        onChange={vi.fn()}
+        operatingGuides={stubGuides()}
+      />,
+    );
+    const input = screen.getByLabelText(
+      t("en-US", "aiInsightRecInterval"),
+    ) as HTMLInputElement;
+    expect(Number(input.value)).toBe(DEFAULT_INSIGHT_REC_INTERVAL_MIN);
+  });
+
+  it("clamps a directly-typed out-of-range cadence before it reaches onChange", () => {
+    const onChange = vi.fn();
+    render(
+      <AiSection
+        lang="en-US"
+        settings={withRecs({ insightRecommendationIntervalMinutes: 60 })}
+        onChange={onChange}
+        operatingGuides={stubGuides()}
+      />,
+    );
+    const input = screen.getByLabelText(t("en-US", "aiInsightRecInterval"));
+    const committed = () =>
+      onChange.mock.calls.at(-1)?.[0].ai.insightRecommendationIntervalMinutes;
+
+    // Above the 1440 ceiling — this drives BILLED background calls, so it must
+    // never reach the runner raw.
+    fireEvent.change(input, { target: { value: "5000" } });
+    expect(committed()).toBe(MAX_INSIGHT_REC_INTERVAL_MIN);
+
+    // Below the 15-minute floor — the floor is what stops the setting being
+    // used to hammer the API.
+    fireEvent.change(input, { target: { value: "2" } });
+    expect(committed()).toBe(MIN_INSIGHT_REC_INTERVAL_MIN);
+
+    // Whatever is typed, the committed value survives the shared clamp
+    // unchanged — i.e. it is always already in range.
+    for (const typed of ["5000", "2", "0", "-30", "abc", "37.6"]) {
+      fireEvent.change(input, { target: { value: typed } });
+      expect(committed()).toBe(clampInsightRecInterval(committed()));
+    }
   });
 
   // --- secret sealing + passphrase lock ---

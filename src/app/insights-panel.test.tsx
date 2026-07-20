@@ -5,6 +5,8 @@ import { InsightsPanel } from "./insights-panel";
 import { insightTitle } from "./insights/insight-text";
 import type { Insight, InsightStatus } from "./insights/insight";
 
+const TODAY = "2026-06-10";
+
 function makeInsight(over: Partial<Insight> = {}): Insight {
   return {
     id: 1,
@@ -39,7 +41,7 @@ const rowHasTitle = (type: Insight["type"]) =>
 
 describe("InsightsPanel", () => {
   it("renders open insights (active/acknowledged/acted) and hides resolved+dismissed by default", () => {
-    render(<InsightsPanel insights={FIXTURE} lang="en-US" />);
+    render(<InsightsPanel insights={FIXTURE} lang="en-US" today={TODAY} />);
     expect(rowHasTitle("milestoneSlip")).toBe(true);
     expect(rowHasTitle("overdueTrend")).toBe(true);
     expect(rowHasTitle("stalledWork")).toBe(true);
@@ -49,7 +51,7 @@ describe("InsightsPanel", () => {
 
   it("the resolved/history toggle reveals resolved + dismissed rows", async () => {
     const user = userEvent.setup();
-    render(<InsightsPanel insights={FIXTURE} lang="en-US" />);
+    render(<InsightsPanel insights={FIXTURE} lang="en-US" today={TODAY} />);
     await user.click(screen.getByRole("checkbox", { name: /resolved/i }));
     expect(rowHasTitle("budgetVariance")).toBe(true);
     expect(rowHasTitle("raidAging")).toBe(true);
@@ -57,7 +59,7 @@ describe("InsightsPanel", () => {
 
   it("the status filter hides non-matching rows", async () => {
     const user = userEvent.setup();
-    render(<InsightsPanel insights={FIXTURE} lang="en-US" />);
+    render(<InsightsPanel insights={FIXTURE} lang="en-US" today={TODAY} />);
     await user.selectOptions(screen.getByLabelText(/filter by status/i), "active");
     expect(rowHasTitle("milestoneSlip")).toBe(true);
     expect(rowHasTitle("overdueTrend")).toBe(false);
@@ -66,7 +68,7 @@ describe("InsightsPanel", () => {
 
   it("the type filter hides non-matching types", async () => {
     const user = userEvent.setup();
-    render(<InsightsPanel insights={FIXTURE} lang="en-US" />);
+    render(<InsightsPanel insights={FIXTURE} lang="en-US" today={TODAY} />);
     await user.selectOptions(screen.getByLabelText(/filter by type/i), "overdueTrend");
     expect(rowHasTitle("overdueTrend")).toBe(true);
     expect(rowHasTitle("milestoneSlip")).toBe(false);
@@ -80,7 +82,7 @@ describe("InsightsPanel", () => {
     render(
       <InsightsPanel
         insights={[makeInsight({ id: 7, type: "milestoneSlip", status: "active" })]}
-        lang="en-US"
+        lang="en-US" today={TODAY}
         actions={{
           onAcknowledge, onAct, onDismiss,
           onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -100,7 +102,7 @@ describe("InsightsPanel", () => {
     render(
       <InsightsPanel
         insights={[makeInsight({ id: 1, status: "active" })]}
-        lang="en-US"
+        lang="en-US" today={TODAY}
         actions={{
           onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
           onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -113,7 +115,7 @@ describe("InsightsPanel", () => {
   });
 
   it("renders an EmptyState (read-only) when there are no insights", () => {
-    render(<InsightsPanel insights={[]} lang="en-US" />);
+    render(<InsightsPanel insights={[]} lang="en-US" today={TODAY} />);
     expect(screen.getByText("No insights yet")).toBeInTheDocument();
     // read-only: no add-first affordance
     expect(screen.queryByRole("button", { name: /add/i })).not.toBeInTheDocument();
@@ -128,7 +130,7 @@ describe("InsightsPanel", () => {
       render(
         <InsightsPanel
           insights={[insight]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation, onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -146,7 +148,7 @@ describe("InsightsPanel", () => {
       render(
         <InsightsPanel
           insights={[insight]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -177,7 +179,7 @@ describe("InsightsPanel", () => {
       render(
         <InsightsPanel
           insights={[insight]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation, onRejectRecommendation,
@@ -207,7 +209,7 @@ describe("InsightsPanel", () => {
       render(
         <InsightsPanel
           insights={[insight]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -235,7 +237,7 @@ describe("InsightsPanel", () => {
       render(
         <InsightsPanel
           insights={[insight]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -265,7 +267,7 @@ describe("InsightsPanel", () => {
       render(
         <InsightsPanel
           insights={[insight]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation, onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -292,7 +294,7 @@ describe("InsightsPanel", () => {
       render(
         <InsightsPanel
           insights={[insight]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -319,7 +321,7 @@ describe("InsightsPanel", () => {
       render(
         <InsightsPanel
           insights={[insight]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
           actions={{
             onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
             onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
@@ -351,7 +353,7 @@ describe("InsightsPanel", () => {
               },
             }),
           ]}
-          lang="en-US"
+          lang="en-US" today={TODAY}
         />,
       );
       expect(screen.getByText("Improved by 6 since you acted")).toBeInTheDocument();
@@ -359,9 +361,26 @@ describe("InsightsPanel", () => {
 
     it("renders no badge on an acted insight with no measured outcome", () => {
       render(
-        <InsightsPanel insights={[makeInsight({ id: 8, status: "acted" })]} lang="en-US" />,
+        <InsightsPanel insights={[makeInsight({ id: 8, status: "acted" })]} lang="en-US" today={TODAY} />,
       );
       expect(screen.queryByText(/since you acted/)).toBeNull();
+    });
+  });
+
+  describe("digest card (#6B SP4)", () => {
+    it("mounts the rolling-window digest when there is something to report", () => {
+      render(
+        <InsightsPanel
+          insights={[makeInsight({ id: 9, status: "active", firstSeenAt: TODAY })]}
+          lang="en-US" today={TODAY}
+        />,
+      );
+      expect(screen.getByText(/last 7 days/i)).toBeInTheDocument();
+    });
+
+    it("renders no digest when there are no insights at all", () => {
+      render(<InsightsPanel insights={[]} lang="en-US" today={TODAY} />);
+      expect(screen.queryByText(/last 7 days/i)).toBeNull();
     });
   });
 });

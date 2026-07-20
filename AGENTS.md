@@ -1321,6 +1321,40 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   dead `| null`, and the background runner lost an unused `now` arg. ★ the apply preview re-derives against LIVE
   entities at apply time by design (a background proposal can be stale); the allow-set is enforced at load AND
   apply, so that divergence is safe.
+- **SP4 — digest (0.193.0):** the FINAL slice. A rolling-window summary card at the top of the Insights
+  view: fired / acted / open-now, plus a **wins** list (resolved-with-outcome) and a **regressions** list
+  (worsened). Pure i18n-free `insights/digest.ts` `computeInsightDigest(insights, today, windowDays?)` →
+  `InsightDigest`. ★★ Adds **ZERO persisted fields and ZERO backend write paths** — it is pure derivation
+  over the lifecycle timestamps SP1–SP3 already store, so there is no six-write-path chore and no golden
+  regen. Do NOT "improve" it into a persisted record. ★ window is INCLUSIVE at both ends (7 days = today +
+  the 6 prior), cutoff via UTC-midnight `Date.parse` (the `bucketMilestonesByHorizon` pattern, no clock in
+  the module — `today` passed in); future-dated events EXCLUDED (a skewed clock or imported record must not
+  inflate counts); unparseable `today` → empty digest, never throws. ★★ `openNow` is deliberately NOT
+  windowed — it is a live state, not an event — so `isEmpty` can be false with zero fired/acted, and the
+  card separates it visually (own span behind a `·`) so "N open now" can't read as "N opened this week".
+  ★★ wins and regressions are MUTUALLY EXCLUSIVE: the regression branch skips `resolved` records. Without
+  that guard a resolved+worsened record counts in BOTH lists — unreachable in-app (`computeClearedOutcome`
+  always writes `improved`) but `sanitizeInsights` RE-DERIVES direction from baseline/current and admits
+  the shape from an imported blob. ★ the card (`insights/insight-digest-card.tsx`) is props-only (the
+  panel's tests render outside providers), REUSES `InsightOutcomeBadge`, caps each list at
+  `MAX_DIGEST_ROWS=5` with a NON-interactive `+N more` span (the full set is one History-toggle click away;
+  a dead affordance is worse than a count), and makes a row a `<button>` only when `onOpenInsight` is
+  passed AND `insight.entityRef !== undefined` — `stalledWork`/`overdueTrend`/`budgetVariance` are
+  portfolio-level and carry NO entityRef, so an ungated row would be a dead button. Insights IS axe-scanned
+  → row-unique accessible names.
+- **SP4 cadence:** the SP2 background runner's fixed 15-min tick became
+  `settings.ai.insightRecommendationIntervalMinutes` (default **60**, rides the `writeSettings` spread, no
+  allowlist edit), edited via the shared `CapInput` in `AiSection` (shown only while
+  `insightRecommendations` is on). ★★ ONE clamp — `clampInsightRecInterval` (`settings-types.ts`, whole
+  minutes [15, 1440], the `clampMaxChatTurns` pattern) — is used by the sanitizer on load, the input on
+  edit AND the runner on read, because this value drives BILLED calls; the FLOOR is load-bearing (`Number
+  (null)` is `0`, which is finite, so only the range check rejects it). ★★★ `use-insight-recommend-runner`
+  now has TWO effects and they must NOT be merged: a `[]`-dep one for the mount tick + `visibilitychange`,
+  and an `[intervalMs]`-dep one for the `setInterval` ALONE. Folding the interval into the `[]` effect
+  leaves a stale rate armed until reload; adding `[intervalMs]` to the effect that also fires the mount
+  tick spends an EXTRA BILLED ROUND on every settings edit. The tick body lives in a `useRef` initializer
+  (NOT an assignment during render — that trips the react-hooks purity rule); freezing the first closure is
+  safe ONLY because the body reads nothing but refs — keep it that way.
 
 ### AI Assistant
 

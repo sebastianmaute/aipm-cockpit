@@ -2351,6 +2351,8 @@ export const de: Record<TranslationKey, string> = {
   actionAiErrorNetwork: "Netzwerkfehler. Verbindung prüfen und erneut versuchen.",
   settingsAiActionSuggestions: "KI-Vorschläge im Action Center",
   settingsAiActionSuggestionsHelp: "Zeigt eine Schaltfläche „Mit KI analysieren“ im Action Center.",
+  aiInsightRecInterval: "Prüfintervall (Minuten)",
+  aiInsightRecIntervalHint: "Wie oft bei geöffneter App nach neuen Empfehlungen gesucht wird. Jede Prüfung kann kostenpflichtige API-Aufrufe auslösen. Minimum 15, Maximum 1440.",
   aiInsightRecommendations: "Proaktive Insight-Empfehlungen",
   aiInsightRecommendationsDesc: "Claude schlägt im Hintergrund Lösungen für erkannte Insights vor. Opt-in — verursacht kostenpflichtige API-Aufrufe.",
   actionDraftMessage: "Nachricht verfassen",
@@ -3388,6 +3390,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightInsights: "Erkenntnisse: Die App zeigt jetzt deterministische Projekt-Erkenntnisse (Meilenstein-Verzögerungen, ins Stocken geratene Arbeit, Budget- und RAID-Alterung) mit einem Lebenszyklus zum Handeln, Verwerfen oder Auflösen – im Dashboard und einer eigenen Erkenntnisse-Ansicht.",
   versionHighlightInsightsRecommend: "Erkenntnis-Empfehlungen: Claude kann jetzt eine konkrete, prüfbare Lösung für eine Erkenntnis vorschlagen – auf Anfrage pro Erkenntnis oder, optional, im Hintergrund – die Sie als Vorschau-dann-Anwenden-Diff über die vorhandenen Werkzeuge anwenden. Steigende Überfälligkeits-Trends werden nun ebenfalls angezeigt.",
   versionHighlightInsightsOutcome: "Erkenntnis-Ergebnisse: Wenn Sie auf eine Erkenntnis reagieren, wird die zugehörige Kennzahl festgehalten. Die App misst anschließend, ob sich diese Zahl tatsächlich bewegt hat – verbessert, unverändert oder verschlechtert – und schließt die Erkenntnis ab, sobald das Problem behoben ist.",
+  versionHighlightInsightsDigest: "Erkenntnis-Zusammenfassung: Die Erkenntnis-Ansicht beginnt jetzt mit einer rollierenden Sieben-Tage-Übersicht – was neu aufgetreten ist, was Sie bearbeitet haben, was nach Ihrer Maßnahme gelöst wurde und was sich verschlechtert hat –, sodass Erfolge nicht mehr im Verlauf verschwinden. KI-Empfehlungen im Hintergrund laufen jetzt in einem von Ihnen festgelegten Intervall, standardmäßig einmal pro Stunde.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",
@@ -3427,6 +3430,16 @@ export const de: Record<TranslationKey, string> = {
   insightOutcomeUnchanged: "Keine Änderung seit Ihrer Aktion",
   insightOutcomeResolved: "Seit Ihrer Aktion behoben",
   insightOutcomeWorsened: "Um {0} verschlechtert seit Ihrer Aktion",
+
+  // Insight digest (#6B SP4)
+  insightDigestTitle: "Letzte {0} Tage",
+  insightDigestFired: "{0} neu",
+  insightDigestActed: "{0} bearbeitet",
+  insightDigestOpen: "{0} offen",
+  insightDigestWins: "Nach Ihrer Maßnahme gelöst",
+  insightDigestRegressions: "Nach Ihrer Maßnahme verschlechtert",
+  insightDigestMore: "+{0} weitere",
+  insightDigestRowRef: "Eintrag {0}",
 
   // Insight-KI-Empfehlungen (#6B SP2)
   insightGenerateRecommendation: "Empfehlung generieren",

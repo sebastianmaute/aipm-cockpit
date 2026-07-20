@@ -42,6 +42,7 @@ export type AiConfig = {
   actionSuggestions?: boolean; // Action Center "Analyze with AI" button. Default ON (undefined = on).
   scheduledJobs?: boolean; // Scheduled Claude jobs (SP5). Default OFF (opt-in) — recurring billed calls.
   insightRecommendations?: boolean; // Background insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls.
+  insightRecommendationIntervalMinutes?: number; // Background recommendation cadence (SP4). Integer minutes 15–1440. Default 60.
   suggestAllNextActionThresholds?: boolean; // AI weight suggestions (SP-C). Default OFF (opt-in).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
   tokenMultiplier?: number; // Multiplier applied to counted tokens before caps (>0, decimals ok). Default 5.
@@ -57,6 +58,25 @@ export function clampMaxChatTurns(v: unknown): number {
   const n = Math.round(Number(v));
   return Number.isFinite(n) && n >= 1 && n <= 50 ? n : DEFAULT_MAX_CHAT_TURNS;
 }
+export const DEFAULT_INSIGHT_REC_INTERVAL_MIN = 60;
+export const MIN_INSIGHT_REC_INTERVAL_MIN = 15;
+export const MAX_INSIGHT_REC_INTERVAL_MIN = 1440;
+
+/** Clamp the background-recommendation cadence to whole minutes in
+ *  [15, 1440]; anything invalid or out of range → the 60-minute default. The
+ *  SINGLE source of truth used by the settings sanitizer, the settings input,
+ *  and the runner read site, so a directly-typed out-of-range value can never
+ *  drive an unbounded rate of BILLED API calls. The floor exists specifically
+ *  to stop the setting being used to hammer the API. */
+export function clampInsightRecInterval(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) &&
+    n >= MIN_INSIGHT_REC_INTERVAL_MIN &&
+    n <= MAX_INSIGHT_REC_INTERVAL_MIN
+    ? n
+    : DEFAULT_INSIGHT_REC_INTERVAL_MIN;
+}
+
 export const DEFAULT_TOKEN_MULTIPLIER = 5;
 
 export const defaultAiConfig: AiConfig = {
@@ -68,6 +88,7 @@ export const defaultAiConfig: AiConfig = {
   groundInGuides: true,
   maxChatTurns: DEFAULT_MAX_CHAT_TURNS,
   tokenMultiplier: DEFAULT_TOKEN_MULTIPLIER,
+  insightRecommendationIntervalMinutes: DEFAULT_INSIGHT_REC_INTERVAL_MIN,
 };
 
 export function sanitizeAiConfig(raw: unknown): AiConfig {
@@ -100,6 +121,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     groundInGuides: obj.groundInGuides !== false,
     scheduledJobs: obj.scheduledJobs === true,
     insightRecommendations: obj.insightRecommendations === true,
+    insightRecommendationIntervalMinutes: clampInsightRecInterval(obj.insightRecommendationIntervalMinutes),
     suggestAllNextActionThresholds: obj.suggestAllNextActionThresholds === true,
     maxChatTurns: coerceTurns(obj.maxChatTurns),
     tokenMultiplier: coerceMultiplier(obj.tokenMultiplier),

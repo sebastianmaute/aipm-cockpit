@@ -5,6 +5,12 @@ import { type Lang, t } from "../i18n";
 import { type Settings } from "../settings-types";
 import { TextButton } from "../text-button";
 import { DEFAULT_SESSION_TOKEN_CAP, DEFAULT_WEEKLY_TOKEN_CAP, DEFAULT_MAX_CHAT_TURNS, DEFAULT_TOKEN_MULTIPLIER } from "../settings-types";
+import {
+  DEFAULT_INSIGHT_REC_INTERVAL_MIN,
+  MIN_INSIGHT_REC_INTERVAL_MIN,
+  MAX_INSIGHT_REC_INTERVAL_MIN,
+  clampInsightRecInterval,
+} from "../settings-types";
 import { InfoTooltip } from "../info-tooltip";
 import { FieldNotice } from "../field-feedback";
 import { Banner } from "../banner";
@@ -656,6 +662,32 @@ export function AiSection({ lang, settings, onChange, operatingGuides, hideUsage
         <FieldHint className="mt-1">
           {t(lang, "aiInsightRecommendationsDesc")}
         </FieldHint>
+
+        {/* Cadence for the background runner (SP4). Only meaningful while the
+            feature is on, so it rides the toggle. Every value routes through
+            clampInsightRecInterval — the SAME clamp the sanitizer and the
+            runner use — so a directly-typed value can never drive an unbounded
+            rate of BILLED API calls. */}
+        {settings.ai.insightRecommendations === true && (
+          <CapInput
+            label={t(lang, "aiInsightRecInterval")}
+            hint={t(lang, "aiInsightRecIntervalHint")}
+            value={settings.ai.insightRecommendationIntervalMinutes}
+            defaultValue={DEFAULT_INSIGHT_REC_INTERVAL_MIN}
+            min={MIN_INSIGHT_REC_INTERVAL_MIN}
+            max={MAX_INSIGHT_REC_INTERVAL_MIN}
+            step={15}
+            onChange={(n) =>
+              onChange({
+                ...settings,
+                ai: {
+                  ...settings.ai,
+                  insightRecommendationIntervalMinutes: clampInsightRecInterval(n),
+                },
+              })
+            }
+          />
+        )}
 
         {og != null && (
           <>

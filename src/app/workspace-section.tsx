@@ -884,6 +884,7 @@ export function WorkspaceSection({
             <InsightsPanel
               insights={insights ?? []}
               lang={lang}
+              today={today}
               actions={isPopout ? undefined : insightActions}
               generatingId={isPopout ? undefined : insightGeneratingId}
               aiEnabled={isAiEnabled(settings.ai)}
