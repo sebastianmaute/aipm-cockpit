@@ -295,7 +295,9 @@ export function computeBucketReport(
     }
     if (internal <= 0 && (aActual !== 0 || aBudget !== 0)) {
       uncostedWork = true;
-      if (row.unpricedBlendDisciplineId != null) unpricedDisciplineIds.push(row.unpricedBlendDisciplineId);
+      if (row.unpricedBlendDisciplineId != null && !unpricedDisciplineIds.includes(row.unpricedBlendDisciplineId)) {
+        unpricedDisciplineIds.push(row.unpricedBlendDisciplineId);
+      }
     }
     budgetHours += aBudget;
     actualHours += aActual;
@@ -309,25 +311,30 @@ export function computeBucketReport(
   // The notice fires for a partly-rated bucket too: a rate really is missing
   // there, and it is the actionable half of the message.
   const ratesAreMissing = rows.length > 0 && (!hasRatedRow || uncostedWork);
-  // Order is a derivation order of mutually exclusive checks, not a ranking.
+  // Knowability is the local `costIsKnowable` boolean ALONE (above) — the same
+  // expression the field it replaces has always used. Gating the reason on it makes
+  // `costUnknownReason === null` equivalent to that boolean BY CONSTRUCTION, so the
+  // exported helper can never disagree with what it replaces. The arms below only
+  // SELECT A MESSAGE for an already-decided "unknowable"; none of them decides
+  // knowability. (An earlier version let the verdict emerge from the arms, and the
+  // override gate that fixes the message punched a hole in the verdict: a 0-override
+  // bucket with no hours read as knowable and rendered a 100% margin.)
+  //
   // `unpriced-blend` MUST precede `no-rates`: a poisoned blend also makes its row
   // unrated, so testing `no-rates` first would mean the better, discipline-naming
   // message is never reached.
-  //
-  // ★★ `no-rates` is additionally gated on the bucket NOT overriding the internal
-  // rate. A 0 override zeroes every row, so `hasRatedRow` goes false and the
-  // bucket reads as "nobody has priced anything" — pointing the user at a rate
-  // card that its own override has already overruled. That is the same
-  // misdirection the discipline-naming suppression above exists to prevent, one
-  // arm further down; a positive override can never reach here (every row is
-  // then rated), so this fires ONLY for a 0 override. The generic
-  // `unrated-hours` below is the honest message for it.
   const costUnknownReason: CostUnknownReason | null =
-    rows.length === 0 ? "no-rows"
+    costIsKnowable ? null
+    : rows.length === 0 ? "no-rows"
     : unpricedDisciplineIds.length > 0 ? "unpriced-blend"
-    : !hasRatedRow && !hasInternalOverride(bucket) ? "no-rates"
-    : uncostedWork ? "unrated-hours"
-    : null;
+    // A 0 override overrules the rate card, so "set the rates" would misdirect —
+    // even here where there are no hours, "no-rates" points at a card the override
+    // has already beaten. `unrated-hours` is the honest message when hours exist
+    // and the least-wrong when they don't; the FIGURE is correctly blanked either
+    // way. (Distinguishing the no-hours corner needs a 5th reason — deferred.)
+    : hasInternalOverride(bucket) ? "unrated-hours"
+    : !hasRatedRow ? "no-rates"
+    : "unrated-hours";
 
   const isFixed = bucket.type === "fixed";
   const fixedPrice = bucket.fixedPriceAmount ?? 0;

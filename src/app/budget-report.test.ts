@@ -664,7 +664,8 @@ describe("computeBucketReport — costUnknownReason", () => {
   });
 
   test("a zero override is not a 'no rate card' bucket — the override is the cause", () => {
-    // Pins the `!hasInternalOverride(bucket)` conjunct under its own name. The
+    // Pins the override-message arm (`hasInternalOverride ? "unrated-hours"`) under
+    // its own name: a 0 override → "unrated-hours", never "no-rates". The
     // ZERO-override test above also happens to catch a regression here, but it
     // is named for the naming-variant suppression, so an edit to that test
     // could silently unpin this rule.
@@ -679,5 +680,73 @@ describe("computeBucketReport — costUnknownReason", () => {
     // instructing them to do something their own override overrules.
     const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays);
     expect(rep.costUnknownReason).toBe("unrated-hours");
+  });
+
+  test("a zero-override fixed-price bucket with no hours is NOT knowable (I1 regression)", () => {
+    const b: BudgetBucket = {
+      id: 1, name: "b", type: "fixed", currency: "EUR", fixedPriceAmount: 100000,
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      rateOverrideInternal: 0,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
+    };
+    const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays);
+    // revenue 100000, cost 0 — must NOT read as a 100% margin.
+    expect(costIsKnowable(rep)).toBe(false);
+    expect(rep.costUnknownReason).not.toBeNull();
+  });
+
+  test("the helpers exactly reproduce the booleans they replace, for every state", () => {
+    // Task 7 deletes rep.costIsKnowable / rep.ratesAreMissing and points every
+    // consumer at the helpers. This pins that the swap is behaviour-preserving —
+    // a divergence here is a silent UI change with nothing else to catch it.
+    const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
+    const uncostedBucket = tmBucket({
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 40 } },
+      ],
+    });
+    const ratedPlusUnrated: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+    ];
+    const i1FixedNoHours: BudgetBucket = {
+      id: 1, name: "b", type: "fixed", currency: "EUR", fixedPriceAmount: 100000,
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      rateOverrideInternal: 0,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
+    };
+    const cases: { name: string; bucket: BudgetBucket; roles: Role[] }[] = [
+      { name: "costable", bucket: tmBucket(), roles: ratedRoles },
+      { name: "empty", bucket: tmBucket({ allocations: [] }), roles: ratedRoles },
+      { name: "rateless+hours", bucket: tmBucket(), roles: rateless },
+      { name: "rated+uncosted", bucket: uncostedBucket, roles: ratedPlusUnrated },
+      { name: "partly-priced blend", bucket: blendedBucket(), roles: partlyPricedRoles },
+      { name: "90-override", bucket: blendedBucket({ rateOverrideInternal: 90 }), roles: partlyPricedRoles },
+      { name: "0-override+hours", bucket: blendedBucket({ rateOverrideInternal: 0 }), roles: partlyPricedRoles },
+      { name: "0-override fixed no-hours", bucket: i1FixedNoHours, roles: ratedRoles },
+    ];
+    for (const c of cases) {
+      const rep = computeBucketReport(c.bucket, plan, c.roles, [], 8, noHolidays);
+      expect(costIsKnowable(rep), `costIsKnowable @ ${c.name}`).toBe(rep.costIsKnowable);
+      expect(ratesMissing(rep), `ratesMissing @ ${c.name}`).toBe(rep.ratesAreMissing);
+    }
+  });
+
+  test("two poisoned allocations on the same discipline name it once, not twice", () => {
+    const b: BudgetBucket = {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended",
+      allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 20 }, actualHours: { "2026-01": 20 } },
+      ],
+    };
+    const rep = computeBucketReport(b, plan, partlyPricedRoles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("unpriced-blend");
+    expect(rep.unpricedDisciplineIds).toEqual([1]);
   });
 });
