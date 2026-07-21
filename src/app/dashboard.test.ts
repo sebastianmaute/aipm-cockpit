@@ -30,6 +30,8 @@ function project(budgetValue: number, consumedValue: number): ProjectReport {
     contributionMargin: { amount: 0, percent: null },
     costPerformance: { amount: 0, percent: null },
     consumption: { amount: 0, percent: null },
+    budgetMirrorsPlan: false,
+    costIsKnowable: true,
   };
 }
 const today = "2026-06-02";

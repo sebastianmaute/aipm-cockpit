@@ -17,7 +17,7 @@ import { DataTable } from "./data-table";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { TableFilter, SortResizeTh, nextSortDir, type SortDir } from "./report-table";
-import { ratioHealth, marginHealth, costPerformanceHealth, winLossHealth } from "./budget-health";
+import { ratioHealth, cellHealth, marginHealth, costPerformanceHealth, winLossHealth, planVsBudgetHealth } from "./budget-health";
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
@@ -53,8 +53,19 @@ function filterSortAllocations<T>(
   return rows;
 }
 
+/** Mirrored plan hours are derived (utilization x capacity) and carry float
+ *  noise such as 10.559999999999999, which the narrow input then truncates
+ *  mid-number. Rounded for DISPLAY only — the stored and aggregated values are
+ *  untouched. Editable cells are left alone: rounding a field while the user
+ *  types fights the input. */
+function displayHours(v: number | undefined, readOnly: boolean | undefined): number | "" {
+  if (v === undefined || !Number.isFinite(v)) return "";
+  return readOnly ? Math.round(v * 100) / 100 : v;
+}
+
 function HoursCell({
   ariaPrefix, budget, actual, onBudget, onActual, budgetHint, actualHint, lang, readOnly,
+  periodEnd, today,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
@@ -64,6 +75,11 @@ function HoursCell({
   budgetHint: string;
   actualHint: string;
   lang: Lang;
+  // The cell badge is period-aware: a closed period with nothing booked is a
+  // signal, not health. `today` is passed in (never read from the clock here)
+  // so this stays a pure render.
+  periodEnd: string;
+  today: string;
   // When true, the budget input mirrors the live planned hours and is not
   // editable (the 'budget hours follow plan' toggle). The actual input is
   // always editable regardless.
@@ -77,13 +93,13 @@ function HoursCell({
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1">
         <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
-          {t(lang, "budgetCellPlan")}
+          {t(lang, "budgetCellBudget")}
           <InfoTooltip text={budgetHint} />
         </span>
         <input
           aria-label={`budget-${ariaPrefix}`}
           type="number"
-          value={budget ?? ""}
+          value={displayHours(budget, readOnly)}
           readOnly={readOnly}
           onChange={readOnly ? undefined : (e) => onBudget(Number(e.target.value) || 0)}
           className={`w-16 rounded border border-line ${readOnly ? "bg-surface-muted text-muted-foreground" : "bg-surface"} px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
@@ -101,7 +117,7 @@ function HoursCell({
           onChange={(e) => onActual(Number(e.target.value) || 0)}
           className={`w-16 rounded border border-line bg-surface-muted px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
         />
-        <RagBadge value={ratioHealth(actual ?? 0, budget ?? 0)} lang={lang} />
+        <RagBadge value={cellHealth(actual ?? 0, budget ?? 0, periodEnd, today)} lang={lang} />
       </div>
     </div>
   );
@@ -110,7 +126,7 @@ function HoursCell({
 // A period `<td>` wrapping a HoursCell — shared by the role rows and the
 // discipline (blended) rows, which differ only in ariaPrefix + the setter.
 function HoursTd({
-  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly,
+  ariaPrefix, budget, actual, onBudget, onActual, lang, readOnly, periodEnd, today,
 }: {
   ariaPrefix: string;
   budget: number | undefined;
@@ -119,6 +135,8 @@ function HoursTd({
   onActual: (v: number) => void;
   lang: Lang;
   readOnly?: boolean;
+  periodEnd: string;
+  today: string;
 }) {
   return (
     <td className="px-3 py-2">
@@ -132,6 +150,8 @@ function HoursTd({
         actualHint={t(lang, "budgetActualHoursHint")}
         lang={lang}
         readOnly={readOnly}
+        periodEnd={periodEnd}
+        today={today}
       />
     </td>
   );
@@ -159,11 +179,16 @@ export interface BudgetPanelProps {
   onLearnMore?: (conceptId: string) => void;
 }
 
-function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amount" }: { label: string; hint?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null; primary?: "amount" | "percent" }) {
+function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amount", unknown = false }: { label: string; hint?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null; primary?: "amount" | "percent"; unknown?: boolean }) {
   const pct = value.percent == null ? "—" : `${value.percent.toFixed(1)}%`;
-  const tone = value.amount >= 0 ? "text-[var(--rag-green-text)]" : "text-[var(--rag-red-text)]";
-  const bigFigure = primary === "percent" ? pct : formatCurrency(value.amount, currency, locale);
-  const smallFigure = primary === "percent" ? formatCurrency(value.amount, currency, locale) : pct;
+  // `unknown` means the figure could not be computed (no internal rate), NOT
+  // that it computed to zero. Both figures go to "—" and the tone stays neutral:
+  // the green/red tone reads as a judgement, and there is nothing to judge.
+  const tone = unknown
+    ? "text-muted-foreground"
+    : value.amount >= 0 ? "text-[var(--rag-green-text)]" : "text-[var(--rag-red-text)]";
+  const bigFigure = unknown ? "—" : primary === "percent" ? pct : formatCurrency(value.amount, currency, locale);
+  const smallFigure = unknown ? "—" : primary === "percent" ? formatCurrency(value.amount, currency, locale) : pct;
   return (
     <div className="rounded-lg border border-line p-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -171,7 +196,7 @@ function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amoun
           {label}
           {hint ? <InfoTooltip text={hint} /> : null}
         </span>
-        {rag !== undefined ? <RagBadge value={rag} lang={lang} title={label} /> : null}
+        {rag !== undefined && !unknown ? <RagBadge value={rag} lang={lang} title={label} /> : null}
       </div>
       <div className={`text-lg font-semibold ${tone}`}>{bigFigure}</div>
       <div className="text-xs text-muted-foreground">{smallFigure}</div>
@@ -379,10 +404,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} />
-          <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" />
+          <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} unknown={!report.project.costIsKnowable} />
+          <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" unknown={!report.project.costIsKnowable} />
           <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} primary="percent" />
         </div>
+        {!report.project.costIsKnowable && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t(lang, "budgetNoInternalRates")}
+          </p>
+        )}
       </section>
 
       <section className="flex flex-col gap-3">
@@ -455,9 +485,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                 <div><div className="text-xs text-muted-foreground">{t(lang, "budgetBudgetHours")}</div>{br.budgetHours.toFixed(0)}</div>
-                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetPlanHours")}<InfoTooltip text={t(lang, "budgetPlanHoursHint")} /></div><span className="inline-flex items-center gap-1.5">{br.plannedHours.toFixed(0)}<RagBadge value={ratioHealth(br.plannedHours, br.budgetHours)} lang={lang} title={t(lang, "budgetPlanHours")} /></span></div>
+                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetPlanHours")}<InfoTooltip text={t(lang, "budgetPlanHoursHint")} /></div><span className="inline-flex items-center gap-1.5">{br.plannedHours.toFixed(0)}{!br.budgetMirrorsPlan && <RagBadge value={planVsBudgetHealth(br.plannedHours, br.budgetHours)} lang={lang} title={t(lang, "budgetPlanHours")} />}</span></div>
                 <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetActualHours")}<InfoTooltip text={t(lang, "budgetActualHoursHint")} /></div><span className="inline-flex items-center gap-1.5">{br.actualHours.toFixed(0)}<RagBadge value={ratioHealth(br.actualHours, br.budgetHours)} lang={lang} title={t(lang, "budgetActualHours")} /></span></div>
-                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}<InfoTooltip text={t(lang, "budgetWinLossHint")} /></div><span className="inline-flex items-center gap-1.5">{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></span></div>
+                {/* A fixed-price bucket's win/loss IS revenue − cost, so it is
+                    unknowable without an internal rate. A T&M bucket's is
+                    budgetValue − consumedValue on EXTERNAL rates and stays
+                    valid — gating it there would hide a real figure. */}
+                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}<InfoTooltip text={t(lang, "budgetWinLossHint")} /></div><span className="inline-flex items-center gap-1.5">{!br.costIsKnowable && br.type === "fixed" ? "—" : <>{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></>}</span></div>
               </div>
               {br.spilloverInHours !== 0 && (
                 <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -467,10 +501,17 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 </div>
               )}
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} />
-                <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} primary="percent" />
+                <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} unknown={!br.costIsKnowable} />
+                <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} primary="percent" unknown={!br.costIsKnowable} />
+                {/* Consumption is an EXTERNAL-rate ratio — knowable without a
+                    rate card, so it is deliberately not gated. */}
                 <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />
               </div>
+              {!br.costIsKnowable && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t(lang, "budgetNoInternalRates")}
+                </p>
+              )}
               <div className="mt-3 overflow-x-auto">
                 <DataTable
                   className="w-full text-xs"
@@ -519,6 +560,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
                             onBudget={(v) => setCell(bucket.id, a.roleId, p.key, "budgetHours", v)}
                             onActual={(v) => setCell(bucket.id, a.roleId, p.key, "actualHours", v)}
                             lang={lang}
+                            periodEnd={p.end}
+                            today={props.today}
                           />
                         ))}
                       </tr>
@@ -547,6 +590,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
                             onBudget={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "budgetHours", v)}
                             onActual={(v) => setDisciplineCell(bucket.id, a.disciplineId, p.key, "actualHours", v)}
                             lang={lang}
+                            periodEnd={p.end}
+                            today={props.today}
                           />
                         ))}
                       </tr>

@@ -144,7 +144,10 @@ Per-view reference for the AI assistant: what each surface does and what the ass
 <!-- views: budget -->
 
 - Project budget plan: blended or detailed (per-resource) cost, a week- or month-grained period plan, and per-period allocations.
-- Effort/cost actuals can be applied from the Timelog integration; EVM (CPI/SPI, cost/schedule variance) is derived from the plan and actuals.
+- Effort/cost actuals can be applied from the Timelog integration.
+- The bucket tiles are contribution margin, cost burn and consumption. "Cost burn" is budgeted cost divided by cost to date — above 100% means less has been spent than budgeted so far. It is deliberately NOT an EVM Cost Performance Index: there is no percent-complete term, so early in a project it reads high simply because little has been spent. Do not describe it as a CPI.
+- Cost, margin and burn all derive from internal rates. When a bucket's roles carry no internal rate those tiles read "—" rather than a figure, because a cost of 0 for want of a rate card would otherwise render as a perfect 100% margin. A notice points to Resources → Roles. A T&M bucket's win/loss runs on external rates and stays valid regardless.
+- A per-period cell scores amber when the period has closed with nothing booked against a real budget; an untouched future period stays green.
 - Optional EUR overrides for non-EUR rates; the budget report (a separate view) shares this data for sharing/export.
 - AI: read-only here — there is no budget write tool. To change figures, point the user to this budget view (plan, allocations, actuals).
 

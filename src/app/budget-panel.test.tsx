@@ -67,6 +67,111 @@ describe("BudgetPanel", () => {
     expect(onSetBudgetFollowsPlan).toHaveBeenCalledWith(true);
   });
 
+  // A resourced allocation + follow-plan ON: the bucket's budget hours ARE its
+  // planned hours, so the Plan-vs-Budget badge compares a number with itself.
+  const mirroredBuckets: BudgetBucket[] = [{
+    ...buckets[0],
+    allocations: [{ roleId: 3, resourceIds: [5], budgetHours: { "2026-01": 0 }, actualHours: { "2026-01": 80 } }],
+  }];
+  const mirroredResources: Resource[] = [
+    { id: 5, firstName: "R5", lastName: "", roleId: 3, utilizationMode: "percent", utilization: { "2026-01": 100 } },
+  ];
+  const renderPanelWithMirroredBucket = () => render(
+    <BudgetPanel {...props} buckets={mirroredBuckets} resources={mirroredResources}
+      plan={{ ...plan, budgetFollowsPlan: true }} />,
+  );
+  const renderPanelWithFollowPlanOff = () => render(
+    <BudgetPanel {...props} buckets={mirroredBuckets} resources={mirroredResources}
+      plan={{ ...plan, budgetFollowsPlan: false }} />,
+  );
+
+  // Same mirrored setup at 6% of a 176-hour month, so the derived hours are the
+  // float 0.06 * 176 === 10.559999999999999 rather than a round number.
+  const renderPanelWithMirroredHours = () => render(
+    <BudgetPanel {...props} buckets={mirroredBuckets}
+      resources={[{ ...mirroredResources[0], utilization: { "2026-01": 6 } }]}
+      plan={{ ...plan, budgetFollowsPlan: true }} />,
+  );
+
+  test("a mirrored plan cell renders rounded hours, not the raw float", () => {
+    // The narrow input truncates 10.559999999999999 mid-number ("10.5599…"),
+    // which reads as a wrong value.
+    renderPanelWithMirroredHours();
+    expect(screen.getByLabelText("budget-1-3-2026-01")).toHaveValue(10.56);
+  });
+
+  test("the per-period cell labels its budget input Budget, not Plan", () => {
+    // The cell's input writes budgetHours, so labelling it "Plan" collided with
+    // the bucket header's "Plan (h)" — a different quantity in the same view.
+    render(<BudgetPanel {...props} />);
+    const cell = screen.getByLabelText("budget-1-3-2026-01").closest("div");
+    expect(cell).toHaveTextContent("Budget");
+  });
+
+  test("hides the Plan badge when the budget is mirroring the plan", () => {
+    // follow-plan on + resourced row => budget IS plan; a RAG on that comparison
+    // can only ever read Amber (equal) or Red (float noise), so it is suppressed.
+    renderPanelWithMirroredBucket();
+    expect(screen.queryByTitle("Plan (h)")).not.toBeInTheDocument();
+  });
+
+  test("shows the Plan badge when budget and plan are independent", () => {
+    renderPanelWithFollowPlanOff();
+    expect(screen.getByTitle("Plan (h)")).toBeInTheDocument();
+  });
+
+  // The live defect: an EXTERNAL rate exists, so revenue is real, but no
+  // internal rate exists, so cost collapses to 0 and margin reads a perfect
+  // 100% — the project looks maximally profitable precisely because its cost
+  // could not be computed at all.
+  const ratelessRoles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
+  const renderPanelWithRatelessRoles = () => render(
+    <BudgetPanel {...props} roles={ratelessRoles} />,
+  );
+  const renderPanelWithRatedRoles = () => render(<BudgetPanel {...props} />);
+
+  test("a bucket with no internal rates shows margin as unknown, not 100%", () => {
+    renderPanelWithRatelessRoles();
+    // Both the bucket tile and the project rollup print it, so assert on ALL
+    // occurrences — a bare queryByText throws on the second one rather than
+    // failing the claim being made.
+    expect(screen.queryAllByText("100.0%")).toHaveLength(0);
+    expect(screen.getAllByText(/no internal rates/i).length).toBeGreaterThan(0);
+  });
+
+  test("a bucket WITH internal rates is unaffected", () => {
+    renderPanelWithRatedRoles();
+    expect(screen.queryByText(/no internal rates/i)).not.toBeInTheDocument();
+  });
+
+  test("a bucket with no allocations yet does NOT claim its rate card is missing", () => {
+    // "+ Add bucket" creates a bucket with allocations: []. A `some()` over no
+    // rows is vacuously false, which would tell the user to go fix a rate card
+    // before they have added a single role — the wrong problem.
+    const emptyBuckets: BudgetBucket[] = [{ ...buckets[0], allocations: [] }];
+    render(<BudgetPanel {...props} buckets={emptyBuckets} />);
+    expect(screen.queryByText(/no internal rates/i)).not.toBeInTheDocument();
+  });
+
+  test("a T&M bucket keeps its win/loss when internal rates are missing", () => {
+    // T&M win/loss is budgetValue − consumedValue, both on EXTERNAL rates, so it
+    // stays a real figure without a rate card. Over-gating it would hide a
+    // number that is perfectly knowable. 100h×150 budgeted − 80h×150 consumed.
+    renderPanelWithRatelessRoles();
+    const winLoss = screen.getByText("Win / loss").parentElement!;
+    expect(winLoss).toHaveTextContent(/3,000|3000/);
+    expect(winLoss).not.toHaveTextContent("—");
+  });
+
+  test("a FIXED-price bucket's win/loss IS gated — it is revenue minus cost", () => {
+    const fixedBuckets: BudgetBucket[] = [{
+      ...buckets[0], type: "fixed", fixedPriceAmount: 20000,
+    }];
+    render(<BudgetPanel {...props} roles={ratelessRoles} buckets={fixedBuckets} />);
+    const winLoss = screen.getByText("Win / loss").parentElement!;
+    expect(winLoss).toHaveTextContent("—");
+  });
+
   test("ArrowUp on the top bucket's handle is a no-op", () => {
     const onChangeBuckets = vi.fn();
     render(<BudgetPanel {...props} buckets={twoBuckets()} onChangeBuckets={onChangeBuckets} />);
@@ -139,7 +244,7 @@ test("budget: bucket search with no matches shows a no-match line", () => {
 
 test("renders InfoTooltip for CPI metric label by accessible name", () => {
   render(<BudgetPanel {...props} />);
-  const hint = t("en-US", "budgetCciCpiHint");
+  const hint = t("en-US", "budgetCciBurnHint");
   // CPI tooltip appears in both the project-total row and the per-bucket row
   const tooltips = screen.getAllByRole("button", { name: hint });
   expect(tooltips.length).toBeGreaterThanOrEqual(1);
@@ -185,7 +290,7 @@ describe("Cci primary prop", () => {
     // There are two CPI cards (project-total + per-bucket). We look at all text-lg elements.
     // The big figure for CPI with primary="percent" must contain a "%" string.
     // CPI and Consumption big figures should contain "%"
-    const cpiLabel = t("en-US", "budgetCciCpi");
+    const cpiLabel = t("en-US", "budgetCciBurn");
     // Find a card whose label is CPI
     const cards = Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"));
     const cpiCards = cards.filter((c) => c.textContent?.includes(cpiLabel));
@@ -320,4 +425,35 @@ test("over-budget allocation row shows a Red RAG badge", () => {
   render(<BudgetPanel {...props} buckets={overBudgetBuckets} />);
   // actual (120) exceeds budget (100) → Red badge rendered with aria-label "Red"
   expect(screen.getAllByLabelText("Red").length).toBeGreaterThan(0);
+});
+
+describe("budget: per-period cell RAG is period-aware", () => {
+  // One bucket spanning two monthly periods, both budgeted, neither booked.
+  // `today` is 2026-02-01, so 2026-01 has CLOSED and 2026-02 has not.
+  const emptyBothPeriods: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-02-28", status: "open",
+    allocations: [{
+      roleId: 3, resourceIds: [],
+      budgetHours: { "2026-01": 100, "2026-02": 100 },
+      actualHours: {},
+    }],
+  }];
+
+  // The cell badge carries no `title`, so its accessible name is the colour —
+  // but so would any other untitled badge. Reach it through the cell's own
+  // actual-hours input instead, which is uniquely labelled per period.
+  const cellBadgeLabel = (periodKey: string): string | null =>
+    screen.getByLabelText(`actual-1-3-${periodKey}`)
+      .parentElement!.querySelector('[role="img"]')!
+      .getAttribute("aria-label");
+
+  test("a CLOSED period with nothing booked is Amber, not Green", () => {
+    render(<BudgetPanel {...props} buckets={emptyBothPeriods} />);
+    expect(cellBadgeLabel("2026-01")).toBe("Amber");
+  });
+
+  test("the same empty cell in a period that has not closed stays Green", () => {
+    render(<BudgetPanel {...props} buckets={emptyBothPeriods} />);
+    expect(cellBadgeLabel("2026-02")).toBe("Green");
+  });
 });

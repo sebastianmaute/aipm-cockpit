@@ -33,8 +33,8 @@ describe("computeBucketReport — T&M", () => {
     expect(rep.costPerformance.amount).toBe(100 * 100 - 80 * 100);
     expect(rep.costPerformance.percent).toBeCloseTo((10000 / 8000) * 100, 5);
   });
-  test("consumption: budgetValue - consumedValue (external basis)", () => {
-    expect(rep.consumption.amount).toBe(100 * 150 - 80 * 150);
+  test("consumption: the consumed value (external basis), matching its percent", () => {
+    expect(rep.consumption.amount).toBe(80 * 150);
     expect(rep.consumption.percent).toBeCloseTo((12000 / 15000) * 100, 5);
   });
   test("win/loss = budget - actual (hours & external value)", () => {
@@ -66,7 +66,7 @@ describe("computeBucketReport — fixed-price ignores spilled-in value in budget
     const rep = computeBucketReport(b, plan, roles, resources, 8, noHolidays, 10, 5000);
     expect(rep.budgetValue).toBe(20000);                 // NOT 25000
     expect(rep.budgetHours).toBe(110);                   // 100 + 10 spilled hours
-    expect(rep.consumption.amount).toBe(20000 - 20000);  // fully burned (100/100 of contract)
+    expect(rep.consumption.amount).toBe(20000);          // fully burned (100/100 of contract)
     expect(rep.consumption.percent).toBeCloseTo(100, 5);
   });
 });

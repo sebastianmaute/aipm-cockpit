@@ -21,7 +21,7 @@ import { resolveRate } from "./fx";
 import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
 import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
-import { ratioHealth, marginHealth, costPerformanceHealth } from "./budget-health";
+import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
 import { computeBurndownSeries } from "./budget-burndown";
 import { BurndownCharts } from "./burndown-chart";
 import { EmptyState } from "./empty-state";
@@ -88,6 +88,9 @@ export function BudgetReportPanel({
   const money = (n: number) => formatCurrency(n, "EUR", locale);
   const pct = (v: CciValue) => (v.percent == null ? "—" : `${v.percent.toFixed(1)}%`);
   const proj = report.project;
+  // No bucket carries an internal rate, so cost is 0 for want of a rate card
+  // rather than because the work was free — every cost-derived figure is unknown.
+  const costUnknown = !proj.costIsKnowable;
 
   const content = (
     <>
@@ -95,16 +98,24 @@ export function BudgetReportPanel({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Tile label={t(lang, "budgetBudgetHours")} value={proj.budgetHours.toFixed(0)} />
           <Tile label={t(lang, "budgetPlanHours")} value={proj.plannedHours.toFixed(0)}
-            rag={<RagBadge value={ratioHealth(proj.plannedHours, proj.budgetHours)} lang={lang} title={t(lang, "budgetPlanHours")} />} />
+            rag={proj.budgetMirrorsPlan ? undefined : <RagBadge value={planVsBudgetHealth(proj.plannedHours, proj.budgetHours)} lang={lang} title={t(lang, "budgetPlanHours")} />} />
           <Tile label={t(lang, "budgetActualHours")} value={proj.actualHours.toFixed(0)}
             rag={<RagBadge value={ratioHealth(proj.actualHours, proj.budgetHours)} lang={lang} title={t(lang, "budgetActualHours")} />} />
+          {/* Revenue itself is external-rate and knowable, but its RAG badge is
+              MARGIN-derived — so the badge goes when the margin is unknowable,
+              or it renders a cost judgement no cost supports. */}
           <Tile label={t(lang, "budgetReportRevenue")} value={money(proj.revenue)}
-            rag={<RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetReportRevenue")} />} />
-          <Tile label={t(lang, "budgetReportCost")} value={money(proj.cost)} />
-          <Tile label={<>{t(lang, "budgetCciMargin")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciMarginHint")} /></span></>} value={`${money(proj.contributionMargin.amount)} (${pct(proj.contributionMargin)})`} rag={<RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetCciMargin")} />} />
-          <Tile label={<>{t(lang, "budgetCciCpi")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciCpiHint")} /></span></>} value={`${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} rag={<RagBadge value={costPerformanceHealth(proj.costPerformance.percent)} lang={lang} title={t(lang, "budgetCciCpi")} />} />
+            rag={costUnknown ? undefined : <RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetReportRevenue")} />} />
+          <Tile label={t(lang, "budgetReportCost")} value={costUnknown ? "—" : money(proj.cost)} />
+          <Tile label={<>{t(lang, "budgetCciMargin")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciMarginHint")} /></span></>} value={costUnknown ? "—" : `${money(proj.contributionMargin.amount)} (${pct(proj.contributionMargin)})`} rag={costUnknown ? undefined : <RagBadge value={marginHealth(proj.contributionMargin.percent)} lang={lang} title={t(lang, "budgetCciMargin")} />} />
+          <Tile label={<>{t(lang, "budgetCciBurn")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciBurnHint")} /></span></>} value={costUnknown ? "—" : `${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} rag={costUnknown ? undefined : <RagBadge value={costPerformanceHealth(proj.costPerformance.percent)} lang={lang} title={t(lang, "budgetCciBurn")} />} />
           <Tile label={<>{t(lang, "budgetCciConsumption")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciConsumptionHint")} /></span></>} value={`${money(proj.consumption.amount)} (${pct(proj.consumption)})`} rag={<RagBadge value={ratioHealth(proj.consumedValue, proj.budgetValue)} lang={lang} title={t(lang, "budgetCciConsumption")} />} />
         </div>
+        {costUnknown && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t(lang, "budgetNoInternalRates")}
+          </p>
+        )}
       </Section>
 
       <Section title={t(lang, "evmTitle")}>

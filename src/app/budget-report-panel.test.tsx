@@ -44,7 +44,10 @@ describe("BudgetReportPanel", () => {
   it("shows the project rollup (revenue + cost in EUR)", () => {
     renderPanel();
     // revenue = 80*180 + 50*150 + 120*150 = 39900 ; cost = 80*120 + 50*100 + 120*100 = 26600
-    expect(screen.getByText(/€?39,900|39\.900/)).toBeInTheDocument();
+    // Every bucket here is T&M, where consumed value IS revenue, so the figure
+    // renders TWICE: once on the revenue tile, once on the consumption tile.
+    // Pinned exactly — a bare "at least one" would not notice a third.
+    expect(screen.getAllByText(/€?39,900|39\.900/)).toHaveLength(2);
     expect(screen.getByText(/€?26,600|26\.600/)).toBeInTheDocument();
   });
 
