@@ -408,7 +408,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" unknown={!report.project.costIsKnowable} />
           <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} primary="percent" />
         </div>
-        {!report.project.costIsKnowable && (
+        {report.project.ratesAreMissing && (
           <p className="mt-2 text-xs text-muted-foreground">
             {t(lang, "budgetNoInternalRates")}
           </p>
@@ -507,7 +507,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     rate card, so it is deliberately not gated. */}
                 <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />
               </div>
-              {!br.costIsKnowable && (
+              {br.ratesAreMissing && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   {t(lang, "budgetNoInternalRates")}
                 </p>

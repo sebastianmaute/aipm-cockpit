@@ -8,6 +8,68 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.195.1] - 2026-07-21 "McGuire"
+
+### Fixed
+
+- **An unstaffed fixed-price bucket reported a 100% margin and a full win.**
+  A regression introduced by 0.195.0's own fix. Suppressing the "no internal
+  rates" notice for a bucket with no allocations was correct — it has no roles
+  to rate — but the same flag also licensed the cost FIGURES. A fixed-price
+  bucket with a contract amount and no allocations then computed
+  `revenue - 0` and rendered a green 100% margin and a full win, on work nobody
+  had started; the project rollup inherited it. That is the exact failure
+  0.195.0 set out to remove, reached through zero *rows* rather than zero
+  *rates*, and every fixed-price bucket starts empty.
+
+  Suppressing the notice and licensing the figure are two decisions, so they are
+  now two flags: `costIsKnowable` (rows **and** a rate — gates margin, burn and
+  fixed-price win/loss) and `ratesAreMissing` (rows but no rate — gates the
+  notice). Three states, two questions.
+
+  The gap was in the fixture, not the reasoning: the tests covering the empty
+  bucket used a T&M fixture, where revenue is also 0, so `pct(0, 0)` returns
+  null and the misleading figure never renders. Only fixed-price exposes it.
+
+- **A project containing an unstaffed fixed-price bucket reported a margin too.**
+  The same defect one layer up, and the more likely one to be seen: `revenue`
+  and `cost` are summed across *every* bucket, so one uncostable bucket
+  contaminates the total — and the project flag was a `.some()`, which declared
+  that total knowable as soon as any *other* bucket happened to be rated. An
+  unstarted €50k contract beside one active bucket rendered a green 98% project
+  margin with no caveat. The project total is now knowable only when something
+  costable contributes to it **and** nothing uncostable contaminates it;
+  zero-revenue buckets are exempt so an empty scratch bucket cannot blank a good
+  margin.
+
+  Gating the bucket display was never enough on its own — the arithmetic
+  feeding the aggregate needed the same treatment.
+
+- **A partly-rated bucket reported a confidently wrong margin.** One rated row
+  vouched for the whole bucket, so hours booked against an *unrated* role were
+  costed at zero while every flag reported a sound figure: 40 real hours gave
+  revenue 6,000, cost 0, margin 100%, no dash and no notice. Unlike the cases
+  above this was not an unknown shown as an ideal but a wrong number shown as a
+  genuine reading — reachable whenever a new grade reaches the rate card before
+  its internal rate does. A row now makes its bucket uncostable when it books
+  hours at no rate, which is exactly when it corrupts the total; an unrated row
+  with no hours contributes nothing and no longer blanks a sound figure.
+
+- **The Budget Report's detail table was ungated.** The summary tiles above it
+  were fixed; the table beneath them was not. An unstaffed fixed-price bucket
+  printed a 100% margin and a full-contract win there, and the phantom margin
+  fed the column sort — putting the fabricated row at the top, where a PM
+  scanning for the worst margin looks first.
+
+- **The report's Win/Loss column sorted on the phantom figure too.** The margin
+  sort key was gated when the detail table was fixed; the Win/Loss key beside it
+  was not. An uncostable bucket's win/loss is revenue minus zero — the whole
+  contract — so sorting descending put a row *displaying a dash* above every
+  real win, which is where a PM scanning "who is winning the most" looks first.
+
+- **`package.json` was left at 0.194.0** while `version.ts` moved to 0.195.0.
+  Both are bumped together here.
+
 ## [0.195.0] - 2026-07-21 "McGuire"
 
 ### Fixed

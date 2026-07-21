@@ -40,6 +40,13 @@ export function useSortableFilter<Row extends { name: string }, Key extends stri
   setSort: (s: { key: Key; dir: SortDir }) => void,
   filter: string,
   getValue: (row: Row, key: Key) => string | number,
+  /** Optional: rows whose value for this column is UNKNOWN rather than low.
+   *  They are held out of the comparison and appended last in BOTH directions.
+   *  A sentinel value cannot do this — the sort runs ascending and reverses for
+   *  descending, so whatever sinks a row one way floats it the other, and an
+   *  unknown row ends up leading whichever view it was not tuned for. Omit the
+   *  callback and behaviour is exactly as before. */
+  isUnknown?: (row: Row, key: Key) => boolean,
 ) {
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -49,13 +56,16 @@ export function useSortableFilter<Row extends { name: string }, Key extends stri
 
   const sorted = useMemo(() => {
     if (sort.dir === "off") return filtered;
-    const arr = filtered.slice().sort((a, b) => {
+    const known = isUnknown ? filtered.filter((r) => !isUnknown(r, sort.key)) : filtered;
+    const unknown = isUnknown ? filtered.filter((r) => isUnknown(r, sort.key)) : [];
+    const arr = known.slice().sort((a, b) => {
       const c = compareStrOrNum(getValue(a, sort.key), getValue(b, sort.key));
       return c !== 0 ? c : a.name.localeCompare(b.name);
     });
     if (sort.dir === "desc") arr.reverse();
-    return arr;
-  }, [filtered, sort, getValue]);
+    if (unknown.length === 0) return arr;
+    return [...arr, ...unknown.slice().sort((a, b) => a.name.localeCompare(b.name))];
+  }, [filtered, sort, getValue, isUnknown]);
 
   const click = useCallback(
     (k: Key) => {

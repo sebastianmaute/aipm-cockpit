@@ -178,6 +178,14 @@ export type DashboardBurn = {
   cost: number;
   costPerformance: CciValue;
   consumption: CciValue;
+  /** Carried alongside `cost`/`costPerformance` deliberately. Those two are
+   *  internal-rate figures and are 0 when no rate exists, which reads as a
+   *  perfect margin — the defect this model's source spent six fixes removing.
+   *  Any consumer rendering them MUST gate on this, so the flag travels with
+   *  the data rather than being looked up later (or forgotten, which is how
+   *  every one of those six instances happened). */
+  costIsKnowable: boolean;
+  ratesAreMissing: boolean;
 };
 
 export type DashboardModel = {
@@ -299,6 +307,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         budgetValue: project.budgetValue, consumedValue: project.consumedValue,
         budgetHours: project.budgetHours, actualHours: project.actualHours,
         cost: project.cost, costPerformance: project.costPerformance, consumption: project.consumption,
+        costIsKnowable: project.costIsKnowable, ratesAreMissing: project.ratesAreMissing,
       }
     : null;
   const burndown: BurndownSeries | null =

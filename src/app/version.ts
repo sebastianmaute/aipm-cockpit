@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.195.0";
-export const APP_BUILD_DATE = "2026-07-21"; // 0.195.0: budget-panel correctness — float-tolerant RAG bands, plan-vs-budget adherence scored separately from consumption, unknown cost reported instead of a perfect margin, period-aware cell health, honest tile labels (McGuire)
+export const APP_VERSION = "0.195.1";
+export const APP_BUILD_DATE = "2026-07-21"; // 0.195.1: an unstaffed fixed-price bucket, and any project containing one, can no longer report a margin — 0.195.0: budget-panel correctness — float-tolerant RAG bands, plan-vs-budget adherence scored separately from consumption, unknown cost reported instead of a perfect margin, period-aware cell health, honest tile labels (McGuire)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.195.x line is "McGuire" (Seanan McGuire, science-fiction and fantasy author). */
 export const APP_MILESTONE = "McGuire";

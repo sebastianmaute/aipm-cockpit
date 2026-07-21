@@ -111,7 +111,10 @@ export function BudgetReportPanel({
           <Tile label={<>{t(lang, "budgetCciBurn")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciBurnHint")} /></span></>} value={costUnknown ? "—" : `${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} rag={costUnknown ? undefined : <RagBadge value={costPerformanceHealth(proj.costPerformance.percent)} lang={lang} title={t(lang, "budgetCciBurn")} />} />
           <Tile label={<>{t(lang, "budgetCciConsumption")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciConsumptionHint")} /></span></>} value={`${money(proj.consumption.amount)} (${pct(proj.consumption)})`} rag={<RagBadge value={ratioHealth(proj.consumedValue, proj.budgetValue)} lang={lang} title={t(lang, "budgetCciConsumption")} />} />
         </div>
-        {costUnknown && (
+        {/* The FIGURES go unknown whenever cost has no basis (no rows, or no
+            rate). The NOTICE fires only when rows exist and none is rated —
+            a project with nothing allocated has no rate card to fix. */}
+        {proj.ratesAreMissing && (
           <p className="mt-2 text-xs text-muted-foreground">
             {t(lang, "budgetNoInternalRates")}
           </p>
@@ -199,7 +202,15 @@ function BucketDetailTable({
           typeLabel: t(lang, r.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm"),
           statusLabel: t(lang, r.status === "closed" ? "budgetReportStatusClosed" : "budgetReportStatusOpen"),
           currencyLabel: rate !== 1 ? `${r.currency} (×${rate})` : r.currency,
-          marginPct: r.contributionMargin.percent,
+          // null when cost has no basis, NOT the raw percent. `contributionMargin`
+          // is computed regardless of `costIsKnowable` — the flag is the caller's
+          // job — and an unstaffed fixed-price bucket yields revenue − 0 = a
+          // literal 100, which is not null and so would print as a real reading.
+          // The summary tiles above already gate; this table did not.
+          marginPct: r.costIsKnowable ? r.contributionMargin.percent : null,
+          // Same for win/loss on a fixed-price bucket, where it IS revenue − cost.
+          // A T&M bucket's runs on external rates and stays valid.
+          winLossUnknown: !r.costIsKnowable && r.type === "fixed",
         };
       }),
     [rows, bucketById, fxRates, lang],
@@ -217,12 +228,27 @@ function BucketDetailTable({
       case "actualH": return r.actualHours;
       case "budgetEur": return r.budgetValue;
       case "consumedEur": return r.consumedValue;
+      // Unknown rows never reach this comparison — `isUnknown` below holds them
+      // out and appends them last in both directions. These fallbacks only
+      // matter if that ever stops being wired up.
       case "margin": return r.marginPct ?? Number.NEGATIVE_INFINITY;
-      case "winLoss": return r.winLossValue;
+      case "winLoss": return r.winLossUnknown ? Number.NEGATIVE_INFINITY : r.winLossValue;
     }
   }, []);
 
-  const { sorted, click } = useSortableFilter(mapped, sort, setSort, filter, getValue);
+  // An uncostable bucket's margin and win/loss are not LOW, they are UNKNOWN,
+  // and the cell renders a dash. Sorting them by a sentinel put them at
+  // whichever end the sentinel was not tuned for — and since a fresh column
+  // starts ASCENDING, one click on Win/Loss led the "who is losing most" scan
+  // with a blank row. Held out of the ordering instead, so they sit last either
+  // way.
+  const isUnknown = useCallback(
+    (r: typeof mapped[number], k: DetailSortKey): boolean =>
+      (k === "margin" && r.marginPct == null) || (k === "winLoss" && r.winLossUnknown),
+    [],
+  );
+
+  const { sorted, click } = useSortableFilter(mapped, sort, setSort, filter, getValue, isUnknown);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
 
@@ -298,7 +324,7 @@ function BucketDetailTable({
                   <td className="px-3 py-2 text-right tabular-nums">{money(r.budgetValue)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{money(r.consumedValue)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.marginPct == null ? "—" : `${r.marginPct.toFixed(1)}%`}</td>
-                  <td className={`px-3 py-2 text-right tabular-nums ${r.winLossValue < 0 ? "text-[var(--rag-red-text)] font-medium" : ""}`}>{money(r.winLossValue)}</td>
+                  <td className={`px-3 py-2 text-right tabular-nums ${!r.winLossUnknown && r.winLossValue < 0 ? "text-[var(--rag-red-text)] font-medium" : ""}`}>{r.winLossUnknown ? "—" : money(r.winLossValue)}</td>
                 </tr>
               ))
             )}

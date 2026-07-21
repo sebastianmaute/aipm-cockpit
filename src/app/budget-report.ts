@@ -113,11 +113,16 @@ export type BucketReport = {
    *  and every row resourced). The Plan-vs-Budget badge is then a comparison of
    *  a number with itself and carries no information — surfaces do not render it. */
   budgetMirrorsPlan: boolean;
-  /** False when NO row in this bucket carries a positive internal rate, so every
-   *  internal-cost figure (cost, margin, burn) is 0 for want of a rate card
-   *  rather than because the work was free. Surfaces must render those as
-   *  unknown — a 0 cost otherwise reads as a perfect margin. */
+  /** False when this bucket's internal-cost figures (cost, margin, burn) have no
+   *  sound basis: no rows at all, no row carrying a rate, or ANY row booking
+   *  hours at a zero rate. That last case is the dangerous one — those hours are
+   *  costed at 0, so the figure is not unknown but WRONG. Surfaces must render
+   *  all three as unknown; a 0 cost otherwise reads as a perfect margin. */
   costIsKnowable: boolean;
+  /** True when rows EXIST and a rate is genuinely missing — none carries one, or
+   *  some row books hours at none. An empty bucket is false: it has no roles to
+   *  rate, so that guidance would point at the wrong problem. */
+  ratesAreMissing: boolean;
 };
 
 function pct(numerator: number, denominator: number): number | null {
@@ -190,15 +195,33 @@ export function computeBucketReport(
   // they don't rebuild the id→resource index on every cell.
   const resourcesById = new Map(resources.map((r) => [r.id, r]));
   const rows = bucketRateRows(bucket, roles);
-  // `role?.internalRate ?? 0` and a 0 bucket override are indistinguishable from
-  // a genuinely free resource, and both collapse cost to 0 — which then reads as
-  // a perfect margin. Track whether cost could actually be computed.
-  // A bucket with NO allocations is knowable, not unrated: there is no work, so
-  // a cost of 0 is the true answer. `some()` alone is vacuously false there and
-  // would tell the user to fix a rate card that is not the problem.
-  const costIsKnowable = rows.length === 0 || rows.some((r) => r.rates.internal > 0);
+  // TWO flags, because there are two different questions and three states.
+  //
+  // `costIsKnowable` — is there any basis for a cost figure? Needs BOTH rows and
+  // a rate. `role?.internalRate ?? 0` and a 0 bucket override are
+  // indistinguishable from a genuinely free resource and collapse cost to 0,
+  // which reads as a perfect margin; so does an empty bucket, where there is
+  // simply nothing to sum. An unstaffed fixed-price contract otherwise reports
+  // revenue − 0 = a 100% margin and a full win before anyone has started.
+  //
+  // `ratesAreMissing` — should we tell the user to go fix the rate card? When
+  // rows EXIST and either none carries a rate, or some row books hours at no
+  // rate. A bucket with no allocations has no roles to rate, so that guidance
+  // would point at the wrong problem.
+  //
+  // Collapsing these into one boolean is what let the empty fixed-price bucket
+  // through: suppressing the notice and licensing the figure are not the same
+  // decision.
+  const hasRatedRow = rows.some((r) => r.rates.internal > 0);
   const rowsMirrorPlan =
     budgetFollowsPlan && rows.length > 0 && rows.every((r) => r.resourceIds.length > 0);
+  // A row corrupts the totals only when it carries HOURS at a zero internal
+  // rate: those hours land in `cost`/`budgetCost` as 0 and the resulting margin
+  // is not unknown but WRONG. `hasRatedRow` alone let one rated row vouch for
+  // the whole bucket, so 40 booked hours against an unrated role read as a
+  // sound 100% margin. An unrated row with no hours contributes nothing and
+  // must NOT blank an otherwise sound figure.
+  let uncostedWork = false;
   for (const row of rows) {
     const { internal, external } = row.rates;
     let aBudget = 0;
@@ -207,6 +230,7 @@ export function computeBucketReport(
       aBudget += effectiveBudgetHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById);
       plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, resourcesById);
     }
+    if (internal <= 0 && (aActual !== 0 || aBudget !== 0)) uncostedWork = true;
     budgetHours += aBudget;
     actualHours += aActual;
     cost += aActual * internal;
@@ -214,6 +238,11 @@ export function computeBucketReport(
     budgetValueExternal += aBudget * external;
     budgetCost += aBudget * internal;
   }
+
+  const costIsKnowable = rows.length > 0 && hasRatedRow && !uncostedWork;
+  // The notice fires for a partly-rated bucket too: a rate really is missing
+  // there, and it is the actionable half of the message.
+  const ratesAreMissing = rows.length > 0 && (!hasRatedRow || uncostedWork);
 
   const isFixed = bucket.type === "fixed";
   const fixedPrice = bucket.fixedPriceAmount ?? 0;
@@ -260,6 +289,7 @@ export function computeBucketReport(
     consumption: { amount: consumedValue, percent: consumptionPercent },
     budgetMirrorsPlan,
     costIsKnowable,
+    ratesAreMissing,
   };
 }
 
@@ -280,9 +310,14 @@ export type ProjectReport = {
    *  BucketReport.budgetMirrorsPlan. */
   budgetMirrorsPlan: boolean;
   /** False when NOT ONE bucket carries an internal rate, making the project's
-   *  cost, margin and burn wholly unknowable — see BucketReport.costIsKnowable.
+   *  cost, margin and burn wholly unknowable. EVERY revenue-bearing bucket must
+   *  be costable for the project total to mean anything — see the rollup.
    *  A single costable bucket keeps the rollup a real (if partial) figure. */
   costIsKnowable: boolean;
+  /** True only when rows EXIST and none carries an internal rate — the case where
+   *  pointing the user at the rate card is the right guidance. An empty bucket
+   *  is false: it has no roles to rate. */
+  ratesAreMissing: boolean;
 };
 
 export type BudgetReport = {
@@ -358,7 +393,39 @@ export function computeBudgetReport(
     // win/loss.
     consumption: { amount: consumedValue, percent: pct(consumedValue, budgetValue) },
     budgetMirrorsPlan: reports.length > 0 && reports.every((b) => b.budgetMirrorsPlan),
-    costIsKnowable: reports.some((b) => b.costIsKnowable),
+    // ★★ EVERY, not SOME. `revenue` and `cost` above are summed across ALL
+    // buckets, so a single uncostable bucket contaminates the total — and it is
+    // the total a PM reads first. A `.some()` here would declare that total
+    // knowable the moment any OTHER bucket happened to be rated: an unstarted
+    // €50k fixed-price contract sitting beside one active bucket rendered a
+    // green 98% project margin with no caveat.
+    //
+    // A bucket contributing NO revenue cannot distort the ratio, so it is
+    // exempt — otherwise an empty scratch bucket would blank a good margin.
+    //
+    // BOTH halves are load-bearing. `every` alone would call a project of
+    // nothing but zero-revenue rateless buckets knowable, when in truth nothing
+    // in it can be costed at all; `some` alone is what let the unstarted
+    // contract through. The total is trustworthy only when something real
+    // contributes to it AND nothing uncostable contaminates it.
+    // The exemption needs BOTH halves. `revenue === 0` alone lets through a
+    // bucket whose BUDGETED hours sit at no rate: it earns nothing yet, so it
+    // passes the revenue test, while those hours land in `budgetCost` as 0 and
+    // understate the project's cost burn. `!ratesAreMissing` alone lets through
+    // the unstaffed fixed-price contract, which has no rows to be missing a
+    // rate. A bucket is harmless only when it earns nothing AND is not sitting
+    // on unrated work.
+    //
+    // This also keeps the notice and the figures consistent: any bucket that
+    // makes the notice fire now also blanks the total, so the panel can never
+    // print "cost, margin and burn cannot be calculated" beside calculated
+    // numbers.
+    costIsKnowable:
+      reports.some((b) => b.costIsKnowable) &&
+      reports.every((b) => b.costIsKnowable || (b.revenue === 0 && !b.ratesAreMissing)),
+    // Stays SOME: "at least one bucket has rows nobody has rated" is an honest
+    // and actionable statement about a project even when others are fine.
+    ratesAreMissing: reports.some((b) => b.ratesAreMissing),
   };
   return { buckets: reports, project };
 }
