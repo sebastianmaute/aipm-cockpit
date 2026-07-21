@@ -662,4 +662,22 @@ describe("computeBucketReport — costUnknownReason", () => {
     // An empty bucket has no roles to rate, so the rate card is NOT the problem.
     expect(ratesMissing(empty)).toBe(false);
   });
+
+  test("a zero override is not a 'no rate card' bucket — the override is the cause", () => {
+    // Pins the `!hasInternalOverride(bucket)` conjunct under its own name. The
+    // ZERO-override test above also happens to catch a regression here, but it
+    // is named for the naming-variant suppression, so an edit to that test
+    // could silently unpin this rule.
+    const b: BudgetBucket = {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      rateOverrideInternal: 0,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    };
+    const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    // The rate card is fully populated — pointing the user at it would be
+    // instructing them to do something their own override overrules.
+    const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("unrated-hours");
+  });
 });
