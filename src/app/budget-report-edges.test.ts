@@ -40,8 +40,8 @@ describe("computeBucketReport — fixed-price over-burn clamp", () => {
   test("consumedValue is clamped to the fixed price (not 30000)", () => {
     expect(rep.consumedValue).toBe(20000);
   });
-  test("consumption is fully burned: amount 0, percent 100", () => {
-    expect(rep.consumption.amount).toBe(0);
+  test("consumption is fully burned: amount = the whole contract, percent 100", () => {
+    expect(rep.consumption.amount).toBe(20000);
     expect(rep.consumption.percent).toBeCloseTo(100, 5);
   });
   test("win/loss reflects cost over the contract value", () => {

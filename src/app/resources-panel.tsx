@@ -593,6 +593,11 @@ function ResourcesPanelInner({
                           : (r.utilization[p.key] ?? "");
                         return (
                         <td key={p.key} className="px-3 py-2 text-right align-top">
+                          {/* ONE left-aligned column: the cell is text-right, so bare siblings get
+                              their RIGHT edges flushed, and the "%"/"h" suffix makes the utilization
+                              box ~8px wider — which offset its input that far left of the absence
+                              one. Stacking lines up their LEFT edges; the group stays right-flush. */}
+                          <span className="inline-flex flex-col items-start">
                           <span className="inline-flex items-center gap-0.5">
                             <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
                               aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
@@ -615,6 +620,7 @@ function ResourcesPanelInner({
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => { if (!derived) onSetAbsenceOverride(r.id, p.key, e.target.value === "" ? null : Number(e.target.value)); }}
                             className={`mt-0.5 w-16 rounded border border-ui-purple/40 px-1 py-0.5 text-right text-sm tabular-nums text-ui-purple dark:border-ui-purple/50 dark:text-ui-purple ${FOCUS_RING} ${TRANSITION} ${derived ? "bg-surface-muted opacity-60" : "bg-surface"}`} />
+                          </span>
                         </td>
                         );
                       })}

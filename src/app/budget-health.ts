@@ -13,14 +13,43 @@ export const MARGIN_GREEN_PCT = 15;
 export const COST_PERF_RED = 80;
 export const COST_PERF_AMBER = 90;
 
+/** Relative tolerance for the band comparisons. `budgetHours` and
+ *  `plannedHours` are the same sum accumulated in different association orders
+ *  (budget-report.ts sums a per-row subtotal for one and a flat running total
+ *  for the other), so two mathematically equal figures differ by a few ULP.
+ *  Without this a 6e-14 h difference paints an exactly-on-budget bucket Red.
+ *  1e-9 sits orders of magnitude above double noise and far below any real
+ *  overrun. */
+export const RATIO_EPSILON = 1e-9;
+
 /** Over-budget ratio health. Green below 90% of budget, Amber from 90% up to and
- *  including 100%, Red above 100%. null when there is no budget to compare against (budget is zero, negative, or non-finite). */
+ *  including 100%, Red above 100% — each band edge carried by RATIO_EPSILON so
+ *  float noise cannot tip a figure across it. null when there is no budget to
+ *  compare against (budget is zero, negative, or non-finite).
+ *
+ *  Models CONSUMPTION: reaching 100% means the budget is fully spent, which is
+ *  Amber by design. Plan-vs-budget adherence, where 100% means hitting the
+ *  target exactly, is a different question and does not belong in these bands. */
 export function ratioHealth(actual: number, budget: number): Health | null {
   if (!(budget > 0)) return null;
   const r = actual / budget;
-  if (r > BUDGET_OVER_RED) return "R";
-  if (r >= BUDGET_OVER_AMBER) return "A";
+  if (r > BUDGET_OVER_RED * (1 + RATIO_EPSILON)) return "R";
+  if (r >= BUDGET_OVER_AMBER * (1 - RATIO_EPSILON)) return "A";
   return "G";
+}
+
+/**
+ * Plan-vs-budget adherence: planning AT or UNDER budget is on target (Green),
+ * over budget is Red.
+ *
+ * Deliberately NOT `ratioHealth`. That function models CONSUMPTION, where
+ * reaching 100% means the budget is fully spent and must stay Amber. Here 100%
+ * means the plan exactly matches the budget, which is the goal — so the two
+ * cannot share bands. Do not "simplify" this into ratioHealth.
+ */
+export function planVsBudgetHealth(planned: number, budget: number): Health | null {
+  if (!(budget > 0)) return null;
+  return planned / budget > BUDGET_OVER_RED * (1 + RATIO_EPSILON) ? "R" : "G";
 }
 
 /** Contribution-margin health from a percent. Red below 0, Amber 0-15%, Green >=15%. */
@@ -54,4 +83,16 @@ export function winLossHealth(consumedValue: number, budgetValue: number): Healt
 export function marginAmountHealth(margin: number, external: number): Health | null {
   if (!(external > 0) || !Number.isFinite(margin)) return null;
   return marginHealth((margin / external) * 100);
+}
+
+/** Per-period cell health. Identical to `ratioHealth` except that a CLOSED
+ *  period which booked nothing against a real budget is Amber rather than Green:
+ *  zero delivery in a period that has ended is not health, it is a signal.
+ *  Dates are ISO `YYYY-MM-DD`, so lexical comparison is chronological. */
+export function cellHealth(
+  actual: number, budget: number, periodEnd: string, today: string,
+): Health | null {
+  if (!(budget > 0)) return null;
+  if (actual === 0 && periodEnd < today) return "A";
+  return ratioHealth(actual, budget);
 }

@@ -8,6 +8,65 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.195.0] - 2026-07-21 "McGuire"
+
+### Fixed
+
+- **A bucket whose plan exactly hit its budget was scored red.** `computeBudgetReport`
+  accumulates `budgetHours` as a per-row subtotal and `plannedHours` as a flat
+  running total. With *budget follows plan* on and every row resourced these are
+  the **same sum**, but the differing association order makes them differ by a
+  few ULP — real values, `225.91519999999999868` against `225.91520000000002710`.
+  `ratioHealth`'s strict `>` then read that 6e-14 h as an overrun. The band
+  comparisons now carry a relative tolerance (`RATIO_EPSILON`, 1e-9) — orders of
+  magnitude above double noise and far below any real overrun.
+
+- **An exact hit could never be green, and the badge often compared a number
+  with itself.** `ratioHealth` models *consumption*, where reaching 100% means
+  the budget is spent and must stay amber; plan-vs-budget asks the opposite
+  question, where hitting 100% is the goal. Plan adherence moved to its own
+  `planVsBudgetHealth` (at or under budget is green) applied to only the two
+  plan-vs-budget sites — the other eleven `ratioHealth` call sites are
+  consumption and are unchanged. When the budget genuinely *is* the plan the
+  badge is suppressed entirely, since it can only ever restate equality.
+
+- **A 100% contribution margin was reported when cost could not be computed at
+  all.** Cost and budgeted cost both derive from `internalRate`; with no rate
+  card `role?.internalRate ?? 0` yields 0, so margin became `revenue - 0` and
+  scored a perfect green. The panel claimed ideal profitability *precisely
+  because it knew nothing*. Margin, cost burn and fixed-price win/loss now read
+  "—" with no RAG when cost is unknowable, and a notice points to the rate card.
+  A T&M bucket's win/loss runs on external rates and stays a real figure.
+
+- **The consumption tile printed a percentage of one quantity above the money
+  value of its complement** — a consumed percent over the *remaining* amount.
+  The amount is now the consumed value, matching its own percent; the remainder
+  was already carried by win/loss.
+
+- **A closed period that booked nothing scored green.** Correct for a period
+  that has not happened yet, misleading for one that has ended. A new
+  `cellHealth` scores an empty *closed* period amber; a future period, and a
+  period ending today, stay green.
+
+- **Derived plan hours rendered as raw floats.** A mirrored cell showed values
+  such as `10.559999999999999`, which the narrow input truncated mid-number.
+  Rounded for display only — stored and aggregated values are untouched, and
+  editable cells are left alone so rounding cannot fight the user mid-type.
+
+### Changed
+
+- **"Cost performance (CPI)" is now "Cost burn".** The tile computes budgeted
+  cost over cost to date, with no percent-complete term — early in a project it
+  reads high purely because little has been spent, which is not what a Cost
+  Performance Index means. The label and hint now say what it is, and the hint
+  states plainly that it is not an EVM index. This also frees the name for a
+  genuine earned-value index.
+
+- **The per-period grid cell labels its own field "Budget", not "Plan".** The
+  cell writes `budgetHours` and its tooltip already read "Budgeted hours for
+  this period", while the bucket header's "Plan (h)" is a different quantity.
+  One word, two meanings, one view.
+
 ## [0.194.0] - 2026-07-21 "Stapledon"
 
 ### Fixed

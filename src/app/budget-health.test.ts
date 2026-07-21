@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ratioHealth, marginHealth, costPerformanceHealth, winLossHealth, marginAmountHealth,
+  planVsBudgetHealth, cellHealth,
 } from "./budget-health";
 
 describe("ratioHealth (over-budget bands: G <90%, A 90-100%, R >100%)", () => {
@@ -17,6 +18,35 @@ describe("ratioHealth (over-budget bands: G <90%, A 90-100%, R >100%)", () => {
   });
   it("is Red above 100%", () => {
     expect(ratioHealth(101, 100)).toBe("R");
+  });
+  // budgetHours and plannedHours are the SAME sum accumulated in different
+  // association orders (budget-report.ts: a per-row subtotal vs a flat running
+  // sum), so two mathematically equal totals can differ by a few ULP. A strict
+  // `>` then reports a 6e-14 h overrun as Red on a bucket that is exactly on
+  // budget — these are the real values computeBudgetReport produced.
+  it("treats a float-noise overrun as on-budget, not Red", () => {
+    expect(ratioHealth(225.91520000000002710, 225.91519999999999868)).not.toBe("R");
+  });
+  it("still reports a genuine hair-over-budget as Red", () => {
+    expect(ratioHealth(225.93, 225.915)).toBe("R");
+  });
+});
+
+describe("planVsBudgetHealth (planning at or under budget is on target)", () => {
+  it("is null when there is no budget to compare against", () => {
+    expect(planVsBudgetHealth(10, 0)).toBeNull();
+  });
+  it("is Green when the plan exactly hits the budget", () => {
+    expect(planVsBudgetHealth(275, 275)).toBe("G");
+  });
+  it("is Green when the plan is under budget", () => {
+    expect(planVsBudgetHealth(200, 275)).toBe("G");
+  });
+  it("is Red when the plan exceeds the budget", () => {
+    expect(planVsBudgetHealth(276, 275)).toBe("R");
+  });
+  it("ignores float noise", () => {
+    expect(planVsBudgetHealth(225.91520000000002710, 225.91519999999999868)).toBe("G");
   });
 });
 
@@ -65,5 +95,26 @@ describe("marginAmountHealth", () => {
   });
   it("returns null when margin is NaN", () => {
     expect(marginAmountHealth(NaN, 100)).toBeNull();
+  });
+});
+
+describe("cellHealth (period-aware)", () => {
+  it("is null when there is nothing planned", () => {
+    expect(cellHealth(0, 0, "2026-07-31", "2026-08-15")).toBeNull();
+  });
+  it("is Green for an untouched FUTURE period", () => {
+    expect(cellHealth(0, 30, "2026-09-30", "2026-08-15")).toBe("G");
+  });
+  it("is Amber when a CLOSED period booked nothing against a real budget", () => {
+    expect(cellHealth(0, 30, "2026-07-31", "2026-08-15")).toBe("A");
+  });
+  // A period whose last day is today has not closed yet — there is still time
+  // left to book against it, so an empty CURRENT period is not yet a signal.
+  it("is Green for the CURRENT period (ends today) with nothing booked", () => {
+    expect(cellHealth(0, 30, "2026-08-15", "2026-08-15")).toBe("G");
+  });
+  it("otherwise defers to the consumption bands", () => {
+    expect(cellHealth(31, 30, "2026-07-31", "2026-08-15")).toBe("R");
+    expect(cellHealth(10, 30, "2026-07-31", "2026-08-15")).toBe("G");
   });
 });

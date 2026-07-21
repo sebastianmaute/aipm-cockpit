@@ -118,6 +118,28 @@ describe("ResourcesPanel", () => {
     expect(util.parentElement).not.toHaveTextContent("%");
   });
 
+  test("planning: absence field aligns on the left with the planned-utilization field", () => {
+    const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+    const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+    render(<ResourcesPanel {...baseProps} view="planning" resources={resources} plan={plan}
+      workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+      onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    const util = screen.getByLabelText("Utilization for Sample in 2026-02");
+    const abs = screen.getByLabelText("Absence override for Sample in 2026-02");
+    const cell = util.closest("td");
+    // The cell is text-right, so two bare inline-level controls get their RIGHT
+    // edges flushed. The utilization box carries a "%"/"h" suffix, making it
+    // ~8px wider, which pushed its input that far LEFT of the absence input
+    // (measured in Chromium). Both must therefore share ONE left-aligned column
+    // wrapper, so their LEFT edges line up while the group stays right-flush.
+    // jsdom has no layout engine, so this pins the structure that guarantees it.
+    const wrapper = abs.parentElement;
+    expect(wrapper).not.toBe(cell);
+    expect(wrapper?.contains(util)).toBe(true);
+    expect(wrapper?.className).toMatch(/flex-col/);
+    expect(wrapper?.className).toMatch(/items-start/);
+  });
+
   test("planning view: changing the From date calls onSetPlanWindow", () => {
     const onSetPlanWindow = vi.fn();
     const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };

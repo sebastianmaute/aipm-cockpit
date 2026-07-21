@@ -6,6 +6,7 @@ import type {
   Resource, ResourcePlan, Role,
 } from "./types";
 import { blendedDisciplineRate, effectiveRates, type RatePair } from "./budget-rates";
+import { RATIO_EPSILON } from "./budget-health";
 
 /** Plan periods whose start falls within the bucket's [startDate,endDate]. */
 export function bucketActivePeriods(bucket: Pick<BudgetBucket, "startDate" | "endDate">, plan: ResourcePlan): Period[] {
@@ -108,6 +109,15 @@ export type BucketReport = {
   contributionMargin: CciValue;
   costPerformance: CciValue;
   consumption: CciValue;
+  /** True when this bucket's budget hours ARE its planned hours (follow-plan on
+   *  and every row resourced). The Plan-vs-Budget badge is then a comparison of
+   *  a number with itself and carries no information — surfaces do not render it. */
+  budgetMirrorsPlan: boolean;
+  /** False when NO row in this bucket carries a positive internal rate, so every
+   *  internal-cost figure (cost, margin, burn) is 0 for want of a rate card
+   *  rather than because the work was free. Surfaces must render those as
+   *  unknown — a 0 cost otherwise reads as a perfect margin. */
+  costIsKnowable: boolean;
 };
 
 function pct(numerator: number, denominator: number): number | null {
@@ -180,6 +190,15 @@ export function computeBucketReport(
   // they don't rebuild the id→resource index on every cell.
   const resourcesById = new Map(resources.map((r) => [r.id, r]));
   const rows = bucketRateRows(bucket, roles);
+  // `role?.internalRate ?? 0` and a 0 bucket override are indistinguishable from
+  // a genuinely free resource, and both collapse cost to 0 — which then reads as
+  // a perfect margin. Track whether cost could actually be computed.
+  // A bucket with NO allocations is knowable, not unrated: there is no work, so
+  // a cost of 0 is the true answer. `some()` alone is vacuously false there and
+  // would tell the user to fix a rate card that is not the problem.
+  const costIsKnowable = rows.length === 0 || rows.some((r) => r.rates.internal > 0);
+  const rowsMirrorPlan =
+    budgetFollowsPlan && rows.length > 0 && rows.every((r) => r.resourceIds.length > 0);
   for (const row of rows) {
     const { internal, external } = row.rates;
     let aBudget = 0;
@@ -207,6 +226,19 @@ export function computeBucketReport(
     ? (budgetHours > 0 ? Math.min(fixedPrice, fixedPrice * (actualHours / budgetHours)) : 0)
     : tmRevenue;
 
+  // The badge is suppressed only when the two DISPLAYED figures are the same
+  // number. Row structure alone is not enough: the reported budget hours carry
+  // spilled-in hours from a closed predecessor while planned hours do not, so a
+  // follow-plan bucket receiving spillover shows two genuinely different
+  // figures — hiding the badge there would suppress real information, the exact
+  // inverse of what this flag is for. Compared with the shared band tolerance
+  // because these are the same sum in different association orders.
+  const reportedBudgetHours = budgetHours + spilloverInHours;
+  const budgetMirrorsPlan =
+    rowsMirrorPlan &&
+    Math.abs(reportedBudgetHours - plannedHours) <=
+      RATIO_EPSILON * Math.max(reportedBudgetHours, plannedHours, 1);
+
   const winLossHours = budgetHours + spilloverInHours - actualHours;
   const winLossValue = isFixed ? revenue - cost : budgetValue - consumedValue;
 
@@ -216,13 +248,18 @@ export function computeBucketReport(
   return {
     bucketId: bucket.id, name: bucket.name, currency: bucket.currency,
     type: bucket.type, status: bucket.status,
-    budgetHours: budgetHours + spilloverInHours, plannedHours, actualHours,
+    budgetHours: reportedBudgetHours, plannedHours, actualHours,
     budgetValue, consumedValue, revenue, cost, budgetCost,
     winLossHours, winLossValue,
     spilloverInHours, spilloverInValue,
     contributionMargin: { amount: revenue - cost, percent: pct(revenue - cost, revenue) },
     costPerformance: { amount: budgetCost - cost, percent: pct(budgetCost, cost) },
-    consumption: { amount: budgetValue - consumedValue, percent: consumptionPercent },
+    // The tile prints this amount directly beneath `percent`, so it must be the
+    // SAME quantity — consumed, not remaining. Remaining is already carried by
+    // win/loss.
+    consumption: { amount: consumedValue, percent: consumptionPercent },
+    budgetMirrorsPlan,
+    costIsKnowable,
   };
 }
 
@@ -239,6 +276,13 @@ export type ProjectReport = {
   contributionMargin: CciValue;
   costPerformance: CciValue;
   consumption: CciValue;
+  /** True when EVERY bucket's budget hours ARE its planned hours — see
+   *  BucketReport.budgetMirrorsPlan. */
+  budgetMirrorsPlan: boolean;
+  /** False when NOT ONE bucket carries an internal rate, making the project's
+   *  cost, margin and burn wholly unknowable — see BucketReport.costIsKnowable.
+   *  A single costable bucket keeps the rollup a real (if partial) figure. */
+  costIsKnowable: boolean;
 };
 
 export type BudgetReport = {
@@ -309,7 +353,12 @@ export function computeBudgetReport(
     winLossValue: sum((r) => r.winLossValue),
     contributionMargin: { amount: revenue - cost, percent: pct(revenue - cost, revenue) },
     costPerformance: { amount: budgetCost - cost, percent: pct(budgetCost, cost) },
-    consumption: { amount: budgetValue - consumedValue, percent: pct(consumedValue, budgetValue) },
+    // The tile prints this amount directly beneath `percent`, so it must be the
+    // SAME quantity — consumed, not remaining. Remaining is already carried by
+    // win/loss.
+    consumption: { amount: consumedValue, percent: pct(consumedValue, budgetValue) },
+    budgetMirrorsPlan: reports.length > 0 && reports.every((b) => b.budgetMirrorsPlan),
+    costIsKnowable: reports.some((b) => b.costIsKnowable),
   };
   return { buckets: reports, project };
 }
