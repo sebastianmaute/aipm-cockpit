@@ -41,6 +41,16 @@ export function blendedDisciplineRate(id: number, roles: readonly Role[]): RateP
     // cascades into revenue, consumption and T&M win/loss, which are ungated by
     // design because they are knowable without a rate card. That is its own
     // design decision, tracked separately — not an oversight.
+    //
+    // ★★ That exemption covers DILUTION ONLY. A malformed (NaN/Infinity) external
+    // still propagates into revenue, and that is also deliberate: mapping it to 0
+    // here would be strictly WORSE. The internal side can collapse to 0 safely
+    // because `uncostedWork`/`costIsKnowable` downstream catch a 0 and blank the
+    // figure; there is no `revenueIsKnowable` counterpart, so a 0 external would
+    // render as a real "earned nothing" and silently understate margin — the
+    // plausible-wrong-number class this module exists to prevent. NaN is ugly but
+    // it fails LOUDLY and cannot be mistaken for a reading. Unreachable in
+    // practice: `sanitizeRate` maps any non-finite input to 0 before persistence.
     external: sum.external / matched.length,
   };
 }
