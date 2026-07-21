@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { bucketActivePeriods, allocationPlannedHours, computeBudgetReport } from "./budget-report";
+import {
+  bucketActivePeriods, allocationPlannedHours, computeBudgetReport, computeBucketReport,
+  costIsKnowable, ratesMissing,
+} from "./budget-report";
 import type { ResourcePlan, Resource, BudgetBucket, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR" };
@@ -532,5 +535,131 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
     );
     expect(report.project.costIsKnowable).toBe(true);
     expect(report.project.contributionMargin.percent).not.toBeNull();
+  });
+});
+
+describe("computeBucketReport — costUnknownReason", () => {
+  const plan: ResourcePlan = {
+    startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR",
+  };
+  const noHolidays = new Set<string>();
+  const ratedRoles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+  const partlyPricedRoles: Role[] = [
+    { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 2, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 210 },
+  ];
+
+  function tmBucket(over: Partial<BudgetBucket> = {}): BudgetBucket {
+    return {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+      ...over,
+    };
+  }
+
+  function blendedBucket(over: Partial<BudgetBucket> = {}): BudgetBucket {
+    return {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended",
+      allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+      ],
+      ...over,
+    };
+  }
+
+  test("a fully costable bucket has no reason", () => {
+    const rep = computeBucketReport(tmBucket(), plan, ratedRoles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBeNull();
+    expect(rep.unpricedDisciplineIds).toEqual([]);
+  });
+
+  test("an empty bucket is no-rows", () => {
+    const rep = computeBucketReport(tmBucket({ allocations: [] }), plan, ratedRoles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("no-rows");
+  });
+
+  test("rows with no rate at all are no-rates", () => {
+    const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
+    const rep = computeBucketReport(tmBucket(), plan, rateless, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("no-rates");
+  });
+
+  test("hours booked at a zero rate beside a rated row are unrated-hours", () => {
+    const b = tmBucket({
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 40 } },
+      ],
+    });
+    const roles: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+    ];
+    const rep = computeBucketReport(b, plan, roles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("unrated-hours");
+  });
+
+  test("a blended bucket on a partly priced discipline is unpriced-blend and names it", () => {
+    const rep = computeBucketReport(blendedBucket(), plan, partlyPricedRoles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("unpriced-blend");
+    expect(rep.unpricedDisciplineIds).toEqual([1]);
+  });
+
+  test("a bucket internal override beats the poison — the rate card behind it is irrelevant", () => {
+    const rep = computeBucketReport(
+      blendedBucket({ rateOverrideInternal: 90 }), plan, partlyPricedRoles, [], 8, noHolidays,
+    );
+    expect(rep.costUnknownReason).toBeNull();
+    expect(rep.unpricedDisciplineIds).toEqual([]);
+    expect(rep.cost).toBe(10 * 90);
+  });
+
+  test("a ZERO override suppresses the naming variant but still reports unrated work", () => {
+    // Parity trap. `effectiveRates` treats a 0 override as usable, so the rate
+    // resolves to 0 whatever the rate card holds. Gating the poison on `> 0`
+    // would name disciplines the override has already overruled — telling the
+    // user to fix something that cannot change the outcome. The generic
+    // unrated-hours message is the honest one here.
+    const rep = computeBucketReport(
+      blendedBucket({ rateOverrideInternal: 0 }), plan, partlyPricedRoles, [], 8, noHolidays,
+    );
+    expect(rep.costUnknownReason).toBe("unrated-hours");
+    expect(rep.unpricedDisciplineIds).toEqual([]);
+  });
+
+  test("a poisoned discipline carrying NO hours does not blank a sound figure", () => {
+    // The shipped rule: an unrated row with no hours contributes nothing to cost,
+    // so it must not blank the bucket. The poison inherits that rule.
+    const b: BudgetBucket = {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended",
+      allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 2, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} },
+      ],
+    };
+    const roles: Role[] = [
+      ...partlyPricedRoles,
+      { id: 3, disciplineId: 2, gradeId: 1, internalRate: 80, externalRate: 120 },
+    ];
+    const rep = computeBucketReport(b, plan, roles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBeNull();
+    expect(rep.unpricedDisciplineIds).toEqual([]);
+  });
+
+  test("the derived helpers agree with the reason", () => {
+    const ok = computeBucketReport(tmBucket(), plan, ratedRoles, [], 8, noHolidays);
+    const empty = computeBucketReport(tmBucket({ allocations: [] }), plan, ratedRoles, [], 8, noHolidays);
+    expect(costIsKnowable(ok)).toBe(true);
+    expect(ratesMissing(ok)).toBe(false);
+    expect(costIsKnowable(empty)).toBe(false);
+    // An empty bucket has no roles to rate, so the rate card is NOT the problem.
+    expect(ratesMissing(empty)).toBe(false);
   });
 });

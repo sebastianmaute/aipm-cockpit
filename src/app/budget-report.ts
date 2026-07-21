@@ -5,7 +5,13 @@ import type {
   Absence, BudgetBucket, PlanGranularity,
   Resource, ResourcePlan, Role,
 } from "./types";
-import { blendedDisciplineRate, effectiveRates, type RatePair } from "./budget-rates";
+import {
+  blendedDisciplineRate,
+  disciplineHasUnpricedGrade,
+  effectiveRates,
+  hasInternalOverride,
+  type RatePair,
+} from "./budget-rates";
 import { RATIO_EPSILON } from "./budget-health";
 
 /** Plan periods whose start falls within the bucket's [startDate,endDate]. */
@@ -85,6 +91,38 @@ function roleFor(roleId: number, roles: readonly Role[]): Role | undefined {
  *  denominator is 0 (rendered as "-"). */
 export type CciValue = { amount: number; percent: number | null };
 
+/**
+ * Why a bucket's or project's internal-cost figures (cost, margin, burn) have no
+ * sound basis. `null` means they do.
+ *
+ * ONE field rather than a pair of booleans because there are FOUR distinct
+ * states and each needs its own message. Two booleans encoded three states and
+ * left the surface to INFER which message applied — that inference is what put
+ * "set them on the rate card" on a bucket that has no roles at all.
+ */
+export type CostUnknownReason =
+  /** No allocations at all — nothing to cost, and no rate card to fix. */
+  | "no-rows"
+  /** Rows exist but not one carries an internal rate. */
+  | "no-rates"
+  /** Some row books hours at a zero rate: those hours land in cost as 0, so the
+   *  figure is not unknown but WRONG. */
+  | "unrated-hours"
+  /** A blended row's discipline has unpriced grades, so its mean is unknowable.
+   *  A refinement of `unrated-hours` that can name the disciplines to fix. */
+  | "unpriced-blend";
+
+/** The cost figures have a sound basis. */
+export function costIsKnowable(r: { costUnknownReason: CostUnknownReason | null }): boolean {
+  return r.costUnknownReason === null;
+}
+
+/** A rate really is missing, so pointing the user at the rate card is right
+ *  guidance. Every reason but `no-rows`, which has no roles to rate. */
+export function ratesMissing(r: { costUnknownReason: CostUnknownReason | null }): boolean {
+  return r.costUnknownReason !== null && r.costUnknownReason !== "no-rows";
+}
+
 export type BucketReport = {
   bucketId: number;
   name: string;
@@ -123,6 +161,12 @@ export type BucketReport = {
    *  some row books hours at none. An empty bucket is false: it has no roles to
    *  rate, so that guidance would point at the wrong problem. */
   ratesAreMissing: boolean;
+  /** Why the cost figures are unknowable, or null when they are sound. Single
+   *  source for which message a surface renders. */
+  costUnknownReason: CostUnknownReason | null;
+  /** Disciplines with unpriced grades that carry hours here. Non-empty only when
+   *  the reason is "unpriced-blend"; surfaces resolve the names. */
+  unpricedDisciplineIds: number[];
 };
 
 function pct(numerator: number, denominator: number): number | null {
@@ -135,17 +179,32 @@ export type RateRow = {
   budgetHours: Record<string, number>;
   actualHours: Record<string, number>;
   resourceIds: readonly number[];
+  /** Set ONLY on a blended row whose discipline has unpriced grades and whose
+   *  bucket does not override the internal rate. Drives the named message. */
+  unpricedBlendDisciplineId?: number;
 };
 
 /** Uniform rate-bearing rows for a bucket: from disciplineAllocations (blended)
  *  or allocations (detailed). Each row's rate honors the per-bucket override. */
 export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): RateRow[] {
   if (bucket.planningMode === "blended") {
+    // An internal override wins over the blend, so it also clears the poison:
+    // a bucket that overrides does not care what the rate card holds.
+    //
+    // ★★ Parity with `effectiveRates` is load-bearing. It treats a 0 override as
+    // usable, so gating this on `> 0` instead would diverge: the bucket would be
+    // told to price disciplines its own override has already overruled. A 0
+    // override resolves to a 0 rate and is caught below as unrated work, which
+    // is the honest signal — only the discipline-NAMING variant is suppressed,
+    // and suppressing it there is correct because naming them would misdirect.
+    const overridden = hasInternalOverride(bucket);
     return (bucket.disciplineAllocations ?? []).map((a) => ({
       rates: effectiveRates(bucket, blendedDisciplineRate(a.disciplineId, roles)),
       budgetHours: a.budgetHours,
       actualHours: a.actualHours,
       resourceIds: a.resourceIds,
+      unpricedBlendDisciplineId:
+        !overridden && disciplineHasUnpricedGrade(a.disciplineId, roles) ? a.disciplineId : undefined,
     }));
   }
   return bucket.allocations.map((a) => {
@@ -222,6 +281,10 @@ export function computeBucketReport(
   // sound 100% margin. An unrated row with no hours contributes nothing and
   // must NOT blank an otherwise sound figure.
   let uncostedWork = false;
+  // Disciplines whose poisoned blend actually carries hours. Gated on hours by
+  // the SAME rule as `uncostedWork`: a row with no hours contributes nothing to
+  // cost, so it must not blank an otherwise sound figure.
+  const unpricedDisciplineIds: number[] = [];
   for (const row of rows) {
     const { internal, external } = row.rates;
     let aBudget = 0;
@@ -230,7 +293,10 @@ export function computeBucketReport(
       aBudget += effectiveBudgetHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById);
       plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, resourcesById);
     }
-    if (internal <= 0 && (aActual !== 0 || aBudget !== 0)) uncostedWork = true;
+    if (internal <= 0 && (aActual !== 0 || aBudget !== 0)) {
+      uncostedWork = true;
+      if (row.unpricedBlendDisciplineId != null) unpricedDisciplineIds.push(row.unpricedBlendDisciplineId);
+    }
     budgetHours += aBudget;
     actualHours += aActual;
     cost += aActual * internal;
@@ -243,6 +309,25 @@ export function computeBucketReport(
   // The notice fires for a partly-rated bucket too: a rate really is missing
   // there, and it is the actionable half of the message.
   const ratesAreMissing = rows.length > 0 && (!hasRatedRow || uncostedWork);
+  // Order is a derivation order of mutually exclusive checks, not a ranking.
+  // `unpriced-blend` MUST precede `no-rates`: a poisoned blend also makes its row
+  // unrated, so testing `no-rates` first would mean the better, discipline-naming
+  // message is never reached.
+  //
+  // ★★ `no-rates` is additionally gated on the bucket NOT overriding the internal
+  // rate. A 0 override zeroes every row, so `hasRatedRow` goes false and the
+  // bucket reads as "nobody has priced anything" — pointing the user at a rate
+  // card that its own override has already overruled. That is the same
+  // misdirection the discipline-naming suppression above exists to prevent, one
+  // arm further down; a positive override can never reach here (every row is
+  // then rated), so this fires ONLY for a 0 override. The generic
+  // `unrated-hours` below is the honest message for it.
+  const costUnknownReason: CostUnknownReason | null =
+    rows.length === 0 ? "no-rows"
+    : unpricedDisciplineIds.length > 0 ? "unpriced-blend"
+    : !hasRatedRow && !hasInternalOverride(bucket) ? "no-rates"
+    : uncostedWork ? "unrated-hours"
+    : null;
 
   const isFixed = bucket.type === "fixed";
   const fixedPrice = bucket.fixedPriceAmount ?? 0;
@@ -290,6 +375,8 @@ export function computeBucketReport(
     budgetMirrorsPlan,
     costIsKnowable,
     ratesAreMissing,
+    costUnknownReason,
+    unpricedDisciplineIds,
   };
 }
 
