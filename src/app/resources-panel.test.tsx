@@ -4,6 +4,7 @@ import { describe, test, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
 import { t } from "./i18n";
+import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, Task } from "./types";
 
 const resources: Resource[] = [
@@ -323,6 +324,136 @@ describe("ResourcesPanel", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
     expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
     expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
+  });
+
+  // Workload lists the same people as planning but had no way to drop
+  // contractors, so a team with many externals could not be read at a glance.
+  //
+  // ★★ The external MUST own work here. `buildResourceWorkload` builds its
+  // managed/name lookups from the `resources` argument ALONE, so filtering that
+  // argument does not hide the external — it makes their tasks miss both
+  // lookups and fall through to `ensureUnlinked`, re-rendering them under
+  // "Unlinked", whose "Clear unlinked" control DELETES matching absences and
+  // shifts outright. With a work-less fixture nothing reaches that path and the
+  // test passes for the wrong reason.
+  test("toggling 'Hide external' hides the external entirely — never as an unlinked row", () => {
+    const resources = [
+      { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} },
+      { id: 2, firstName: "Bob", lastName: "Ext", roleId: null, isExternal: true, utilizationMode: "percent" as const, utilization: {} },
+    ];
+    const tasks = [
+      { id: 1, title: "Ext work", assignee: "Bob Ext", resourceId: 2, status: "To Do" as const },
+      { id: 2, title: "Int work", assignee: "Alex Example", resourceId: 1, status: "To Do" as const },
+    ] as unknown as Task[];
+    render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} tasks={tasks} />);
+    expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
+    expect(screen.getByText(/Bob Ext/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    expect(screen.getByText(/Alex Example/)).toBeInTheDocument();
+    // Absent from the WHOLE pane — not merely moved into the Unlinked section.
+    expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
+  });
+
+  // The count sits beside the toggle, so a static count reads as a bug even
+  // though the mismatch predates the toggle.
+  test("the workload header count tracks the Hide-external toggle", () => {
+    const resources = [
+      { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} },
+      { id: 2, firstName: "Bob", lastName: "Ext", roleId: null, isExternal: true, utilizationMode: "percent" as const, utilization: {} },
+    ];
+    render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} />);
+    const heading = () => screen.getByRole("heading", { name: /workload/i });
+    expect(heading().textContent).toContain(t("en-US", "tasksCount", 2));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    expect(heading().textContent).toContain(t("en-US", "tasksCount", 1));
+  });
+
+  // ★ DELIBERATE, pinned so it stays a decision rather than drifting: hiding
+  // externals is a DISPLAY filter, so it must not narrow the reassign picker's
+  // target list. A display toggle silently removing valid assignment targets is
+  // the same class of bug as the filtered list that fed buildResourceWorkload —
+  // and the full list is what keeps `resources` complete for that builder.
+  test("'Hide external' does not remove externals as reassign targets", () => {
+    const resources = [
+      { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent" as const, utilization: {} },
+      { id: 2, firstName: "Bob", lastName: "Ext", roleId: null, isExternal: true, utilizationMode: "percent" as const, utilization: {} },
+    ];
+    // An OVERDUE task renders the triage row that carries the reassign picker.
+    const tasks = [
+      { id: 1, title: "Late work", assignee: "Alex Example", resourceId: 1, dueDate: "2026-01-01", status: "To Do" as const },
+    ] as unknown as Task[];
+    render(<ResourcesPanel {...baseProps} view="workload" lang="en-US" resources={resources} tasks={tasks} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "planningHideExternal") }));
+    // Bob is gone from the ROWS…
+    expect(screen.queryByText(/Bob Ext/)).not.toBeInTheDocument();
+    // …but is still offered as a reassign target. The picker lives in a popover
+    // opened from the row's overdue count.
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "workloadTriageOverdue")} – Alex Example` }),
+    );
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("Bob Ext");
+  });
+
+  // The same toggle element now renders in two views. Only one view mounts at a
+  // time, so its accessible name must never collide — two controls sharing one
+  // name in a scanned view is a WCAG 2.4.6 failure that axe can pass when only
+  // one of them happens to render.
+  test.each(["workload", "planning"] as const)(
+    "renders exactly one 'Hide external' checkbox in the %s view",
+    (view) => {
+      const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+      render(
+        <ResourcesPanel {...baseProps} view={view} lang="en-US" plan={plan}
+          workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+          onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+      );
+      expect(screen.getAllByRole("checkbox", { name: t("en-US", "planningHideExternal") })).toHaveLength(1);
+    },
+  );
+
+  // The Outlook sync block sat BETWEEN reset-columns and reset-size, splitting
+  // a trailing group that reads as one everywhere else in the app.
+  // ★ `headerActions` is ONE element shared by all three views, so each view is
+  // covered separately: planning swaps in a different reset-columns handler and
+  // calendar drops reset-columns entirely while adding the Outlook-import
+  // button ahead of the group.
+  const PLAN = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  const calendarProps = {
+    m365Configured: true, calendarEnabled: true,
+    onToggleCalendar: () => {}, onPushCalendar: () => {},
+  };
+
+  test.each(["workload", "planning"] as const)(
+    "keeps Print / reset-columns / reset-size contiguous after the Outlook controls — %s",
+    (view) => {
+      render(
+        <ResourcesPanel {...baseProps} view={view} lang="en-US" plan={PLAN} {...calendarProps}
+          workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+          onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+      );
+      // Outlook only has to come BEFORE the group…
+      expectButtonOrder(["calendarPush", "printHint"]);
+      // …but the group itself must be ADJACENT — ordering alone would still pass
+      // with a stray control wedged between two of its members, which is the
+      // exact drift this test exists to catch.
+      expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
+    },
+  );
+
+  // Calendar renders NO reset-columns button, and its Outlook-import button
+  // leads the whole group.
+  test("orders the calendar control row: import, Outlook push, Print, reset-size", () => {
+    render(
+      <ResourcesPanel {...baseProps} view="calendar" lang="en-US" plan={PLAN} {...calendarProps}
+        onImportOutlookCalendar={() => {}}
+        workdayHours={8} holidaySet={new Set()} onSetUtilization={() => {}}
+        onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />,
+    );
+    expectButtonOrder(["outlookCalImportButton", "calendarPush", "printHint"]);
+    // Calendar's trailing group is just Print · reset-size (no reset-columns).
+    expectButtonOrder(["printHint", "tableResetSizeHint"], { contiguous: true });
+    expect(screen.queryByRole("button", { name: t("en-US", "colResetWidthsHint") })).toBeNull();
   });
 
   test("A2: absence override input uses text-sm (not text-[10px])", () => {

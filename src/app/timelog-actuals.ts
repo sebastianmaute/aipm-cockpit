@@ -4,7 +4,20 @@ import { periodKeyForDate } from "./resource-capacity";
 import type { TimelogTimeItem, TimelogLinks } from "./timelog-types";
 
 export type HourCell = { hours: number; billableHours: number };
-export type ActualsByBucket = Record<number, Record<string, HourCell>>;
+/** A bucket·period total PLUS the per-resource breakdown that produced it.
+ *  The breakdown is what lets apply attribute hours to the right role line —
+ *  without it apply can only guess, and it guessed allocations[0], costing
+ *  every person at the first role's rate. Structural SUPERSET of HourCell, so
+ *  readers of `.hours`/`.billableHours` (the overlay display) are unchanged.
+ *  Invariant: the breakdown sums to the total (pinned by a test).
+ *
+ *  OPTIONAL on purpose: the actuals cache (`aipm-cockpit:timelog-actuals`) is
+ *  persisted per-device and its guard only shallow-checks `aggregates`, so an
+ *  entry written before this field existed deserializes without it. Aggregation
+ *  always writes it; readers must tolerate its absence (apply treats those hours
+ *  as unattributable and surfaces them rather than guessing). */
+export type BucketPeriodCell = HourCell & { byResource?: Record<number, HourCell> };
+export type ActualsByBucket = Record<number, Record<string, BucketPeriodCell>>;
 export type ActualsByResource = Record<number, HourCell>;
 export type ActualsAggregate = {
   byBucket: ActualsByBucket;
@@ -42,7 +55,13 @@ export function aggregateActuals(
     byResource[resourceId] = add(byResource[resourceId], it);
     const pk = periodKeyForDate(it.date, granularity);
     byBucket[bucketId] ??= {};
-    byBucket[bucketId][pk] = add(byBucket[bucketId][pk], it);
+    const cur = byBucket[bucketId][pk];
+    // Keep the resource dimension ON the cell. It was computed above and then
+    // discarded here, which is where per-role attribution became impossible.
+    byBucket[bucketId][pk] = {
+      ...add(cur, it),
+      byResource: { ...cur?.byResource, [resourceId]: add(cur?.byResource?.[resourceId], it) },
+    };
   }
   return { byBucket, byResource, unattributed };
 }

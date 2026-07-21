@@ -77,6 +77,14 @@ interface Props {
     startColResize: (col: WorkloadCol, e: React.MouseEvent) => void;
     resetColWidths: () => void;
   };
+  /** Drop external resources from the managed rows (display filter).
+   *  ★★ This MUST filter the BUILT rows, never `resources` on the way in:
+   *  `buildResourceWorkload` derives its id/name lookups from that argument
+   *  alone, so a withheld resource does not vanish — its tasks miss both
+   *  lookups and land in `unlinked`, whose "Clear unlinked" DELETES matching
+   *  absences and shifts. `resources` must stay complete for that reason and
+   *  because it is also the reassign-picker's target list. */
+  hideExternal?: boolean;
 }
 
 export function ResourceWorkload({
@@ -100,10 +108,18 @@ export function ResourceWorkload({
   onReassignTask,
   onRescheduleTask,
   colResize,
+  hideExternal,
 }: Props) {
-  const { managed, unlinked } = useMemo(
+  const { managed: allManaged, unlinked } = useMemo(
     () => buildResourceWorkload(resources, tasks, absences, shifts, raid, today),
     [resources, tasks, absences, shifts, raid, today],
+  );
+  // Post-filter (see the `hideExternal` prop note): the builder always sees the
+  // complete directory, so an external stays MATCHED — hidden here, never
+  // re-surfaced as an unlinked row.
+  const managed = useMemo(
+    () => (hideExternal ? allManaged.filter((r) => !r.resource.isExternal) : allManaged),
+    [allManaged, hideExternal],
   );
   const confirm = useConfirm();
 

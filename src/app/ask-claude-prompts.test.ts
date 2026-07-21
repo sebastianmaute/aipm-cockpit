@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import {
   promptsForView,
   FOUNDATIONAL_PROMPTS,
+  CHAT_ONLY_PROMPTS,
   ASK_CLAUDE_PROMPTS,
   type PromptDef,
 } from "./ask-claude-prompts";
@@ -25,9 +26,22 @@ describe("ask-claude-prompts", () => {
     expect(general).toEqual(FOUNDATIONAL_PROMPTS);
   });
 
+  // The header menu has no attach affordance, so a prompt that asks Claude to
+  // read an attachment is dead there. Chat can attach, so the prompt lives on
+  // as a chat-only chip rather than being deleted outright.
+  it("omits the attachment prompt from the menu's general set", () => {
+    const { general } = promptsForView("settings");
+    expect(general.some((p) => p.labelKey === "aiPromptProcessAttachmentLabel")).toBe(false);
+  });
+
+  it("keeps the attachment prompt for the chat surface", () => {
+    expect(CHAT_ONLY_PROMPTS.some((p) => p.labelKey === "aiPromptProcessAttachmentLabel")).toBe(true);
+  });
+
   it("every label/body key resolves in EN and DE (no missing keys)", () => {
     const all: PromptDef[] = [
       ...FOUNDATIONAL_PROMPTS,
+      ...CHAT_ONLY_PROMPTS,
       ...Object.values(ASK_CLAUDE_PROMPTS).flat().filter(Boolean) as PromptDef[],
     ];
     for (const def of all) {

@@ -253,6 +253,12 @@ Fix: Same as Outlook import — enable M365 in Settings → Integrations and con
 Cause: Database URL is malformed, auth token is invalid, or scoped to a different database.
 Fix: Verify the Database URL and Auth token in Settings → Integrations. Test the credentials in Turso console. Ensure the token has read/write permission on the target database.
 
+**Use the URL exactly as `turso db show <db>` prints it.** A region-qualified
+host (`<db>-<org>.aws-eu-west-1.turso.io`) is valid and officially issued — do
+**not** strip the region segment. Up to 0.193.x, Settings showed a warning
+advising exactly that; the advice was wrong and the warning was removed in
+0.194.0. If a support note or runbook copy still says otherwise, disregard it.
+
 ### "Timelog sync is slow / hangs on a large fetch"
 All Timelog reads go through the same-origin `/api/timelog` proxy
 (SSRF-guarded; per-IP rate limit of 60 requests/min on its own `"timelog"`

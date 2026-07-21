@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.193.0";
-export const APP_BUILD_DATE = "2026-07-20"; // 0.193.0: insights → action loop SP4 — rolling 7-day digest card (fired/acted/wins/regressions/open) + a user-settable background recommendation cadence, default 60 min (Strugatsky)
+export const APP_VERSION = "0.194.0";
+export const APP_BUILD_DATE = "2026-07-21"; // 0.194.0: correctness batch — per-role Timelog actuals attribution, truthful digest-email reporting, ResourcePicker ✕ clears the whole field, self-healing orphaned Open-Points filters, plus a ten-item UI batch (Stapledon)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.193.x line is "Strugatsky" (Arkady & Boris Strugatsky, science-fiction authors). */
-export const APP_MILESTONE = "Strugatsky";
+ *  0.194.x line is "Stapledon" (Olaf Stapledon, science-fiction author). */
+export const APP_MILESTONE = "Stapledon";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

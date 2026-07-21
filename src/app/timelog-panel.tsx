@@ -17,7 +17,9 @@ import { TimelogCustomerScope } from "./timelog-customer-scope";
 import { TimelogProjectScope } from "./timelog-project-scope";
 import { useRowSelection } from "./use-row-selection";
 import { Modal } from "./modal";
-import { planApply, applyActualsToBuckets, bucketsMissingAllocations } from "./timelog-apply";
+import { buildApplyPlan, applyActualsToBuckets, bucketsMissingAllocations, describeApplyRows } from "./timelog-apply";
+import { TimelogApplyConfirm } from "./timelog-apply-confirm";
+import { TimelogPeopleTable } from "./timelog-people-table";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { defaultTimelogConfig, type TimelogLinks } from "./timelog-types";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -29,7 +31,7 @@ import { DataTable } from "./data-table";
 import { Tile } from "./report-table";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
+import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { Checkbox, Input, Select } from "./form-controls";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
@@ -63,6 +65,10 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const timelogLinks = ws.timelogLinks;
   const budgets = ws.budgets;
   const resources = ws.resources;
+  // Needed to attribute booked hours to the right role/discipline line.
+  const roles = ws.roles;
+  const disciplines = ws.disciplines;
+  const grades = ws.grades;
   const planGranularity = ws.plan?.granularity ?? "month";
 
   // Only INTERNAL resources are linkable to TimeLog people — external resources
@@ -142,7 +148,9 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   }
 
   async function clearAllFetched() {
-    if (isPopout) return;
+    // `confirming` mirrors the button's disabled state (the disabled+early-return
+    // convention used for isPopout) so an open confirm keeps its snapshot.
+    if (isPopout || confirming) return;
     if (!(await confirm({ message: t(lang, "timelogClearAllConfirm") }))) return;
     sync.clearAll();
     sel.clear();
@@ -229,14 +237,40 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   const billablePct = bookedHours > 0 ? Math.round((billableHours / bookedHours) * 100) : 0;
 
   // Apply-to-budget diff
-  // `pendingApply` is snapshotted at confirm-open time so the shown diff count
-  // and the actually-applied overlay are always the same value (TOCTOU guard).
+  // `pendingApply` is snapshotted at confirm-open so the ROWS the user reviews
+  // are the rows written — the dialog itemizes every line it overwrites, so a
+  // late re-fetch must not swap them (TOCTOU). Fetch/Clear-all disabled too.
   const [confirming, setConfirming] = useState(false);
   const [pendingApply, setPendingApply] = useState<import("./timelog-actuals").ActualsByBucket | null>(null);
+  /** Budget baseline frozen at confirm-open — see the applyPlan memo. */
+  const [pendingBudgets, setPendingBudgets] = useState<typeof budgets | null>(null);
 
-  const applyDiff = useMemo(
-    () => (pendingApply ? planApply(budgets, pendingApply) : overlay ? planApply(budgets, overlay) : []),
-    [pendingApply, overlay, budgets],
+  // ONE pass yields both the diff rows and the unmatched set — two entry points
+  // routed every bucket twice per render. An empty overlay yields neither, so
+  // the null cases collapse into the call. While confirming this reads the
+  // pendingApply SNAPSHOT, so the notice describes the same hours the diff does
+  // (Fetch is disabled mid-confirm, so they cannot diverge anyway).
+  // matchableResources, NOT resources: an external is capacity-only and excluded
+  // from ALL cost figures, but autoMatchUsers passes MANUAL links through
+  // unconditionally, so a hand-linked external does reach byResource. Handing
+  // apply the full directory would resolve their roleId and let budget-report
+  // cost their hours at that role's internal rate. Absent from this list they
+  // route to nothing → withheld and surfaced, which is the documented rule.
+  // pendingBudgets freezes the BASELINE the preview was computed against, the
+  // same way pendingApply freezes the overlay. Without it the dialog's
+  // "current →" values are read from live `budgets` while the write happens
+  // later, so a background load (broadcast sync / project reload) between
+  // confirm-open and Apply would overwrite figures the user never saw.
+  const applyPlan = useMemo(
+    () => buildApplyPlan(pendingBudgets ?? budgets, pendingApply ?? overlay ?? {}, matchableResources, roles),
+    [pendingApply, pendingBudgets, overlay, budgets, matchableResources, roles],
+  );
+  const applyDiff = applyPlan.rows;
+  // Named rows for the confirm dialog — a bare count hid that apply can zero a
+  // hand-entered actualHours cell on a line TimeLog never routed to.
+  const applyDiffLabels = useMemo(
+    () => describeApplyRows(applyDiff, budgets, roles, disciplines, grades),
+    [applyDiff, budgets, roles, disciplines, grades],
   );
 
   // Buckets that have booked hours but no role/discipline line to hold them —
@@ -247,22 +281,42 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
     [overlay, budgets],
   );
 
+  // Buckets WITH role lines where some hours match none of them (unlinked
+  // person, no directory role, or a role with no line here). Those hours are
+  // withheld rather than costed at another role's rate, so say so.
+  const unmatchedApplyBuckets = applyPlan.unmatchedBuckets;
+
   function openConfirm() {
     if (!overlay) return;
     setPendingApply(overlay);
+    setPendingBudgets(budgets);
     setConfirming(true);
   }
 
   function applyToBudget() {
     if (!pendingApply) return;
-    ws.setBudgets((prev) => applyActualsToBuckets(prev, pendingApply));
+    // The write stays a FUNCTIONAL updater against live `prev` — applying the
+    // frozen snapshot instead would silently discard any concurrent change.
+    // But then a drifted baseline means the itemised diff the user approved is
+    // no longer the diff that would be written, and these are hand-editable
+    // money figures — so refuse and make them re-review rather than write it.
+    if (pendingBudgets && ws.budgets !== pendingBudgets) {
+      showToast("error", t(lang, "timelogApplyStale"));
+      cancelConfirm();
+      return;
+    }
+    // matchableResources for the same reason as the plan memo above — the
+    // preview and the write must resolve people identically.
+    ws.setBudgets((prev) => applyActualsToBuckets(prev, pendingApply, matchableResources, roles));
     setConfirming(false);
     setPendingApply(null);
+    setPendingBudgets(null);
   }
 
   function cancelConfirm() {
     setConfirming(false);
     setPendingApply(null);
+    setPendingBudgets(null);
   }
 
   // new Date() lives in these callbacks (never in render). Two-step fetch:
@@ -422,7 +476,7 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
   // derived from who booked on them. Persists customer + project scope so the
   // selection survives a reload.
   async function handleFetchBookings() {
-    if (isPopout || sync.busy || projectCustomerId === "" || selectedProjectIds.size === 0) return;
+    if (isPopout || sync.busy || confirming || projectCustomerId === "" || selectedProjectIds.size === 0) return;
     const { start, end } = fetchWindow();
     const cid = Number(projectCustomerId);
     const ids = [...selectedProjectIds];
@@ -666,121 +720,19 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
                 only needs horizontal scroll for the wide table. Collapsing the
                 whole People section (heading toggle) is how a big org directory
                 is kept from burying Projects. */}
-            <div className="overflow-x-auto">
-              <DataTable className="w-full text-sm" head={<>
-                  <tr>
-                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.select, minWidth: colWidths.select }}>
-                      <Checkbox
-                        aria-label={t(lang, "selectAllVisibleRows")}
-                        disabled={isPopout}
-                        checked={sel.allSelected(visibleFilteredIds)}
-                        onChange={() => sel.toggleAllVisible(visibleFilteredIds)}
-                        className="align-middle"
-                      />
-                      <ColumnResizeHandle col="select" onMouseDown={startColResize} />
-                    </th>
-                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.people, minWidth: colWidths.people }}>
-                      {t(lang, "timelogMatchPeople")}
-                      <ColumnResizeHandle col="people" onMouseDown={startColResize} />
-                    </th>
-                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.resources, minWidth: colWidths.resources }}>
-                      {t(lang, "tabResources")}
-                      <ColumnResizeHandle col="resources" onMouseDown={startColResize} />
-                    </th>
-                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.status, minWidth: colWidths.status }}>
-                      {t(lang, "status")}
-                      <ColumnResizeHandle col="status" onMouseDown={startColResize} />
-                    </th>
-                    <th scope="col" className="relative px-2 py-1 text-left" style={{ width: colWidths.clear, minWidth: colWidths.clear }}>
-                      {t(lang, "timelogMatchClear")}
-                      <ColumnResizeHandle col="clear" onMouseDown={startColResize} />
-                    </th>
-                    <th scope="col" className="px-2 py-1 text-left" style={{ width: colWidths.remove, minWidth: colWidths.remove }}>
-                      {t(lang, "remove")}
-                    </th>
-                  </tr>
-              </>}>
-                  {filteredUsers.map((u) => {
-                    const link = effectiveUserLinks.find((l) => l.timelogUserId === u.userId);
-                    const displayId = u.email || String(u.userId);
-                    const selectLabel = `${t(lang, "timelogMatchPeople")} – ${displayId}`;
-                    const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
-                    const rowSelectLabel = t(lang, "selectItem", displayId);
-                    const removeLabel = `${t(lang, "remove")} – ${displayId}`;
-                    return (
-                      <tr key={u.userId} className="border-b border-line last:border-0">
-                        <td className="py-2 pr-2">
-                          <Checkbox
-                            aria-label={rowSelectLabel}
-                            disabled={isPopout}
-                            checked={sel.isSelected(u.userId)}
-                            onChange={() => sel.toggle(u.userId)}
-                            className="align-middle"
-                          />
-                        </td>
-                        <td className="py-2 pr-3 text-foreground">
-                          {u.firstName} {u.lastName}
-                          {u.email && (
-                            <span className="ml-1 text-xs text-muted-foreground">{u.email}</span>
-                          )}
-                        </td>
-                        <td className="py-2 pr-2">
-                          <Select
-                            size="xs"
-                            aria-label={selectLabel}
-                            value={link?.resourceId ?? ""}
-                            disabled={isPopout}
-                            onChange={(e) =>
-                              manualLinkUser(
-                                u.userId,
-                                e.target.value === "" ? null : Number(e.target.value),
-                              )
-                            }
-                          >
-                            <option value="">{t(lang, "timelogMatchNone")}</option>
-                            {matchableResources.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {r.firstName} {r.lastName}
-                              </option>
-                            ))}
-                          </Select>
-                        </td>
-                        <td className="py-2 pr-2">
-                          {link && (
-                            <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted-foreground">
-                              {t(lang, link.manual ? "timelogMatchManual" : "timelogMatchAuto")}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 pr-2">
-                          {link && (
-                            <button
-                              type="button"
-                              aria-label={clearLabel}
-                              disabled={isPopout}
-                              onClick={() => manualLinkUser(u.userId, null)}
-                              className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
-                            >
-                              {t(lang, "timelogMatchClear")}
-                            </button>
-                          )}
-                        </td>
-                        <td className="py-2">
-                          <button
-                            type="button"
-                            aria-label={removeLabel}
-                            disabled={isPopout}
-                            onClick={() => removeUsers([u.userId])}
-                            className={`rounded border border-line px-2 py-0.5 text-xs text-ui-pink-strong ${INTERACTIVE}`}
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </DataTable>
-            </div>
+            <TimelogPeopleTable
+              lang={lang}
+              isPopout={isPopout}
+              colWidths={colWidths}
+              startColResize={startColResize}
+              sel={sel}
+              visibleFilteredIds={visibleFilteredIds}
+              filteredUsers={filteredUsers}
+              effectiveUserLinks={effectiveUserLinks}
+              matchableResources={matchableResources}
+              manualLinkUser={manualLinkUser}
+              removeUsers={removeUsers}
+            />
           </>
         )}
         </div>
@@ -891,6 +843,16 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           {t(lang, "timelogApplyNoAllocation", String(skippedApplyBuckets.length))}
         </p>
       )}
+      {unmatchedApplyBuckets.length > 0 && (
+        <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground print:hidden">
+          {/* Gated on the bucket LIST, not the hour total: a +40/-40 credit
+              correction nets to zero while hours are still withheld. */}
+          {/* 1dp, not Math.round: a net of -0.4 rounded to "0 hours withheld",
+              so the notice contradicted itself. Trailing ".0" is trimmed. */}
+          {t(lang, "timelogApplyUnmatched", String(unmatchedApplyBuckets.length),
+             applyPlan.unmatchedHours.toFixed(1).replace(/\.0$/, ""))}
+        </p>
+      )}
       {!confirming ? (
         <button
           type="button"
@@ -901,25 +863,12 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
           {t(lang, "timelogApply")}
         </button>
       ) : (
-        <div className="flex items-center gap-3 rounded-md border border-line bg-surface-muted px-3 py-2 print:hidden">
-          <p className="text-sm text-foreground">
-            {t(lang, "timelogApplyConfirm", String(applyDiff.length))}
-          </p>
-          <button
-            type="button"
-            onClick={applyToBudget}
-            className={`rounded-md border border-line px-3 py-1 text-sm font-medium text-foreground ${INTERACTIVE}`}
-          >
-            {t(lang, "timelogApply")}
-          </button>
-          <button
-            type="button"
-            onClick={cancelConfirm}
-            className={`rounded-md border border-line px-3 py-1 text-sm text-muted-foreground ${INTERACTIVE}`}
-          >
-            {t(lang, "cancel")}
-          </button>
-        </div>
+        <TimelogApplyConfirm
+          lang={lang}
+          rows={applyDiffLabels}
+          onApply={applyToBudget}
+          onCancel={cancelConfirm}
+        />
       )}
       </div>
 

@@ -221,6 +221,7 @@ export const de: Record<TranslationKey, string> = {
 
   edit: "Bearbeiten",
   clear: "Leeren",
+  close: "Schließen",
   loading: "Wird geladen…",
   modalResetSize: "Dialoggröße zurücksetzen",
   diagnosticsTitle: "Diagnose",
@@ -987,6 +988,8 @@ export const de: Record<TranslationKey, string> = {
   digestEmail: "Zusammenfassung per E-Mail",
   digestNotifyTitle: "Wöchentliche Zusammenfassung bereit",
   digestEmailFailed: "Zusammenfassung konnte nicht per E-Mail gesendet werden.",
+  digestEmailSent: "Zusammenfassung per E-Mail gesendet.",
+  digestEmailNoAccess: "Melden Sie sich bei Microsoft 365 an, um die Zusammenfassung zu senden.",
   digestEnableLabel: "Wöchentliche Statuszusammenfassung",
   digestCadenceLabel: "Häufigkeit der Zusammenfassung",
   digestCadenceWeekly: "Wöchentlich",
@@ -1263,6 +1266,7 @@ export const de: Record<TranslationKey, string> = {
   contactsRemove: "Diesen Kontakt vergessen",
   allGroups: "Alle Gruppen",
   groupNone: "Ohne Gruppe",
+  assigneeNone: "Ohne Zuweisung",
   allLabels: "Alle Labels",
   allHealth: "Alle Ampeln",
   healthFilterLabel: "Ampel",
@@ -1406,6 +1410,10 @@ export const de: Record<TranslationKey, string> = {
   timelogApplyConfirm: "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?",
   timelogApplyNoAllocation:
     "Gebuchte Stunden können für {0} verknüpfte(n) Bucket(s) nicht übernommen werden: keine Rollen- oder Disziplinzeile vorhanden. Fügen Sie zuerst in der Budget-Ansicht eine Rolle hinzu.",
+  timelogApplyUnmatched:
+    "Einige gebuchte Stunden in {0} Bucket(s) konnten keiner Rollenzeile zugeordnet werden. {1} Stunden wurden nicht übernommen, die vorhandenen Werte bleiben unverändert — diese Buckets weisen entsprechend zu wenig aus. Verknüpfen Sie die Person mit einer Ressource, setzen Sie deren Rolle im Verzeichnis, fügen Sie die Rolle dem Bucket hinzu — oder laden Sie die Buchungen erneut, falls sie aus einer älteren Version stammen.",
+  timelogApplyStale:
+    "Das Budget hat sich geändert, während diese Vorschau geöffnet war, und stimmt nicht mehr mit dem überein, was geschrieben würde. Bitte prüfen Sie die Änderungen erneut.",
   timelogKpiBooked: "Gebuchte Stunden",
   timelogKpiBillable: "Abrechenbar %",
   timelogKpiWinLoss: "Gewinn/Verlust (Stunden)",
@@ -1631,7 +1639,7 @@ export const de: Record<TranslationKey, string> = {
   resourcesAddAsResource: "Als Ressource hinzufügen",
   resourcePickerAddAsResource: "+ „{0}“ als Ressource hinzufügen",
   resourcePickerLinked: "Mit einer Ressource verknüpft",
-  resourcePickerUnlink: "Verknüpfung aufheben",
+  resourcePickerDangling: "Verknüpfte Ressource existiert nicht mehr",
   resourcePickerResourcesGroup: "Ressourcen",
   resourcePickerRecentGroup: "Zuletzt verwendet",
 
@@ -1952,7 +1960,6 @@ export const de: Record<TranslationKey, string> = {
   calendarSyncAuto: "Automatisch synchron halten",
   integrationsTursoTooltip: "Workspace in einer Turso-(libSQL-)Datenbank speichern.",
   integrationsTursoUrlTooltip: "Cloud-Datenbank: die libsql://-URL (oder https://) aus `turso db show <db>` verwenden. Lokaler/selbst gehosteter Server: http:// nur auf localhost (127.0.0.1/::1), ganz ohne Token.",
-  tursoUrlRegionWarning: "Dies sieht nach einem regionsspezifischen Host aus (z. B. .aws-eu-west-1.turso.io). Turso lehnt ihn meist mit „no route configured for host“ ab. Verwenden Sie die routbare URL aus `turso db show <db>` (ohne Regionssegment).",
   integrationsTursoTokenTooltip: "Auth-Token für die Turso-Datenbank. Für einen lokalen Server ohne Token leer lassen.",
   storageTooltip: "Wo Ihr Workspace gespeichert wird. Beim Wechsel werden Ihre aktuellen Daten konvertiert und in den neuen Speicher geschrieben.",
 

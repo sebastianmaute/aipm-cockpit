@@ -69,10 +69,14 @@ function HoursCell({
   // always editable regardless.
   readOnly?: boolean;
 }) {
+  // Both label spans are w-14, not w-10: "Actual" plus its tooltip overflowed
+  // the narrower box, shoving the icon flush against the input while the
+  // shorter "Plan" row kept its gap. The two rows must share one width or the
+  // inputs stop aligning — change them together.
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1">
-        <span className="flex w-10 items-center gap-0.5 text-[10px] text-muted-foreground">
+        <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
           {t(lang, "budgetCellPlan")}
           <InfoTooltip text={budgetHint} />
         </span>
@@ -86,7 +90,7 @@ function HoursCell({
         />
       </div>
       <div className="flex items-center gap-1">
-        <span className="flex w-10 items-center gap-0.5 text-[10px] text-muted-foreground">
+        <span className="flex w-14 items-center gap-0.5 text-[10px] text-muted-foreground">
           {t(lang, "budgetCellActual")}
           <InfoTooltip text={actualHint} />
         </span>

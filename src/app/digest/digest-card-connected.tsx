@@ -7,10 +7,10 @@
 import { useSettings } from "../use-settings";
 import { useMsAuth } from "../use-ms-auth";
 import { useToastContext } from "../toast-context";
-import { sendMail, buildGraphMessage } from "../graph-mail";
-import { t, type Lang } from "../i18n";
+import { type Lang } from "../i18n";
 import { aiKeyIfEnabled } from "../settings-types";
 import { useDigest } from "../use-digest";
+import { createDigestMailSender } from "./digest-mail-sender";
 import { DigestCard } from "../dashboard-sections/digest-card";
 import { DEFAULT_DIGEST_CONFIG } from "./digest-config";
 import type { DashboardModel } from "../dashboard";
@@ -52,14 +52,9 @@ export function DigestCardConnected({
     aiModel: settings.ai.model,
     m365Configured: m365Enabled,
     acquireToken: (scopes, opts) => msAuth.acquireToken(scopes, opts),
-    sendDigestMail: async (token, subject, html) => {
-      const to = msAuth.account?.username ?? "";
-      if (!to) {
-        toast("error", t(lang, "digestEmailFailed")); // no signed-in account → no recipient
-        return;
-      }
-      await sendMail(token, buildGraphMessage(to, subject, html));
-    },
+    // Resolves only on an actual send, throws otherwise — see the contract and
+    // its tests in digest-mail-sender.ts. All user feedback lives in the hook.
+    sendDigestMail: createDigestMailSender(() => msAuth.account?.username),
     fireNotification: (title, body) => {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         try {

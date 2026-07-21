@@ -63,7 +63,7 @@ vi.mock("./confirm-dialog", () => ({
 function defaultSyncReturn() {
   return {
     aggregates: {
-      byBucket: { 10: { "2026-06": { hours: 8, billableHours: 6 } } },
+      byBucket: { 10: { "2026-06": { hours: 8, billableHours: 6, byResource: { 1: { hours: 8, billableHours: 6 } } } } },
       byResource: { 1: { hours: 8, billableHours: 6 } },
       unattributed: { hours: 2, billableHours: 0 },
     },
@@ -122,14 +122,16 @@ const INITIAL_LINKS: TimelogLinks = {
 function SeedWorkspace({
   links,
   resources,
+  buckets,
 }: {
   links?: TimelogLinks;
   resources?: Resource[];
+  buckets?: BudgetBucket[];
 }) {
   const ws = useWorkspace();
   useEffect(() => {
     ws.setResources(resources ?? [RESOURCE]);
-    ws.setBudgets([BUCKET]);
+    ws.setBudgets(buckets ?? [BUCKET]);
     if (links) ws.setTimelogLinks(links);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -878,6 +880,61 @@ describe("TimelogPanel", () => {
       expect(applyBtn).not.toBeDisabled();
     });
 
+    // `Resource.isExternal` means "capacity-tracked but excluded from ALL cost
+    // figures" (types.ts). autoMatchUsers passes MANUAL links through
+    // unconditionally, so an external who was hand-linked still reaches
+    // byResource — and if apply can resolve their roleId, budget-report costs
+    // their hours at that role's internal rate. Apply must see only the
+    // cost-bearing (internal) directory.
+    it("withholds hours booked by an EXTERNAL resource instead of costing them at a role rate", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} resources={[{ ...RESOURCE, roleId: 1, isExternal: true }]} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // Nothing to apply — the only booker is excluded from cost…
+      expect(screen.getByRole("button", { name: t("en-US", "timelogApply") })).toBeDisabled();
+      // …and the user is told HOW MUCH is missing, not merely that something is:
+      // the bucket will read 8h low, which is the number that makes the notice
+      // actionable. A bare "1 bucket" left them nothing to reconcile against.
+      expect(screen.getByText(t("en-US", "timelogApplyUnmatched", "1", "8"))).toBeInTheDocument();
+    });
+
+    // Apply OWNS every line of a period that routed any booking, so a figure the
+    // PM typed by hand on a line TimeLog never books to is written to 0. That is
+    // user-entered financial data, and the dialog used to disclose it as nothing
+    // but a count ("Apply 2 bucket changes?"). The itemized rows are the only
+    // thing standing between the user and a silent overwrite.
+    it("itemizes the confirm step, including a hand-entered figure it will zero", () => {
+      enableTimelog();
+      const twoLineBucket: BudgetBucket = {
+        ...BUCKET,
+        allocations: [
+          { roleId: 0, resourceIds: [1], budgetHours: {}, actualHours: {} },
+          // Nobody books to this line in TimeLog; the 40h was typed by hand.
+          { roleId: 5, resourceIds: [], budgetHours: {}, actualHours: { "2026-06": 40 } },
+        ],
+      };
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} buckets={[twoLineBucket]} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
+
+      // Alice's 8h routes to line 1, which makes 2026-06 a routed period — so the
+      // untouched line is written to 0 and MUST be shown before that happens.
+      const rows = screen.getAllByRole("listitem").map((li) => li.textContent);
+      expect(rows).toContain("Alpha Project · 2026-06: 40 → 0");
+      expect(rows).toContain("Alpha Project · 2026-06: 0 → 8");
+    });
+
     it("shows confirm step and applies actuals on confirm click", async () => {
       enableTimelog();
       render(
@@ -969,7 +1026,7 @@ describe("TimelogPanel", () => {
       const changedSync = {
         ...initialSync,
         aggregates: {
-          byBucket: { 10: { "2026-06": { hours: 99, billableHours: 99 } } },
+          byBucket: { 10: { "2026-06": { hours: 99, billableHours: 99, byResource: { 1: { hours: 99, billableHours: 99 } } } } },
           byResource: { 1: { hours: 99, billableHours: 99 } },
           unattributed: { hours: 0, billableHours: 0 },
         },
@@ -985,6 +1042,46 @@ describe("TimelogPanel", () => {
       );
 
       // Confirm text should still show "1" diff row (the snapshot count, unchanged)
+      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+    });
+
+    // The overlay was snapshotted but the BUDGET baseline was not, so the
+    // itemised "current → next" figures were read from live budgets while the
+    // write happened later. A background load between open and Apply would
+    // overwrite hand-editable money the user never saw. Refuse instead.
+    it("refuses to apply when the budget changed while the preview was open", () => {
+      const onApplied = vi.fn();
+      function BudgetMutator() {
+        const ws = useWorkspace();
+        return (
+          <button data-testid="mutate-budget" onClick={() => {
+            ws.setBudgets((prev) => prev.map((b) => ({ ...b })));
+            onApplied();
+          }}>m</button>
+        );
+      }
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <BudgetMutator />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
+      expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
+
+      // A background load replaces the budgets array identity mid-confirm.
+      fireEvent.click(screen.getByTestId("mutate-budget"));
+      const confirmBtns = screen.getAllByRole("button", { name: t("en-US", "timelogApply") });
+      fireEvent.click(confirmBtns[confirmBtns.length - 1]);
+
+      // The confirm step closes without writing — the user must re-review.
+      expect(screen.queryByText(t("en-US", "timelogApplyConfirm", "1"))).not.toBeInTheDocument();
+      expect(onApplied).toHaveBeenCalledTimes(1); // only the mutator ran
+      // Re-opening still offers the same single pending row, i.e. nothing was written.
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "timelogApply") }));
       expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument();
     });
   });

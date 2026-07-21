@@ -15,13 +15,72 @@ const links: TimelogLinks = {
 describe("aggregateActuals", () => {
   it("sums mapped hours into byBucket[bucketId][period]", () => {
     const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-06-20", 2)], links, "month");
-    expect(out.byBucket[7]["2026-06"]).toEqual({ hours: 6, billableHours: 6 });
+    // toMatchObject, not toEqual: the cell also carries the per-resource
+    // breakdown apply needs. This assertion is about the TOTALS.
+    expect(out.byBucket[7]["2026-06"]).toMatchObject({ hours: 6, billableHours: 6 });
   });
   it("splits hours across distinct period keys", () => {
     const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-07-01", 3)], links, "month");
     expect(out.byBucket[7]["2026-06"].hours).toBe(4);
     expect(out.byBucket[7]["2026-07"].hours).toBe(3);
   });
+  // The bucket·period TOTAL alone cannot be attributed to a role downstream:
+  // apply had to guess, and guessed allocations[0], costing everyone at the
+  // first role's rate. The breakdown that makes attribution possible must
+  // survive aggregation — it is available here and was being discarded.
+  it("keeps the per-resource breakdown inside each bucket·period cell", () => {
+    const twoPeople: TimelogLinks = {
+      userLinks: [
+        { timelogUserId: 5, resourceId: 2, manual: false },
+        { timelogUserId: 6, resourceId: 3, manual: false },
+      ],
+      projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: false }],
+    };
+    const out = aggregateActuals(
+      [item(5, 9, "2026-06-10", 4), item(6, 9, "2026-06-11", 2), item(5, 9, "2026-06-12", 1)],
+      twoPeople,
+      "month",
+    );
+    const cell = out.byBucket[7]["2026-06"];
+    expect(cell.hours).toBe(7); // total unchanged
+    // The field is optional on the TYPE (a pre-breakdown persisted cache has no
+    // such key), so assert aggregation actually produced it.
+    expect(cell.byResource).toBeDefined();
+    expect(cell.byResource?.[2]).toEqual({ hours: 5, billableHours: 5 });
+    expect(cell.byResource?.[3]).toEqual({ hours: 2, billableHours: 2 });
+  });
+
+  // The breakdown must always reconcile to the total it sits on, or apply and
+  // the overlay display would disagree about the same bucket.
+  it("breakdown sums to the cell total", () => {
+    const twoPeople: TimelogLinks = {
+      userLinks: [
+        { timelogUserId: 5, resourceId: 2, manual: false },
+        { timelogUserId: 6, resourceId: 3, manual: false },
+      ],
+      projectLinks: [{ timelogProjectId: 9, bucketId: 7, manual: false }],
+    };
+    // Person 5 books TWICE in the period on purpose: with one booking each, an
+    // implementation that OVERWRITES per resource instead of accumulating still
+    // sums correctly, so the invariant this test is named for would go unguarded.
+    const out = aggregateActuals(
+      [
+        item(5, 9, "2026-06-10", 4, 4),
+        item(6, 9, "2026-06-11", 2, 0),
+        item(5, 9, "2026-06-12", 3, 3),
+      ],
+      twoPeople,
+      "month",
+    );
+    const cell = out.byBucket[7]["2026-06"];
+    expect(cell.byResource).toBeDefined();
+    const summed = Object.values(cell.byResource ?? {}).reduce(
+      (acc, c) => ({ hours: acc.hours + c.hours, billableHours: acc.billableHours + c.billableHours }),
+      { hours: 0, billableHours: 0 },
+    );
+    expect(summed).toEqual({ hours: cell.hours, billableHours: cell.billableHours });
+  });
+
   it("aggregates per resource", () => {
     const out = aggregateActuals([item(5, 9, "2026-06-10", 4)], links, "month");
     expect(out.byResource[2]).toEqual({ hours: 4, billableHours: 4 });
@@ -49,7 +108,7 @@ describe("aggregateActuals", () => {
 
     const out = aggregateActuals([item(5, 9, "2026-06-10", 4), item(5, 9, "2026-06-11", 2)], links, "week");
     // Hours must land under the weekly key, not the monthly key
-    expect(out.byBucket[7][expectedKey]).toEqual({ hours: 6, billableHours: 6 });
+    expect(out.byBucket[7][expectedKey]).toMatchObject({ hours: 6, billableHours: 6 });
     expect(out.byBucket[7]["2026-06"]).toBeUndefined();
   });
 

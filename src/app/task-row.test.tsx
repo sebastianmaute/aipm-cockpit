@@ -1035,6 +1035,46 @@ describe("TaskRow inline cell editing", () => {
     });
   });
 
+  // The reported bug, end to end on the surface it was reported on: clearing a
+  // LINKED assignee inline must empty the cell, not merely drop the FK behind an
+  // unchanged name.
+  test("clearing a linked assignee inline commits an empty name, email and FK", () => {
+    const onInlinePatch = vi.fn();
+    const resource = makeResource({ id: 7, firstName: "Alice", lastName: "Smith", email: "alice@x.com" });
+    const ctx = makeContext({
+      onInlinePatch,
+      resources: [resource],
+      resourcesById: new Map([[7, resource]]),
+    });
+    const task = makeTask({
+      id: 48,
+      taskName: "Linked",
+      assignee: "Alice Smith",
+      assigneeEmail: "alice@x.com",
+      resourceId: 7,
+    });
+    const { getByRole } = renderRow(ctx, task);
+
+    fireEvent.click(getByRole("button", { name: "Assignee – Linked" }));
+    const combo = getByRole("combobox", { name: "Assignee – Linked" }) as HTMLInputElement;
+    expect(combo).toHaveValue("Alice Smith");
+
+    const clearBtn = getByRole("button", { name: /^clear$/i });
+    // jsdom has no focus-follows-mousedown, so this cannot reproduce the real
+    // blur race — the preventDefault that stops it is guarded upstream in
+    // resource-picker.test.tsx. Dispatched only to match the real event order.
+    fireEvent.mouseDown(clearBtn);
+    fireEvent.click(clearBtn);
+    expect(combo).toHaveValue(""); // the visible field empties immediately
+
+    fireEvent.blur(combo);
+    expect(onInlinePatch).toHaveBeenCalledWith(48, {
+      assignee: "",
+      assigneeEmail: "",
+      resourceId: undefined,
+    });
+  });
+
   test("double-clicking the notes cell opens a textarea and commits a notes patch on blur", () => {
     const onInlinePatch = vi.fn();
     const ctx = makeContext({ onInlinePatch });

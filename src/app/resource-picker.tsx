@@ -13,7 +13,7 @@
 // behavior is lifted from the now-removed ContactInput.
 
 import { Fragment, useCallback, useId, useMemo, useRef, useState } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type React from "react";
 import type { Contact } from "./contacts";
 import { type Lang, t } from "./i18n";
@@ -194,22 +194,58 @@ export function ResourcePicker({
           aria-activedescendant={open && rows.length ? `${listboxId}-opt-${highlight}` : undefined}
           aria-autocomplete="list"
           className={`w-full rounded-md border bg-surface px-3 py-2 text-sm text-foreground disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted-foreground ${FOCUS_RING} ${TRANSITION} ${
-            linked ? "border-ui-green pr-8" : dangling ? "border-ui-pink pr-8" : "border-line"
+            dangling ? "border-ui-pink pr-12" : linked ? "border-ui-green pr-8" : display ? "border-line pr-8" : "border-line"
           }`}
         />
-        {(linked || dangling) && (
+        {/* WCAG 1.4.1: a broken link differed from a healthy one ONLY by colour
+            (green vs pink border and glyph). The clear button's `title` covers a
+            screen-reader user but is hover-only, so it reaches neither keyboard
+            nor touch. This adds a non-colour SHAPE — decorative to AT, which
+            already gets the state from that description. */}
+        {dangling && (
+          <span
+            data-dangling-marker
+            aria-hidden="true"
+            className="pointer-events-none absolute right-7 top-1/2 -translate-y-1/2 text-ui-pink-strong"
+          >
+            <ExclamationTriangleIcon className="h-3.5 w-3.5" />
+          </span>
+        )}
+        {/* Rendered whenever there is something to clear, linked or not: the
+            control is labelled "Clear", so a typed-in free-text name needs it
+            too — it used to leave select-all-delete as the only way out. */}
+        {!!display && (
           <button
             type="button"
             // preventDefault on mousedown so clicking this button does NOT blur
             // the input first — commit-on-blur consumers (the inline task-row
-            // assignee) would otherwise close the editor before this unlink
-            // onChange applies, swallowing the clear. Mirrors the listbox rows.
+            // assignee) would otherwise close the editor before this onChange
+            // applies, swallowing the clear. Mirrors the listbox rows.
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => onChange({ name: value.name, email: value.email, resourceId: null })}
-            aria-label={t(lang, "resourcePickerUnlink")}
-            title={linked ? t(lang, "resourcePickerLinked") : t(lang, "resourcePickerUnlink")}
+            // Clears the WHOLE field, not just the FK. Dropping the link alone
+            // left the same name rendered (display falls back to value.name), so
+            // the only visible effect was this button vanishing and the control
+            // read as dead. An ✕ inside a text input means clear.
+            // A dangling link (resource deleted) clears the same way: re-picking
+            // from the dropdown is the repair path, and one glyph doing two
+            // different things depending on its colour is worse than losing the
+            // unlink-but-keep-name shortcut.
+            onClick={() => onChange({ name: "", email: "", resourceId: null })}
+            // The NAME is the action and is the same in every state, so the
+            // linked/dangling distinction rides the DESCRIPTION (`title` becomes
+            // the accessible description once aria-label supplies the name) —
+            // without it a screen-reader user is never told an assignment is
+            // broken. Free text has no link state, so it just says Clear.
+            aria-label={t(lang, "clear")}
+            title={
+              linked
+                ? t(lang, "resourcePickerLinked")
+                : dangling
+                  ? t(lang, "resourcePickerDangling")
+                  : t(lang, "clear")
+            }
             className={`absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 ${
-              linked ? "text-ui-green-strong" : "text-ui-pink-strong"
+              linked ? "text-ui-green-strong" : dangling ? "text-ui-pink-strong" : "text-muted-foreground"
             } hover:bg-surface-muted ${INTERACTIVE}`}
           >
             <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />

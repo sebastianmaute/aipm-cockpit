@@ -1,7 +1,8 @@
 import { describe, expect, it, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useRef } from "react";
-import { KpiGradientBar, ReportCard, Section, SortResizeTh, Tile } from "./report-table";
+import { KpiGradientBar, ReportCard, Section, SortResizeTh, TableFilter, Tile } from "./report-table";
 
 function Harness() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -177,5 +178,72 @@ describe("KpiGradientBar", () => {
     const { container } = render(<KpiGradientBar percent={50} label="Complete" />);
     const fill = container.querySelector("[style]") as HTMLElement;
     expect(fill.style.background).toBe("var(--gradient-kpi)");
+  });
+});
+
+describe("TableFilter", () => {
+  // The field is type=search, so Chrome/Safari draw a native ✕ INSIDE it while
+  // a separate styled ✕ sat beside it — two clear controls on those browsers,
+  // none-but-ours on Firefox. One styled ✕ positioned inside the field is the
+  // only shape that reads the same everywhere and stays keyboard-reachable.
+  //
+  // ★ Only the markup/padding/tab-order tests below pin THAT change. The
+  // "clears the value" and "no control while empty" cases assert behaviour that
+  // predates it — deliberate regression guards, not coverage of the fix.
+  it("renders its clear control positioned inside the input, not beside it", () => {
+    render(<TableFilter lang="en-US" value="alpha" onChange={() => {}} placeholderKey="reportsFilterGroup" />);
+    const clear = screen.getByRole("button", { name: /clear/i });
+    expect(clear.className).toContain("absolute");
+    expect(clear.parentElement?.className).toContain("relative");
+    // The input reserves room for the overlaid ✕ and suppresses the native one.
+    // Assert the WHOLE arbitrary variant: matching only "search-cancel-button"
+    // would still pass for `:block`, which un-suppresses the native ✕ and
+    // restores the double-clear this change exists to remove.
+    const input = screen.getByRole("searchbox");
+    expect(input.className).toContain("pr-8");
+    expect(input.className).toContain("[&::-webkit-search-cancel-button]:appearance-none");
+  });
+
+  // The ✕ is absolutely positioned, which changes where it PAINTS but not where
+  // it sits in the tab sequence — it must still follow its own input, not jump
+  // ahead of it or land after an unrelated control.
+  it("keeps the clear ✕ immediately after its input in the tab order", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <TableFilter lang="en-US" value="alpha" onChange={() => {}} placeholderKey="reportsFilterGroup" />
+        <button type="button">after</button>
+      </>,
+    );
+    const input = screen.getByRole("searchbox");
+    input.focus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: /clear/i })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "after" })).toHaveFocus();
+  });
+
+  it("clears the value when the ✕ is pressed", () => {
+    const onChange = vi.fn();
+    render(<TableFilter lang="en-US" value="alpha" onChange={onChange} placeholderKey="reportsFilterGroup" />);
+    fireEvent.click(screen.getByRole("button", { name: /clear/i }));
+    expect(onChange).toHaveBeenCalledWith("");
+  });
+
+  it("renders no clear control while the filter is empty", () => {
+    render(<TableFilter lang="en-US" value="" onChange={() => {}} placeholderKey="reportsFilterGroup" />);
+    expect(screen.queryByRole("button", { name: /clear/i })).toBeNull();
+  });
+
+  // pr-8 reserves room for the overlaid ✕. With no ✕ rendered that padding is
+  // dead space that shortens the visible placeholder, so it must be conditional.
+  it("only reserves ✕ padding while the ✕ is actually rendered", () => {
+    const { unmount } = render(
+      <TableFilter lang="en-US" value="" onChange={() => {}} placeholderKey="reportsFilterGroup" />,
+    );
+    expect(screen.getByRole("searchbox").className).not.toContain("pr-8");
+    unmount();
+    render(<TableFilter lang="en-US" value="alpha" onChange={() => {}} placeholderKey="reportsFilterGroup" />);
+    expect(screen.getByRole("searchbox").className).toContain("pr-8");
   });
 });

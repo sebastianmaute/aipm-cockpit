@@ -134,6 +134,10 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   unset/quarantined). Nav-gating: add the view to `TURSO_ONLY_VIEWS` (`nav-config.ts`) → `filterNavGroups`
   prunes it from the sidebar in file mode (so it can't render a dead tab); the panel STILL runtime-guards.
   ★ such a view is NOT reachable by the file-mode e2e seed → keep it OUT of `A11Y_VIEWS` (unit/eye-verify).
+  ★★ A REGION-QUALIFIED Turso host (`<db>-<org>.aws-eu-west-1.turso.io`) is VALID — it is what `turso db show`
+  officially prints. `turso-config.ts` once carried an `isLikelyRegionQualifiedTursoUrl` guard driving a
+  settings banner that told users to strip the region segment; that advice was wrong and the helper, banner
+  and `tursoUrlRegionWarning` strings were all removed. Do NOT reintroduce it.
 - **CSP allowlist:** every host BROWSER calls (Turso, Anthropic, MS Graph, MSAL, Jira) must be in
   `src/proxy.ts` `connect-src`/`frame-src` — NOT `next.config`. Missing host fails only at RUNTIME
   (unit tests mock `fetch`; `next build` passes), so silently slips through CI. CSP edits need dev-server restart.
@@ -320,6 +324,44 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   (TasksSection unmounted) is silently DROPPED; sentinel-seed + parent-clear for any "works-from-any-view" req. All saved-views controls (`panel-views-control`/
   `saved-views-control`/`reports-views-control`) use the standard `FOCUS_RING` (ring-2) — a bare
   `focus:ring-ui-green` sets colour only (no width) and is invisible.
+- **★★ Orphaned list filters (`task-filters.ts`):** the Open Points assignee/group/label filters hold a free
+  string, but their `<select>` options are DERIVED from the live tasks (`uniqueAssignees`/`uniqueGroups`/
+  `uniqueLabels`). Editing the last task carrying a filtered-for value (reassign, re-group, re-label) removes
+  the option while the filter state keeps pointing at it — the filter goes on hiding EVERY row while the
+  control, left with no matching option, falls back to its first one and reads "All", so the table looks
+  unfiltered and empty at once. Pure `resolveEffectiveFilters(values, options)` resolves an unmatched value to
+  `FILTER_ALL`; `workspace-context` computes it ONCE into `effectiveFilters` and feeds BOTH `filteredSortedTasks`
+  AND the pane's three `<select value=…>` — one source, so control and row filter cannot drift. ★ The RAW state
+  is deliberately NOT written back: it lives in `FiltersProvider` (a parent — neither an effect nor a
+  render-phase setState can reach it from the pane, and `set-state-in-effect` is banned), and leaving it makes
+  the fallback SELF-HEALING (undo the reassign → the filter returns). Saved views capture the RAW values, which
+  is correct — a preset preserves intent. ★ Consequence: a view saved WHILE a filter is orphaned stores the
+  orphan (the control reads "All", the state does not), so if that value later reappears on a task the view
+  starts filtering by it. Deliberate — the same self-healing property, seen from the other side. ★★ Each check MIRRORS how the row filter compares that field:
+  assignee/group exact, label case-INSENSITIVE — matching more loosely here would keep a filter that hides every
+  row, the exact state this prevents. ★★ `GROUP_NONE` (`""`) is EXEMPT: the group `<select>` renders a permanent
+  "No group" option, but `uniqueGroups` drops blanks, so resolving it would make that option unselectable (a
+  blank ASSIGNEE is not exempt — it only exists while `uniqueAssignees` still carries one). ★ TEST TRAP: with a
+  genuinely orphaned value the `<option>` is gone and the select falls back to "All" whichever source it is
+  bound to, so a realistic fixture CANNOT tell a correct binding from a reverted one — stub the raw and
+  effective values apart, keeping the stale ones as real options (mutation-proved vacuous otherwise).
+- **★ ResourcePicker ✕ CLEARS the whole field** (`name` + `email` + FK), it does not merely unlink. Dropping
+  only the FK left the same name rendered (`display` falls back to `value.name`), so the sole visible effect was
+  the button vanishing and the control read as dead — reported twice. A DANGLING link (resource deleted) clears
+  the same way; re-picking from the dropdown is the repair path, because one glyph doing two different things
+  depending on its colour is worse than losing the unlink-but-keep-name shortcut. ★ Keep the `onMouseDown`
+  `preventDefault` — commit-on-blur consumers (the inline task-row assignee) close on blur, so without it the
+  clear lands on an already-closed editor and is swallowed. ★★ The accessible NAME is the shared `clear` key in
+  BOTH states, so linked-vs-dangling rides the `title` (the accessible DESCRIPTION, since `aria-label` wins the
+  name): `resourcePickerLinked` / `resourcePickerDangling`. Don't collapse that back to a flat "Clear" title or a
+  screen-reader user is never told an assignment is broken. ★★ That is a SCREEN-READER disclosure, NOT a WCAG
+  1.4.1 fix — `title` is hover-only (no keyboard focus, unreachable on touch), so VISUALLY the two states still
+  differ only by the green/pink border+glyph. Closing 1.4.1 needs a non-colour visual cue (a distinct
+  glyph/marker for dangling) — CLOSED by a `data-dangling-marker` warning-triangle `<span>` (aria-hidden; AT
+  already gets the state from the description) rendered beside the ✕, with the input padded `pr-12` in that
+  state. Don't drop it back to colour-only. ★ the ✕ renders whenever there is something to clear — including a
+  FREE-TEXT name (`!!display`), not just a linked/dangling one, since the control is labelled "Clear"; its
+  colour/title fall back to neutral + `clear` when there is no link state.
 - **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
   component is **`task-kanban-board.tsx`** — NOT `task-kanban.tsx` (the pure `task-kanban.ts` engine
   shadows a `.tsx` sibling via `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card
@@ -368,6 +410,32 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). Used by raid-report (34) / resources-report
   (16) / change-report (6); `reports-tables`/`budget-report` use different local sort-var names and were left
   as-is. NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` + `ColumnResizeHandle`.
+- **★ `TableFilter` (`report-table.tsx`) has exactly ONE clear ✕, overlaid INSIDE the field.** The input is
+  `type="search"`, so Chrome/Safari draw their own ✕ inside it; a sibling clear button therefore read as TWO
+  clears on those browsers while Firefox — which draws none — showed only ours. The fix suppresses the native
+  one (`[&::-webkit-search-cancel-button]:appearance-none`) and absolutely-positions our button over the field
+  (`pr-8` reserves the room). ★ Do NOT "simplify" this back to a sibling button, and do NOT drop our button in
+  favour of the native one — the native ✕ does not exist in Firefox and is not keyboard-reachable. Shared by
+  7 panels (budget · budget-report · change-report · raid-report · reports-tables · resources-panel ·
+  resources-report), several axe-scanned.
+- **★★ `buildResourceWorkload` (`resource-workload-rows.ts`) MUST receive the COMPLETE resource list.** It
+  builds its `managed` id-map and `nameToId` map from the `resources` ARGUMENT ALONE, and `resolve()` falls
+  through to `ensureUnlinked` on a miss. So filtering that argument does NOT hide anyone — the withheld
+  person's tasks/absences/shifts/RAID miss both lookups and REAPPEAR under "Unlinked", whose "Clear unlinked"
+  control (`task-manager.tsx` `onClearUnlinked`) blanks task assignees + RAID owner and **`filter`s matching
+  absences and shifts out of the workspace entirely**. A display filter would therefore become a path to real
+  data deletion. `ResourceWorkload` takes a `hideExternal` FLAG and filters the BUILT `managed` rows instead
+  (`unlinked` untouched). The full list is also the reassign-picker's target set (`WorkloadOverdueTriage`),
+  which a display filter must never narrow. ★ TEST TRAP: a fixture whose external owns NO work cannot reach
+  `ensureUnlinked`, so the naive "external disappears" assertion passes for the wrong reason — give them a
+  task and assert absence from the WHOLE pane. (Planning/rollup DO correctly consume a pre-filtered
+  `visibleResources` — they just `map` it.)
+- **★ Toolbar button ORDER convention:** every pane's toolbar ends with the contiguous trailing group
+  **Print · reset-columns · reset-pane-size**, in that order. Destructive/bulk actions (Activity's "Clear log")
+  and integration blocks (the Outlook `CalendarSyncControls`) go BEFORE it, never between two members. Both had
+  drifted (Outlook sat between the two resets in Resources; Clear sat after them in Activity). ★ the
+  reset-columns button uses `ResetColWidthsIcon` (columns glyph) and reset-size uses `ResetSizeIcon` — Gantt's
+  name-column reset wore the reset-SIZE glyph, making the two adjacent resets indistinguishable.
 
 ### Dashboard landing cockpit
 
@@ -390,7 +458,22 @@ card placed directly after Progress and is itself a click-through button → nav
 (`onNavigate("trends")`); the footer holds only the status-summary + recent-activity
 `<details>`. ★ Tip-of-the-day (`DashboardTipCard`, `dashboard-tip-card.tsx` + pure English-only `tips.ts`)
 is a dismissable headline card that rotates one tip per day; per-device `aipm-cockpit:tip-state` (next/dismiss),
-popout read-only, day captured via lazy `useState` (purity — no `Date.now()` in render). The presentational slices:
+popout read-only, day captured via lazy `useState` (purity — no `Date.now()` in render).
+★★ **Digest email (`use-digest.ts` + `digest/digest-mail-sender.ts`):** `createDigestMailSender`'s CONTRACT is
+resolve ONLY on a mail Graph actually accepted, THROW on every other outcome — the hook treats a resolved
+promise as "sent" and confirms it to the user, so reporting a failure and then resolving produced a false
+"Digest email sent." with nothing in the mailbox. All user feedback lives in the HOOK (success toast, no-account
+guidance via `reportCapabilityGap`, failure via `reportSilentFailure`); the sender only throws, and its message
+must stay free of the recipient and token (it reaches the diagnostics ring). ★★ `generate()` takes THREE independent flags — `advance` (reschedule the cadence), `notify` (desktop
+notification), `narrative` (a BILLED AI call). They were one flag, so emailing had to advance the cadence just
+to get its narrative: clicking Email with the feature disabled pushed the next digest out a full week. Email
+passes `advance:false, narrative:true`; a not-due remount passes all false. Never re-couple them — the
+narrative is billed and must never ride along with something else. ★★ The duplicate-send guard is a
+`sendingRef`, NOT the `busy` state: `emailDigest` awaits `generate()`, whose own `finally` clears `busy`, so
+between that and the next `setBusy(true)` the flag is false and two clicks in one tick BOTH sent (verified —
+it really sent twice). `busy` stays for the disabled/visual state only. ★ `generate()` is deliberately OUTSIDE
+the send's `catch` so one of ITS failures can't surface as "digest email failed".
+The presentational slices:
 - `dashboard-sections/dashboard-hero.tsx` (`DashboardHero`) — now ONLY the compact Overall RAG band +
   Adjust-health `<details>`; OWNS the `OverrideSelect` helper. Props trimmed to
   `{lang, today, model, status, setStatus, showBudget?, showChanges?, dc}` — `trends`/`topActions`/
@@ -1657,7 +1740,8 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 - **Secret:** `timelogApiToken` is the 4th `SecretId` (device-sealed only; the 6-edit lockstep applies — `SecretId` union, `isSealedSecret` allowlist, `readStore` allowlist loop, `migratePlaintextSecrets`, `writeSettings` blank, `hydrateSecretsInto`, + `saveSecretValue` seal-on-edit in `timelog-settings.tsx`). `settings.timelog` is TOP-LEVEL (mirrors `settings.jira`, NOT under `integrations`).
 - **`Workspace.timelogLinks`** persists as a JSON meta-blob (same pattern as `steeringCommittee`): 6 write paths (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB). NOT a `TABLE_NAMES` entry, NOT a column; excluded from exports; absent workspace stays byte-stable.
 - **Actuals cache:** fetched actuals are per-device (`aipm-cockpit:timelog-actuals`, mirrors `landing-state`; out of exports/Turso; cleared by `clearAppConfig`) — NOT workspace data. Pure `timelog-actuals.ts` aggregation routes unmapped user/project/null-bucket hours to an `unattributed` total (never dropped).
-- **Apply to budget:** `timelog-apply.ts` is the ONLY write into the persisted budget — writes each bucket's period total into its FIRST allocation's `actualHours` via a FUNCTIONAL `setBudgets(prev=>…)` updater. Everything else is read-only overlay. ★★ The actuals period KEY MUST match the plan granularity: `computeBucketReport` sums `actualHours` ONLY over the plan's period keys (`bucketActivePeriods`→`generatePeriods`, `PlanGranularity` "week"→`"YYYY-Www"` / "month"→`"YYYY-MM"`). `aggregateActuals(items, links, granularity)` keys via the SHARED `periodKeyForDate` (in `resource-capacity.ts`, the single source `generatePeriods` itself uses — don't re-derive ISO weeks). Pass `plan.granularity` panel→`useTimelogSync`→engine; ★ `granularity` is a REQUIRED arg (no default — a silent "month" fallback was removed; a monthly key on a weekly plan silently drops hours from win/loss). ★ `aggregateActuals` builds project refs from items but SKIPS `projectId <= 0` (absence/non-project time → would render a blank Projects row). ★ Apply uses a `pendingApply` SNAPSHOT taken at confirm-open (not live aggregates) so the shown diff == the diff applied; Fetch is disabled while confirming. Matching `<select>`s/Clear are `isPopout`-disabled + handlers early-return (popout = read-only).
+- **Timelog panel module map:** `timelog-panel.tsx` is the orchestrator; the PURE presentational pieces are `timelog-people-table.tsx` (`TimelogPeopleTable` — the people-matching DataTable) and `timelog-apply-confirm.tsx` (`TimelogApplyConfirm` — the itemized apply confirm bar). Both take data + handlers as props and own no state (gantt convention).
+- **Apply to budget:** `timelog-apply.ts` is the ONLY write into the persisted budget — writes each bucket's period hours into the `actualHours` of the allocation line the booking's PERSON belongs to, via a FUNCTIONAL `setBudgets(prev=>…)` updater. Everything else is read-only overlay. ★★ ATTRIBUTION (fixed — it previously folded the whole bucket total into `allocations[0]`, so `computeBucketReport`'s `cost += aActual * internal` costed EVERY person at the first role's rate): `ActualsByBucket` cells carry an OPTIONAL `byResource` breakdown (`BucketPeriodCell`), and `allocationIndexFor` routes each person by `allocation.resourceIds` first, else their directory `Resource.roleId` → `allocation.roleId` (blended: role's `disciplineId` → `disciplineAllocation.disciplineId`). ★★ The panel passes **`matchableResources`** (internal only), NOT `ws.resources`, and `allocationIndexFor` returns `null` for anyone ABSENT from that list — checked BEFORE the `resourceIds` match, which otherwise never consults the directory. `isExternal` means capacity-only/excluded from all cost figures, but `autoMatchUsers` passes MANUAL links through unconditionally, so a hand-linked external does reach `byResource`; without both halves of this guard their hours land on a role line and `budget-report` costs them at its internal rate (review-caught). A dangling `resourceIds` ref to a deleted resource is withheld for the same reason. ★★ Apply OWNS every target line of a period that routed at least one NON-ZERO booking (`hc.hours !== 0` gates `routedPeriods.add`) — a person whose hours net to zero (a +4/-4 credit correction) says nothing about the period, so on its own it must not claim every line and zero a HAND-ENTERED figure; their own line is still written to 0 when some other booking arms the period — a line with no bookings in such a period is written to **0**, never skipped, or a stale total (e.g. one left by the old `allocations[0]` behaviour) survives beside the new per-role numbers and DOUBLE-COUNTS the bucket. ★★ A period whose hours were ENTIRELY unattributable is EXCLUDED from `Routed.periods` and nothing is written for it — ownership exists to clear a stale total the same period is about to replace, so with nothing to replace there is nothing to clear. Do NOT revert this to `Object.keys(periods)`: `use-timelog-sync` seeds `aggregates` from the persisted cache, so an upgraded user whose cached cells predate `byResource` would zero EVERY line in one click (review-caught data loss). ★ KNOWN consequence of that exclusion: within ONE bucket a routed period is rewritten per-role while an unroutable period keeps whatever a previous apply left — mixed provenance in a single bucket total. Accepted (the alternative is the data loss above); the unmatched notice is what tells the user some periods were skipped. ★★ Hours matching NO line (unlinked person, `roleId: null`, external/unknown resource, role absent from the bucket, or a pre-breakdown cached cell with no `byResource` — the empty-breakdown guard is `cell.hours !== 0`, NOT `> 0`, since TimeLog emits negative credit corrections) are WITHHELD and surfaced via the `timelogApplyUnmatched` notice (fed by `buildApplyPlan().unmatchedBuckets` — `bucketsWithUnmatchedHours`/`planApply` are now test-only wrappers, NOT the runtime path) — never written to an arbitrary line, which is the original defect at another role's rate. ★★ The notice also carries `unmatchedHours` (NET withheld hours), because a bare bucket count told the user something was wrong but not how far off the budget would read. Gate the notice on `unmatchedBuckets`, NEVER on `unmatchedHours` — a +40/-40 credit-correction pair nets to ZERO while hours are still being withheld. ★★ `actualHours` is a USER-EDITABLE input (`budget-panel.tsx` `onActual`), so period-ownership can zero a HAND-ENTERED figure on a line TimeLog never routed to (PM types 40h for a designer who books no time; someone else books that week; the 40 → 0). The confirm dialog therefore ITEMIZES every row via `describeApplyRows` (bucket · role/discipline line · period · current → next) instead of showing a bare count — do NOT revert it to a count, that is a silent overwrite of user-entered financial data. `describeApplyRows` reuses `roleLabel` (a `Role` has NO name of its own — it is discipline × grade). `byResource` is optional because the per-device actuals cache persists aggregates and its guard only shallow-checks `aggregates`; a re-fetch repopulates it. ★ `planApply` rows are per bucket·**allocIndex**·period and OMIT unchanged lines, so the confirm modal's count means "changes that will be written". ★★ The actuals period KEY MUST match the plan granularity: `computeBucketReport` sums `actualHours` ONLY over the plan's period keys (`bucketActivePeriods`→`generatePeriods`, `PlanGranularity` "week"→`"YYYY-Www"` / "month"→`"YYYY-MM"`). `aggregateActuals(items, links, granularity)` keys via the SHARED `periodKeyForDate` (in `resource-capacity.ts`, the single source `generatePeriods` itself uses — don't re-derive ISO weeks). Pass `plan.granularity` panel→`useTimelogSync`→engine; ★ `granularity` is a REQUIRED arg (no default — a silent "month" fallback was removed; a monthly key on a weekly plan silently drops hours from win/loss). ★ `aggregateActuals` builds project refs from items but SKIPS `projectId <= 0` (absence/non-project time → would render a blank Projects row). ★ Apply uses a `pendingApply` SNAPSHOT taken at confirm-open (not live aggregates) so the shown diff == the diff applied; Fetch is disabled while confirming. Matching `<select>`s/Clear are `isPopout`-disabled + handlers early-return (popout = read-only).
 - **`timelog` view IS in axe `A11Y_VIEWS`** ("Time bookings"); project-row discovery comes from `useTimelogSync().projectRefs` (distinct projects in fetched items) merged with already-linked projects.
 - **Paging (★):** all TimeLog list endpoints page at 10 by default but honour OData `$page`/`$pagesize` (uncapped — `callPaged` uses 500/page, `MAX_PAGES=100`). WITHOUT a paging loop the app silently ingests only the first 10 rows of any list (e.g. 10 of 77 bookings). The proxy `encodeURIComponent`s the `$` (`%24page`) — upstream decodes it. `callRaw` transparently RETRIES a 429 honouring `Retry-After` (else exp backoff, abortable via the same signal), bounded at `MAX_429_RETRIES`.
 - **★★ v2 per-project registrations use a DIFFERENT shape than v1 (`mapV2TimeItem`, NOT `mapTimeItem`):** the customer-scoped fetch's `/v2/projects/{id}/time-registrations` (the SOLE v2 endpoint; `/v2/...` on any other path → 404 `UnsupportedApiVersion`) returns rows keyed `ActualHours` (not `Hours`), `NonBillable` (not `IsBillable`, INVERTED), `TimeRegistrationId` (lowercase `d`), and carries **NO `ProjectID`/`TaskID`/`UserID`** — only `ProjectName`/`TaskName`/`EmployeeInitials`. Mapping it with the v1 `mapTimeItem` yields ALL-ZERO rows (hours 0, projectId 0) → "no bookings" (the bug fixed in this line's release). `mapV2TimeItem` injects `projectId` from the request path and resolves `userId` from `EmployeeInitials` against the loaded directory (`initialsToUserId`, built in `fetchBookingsForCustomer`; unmatched → 0 = unattributed). ★ v2 ALSO ignores `startDate`/`endDate` + paging → returns the project's WHOLE history unpaged (hence the 30s proxy timeout for this path); the hook clamps to the window client-side. Verified live: mapped `sum(ActualHours)` == the envelope's `Properties.TimeRegistrationsTotalActualHours`.

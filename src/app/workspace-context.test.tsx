@@ -104,6 +104,92 @@ describe("WorkspaceProvider", () => {
     expect(result.current.ws.filteredSortedTasks[0].id).toBe(3);
   });
 
+  // Reported bug: filter by an assignee, reassign every one of their tasks, and
+  // the dropdown option disappears while the filter state keeps pointing at it —
+  // still hiding every row, but with the control falling back to "All" so
+  // nothing on screen explains the empty table. The effective value is derived
+  // rather than written back, so the raw choice survives and undoing the
+  // reassign restores it.
+  test("a filter whose value no longer exists on any task stops hiding every row", () => {
+    const { result } = renderHook(
+      () => ({ ws: useWorkspace(), filters: useFilters() }),
+      { wrapper },
+    );
+
+    act(() =>
+      result.current.ws.setTasks([
+        makeTask({ id: 1, taskName: "Alpha", assignee: "Alice" }),
+        makeTask({ id: 2, taskName: "Bravo", assignee: "Alice" }),
+      ]),
+    );
+    act(() => result.current.filters.setAssigneeFilter("Alice"));
+    expect(result.current.ws.filteredSortedTasks).toHaveLength(2);
+    expect(result.current.ws.effectiveFilters.assignee).toBe("Alice");
+
+    // Reassign every Alice task — "Alice" is no longer an option.
+    act(() =>
+      result.current.ws.setTasks((prev) => prev.map((t) => ({ ...t, assignee: "Bob" }))),
+    );
+
+    expect(result.current.ws.uniqueAssignees).toEqual(["Bob"]);
+    expect(result.current.ws.effectiveFilters.assignee).toBe("All");
+    expect(result.current.ws.filteredSortedTasks).toHaveLength(2);
+    // The raw choice is untouched, so restoring the tasks restores the filter.
+    expect(result.current.filters.assigneeFilter).toBe("Alice");
+    act(() =>
+      result.current.ws.setTasks((prev) => prev.map((t) => ({ ...t, assignee: "Alice" }))),
+    );
+    expect(result.current.ws.effectiveFilters.assignee).toBe("Alice");
+    expect(result.current.ws.filteredSortedTasks).toHaveLength(2);
+  });
+
+  test("an orphaned group or label filter stops hiding every row", () => {
+    const { result } = renderHook(
+      () => ({ ws: useWorkspace(), filters: useFilters() }),
+      { wrapper },
+    );
+
+    act(() =>
+      result.current.ws.setTasks([makeTask({ id: 1, group: "G1", labels: ["frontend"] })]),
+    );
+    act(() => result.current.filters.setGroupFilter("G1"));
+    act(() => result.current.filters.setLabelFilter("frontend"));
+    expect(result.current.ws.filteredSortedTasks).toHaveLength(1);
+
+    act(() =>
+      result.current.ws.setTasks((prev) =>
+        prev.map((t) => ({ ...t, group: "G2", labels: ["backend"] })),
+      ),
+    );
+
+    expect(result.current.ws.effectiveFilters.group).toBe("All");
+    expect(result.current.ws.effectiveFilters.label).toBe("All");
+    expect(result.current.ws.filteredSortedTasks).toHaveLength(1);
+  });
+
+  // The group <select> offers a permanent "No group" option, but uniqueGroups
+  // drops blanks — so the empty group filter is exempt from the orphan fallback.
+  // Without the exemption "No group" resolves to All and becomes unselectable.
+  // The pure resolver is tested directly; this pins the wiring end to end.
+  test("the No-group filter survives the provider and still matches blank-group rows", () => {
+    const { result } = renderHook(
+      () => ({ ws: useWorkspace(), filters: useFilters() }),
+      { wrapper },
+    );
+
+    act(() =>
+      result.current.ws.setTasks([
+        makeTask({ id: 1, taskName: "Ungrouped", group: "" }),
+        makeTask({ id: 2, taskName: "Grouped", group: "G1" }),
+      ]),
+    );
+    act(() => result.current.filters.setGroupFilter(""));
+
+    expect(result.current.ws.uniqueGroups).toEqual(["G1"]); // "" is never an option
+    expect(result.current.ws.effectiveFilters.group).toBe("");
+    expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([1]);
+  });
+
   test("sort key/dir reorders filteredSortedTasks", () => {
     const { result } = renderHook(
       () => ({ ws: useWorkspace(), filters: useFilters() }),

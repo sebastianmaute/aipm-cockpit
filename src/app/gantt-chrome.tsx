@@ -8,7 +8,7 @@ import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { Input, Select } from "./form-controls";
 import { INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
-import { PrintButton, ResetSizeButton, ResetSizeIcon } from "./task-manager-ui";
+import { PrintButton, ResetColWidthsIcon, ResetSizeButton } from "./task-manager-ui";
 import { IconButton } from "./icon-button";
 import { ToggleButton } from "./toggle-button";
 import { PRIORITIES, type Milestone, type Priority, type Task } from "./types";
@@ -194,6 +194,10 @@ export function GanttToolbar({
           {t(lang, "ganttMilestonesInline")}
         </ToggleButton>
       )}
+      {/* Trailing group, ordered as everywhere else: Print · reset-columns ·
+        * reset-pane-size. The column reset carries the COLUMNS icon — it wore
+        * the reset-size glyph, making the two adjacent resets indistinguishable. */}
+      <PrintButton lang={lang} />
       <IconButton
         variant="bordered"
         size="md"
@@ -201,9 +205,8 @@ export function GanttToolbar({
         label={t(lang, "ganttResetNameCol")}
         title={t(lang, "ganttResetNameCol")}
       >
-        <ResetSizeIcon />
+        <ResetColWidthsIcon />
       </IconButton>
-      <PrintButton lang={lang} />
       <ResetSizeButton onClick={resetGanttSize} lang={lang} />
     </div>
   );
