@@ -153,6 +153,21 @@ describe("BudgetPanel", () => {
     expect(screen.queryByText(/no internal rates/i)).not.toBeInTheDocument();
   });
 
+  test("an unstaffed fixed-price bucket shows no margin and no full-win figure", () => {
+    // revenue = price, cost = 0 (no rows) => 100% margin, +full price won, on a
+    // contract nobody has started. The same false confidence the rateless case
+    // produces, reached through zero ROWS instead of zero RATES.
+    const emptyFixed: BudgetBucket[] = [{
+      ...buckets[0], type: "fixed", fixedPriceAmount: 50000, allocations: [],
+    }];
+    render(<BudgetPanel {...props} buckets={emptyFixed} />);
+    expect(screen.queryAllByText("100.0%")).toHaveLength(0);
+    const winLoss = screen.getByText("Win / loss").parentElement!;
+    expect(winLoss).toHaveTextContent("—");
+    // ...but it must NOT be told to go fix a rate card it has no roles for.
+    expect(screen.queryByText(/no internal rates/i)).not.toBeInTheDocument();
+  });
+
   test("a T&M bucket keeps its win/loss when internal rates are missing", () => {
     // T&M win/loss is budgetValue − consumedValue, both on EXTERNAL rates, so it
     // stays a real figure without a rate card. Over-gating it would hide a

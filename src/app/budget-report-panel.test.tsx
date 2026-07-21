@@ -117,3 +117,110 @@ describe("BudgetReportPanel", () => {
     expect(totalScope.getByTitle("Revenue")).toBeInTheDocument();
   });
 });
+
+// The summary tiles at the top of this view were gated; the detail table
+// directly beneath them was not — the same fix applied one section too high.
+// `contributionMargin` is computed regardless of `costIsKnowable`, so an
+// unstaffed fixed-price bucket yields a literal 100 (not null) and printed as a
+// genuine reading, and its full contract value printed as a win.
+describe("BudgetReportPanel — detail table with an uncostable bucket", () => {
+  const unstaffedFixed: BudgetBucket = {
+    id: 9, name: "Unstarted contract", type: "fixed", currency: "EUR",
+    fixedPriceAmount: 50000, startDate: "2026-01-01", endDate: "2026-01-31",
+    status: "open", allocations: [],
+  };
+
+  function rowFor(name: string): HTMLElement {
+    return screen.getByText(name).closest("tr")!;
+  }
+
+  it("does not print a margin for an unstaffed fixed-price bucket", () => {
+    render(
+      <BudgetReportPanel
+        lang="en-US" buckets={[unstaffedFixed]} plan={plan} roles={roles} resources={[]}
+        absences={[]} holidaySet={new Set<string>()} workdayHours={8} fxRates={null}
+        tasks={[]} today="2026-06-02"
+      />,
+    );
+    const row = rowFor("Unstarted contract");
+    expect(within(row).queryByText("100.0%")).not.toBeInTheDocument();
+    expect(within(row).getAllByText("—").length).toBeGreaterThan(0);
+  });
+
+  it("does not print a full-contract win for it either", () => {
+    render(
+      <BudgetReportPanel
+        lang="en-US" buckets={[unstaffedFixed]} plan={plan} roles={roles} resources={[]}
+        absences={[]} holidaySet={new Set<string>()} workdayHours={8} fxRates={null}
+        tasks={[]} today="2026-06-02"
+      />,
+    );
+    // Scoped to the LAST cell: the budget column legitimately shows the
+    // €50,000 contract value, so a row-wide match would fail for the wrong
+    // reason. Win/loss is the trailing column.
+    const cells = rowFor("Unstarted contract").querySelectorAll("td");
+    const winLoss = cells[cells.length - 1];
+    expect(winLoss.textContent).toBe("—");
+  });
+
+  it("still prints a real margin for a costable bucket", () => {
+    renderPanel();
+    const row = rowFor("Beta");
+    expect(within(row).queryByText("—")).not.toBeInTheDocument();
+  });
+});
+
+// The margin sort key was gated when the detail table was fixed; the win/loss
+// key two lines below it was not. An unstaffed fixed-price bucket has
+// winLossValue = revenue - 0 = the whole contract, so sorting descending put a
+// row DISPLAYING A DASH above every genuine win — the same "phantom figure
+// leads the table" defect the margin fix named, on the adjacent column.
+describe("BudgetReportPanel — detail table sorting with an uncostable bucket", () => {
+  const unstaffedFixed: BudgetBucket = {
+    id: 9, name: "Unstarted contract", type: "fixed", currency: "EUR",
+    fixedPriceAmount: 50000, startDate: "2026-01-01", endDate: "2026-01-31",
+    status: "open", allocations: [],
+  };
+
+  it("does not sort an unknown win/loss above real ones", async () => {
+    const user = userEvent.setup();
+    render(
+      <BudgetReportPanel
+        lang="en-US" buckets={[...buckets, unstaffedFixed]} plan={plan} roles={roles}
+        resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8}
+        fxRates={null} tasks={[]} today="2026-06-02"
+      />,
+    );
+    const header = screen.getByRole("button", { name: /win\/loss/i });
+    // Two clicks to reach descending, where the phantom 50,000 would lead.
+    await user.click(header);
+    await user.click(header);
+    // The NAME is td[1] — td[0] is the leading status badge. Reading td[0]
+    // makes this pass no matter how the table is ordered.
+    const names = screen.getAllByRole("row").slice(1)
+      .map((r) => (r.querySelectorAll("td")[1] as HTMLElement)?.textContent ?? "");
+    // Guard the fixture: the phantom row must actually be present to be misplaced.
+    expect(names).toContain("Unstarted contract");
+    expect(names[0]).not.toBe("Unstarted contract");
+  });
+
+  it("does not sort an unknown win/loss above real losses on the FIRST click", async () => {
+    // A newly-selected column starts ASCENDING, so this is the default
+    // interaction — and ascending win/loss is precisely the "who is losing the
+    // most" scan. A sentinel that sinks unknowns in descending floats them here.
+    const user = userEvent.setup();
+    render(
+      <BudgetReportPanel
+        lang="en-US" buckets={[...buckets, unstaffedFixed]} plan={plan} roles={roles}
+        resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8}
+        fxRates={null} tasks={[]} today="2026-06-02"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /win\/loss/i }));
+    const names = screen.getAllByRole("row").slice(1)
+      .map((r) => (r.querySelectorAll("td")[1] as HTMLElement)?.textContent ?? "");
+    expect(names).toContain("Unstarted contract");
+    // Gamma carries a real loss (-6000) and must lead a worst-first view.
+    expect(names[0]).not.toBe("Unstarted contract");
+  });
+});

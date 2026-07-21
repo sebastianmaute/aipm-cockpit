@@ -165,13 +165,18 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     expect(report.buckets[0].costIsKnowable).toBe(true);
   });
 
-  test("the project rollup is unknowable only when NO bucket can be costed", () => {
+  // ★ EXPECTATION DELIBERATELY REVERSED (was: one costable bucket keeps the
+  // rollup readable as a "real — if partial — figure"). That was written before
+  // three review rounds established the opposite principle: a partial total is
+  // exactly the thing that misleads, because nothing on the panel says which
+  // part is missing. The rateless bucket here has 40 hours of REAL booked work
+  // costed at 0; a project margin that quietly omits them is not "partial", it
+  // is wrong. The rollup now refuses rather than approximates.
+  test("the project rollup refuses whenever any bucket carries uncosted work", () => {
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }];
     const allRateless = computeBudgetReport([bucketWithHours], plan, rateless, resources, 8, noHolidays);
     expect(allRateless.project.costIsKnowable).toBe(false);
 
-    // One costable bucket makes the project total a real — if partial — figure,
-    // so the rollup stays readable rather than collapsing to unknown.
     const mixedRoles: Role[] = [
       { id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 },
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
@@ -181,7 +186,9 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       allocations: [{ roleId: 2, resourceIds: [5], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 40 } }],
     };
     const mixed = computeBudgetReport([bucketWithHours, ratedBucket], plan, mixedRoles, resources, 8, noHolidays);
-    expect(mixed.project.costIsKnowable).toBe(true);
+    // The rated bucket alone IS costable — the veto comes from its neighbour.
+    expect(mixed.buckets[1].costIsKnowable).toBe(true);
+    expect(mixed.project.costIsKnowable).toBe(false);
   });
 
   // A bucket created by the "+ Add bucket" button starts with NO allocations.
@@ -189,11 +196,179 @@ describe("computeBudgetReport — is cost knowable at all", () => {
   // "no internal rates are set for this bucket's roles" before the user has
   // added a single role — pointing them at the wrong problem. With no rows
   // there is no work, so a cost of 0 is the true answer, not a missing one.
-  test("an allocation-less bucket is knowable, not unrated", () => {
+  test("an allocation-less bucket does not claim its rate card is missing", () => {
     const empty: BudgetBucket = { ...bucketWithHours, allocations: [] };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays);
+    expect(report.buckets[0].ratesAreMissing).toBe(false);
+  });
+
+  // Two flags, three states — they answer different questions and must not be
+  // collapsed. An empty bucket has nothing to say about rates (no notice) but
+  // also no basis for a cost figure (no margin). Folding them into one boolean
+  // is what let an unstaffed fixed-price bucket report a 100% margin.
+  test("an allocation-less bucket has NO basis for a cost figure", () => {
+    const empty: BudgetBucket = { ...bucketWithHours, allocations: [] };
+    const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays);
+    expect(report.buckets[0].costIsKnowable).toBe(false);
+  });
+
+  // The regression that shipped in 0.195.0: an unstaffed fixed-price contract
+  // computes revenue = price, cost = 0 (no rows to sum) => a 100% margin and a
+  // full win, Green, with no caveat — on work nobody has started. Exactly the
+  // shape this whole batch exists to remove, entering through zero ROWS rather
+  // than zero RATES. A T&M fixture cannot catch it: there revenue is also 0, so
+  // pct(0,0) returns null and the figure is already blank.
+  test("an unstaffed FIXED-PRICE bucket cannot report a margin", () => {
+    const emptyFixed: BudgetBucket = {
+      id: 1, name: "Unstaffed contract", type: "fixed", currency: "EUR",
+      fixedPriceAmount: 50000, startDate: "2026-01-01", endDate: "2026-01-31",
+      status: "open", allocations: [],
+    };
+    const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    const report = computeBudgetReport([emptyFixed], plan, rated, resources, 8, noHolidays);
+    // The arithmetic still yields 100 — it is the DISPLAY that must not treat
+    // it as a real reading, so the flag is what surfaces gate on.
+    expect(report.buckets[0].costIsKnowable).toBe(false);
+    expect(report.project.costIsKnowable).toBe(false);
+  });
+
+  // ★★ A row-level version of the same defect. `some(rated)` let ONE rated row
+  // vouch for the whole bucket, so real booked hours against an unrated role
+  // were costed at 0 while the flags reported a sound figure. That is worse
+  // than the cases above: not an unknown shown as an ideal, but a WRONG number
+  // shown as a genuine reading, with no dash and no notice anywhere.
+  test("a row with hours but no rate makes its bucket uncostable", () => {
+    const mixed: BudgetBucket = {
+      id: 1, name: "Mixed rows", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: { "2026-01": 0 }, actualHours: { "2026-01": 0 } },
+        { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 40 } },
+      ],
+    };
+    const roles: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+    ];
+    const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays);
+    expect(report.buckets[0].costIsKnowable).toBe(false);
+    // And the user must be TOLD — a rate really is missing here.
+    expect(report.buckets[0].ratesAreMissing).toBe(true);
+  });
+
+  // The converse: an unrated row carrying NO hours cannot affect cost, so it
+  // must not blank an otherwise sound figure. Without this the rule degrades
+  // into "any unrated row anywhere blanks the bucket", which over-blanks.
+  test("an unrated row with NO hours does not make its bucket uncostable", () => {
+    const mixed: BudgetBucket = {
+      id: 1, name: "Idle unrated row", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 40 } },
+        { roleId: 2, resourceIds: [], budgetHours: {}, actualHours: {} },
+      ],
+    };
+    const roles: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+    ];
+    const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays);
     expect(report.buckets[0].costIsKnowable).toBe(true);
+  });
+
+  // ★★ The project rollup sums revenue and cost from EVERY bucket, so ONE
+  // uncostable bucket contaminates the total — and a `.some()` flag would call
+  // that total knowable the moment any OTHER bucket happened to be rated. A
+  // mixed project (one active rated bucket, one unstarted contract) is an
+  // entirely ordinary shape, and it is the number a PM reads first. Gating the
+  // bucket display is not enough; the aggregate has to refuse to report.
+  test("one uncostable bucket makes the PROJECT margin unknowable", () => {
+    const ratedTm: BudgetBucket = {
+      id: 1, name: "Active work", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    };
+    const unstaffedFixed: BudgetBucket = {
+      id: 2, name: "Unstarted contract", type: "fixed", currency: "EUR",
+      fixedPriceAmount: 50000, startDate: "2026-02-01", endDate: "2026-02-28",
+      status: "open", allocations: [],
+    };
+    const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    const report = computeBudgetReport([ratedTm, unstaffedFixed], plan, rated, [], 8, noHolidays);
+    // Guard the fixture: the rated bucket really is costable on its own, so a
+    // false negative here would prove nothing.
+    expect(report.buckets[0].costIsKnowable).toBe(true);
+    expect(report.project.costIsKnowable).toBe(false);
+  });
+
+  // `revenue === 0` alone is too loose an exemption. A bucket with BUDGETED
+  // hours at no rate earns nothing yet, so it passes the revenue test — while
+  // its hours land in `budgetCost` as 0 and understate the project's cost burn
+  // (here a true overrun reads as exactly 100%). It also fired the notice while
+  // the figures rendered, so the panel said "cost, margin and burn cannot be
+  // calculated" directly beside calculated numbers.
+  test("a bucket with BUDGETED hours at no rate still vetoes the project", () => {
+    const ratedActive: BudgetBucket = {
+      id: 1, name: "Rated active", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 40 } }],
+    };
+    const unratedBudgetedOnly: BudgetBucket = {
+      id: 2, name: "Unrated budgeted", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} }],
+    };
+    const roles: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+    ];
+    const report = computeBudgetReport([ratedActive, unratedBudgetedOnly], plan, roles, [], 8, noHolidays);
+    // Guard the fixture: it really does slip the revenue-based exemption.
+    expect(report.buckets[1].revenue).toBe(0);
+    expect(report.buckets[1].ratesAreMissing).toBe(true);
+    expect(report.project.costIsKnowable).toBe(false);
+  });
+
+  // The notice and the figures must never contradict each other: whenever a
+  // bucket makes the notice fire, the project figures go unknown too.
+  test("the project never shows figures beside the cannot-be-calculated notice", () => {
+    const ratedActive: BudgetBucket = {
+      id: 1, name: "Rated active", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 40 } }],
+    };
+    const unrated: BudgetBucket = {
+      id: 2, name: "Unrated", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: {} }],
+    };
+    const roles: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+    ];
+    const p = computeBudgetReport([ratedActive, unrated], plan, roles, [], 8, noHolidays).project;
+    expect(p.ratesAreMissing && p.costIsKnowable).toBe(false);
+  });
+
+  // A bucket contributing NO revenue cannot distort the total, so it must not
+  // veto an otherwise-costable project — else adding an empty scratch bucket
+  // would blank a perfectly good margin.
+  test("an empty ZERO-REVENUE bucket does not veto a costable project", () => {
+    const ratedTm: BudgetBucket = {
+      id: 1, name: "Active work", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    };
+    const emptyScratch: BudgetBucket = {
+      id: 2, name: "Empty scratch", type: "tm", currency: "EUR",
+      startDate: "2026-02-01", endDate: "2026-02-28", status: "open", allocations: [],
+    };
+    const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    const report = computeBudgetReport([ratedTm, emptyScratch], plan, rated, [], 8, noHolidays);
+    expect(report.buckets[1].revenue).toBe(0);
+    expect(report.project.costIsKnowable).toBe(true);
   });
 });
 
@@ -277,5 +452,85 @@ describe("computeBudgetReport — order", () => {
     // Array order is [A(order:1), B(order:0)] — report should be B then A.
     const report = computeBudgetReport([bucketA, bucketB], plan, roles, resources, 8, noHolidays);
     expect(report.buckets.map((r) => r.bucketId)).toEqual([20, 10]);
+  });
+});
+
+// ★★ STRUCTURAL GUARD. Three separate commits each fixed this defect at one
+// layer and left it open at the next: rateless rows, then empty buckets, then
+// the project rollup. Every fix was correct for the case it was written
+// against, and every set of tests was a hand-picked scenario that happened to
+// miss the next one.
+//
+// This enumerates the bucket kinds instead, and asserts the INVARIANT rather
+// than any specific outcome: if the project total is presented as knowable,
+// then no bucket contributing revenue may be uncostable — because `revenue`
+// and `cost` are summed across all of them, so one uncostable contributor
+// silently poisons the ratio.
+//
+// Deliberately expressed over the OUTPUT (which buckets carry revenue, which
+// are costable), not over the rollup expression, so it stays a real check if
+// that expression is rewritten.
+describe("computeBudgetReport — project cost-knowability invariant", () => {
+  const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+  const rateless: Role[] = [{ id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
+
+  const kinds = {
+    ratedTm: (id: number): BudgetBucket => ({
+      id, name: `rated-tm-${id}`, type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    }),
+    ratelessTm: (id: number): BudgetBucket => ({
+      id, name: `rateless-tm-${id}`, type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 2, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    }),
+    emptyTm: (id: number): BudgetBucket => ({
+      id, name: `empty-tm-${id}`, type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open", allocations: [],
+    }),
+    emptyFixed: (id: number): BudgetBucket => ({
+      id, name: `empty-fixed-${id}`, type: "fixed", currency: "EUR",
+      fixedPriceAmount: 50000, startDate: "2026-01-01", endDate: "2026-01-31",
+      status: "open", allocations: [],
+    }),
+    ratedFixed: (id: number): BudgetBucket => ({
+      id, name: `rated-fixed-${id}`, type: "fixed", currency: "EUR",
+      fixedPriceAmount: 50000, startDate: "2026-01-01", endDate: "2026-01-31",
+      status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    }),
+  } as const;
+
+  const names = Object.keys(kinds) as (keyof typeof kinds)[];
+  const roles = [...rated, ...rateless];
+
+  // Every single bucket, and every ordered pair including like-with-like.
+  const combos: (keyof typeof kinds)[][] = [
+    ...names.map((n) => [n]),
+    ...names.flatMap((a) => names.map((b) => [a, b])),
+  ];
+
+  for (const combo of combos) {
+    test(`invariant holds for [${combo.join(" + ")}]`, () => {
+      const buckets = combo.map((n, i) => kinds[n](i + 1));
+      const report = computeBudgetReport(buckets, plan, roles, [], 8, noHolidays);
+      if (report.project.costIsKnowable) {
+        const poisoned = report.buckets.filter((b) => !b.costIsKnowable && b.revenue !== 0);
+        expect(
+          poisoned.map((b) => `${b.name} (revenue ${b.revenue})`),
+        ).toEqual([]);
+      }
+    });
+  }
+
+  // The invariant is satisfiable by always answering "unknowable", so pin that
+  // a genuinely costable project still reports a real figure.
+  test("a wholly costable project still reports its margin", () => {
+    const report = computeBudgetReport(
+      [kinds.ratedTm(1), kinds.ratedFixed(2)], plan, roles, [], 8, noHolidays,
+    );
+    expect(report.project.costIsKnowable).toBe(true);
+    expect(report.project.contributionMargin.percent).not.toBeNull();
   });
 });
