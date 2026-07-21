@@ -8,7 +8,7 @@ import {
   ViewColumnsIcon,
 } from "@heroicons/react/24/outline";
 import type React from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, type TranslationKey, t } from "./i18n";
 import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { IconButton } from "./icon-button";
 
@@ -176,18 +176,24 @@ export function ResetSizeButton({
   onClick,
   lang,
   className,
+  labelKey = "tableResetSizeHint",
 }: {
   onClick: () => void;
   lang: Lang;
   className?: string;
+  /** Override the accessible name. A FLOATING surface that can sit over a pane
+   *  must not reuse the pane's own reset label — two buttons with an identical
+   *  accessible name doing different things is a WCAG 2.4.6 failure that axe
+   *  passes (a name exists). Mirrors `modal-header`'s `modalResetSize`. */
+  labelKey?: TranslationKey;
 }) {
   return (
     <IconButton
       variant="bordered"
       size="md"
       onClick={onClick}
-      label={t(lang, "tableResetSizeHint")}
-      title={t(lang, "tableResetSizeHint")}
+      label={t(lang, labelKey)}
+      title={t(lang, labelKey)}
       className={className}
     >
       <ResetSizeIcon />

@@ -329,15 +329,19 @@ function ResourcesPanelInner({
   // the hook order stable across views.
   const [planFilter, setPlanFilter] = useState("");
   const [planSort, setPlanSort] = useState<{ key: PlanSortKey; dir: SortDir }>({ key: "assignee", dir: "asc" });
-  // Planning grid + rollup share a single external-filtered resource list.
-  const visiblePlanResources = useMemo(
+  // Planning grid + rollup only — they just map this list.
+  // ★★ WORKLOAD MUST NOT USE IT: it takes the COMPLETE `resources` plus a
+  // `hideExternal` flag and filters its BUILT rows. Feeding the builder a
+  // filtered list re-surfaces the hidden person as an "Unlinked" row whose
+  // Clear control deletes real data — see AGENTS.md `buildResourceWorkload`.
+  const visibleResources = useMemo(
     () => (hideExternal ? resources.filter((r) => !r.isExternal) : resources),
     [resources, hideExternal],
   );
   const planRows = useMemo(() => {
     const canonicalPeriods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
     const periods = generatePeriods(plan.startDate, plan.endDate, viewGranularity);
-    return visiblePlanResources.map((r) => {
+    return visibleResources.map((r) => {
       const resAbs = absencesForResource(absences, r);
       const totalHours = periods.reduce((sum, p) =>
         sum + displayCapacityHours(p, canonicalPeriods, r, resAbs, workdayHours, holidaySet, plan.granularity, viewGranularity), 0);
@@ -345,7 +349,7 @@ function ResourcesPanelInner({
       const cost = periodCost(totalHours, r.isExternal ? undefined : role);
       return { resource: r, name: resourceDisplayName(r), totalHours, cost, capacityDays: totalHours / workdayHours, internalCost: cost.internal, externalCost: cost.external, margin: cost.margin };
     });
-  }, [visiblePlanResources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
+  }, [visibleResources, absences, roles, plan.startDate, plan.endDate, plan.granularity, viewGranularity, workdayHours, holidaySet]);
   // Near-term (period[0]) utilization for the workload over-allocation editor —
   // MIRRORS next-actions-workload.ts (same canonical-granularity slice[0] + the
   // convert-to-percent), so the inline editor targets the SAME period the
@@ -377,18 +381,14 @@ function ResourcesPanelInner({
   }, []);
   const { sorted: planSorted, click: planClick } = useSortableFilter(planRows, planSort, setPlanSort, planFilter, getPlanValue);
 
-  // Toolbar actions: planning-only ResetColWidths; calendar-only Outlook import;
-  // always Print + ResetSize. Shared by the workload/planning header and (for
-  // calendar, which has NO heading) the calendar control row.
+  // Toolbar actions: calendar-only Outlook import + the Outlook sync controls
+  // lead; then the trailing Print · reset-columns (planning/workload only) ·
+  // reset-size group. The Outlook block used to sit BETWEEN the two resets,
+  // splitting a group that reads as one everywhere else. Shared by the
+  // workload/planning header and (for calendar, which has NO heading) the
+  // calendar control row.
   const headerActions = (
     <div className="flex items-center gap-2 print:hidden">
-      <PrintButton lang={lang} />
-      {(view === "planning" || view === "workload") && (
-        <ResetColWidthsButton
-          onClick={view === "planning" ? resetPlanningAndRollup : workload.resetColWidths}
-          lang={lang}
-        />
-      )}
       {view === "calendar" && onImportOutlookCalendar && (
         <button
           type="button"
@@ -410,23 +410,62 @@ function ResourcesPanelInner({
         onPullCalendar={onPullCalendar}
         calendarPullBusy={calendarPullBusy}
       />
+      <PrintButton lang={lang} />
+      {(view === "planning" || view === "workload") && (
+        <ResetColWidthsButton
+          onClick={view === "planning" ? resetPlanningAndRollup : workload.resetColWidths}
+          lang={lang}
+        />
+      )}
       <ResetSizeButton onClick={resetResSize} lang={lang} />
     </div>
   );
 
-  // Header: title + count. Calendar drops it (the actions move into its control
-  // row), so this renders only for workload/planning.
-  const renderHeader = () => (
+  // Shared by the planning control row and the workload header — the same
+  // filter drives both views' resource list.
+  const hideExternalToggle = (
+    <label className="flex items-center gap-1.5 text-xs text-foreground">
+      <input
+        type="checkbox"
+        checked={hideExternal}
+        aria-label={t(lang, "planningHideExternal")}
+        onChange={(e) => setHideExternal(e.target.checked)}
+        className={`align-middle ${FOCUS_RING}`}
+      />
+      <span>{t(lang, "planningHideExternal")}</span>
+    </label>
+  );
+
+  // The header count sits inches from the Hide-external toggle, so it has to
+  // track it. Filter a COPY: `rows` also feeds the calendar, which has its own
+  // separate includeExternals setting and must not be double-filtered.
+  const externalRowKeys = useMemo(
+    () =>
+      new Set(
+        resources.filter((r) => r.isExternal).map((r) => resourceDisplayName(r).trim().toLowerCase()),
+      ),
+    [resources],
+  );
+  const workloadRowCount = hideExternal
+    ? rows.filter((r) => !externalRowKeys.has(r.key)).length
+    : rows.length;
+
+  // Header: title + count. WORKLOAD ONLY (planning has its own control row,
+  // calendar none) — so no view guards inside; the sole call site carries it.
+  const renderWorkloadHeader = () => (
     <header className="mb-2 flex shrink-0 items-center justify-between gap-2">
       <h2 className="text-lg font-medium text-foreground">
-        {t(lang, view === "workload" ? "resourcesViewWorkload" : "resourcesViewPlanning")}
-        {rows.length > 0 && (
+        {t(lang, "resourcesViewWorkload")}
+        {workloadRowCount > 0 && (
           <span className="ml-2 text-sm font-normal text-muted-foreground">
-            {t(lang, "tasksCount", rows.length)}
+            {t(lang, "tasksCount", workloadRowCount)}
           </span>
         )}
       </h2>
-      {headerActions}
+      <div className="flex items-center gap-3 print:hidden">
+        {hideExternalToggle}
+        {headerActions}
+      </div>
     </header>
   );
 
@@ -441,7 +480,7 @@ function ResourcesPanelInner({
       {onLearnMore && (
         <ViewCallout view={view} lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
       )}
-      {view === "workload" && renderHeader()}
+      {view === "workload" && renderWorkloadHeader()}
       {isEmpty && view !== "planning" && (
         <EmptyState title={t(lang, "resourcesEmpty")} />
       )}
@@ -492,16 +531,7 @@ function ResourcesPanelInner({
                 ]}
                 onChange={onSetAllUtilizationMode}
               />
-              <label className="flex items-center gap-1.5 text-foreground">
-                <input
-                  type="checkbox"
-                  checked={hideExternal}
-                  aria-label={t(lang, "planningHideExternal")}
-                  onChange={(e) => setHideExternal(e.target.checked)}
-                  className={`align-middle ${FOCUS_RING}`}
-                />
-                <span>{t(lang, "planningHideExternal")}</span>
-              </label>
+              {hideExternalToggle}
               <div className="ml-auto">{headerActions}</div>
             </div>
             <div className="print:hidden">
@@ -658,7 +688,7 @@ function ResourcesPanelInner({
                           ))}
                         </tr>
                       </>} tbodyClassName="divide-y divide-line">
-                        {visiblePlanResources.map((r) => {
+                        {visibleResources.map((r) => {
                           const resAbs2 = absencesForResource(absences, r);
                           return (
                             <tr key={r.id}>
@@ -683,6 +713,7 @@ function ResourcesPanelInner({
       {view === "workload" && !isEmpty && (
         <ResourceWorkload
           lang={lang}
+          hideExternal={hideExternal}
           resources={resources}
           tasks={tasks}
           absences={absences}

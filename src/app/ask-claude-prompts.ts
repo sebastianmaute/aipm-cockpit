@@ -18,6 +18,13 @@ export const FOUNDATIONAL_PROMPTS: PromptDef[] = [
   { labelKey: "aiPromptWhatsNextLabel", bodyKey: "aiPromptWhatsNextBody" },
   { labelKey: "aiPromptStatusLabel", bodyKey: "aiPromptStatusBody" },
   { labelKey: "aiPromptPrioritizeLabel", bodyKey: "aiPromptPrioritizeBody" },
+];
+
+/** Prompts that only make sense on the CHAT surface, appended after the
+ *  foundational set. The attachment prompt asks Claude to read a file the user
+ *  has attached — chat has an attach control, the header Ask-Claude menu does
+ *  not, so offering it there is a dead prompt. */
+export const CHAT_ONLY_PROMPTS: PromptDef[] = [
   { labelKey: "aiPromptProcessAttachmentLabel", bodyKey: "aiPromptProcessAttachmentBody" },
 ];
 

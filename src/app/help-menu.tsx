@@ -6,6 +6,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
 import { HelpContentPane } from "./help-content-pane";
 import { useResizable } from "./use-resizable";
+import { ResetSizeButton } from "./task-manager-ui";
 import { APP_LICENSE_URL } from "./version";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
@@ -63,7 +64,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<Pos | null>(null);
   const [query, setQuery] = useState("");
-  const { ref: panelRef } = useResizable(STORAGE_KEY_SIZE);
+  const { ref: panelRef, reset: resetHelpSize } = useResizable(STORAGE_KEY_SIZE);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -111,6 +112,12 @@ export function HelpMenu({ lang }: { lang: Lang }) {
   const onTitleBarMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!pos) return;
+      // Never start a window drag from a control in the bar. Covers reset-size
+      // AND close — pressing close used to arm the drag listeners too, so
+      // click-and-drag from the ✕ moved the window. The selector is broader
+      // than today's two buttons so a link or field added later can't silently
+      // re-arm it.
+      if ((e.target as HTMLElement).closest("button, a, input, select, textarea")) return;
       dragRef.current = {
         startX: e.clientX,
         startY: e.clientY,
@@ -185,14 +192,26 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t(lang, "help")}
             </h3>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close"
-              className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
-            >
-              <XMarkIcon aria-hidden="true" className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {/* The panel is drag-resizable and its size persists, so without a
+                * reset there is no way back to the default once dragged.
+                * (onTitleBarMouseDown ignores presses on any button, so this
+                * needs no stopPropagation wrapper.) */}
+              {/* modalResetSize, NOT the default pane label: the Help panel
+                * floats over a pane whose own reset button is always present,
+                * so sharing "Reset back to the default size." would put two
+                * identically-named buttons on screen (WCAG 2.4.6). Same reason
+                * modal-header uses this key. */}
+              <ResetSizeButton onClick={resetHelpSize} lang={lang} labelKey="modalResetSize" />
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label={t(lang, "close")}
+                className={`rounded p-1 text-foreground hover:bg-surface-muted hover:text-ui-dark-blue dark:text-muted-foreground dark:hover:text-ui-light-grey ${INTERACTIVE}`}
+              >
+                <XMarkIcon aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div className="shrink-0 border-b border-line p-2">

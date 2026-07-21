@@ -230,15 +230,15 @@ export function TasksSection({
   const {
     search, setSearch,
     priorityFilter, setPriorityFilter,
-    assigneeFilter, setAssigneeFilter,
-    groupFilter, setGroupFilter,
-    labelFilter, setLabelFilter,
+    // Raw values are NOT read here — the <select>s render effectiveFilters so an
+    // orphaned one resolves in the control and the row filter together.
+    setAssigneeFilter, setGroupFilter, setLabelFilter,
     healthFilter, setHealthFilter,
     sortKey, sortDir, setSortKey, setSortDir,
   } = useFilters();
 
   const workspaceCtx = useWorkspace();
-  const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById, setTasks, resources } =
+  const { tasks, filteredSortedTasks, uniqueAssignees, uniqueGroups, uniqueLabels, tasksById, setTasks, resources, effectiveFilters } =
     workspaceCtx;
   // id -> Resource lookup for resolving the LIVE assignee name of linked tasks
   // (the stored `assignee` string is a cache that goes stale after a rename).
@@ -569,20 +569,19 @@ export function TasksSection({
         </Select>
         <Select
           size="xs"
-          value={assigneeFilter}
+          value={effectiveFilters.assignee}
           onChange={(e) => setAssigneeFilter(e.target.value)}
           title={t(lang, "assigneeFilterHint")}
         >
           <option value="All">{t(lang, "allAssignees")}</option>
+          {/* uniqueAssignees KEEPS blanks, so label the unassigned option (value stays ""). */}
           {uniqueAssignees.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
+            <option key={a} value={a}>{a === "" ? t(lang, "assigneeNone") : a}</option>
           ))}
         </Select>
         <Select
           size="xs"
-          value={groupFilter}
+          value={effectiveFilters.group}
           onChange={(e) => setGroupFilter(e.target.value)}
           title={t(lang, "tasksGroupFilterHint")}
         >
@@ -596,7 +595,7 @@ export function TasksSection({
         </Select>
         <Select
           size="xs"
-          value={labelFilter}
+          value={effectiveFilters.label}
           onChange={(e) => setLabelFilter(e.target.value)}
           title={t(lang, "tasksLabelFilterHint")}
         >

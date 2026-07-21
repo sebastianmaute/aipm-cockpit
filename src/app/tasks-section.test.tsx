@@ -117,6 +117,9 @@ function stubWorkspace(
     uniqueAssignees: [],
     uniqueGroups: [],
     uniqueLabels: [],
+    // The filter <select>s render the effective (orphan-resolved) values, not
+    // the raw ones — see task-filters.ts.
+    effectiveFilters: { assignee: "All", group: "All", label: "All" },
     tasksById: new Map(),
     taskSearchIndex: new Map(),
     resources,
@@ -235,6 +238,83 @@ describe("TasksSection", () => {
     stubWorkspace([task], [task]);
     const { container } = render(<TasksSection {...makeProps()} />);
     expect(container.querySelector("table")).toBeInTheDocument();
+  });
+
+  // The filter <select>s must read the workspace's ORPHAN-RESOLVED value, not
+  // the raw one from useFilters, or reassigning the last task away from a
+  // filtered assignee leaves the applied filter hiding every row while the
+  // control no longer names it.
+  //
+  // The two sources are stubbed APART on purpose: with a genuinely orphaned
+  // value the <option> is gone, the select falls back to its first option, and
+  // the DOM value reads "All" whichever source it is bound to — so the realistic
+  // setup cannot tell a correct binding from a reverted one. Keeping the stale
+  // values as real options makes the bindings observably different.
+  it("renders the orphan-resolved filter value, not the raw one", () => {
+    mockUseFilters.mockReturnValue({
+      search: "", setSearch: vi.fn(),
+      searchDebounced: "",
+      setSearchImmediate: vi.fn(),
+      priorityFilter: "All", setPriorityFilter: vi.fn(),
+      assigneeFilter: "Alice", setAssigneeFilter: vi.fn(),
+      groupFilter: "G1", setGroupFilter: vi.fn(),
+      labelFilter: "frontend", setLabelFilter: vi.fn(),
+      healthFilter: "all", setHealthFilter: vi.fn(),
+      sortKey: "taskName", sortDir: "asc",
+      setSortKey: vi.fn(), setSortDir: vi.fn(),
+      raidFilterTaskId: null, setRaidFilterTaskId: vi.fn(),
+      resetFilters: vi.fn(),
+    });
+    const task = { id: 1, taskName: "T1" };
+    mockUseWorkspace.mockReturnValue({
+      tasks: [task],
+      setTasks: vi.fn(),
+      filteredSortedTasks: [task],
+      uniqueAssignees: ["Alice"],
+      uniqueGroups: ["G1"],
+      uniqueLabels: ["frontend"],
+      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      tasksById: new Map(),
+      taskSearchIndex: new Map(),
+      resources: [],
+      raid: [], setRaid: vi.fn(),
+      absences: [], setAbsences: vi.fn(),
+      shifts: [], setShifts: vi.fn(),
+    });
+    render(<TasksSection {...makeProps()} />);
+
+    expect(screen.getByTitle(t("en-US", "assigneeFilterHint"))).toHaveValue("All");
+    expect(screen.getByTitle(t("en-US", "tasksGroupFilterHint"))).toHaveValue("All");
+    expect(screen.getByTitle(t("en-US", "tasksLabelFilterHint"))).toHaveValue("All");
+  });
+
+  // uniqueAssignees keeps blanks (unlike uniqueGroups), so an unassigned task
+  // puts a real but EMPTY <option> in the filter — a nameless line the user
+  // cannot interpret. Clearing a row's assignee now reaches that state in one
+  // click via the picker's ✕, so the option has to say what it selects.
+  it("labels the blank assignee option instead of rendering an empty line", () => {
+    const task = { id: 1, taskName: "T1" };
+    mockUseWorkspace.mockReturnValue({
+      tasks: [task],
+      setTasks: vi.fn(),
+      filteredSortedTasks: [task],
+      uniqueAssignees: ["", "Bob"],
+      uniqueGroups: [],
+      uniqueLabels: [],
+      effectiveFilters: { assignee: "All", group: "All", label: "All" },
+      tasksById: new Map(),
+      taskSearchIndex: new Map(),
+      resources: [],
+      raid: [], setRaid: vi.fn(),
+      absences: [], setAbsences: vi.fn(),
+      shifts: [], setShifts: vi.fn(),
+    });
+    render(<TasksSection {...makeProps()} />);
+
+    const select = screen.getByTitle(t("en-US", "assigneeFilterHint"));
+    const labels = Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
+    expect(labels).not.toContain(""); // no nameless option
+    expect(labels).toContain(t("en-US", "assigneeNone"));
   });
 
   it("clear-all opens a type-to-confirm dialog instead of clearing immediately", () => {
@@ -690,6 +770,7 @@ describe("TasksSection", () => {
       uniqueAssignees: [],
       uniqueGroups: [],
       uniqueLabels: [],
+      effectiveFilters: { assignee: "All", group: "All", label: "All" },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],
@@ -734,6 +815,7 @@ describe("TasksSection", () => {
       uniqueAssignees: [],
       uniqueGroups: [],
       uniqueLabels: [],
+      effectiveFilters: { assignee: "All", group: "All", label: "All" },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],
@@ -767,6 +849,7 @@ describe("TasksSection", () => {
       uniqueAssignees: [],
       uniqueGroups: [],
       uniqueLabels: [],
+      effectiveFilters: { assignee: "All", group: "All", label: "All" },
       tasksById: new Map(),
       taskSearchIndex: new Map(),
       resources: [],

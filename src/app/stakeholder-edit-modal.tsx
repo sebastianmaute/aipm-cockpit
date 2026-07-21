@@ -180,7 +180,10 @@ export function StakeholderEditModal({
                 resources={resources}
                 contacts={[]}
                 onChange={(next) =>
-                  onChange({ ...draft, name: next.name, resourceId: next.resourceId })
+                  // email threads through like every other consumer: picking a
+                  // person adopts their address, and clearing the field clears
+                  // it rather than stranding it on a nameless stakeholder.
+                  onChange({ ...draft, name: next.name, email: next.email, resourceId: next.resourceId })
                 }
                 onBlur={(e) => {
                   onChange({ ...draft, name: describeTextCap(e.target.value, BUDGET_NAME_MAX).value.trim(), resourceId: draft.resourceId });

@@ -8,6 +8,84 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.194.0] - 2026-07-21 "Stapledon"
+
+### Fixed
+
+- **Timelog actuals are attributed per role line, not dumped on the first one.**
+  Applying bookings to a budget previously folded a bucket's whole period total
+  into `allocations[0]`, so `computeBucketReport` costed **every** person at the
+  first role's rate. Actuals cells now carry an optional `byResource` breakdown
+  and each person routes by their allocation's `resourceIds`, else their
+  directory role (blended buckets: that role's discipline). Hours that match no
+  line — an unlinked person, no directory role, a role absent from the bucket —
+  are **withheld** and surfaced with both a bucket count and the net withheld
+  hours, rather than costed at some other role's rate.
+
+  Three rules make this safe, each pinned by a test that fails if it moves.
+  Externals are capacity-only, so the directory check runs **before** the
+  explicit `resourceIds` match — a hand-linked external must never be costed
+  internally. A period is "owned" (and its other lines zeroed) only when a
+  **non-zero** booking routed there, because a +4/−4 credit correction nets to
+  zero and says nothing about the period. And a period whose hours were entirely
+  unattributable is skipped rather than zeroed, so an upgraded user whose cached
+  cells predate `byResource` does not lose every figure in one click.
+
+  Because `actualHours` is hand-editable, applying can overwrite a number a
+  person typed. The confirm step therefore **itemises every row** it will write
+  (bucket · line · period · current → next) instead of showing a bare count, and
+  refuses to apply at all if the budget changed while the preview was open.
+
+- **A failed digest email no longer reports success.** The mail sender now
+  resolves only when Graph actually accepted the message and throws on every
+  other outcome, so "Digest email sent." can no longer appear with nothing in the
+  mailbox. Its error text carries neither the recipient nor the token, because it
+  reaches the diagnostics ring.
+
+- **Emailing a digest no longer reschedules it.** `generate()` took one flag that
+  conflated three things, so emailing had to advance the cadence just to get its
+  AI narrative — clicking Email with the feature disabled pushed the next digest
+  out a full week. The flags are now independent (`advance` · `notify` ·
+  `narrative`), and a cached narrative-less digest is regenerated for the email
+  when a narrative is actually possible.
+
+- **Double-clicking Email sent twice.** The guard was the `busy` state, which
+  `generate()`'s own `finally` cleared mid-flight; it is now a ref set
+  synchronously before the first await.
+
+- **The ResourcePicker ✕ clears the whole field.** It previously dropped only the
+  foreign key, leaving the same name rendered — so the sole visible effect was
+  the button vanishing, and the control read as dead. It now clears name, email
+  and link together, renders whenever there is anything to clear, and marks a
+  dangling link (resource deleted) with a warning glyph rather than colour alone.
+  Picking a person in the stakeholder editor now adopts their email address,
+  which was silently dropped.
+
+- **Filtering Open Points by a value that then disappears no longer hides every
+  row.** Editing the last task carrying a filtered-for assignee, group or label
+  removed the option while the filter kept pointing at it: the table went empty
+  while the control, left with no matching option, fell back to reading "All".
+  An unmatched value now resolves to "All" for both the rows and the control from
+  a single source, so the two cannot disagree — and the raw selection is kept, so
+  undoing the edit restores the filter.
+
+### Changed
+
+- **Ten-item UI batch.** The Ask-Claude menu drops its attachment prompt (there
+  is no attach control there; chat keeps it). Workload gains the Hide-external
+  filter Planning already had. Toolbars across Workload, Gantt and Activity now
+  share one order — destructive and integration actions first, then a contiguous
+  Print · reset-columns · reset-size group — and the Gantt column reset stops
+  wearing the reset-size icon. The floating Help window gains a reset-size
+  control. Budget's Actual label no longer collides with its tooltip. Table
+  filters show a single clear ✕ instead of two in Chrome/Safari and one in
+  Firefox.
+
+- **Removed a wrong Turso warning.** Settings claimed a region-qualified host
+  (`<db>-<org>.aws-eu-west-1.turso.io`) would be rejected and told users to strip
+  the region segment. That is a valid, officially-issued URL — it is what
+  `turso db show` prints — so the advice was wrong and is gone.
+
 ## [0.193.0] - 2026-07-20 "Strugatsky"
 
 ### Added

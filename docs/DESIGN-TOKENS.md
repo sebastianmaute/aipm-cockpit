@@ -48,6 +48,23 @@ never reference them directly.
   solid grey, `text-muted-foreground` for secondary text. The palette guards scan
   comments too, so a bare `shadow`/grey word in a comment can trip them.
 
+- **`INTERACTIVE` is not universal — it bundles `PRESS`.** `INTERACTIVE` =
+  `TRANSITION` + `FOCUS_RING` + `PRESS`, and `PRESS` is `active:translate-y-px`.
+  That writes the SAME `--tw-translate-y` custom property as any positioning
+  translate, so a control centred with `-translate-y-1/2` visibly jumps out of
+  centre while pressed. An absolutely-positioned control takes
+  `${FOCUS_RING} ${TRANSITION}` only — the same reason form fields never take
+  `PRESS`.
+- **Icon-only controls need a 24px target.** WCAG 2.2 SC 2.5.8 sets a 24×24 CSS
+  px floor, and axe does **not** check it, so it slips the gate. A 14px icon with
+  `p-0.5` is ~20px and fails; give the button `flex h-6 w-6 items-center
+  justify-center` and size the icon inside it.
+- **A floating surface must not reuse a pane's control label.** The Help window
+  and the modals float over a pane whose own reset button is always present, so
+  reusing `tableResetSizeHint` puts two identically-named buttons on screen doing
+  different things (WCAG 2.4.6). Use `modalResetSize` there. axe passes this — a
+  name exists — so it is caught by eye or not at all.
+
 ## Canonical recipes
 
 - Primary button: `bg-ui-dark-blue text-white hover:bg-ui-dark-blue/90`

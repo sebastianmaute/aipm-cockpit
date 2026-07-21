@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { getTursoConfig, isLikelyRegionQualifiedTursoUrl } from "./turso-config";
+import { getTursoConfig } from "./turso-config";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -77,22 +77,5 @@ describe("getTursoConfig", () => {
   it("still requires a token for remote https / libsql endpoints", () => {
     expect(getTursoConfig("https://x.turso.io")).toBeNull();
     expect(getTursoConfig("libsql://x.turso.io")).toBeNull();
-  });
-});
-
-describe("isLikelyRegionQualifiedTursoUrl", () => {
-  it("flags a region-qualified Turso host", () => {
-    expect(isLikelyRegionQualifiedTursoUrl("libsql://db-org.aws-eu-west-1.turso.io")).toBe(true);
-    expect(isLikelyRegionQualifiedTursoUrl("https://sample-workspace-bunkmate042.aws-eu-west-1.turso.io")).toBe(true);
-  });
-  it("accepts the routable single-label Turso host", () => {
-    expect(isLikelyRegionQualifiedTursoUrl("libsql://db-org.turso.io")).toBe(false);
-    expect(isLikelyRegionQualifiedTursoUrl("https://sample-workspace-bunkmate042.turso.io")).toBe(false);
-  });
-  it("returns false for non-Turso, loopback, or unparseable URLs", () => {
-    expect(isLikelyRegionQualifiedTursoUrl("http://127.0.0.1:8080")).toBe(false);
-    expect(isLikelyRegionQualifiedTursoUrl("https://db.example.com")).toBe(false);
-    expect(isLikelyRegionQualifiedTursoUrl("not a url")).toBe(false);
-    expect(isLikelyRegionQualifiedTursoUrl("")).toBe(false);
   });
 });

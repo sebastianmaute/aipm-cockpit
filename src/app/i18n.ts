@@ -218,6 +218,7 @@ const enUS = {
 
   edit: "Edit",
   clear: "Clear",
+  close: "Close",
   loading: "Loading…",
   modalResetSize: "Reset dialog size",
   diagnosticsTitle: "Diagnostics",
@@ -995,6 +996,8 @@ const enUS = {
   digestEmail: "Email digest",
   digestNotifyTitle: "Weekly digest ready",
   digestEmailFailed: "Couldn't send the digest email.",
+  digestEmailSent: "Digest email sent.",
+  digestEmailNoAccess: "Sign in to Microsoft 365 to email the digest.",
   digestEnableLabel: "Weekly status digest",
   digestCadenceLabel: "Digest cadence",
   digestCadenceWeekly: "Weekly",
@@ -1271,6 +1274,7 @@ const enUS = {
   contactsRemove: "Forget this contact",
   allGroups: "All groups",
   groupNone: "No group",
+  assigneeNone: "No assignee",
   allLabels: "All labels",
   allHealth: "All health",
   healthFilterLabel: "Health",
@@ -1413,6 +1417,10 @@ const enUS = {
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
   timelogApplyNoAllocation:
     "Booked hours can't be applied to {0} linked bucket(s): no role or discipline line to hold them. Add a role in the Budget view first.",
+  timelogApplyUnmatched:
+    "Some booked hours in {0} bucket(s) couldn't be matched to a role line, so {1}h were not applied and the existing values were left unchanged — those buckets will read low by that much. Link the person to a resource, set their role in the Directory, add that role to the bucket — or re-fetch bookings if they were loaded by an older version.",
+  timelogApplyStale:
+    "The budget changed while this preview was open, so it no longer matches what would be written. Review the changes again.",
   timelogKpiBooked: "Booked hours",
   timelogKpiBillable: "Billable %",
   timelogKpiWinLoss: "Win/loss (hours)",
@@ -1636,7 +1644,7 @@ const enUS = {
   resourcesAddAsResource: "Add as resource",
   resourcePickerAddAsResource: "+ Add “{0}” as resource",
   resourcePickerLinked: "Linked to a resource",
-  resourcePickerUnlink: "Unlink from resource",
+  resourcePickerDangling: "Linked resource no longer exists",
   resourcePickerResourcesGroup: "Resources",
   resourcePickerRecentGroup: "Recent",
 
@@ -1957,7 +1965,6 @@ const enUS = {
   calendarSyncAuto: "Keep in sync automatically",
   integrationsTursoTooltip: "Store your workspace in a Turso (libSQL) database.",
   integrationsTursoUrlTooltip: "Cloud database: use the libsql:// URL (or https://) from `turso db show <db>`. Local/self-hosted server: http:// on localhost only (127.0.0.1/::1), which needs no token.",
-  tursoUrlRegionWarning: "This looks like a region-specific host (e.g. .aws-eu-west-1.turso.io). Turso usually rejects it with “no route configured for host”. Use the routable URL from `turso db show <db>` (no region segment).",
   integrationsTursoTokenTooltip: "Auth token for the Turso database. Leave empty for a local token-less server.",
   storageTooltip: "Where your workspace is saved. Switching converts your current data and writes it to the new backend.",
 

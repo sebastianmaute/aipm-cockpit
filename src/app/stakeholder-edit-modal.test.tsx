@@ -99,6 +99,27 @@ describe("StakeholderEditModal — name picker (link-only)", () => {
       .getAllByRole("combobox")
       .find((el) => el.getAttribute("aria-describedby") === "stakeholder-name-counter")!;
 
+  // The picker's onChange dropped next.email, so picking a person never adopted
+  // their address — and once ✕ started clearing the whole field, clearing the
+  // name left the old email stranded on a stakeholder with no name. Every other
+  // consumer of this picker threads the email through.
+  it("picking a resource adopts their email too", () => {
+    const p = setup({ draft: { ...draft, name: "", email: "stale@old.com" }, resources });
+    fireEvent.focus(namePicker());
+    fireEvent.mouseDown(screen.getByText("Alex Example"));
+    expect(p.onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Alex Example", email: "Sample@x.com", resourceId: 1 }),
+    );
+  });
+
+  it("clearing the picker clears the adopted email with it", () => {
+    const p = setup({ draft: { ...draft, name: "Alex Example", email: "Sample@x.com", resourceId: 1 }, resources });
+    fireEvent.click(screen.getByRole("button", { name: /^clear$/i }));
+    expect(p.onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "", email: "", resourceId: null }),
+    );
+  });
+
   it("picking a resource sets both name and resourceId", () => {
     const p = setup({ draft: { ...draft, name: "" }, resources });
     fireEvent.focus(namePicker());

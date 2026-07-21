@@ -63,7 +63,12 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
 
   const handlePickerChange = (next: { name: string; email: string; resourceId: number | null }) => {
     setRecipient(next);
-    if (next.email) setEmailInput(next.email);
+    // Adopt a picked address; on a CLEAR (the ✕ empties name AND email) drop the
+    // previously adopted one too — `resolvedEmail` falls back to `emailInput`,
+    // so leaving it set kept the just-cleared recipient armed as the send
+    // target under an empty name. A pick that carries a name but no email
+    // preserves a manually typed address.
+    if (next.email || !next.name) setEmailInput(next.email);
   };
 
   return (
@@ -97,6 +102,9 @@ export function EscalatePopover({ lang, action, bundle, prominent }: EscalatePop
             contacts={[]}
             onCreateResource={bundle.onCreateResource}
             onChange={handlePickerChange}
+            // The visible <span> above is NOT an accessible label — without this
+            // the combobox has no name at all.
+            aria-label={t(lang, "actionEscalateRecipient")}
           />
           <Input
             type="email"

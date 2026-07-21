@@ -14,6 +14,7 @@ import type { FeatureModuleId } from "./feature-modules";
 import type { FieldVisibilityConfig } from "./field-visibility";
 import { defaultResourcePlan, effectiveAssignee } from "./resource-foundation";
 import { statusSortIndex } from "./task-status";
+import { resolveEffectiveFilters, type TaskFilterValues } from "./task-filters";
 import {
   PRIORITY_RANK,
   type Absence,
@@ -54,6 +55,13 @@ interface WorkspaceValue {
   uniqueLabels: string[];
   tasksById: Map<number, Task>;
   taskSearchIndex: Map<number, string>;
+
+  /** The assignee/group/label filters with any value that no longer exists on a
+   *  task resolved to "All". Drives BOTH `filteredSortedTasks` and the pane's
+   *  filter <select>s, so an orphaned filter can never hide every row while the
+   *  control renders blank. The raw values stay in FiltersProvider — saved views
+   *  capture those, and restoring the tasks restores the filter. */
+  effectiveFilters: TaskFilterValues;
 
   filteredSortedTasks: Task[];
 
@@ -209,19 +217,38 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     return map;
   }, [tasks, resourcesById]);
 
+  // The assignee/group/label options are derived from the live tasks, so editing
+  // the last task carrying a filtered-for value orphans the filter: it goes on
+  // hiding every row while the <select>, left with no matching option, falls
+  // back to "All" and stops explaining the empty table.
+  // Resolve the value that can still match ONCE here and feed it to both the row
+  // filter below and the pane's <select>, so the two cannot drift apart.
+  const effectiveFilters = useMemo(
+    () =>
+      resolveEffectiveFilters(
+        { assignee: assigneeFilter, group: groupFilter, label: labelFilter },
+        { assignees: uniqueAssignees, groups: uniqueGroups, labels: uniqueLabels },
+      ),
+    [assigneeFilter, groupFilter, labelFilter, uniqueAssignees, uniqueGroups, uniqueLabels],
+  );
+  // Hoisted to scalars: exhaustive-deps rejects an `obj.member` dep.
+  const effAssignee = effectiveFilters.assignee;
+  const effGroup = effectiveFilters.group;
+  const effLabel = effectiveFilters.label;
+
   const filteredSortedTasks = useMemo(() => {
     const q = searchDebounced.trim().toLowerCase();
     const filtered = tasks.filter((t) => {
       if (priorityFilter !== "All" && t.priority !== priorityFilter)
         return false;
-      if (assigneeFilter !== "All" && effectiveAssignee(t, resourcesById) !== assigneeFilter)
+      if (effAssignee !== "All" && effectiveAssignee(t, resourcesById) !== effAssignee)
         return false;
-      if (groupFilter !== "All" && (t.group ?? "") !== groupFilter)
+      if (effGroup !== "All" && (t.group ?? "") !== effGroup)
         return false;
       if (
-        labelFilter !== "All" &&
+        effLabel !== "All" &&
         !(t.labels ?? []).some(
-          (l) => l.toLowerCase() === labelFilter.toLowerCase(),
+          (l) => l.toLowerCase() === effLabel.toLowerCase(),
         )
       )
         return false;
@@ -263,9 +290,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     taskSearchIndex,
     searchDebounced,
     priorityFilter,
-    assigneeFilter,
-    groupFilter,
-    labelFilter,
+    effAssignee,
+    effGroup,
+    effLabel,
     sortKey,
     sortDir,
     resourcesById,
@@ -283,6 +310,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       uniqueLabels,
       tasksById,
       taskSearchIndex,
+      effectiveFilters,
       filteredSortedTasks,
       raid,
       setRaid,
@@ -322,6 +350,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       uniqueLabels,
       tasksById,
       taskSearchIndex,
+      effectiveFilters,
       filteredSortedTasks,
       raid,
       absences,

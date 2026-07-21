@@ -168,9 +168,8 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             : t(lang, "tasksCountFiltered", visible.length, entries.length)}
         </span>
         <div className="flex items-center gap-2 print:hidden">
-          <PrintButton lang={lang} />
-          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-          <ResetSizeButton onClick={resetActSize} lang={lang} />
+          {/* Clear leads; Print · reset-columns · reset-size stay the trailing
+            * group, so the resets sit together as they do in every other pane. */}
           {entries.length > 0 && (
             <button
               type="button"
@@ -188,6 +187,9 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               {t(lang, "activityClear")}
             </button>
           )}
+          <PrintButton lang={lang} />
+          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
+          <ResetSizeButton onClick={resetActSize} lang={lang} />
         </div>
       </header>
 

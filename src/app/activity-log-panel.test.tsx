@@ -5,6 +5,7 @@ import { ActivityLogPanel } from "./activity-log-panel";
 import { ConfirmProvider } from "./confirm-dialog";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { t } from "./i18n";
+import { expectButtonOrder } from "../test/toolbar-order";
 import type { ActivityEntry } from "./activity-log";
 
 // Synchronous rAF so the confirm dialog's Modal focus-management effect runs
@@ -37,6 +38,19 @@ const entries: ActivityEntry[] = [
   entry({ id: 1, kind: "task.created", args: ["Task A"] }),
   entry({ id: 2, kind: "task.updated", args: ["Task B"] }),
 ];
+
+describe("ActivityLogPanel — toolbar order", () => {
+  // Clear log leads; Print · reset-columns · reset-size stay one trailing
+  // group. Clear used to sit after the resets, splitting them from Print.
+  // (expectButtonOrder throws on a missing OR duplicated control, so a deleted
+  // button can't degrade this into a vacuous comparison — see src/test.)
+  it("puts Clear log ahead of the Print / reset group", () => {
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    // Clear only has to LEAD; the trailing group must be adjacent.
+    expectButtonOrder(["activityClear", "printHint"]);
+    expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
+  });
+});
 
 describe("ActivityLogPanel", () => {
   it("renders the per-field change diff under an update entry (#22)", () => {

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ChatPanel } from "./chat-panel";
+import { t } from "./i18n";
 import { buildSystemPrompt, systemBlocksText } from "./chat-api";
 import type { ToolDispatcher } from "./chat-tools";
 import { defaultAiConfig as baseAiConfig } from "./settings-types";
@@ -471,6 +472,25 @@ describe("SP1 seed + foundational chips", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "What's next?" }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+  });
+
+  // The attachment prompt was moved OUT of FOUNDATIONAL_PROMPTS (the header
+  // Ask-Claude menu has no attach affordance) into CHAT_ONLY_PROMPTS, which
+  // only chat spreads. Nothing rendered pinned that second half: dropping
+  // `...CHAT_ONLY_PROMPTS` from the chip list deletes the prompt from the whole
+  // product while every module-level test still passes.
+  it("still offers the chat-only attachment chip, and it auto-sends", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(jsonResponse);
+    render(
+      <ChatPanel
+        lang="en-US"
+        ai={AI_WITH_KEY}
+        dispatcher={makeDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "aiPromptProcessAttachmentLabel") }));
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
   });
 

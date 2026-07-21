@@ -204,6 +204,31 @@ covered by component / E2E tests instead (see the `exclude` list in
 `vitest.config.ts`). Storage tests run against an in-memory IndexedDB
 (`fake-indexeddb`); some pure modules add property-based tests via `fast-check`.
 
+**Test-only helpers live in `src/test/`** (e.g. `msw-server.ts`,
+`toolbar-order.ts`), imported as `../test/<name>`. That path is coverage-excluded
+in `vitest.config.ts` and nothing in the app graph imports from it, so helpers
+never reach the bundle. Do **not** put a shared test helper under `src/app/` — it
+becomes coverage-gated production code.
+
+**Prove a new test can fail.** A test written after the fix passes immediately,
+which proves nothing on its own. Either watch it fail first, or revert the fix
+and confirm the test dies. Recurring traps in this codebase that make a green
+test meaningless:
+
+- `t(lang, key)` returns `undefined` for a key that doesn't exist, so an
+  assertion against a mistyped key can pass trivially — and jest-dom's
+  `toHaveAttribute(name, undefined)` silently degrades to an existence check.
+- `getByRole(..., { name: undefined })` drops the name filter entirely.
+- A `<select>` whose value matches no option falls back to its first option, so
+  it reads the same whichever source it is bound to.
+- `Array.findIndex` returns `-1`, which compares as "before everything" — anchor
+  the first index with an explicit `>= 0` before chaining `toBeLessThan`.
+- Asserting a substring of a class name can pass for a variant that breaks the
+  behaviour (`…:appearance-none` vs `…:block`); assert the whole token.
+- A fixture that never reaches the code path under test (e.g. a person with no
+  work, when the bug only appears once they own some) passes for the wrong
+  reason.
+
 ### End-to-end — Playwright
 
 - Config: `playwright.config.ts` (Chromium-only by default; Firefox / WebKit

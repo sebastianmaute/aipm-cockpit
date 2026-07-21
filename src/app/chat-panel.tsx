@@ -4,7 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
-import { FOUNDATIONAL_PROMPTS, type PromptDef } from "./ask-claude-prompts";
+import { CHAT_ONLY_PROMPTS, FOUNDATIONAL_PROMPTS, type PromptDef } from "./ask-claude-prompts";
 
 // A starter chip: a prompt plus whether clicking it sends immediately
 // (foundational prompts) or just fills the input (the legacy chips).
@@ -15,7 +15,7 @@ const PROMPT_CHIPS: PromptChip[] = [
   { labelKey: "chatPromptOverdue", bodyKey: "chatPromptOverdue", autoSend: false },
   { labelKey: "chatPromptAtRisk", bodyKey: "chatPromptAtRisk", autoSend: false },
   { labelKey: "chatPromptStatusUpdate", bodyKey: "chatPromptStatusUpdate", autoSend: false },
-  ...FOUNDATIONAL_PROMPTS.map((p) => ({ ...p, autoSend: true })),
+  ...[...FOUNDATIONAL_PROMPTS, ...CHAT_ONLY_PROMPTS].map((p) => ({ ...p, autoSend: true })),
 ];
 import { Markdown } from "./markdown";
 import { CHAT_MESSAGE_MAX } from "./sanitize";
