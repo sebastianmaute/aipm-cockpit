@@ -3,7 +3,7 @@ import {
   blendedDisciplineRate,
   disciplineHasUnpricedGrade,
   effectiveRates,
-  hasUsableInternalOverride,
+  hasInternalOverride,
 } from "./budget-rates";
 import type { Role } from "./types";
 
@@ -42,8 +42,20 @@ describe("blendedDisciplineRate", () => {
     expect(blendedDisciplineRate(1, mixed).external).toBe(180);
   });
 
-  test("a fully priced discipline still averages", () => {
-    expect(blendedDisciplineRate(1, roles).internal).toBe(120);
+  test("a negative rate is unpriced too, not a discount", () => {
+    const bad: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 2, internalRate: -50, externalRate: 210 },
+    ];
+    expect(blendedDisciplineRate(1, bad).internal).toBe(0);
+  });
+
+  test("a malformed rate poisons rather than propagating NaN", () => {
+    const bad: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 2, internalRate: NaN, externalRate: 210 },
+    ];
+    expect(blendedDisciplineRate(1, bad).internal).toBe(0);
   });
 });
 
@@ -60,6 +72,11 @@ describe("disciplineHasUnpricedGrade", () => {
     expect(disciplineHasUnpricedGrade(1, roles)).toBe(false);
   });
 
+  test("a negative rate counts as unpriced", () => {
+    const bad: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: -50, externalRate: 210 }];
+    expect(disciplineHasUnpricedGrade(1, bad)).toBe(true);
+  });
+
   test("false for a discipline with NO roles — that is a different problem", () => {
     // An empty discipline has no grade to price, so calling it "unpriced grades"
     // would send the user hunting for something that does not exist. It already
@@ -68,16 +85,21 @@ describe("disciplineHasUnpricedGrade", () => {
   });
 });
 
-describe("hasUsableInternalOverride", () => {
+describe("hasInternalOverride", () => {
   test("true for a finite rate >= 0", () => {
-    expect(hasUsableInternalOverride({ rateOverrideInternal: 90 })).toBe(true);
-    expect(hasUsableInternalOverride({ rateOverrideInternal: 0 })).toBe(true);
+    expect(hasInternalOverride({ rateOverrideInternal: 90 })).toBe(true);
+    // 0 is PRESENT but prices nothing, and true is right: `effectiveRates` also
+    // treats it as usable, so the 0 wins over the blend regardless. Gating this
+    // on > 0 would tell the bucket to price disciplines its own override has
+    // already overruled. The 0 rate is caught downstream as unrated work.
+    expect(hasInternalOverride({ rateOverrideInternal: 0 })).toBe(true);
   });
 
   test("false when absent or invalid", () => {
-    expect(hasUsableInternalOverride({})).toBe(false);
-    expect(hasUsableInternalOverride({ rateOverrideInternal: -5 })).toBe(false);
-    expect(hasUsableInternalOverride({ rateOverrideInternal: NaN })).toBe(false);
+    expect(hasInternalOverride({})).toBe(false);
+    expect(hasInternalOverride({ rateOverrideInternal: -5 })).toBe(false);
+    expect(hasInternalOverride({ rateOverrideInternal: NaN })).toBe(false);
+    expect(hasInternalOverride({ rateOverrideInternal: Infinity })).toBe(false);
   });
 });
 
