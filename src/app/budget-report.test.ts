@@ -809,12 +809,12 @@ describe("computeBudgetReport — project costUnknownReason", () => {
     const noRates = bucket(2, 2); // single rateless role + hours → no-rates, revenue != 0
     const rep = computeBudgetReport([mixedBucket(1), noRates], plan, roles, [], 8, noHolidays);
     // Fixture guard: the two failing buckets really do carry DIFFERENT reasons,
-    // so `find` over REASON_SEVERITY has a genuine choice to make. Without this a
+    // so the reduce over REASON_RANK has a genuine choice to make. Without this a
     // fixture drift that collapsed them to one reason would silently re-vacuum
     // the test.
     expect(rep.buckets.map((b) => b.costUnknownReason).sort()).toEqual(["no-rates", "unrated-hours"]);
     // unrated-hours (real hours costed at zero) outranks no-rates by severity of
-    // distortion — the ordering REASON_SEVERITY encodes, which a plain
+    // distortion — the ordering REASON_RANK encodes, which a plain
     // derivation order would get backwards.
     expect(rep.project.costUnknownReason).toBe("unrated-hours");
   });
