@@ -291,7 +291,12 @@ describe("BudgetPanel — blended bucket on a partly priced discipline", () => {
     render(
       <BudgetPanel {...props} buckets={blendedBuckets} roles={partlyPricedRoles} disciplines={[{ id: 1, name: "Design" }]} />,
     );
-    expect(screen.getAllByText(/Design/).length).toBeGreaterThan(0);
+    // Assert the NOTICE text, not a bare /Design/: the discipline name also
+    // renders in the blended row's table cell, so matching it alone would pass
+    // even if the notice were unwired (a vacuous test caught in review). This
+    // message string comes ONLY from CostUnknownNotice; getAllByText because
+    // both the bucket and project notices fire.
+    expect(screen.getAllByText(/grades with no internal rate in: Design/i).length).toBeGreaterThan(0);
     expect(screen.queryAllByText("100.0%")).toHaveLength(0);
   });
 
@@ -299,7 +304,14 @@ describe("BudgetPanel — blended bucket on a partly priced discipline", () => {
     render(
       <BudgetPanel {...props} buckets={[{ ...blendedBuckets[0], rateOverrideInternal: 90 }]} roles={partlyPricedRoles} disciplines={[{ id: 1, name: "Design" }]} />,
     );
+    // No unpriced-blend notice anywhere...
     expect(screen.queryByText(/grades with no internal rate/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no internal rates are set/i)).not.toBeInTheDocument();
+    // ...and the figures ARE computed rather than blanked: external blend is
+    // mean(150,210)=180 (external is not poisoned), internal is the 90 override,
+    // so 80h → cost 7,200 and margin 14,400 − 7,200 = 7,200. A blanked bucket
+    // would show "—" for both.
+    expect(screen.getAllByText(/7,200/).length).toBeGreaterThan(0);
   });
 });
 
