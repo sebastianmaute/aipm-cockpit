@@ -14,11 +14,12 @@ import {
   useSortableFilter,
   type SortDir,
 } from "./report-table";
-import { computeBudgetReport, type BucketReport, type CciValue } from "./budget-report";
+import { computeBudgetReport, costIsKnowable, type BucketReport, type CciValue } from "./budget-report";
+import { CostUnknownNotice } from "./budget-cost-notice";
 import { computeEvm, projectBlendedInternalRate } from "./evm";
 import { formatCurrency } from "./resource-cost";
 import { resolveRate } from "./fx";
-import type { Absence, BudgetBucket, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
+import type { Absence, BudgetBucket, Discipline, FxRates, ResourcePlan, Resource, Role, Task } from "./types";
 import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
@@ -42,6 +43,7 @@ interface Props {
   buckets: readonly BudgetBucket[];
   plan: ResourcePlan;
   roles: readonly Role[];
+  disciplines: readonly Discipline[];
   resources: readonly Resource[];
   absences: readonly Absence[];
   holidaySet: Set<string>;
@@ -56,7 +58,7 @@ interface Props {
 }
 
 export function BudgetReportPanel({
-  lang, buckets, plan, roles, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
+  lang, buckets, plan, roles, disciplines, resources, absences, holidaySet, workdayHours, fxRates, tasks, today, embedded = false,
   showHints, isPopout, onLearnMore,
 }: Props) {
   // Hooks are called unconditionally before the empty-state early return (rules of hooks).
@@ -90,7 +92,7 @@ export function BudgetReportPanel({
   const proj = report.project;
   // No bucket carries an internal rate, so cost is 0 for want of a rate card
   // rather than because the work was free — every cost-derived figure is unknown.
-  const costUnknown = !proj.costIsKnowable;
+  const costUnknown = !costIsKnowable(proj);
 
   const content = (
     <>
@@ -111,14 +113,16 @@ export function BudgetReportPanel({
           <Tile label={<>{t(lang, "budgetCciBurn")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciBurnHint")} /></span></>} value={costUnknown ? "—" : `${money(proj.costPerformance.amount)} (${pct(proj.costPerformance)})`} rag={costUnknown ? undefined : <RagBadge value={costPerformanceHealth(proj.costPerformance.percent)} lang={lang} title={t(lang, "budgetCciBurn")} />} />
           <Tile label={<>{t(lang, "budgetCciConsumption")}<span className="print:hidden ml-1"><InfoTooltip text={t(lang, "budgetCciConsumptionHint")} /></span></>} value={`${money(proj.consumption.amount)} (${pct(proj.consumption)})`} rag={<RagBadge value={ratioHealth(proj.consumedValue, proj.budgetValue)} lang={lang} title={t(lang, "budgetCciConsumption")} />} />
         </div>
-        {/* The FIGURES go unknown whenever cost has no basis (no rows, or no
-            rate). The NOTICE fires only when rows exist and none is rated —
-            a project with nothing allocated has no rate card to fix. */}
-        {proj.ratesAreMissing && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {t(lang, "budgetNoInternalRates")}
-          </p>
-        )}
+        {/* Each unknown-cost state carries its own line: an empty project is
+            told there is nothing to cost, not to fix a rate card it has no
+            roles for. */}
+        <CostUnknownNotice
+          lang={lang}
+          reason={proj.costUnknownReason}
+          disciplineNames={proj.unpricedDisciplineIds
+            .map((id) => disciplines.find((d) => d.id === id)?.name)
+            .filter((n): n is string => !!n)}
+        />
       </Section>
 
       <Section title={t(lang, "evmTitle")}>
@@ -207,10 +211,10 @@ function BucketDetailTable({
           // job — and an unstaffed fixed-price bucket yields revenue − 0 = a
           // literal 100, which is not null and so would print as a real reading.
           // The summary tiles above already gate; this table did not.
-          marginPct: r.costIsKnowable ? r.contributionMargin.percent : null,
+          marginPct: costIsKnowable(r) ? r.contributionMargin.percent : null,
           // Same for win/loss on a fixed-price bucket, where it IS revenue − cost.
           // A T&M bucket's runs on external rates and stays valid.
-          winLossUnknown: !r.costIsKnowable && r.type === "fixed",
+          winLossUnknown: !costIsKnowable(r) && r.type === "fixed",
         };
       }),
     [rows, bucketById, fxRates, lang],
