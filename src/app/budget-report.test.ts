@@ -820,11 +820,38 @@ describe("computeBudgetReport — project costUnknownReason", () => {
   });
 
   test("an all-empty project reports no-rows (nothing to cost anywhere)", () => {
-    // The only way `no-rows` becomes a PROJECT reason: every failing bucket is
-    // zero-revenue (so `breaking` is empty and the fallback blames them all).
+    // The only way `no-rows` becomes a PROJECT reason: every bucket is a
+    // zero-revenue empty one, so the blame set is empty and the reduce yields
+    // null, which the `?? "no-rows"` default names.
     const empty = (id: number): BudgetBucket => ({ ...bucket(id, 1), allocations: [] });
     const rep = computeBudgetReport([empty(1), empty(2)], plan, roles, [], 8, noHolidays);
     expect(rep.project.costUnknownReason).toBe("no-rows");
+  });
+
+  test("unpriced ids are empty when a more severe reason wins the headline", () => {
+    // A mixed project: one unrated-hours bucket (revenue > 0) and one
+    // unpriced-blend bucket (revenue > 0). Both are blamed, but unrated-hours
+    // outranks — so the project message names no disciplines and the ids MUST be
+    // empty, or a surface would render discipline names under an unrated-hours
+    // headline (the doc's invariant: non-empty IFF reason === unpriced-blend).
+    const blend: BudgetBucket = {
+      id: 2, name: "blend", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended", allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 9, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+      ],
+    };
+    const blendRoles: Role[] = [
+      ...roles,
+      { id: 3, disciplineId: 9, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 4, disciplineId: 9, gradeId: 2, internalRate: 0, externalRate: 210 },
+    ];
+    const rep = computeBudgetReport([mixedBucket(1), blend], plan, blendRoles, [], 8, noHolidays);
+    // Fixture guard: the two failing buckets really carry the two reasons.
+    expect(rep.buckets.map((b) => b.costUnknownReason).sort()).toEqual(["unpriced-blend", "unrated-hours"]);
+    expect(rep.project.costUnknownReason).toBe("unrated-hours");
+    expect(rep.project.unpricedDisciplineIds).toEqual([]);
   });
 
   test("costIsKnowable and the project reason never disagree", () => {

@@ -415,8 +415,10 @@ export type ProjectReport = {
   /** Why the project's cost figures are unknowable, or null when they are sound.
    *  Always agrees with `costIsKnowable` — pinned by a test. */
   costUnknownReason: CostUnknownReason | null;
-  /** Union of the failing buckets' unpriced disciplines, deduped. Non-empty only
-   *  when the project reason is "unpriced-blend". */
+  /** Deduped union of the unpriced disciplines of the blamed unpriced-blend
+   *  buckets. Non-empty IFF `costUnknownReason === "unpriced-blend"` — when a
+   *  more severe reason wins the project, its message names no disciplines and
+   *  this is empty. */
   unpricedDisciplineIds: number[];
 };
 
@@ -453,15 +455,24 @@ function computeSpillover(
 }
 
 /**
- * Project reason precedence, by SEVERITY OF DISTORTION — deliberately NOT the
- * bucket-level derivation order, which is a sequence of mutually exclusive
- * checks and carries no ranking. Real hours costed at zero actively corrupt the
- * total, so they outrank a missing rate card, which outranks a bucket that
- * simply has nothing in it.
+ * Project reason precedence, by SEVERITY OF DISTORTION (lower rank = more
+ * severe) — deliberately NOT the bucket-level derivation order, which is a
+ * sequence of mutually exclusive checks and carries no ranking. Real hours
+ * costed at zero actively corrupt the total, so they outrank a missing rate
+ * card, which outranks a bucket that simply has nothing in it.
+ *
+ * ★★ A Record, not an array, ON PURPOSE: tsc errors if a `CostUnknownReason`
+ * member is added or removed, so a future 5th reason (the "no-hours 0-override"
+ * corner is already flagged for one) can NEVER silently fall through to a
+ * default and mislabel the project — the exact plausible-wrong-explanation this
+ * workstream exists to close.
  */
-const REASON_SEVERITY: readonly CostUnknownReason[] = [
-  "unrated-hours", "unpriced-blend", "no-rates", "no-rows",
-];
+const REASON_RANK: Record<CostUnknownReason, number> = {
+  "unrated-hours": 0,
+  "unpriced-blend": 1,
+  "no-rates": 2,
+  "no-rows": 3,
+};
 
 export function computeBudgetReport(
   buckets: readonly BudgetBucket[],
@@ -497,19 +508,26 @@ export function computeBudgetReport(
   const projectCostIsKnowable =
     reports.some((b) => costIsKnowable(b)) &&
     reports.every((b) => costIsKnowable(b) || (b.revenue === 0 && !ratesMissing(b)));
-  // Buckets that actually break the rollup. When NOTHING is costable the `some`
-  // half fails while `every` passes, so this set is empty — fall back to every
-  // non-costable bucket, or the project would report a null reason while
-  // declaring itself unknowable.
-  const breaking = reports.filter((b) => !costIsKnowable(b) && !(b.revenue === 0 && !ratesMissing(b)));
+  // The buckets that break the rollup: not costable AND not exempt (a
+  // zero-revenue bucket that is not itself missing rates cannot distort the
+  // total, so it is not to blame). This IS the blame set — an earlier fallback
+  // to "every non-costable bucket" was an equivalent branch (when nothing is
+  // costable, every non-costable bucket is a zero-revenue `no-rows` bucket, so
+  // both yield `no-rows`); the `?? "no-rows"` below already guards a null reason,
+  // so the fallback bought nothing.
   const blamed = projectCostIsKnowable
     ? []
-    : breaking.length > 0 ? breaking : reports.filter((b) => !costIsKnowable(b));
-  // A project with no buckets has no blamed bucket to read a reason from, and
-  // "nothing here" is exactly right for it.
+    : reports.filter((b) => !costIsKnowable(b) && !(b.revenue === 0 && !ratesMissing(b)));
+  // Highest-severity (lowest-rank) reason among the blamed buckets; a project
+  // with none (only reachable when every bucket is a zero-revenue empty one) is
+  // "no-rows". The reduce over REASON_RANK is exhaustive by the Record's type.
   const projectReason: CostUnknownReason | null = projectCostIsKnowable
     ? null
-    : REASON_SEVERITY.find((rsn) => blamed.some((b) => b.costUnknownReason === rsn)) ?? "no-rows";
+    : blamed.reduce<CostUnknownReason | null>((best, b) => {
+        const r = b.costUnknownReason;
+        if (r === null) return best;
+        return best === null || REASON_RANK[r] < REASON_RANK[best] ? r : best;
+      }, null) ?? "no-rows";
 
   const project: ProjectReport = {
     budgetHours: sum((r) => r.budgetHours),
@@ -557,7 +575,18 @@ export function computeBudgetReport(
     // and actionable statement about a project even when others are fine.
     ratesAreMissing: reports.some((b) => b.ratesAreMissing),
     costUnknownReason: projectReason,
-    unpricedDisciplineIds: [...new Set(blamed.flatMap((b) => b.unpricedDisciplineIds))],
+    // Scoped to the unpriced-blend HEADLINE only: when a more severe reason
+    // (unrated-hours) wins the project, its message names no disciplines, so the
+    // ids must be empty or a surface could render "Design, QA" under the wrong
+    // headline. Non-empty ⟺ projectReason === "unpriced-blend".
+    unpricedDisciplineIds:
+      projectReason === "unpriced-blend"
+        ? [...new Set(
+            blamed
+              .filter((b) => b.costUnknownReason === "unpriced-blend")
+              .flatMap((b) => b.unpricedDisciplineIds),
+          )]
+        : [],
   };
   return { buckets: reports, project };
 }
