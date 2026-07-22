@@ -412,6 +412,12 @@ export type ProjectReport = {
    *  pointing the user at the rate card is the right guidance. An empty bucket
    *  is false: it has no roles to rate. */
   ratesAreMissing: boolean;
+  /** Why the project's cost figures are unknowable, or null when they are sound.
+   *  Always agrees with `costIsKnowable` — pinned by a test. */
+  costUnknownReason: CostUnknownReason | null;
+  /** Union of the failing buckets' unpriced disciplines, deduped. Non-empty only
+   *  when the project reason is "unpriced-blend". */
+  unpricedDisciplineIds: number[];
 };
 
 export type BudgetReport = {
@@ -446,6 +452,17 @@ function computeSpillover(
   return { hours, value };
 }
 
+/**
+ * Project reason precedence, by SEVERITY OF DISTORTION — deliberately NOT the
+ * bucket-level derivation order, which is a sequence of mutually exclusive
+ * checks and carries no ranking. Real hours costed at zero actively corrupt the
+ * total, so they outrank a missing rate card, which outranks a bucket that
+ * simply has nothing in it.
+ */
+const REASON_SEVERITY: readonly CostUnknownReason[] = [
+  "unrated-hours", "unpriced-blend", "no-rates", "no-rows",
+];
+
 export function computeBudgetReport(
   buckets: readonly BudgetBucket[],
   plan: ResourcePlan,
@@ -472,6 +489,27 @@ export function computeBudgetReport(
   const budgetValue = sum((r) => r.budgetValue);
   const consumedValue = sum((r) => r.consumedValue);
   const budgetCost = sum((r) => r.budgetCost);
+
+  // The shipped rollup predicate, unchanged in behaviour — its inputs move from
+  // the per-bucket boolean fields to the equivalent helpers (Task 2 proved them
+  // identical by construction). Both halves stay load-bearing; the long comment
+  // on the field below documents why.
+  const projectCostIsKnowable =
+    reports.some((b) => costIsKnowable(b)) &&
+    reports.every((b) => costIsKnowable(b) || (b.revenue === 0 && !ratesMissing(b)));
+  // Buckets that actually break the rollup. When NOTHING is costable the `some`
+  // half fails while `every` passes, so this set is empty — fall back to every
+  // non-costable bucket, or the project would report a null reason while
+  // declaring itself unknowable.
+  const breaking = reports.filter((b) => !costIsKnowable(b) && !(b.revenue === 0 && !ratesMissing(b)));
+  const blamed = projectCostIsKnowable
+    ? []
+    : breaking.length > 0 ? breaking : reports.filter((b) => !costIsKnowable(b));
+  // A project with no buckets has no blamed bucket to read a reason from, and
+  // "nothing here" is exactly right for it.
+  const projectReason: CostUnknownReason | null = projectCostIsKnowable
+    ? null
+    : REASON_SEVERITY.find((rsn) => blamed.some((b) => b.costUnknownReason === rsn)) ?? "no-rows";
 
   const project: ProjectReport = {
     budgetHours: sum((r) => r.budgetHours),
@@ -514,12 +552,12 @@ export function computeBudgetReport(
     // makes the notice fire now also blanks the total, so the panel can never
     // print "cost, margin and burn cannot be calculated" beside calculated
     // numbers.
-    costIsKnowable:
-      reports.some((b) => b.costIsKnowable) &&
-      reports.every((b) => b.costIsKnowable || (b.revenue === 0 && !b.ratesAreMissing)),
+    costIsKnowable: projectCostIsKnowable,
     // Stays SOME: "at least one bucket has rows nobody has rated" is an honest
     // and actionable statement about a project even when others are fine.
     ratesAreMissing: reports.some((b) => b.ratesAreMissing),
+    costUnknownReason: projectReason,
+    unpricedDisciplineIds: [...new Set(blamed.flatMap((b) => b.unpricedDisciplineIds))],
   };
   return { buckets: reports, project };
 }

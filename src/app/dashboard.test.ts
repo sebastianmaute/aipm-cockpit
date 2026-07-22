@@ -33,6 +33,8 @@ function project(budgetValue: number, consumedValue: number): ProjectReport {
     budgetMirrorsPlan: false,
     costIsKnowable: true,
     ratesAreMissing: false,
+    costUnknownReason: null,
+    unpricedDisciplineIds: [],
   };
 }
 const today = "2026-06-02";
