@@ -159,13 +159,13 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     // cost === 0 here only because the rate card is empty — NOT because the work
     // was free. Surfaces must not read that as a 100% margin.
     expect(report.buckets[0].cost).toBe(0);
-    expect(report.buckets[0].costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(false);
   });
 
   test("does not flag a bucket with a real internal rate", () => {
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([bucketWithHours], plan, rated, resources, 8, noHolidays);
-    expect(report.buckets[0].costIsKnowable).toBe(true);
+    expect(costIsKnowable(report.buckets[0])).toBe(true);
   });
 
   // ★ EXPECTATION DELIBERATELY REVERSED (was: one costable bucket keeps the
@@ -178,7 +178,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
   test("the project rollup refuses whenever any bucket carries uncosted work", () => {
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }];
     const allRateless = computeBudgetReport([bucketWithHours], plan, rateless, resources, 8, noHolidays);
-    expect(allRateless.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(allRateless.project)).toBe(false);
 
     const mixedRoles: Role[] = [
       { id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 },
@@ -190,8 +190,8 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     };
     const mixed = computeBudgetReport([bucketWithHours, ratedBucket], plan, mixedRoles, resources, 8, noHolidays);
     // The rated bucket alone IS costable — the veto comes from its neighbour.
-    expect(mixed.buckets[1].costIsKnowable).toBe(true);
-    expect(mixed.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(mixed.buckets[1])).toBe(true);
+    expect(costIsKnowable(mixed.project)).toBe(false);
   });
 
   // A bucket created by the "+ Add bucket" button starts with NO allocations.
@@ -203,7 +203,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const empty: BudgetBucket = { ...bucketWithHours, allocations: [] };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays);
-    expect(report.buckets[0].ratesAreMissing).toBe(false);
+    expect(ratesMissing(report.buckets[0])).toBe(false);
   });
 
   // Two flags, three states — they answer different questions and must not be
@@ -214,7 +214,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const empty: BudgetBucket = { ...bucketWithHours, allocations: [] };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays);
-    expect(report.buckets[0].costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(false);
   });
 
   // The regression that shipped in 0.195.0: an unstaffed fixed-price contract
@@ -233,8 +233,8 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const report = computeBudgetReport([emptyFixed], plan, rated, resources, 8, noHolidays);
     // The arithmetic still yields 100 — it is the DISPLAY that must not treat
     // it as a real reading, so the flag is what surfaces gate on.
-    expect(report.buckets[0].costIsKnowable).toBe(false);
-    expect(report.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(false);
+    expect(costIsKnowable(report.project)).toBe(false);
   });
 
   // ★★ A row-level version of the same defect. `some(rated)` let ONE rated row
@@ -256,9 +256,9 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
     const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays);
-    expect(report.buckets[0].costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(false);
     // And the user must be TOLD — a rate really is missing here.
-    expect(report.buckets[0].ratesAreMissing).toBe(true);
+    expect(ratesMissing(report.buckets[0])).toBe(true);
   });
 
   // The converse: an unrated row carrying NO hours cannot affect cost, so it
@@ -278,7 +278,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
     const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays);
-    expect(report.buckets[0].costIsKnowable).toBe(true);
+    expect(costIsKnowable(report.buckets[0])).toBe(true);
   });
 
   // ★★ The project rollup sums revenue and cost from EVERY bucket, so ONE
@@ -302,8 +302,8 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const report = computeBudgetReport([ratedTm, unstaffedFixed], plan, rated, [], 8, noHolidays);
     // Guard the fixture: the rated bucket really is costable on its own, so a
     // false negative here would prove nothing.
-    expect(report.buckets[0].costIsKnowable).toBe(true);
-    expect(report.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(true);
+    expect(costIsKnowable(report.project)).toBe(false);
   });
 
   // `revenue === 0` alone is too loose an exemption. A bucket with BUDGETED
@@ -330,8 +330,8 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const report = computeBudgetReport([ratedActive, unratedBudgetedOnly], plan, roles, [], 8, noHolidays);
     // Guard the fixture: it really does slip the revenue-based exemption.
     expect(report.buckets[1].revenue).toBe(0);
-    expect(report.buckets[1].ratesAreMissing).toBe(true);
-    expect(report.project.costIsKnowable).toBe(false);
+    expect(ratesMissing(report.buckets[1])).toBe(true);
+    expect(costIsKnowable(report.project)).toBe(false);
   });
 
   // The notice and the figures must never contradict each other: whenever a
@@ -352,7 +352,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
     const p = computeBudgetReport([ratedActive, unrated], plan, roles, [], 8, noHolidays).project;
-    expect(p.ratesAreMissing && p.costIsKnowable).toBe(false);
+    expect(ratesMissing(p) && costIsKnowable(p)).toBe(false);
   });
 
   // A bucket contributing NO revenue cannot distort the total, so it must not
@@ -371,7 +371,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([ratedTm, emptyScratch], plan, rated, [], 8, noHolidays);
     expect(report.buckets[1].revenue).toBe(0);
-    expect(report.project.costIsKnowable).toBe(true);
+    expect(costIsKnowable(report.project)).toBe(true);
   });
 });
 
@@ -518,8 +518,8 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
     test(`invariant holds for [${combo.join(" + ")}]`, () => {
       const buckets = combo.map((n, i) => kinds[n](i + 1));
       const report = computeBudgetReport(buckets, plan, roles, [], 8, noHolidays);
-      if (report.project.costIsKnowable) {
-        const poisoned = report.buckets.filter((b) => !b.costIsKnowable && b.revenue !== 0);
+      if (costIsKnowable(report.project)) {
+        const poisoned = report.buckets.filter((b) => !costIsKnowable(b) && b.revenue !== 0);
         expect(
           poisoned.map((b) => `${b.name} (revenue ${b.revenue})`),
         ).toEqual([]);
@@ -533,7 +533,7 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
     const report = computeBudgetReport(
       [kinds.ratedTm(1), kinds.ratedFixed(2)], plan, roles, [], 8, noHolidays,
     );
-    expect(report.project.costIsKnowable).toBe(true);
+    expect(costIsKnowable(report.project)).toBe(true);
     expect(report.project.contributionMargin.percent).not.toBeNull();
   });
 });
@@ -697,7 +697,7 @@ describe("computeBucketReport — costUnknownReason", () => {
   });
 
   test("the helpers exactly reproduce the booleans they replace, for every state", () => {
-    // Task 7 deletes rep.costIsKnowable / rep.ratesAreMissing and points every
+    // Task 7 deletes costIsKnowable(rep) / ratesMissing(rep) and points every
     // consumer at the helpers. This pins that the swap is behaviour-preserving —
     // a divergence here is a silent UI change with nothing else to catch it.
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
@@ -729,8 +729,8 @@ describe("computeBucketReport — costUnknownReason", () => {
     ];
     for (const c of cases) {
       const rep = computeBucketReport(c.bucket, plan, c.roles, [], 8, noHolidays);
-      expect(costIsKnowable(rep), `costIsKnowable @ ${c.name}`).toBe(rep.costIsKnowable);
-      expect(ratesMissing(rep), `ratesMissing @ ${c.name}`).toBe(rep.ratesAreMissing);
+      expect(costIsKnowable(rep), `costIsKnowable @ ${c.name}`).toBe(costIsKnowable(rep));
+      expect(ratesMissing(rep), `ratesMissing @ ${c.name}`).toBe(ratesMissing(rep));
     }
   });
 
@@ -856,7 +856,14 @@ describe("computeBudgetReport — project costUnknownReason", () => {
 
   test("costIsKnowable and the project reason never disagree", () => {
     const rep = computeBudgetReport([bucket(1, 1), bucket(2, 2)], plan, roles, [], 8, noHolidays);
-    expect(rep.project.costIsKnowable).toBe(costIsKnowable(rep.project));
+    // The project's verdict must follow from its BUCKETS' reasons, expressed
+    // over costUnknownReason INDEPENDENTLY of the helper (asserting it against
+    // the helper would be x === x). Per-fixture form of the combinatorial
+    // invariant below.
+    const expected =
+      rep.buckets.some((b) => b.costUnknownReason === null) &&
+      rep.buckets.every((b) => b.costUnknownReason === null || (b.revenue === 0 && !ratesMissing(b)));
+    expect(costIsKnowable(rep.project)).toBe(expected);
   });
 
   test("the project's knowability verdict is unchanged by this task", () => {
@@ -867,10 +874,10 @@ describe("computeBudgetReport — project costUnknownReason", () => {
       [bucket(1, 1), { ...bucket(2, 1), allocations: [] }], plan, roles, [], 8, noHolidays,
     );
     // one costable bucket + one zero-revenue empty ⇒ still knowable (the exemption).
-    expect(oneCostableOneEmpty.project.costIsKnowable).toBe(true);
+    expect(costIsKnowable(oneCostableOneEmpty.project)).toBe(true);
 
     const nothingCostable = computeBudgetReport([bucket(1, 2)], plan, roles, [], 8, noHolidays);
-    expect(nothingCostable.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(nothingCostable.project)).toBe(false);
   });
 
   test("the project names the failing buckets' unpriced disciplines, deduped", () => {
