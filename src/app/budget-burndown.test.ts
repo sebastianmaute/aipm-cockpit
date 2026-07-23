@@ -94,6 +94,9 @@ describe("computeBurndownSeries — budget follows plan", () => {
     expect(s.totalBudgetValue).toBeCloseTo(176 * 150, 5);
   });
 
+  // Scope: T&M bucket, no spillover — the case where the two totals must agree.
+  // The burn-down intentionally models neither fixed-price amounts nor predecessor
+  // spillover, so the report can legitimately diverge for those buckets.
   it("keeps the burndown budget total equal to the report budget total", () => {
     const s = computeBurndownSeries([fpBucket], fpPlan, fpRoles, fpResources, 8, new Set<string>(), [], "2026-02-15");
     const rep = computeBudgetReport([fpBucket], fpPlan, fpRoles, fpResources, 8, new Set<string>(), []);
