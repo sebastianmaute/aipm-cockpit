@@ -14,6 +14,8 @@
 //     • Headings: `# H1`, `## H2`, `### H3`
 //     • Bulleted lists: lines starting with `-`, `*`, or `+` followed by a space
 //     • Numbered lists: lines starting with `1.`, `2.`, … followed by a space
+//     • Fenced code blocks: ``` fences → <pre><code> (verbatim, no inline parse)
+//     • GFM pipe tables: a header row + a `| --- | --- |` separator → <table>
 //     • Paragraphs: separated by blank lines; single \n becomes a <br/>
 //   Inline:
 //     • `**bold**` / `__bold__`           → <strong>
@@ -21,8 +23,8 @@
 //     • `` `code` ``                       → <code>
 //     • `[label](https://example.com)`    → <a target="_blank" rel="noopener">
 //
-// Deliberately NOT supported: blockquotes, tables, images, raw HTML, nested
-// lists, fenced code blocks. Add when Claude actually produces them.
+// Deliberately NOT supported: blockquotes, images, raw HTML, nested lists.
+// Add when Claude actually produces them.
 
 import { type ReactNode } from "react";
 
@@ -30,7 +32,36 @@ type Block =
   | { kind: "p"; lines: string[] }
   | { kind: "h"; level: 1 | 2 | 3; text: string }
   | { kind: "ul"; items: string[] }
-  | { kind: "ol"; items: string[] };
+  | { kind: "ol"; items: string[] }
+  | { kind: "code"; text: string }
+  | { kind: "table"; header: string[]; rows: string[][] };
+
+// --- Table helpers --------------------------------------------------------
+
+/** A GFM alignment/separator row: `| --- | :--: |`, `|---|`, etc. Must contain
+ *  a pipe (so a bare `---` thematic break is not mistaken for a table) and only
+ *  the delimiter charset. One or more columns. */
+function isTableSeparator(s: string): boolean {
+  const t = s.trim();
+  return t.includes("|") && t.includes("-") && /^[\s:|-]+$/.test(t);
+}
+
+/** Split one table row into trimmed cells. Honors `\|` escapes; drops the
+ *  optional leading/trailing edge pipes. No lookbehind (tsc target < es2018). */
+function splitTableRow(s: string): string[] {
+  let t = s.trim();
+  if (t.startsWith("|")) t = t.slice(1);
+  if (t.endsWith("|")) t = t.slice(0, -1);
+  const cells: string[] = [];
+  let cur = "";
+  for (let k = 0; k < t.length; k++) {
+    if (t[k] === "\\" && t[k + 1] === "|") { cur += "|"; k++; continue; }
+    if (t[k] === "|") { cells.push(cur.trim()); cur = ""; continue; }
+    cur += t[k];
+  }
+  cells.push(cur.trim());
+  return cells;
+}
 
 // --- Block-level parser ---------------------------------------------------
 
@@ -48,6 +79,38 @@ function parseBlocks(input: string): Block[] {
 
     if (isBlank(line)) {
       i++;
+      continue;
+    }
+
+    // Fenced code block: ``` … ``` (verbatim; no inline parse). An unterminated
+    // fence (no closing ```) runs to the end so stray backticks never leak.
+    if (/^\s*```/.test(line)) {
+      i++; // opening fence
+      const codeLines: string[] = [];
+      while (i < lines.length && !/^\s*```/.test(lines[i])) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++; // closing fence
+      blocks.push({ kind: "code", text: codeLines.join("\n") });
+      continue;
+    }
+
+    // GFM pipe table: a header row immediately followed by a separator row.
+    if (line.includes("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1])) {
+      const header = splitTableRow(line);
+      i += 2; // header + separator
+      const rows: string[][] = [];
+      while (
+        i < lines.length &&
+        !isBlank(lines[i]) &&
+        lines[i].includes("|") &&
+        !/^(#{1,3}\s+|\s*[-*+]\s+|\s*\d+\.\s+|\s*```)/.test(lines[i])
+      ) {
+        rows.push(splitTableRow(lines[i]));
+        i++;
+      }
+      blocks.push({ kind: "table", header, rows });
       continue;
     }
 
@@ -91,7 +154,8 @@ function parseBlocks(input: string): Block[] {
     while (
       i < lines.length &&
       !isBlank(lines[i]) &&
-      !/^(#{1,3}\s+|\s*[-*+]\s+|\s*\d+\.\s+)/.test(lines[i])
+      !/^(#{1,3}\s+|\s*[-*+]\s+|\s*\d+\.\s+|\s*```)/.test(lines[i]) &&
+      !(lines[i].includes("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1]))
     ) {
       para.push(lines[i]);
       i++;
@@ -303,6 +367,48 @@ export function Markdown({ text }: { text: string }) {
                   <li key={`${key}-${j}`}>{parseInline(it)}</li>
                 ))}
               </ol>
+            );
+          case "code":
+            return (
+              <pre
+                key={key}
+                className="my-1.5 overflow-x-auto rounded bg-surface-muted p-2 first:mt-0 last:mb-0"
+              >
+                <code className="font-mono text-xs text-foreground">{b.text}</code>
+              </pre>
+            );
+          case "table":
+            return (
+              <div key={key} className="my-1.5 overflow-x-auto first:mt-0 last:mb-0">
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr>
+                      {b.header.map((h, j) => (
+                        <th
+                          key={`${key}-h-${j}`}
+                          className="border border-line bg-surface-muted px-2 py-1 text-left font-semibold"
+                        >
+                          {parseInline(h)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {b.rows.map((row, r) => (
+                      <tr key={`${key}-r-${r}`}>
+                        {row.map((c, j) => (
+                          <td
+                            key={`${key}-r-${r}-c-${j}`}
+                            className="border border-line px-2 py-1 align-top"
+                          >
+                            {parseInline(c)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             );
           case "p":
             return renderParagraph(b.lines, key);
