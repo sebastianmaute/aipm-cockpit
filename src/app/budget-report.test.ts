@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   bucketActivePeriods, allocationPlannedHours, computeBudgetReport, computeBucketReport,
-  costIsKnowable, ratesMissing,
+  costIsKnowable, ratesMissing, type CostUnknownReason,
 } from "./budget-report";
 import type { ResourcePlan, Resource, BudgetBucket, Role } from "./types";
 
@@ -724,10 +724,13 @@ describe("computeBucketReport — costUnknownReason", () => {
     expect(rep.costUnknownReason).not.toBeNull();
   });
 
-  test("the helpers exactly reproduce the booleans they replace, for every state", () => {
-    // Task 7 deletes costIsKnowable(rep) / ratesMissing(rep) and points every
-    // consumer at the helpers. This pins that the swap is behaviour-preserving —
-    // a divergence here is a silent UI change with nothing else to catch it.
+  test("every state maps to its reason, and the helpers agree with it", () => {
+    // A literal oracle over all reason states: each case pins the EXACT
+    // costUnknownReason, and the derived helpers are checked against a hardcoded
+    // expectation, NOT read back against themselves. (The boolean fields this
+    // once compared against were deleted in Task 7; comparing the helper to the
+    // helper is x === x and catches nothing — the vacuous shape this workstream
+    // keeps tripping over.)
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
     const uncostedBucket = tmBucket({
       allocations: [
@@ -745,20 +748,24 @@ describe("computeBucketReport — costUnknownReason", () => {
       rateOverrideInternal: 0,
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
     };
-    const cases: { name: string; bucket: BudgetBucket; roles: Role[] }[] = [
-      { name: "costable", bucket: tmBucket(), roles: ratedRoles },
-      { name: "empty", bucket: tmBucket({ allocations: [] }), roles: ratedRoles },
-      { name: "rateless+hours", bucket: tmBucket(), roles: rateless },
-      { name: "rated+uncosted", bucket: uncostedBucket, roles: ratedPlusUnrated },
-      { name: "partly-priced blend", bucket: blendedBucket(), roles: partlyPricedRoles },
-      { name: "90-override", bucket: blendedBucket({ rateOverrideInternal: 90 }), roles: partlyPricedRoles },
-      { name: "0-override+hours", bucket: blendedBucket({ rateOverrideInternal: 0 }), roles: partlyPricedRoles },
-      { name: "0-override fixed no-hours", bucket: i1FixedNoHours, roles: ratedRoles },
+    const cases: { name: string; bucket: BudgetBucket; roles: Role[]; reason: CostUnknownReason | null }[] = [
+      { name: "costable", bucket: tmBucket(), roles: ratedRoles, reason: null },
+      { name: "empty", bucket: tmBucket({ allocations: [] }), roles: ratedRoles, reason: "no-rows" },
+      { name: "rateless+hours", bucket: tmBucket(), roles: rateless, reason: "no-rates" },
+      { name: "rated+uncosted", bucket: uncostedBucket, roles: ratedPlusUnrated, reason: "unrated-hours" },
+      { name: "partly-priced blend", bucket: blendedBucket(), roles: partlyPricedRoles, reason: "unpriced-blend" },
+      { name: "90-override", bucket: blendedBucket({ rateOverrideInternal: 90 }), roles: partlyPricedRoles, reason: null },
+      { name: "0-override+hours", bucket: blendedBucket({ rateOverrideInternal: 0 }), roles: partlyPricedRoles, reason: "unrated-hours" },
+      { name: "0-override fixed no-hours", bucket: i1FixedNoHours, roles: ratedRoles, reason: "unrated-hours" },
     ];
     for (const c of cases) {
       const rep = computeBucketReport(c.bucket, plan, c.roles, [], 8, noHolidays);
-      expect(costIsKnowable(rep), `costIsKnowable @ ${c.name}`).toBe(costIsKnowable(rep));
-      expect(ratesMissing(rep), `ratesMissing @ ${c.name}`).toBe(ratesMissing(rep));
+      // Literal oracle: the reason is pinned to a hardcoded value, and each helper
+      // is checked against its OWN definition of that value — never against itself.
+      expect(rep.costUnknownReason, `reason @ ${c.name}`).toBe(c.reason);
+      expect(costIsKnowable(rep), `costIsKnowable @ ${c.name}`).toBe(c.reason === null);
+      expect(ratesMissing(rep), `ratesMissing @ ${c.name}`)
+        .toBe(c.reason !== null && c.reason !== "no-rows");
     }
   });
 
