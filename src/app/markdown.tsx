@@ -16,6 +16,8 @@
 //     • Numbered lists: lines starting with `1.`, `2.`, … followed by a space
 //     • Fenced code blocks: ``` fences → <pre><code> (verbatim, no inline parse)
 //     • GFM pipe tables: a header row + a `| --- | --- |` separator → <table>
+//       (column alignment markers `:--`/`--:`/`:-:` are accepted but NOT applied
+//        — every cell renders left-aligned)
 //     • Paragraphs: separated by blank lines; single \n becomes a <br/>
 //   Inline:
 //     • `**bold**` / `__bold__`           → <strong>
@@ -54,10 +56,13 @@ function splitTableRow(s: string): string[] {
   if (t.endsWith("|")) t = t.slice(0, -1);
   const cells: string[] = [];
   let cur = "";
+  let inCode = false; // a `code span` may legitimately contain a pipe
   for (let k = 0; k < t.length; k++) {
-    if (t[k] === "\\" && t[k + 1] === "|") { cur += "|"; k++; continue; }
-    if (t[k] === "|") { cells.push(cur.trim()); cur = ""; continue; }
-    cur += t[k];
+    const c = t[k];
+    if (c === "\\" && t[k + 1] === "|") { cur += "|"; k++; continue; }
+    if (c === "`") { inCode = !inCode; cur += c; continue; }
+    if (c === "|" && !inCode) { cells.push(cur.trim()); cur = ""; continue; }
+    cur += c;
   }
   cells.push(cur.trim());
   return cells;
@@ -269,7 +274,10 @@ function parseInline(input: string): ReactNode[] {
           const label = input.slice(i + 1, closeBracket);
           const url = input.slice(closeBracket + 2, closeParen).trim();
           // Only allow safe URL schemes; everything else falls through as text.
-          if (/^(https?:|mailto:)/i.test(url) || url.startsWith("/")) {
+          // Root-relative is allowed, but NOT protocol-relative `//host` — that
+          // resolves to an external origin (a `target="_blank"` link to
+          // //evil.com). Untrusted model text (incl. table cells) flows here.
+          if (/^(https?:|mailto:)/i.test(url) || (url.startsWith("/") && !url.startsWith("//"))) {
             flushBuffer();
             out.push(
               <a
@@ -412,6 +420,11 @@ export function Markdown({ text }: { text: string }) {
             );
           case "p":
             return renderParagraph(b.lines, key);
+          default: {
+            // Exhaustiveness guard: a new Block kind must fail tsc here.
+            const _never: never = b;
+            return _never;
+          }
         }
       })}
     </>

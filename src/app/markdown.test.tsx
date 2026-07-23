@@ -55,4 +55,41 @@ describe("Markdown", () => {
     expect(container.querySelector("table")).toBeNull();
     expect(container.textContent).toContain("a | b | c");
   });
+
+  it("does not split a table cell on a pipe inside an inline-code span", () => {
+    const md = "| Expr | Note |\n| --- | --- |\n| `a|b` | ok |";
+    const { container } = render(<Markdown text={md} />);
+    const cells = Array.from(container.querySelectorAll("tbody tr")[0].querySelectorAll("td"));
+    expect(cells.length).toBe(2);
+    expect(cells[0].querySelector("code")?.textContent).toBe("a|b");
+    expect(cells[1].textContent).toBe("ok");
+  });
+
+  it("honors an escaped pipe (\\|) inside a table cell", () => {
+    const md = "| Col |\n| --- |\n| a \\| b |";
+    const { container } = render(<Markdown text={md} />);
+    const cells = Array.from(container.querySelectorAll("tbody tr")[0].querySelectorAll("td"));
+    expect(cells.length).toBe(1);
+    expect(cells[0].textContent).toBe("a | b");
+  });
+
+  it("normalizes CRLF input for a table", () => {
+    const md = "| A | B |\r\n| --- | --- |\r\n| 1 | 2 |";
+    const { container } = render(<Markdown text={md} />);
+    expect(container.querySelector("table")).not.toBeNull();
+    expect(Array.from(container.querySelectorAll("tbody td")).map((n) => n.textContent)).toEqual(["1", "2"]);
+  });
+
+  it("renders a paragraph immediately followed by a table without swallowing it", () => {
+    const md = "intro line\n| A |\n| --- |\n| x |";
+    const { container } = render(<Markdown text={md} />);
+    expect(container.querySelector("p")?.textContent).toContain("intro line");
+    expect(container.querySelector("table")).not.toBeNull();
+  });
+
+  it("drops a protocol-relative link (//host) to plain text — no external href", () => {
+    const { container } = render(<Markdown text="[x](//evil.com)" />);
+    expect(container.querySelector("a")).toBeNull();
+    expect(container.textContent).toContain("[x](//evil.com)");
+  });
 });
