@@ -23,6 +23,10 @@ import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { Checkbox, Input } from "./form-controls";
 import { AddButton } from "./pane-toolbar";
+import { ToggleButton } from "./toggle-button";
+import { readDeviceJson, writeDeviceJson } from "./device-store";
+
+const HIDE_EXTERNAL_KEY = "aipm-cockpit:directory-hide-external";
 
 const DIRECTORY_COL_WIDTHS = {
   name: 180,
@@ -131,6 +135,12 @@ function ResourceDirectoryInner({
   const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [hideExternal, setHideExternal] = useState<boolean>(() => readDeviceJson<boolean>(HIDE_EXTERNAL_KEY, false));
+  const toggleHideExternal = () => {
+    const next = !hideExternal;
+    setHideExternal(next);
+    writeDeviceJson(HIDE_EXTERNAL_KEY, next);
+  };
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -159,11 +169,12 @@ function ResourceDirectoryInner({
         default: return "";
       }
     };
-    const filtered = q
+    const searched = q
       ? resources.filter((r) =>
           [resourceDisplayName(r), r.title, r.department, r.businessPhone, r.email, r.company, roleName(r)]
             .some((v) => (v ?? "").toLowerCase().includes(q)))
       : resources.slice();
+    const filtered = hideExternal ? searched.filter((r) => !r.isExternal) : searched;
     if (sortKey !== "") {
       filtered.sort((a, b) => {
         const ka = keyOf(a), kb = keyOf(b);
@@ -175,7 +186,7 @@ function ResourceDirectoryInner({
       });
     }
     return filtered;
-  }, [resources, roles, disciplines, grades, filter, sortKey, sortDir]);
+  }, [resources, roles, disciplines, grades, filter, sortKey, sortDir, hideExternal]);
 
   const sortIndicator = (key: SortKey) =>
     sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
@@ -255,6 +266,9 @@ function ResourceDirectoryInner({
             {t(lang, "outlookImportButton")}
           </button>
         )}
+        <ToggleButton pressed={hideExternal} onToggle={toggleHideExternal} className="shrink-0">
+          {t(lang, "resourceHideExternal")}
+        </ToggleButton>
         <PrintButton lang={lang} />
         <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
         <ResetSizeButton onClick={resetDirSize} lang={lang} />

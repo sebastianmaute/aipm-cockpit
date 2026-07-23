@@ -2685,6 +2685,7 @@ export const de: Record<TranslationKey, string> = {
   resourceExternal: "Externe Ressource",
   resourceExternalHint: "Externe Ressourcen werden geplant und bei der Kapazität berücksichtigt (Zuweisungen, Abwesenheiten, Auslastung), aber aus allen Kosten- und Budgetzahlen ausgeschlossen.",
   resourceExternalBadge: "Extern",
+  resourceHideExternal: "Externe ausblenden",
   resourceEmailsLabel: "Weitere E-Mail-Adressen",
   resourceEmailsHint: "Zusätzliche E-Mail-Adressen neben der primären. Im Verzeichnis angezeigt; zum Kopieren anklicken.",
   resourceEmailAdd: "E-Mail hinzufügen",

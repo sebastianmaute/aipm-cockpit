@@ -2720,6 +2720,7 @@ const enUS = {
   resourceExternal: "External resource",
   resourceExternalHint: "External resources are planned and capacity-tracked (assignments, absences, workload) but are excluded from all cost and budget figures.",
   resourceExternalBadge: "External",
+  resourceHideExternal: "Hide external",
   resourceEmailsLabel: "Additional emails",
   resourceEmailsHint: "Extra email addresses beyond the primary one. Shown in the directory; click one to copy it.",
   resourceEmailAdd: "Add email",

@@ -199,4 +199,22 @@ describe("ResourceDirectory", () => {
     fireEvent.click(btn);
     expect(onImport).toHaveBeenCalled();
   });
+
+  it("hides external resources when 'Hide external' is toggled, and persists the choice", () => {
+    localStorage.removeItem("aipm-cockpit:directory-hide-external");
+    const mixed: Resource[] = [
+      { id: 1, firstName: "In", lastName: "Ternal", roleId: null, utilizationMode: "percent", utilization: {} },
+      { id: 2, firstName: "Ex", lastName: "Ternal", roleId: null, utilizationMode: "percent", utilization: {}, isExternal: true },
+    ];
+    render(<ResourceDirectory {...common} resources={mixed} />);
+    expect(screen.getByText("Ex Ternal")).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: t("en-US", "resourceHideExternal") });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+    expect(screen.queryByText("Ex Ternal")).toBeNull();
+    expect(screen.getByText("In Ternal")).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("aipm-cockpit:directory-hide-external")).toBe("true");
+    localStorage.removeItem("aipm-cockpit:directory-hide-external");
+  });
 });
