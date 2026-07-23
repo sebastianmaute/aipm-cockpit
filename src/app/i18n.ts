@@ -3421,6 +3421,7 @@ const enUS = {
   versionHighlightInsightsRecommend: "Insight recommendations: Claude can now propose a concrete, reviewable fix for an insight — on demand per insight or, opt-in, in the background — which you apply as a plan-then-apply diff through the existing tools. Rising-overdue trends now surface too.",
   versionHighlightInsightsOutcome: "Insight outcomes: acting on an insight now records the number it was about, and the app measures whether that number actually moved — showing improved, unchanged or worse, and closing the insight out when the problem clears.",
   versionHighlightInsightsDigest: "Insight digest: the Insights view opens with a rolling seven-day summary — what fired, what you acted on, what resolved after you acted, and what got worse — so wins no longer disappear into the history. Background AI recommendations now run on a cadence you set, defaulting to once an hour.",
+  versionHighlightCostReason: "Budget cost clarity: a discipline with an unpriced grade no longer averages that gap away into a plausible-but-wrong blended rate — its cost reads as unknown instead. And every reason cost, margin and burn cannot be shown now carries its own explanation: an empty bucket says to add a line, a partly-priced blend names the disciplines to price, instead of a bare dash.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

@@ -8,6 +8,36 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.195.2] - 2026-07-23 "McGuire"
+
+### Fixed
+
+- **A blended discipline with an unpriced grade was costed at a diluted rate
+  and presented as sound.** In blended planning a discipline's rate is the mean
+  of its grades' rates. `Role.internalRate` is a required number, so `0` is the
+  only representation of "nobody has priced this grade" — and averaging that `0`
+  in produced a rate nobody entered (a priced grade at 100 beside an unpriced one
+  yielded 50). That figure passed every downstream guard, so a bucket staffed
+  entirely by the unpriced grade reported a plausible but wrong cost with no
+  warning. The internal blend is now *poisoned*: if any grade of the discipline
+  is unpriced, its cost reads as unknown rather than diluted. A per-bucket
+  internal-rate override still wins over the blend and clears the poison. (The
+  external mean carries the same dilution and is deliberately left for its own
+  slice — gating it cascades into revenue, consumption and T&M win/loss, which
+  are ungated by design.)
+
+### Changed
+
+- **Every "cost, margin and burn cannot be shown" state now explains itself
+  instead of showing a bare dash.** The two internal booleans that encoded this
+  became one reason (`no allocations` · `no internal rates` · `hours at a zero
+  rate` · `unpriced blended grades`), so each budget card and the project rollup
+  render the message that actually applies: an empty bucket is told to add a
+  role or discipline line, a partly-priced blend names the disciplines to price,
+  and the old "set them on the rate card" text no longer appears on a bucket that
+  has no roles at all. The knowability verdict and the message can no longer
+  drift apart — they derive from the single reason.
+
 ## [0.195.1] - 2026-07-21 "McGuire"
 
 ### Fixed
