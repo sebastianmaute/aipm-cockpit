@@ -476,6 +476,13 @@ describe("computeBudgetReport — order", () => {
 describe("computeBudgetReport — project cost-knowability invariant", () => {
   const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
   const rateless: Role[] = [{ id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
+  // ids 3/4 + disciplineId 9 so the blended kind cannot collide with the
+  // detailed kinds (which allocate by roleId 1/2, discipline 1) — one priced
+  // grade, one unpriced ⇒ the blend is poisoned.
+  const blendRoles: Role[] = [
+    { id: 3, disciplineId: 9, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 9, gradeId: 2, internalRate: 0, externalRate: 210 },
+  ];
 
   const kinds = {
     ratedTm: (id: number): BudgetBucket => ({
@@ -503,10 +510,19 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
       status: "open",
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
     }),
+    partlyPricedBlend: (id: number): BudgetBucket => ({
+      id, name: `blend-${id}`, type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended",
+      allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 9, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+      ],
+    }),
   } as const;
 
   const names = Object.keys(kinds) as (keyof typeof kinds)[];
-  const roles = [...rated, ...rateless];
+  const roles = [...rated, ...rateless, ...blendRoles];
 
   // Every single bucket, and every ordered pair including like-with-like.
   const combos: (keyof typeof kinds)[][] = [
@@ -524,6 +540,18 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
           poisoned.map((b) => `${b.name} (revenue ${b.revenue})`),
         ).toEqual([]);
       }
+      // The project's verdict must follow from its BUCKETS' reasons. Expressed
+      // over the output rather than over the rollup expression, matching this
+      // block's existing style, so it stays a real check if that expression is
+      // rewritten.
+      //
+      // ★ NOT `costIsKnowable(project) === (project.costUnknownReason === null)`
+      // — the helper is DEFINED as that comparison, so it asserts x === x and
+      // survives any mutation. Vacuous.
+      const expected =
+        report.buckets.some((b) => b.costUnknownReason === null) &&
+        report.buckets.every((b) => b.costUnknownReason === null || (b.revenue === 0 && !ratesMissing(b)));
+      expect(costIsKnowable(report.project)).toBe(expected);
     });
   }
 
