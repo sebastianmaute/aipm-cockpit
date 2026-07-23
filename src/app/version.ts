@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.195.2";
-export const APP_BUILD_DATE = "2026-07-23"; // 0.195.2: a blended discipline with an unpriced grade no longer costs at a diluted rate — its cost reads as unknown; every cost-unknown state now carries its own explanation instead of a bare dash — 0.195.1: an unstaffed fixed-price bucket, and any project containing one, can no longer report a margin (McGuire)
+export const APP_VERSION = "0.195.3";
+export const APP_BUILD_DATE = "2026-07-23"; // 0.195.3: the dashboard budget burn-down now shows when budget hours follow the plan (was blank); AI Assistant replies render code blocks and tables; the resource directory can hide external people — 0.195.2: a blended discipline with an unpriced grade no longer costs at a diluted rate; every cost-unknown state carries its own explanation (McGuire)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.195.x line is "McGuire" (Seanan McGuire, science-fiction and fantasy author). */
 export const APP_MILESTONE = "McGuire";
@@ -237,4 +237,7 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightInsightsOutcome",
   "versionHighlightInsightsDigest",
   "versionHighlightCostReason",
+  "versionHighlightBurndownFollowPlan",
+  "versionHighlightChatFormatting",
+  "versionHighlightDirectoryHideExternal",
 ] as const;
