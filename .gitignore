@@ -77,3 +77,6 @@ next-env.d.ts
 /.agents/
 /skills-lock.json
 .superpowers/
+
+# OpenSpec working directory (not part of the app)
+/openspec/
