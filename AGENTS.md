@@ -7,7 +7,7 @@ This version has breaking changes — APIs, conventions, file structure may all 
 ## Commands
 
 ```bash
-npm run dev                 # next dev (forked Next.js)
+npm run dev                 # next dev (public next ^16.2.11 — read node_modules/next/dist/docs for version behavior)
 npm run build               # next build (prebuild checks script-docs are in sync)
 npm run lint                # eslint  (CI --max-warnings=0: an unused import/var or `_`-prefixed
                             # param is FATAL — no argsIgnorePattern; re-check after every extract.
