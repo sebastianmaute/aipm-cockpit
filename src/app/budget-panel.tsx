@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
-import { computeBudgetReport, bucketActivePeriods, effectiveBudgetHours, type BucketReport, type CciValue } from "./budget-report";
+import { computeBudgetReport, bucketActivePeriods, effectiveBudgetHours, costIsKnowable, type BucketReport, type CciValue } from "./budget-report";
+import { CostUnknownNotice } from "./budget-cost-notice";
 import type { Period } from "./resource-capacity";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
@@ -353,6 +354,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
     applyBucketOrder(ids);
   };
 
+  const disciplineNamesFor = (ids: readonly number[]) =>
+    ids.map((id) => props.disciplines.find((d) => d.id === id)?.name).filter((n): n is string => !!n);
+
   return (
     <div ref={budgetRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {onLearnMore && (
@@ -404,15 +408,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} unknown={!report.project.costIsKnowable} />
-          <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" unknown={!report.project.costIsKnowable} />
+          <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} unknown={!costIsKnowable(report.project)} />
+          <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(report.project)} />
           <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} primary="percent" />
         </div>
-        {report.project.ratesAreMissing && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {t(lang, "budgetNoInternalRates")}
-          </p>
-        )}
+        <CostUnknownNotice
+          lang={lang}
+          reason={report.project.costUnknownReason}
+          disciplineNames={disciplineNamesFor(report.project.unpricedDisciplineIds)}
+        />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -491,7 +495,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     unknowable without an internal rate. A T&M bucket's is
                     budgetValue − consumedValue on EXTERNAL rates and stays
                     valid — gating it there would hide a real figure. */}
-                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}<InfoTooltip text={t(lang, "budgetWinLossHint")} /></div><span className="inline-flex items-center gap-1.5">{!br.costIsKnowable && br.type === "fixed" ? "—" : <>{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></>}</span></div>
+                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}<InfoTooltip text={t(lang, "budgetWinLossHint")} /></div><span className="inline-flex items-center gap-1.5">{!costIsKnowable(br) && br.type === "fixed" ? "—" : <>{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></>}</span></div>
               </div>
               {br.spilloverInHours !== 0 && (
                 <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -501,17 +505,17 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 </div>
               )}
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} unknown={!br.costIsKnowable} />
-                <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} primary="percent" unknown={!br.costIsKnowable} />
+                <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} unknown={!costIsKnowable(br)} />
+                <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(br)} />
                 {/* Consumption is an EXTERNAL-rate ratio — knowable without a
                     rate card, so it is deliberately not gated. */}
                 <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />
               </div>
-              {br.ratesAreMissing && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {t(lang, "budgetNoInternalRates")}
-                </p>
-              )}
+              <CostUnknownNotice
+                lang={lang}
+                reason={br.costUnknownReason}
+                disciplineNames={disciplineNamesFor(br.unpricedDisciplineIds)}
+              />
               <div className="mt-3 overflow-x-auto">
                 <DataTable
                   className="w-full text-xs"

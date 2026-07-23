@@ -2708,6 +2708,9 @@ export const de: Record<TranslationKey, string> = {
   budgetCciMarginHint: "Marge = (externer Wert − interne Kosten) ÷ externer Wert.",
   budgetCciConsumptionHint: "Bisher verbrauchtes Budget. Der Prozentwert bezieht sich auf das Gesamtbudget.",
   budgetNoInternalRates: "Für die Rollen dieses Budgetblocks sind keine internen Sätze hinterlegt, daher können Kosten, Marge und Kostenverbrauch nicht berechnet werden. Sie werden in der Ratecard unter Ressourcen → Rollen gepflegt.",
+  budgetNoAllocations: "Noch keine Zuordnungen vorhanden, daher können Kosten, Marge und Kostenverbrauch nicht berechnet werden. Fügen Sie eine Rollen- oder Disziplinzeile hinzu.",
+  budgetUnratedHours: "Es sind Stunden auf Rollen ohne internen Satz gebucht, daher wären Kosten, Marge und Kostenverbrauch zu niedrig. Pflegen Sie die fehlenden Sätze in der Ratecard unter Ressourcen → Rollen.",
+  budgetUnpricedBlend: "Mischsätze können nicht berechnet werden — Stufen ohne internen Satz in: {0}. Pflegen Sie sie in der Ratecard unter Ressourcen → Rollen.",
   budgetReportColWinLossHint: "Differenz zwischen Erlös und Kosten in EUR; negativ bedeutet, dass der Bucket mit Verlust läuft.",
   budgetWinLossHint: "Stunden über oder unter Plan.",
   budgetSpilloverInHint: "Aus einem anderen Bereich übertragene Stunden.",
@@ -3399,6 +3402,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightInsightsRecommend: "Erkenntnis-Empfehlungen: Claude kann jetzt eine konkrete, prüfbare Lösung für eine Erkenntnis vorschlagen – auf Anfrage pro Erkenntnis oder, optional, im Hintergrund – die Sie als Vorschau-dann-Anwenden-Diff über die vorhandenen Werkzeuge anwenden. Steigende Überfälligkeits-Trends werden nun ebenfalls angezeigt.",
   versionHighlightInsightsOutcome: "Erkenntnis-Ergebnisse: Wenn Sie auf eine Erkenntnis reagieren, wird die zugehörige Kennzahl festgehalten. Die App misst anschließend, ob sich diese Zahl tatsächlich bewegt hat – verbessert, unverändert oder verschlechtert – und schließt die Erkenntnis ab, sobald das Problem behoben ist.",
   versionHighlightInsightsDigest: "Erkenntnis-Zusammenfassung: Die Erkenntnis-Ansicht beginnt jetzt mit einer rollierenden Sieben-Tage-Übersicht – was neu aufgetreten ist, was Sie bearbeitet haben, was nach Ihrer Maßnahme gelöst wurde und was sich verschlechtert hat –, sodass Erfolge nicht mehr im Verlauf verschwinden. KI-Empfehlungen im Hintergrund laufen jetzt in einem von Ihnen festgelegten Intervall, standardmäßig einmal pro Stunde.",
+  versionHighlightCostReason: "Budget-Kostenklarheit: Eine Disziplin mit einer Stufe ohne internen Satz mittelt diese Lücke nicht mehr zu einem plausiblen, aber falschen Mischsatz weg – ihre Kosten werden stattdessen als unbekannt ausgewiesen. Und jeder Grund, warum Kosten, Marge und Kostenverbrauch nicht angezeigt werden können, trägt jetzt seine eigene Erklärung: Ein leerer Budgetblock weist darauf hin, eine Zeile hinzuzufügen, ein teilweise bepreister Mischsatz nennt die zu bepreisenden Disziplinen – statt eines bloßen Bindestrichs.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",

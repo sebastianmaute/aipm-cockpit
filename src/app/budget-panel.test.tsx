@@ -151,6 +151,8 @@ describe("BudgetPanel", () => {
     const emptyBuckets: BudgetBucket[] = [{ ...buckets[0], allocations: [] }];
     render(<BudgetPanel {...props} buckets={emptyBuckets} />);
     expect(screen.queryByText(/no internal rates/i)).not.toBeInTheDocument();
+    // ...and it IS told the actual problem now — a bare dash explained nothing.
+    expect(screen.getAllByText(/no allocations yet/i).length).toBeGreaterThan(0);
   });
 
   test("an unstaffed fixed-price bucket shows no margin and no full-win figure", () => {
@@ -269,6 +271,48 @@ test("budget renders a bucket-count heading and is a resizable card", () => {
   const src = readFileSync(join(__dirname, "budget-panel.tsx"), "utf8");
   expect(src).toMatch(/budgetBucketsCount/);
   expect(src).toMatch(/VIEW_PANE_RESIZABLE_CLASS/);
+});
+
+describe("BudgetPanel — blended bucket on a partly priced discipline", () => {
+  const partlyPricedRoles: Role[] = [
+    { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 210 },
+  ];
+  const blendedBuckets: BudgetBucket[] = [{
+    id: 1, name: "PAM", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+    planningMode: "blended", allocations: [],
+    disciplineAllocations: [
+      { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } },
+    ],
+  }];
+
+  test("names the discipline to price instead of costing at a diluted rate", () => {
+    render(
+      <BudgetPanel {...props} buckets={blendedBuckets} roles={partlyPricedRoles} disciplines={[{ id: 1, name: "Design" }]} />,
+    );
+    // Assert the NOTICE text, not a bare /Design/: the discipline name also
+    // renders in the blended row's table cell, so matching it alone would pass
+    // even if the notice were unwired (a vacuous test caught in review). This
+    // message string comes ONLY from CostUnknownNotice; getAllByText because
+    // both the bucket and project notices fire.
+    expect(screen.getAllByText(/grades with no internal rate in: Design/i).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("100.0%")).toHaveLength(0);
+  });
+
+  test("a bucket rate override beats the poison and costs normally", () => {
+    render(
+      <BudgetPanel {...props} buckets={[{ ...blendedBuckets[0], rateOverrideInternal: 90 }]} roles={partlyPricedRoles} disciplines={[{ id: 1, name: "Design" }]} />,
+    );
+    // No unpriced-blend notice anywhere...
+    expect(screen.queryByText(/grades with no internal rate/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no internal rates are set/i)).not.toBeInTheDocument();
+    // ...and the figures ARE computed rather than blanked: external blend is
+    // mean(150,210)=180 (external is not poisoned), internal is the 90 override,
+    // so 80h → cost 7,200 and margin 14,400 − 7,200 = 7,200. A blanked bucket
+    // would show "—" for both.
+    expect(screen.getAllByText(/7,200/).length).toBeGreaterThan(0);
+  });
 });
 
 // nextBucketId is module-private; it now delegates to mintId("budgetBucket", …),

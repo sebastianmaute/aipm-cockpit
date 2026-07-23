@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { blendedDisciplineRate, effectiveRates } from "./budget-rates";
+import {
+  blendedDisciplineRate,
+  disciplineHasUnpricedGrade,
+  effectiveRates,
+  hasInternalOverride,
+} from "./budget-rates";
 import type { Role } from "./types";
 
 const roles: Role[] = [
@@ -17,6 +22,84 @@ describe("blendedDisciplineRate", () => {
   });
   test("discipline with no roles returns zeros", () => {
     expect(blendedDisciplineRate(99, roles)).toEqual({ internal: 0, external: 0 });
+  });
+
+  test("an unpriced grade poisons the internal blend instead of diluting it", () => {
+    // Averaging 0 in would yield 50 — a rate nobody entered, which passes every
+    // downstream guard and reads as sound. Unknowable is the honest answer.
+    const mixed: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 210 },
+    ];
+    expect(blendedDisciplineRate(1, mixed).internal).toBe(0);
+  });
+
+  test("the external blend is deliberately unaffected this slice", () => {
+    const mixed: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 210 },
+    ];
+    expect(blendedDisciplineRate(1, mixed).external).toBe(180);
+  });
+
+  test("a negative rate is unpriced too, not a discount", () => {
+    const bad: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 2, internalRate: -50, externalRate: 210 },
+    ];
+    expect(blendedDisciplineRate(1, bad).internal).toBe(0);
+  });
+
+  test("a malformed rate poisons rather than propagating NaN", () => {
+    const bad: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 2, internalRate: NaN, externalRate: 210 },
+    ];
+    expect(blendedDisciplineRate(1, bad).internal).toBe(0);
+  });
+});
+
+describe("disciplineHasUnpricedGrade", () => {
+  test("true when any role of the discipline is unpriced", () => {
+    const mixed: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 210 },
+    ];
+    expect(disciplineHasUnpricedGrade(1, mixed)).toBe(true);
+  });
+
+  test("false when every role of the discipline is priced", () => {
+    expect(disciplineHasUnpricedGrade(1, roles)).toBe(false);
+  });
+
+  test("a negative rate counts as unpriced", () => {
+    const bad: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: -50, externalRate: 210 }];
+    expect(disciplineHasUnpricedGrade(1, bad)).toBe(true);
+  });
+
+  test("false for a discipline with NO roles — that is a different problem", () => {
+    // An empty discipline has no grade to price, so calling it "unpriced grades"
+    // would send the user hunting for something that does not exist. It already
+    // rates 0 and falls to the no-rates message.
+    expect(disciplineHasUnpricedGrade(99, roles)).toBe(false);
+  });
+});
+
+describe("hasInternalOverride", () => {
+  test("true for a finite rate >= 0", () => {
+    expect(hasInternalOverride({ rateOverrideInternal: 90 })).toBe(true);
+    // 0 is PRESENT but prices nothing, and true is right: `effectiveRates` also
+    // treats it as usable, so the 0 wins over the blend regardless. Gating this
+    // on > 0 would tell the bucket to price disciplines its own override has
+    // already overruled. The 0 rate is caught downstream as unrated work.
+    expect(hasInternalOverride({ rateOverrideInternal: 0 })).toBe(true);
+  });
+
+  test("false when absent or invalid", () => {
+    expect(hasInternalOverride({})).toBe(false);
+    expect(hasInternalOverride({ rateOverrideInternal: -5 })).toBe(false);
+    expect(hasInternalOverride({ rateOverrideInternal: NaN })).toBe(false);
+    expect(hasInternalOverride({ rateOverrideInternal: Infinity })).toBe(false);
   });
 });
 

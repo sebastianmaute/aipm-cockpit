@@ -5,7 +5,13 @@ import type {
   Absence, BudgetBucket, PlanGranularity,
   Resource, ResourcePlan, Role,
 } from "./types";
-import { blendedDisciplineRate, effectiveRates, type RatePair } from "./budget-rates";
+import {
+  blendedDisciplineRate,
+  disciplineHasUnpricedGrade,
+  effectiveRates,
+  hasInternalOverride,
+  type RatePair,
+} from "./budget-rates";
 import { RATIO_EPSILON } from "./budget-health";
 
 /** Plan periods whose start falls within the bucket's [startDate,endDate]. */
@@ -85,6 +91,38 @@ function roleFor(roleId: number, roles: readonly Role[]): Role | undefined {
  *  denominator is 0 (rendered as "-"). */
 export type CciValue = { amount: number; percent: number | null };
 
+/**
+ * Why a bucket's or project's internal-cost figures (cost, margin, burn) have no
+ * sound basis. `null` means they do.
+ *
+ * ONE field rather than a pair of booleans because there are FOUR distinct
+ * states and each needs its own message. Two booleans encoded three states and
+ * left the surface to INFER which message applied — that inference is what put
+ * "set them on the rate card" on a bucket that has no roles at all.
+ */
+export type CostUnknownReason =
+  /** No allocations at all — nothing to cost, and no rate card to fix. */
+  | "no-rows"
+  /** Rows exist but not one carries an internal rate. */
+  | "no-rates"
+  /** Some row books hours at a zero rate: those hours land in cost as 0, so the
+   *  figure is not unknown but WRONG. */
+  | "unrated-hours"
+  /** A blended row's discipline has unpriced grades, so its mean is unknowable.
+   *  A refinement of `unrated-hours` that can name the disciplines to fix. */
+  | "unpriced-blend";
+
+/** The cost figures have a sound basis. */
+export function costIsKnowable(r: { costUnknownReason: CostUnknownReason | null }): boolean {
+  return r.costUnknownReason === null;
+}
+
+/** A rate really is missing, so pointing the user at the rate card is right
+ *  guidance. Every reason but `no-rows`, which has no roles to rate. */
+export function ratesMissing(r: { costUnknownReason: CostUnknownReason | null }): boolean {
+  return r.costUnknownReason !== null && r.costUnknownReason !== "no-rows";
+}
+
 export type BucketReport = {
   bucketId: number;
   name: string;
@@ -113,16 +151,17 @@ export type BucketReport = {
    *  and every row resourced). The Plan-vs-Budget badge is then a comparison of
    *  a number with itself and carries no information — surfaces do not render it. */
   budgetMirrorsPlan: boolean;
-  /** False when this bucket's internal-cost figures (cost, margin, burn) have no
-   *  sound basis: no rows at all, no row carrying a rate, or ANY row booking
-   *  hours at a zero rate. That last case is the dangerous one — those hours are
-   *  costed at 0, so the figure is not unknown but WRONG. Surfaces must render
-   *  all three as unknown; a 0 cost otherwise reads as a perfect margin. */
-  costIsKnowable: boolean;
-  /** True when rows EXIST and a rate is genuinely missing — none carries one, or
-   *  some row books hours at none. An empty bucket is false: it has no roles to
-   *  rate, so that guidance would point at the wrong problem. */
-  ratesAreMissing: boolean;
+  /** Why the internal-cost figures (cost, margin, burn) have no sound basis, or
+   *  null when they are sound: no rows at all, no row carrying a rate, or ANY row
+   *  booking hours at a zero rate. That last case is the dangerous one — those
+   *  hours are costed at 0, so the figure is not unknown but WRONG. Surfaces must
+   *  render every non-null reason as unknown; a 0 cost otherwise reads as a
+   *  perfect margin. Single source for which message a surface renders — the
+   *  `costIsKnowable`/`ratesMissing` helpers derive from it. */
+  costUnknownReason: CostUnknownReason | null;
+  /** Disciplines with unpriced grades that carry hours here. Non-empty only when
+   *  the reason is "unpriced-blend"; surfaces resolve the names. */
+  unpricedDisciplineIds: number[];
 };
 
 function pct(numerator: number, denominator: number): number | null {
@@ -135,17 +174,32 @@ export type RateRow = {
   budgetHours: Record<string, number>;
   actualHours: Record<string, number>;
   resourceIds: readonly number[];
+  /** Set ONLY on a blended row whose discipline has unpriced grades and whose
+   *  bucket does not override the internal rate. Drives the named message. */
+  unpricedBlendDisciplineId?: number;
 };
 
 /** Uniform rate-bearing rows for a bucket: from disciplineAllocations (blended)
  *  or allocations (detailed). Each row's rate honors the per-bucket override. */
 export function bucketRateRows(bucket: BudgetBucket, roles: readonly Role[]): RateRow[] {
   if (bucket.planningMode === "blended") {
+    // An internal override wins over the blend, so it also clears the poison:
+    // a bucket that overrides does not care what the rate card holds.
+    //
+    // ★★ Parity with `effectiveRates` is load-bearing. It treats a 0 override as
+    // usable, so gating this on `> 0` instead would diverge: the bucket would be
+    // told to price disciplines its own override has already overruled. A 0
+    // override resolves to a 0 rate and is caught below as unrated work, which
+    // is the honest signal — only the discipline-NAMING variant is suppressed,
+    // and suppressing it there is correct because naming them would misdirect.
+    const overridden = hasInternalOverride(bucket);
     return (bucket.disciplineAllocations ?? []).map((a) => ({
       rates: effectiveRates(bucket, blendedDisciplineRate(a.disciplineId, roles)),
       budgetHours: a.budgetHours,
       actualHours: a.actualHours,
       resourceIds: a.resourceIds,
+      unpricedBlendDisciplineId:
+        !overridden && disciplineHasUnpricedGrade(a.disciplineId, roles) ? a.disciplineId : undefined,
     }));
   }
   return bucket.allocations.map((a) => {
@@ -195,23 +249,23 @@ export function computeBucketReport(
   // they don't rebuild the id→resource index on every cell.
   const resourcesById = new Map(resources.map((r) => [r.id, r]));
   const rows = bucketRateRows(bucket, roles);
-  // TWO flags, because there are two different questions and three states.
+  // TWO questions, three states, ONE enum (`costUnknownReason`, derived below) —
+  // the exported `costIsKnowable`/`ratesMissing` helpers read it, replacing the
+  // pair of boolean fields this used to carry. Collapsing the two questions into
+  // one boolean is what once let the empty fixed-price bucket through: suppressing
+  // the notice and licensing the figure are not the same decision.
   //
-  // `costIsKnowable` — is there any basis for a cost figure? Needs BOTH rows and
-  // a rate. `role?.internalRate ?? 0` and a 0 bucket override are
-  // indistinguishable from a genuinely free resource and collapse cost to 0,
-  // which reads as a perfect margin; so does an empty bucket, where there is
-  // simply nothing to sum. An unstaffed fixed-price contract otherwise reports
-  // revenue − 0 = a 100% margin and a full win before anyone has started.
+  // Is there any basis for a cost figure? Needs BOTH rows and a rate.
+  // `role?.internalRate ?? 0` and a 0 bucket override are indistinguishable from a
+  // genuinely free resource and collapse cost to 0, which reads as a perfect
+  // margin; so does an empty bucket, where there is simply nothing to sum. An
+  // unstaffed fixed-price contract otherwise reports revenue − 0 = a 100% margin
+  // and a full win before anyone has started.
   //
-  // `ratesAreMissing` — should we tell the user to go fix the rate card? When
-  // rows EXIST and either none carries a rate, or some row books hours at no
-  // rate. A bucket with no allocations has no roles to rate, so that guidance
-  // would point at the wrong problem.
-  //
-  // Collapsing these into one boolean is what let the empty fixed-price bucket
-  // through: suppressing the notice and licensing the figure are not the same
-  // decision.
+  // Should we tell the user to go fix the rate card? Only when rows EXIST and
+  // either none carries a rate, or some row books hours at no rate. A bucket with
+  // no allocations has no roles to rate, so that guidance would point at the wrong
+  // problem — which is why `no-rows` is its own reason, distinct from `no-rates`.
   const hasRatedRow = rows.some((r) => r.rates.internal > 0);
   const rowsMirrorPlan =
     budgetFollowsPlan && rows.length > 0 && rows.every((r) => r.resourceIds.length > 0);
@@ -222,6 +276,10 @@ export function computeBucketReport(
   // sound 100% margin. An unrated row with no hours contributes nothing and
   // must NOT blank an otherwise sound figure.
   let uncostedWork = false;
+  // Disciplines whose poisoned blend actually carries hours. Gated on hours by
+  // the SAME rule as `uncostedWork`: a row with no hours contributes nothing to
+  // cost, so it must not blank an otherwise sound figure.
+  const unpricedDisciplineIds: number[] = [];
   for (const row of rows) {
     const { internal, external } = row.rates;
     let aBudget = 0;
@@ -230,7 +288,12 @@ export function computeBucketReport(
       aBudget += effectiveBudgetHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById);
       plannedHours += allocationPlannedHours(row, p, periods, resources, workdayHours, holidaySet, plan.granularity, absences, resourcesById);
     }
-    if (internal <= 0 && (aActual !== 0 || aBudget !== 0)) uncostedWork = true;
+    if (internal <= 0 && (aActual !== 0 || aBudget !== 0)) {
+      uncostedWork = true;
+      if (row.unpricedBlendDisciplineId != null && !unpricedDisciplineIds.includes(row.unpricedBlendDisciplineId)) {
+        unpricedDisciplineIds.push(row.unpricedBlendDisciplineId);
+      }
+    }
     budgetHours += aBudget;
     actualHours += aActual;
     cost += aActual * internal;
@@ -239,10 +302,33 @@ export function computeBucketReport(
     budgetCost += aBudget * internal;
   }
 
-  const costIsKnowable = rows.length > 0 && hasRatedRow && !uncostedWork;
-  // The notice fires for a partly-rated bucket too: a rate really is missing
-  // there, and it is the actionable half of the message.
-  const ratesAreMissing = rows.length > 0 && (!hasRatedRow || uncostedWork);
+  // Knowability is the FIRST arm's expression ALONE — the same one the removed
+  // boolean field always used (rows AND a rate AND no zero-rate hours). Deciding
+  // it inline here, before any message arm, makes `costUnknownReason === null`
+  // equivalent to it BY CONSTRUCTION, so the exported `costIsKnowable` helper can
+  // never disagree with what it replaces. The later arms only SELECT A MESSAGE for
+  // an already-decided "unknowable"; none of them decides knowability. (An earlier
+  // version let the verdict emerge from the arms, and the override gate that fixes
+  // the message punched a hole in the verdict: a 0-override bucket with no hours
+  // read as knowable and rendered a 100% margin.) An inline local named
+  // `costIsKnowable` would SHADOW the exported helper, so the expression stays
+  // inlined rather than named.
+  //
+  // `unpriced-blend` MUST precede `no-rates`: a poisoned blend also makes its row
+  // unrated, so testing `no-rates` first would mean the better, discipline-naming
+  // message is never reached.
+  const costUnknownReason: CostUnknownReason | null =
+    rows.length > 0 && hasRatedRow && !uncostedWork ? null
+    : rows.length === 0 ? "no-rows"
+    : unpricedDisciplineIds.length > 0 ? "unpriced-blend"
+    // A 0 override overrules the rate card, so "set the rates" would misdirect —
+    // even here where there are no hours, "no-rates" points at a card the override
+    // has already beaten. `unrated-hours` is the honest message when hours exist
+    // and the least-wrong when they don't; the FIGURE is correctly blanked either
+    // way. (Distinguishing the no-hours corner needs a 5th reason — deferred.)
+    : hasInternalOverride(bucket) ? "unrated-hours"
+    : !hasRatedRow ? "no-rates"
+    : "unrated-hours";
 
   const isFixed = bucket.type === "fixed";
   const fixedPrice = bucket.fixedPriceAmount ?? 0;
@@ -288,8 +374,8 @@ export function computeBucketReport(
     // win/loss.
     consumption: { amount: consumedValue, percent: consumptionPercent },
     budgetMirrorsPlan,
-    costIsKnowable,
-    ratesAreMissing,
+    costUnknownReason,
+    unpricedDisciplineIds,
   };
 }
 
@@ -309,15 +395,16 @@ export type ProjectReport = {
   /** True when EVERY bucket's budget hours ARE its planned hours — see
    *  BucketReport.budgetMirrorsPlan. */
   budgetMirrorsPlan: boolean;
-  /** False when NOT ONE bucket carries an internal rate, making the project's
-   *  cost, margin and burn wholly unknowable. EVERY revenue-bearing bucket must
-   *  be costable for the project total to mean anything — see the rollup.
-   *  A single costable bucket keeps the rollup a real (if partial) figure. */
-  costIsKnowable: boolean;
-  /** True only when rows EXIST and none carries an internal rate — the case where
-   *  pointing the user at the rate card is the right guidance. An empty bucket
-   *  is false: it has no roles to rate. */
-  ratesAreMissing: boolean;
+  /** Why the project's cost figures are unknowable, or null when they are sound.
+   *  null iff EVERY revenue-bearing bucket is costable — see the rollup below,
+   *  whose some/every predicate is load-bearing. Always agrees with
+   *  `costIsKnowable(project)`; pinned by a test. */
+  costUnknownReason: CostUnknownReason | null;
+  /** Deduped union of the unpriced disciplines of the blamed unpriced-blend
+   *  buckets. Non-empty IFF `costUnknownReason === "unpriced-blend"` — when a
+   *  more severe reason wins the project, its message names no disciplines and
+   *  this is empty. */
+  unpricedDisciplineIds: number[];
 };
 
 export type BudgetReport = {
@@ -352,6 +439,26 @@ function computeSpillover(
   return { hours, value };
 }
 
+/**
+ * Project reason precedence, by SEVERITY OF DISTORTION (lower rank = more
+ * severe) — deliberately NOT the bucket-level derivation order, which is a
+ * sequence of mutually exclusive checks and carries no ranking. Real hours
+ * costed at zero actively corrupt the total, so they outrank a missing rate
+ * card, which outranks a bucket that simply has nothing in it.
+ *
+ * ★★ A Record, not an array, ON PURPOSE: tsc errors if a `CostUnknownReason`
+ * member is added or removed, so a future 5th reason (the "no-hours 0-override"
+ * corner is already flagged for one) can NEVER silently fall through to a
+ * default and mislabel the project — the exact plausible-wrong-explanation this
+ * workstream exists to close.
+ */
+const REASON_RANK: Record<CostUnknownReason, number> = {
+  "unrated-hours": 0,
+  "unpriced-blend": 1,
+  "no-rates": 2,
+  "no-rows": 3,
+};
+
 export function computeBudgetReport(
   buckets: readonly BudgetBucket[],
   plan: ResourcePlan,
@@ -379,6 +486,60 @@ export function computeBudgetReport(
   const consumedValue = sum((r) => r.consumedValue);
   const budgetCost = sum((r) => r.budgetCost);
 
+  // The shipped rollup predicate, unchanged in behaviour — its inputs moved from
+  // the per-bucket boolean fields to the equivalent helpers (Task 2 proved them
+  // identical by construction).
+  //
+  // ★★ EVERY, not SOME. `revenue` and `cost` above are summed across ALL buckets,
+  // so a single uncostable bucket contaminates the total — and it is the total a
+  // PM reads first. A `.some()` here would declare that total knowable the moment
+  // any OTHER bucket happened to be rated: an unstarted €50k fixed-price contract
+  // sitting beside one active bucket rendered a green 98% project margin with no
+  // caveat.
+  //
+  // A bucket contributing NO revenue cannot distort the ratio, so it is exempt —
+  // otherwise an empty scratch bucket would blank a good margin.
+  //
+  // BOTH halves are load-bearing. `every` alone would call a project of nothing
+  // but zero-revenue rateless buckets knowable, when in truth nothing in it can be
+  // costed at all; `some` alone is what let the unstarted contract through. The
+  // total is trustworthy only when something real contributes to it AND nothing
+  // uncostable contaminates it.
+  //
+  // The exemption needs BOTH halves too. `b.revenue === 0` alone lets through a
+  // bucket whose BUDGETED hours sit at no rate: it earns nothing yet, so it passes
+  // the revenue test, while those hours land in `budgetCost` as 0 and understate
+  // the project's cost burn. `!ratesMissing(b)` alone lets through the unstaffed
+  // fixed-price contract, which has no rows to be missing a rate. A bucket is
+  // harmless only when it earns nothing AND is not sitting on unrated work.
+  //
+  // This also keeps the notice and the figures consistent: any bucket that makes
+  // the notice fire also blanks the total, so the panel can never print "cost,
+  // margin and burn cannot be calculated" beside calculated numbers.
+  const projectCostIsKnowable =
+    reports.some((b) => costIsKnowable(b)) &&
+    reports.every((b) => costIsKnowable(b) || (b.revenue === 0 && !ratesMissing(b)));
+  // The buckets that break the rollup: not costable AND not exempt (a
+  // zero-revenue bucket that is not itself missing rates cannot distort the
+  // total, so it is not to blame). This IS the blame set — an earlier fallback
+  // to "every non-costable bucket" was an equivalent branch (when nothing is
+  // costable, every non-costable bucket is a zero-revenue `no-rows` bucket, so
+  // both yield `no-rows`); the `?? "no-rows"` below already guards a null reason,
+  // so the fallback bought nothing.
+  const blamed = projectCostIsKnowable
+    ? []
+    : reports.filter((b) => !costIsKnowable(b) && !(b.revenue === 0 && !ratesMissing(b)));
+  // Highest-severity (lowest-rank) reason among the blamed buckets; a project
+  // with none (only reachable when every bucket is a zero-revenue empty one) is
+  // "no-rows". The reduce over REASON_RANK is exhaustive by the Record's type.
+  const projectReason: CostUnknownReason | null = projectCostIsKnowable
+    ? null
+    : blamed.reduce<CostUnknownReason | null>((best, b) => {
+        const r = b.costUnknownReason;
+        if (r === null) return best;
+        return best === null || REASON_RANK[r] < REASON_RANK[best] ? r : best;
+      }, null) ?? "no-rows";
+
   const project: ProjectReport = {
     budgetHours: sum((r) => r.budgetHours),
     plannedHours: sum((r) => r.plannedHours),
@@ -393,39 +554,19 @@ export function computeBudgetReport(
     // win/loss.
     consumption: { amount: consumedValue, percent: pct(consumedValue, budgetValue) },
     budgetMirrorsPlan: reports.length > 0 && reports.every((b) => b.budgetMirrorsPlan),
-    // ★★ EVERY, not SOME. `revenue` and `cost` above are summed across ALL
-    // buckets, so a single uncostable bucket contaminates the total — and it is
-    // the total a PM reads first. A `.some()` here would declare that total
-    // knowable the moment any OTHER bucket happened to be rated: an unstarted
-    // €50k fixed-price contract sitting beside one active bucket rendered a
-    // green 98% project margin with no caveat.
-    //
-    // A bucket contributing NO revenue cannot distort the ratio, so it is
-    // exempt — otherwise an empty scratch bucket would blank a good margin.
-    //
-    // BOTH halves are load-bearing. `every` alone would call a project of
-    // nothing but zero-revenue rateless buckets knowable, when in truth nothing
-    // in it can be costed at all; `some` alone is what let the unstarted
-    // contract through. The total is trustworthy only when something real
-    // contributes to it AND nothing uncostable contaminates it.
-    // The exemption needs BOTH halves. `revenue === 0` alone lets through a
-    // bucket whose BUDGETED hours sit at no rate: it earns nothing yet, so it
-    // passes the revenue test, while those hours land in `budgetCost` as 0 and
-    // understate the project's cost burn. `!ratesAreMissing` alone lets through
-    // the unstaffed fixed-price contract, which has no rows to be missing a
-    // rate. A bucket is harmless only when it earns nothing AND is not sitting
-    // on unrated work.
-    //
-    // This also keeps the notice and the figures consistent: any bucket that
-    // makes the notice fire now also blanks the total, so the panel can never
-    // print "cost, margin and burn cannot be calculated" beside calculated
-    // numbers.
-    costIsKnowable:
-      reports.some((b) => b.costIsKnowable) &&
-      reports.every((b) => b.costIsKnowable || (b.revenue === 0 && !b.ratesAreMissing)),
-    // Stays SOME: "at least one bucket has rows nobody has rated" is an honest
-    // and actionable statement about a project even when others are fine.
-    ratesAreMissing: reports.some((b) => b.ratesAreMissing),
+    costUnknownReason: projectReason,
+    // Scoped to the unpriced-blend HEADLINE only: when a more severe reason
+    // (unrated-hours) wins the project, its message names no disciplines, so the
+    // ids must be empty or a surface could render "Design, QA" under the wrong
+    // headline. Non-empty ⟺ projectReason === "unpriced-blend".
+    unpricedDisciplineIds:
+      projectReason === "unpriced-blend"
+        ? [...new Set(
+            blamed
+              .filter((b) => b.costUnknownReason === "unpriced-blend")
+              .flatMap((b) => b.unpricedDisciplineIds),
+          )]
+        : [],
   };
   return { buckets: reports, project };
 }

@@ -28,6 +28,7 @@ function renderPanel(over: Partial<React.ComponentProps<typeof BudgetReportPanel
       buckets={buckets}
       plan={plan}
       roles={roles}
+      disciplines={[]}
       resources={[]}
       absences={[]}
       holidaySet={new Set<string>()}
@@ -137,7 +138,7 @@ describe("BudgetReportPanel — detail table with an uncostable bucket", () => {
   it("does not print a margin for an unstaffed fixed-price bucket", () => {
     render(
       <BudgetReportPanel
-        lang="en-US" buckets={[unstaffedFixed]} plan={plan} roles={roles} resources={[]}
+        lang="en-US" buckets={[unstaffedFixed]} plan={plan} roles={roles} disciplines={[]} resources={[]}
         absences={[]} holidaySet={new Set<string>()} workdayHours={8} fxRates={null}
         tasks={[]} today="2026-06-02"
       />,
@@ -150,7 +151,7 @@ describe("BudgetReportPanel — detail table with an uncostable bucket", () => {
   it("does not print a full-contract win for it either", () => {
     render(
       <BudgetReportPanel
-        lang="en-US" buckets={[unstaffedFixed]} plan={plan} roles={roles} resources={[]}
+        lang="en-US" buckets={[unstaffedFixed]} plan={plan} roles={roles} disciplines={[]} resources={[]}
         absences={[]} holidaySet={new Set<string>()} workdayHours={8} fxRates={null}
         tasks={[]} today="2026-06-02"
       />,
@@ -187,7 +188,7 @@ describe("BudgetReportPanel — detail table sorting with an uncostable bucket",
     render(
       <BudgetReportPanel
         lang="en-US" buckets={[...buckets, unstaffedFixed]} plan={plan} roles={roles}
-        resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8}
+        disciplines={[]} resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8}
         fxRates={null} tasks={[]} today="2026-06-02"
       />,
     );
@@ -212,7 +213,7 @@ describe("BudgetReportPanel — detail table sorting with an uncostable bucket",
     render(
       <BudgetReportPanel
         lang="en-US" buckets={[...buckets, unstaffedFixed]} plan={plan} roles={roles}
-        resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8}
+        disciplines={[]} resources={[]} absences={[]} holidaySet={new Set<string>()} workdayHours={8}
         fxRates={null} tasks={[]} today="2026-06-02"
       />,
     );

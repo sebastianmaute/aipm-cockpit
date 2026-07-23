@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { bucketActivePeriods, allocationPlannedHours, computeBudgetReport } from "./budget-report";
+import {
+  bucketActivePeriods, allocationPlannedHours, computeBudgetReport, computeBucketReport,
+  costIsKnowable, ratesMissing, type CostUnknownReason,
+} from "./budget-report";
 import type { ResourcePlan, Resource, BudgetBucket, Role } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR" };
@@ -156,13 +159,13 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     // cost === 0 here only because the rate card is empty — NOT because the work
     // was free. Surfaces must not read that as a 100% margin.
     expect(report.buckets[0].cost).toBe(0);
-    expect(report.buckets[0].costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(false);
   });
 
   test("does not flag a bucket with a real internal rate", () => {
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([bucketWithHours], plan, rated, resources, 8, noHolidays);
-    expect(report.buckets[0].costIsKnowable).toBe(true);
+    expect(costIsKnowable(report.buckets[0])).toBe(true);
   });
 
   // ★ EXPECTATION DELIBERATELY REVERSED (was: one costable bucket keeps the
@@ -175,7 +178,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
   test("the project rollup refuses whenever any bucket carries uncosted work", () => {
     const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }];
     const allRateless = computeBudgetReport([bucketWithHours], plan, rateless, resources, 8, noHolidays);
-    expect(allRateless.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(allRateless.project)).toBe(false);
 
     const mixedRoles: Role[] = [
       { id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 },
@@ -187,8 +190,8 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     };
     const mixed = computeBudgetReport([bucketWithHours, ratedBucket], plan, mixedRoles, resources, 8, noHolidays);
     // The rated bucket alone IS costable — the veto comes from its neighbour.
-    expect(mixed.buckets[1].costIsKnowable).toBe(true);
-    expect(mixed.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(mixed.buckets[1])).toBe(true);
+    expect(costIsKnowable(mixed.project)).toBe(false);
   });
 
   // A bucket created by the "+ Add bucket" button starts with NO allocations.
@@ -200,7 +203,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const empty: BudgetBucket = { ...bucketWithHours, allocations: [] };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays);
-    expect(report.buckets[0].ratesAreMissing).toBe(false);
+    expect(ratesMissing(report.buckets[0])).toBe(false);
   });
 
   // Two flags, three states — they answer different questions and must not be
@@ -211,7 +214,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const empty: BudgetBucket = { ...bucketWithHours, allocations: [] };
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([empty], plan, rated, resources, 8, noHolidays);
-    expect(report.buckets[0].costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(false);
   });
 
   // The regression that shipped in 0.195.0: an unstaffed fixed-price contract
@@ -230,8 +233,8 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const report = computeBudgetReport([emptyFixed], plan, rated, resources, 8, noHolidays);
     // The arithmetic still yields 100 — it is the DISPLAY that must not treat
     // it as a real reading, so the flag is what surfaces gate on.
-    expect(report.buckets[0].costIsKnowable).toBe(false);
-    expect(report.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(false);
+    expect(costIsKnowable(report.project)).toBe(false);
   });
 
   // ★★ A row-level version of the same defect. `some(rated)` let ONE rated row
@@ -253,9 +256,9 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
     const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays);
-    expect(report.buckets[0].costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(false);
     // And the user must be TOLD — a rate really is missing here.
-    expect(report.buckets[0].ratesAreMissing).toBe(true);
+    expect(ratesMissing(report.buckets[0])).toBe(true);
   });
 
   // The converse: an unrated row carrying NO hours cannot affect cost, so it
@@ -275,7 +278,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
     const report = computeBudgetReport([mixed], plan, roles, [], 8, noHolidays);
-    expect(report.buckets[0].costIsKnowable).toBe(true);
+    expect(costIsKnowable(report.buckets[0])).toBe(true);
   });
 
   // ★★ The project rollup sums revenue and cost from EVERY bucket, so ONE
@@ -299,8 +302,8 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const report = computeBudgetReport([ratedTm, unstaffedFixed], plan, rated, [], 8, noHolidays);
     // Guard the fixture: the rated bucket really is costable on its own, so a
     // false negative here would prove nothing.
-    expect(report.buckets[0].costIsKnowable).toBe(true);
-    expect(report.project.costIsKnowable).toBe(false);
+    expect(costIsKnowable(report.buckets[0])).toBe(true);
+    expect(costIsKnowable(report.project)).toBe(false);
   });
 
   // `revenue === 0` alone is too loose an exemption. A bucket with BUDGETED
@@ -327,8 +330,8 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const report = computeBudgetReport([ratedActive, unratedBudgetedOnly], plan, roles, [], 8, noHolidays);
     // Guard the fixture: it really does slip the revenue-based exemption.
     expect(report.buckets[1].revenue).toBe(0);
-    expect(report.buckets[1].ratesAreMissing).toBe(true);
-    expect(report.project.costIsKnowable).toBe(false);
+    expect(ratesMissing(report.buckets[1])).toBe(true);
+    expect(costIsKnowable(report.project)).toBe(false);
   });
 
   // The notice and the figures must never contradict each other: whenever a
@@ -349,7 +352,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
       { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
     ];
     const p = computeBudgetReport([ratedActive, unrated], plan, roles, [], 8, noHolidays).project;
-    expect(p.ratesAreMissing && p.costIsKnowable).toBe(false);
+    expect(ratesMissing(p) && costIsKnowable(p)).toBe(false);
   });
 
   // A bucket contributing NO revenue cannot distort the total, so it must not
@@ -368,7 +371,7 @@ describe("computeBudgetReport — is cost knowable at all", () => {
     const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
     const report = computeBudgetReport([ratedTm, emptyScratch], plan, rated, [], 8, noHolidays);
     expect(report.buckets[1].revenue).toBe(0);
-    expect(report.project.costIsKnowable).toBe(true);
+    expect(costIsKnowable(report.project)).toBe(true);
   });
 });
 
@@ -473,6 +476,13 @@ describe("computeBudgetReport — order", () => {
 describe("computeBudgetReport — project cost-knowability invariant", () => {
   const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
   const rateless: Role[] = [{ id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
+  // ids 3/4 + disciplineId 9 so the blended kind cannot collide with the
+  // detailed kinds (which allocate by roleId 1/2, discipline 1) — one priced
+  // grade, one unpriced ⇒ the blend is poisoned.
+  const blendRoles: Role[] = [
+    { id: 3, disciplineId: 9, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 9, gradeId: 2, internalRate: 0, externalRate: 210 },
+  ];
 
   const kinds = {
     ratedTm: (id: number): BudgetBucket => ({
@@ -500,10 +510,19 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
       status: "open",
       allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
     }),
+    partlyPricedBlend: (id: number): BudgetBucket => ({
+      id, name: `blend-${id}`, type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended",
+      allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 9, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+      ],
+    }),
   } as const;
 
   const names = Object.keys(kinds) as (keyof typeof kinds)[];
-  const roles = [...rated, ...rateless];
+  const roles = [...rated, ...rateless, ...blendRoles];
 
   // Every single bucket, and every ordered pair including like-with-like.
   const combos: (keyof typeof kinds)[][] = [
@@ -515,12 +534,24 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
     test(`invariant holds for [${combo.join(" + ")}]`, () => {
       const buckets = combo.map((n, i) => kinds[n](i + 1));
       const report = computeBudgetReport(buckets, plan, roles, [], 8, noHolidays);
-      if (report.project.costIsKnowable) {
-        const poisoned = report.buckets.filter((b) => !b.costIsKnowable && b.revenue !== 0);
+      if (costIsKnowable(report.project)) {
+        const poisoned = report.buckets.filter((b) => !costIsKnowable(b) && b.revenue !== 0);
         expect(
           poisoned.map((b) => `${b.name} (revenue ${b.revenue})`),
         ).toEqual([]);
       }
+      // The project's verdict must follow from its BUCKETS' reasons. Expressed
+      // over the output rather than over the rollup expression, matching this
+      // block's existing style, so it stays a real check if that expression is
+      // rewritten.
+      //
+      // ★ NOT `costIsKnowable(project) === (project.costUnknownReason === null)`
+      // — the helper is DEFINED as that comparison, so it asserts x === x and
+      // survives any mutation. Vacuous.
+      const expected =
+        report.buckets.some((b) => b.costUnknownReason === null) &&
+        report.buckets.every((b) => b.costUnknownReason === null || (b.revenue === 0 && !ratesMissing(b)));
+      expect(costIsKnowable(report.project)).toBe(expected);
     });
   }
 
@@ -530,7 +561,376 @@ describe("computeBudgetReport — project cost-knowability invariant", () => {
     const report = computeBudgetReport(
       [kinds.ratedTm(1), kinds.ratedFixed(2)], plan, roles, [], 8, noHolidays,
     );
-    expect(report.project.costIsKnowable).toBe(true);
+    expect(costIsKnowable(report.project)).toBe(true);
     expect(report.project.contributionMargin.percent).not.toBeNull();
+  });
+});
+
+describe("computeBucketReport — costUnknownReason", () => {
+  const plan: ResourcePlan = {
+    startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR",
+  };
+  const noHolidays = new Set<string>();
+  const ratedRoles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+  const partlyPricedRoles: Role[] = [
+    { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 2, disciplineId: 1, gradeId: 2, internalRate: 0, externalRate: 210 },
+  ];
+
+  function tmBucket(over: Partial<BudgetBucket> = {}): BudgetBucket {
+    return {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+      ...over,
+    };
+  }
+
+  function blendedBucket(over: Partial<BudgetBucket> = {}): BudgetBucket {
+    return {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended",
+      allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+      ],
+      ...over,
+    };
+  }
+
+  test("a fully costable bucket has no reason", () => {
+    const rep = computeBucketReport(tmBucket(), plan, ratedRoles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBeNull();
+    expect(rep.unpricedDisciplineIds).toEqual([]);
+  });
+
+  test("an empty bucket is no-rows", () => {
+    const rep = computeBucketReport(tmBucket({ allocations: [] }), plan, ratedRoles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("no-rows");
+  });
+
+  test("rows with no rate at all are no-rates", () => {
+    const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
+    const rep = computeBucketReport(tmBucket(), plan, rateless, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("no-rates");
+  });
+
+  test("hours booked at a zero rate beside a rated row are unrated-hours", () => {
+    const b = tmBucket({
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 40 } },
+      ],
+    });
+    const roles: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+    ];
+    const rep = computeBucketReport(b, plan, roles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("unrated-hours");
+  });
+
+  test("a blended bucket on a partly priced discipline is unpriced-blend and names it", () => {
+    const rep = computeBucketReport(blendedBucket(), plan, partlyPricedRoles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("unpriced-blend");
+    expect(rep.unpricedDisciplineIds).toEqual([1]);
+  });
+
+  test("a bucket internal override beats the poison — the rate card behind it is irrelevant", () => {
+    const rep = computeBucketReport(
+      blendedBucket({ rateOverrideInternal: 90 }), plan, partlyPricedRoles, [], 8, noHolidays,
+    );
+    expect(rep.costUnknownReason).toBeNull();
+    expect(rep.unpricedDisciplineIds).toEqual([]);
+    expect(rep.cost).toBe(10 * 90);
+  });
+
+  test("a ZERO override suppresses the naming variant but still reports unrated work", () => {
+    // Parity trap. `effectiveRates` treats a 0 override as usable, so the rate
+    // resolves to 0 whatever the rate card holds. Gating the poison on `> 0`
+    // would name disciplines the override has already overruled — telling the
+    // user to fix something that cannot change the outcome. The generic
+    // unrated-hours message is the honest one here.
+    const rep = computeBucketReport(
+      blendedBucket({ rateOverrideInternal: 0 }), plan, partlyPricedRoles, [], 8, noHolidays,
+    );
+    expect(rep.costUnknownReason).toBe("unrated-hours");
+    expect(rep.unpricedDisciplineIds).toEqual([]);
+  });
+
+  test("a poisoned discipline carrying NO hours does not blank a sound figure", () => {
+    // The shipped rule: an unrated row with no hours contributes nothing to cost,
+    // so it must not blank the bucket. The poison inherits that rule.
+    const b: BudgetBucket = {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended",
+      allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 2, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { disciplineId: 1, resourceIds: [], budgetHours: {}, actualHours: {} },
+      ],
+    };
+    const roles: Role[] = [
+      ...partlyPricedRoles,
+      { id: 3, disciplineId: 2, gradeId: 1, internalRate: 80, externalRate: 120 },
+    ];
+    const rep = computeBucketReport(b, plan, roles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBeNull();
+    expect(rep.unpricedDisciplineIds).toEqual([]);
+  });
+
+  test("the derived helpers agree with the reason", () => {
+    const ok = computeBucketReport(tmBucket(), plan, ratedRoles, [], 8, noHolidays);
+    const empty = computeBucketReport(tmBucket({ allocations: [] }), plan, ratedRoles, [], 8, noHolidays);
+    expect(costIsKnowable(ok)).toBe(true);
+    expect(ratesMissing(ok)).toBe(false);
+    expect(costIsKnowable(empty)).toBe(false);
+    // An empty bucket has no roles to rate, so the rate card is NOT the problem.
+    expect(ratesMissing(empty)).toBe(false);
+  });
+
+  test("a zero override is not a 'no rate card' bucket — the override is the cause", () => {
+    // Pins the override-message arm (`hasInternalOverride ? "unrated-hours"`) under
+    // its own name: a 0 override → "unrated-hours", never "no-rates". The
+    // ZERO-override test above also happens to catch a regression here, but it
+    // is named for the naming-variant suppression, so an edit to that test
+    // could silently unpin this rule.
+    const b: BudgetBucket = {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      rateOverrideInternal: 0,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    };
+    const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    // The rate card is fully populated — pointing the user at it would be
+    // instructing them to do something their own override overrules.
+    const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("unrated-hours");
+  });
+
+  test("a zero-override fixed-price bucket with no hours is NOT knowable (I1 regression)", () => {
+    const b: BudgetBucket = {
+      id: 1, name: "b", type: "fixed", currency: "EUR", fixedPriceAmount: 100000,
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      rateOverrideInternal: 0,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
+    };
+    const rated: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }];
+    const rep = computeBucketReport(b, plan, rated, [], 8, noHolidays);
+    // revenue 100000, cost 0 — must NOT read as a 100% margin.
+    expect(costIsKnowable(rep)).toBe(false);
+    expect(rep.costUnknownReason).not.toBeNull();
+  });
+
+  test("every state maps to its reason, and the helpers agree with it", () => {
+    // A literal oracle over all reason states: each case pins the EXACT
+    // costUnknownReason, and the derived helpers are checked against a hardcoded
+    // expectation, NOT read back against themselves. (The boolean fields this
+    // once compared against were deleted in Task 7; comparing the helper to the
+    // helper is x === x and catches nothing — the vacuous shape this workstream
+    // keeps tripping over.)
+    const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 }];
+    const uncostedBucket = tmBucket({
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 40 }, actualHours: { "2026-01": 40 } },
+      ],
+    });
+    const ratedPlusUnrated: Role[] = [
+      { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+    ];
+    const i1FixedNoHours: BudgetBucket = {
+      id: 1, name: "b", type: "fixed", currency: "EUR", fixedPriceAmount: 100000,
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      rateOverrideInternal: 0,
+      allocations: [{ roleId: 1, resourceIds: [], budgetHours: {}, actualHours: {} }],
+    };
+    const cases: { name: string; bucket: BudgetBucket; roles: Role[]; reason: CostUnknownReason | null }[] = [
+      { name: "costable", bucket: tmBucket(), roles: ratedRoles, reason: null },
+      { name: "empty", bucket: tmBucket({ allocations: [] }), roles: ratedRoles, reason: "no-rows" },
+      { name: "rateless+hours", bucket: tmBucket(), roles: rateless, reason: "no-rates" },
+      { name: "rated+uncosted", bucket: uncostedBucket, roles: ratedPlusUnrated, reason: "unrated-hours" },
+      { name: "partly-priced blend", bucket: blendedBucket(), roles: partlyPricedRoles, reason: "unpriced-blend" },
+      { name: "90-override", bucket: blendedBucket({ rateOverrideInternal: 90 }), roles: partlyPricedRoles, reason: null },
+      { name: "0-override+hours", bucket: blendedBucket({ rateOverrideInternal: 0 }), roles: partlyPricedRoles, reason: "unrated-hours" },
+      { name: "0-override fixed no-hours", bucket: i1FixedNoHours, roles: ratedRoles, reason: "unrated-hours" },
+    ];
+    for (const c of cases) {
+      const rep = computeBucketReport(c.bucket, plan, c.roles, [], 8, noHolidays);
+      // Literal oracle: the reason is pinned to a hardcoded value, and each helper
+      // is checked against its OWN definition of that value — never against itself.
+      expect(rep.costUnknownReason, `reason @ ${c.name}`).toBe(c.reason);
+      expect(costIsKnowable(rep), `costIsKnowable @ ${c.name}`).toBe(c.reason === null);
+      expect(ratesMissing(rep), `ratesMissing @ ${c.name}`)
+        .toBe(c.reason !== null && c.reason !== "no-rows");
+    }
+  });
+
+  test("two poisoned allocations on the same discipline name it once, not twice", () => {
+    const b: BudgetBucket = {
+      id: 1, name: "b", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended",
+      allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { disciplineId: 1, resourceIds: [], budgetHours: { "2026-01": 20 }, actualHours: { "2026-01": 20 } },
+      ],
+    };
+    const rep = computeBucketReport(b, plan, partlyPricedRoles, [], 8, noHolidays);
+    expect(rep.costUnknownReason).toBe("unpriced-blend");
+    expect(rep.unpricedDisciplineIds).toEqual([1]);
+  });
+});
+
+describe("computeBudgetReport — project costUnknownReason", () => {
+  const plan: ResourcePlan = {
+    startDate: "2026-01-01", endDate: "2026-01-31", granularity: "month", currency: "EUR",
+  };
+  const noHolidays = new Set<string>();
+  const roles: Role[] = [
+    { id: 1, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 2, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 150 },
+  ];
+
+  function bucket(id: number, roleId: number): BudgetBucket {
+    return {
+      id, name: `b${id}`, type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    };
+  }
+
+  // A rated role AND a rateless role, both with hours → hasRatedRow true AND
+  // uncostedWork true → bucket reason `unrated-hours` (the top severity). A
+  // single rateless role would instead be `no-rates` (no rate ANYWHERE), which
+  // is a different, lower-severity reason.
+  function mixedBucket(id: number): BudgetBucket {
+    return {
+      id, name: `mix${id}`, type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [
+        { roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+        { roleId: 2, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+      ],
+    };
+  }
+
+  test("a costable project has no reason", () => {
+    const rep = computeBudgetReport([bucket(1, 1)], plan, roles, [], 8, noHolidays);
+    expect(rep.project.costUnknownReason).toBeNull();
+    expect(rep.project.unpricedDisciplineIds).toEqual([]);
+  });
+
+  test("a project with no buckets is no-rows", () => {
+    const rep = computeBudgetReport([], plan, roles, [], 8, noHolidays);
+    expect(rep.project.costUnknownReason).toBe("no-rows");
+  });
+
+  test("the reason comes from the failing bucket, not the healthy one", () => {
+    const rep = computeBudgetReport([bucket(1, 1), mixedBucket(2)], plan, roles, [], 8, noHolidays);
+    expect(rep.project.costUnknownReason).toBe("unrated-hours");
+  });
+
+  test("a higher-severity reason wins when two failing buckets both distort the total", () => {
+    // Both buckets carry revenue, so BOTH reach `blamed` — the zero-revenue
+    // exemption would remove a bucket from it, which is why an EMPTY bucket
+    // (revenue 0) cannot be used here: it never enters the blame set, so pairing
+    // it with an unrated-hours bucket leaves only one reason and the test would
+    // pass regardless of ordering (the vacuous version this replaces).
+    const noRates = bucket(2, 2); // single rateless role + hours → no-rates, revenue != 0
+    const rep = computeBudgetReport([mixedBucket(1), noRates], plan, roles, [], 8, noHolidays);
+    // Fixture guard: the two failing buckets really do carry DIFFERENT reasons,
+    // so the reduce over REASON_RANK has a genuine choice to make. Without this a
+    // fixture drift that collapsed them to one reason would silently re-vacuum
+    // the test.
+    expect(rep.buckets.map((b) => b.costUnknownReason).sort()).toEqual(["no-rates", "unrated-hours"]);
+    // unrated-hours (real hours costed at zero) outranks no-rates by severity of
+    // distortion — the ordering REASON_RANK encodes, which a plain
+    // derivation order would get backwards.
+    expect(rep.project.costUnknownReason).toBe("unrated-hours");
+  });
+
+  test("an all-empty project reports no-rows (nothing to cost anywhere)", () => {
+    // The only way `no-rows` becomes a PROJECT reason: every bucket is a
+    // zero-revenue empty one, so the blame set is empty and the reduce yields
+    // null, which the `?? "no-rows"` default names.
+    const empty = (id: number): BudgetBucket => ({ ...bucket(id, 1), allocations: [] });
+    const rep = computeBudgetReport([empty(1), empty(2)], plan, roles, [], 8, noHolidays);
+    expect(rep.project.costUnknownReason).toBe("no-rows");
+  });
+
+  test("unpriced ids are empty when a more severe reason wins the headline", () => {
+    // A mixed project: one unrated-hours bucket (revenue > 0) and one
+    // unpriced-blend bucket (revenue > 0). Both are blamed, but unrated-hours
+    // outranks — so the project message names no disciplines and the ids MUST be
+    // empty, or a surface would render discipline names under an unrated-hours
+    // headline (the doc's invariant: non-empty IFF reason === unpriced-blend).
+    const blend: BudgetBucket = {
+      id: 2, name: "blend", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended", allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 9, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+      ],
+    };
+    const blendRoles: Role[] = [
+      ...roles,
+      { id: 3, disciplineId: 9, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 4, disciplineId: 9, gradeId: 2, internalRate: 0, externalRate: 210 },
+    ];
+    const rep = computeBudgetReport([mixedBucket(1), blend], plan, blendRoles, [], 8, noHolidays);
+    // Fixture guard: the two failing buckets really carry the two reasons.
+    expect(rep.buckets.map((b) => b.costUnknownReason).sort()).toEqual(["unpriced-blend", "unrated-hours"]);
+    expect(rep.project.costUnknownReason).toBe("unrated-hours");
+    expect(rep.project.unpricedDisciplineIds).toEqual([]);
+  });
+
+  test("costIsKnowable and the project reason never disagree", () => {
+    const rep = computeBudgetReport([bucket(1, 1), bucket(2, 2)], plan, roles, [], 8, noHolidays);
+    // The project's verdict must follow from its BUCKETS' reasons, expressed
+    // over costUnknownReason INDEPENDENTLY of the helper (asserting it against
+    // the helper would be x === x). Per-fixture form of the combinatorial
+    // invariant below.
+    const expected =
+      rep.buckets.some((b) => b.costUnknownReason === null) &&
+      rep.buckets.every((b) => b.costUnknownReason === null || (b.revenue === 0 && !ratesMissing(b)));
+    expect(costIsKnowable(rep.project)).toBe(expected);
+  });
+
+  test("the project's knowability verdict is unchanged by this task", () => {
+    // Pins that switching the predicate's inputs from the boolean fields to the
+    // equivalent helpers did NOT move the verdict. The shipped some/every rule
+    // and its exemption are preserved exactly.
+    const oneCostableOneEmpty = computeBudgetReport(
+      [bucket(1, 1), { ...bucket(2, 1), allocations: [] }], plan, roles, [], 8, noHolidays,
+    );
+    // one costable bucket + one zero-revenue empty ⇒ still knowable (the exemption).
+    expect(costIsKnowable(oneCostableOneEmpty.project)).toBe(true);
+
+    const nothingCostable = computeBudgetReport([bucket(1, 2)], plan, roles, [], 8, noHolidays);
+    expect(costIsKnowable(nothingCostable.project)).toBe(false);
+  });
+
+  test("the project names the failing buckets' unpriced disciplines, deduped", () => {
+    const blended = (id: number): BudgetBucket => ({
+      id, name: `blend${id}`, type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      planningMode: "blended", allocations: [],
+      disciplineAllocations: [
+        { disciplineId: 9, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } },
+      ],
+    });
+    const blendRoles: Role[] = [
+      { id: 3, disciplineId: 9, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 4, disciplineId: 9, gradeId: 2, internalRate: 0, externalRate: 210 },
+    ];
+    // Two buckets, same poisoned discipline 9 — the union must be [9], not [9, 9].
+    const rep = computeBudgetReport([blended(1), blended(2)], plan, blendRoles, [], 8, noHolidays);
+    expect(rep.project.costUnknownReason).toBe("unpriced-blend");
+    expect(rep.project.unpricedDisciplineIds).toEqual([9]);
   });
 });

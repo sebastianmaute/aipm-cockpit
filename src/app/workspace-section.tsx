@@ -707,7 +707,7 @@ export function WorkspaceSection({
               lang={lang}
               buckets={budgets}
               plan={plan}
-              roles={roles}
+              roles={roles} disciplines={disciplines}
               resources={resources}
               absences={absences}
               holidaySet={holidaySet}

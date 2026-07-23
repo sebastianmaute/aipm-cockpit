@@ -2,7 +2,7 @@
 // single testable unit behind dashboard-panel.tsx.
 
 import { computeGroupHealth, type Health } from "./health";
-import { computeBudgetReport, type CciValue, type ProjectReport } from "./budget-report";
+import { computeBudgetReport, type CciValue, type CostUnknownReason, type ProjectReport } from "./budget-report";
 import { isTerminalStatus, riskSeverityFromMatrix } from "./raid";
 import { workdaysUntil } from "./due-dates";
 import { partitionMilestones } from "./milestones";
@@ -181,11 +181,10 @@ export type DashboardBurn = {
   /** Carried alongside `cost`/`costPerformance` deliberately. Those two are
    *  internal-rate figures and are 0 when no rate exists, which reads as a
    *  perfect margin — the defect this model's source spent six fixes removing.
-   *  Any consumer rendering them MUST gate on this, so the flag travels with
-   *  the data rather than being looked up later (or forgotten, which is how
-   *  every one of those six instances happened). */
-  costIsKnowable: boolean;
-  ratesAreMissing: boolean;
+   *  Any consumer rendering them MUST gate on this (null ⇒ knowable), so the
+   *  reason travels with the data rather than being looked up later (or
+   *  forgotten, which is how every one of those six instances happened). */
+  costUnknownReason: CostUnknownReason | null;
 };
 
 export type DashboardModel = {
@@ -307,7 +306,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         budgetValue: project.budgetValue, consumedValue: project.consumedValue,
         budgetHours: project.budgetHours, actualHours: project.actualHours,
         cost: project.cost, costPerformance: project.costPerformance, consumption: project.consumption,
-        costIsKnowable: project.costIsKnowable, ratesAreMissing: project.ratesAreMissing,
+        costUnknownReason: project.costUnknownReason,
       }
     : null;
   const burndown: BurndownSeries | null =

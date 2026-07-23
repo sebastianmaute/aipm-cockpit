@@ -2745,6 +2745,9 @@ const enUS = {
   budgetCciMarginHint: "Margin = (external value − internal cost) ÷ external value.",
   budgetCciConsumptionHint: "Budget consumed so far. Percent is of the total budget.",
   budgetNoInternalRates: "No internal rates are set for this bucket's roles, so cost, margin and burn cannot be calculated. Set them on the rate card under Resources → Roles.",
+  budgetNoAllocations: "No allocations yet, so cost, margin and burn cannot be calculated. Add a role or discipline line.",
+  budgetUnratedHours: "Some hours are booked against roles with no internal rate, so cost, margin and burn would be understated. Set the missing rates on the rate card under Resources → Roles.",
+  budgetUnpricedBlend: "Blended rates cannot be calculated — grades with no internal rate in: {0}. Set them on the rate card under Resources → Roles.",
   budgetReportColWinLossHint: "Difference between revenue and cost in EUR; negative means the bucket runs at a loss.",
   budgetWinLossHint: "Hours won or lost versus plan.",
   budgetSpilloverInHint: "Hours carried in from another bucket.",
@@ -3418,6 +3421,7 @@ const enUS = {
   versionHighlightInsightsRecommend: "Insight recommendations: Claude can now propose a concrete, reviewable fix for an insight — on demand per insight or, opt-in, in the background — which you apply as a plan-then-apply diff through the existing tools. Rising-overdue trends now surface too.",
   versionHighlightInsightsOutcome: "Insight outcomes: acting on an insight now records the number it was about, and the app measures whether that number actually moved — showing improved, unchanged or worse, and closing the insight out when the problem clears.",
   versionHighlightInsightsDigest: "Insight digest: the Insights view opens with a rolling seven-day summary — what fired, what you acted on, what resolved after you acted, and what got worse — so wins no longer disappear into the history. Background AI recommendations now run on a cadence you set, defaulting to once an hour.",
+  versionHighlightCostReason: "Budget cost clarity: a discipline with an unpriced grade no longer averages that gap away into a plausible-but-wrong blended rate — its cost reads as unknown instead. And every reason cost, margin and burn cannot be shown now carries its own explanation: an empty bucket says to add a line, a partly-priced blend names the disciplines to price, instead of a bare dash.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
