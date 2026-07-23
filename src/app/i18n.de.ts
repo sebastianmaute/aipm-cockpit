@@ -2685,6 +2685,7 @@ export const de: Record<TranslationKey, string> = {
   resourceExternal: "Externe Ressource",
   resourceExternalHint: "Externe Ressourcen werden geplant und bei der Kapazität berücksichtigt (Zuweisungen, Abwesenheiten, Auslastung), aber aus allen Kosten- und Budgetzahlen ausgeschlossen.",
   resourceExternalBadge: "Extern",
+  resourceHideExternal: "Externe ausblenden",
   resourceEmailsLabel: "Weitere E-Mail-Adressen",
   resourceEmailsHint: "Zusätzliche E-Mail-Adressen neben der primären. Im Verzeichnis angezeigt; zum Kopieren anklicken.",
   resourceEmailAdd: "E-Mail hinzufügen",
@@ -3403,6 +3404,9 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightInsightsOutcome: "Erkenntnis-Ergebnisse: Wenn Sie auf eine Erkenntnis reagieren, wird die zugehörige Kennzahl festgehalten. Die App misst anschließend, ob sich diese Zahl tatsächlich bewegt hat – verbessert, unverändert oder verschlechtert – und schließt die Erkenntnis ab, sobald das Problem behoben ist.",
   versionHighlightInsightsDigest: "Erkenntnis-Zusammenfassung: Die Erkenntnis-Ansicht beginnt jetzt mit einer rollierenden Sieben-Tage-Übersicht – was neu aufgetreten ist, was Sie bearbeitet haben, was nach Ihrer Maßnahme gelöst wurde und was sich verschlechtert hat –, sodass Erfolge nicht mehr im Verlauf verschwinden. KI-Empfehlungen im Hintergrund laufen jetzt in einem von Ihnen festgelegten Intervall, standardmäßig einmal pro Stunde.",
   versionHighlightCostReason: "Budget-Kostenklarheit: Eine Disziplin mit einer Stufe ohne internen Satz mittelt diese Lücke nicht mehr zu einem plausiblen, aber falschen Mischsatz weg – ihre Kosten werden stattdessen als unbekannt ausgewiesen. Und jeder Grund, warum Kosten, Marge und Kostenverbrauch nicht angezeigt werden können, trägt jetzt seine eigene Erklärung: Ein leerer Budgetblock weist darauf hin, eine Zeile hinzuzufügen, ein teilweise bepreister Mischsatz nennt die zu bepreisenden Disziplinen – statt eines bloßen Bindestrichs.",
+  versionHighlightBurndownFollowPlan: "Dashboard-Budget-Burndown: Wenn die Budgetstunden dem Plan folgen, zeigt das Burndown-Diagramm jetzt den geplanten und tatsächlichen Verbrauch statt einer leeren „kein Budget“-Meldung — es liest dieselbe Live-Kapazität wie der Budgetbericht.",
+  versionHighlightChatFormatting: "KI-Assistent-Formatierung: Antworten stellen Codeblöcke und Tabellen jetzt formatiert dar, statt als Rohtext mit übrig gebliebenen Backticks und senkrechten Strichen.",
+  versionHighlightDirectoryHideExternal: "Ressourcenverzeichnis: Ein Schalter „Externe ausblenden“ filtert externe Personen aus der Liste, pro Gerät gespeichert.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",

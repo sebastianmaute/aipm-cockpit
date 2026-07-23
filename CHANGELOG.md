@@ -8,6 +8,40 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.195.3] - 2026-07-23 "McGuire"
+
+### Fixed
+
+- **The dashboard "Budget burn" card showed the burn-down chart as "No budget
+  configured" whenever budget hours followed the plan.** `computeBurndownSeries`
+  read the raw stored per-period `budgetHours` map, but with *budget hours follow
+  plan* enabled a staffed row's stored map is empty — its hours derive from live
+  resource capacity. So the budget report showed real hours while the burn-down
+  summed to zero and blanked. The burn-down now derives budget hours through the
+  same `effectiveBudgetHours` rule the report uses (over each bucket's active
+  periods), so its totals match the report. It needs the resource list, workday
+  hours, holidays and absences, which both callers now pass. (T&M, no spillover:
+  the burn-down still models neither fixed-price amounts nor predecessor
+  spillover.)
+
+- **AI Assistant replies rendered fenced code blocks and tables as raw text.**
+  The chat markdown renderer dropped ```` ``` ```` fences and GFM pipe tables, so
+  they surfaced with literal backticks and pipes. Both now render — code blocks
+  verbatim in a monospace block, tables as real tables — still dependency-free
+  and auto-escaped (a reply is never treated as HTML). A pipe inside an inline
+  code span no longer over-splits a table row; protocol-relative link URLs
+  (`//host`) are rejected as untrusted.
+
+### Added
+
+- **Resource directory: a "Hide external" toggle.** Filters external people out
+  of the directory table; remembered per device.
+
+### Changed
+
+- The chat attach and dictation-microphone buttons use the shared Heroicons set
+  (paper-clip, microphone) instead of emoji, matching the rest of the chrome.
+
 ## [0.195.2] - 2026-07-23 "McGuire"
 
 ### Fixed

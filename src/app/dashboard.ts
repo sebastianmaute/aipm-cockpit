@@ -311,7 +311,10 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     : null;
   const burndown: BurndownSeries | null =
     input.budgets.length > 0
-      ? computeBurndownSeries(input.budgets, input.plan, input.roles, today)
+      ? computeBurndownSeries(
+          input.budgets, input.plan, input.roles, input.resources,
+          input.workdayHours, holidaySet, input.absences, today,
+        )
       : null;
 
   const scopeComputed = computeScopeStatus(input.changes, SCOPE_PENDING_RED);

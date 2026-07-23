@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
+import { PaperClipIcon } from "@heroicons/react/24/outline";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
@@ -846,7 +847,7 @@ function ChatPanelInner({
             aria-label={t(lang, "chatAttach")}
             title={t(lang, "chatAttach")}
           >
-            📎
+            <PaperClipIcon aria-hidden="true" className="h-4 w-4" />
           </Button>
           {mic}
           {busy ? (

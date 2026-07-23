@@ -4,8 +4,8 @@
 // No React, no I/O.
 
 import { generatePeriods } from "./resource-capacity";
-import { bucketRateRows } from "./budget-report";
-import type { BudgetBucket, ResourcePlan, Role } from "./types";
+import { bucketRateRows, bucketActivePeriods, effectiveBudgetHours } from "./budget-report";
+import type { Absence, BudgetBucket, Resource, ResourcePlan, Role } from "./types";
 
 export type BurndownSeries = {
   periods: readonly string[];
@@ -24,15 +24,28 @@ export type BurndownSeries = {
 
 /** Derives per-period planned vs actual remaining hours and € across all buckets
  *  for the burn-down charts. `today` is an ISO date string (YYYY-MM-DD); actual
- *  remaining is defined only up to the period containing today. */
+ *  remaining is defined only up to the period containing today.
+ *
+ *  Budget hours go through `effectiveBudgetHours` — the SAME single rule the
+ *  budget report uses — so a follow-plan bucket's staffed rows derive their
+ *  budget from live resource capacity, not the stale stored map (which is 0).
+ *  Without this the totals collapse to 0 and the chart reads "no budget" even
+ *  though the report shows real hours. */
 export function computeBurndownSeries(
   buckets: readonly BudgetBucket[],
   plan: ResourcePlan,
   roles: readonly Role[],
+  resources: readonly Resource[],
+  workdayHours: number,
+  holidaySet: ReadonlySet<string>,
+  absences: readonly Absence[],
   today: string,
 ): BurndownSeries {
   const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
   const n = periods.length;
+  const indexByKey = new Map(periods.map((p, i) => [p.key, i] as const));
+  const budgetFollowsPlan = plan.budgetFollowsPlan ?? false;
+  const resourcesById = new Map(resources.map((r) => [r.id, r] as const));
   const budgetH = new Array<number>(n).fill(0);
   const actualH = new Array<number>(n).fill(0);
   const budgetV = new Array<number>(n).fill(0);
@@ -40,16 +53,23 @@ export function computeBurndownSeries(
 
   for (const b of buckets) {
     const rows = bucketRateRows(b, roles);
-    periods.forEach((p, i) => {
+    // Scope to the bucket's active periods and pass them as canonicalPeriods —
+    // mirrors computeBucketReport so the burndown totals equal the report totals.
+    const active = bucketActivePeriods(b, plan);
+    for (const p of active) {
+      const i = indexByKey.get(p.key);
+      if (i === undefined) continue;
       for (const row of rows) {
-        const bh = row.budgetHours[p.key] ?? 0;
+        const bh = effectiveBudgetHours(
+          row, p, active, resources, workdayHours, holidaySet, plan.granularity, absences, budgetFollowsPlan, resourcesById,
+        );
         const ah = row.actualHours[p.key] ?? 0;
         budgetH[i] += bh;
         actualH[i] += ah;
         budgetV[i] += bh * row.rates.external;
         actualV[i] += ah * row.rates.external;
       }
-    });
+    }
   }
 
   const totalBudgetHours = budgetH.reduce((a, v) => a + v, 0);

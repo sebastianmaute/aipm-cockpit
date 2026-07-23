@@ -2720,6 +2720,7 @@ const enUS = {
   resourceExternal: "External resource",
   resourceExternalHint: "External resources are planned and capacity-tracked (assignments, absences, workload) but are excluded from all cost and budget figures.",
   resourceExternalBadge: "External",
+  resourceHideExternal: "Hide external",
   resourceEmailsLabel: "Additional emails",
   resourceEmailsHint: "Extra email addresses beyond the primary one. Shown in the directory; click one to copy it.",
   resourceEmailAdd: "Add email",
@@ -3422,6 +3423,9 @@ const enUS = {
   versionHighlightInsightsOutcome: "Insight outcomes: acting on an insight now records the number it was about, and the app measures whether that number actually moved — showing improved, unchanged or worse, and closing the insight out when the problem clears.",
   versionHighlightInsightsDigest: "Insight digest: the Insights view opens with a rolling seven-day summary — what fired, what you acted on, what resolved after you acted, and what got worse — so wins no longer disappear into the history. Background AI recommendations now run on a cadence you set, defaulting to once an hour.",
   versionHighlightCostReason: "Budget cost clarity: a discipline with an unpriced grade no longer averages that gap away into a plausible-but-wrong blended rate — its cost reads as unknown instead. And every reason cost, margin and burn cannot be shown now carries its own explanation: an empty bucket says to add a line, a partly-priced blend names the disciplines to price, instead of a bare dash.",
+  versionHighlightBurndownFollowPlan: "Dashboard budget burn-down: when budget hours follow the plan, the burn-down chart now shows the planned and actual spend instead of a blank “no budget” message — it reads the same live capacity the budget report does.",
+  versionHighlightChatFormatting: "AI Assistant formatting: replies now render fenced code blocks and tables as formatted output instead of raw text with stray backticks and pipes.",
+  versionHighlightDirectoryHideExternal: "Resource directory: a “Hide external” toggle filters external people out of the list, remembered per device.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

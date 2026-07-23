@@ -72,8 +72,8 @@ export function BudgetReportPanel({
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
   const burndown = useMemo(
-    () => computeBurndownSeries(buckets, plan, roles, today),
-    [buckets, plan, roles, today],
+    () => computeBurndownSeries(buckets, plan, roles, resources, workdayHours, holidaySet, absences, today),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today],
   );
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);
