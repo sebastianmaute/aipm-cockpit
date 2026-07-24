@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { DocumentTextIcon, PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { RagDot } from "./rag-dot";
-import { TextButton } from "./text-button";
+import { htmlToText } from "./sanitize-html";
 import { priorityLabel, t, type Lang } from "./i18n";
 import { formatDuration } from "./duration";
 import { isReadOnlyIssue } from "./jira-projects";
@@ -42,7 +42,8 @@ export interface RowContextValue {
 
   // Stable callbacks (useCallback'd in TaskManagerInner).
   onToggleSelect: (id: number) => void;
-  onToggleNoteExpanded: (id: number) => void;
+  /** Open the floating notes window for a task (running note log). */
+  onOpenNotes: (id: number) => void;
   onJumpToRaid: (id: number) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
@@ -122,38 +123,6 @@ export function useTaskLookup(): Map<number, Task> {
 // without importing from `./types` separately.
 export type { RaidItem };
 
-const NOTES_COLLAPSED_MAX = 50;
-
-/**
- * Produce a one-line summary of a note for the collapsed Notes cell.
- *
- * Rules (in order):
- *   1. Take only the first line — anything past the first `\n` is hidden.
- *   2. If that line fits within `maxLen`, show it as-is (still flagged as
- *      truncated when there were more lines hidden below).
- *   3. Otherwise, cut at the last whitespace ≤ maxLen so we never split mid-word.
- *      Fall back to a hard slice only when the first word itself is too long.
- */
-function summarizeNote(
-  notes: string,
-  maxLen: number,
-): { text: string; truncated: boolean } {
-  if (!notes) return { text: "", truncated: false };
-
-  const newlineIdx = notes.search(/\r?\n/);
-  const firstLine = newlineIdx >= 0 ? notes.slice(0, newlineIdx) : notes;
-  const hasMoreLines = firstLine.length < notes.length;
-
-  if (firstLine.length <= maxLen) {
-    return { text: firstLine, truncated: hasMoreLines };
-  }
-
-  const window = firstLine.slice(0, maxLen + 1);
-  const lastWs = window.search(/\s\S*$/);
-  const cut = lastWs > Math.floor(maxLen / 2) ? lastWs : maxLen;
-  return { text: firstLine.slice(0, cut).trimEnd(), truncated: true };
-}
-
 /**
  * Build the Jira browse URL only when siteUrl parses to an http(s) origin.
  * Without this guard, a user-supplied siteUrl like "javascript:..." would
@@ -192,7 +161,6 @@ interface TaskRowProps {
   task: Task;
   isSelected: boolean;
   isEditing: boolean;
-  isExpanded: boolean;
   isPushing: boolean;
   raidRefs: RaidItem[] | undefined;
   changeRefs?: ChangeItem[];
@@ -204,7 +172,6 @@ function TaskRowImpl({
   task,
   isSelected,
   isEditing,
-  isExpanded,
   isPushing,
   raidRefs,
   changeRefs,
@@ -220,6 +187,7 @@ function TaskRowImpl({
     jiraProjectKey,
     hiddenCols,
     onToggleSelect,
+    onOpenNotes,
     onJumpToRaid,
     onStatusChange,
     onEdit,
@@ -327,10 +295,10 @@ function TaskRowImpl({
     );
   };
 
-  // Multiline inline cells (notes/blockers): double-click the cell to open a
-  // textarea (mirrors the task-name double-click), commit on blur, cancel on
-  // Escape, Ctrl/Cmd+Enter also commits (Enter alone inserts a newline). Keeps
-  // the read display (incl. the notes show-more toggle) untouched when idle.
+  // Multiline inline cell (blockers): double-click the cell to open a textarea
+  // (mirrors the task-name double-click), commit on blur, cancel on Escape,
+  // Ctrl/Cmd+Enter also commits (Enter alone inserts a newline). Keeps the read
+  // display untouched when idle.
   const onTextareaKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -341,7 +309,7 @@ function TaskRowImpl({
     }
   };
   const renderInlineTextarea = (
-    field: Extract<InlineField, "notes" | "blockers">,
+    field: Extract<InlineField, "blockers">,
     current: string,
     display: ReactNode,
   ): ReactNode => {
@@ -606,13 +574,28 @@ function TaskRowImpl({
           {renderInlineTextarea("blockers", task.blockers, task.blockers || "—")}
         </Td>
       )}
-      {!hiddenCols.has("notes") && (
-        <Td className="max-w-xs text-muted-foreground">
-          {renderInlineTextarea(
-            "notes",
-            task.notes ?? "",
-            <NotesCell notes={task.notes ?? ""} isExpanded={isExpanded} taskId={task.id} />,
-          )}
+      {!hiddenCols.has("description") && (() => {
+        // Non-expandable plain-text preview of the (rich HTML) description.
+        const preview = htmlToText(task.description);
+        return (
+          <Td className="max-w-xs truncate text-muted-foreground" title={preview}>
+            {preview || "—"}
+          </Td>
+        );
+      })()}
+      {!hiddenCols.has("notesLog") && (
+        <Td>
+          {/* Count badge opening the floating notes window (running note log). */}
+          <button
+            type="button"
+            onClick={() => onOpenNotes(task.id)}
+            aria-label={`${t(lang, "noteLogTitle")} – ${task.taskName}`}
+            title={t(lang, "noteLogTitle")}
+            className={`inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
+          >
+            <DocumentTextIcon aria-hidden="true" className="h-4 w-4" />
+            <span className="text-xs font-medium">{task.noteLog?.length ?? 0}</span>
+          </button>
         </Td>
       )}
       {!hiddenCols.has("depRelations") && (
@@ -638,39 +621,6 @@ function TaskRowImpl({
 }
 
 export const TaskRow = memo(TaskRowImpl);
-
-interface NotesCellProps {
-  notes: string;
-  isExpanded: boolean;
-  taskId: number;
-}
-
-function NotesCellImpl({ notes, isExpanded, taskId }: NotesCellProps) {
-  const { lang, onToggleNoteExpanded } = useTaskRowContext();
-  if (!notes) return <span>—</span>;
-  const summary = summarizeNote(notes, NOTES_COLLAPSED_MAX);
-  const displayed = isExpanded
-    ? notes
-    : summary.text + (summary.truncated ? " …" : "");
-  return (
-    <div className="flex flex-col gap-1">
-      <span className={isExpanded ? "whitespace-pre-wrap" : "whitespace-normal"}>
-        {displayed}
-      </span>
-      {summary.truncated && (
-        <TextButton
-          onClick={() => onToggleNoteExpanded(taskId)}
-          className="self-start text-xs"
-          aria-expanded={isExpanded}
-        >
-          {isExpanded ? t(lang, "showLess") : t(lang, "showMore")}
-        </TextButton>
-      )}
-    </div>
-  );
-}
-
-export const NotesCell = memo(NotesCellImpl);
 
 interface TaskActionsProps {
   task: Task;

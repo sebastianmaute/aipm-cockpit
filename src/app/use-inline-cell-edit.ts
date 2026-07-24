@@ -8,7 +8,6 @@ export type InlineField =
   | "dueDate"
   | "assignee"
   | "priority"
-  | "notes"
   | "blockers";
 
 export interface InlineCellEdit {
