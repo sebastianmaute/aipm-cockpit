@@ -16,6 +16,8 @@ import { defaultResourcePlan, effectiveAssignee } from "./resource-foundation";
 import { statusSortIndex } from "./task-status";
 import { htmlToText } from "./sanitize-html";
 import { resolveEffectiveFilters, type TaskFilterValues } from "./task-filters";
+import { isExternalTask } from "./task-external";
+import { useSettings } from "./use-settings";
 import {
   PRIORITY_RANK,
   type Absence,
@@ -164,39 +166,57 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     [resources],
   );
 
+  // View-level "hide externals" is applied ONCE, here, so the row filter and
+  // every derived option list share a single source and cannot drift — the
+  // orphan-filter failure task-filters.ts exists to prevent.
+  const { settings } = useSettings();
+  const hideExternalTasks = settings.hideExternalTasks === true;
+  const visibleTasks = useMemo(
+    () => (hideExternalTasks ? tasks.filter((t) => !isExternalTask(t, resourcesById)) : tasks),
+    [hideExternalTasks, tasks, resourcesById],
+  );
+
   const uniqueAssignees = useMemo(
     () =>
-      Array.from(new Set(tasks.map((t) => effectiveAssignee(t, resourcesById)))).sort((a, b) =>
+      Array.from(new Set(visibleTasks.map((t) => effectiveAssignee(t, resourcesById)))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    [tasks, resourcesById],
+    [visibleTasks, resourcesById],
   );
 
   const uniqueGroups = useMemo(
     () =>
       Array.from(
-        new Set(tasks.map((t) => (t.group ?? "").trim()).filter(Boolean)),
+        new Set(visibleTasks.map((t) => (t.group ?? "").trim()).filter(Boolean)),
       ).sort((a, b) => a.localeCompare(b)),
-    [tasks],
+    [visibleTasks],
   );
 
   const uniqueLabels = useMemo(() => {
     const set = new Set<string>();
-    for (const t of tasks) {
+    for (const t of visibleTasks) {
       for (const l of t.labels ?? []) {
         const clean = l.trim();
         if (clean) set.add(clean);
       }
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [tasks]);
+  }, [visibleTasks]);
 
+  // Deliberately stays on the FULL `tasks` list, not `visibleTasks`: a
+  // dependency chip on a hidden external's task must still resolve its id to
+  // a Task object so it can render a name, even though the task itself is
+  // filtered out of the visible rows/options above.
   const tasksById = useMemo(() => {
     const m = new Map<number, Task>();
     for (const t of tasks) m.set(t.id, t);
     return m;
   }, [tasks]);
 
+  // Deliberately stays on the FULL `tasks` list, not `visibleTasks`: this is a
+  // keyed lookup (by task id), never iterated — a filtered-out row simply
+  // isn't reached by filteredSortedTasks, so indexing it here costs nothing
+  // and keeps the index usable for any future lookup that isn't row-filtered.
   const taskSearchIndex = useMemo(() => {
     const map = new Map<number, string>();
     for (const t of tasks) {
@@ -239,7 +259,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const filteredSortedTasks = useMemo(() => {
     const q = searchDebounced.trim().toLowerCase();
-    const filtered = tasks.filter((t) => {
+    const filtered = visibleTasks.filter((t) => {
       if (priorityFilter !== "All" && t.priority !== priorityFilter)
         return false;
       if (effAssignee !== "All" && effectiveAssignee(t, resourcesById) !== effAssignee)
@@ -289,7 +309,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       return cmp * dir;
     });
   }, [
-    tasks,
+    visibleTasks,
     taskSearchIndex,
     searchDebounced,
     priorityFilter,

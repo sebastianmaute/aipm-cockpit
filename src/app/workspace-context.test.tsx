@@ -1,8 +1,10 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeEach } from "vitest";
 import { renderHook, render, fireEvent, act } from "@testing-library/react";
 import { memo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { SETTINGS_KEY } from "./use-settings";
+import { defaultSettings } from "./settings-types";
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -30,7 +32,32 @@ function makeTask(overrides: Partial<import("./types").Task> = {}): import("./ty
   };
 }
 
+function makeResource(
+  overrides: Partial<import("./types").Resource> = {},
+): import("./types").Resource {
+  return {
+    id: 1,
+    firstName: "Res",
+    lastName: "Ource",
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
+    ...overrides,
+  };
+}
+
+function seedHideExternalTasks() {
+  localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({ ...defaultSettings, hideExternalTasks: true }),
+  );
+}
+
 describe("WorkspaceProvider", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   test("exposes empty defaults", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
     expect(result.current.tasks).toEqual([]);
@@ -394,5 +421,100 @@ describe("WorkspaceProvider", () => {
       }
     }
     expect(typeof mutationDoesNotCompile).toBe("function");
+  });
+
+  describe("hideExternalTasks", () => {
+    test("hiding externals removes their rows AND their assignee option", async () => {
+      seedHideExternalTasks();
+      const { result } = renderHook(() => useWorkspace(), { wrapper });
+      await act(async () => {});
+
+      act(() =>
+        result.current.setResources([
+          makeResource({ id: 1, firstName: "Ext", lastName: "Ernal", isExternal: true }),
+          makeResource({ id: 2, firstName: "Int", lastName: "Ernal", isExternal: false }),
+        ]),
+      );
+      act(() =>
+        result.current.setTasks([
+          makeTask({ id: 1, taskName: "External work", assignee: "Ext Ernal", resourceId: 1 }),
+          makeTask({ id: 2, taskName: "Internal work", assignee: "Int Ernal", resourceId: 2 }),
+        ]),
+      );
+
+      expect(result.current.filteredSortedTasks.map((t) => t.id)).toEqual([2]);
+      expect(result.current.uniqueAssignees).not.toContain("Ext Ernal");
+    });
+
+    test("group and label options drop values only hidden tasks carried", async () => {
+      seedHideExternalTasks();
+      const { result } = renderHook(() => useWorkspace(), { wrapper });
+      await act(async () => {});
+
+      act(() =>
+        result.current.setResources([
+          makeResource({ id: 1, firstName: "Ext", lastName: "Ernal", isExternal: true }),
+        ]),
+      );
+      act(() =>
+        result.current.setTasks([
+          makeTask({
+            id: 1,
+            taskName: "External work",
+            assignee: "Ext Ernal",
+            resourceId: 1,
+            group: "OnlyExternal",
+            labels: ["onlyExternalLabel"],
+          }),
+          makeTask({ id: 2, taskName: "Internal work", group: "Shared", labels: ["shared"] }),
+        ]),
+      );
+
+      expect(result.current.uniqueGroups).not.toContain("OnlyExternal");
+      expect(result.current.uniqueLabels).not.toContain("onlyExternalLabel");
+    });
+
+    test("tasksById still resolves a hidden external's task", async () => {
+      seedHideExternalTasks();
+      const { result } = renderHook(() => useWorkspace(), { wrapper });
+      await act(async () => {});
+
+      act(() =>
+        result.current.setResources([
+          makeResource({ id: 1, firstName: "Ext", lastName: "Ernal", isExternal: true }),
+        ]),
+      );
+      act(() =>
+        result.current.setTasks([
+          makeTask({ id: 1, taskName: "External work", assignee: "Ext Ernal", resourceId: 1 }),
+        ]),
+      );
+
+      expect(result.current.filteredSortedTasks).toHaveLength(0);
+      expect(result.current.tasksById.get(1)).toBeDefined();
+    });
+
+    test("an assignee filter pointing at a hidden external resolves to All", async () => {
+      seedHideExternalTasks();
+      const { result } = renderHook(
+        () => ({ ws: useWorkspace(), filters: useFilters() }),
+        { wrapper },
+      );
+      await act(async () => {});
+
+      act(() =>
+        result.current.ws.setResources([
+          makeResource({ id: 1, firstName: "Ext", lastName: "Ernal", isExternal: true }),
+        ]),
+      );
+      act(() =>
+        result.current.ws.setTasks([
+          makeTask({ id: 1, taskName: "External work", assignee: "Ext Ernal", resourceId: 1 }),
+        ]),
+      );
+      act(() => result.current.filters.setAssigneeFilter("Ext Ernal"));
+
+      expect(result.current.ws.effectiveFilters.assignee).toBe("All");
+    });
   });
 });
