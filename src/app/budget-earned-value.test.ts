@@ -22,6 +22,13 @@ describe("bucketPercentComplete", () => {
     expect(bucketPercentComplete({ taskIds: [1], percentComplete: 20 }, tasks)).toBe(20);
   });
 
+  it("treats a manual 0% as a real value that wins over derived progress", () => {
+    // percentComplete: 0 is a PM's explicit 'nothing done', not an absent field —
+    // it must return 0, not fall through to the finished/linked derivation.
+    const tasks = [{ id: 1, status: "Done" }];
+    expect(bucketPercentComplete({ taskIds: [1], percentComplete: 0 }, tasks)).toBe(0);
+  });
+
   it("is null when every link is dangling", () => {
     expect(bucketPercentComplete({ taskIds: [99] }, [{ id: 1, status: "Done" }])).toBeNull();
   });

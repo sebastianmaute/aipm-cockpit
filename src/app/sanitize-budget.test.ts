@@ -236,6 +236,11 @@ describe("sanitizeBudgetBucket task links + manual completion", () => {
     expect(sanitizeBudgetBucket({ ...base, percentComplete: 150 })!.percentComplete).toBe(100);
     expect(sanitizeBudgetBucket({ ...base, percentComplete: -5 })!.percentComplete).toBe(0);
   });
+  test("keeps a manual percentComplete of 0 (a real value, not absent)", () => {
+    const b = sanitizeBudgetBucket({ ...base, percentComplete: 0 })!;
+    expect(b.percentComplete).toBe(0);
+    expect("percentComplete" in b).toBe(true);
+  });
   test("omits percentComplete when absent, so existing buckets stay byte-identical", () => {
     expect("percentComplete" in sanitizeBudgetBucket(base)!).toBe(false);
   });
