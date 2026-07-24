@@ -178,6 +178,8 @@ BudgetBucket {
   allocations      BucketAllocation[]
   order?           number                  // 0.13.0 — drag-reorder position (persisted)
   localModifiedAt? string
+  taskIds?         number[]                // 0.197.0 — tasks driving derived %complete (budget-earned-value.ts)
+  percentComplete? number                  // 0.197.0 — manual %complete override (0-100); wins over taskIds derivation
 }
 
 BucketAllocation {                          // one role line within a bucket

@@ -8,6 +8,37 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.197.0] - 2026-07-24 "Turtledove"
+
+### Added
+
+- **Link tasks to a budget bucket and set a manual percent-complete override.**
+  The bucket editor gained a task-link picker (reusing the same chip picker as
+  the RAID/Change linked-tasks fields) and an optional manual "% complete"
+  field. The manual value, when set (including 0), always wins over the
+  linked-task derivation — a PM's assessment beats a task count.
+- **A pure earned-value engine.** `budget-earned-value.ts` derives a bucket's
+  percent-complete (manual override first, else the share of linked tasks
+  that are finished — Done or Cancelled; `null` when neither is available)
+  and its earned value (budgeted cost × percent-complete, `null` when
+  progress is unknown — never a guessed 0% or 100%).
+- **A "Cost performance" (CPI) tile in the Budget panel**, alongside Margin,
+  Burn and Consumption. Unlike the pre-existing burn-rate tile (now labelled
+  "Cost burn"), this is the real EVM cost-performance index — earned value ÷
+  actual cost. It renders "—" whenever earned value or cost isn't knowable
+  (missing progress signal, unpriced rates) instead of showing a misleading
+  index, matching the panel's established anti-approximation stance. At the
+  project level the rollup is all-or-nothing: if any budgeted bucket's
+  progress is unknown, the whole-project CPI shows "—" rather than summing a
+  partial figure.
+
+### Changed
+
+- `BudgetBucket.taskIds` and `BudgetBucket.percentComplete` are now persisted
+  across all six write paths (JSON, CSV, Markdown, Turso single-tenant,
+  Turso multi-tenant, IndexedDB). Both are sparse-emitted, so a bucket that
+  never sets them stays byte-identical on round-trip.
+
 ## [0.196.0] - 2026-07-24 "Emrys"
 
 ### Added
