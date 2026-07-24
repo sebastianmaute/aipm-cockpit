@@ -8,13 +8,13 @@ import { resourceDisplayName } from "./resource-foundation";
 import { buildRaidInquiryMailto, resolveRaidOwnerEmail } from "./raid-inquiry";
 import { mintId } from "./id-mint-session";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
-import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
+import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 import { isValidEmail, sanitizeResource } from "./sanitize";
+import { plainToHtml } from "./sanitize-html";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
-import type { AbsenceType } from "./types";
 import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { RAID_UNDO_GROUPS, RESOURCE_UNDO_GROUPS } from "./undo/field-groups";
@@ -882,7 +882,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         priority: "Medium",
         status: "To Do",
         blockers: "",
-        notes: item.mitigation ?? item.description ?? "",
+        description: plainToHtml(item.mitigation ?? item.description ?? ""),
         inquiriesSent: 0,
         localModifiedAt: stamp,
       };

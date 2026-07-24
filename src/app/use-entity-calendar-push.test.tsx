@@ -41,7 +41,7 @@ function makeTask(over: Partial<LinkedTask> = {}): LinkedTask {
     priority: "Medium",
     status: "To Do",
     blockers: "",
-    notes: "",
+    description: "",
     ...over,
   };
 }

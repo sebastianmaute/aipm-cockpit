@@ -15,7 +15,7 @@ function input(tasks: Task[]): ActionInput {
 
 describe("taskDueProvider", () => {
   it("emits an overdue task action with overdue urgency and an open CTA", () => {
-    const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", notes: "" };
+    const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", description: "" };
     const acts = taskDueProvider.provide(input([task]));
     expect(acts).toHaveLength(1);
     const a = acts[0];
@@ -29,11 +29,11 @@ describe("taskDueProvider", () => {
     expect(taskDueProvider.provide(input([]))).toEqual([]);
   });
   it("emits nothing when taskDueEnabled is false (settings toggle off)", () => {
-    const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", notes: "" };
+    const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", description: "" };
     expect(taskDueProvider.provide({ ...input([task]), taskDueEnabled: false })).toEqual([]);
   });
   it("includes the clarity bonus in the score for an overdue task", () => {
-    const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", notes: "" };
+    const task: Task = { id: 7, taskName: "Ship", dueDate: "2026-06-10", assignee: "", assigneeEmail: "", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", description: "" };
     const [a] = taskDueProvider.provide(input([task]));
     expect(a.score).toBe(ACTION_WEIGHTS.urgencyOverdue + ACTION_WEIGHTS.clarityBonus);
   });

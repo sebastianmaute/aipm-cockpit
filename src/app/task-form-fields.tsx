@@ -11,6 +11,8 @@ import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
+import { RichTextEditor } from "./rich-text-editor";
+import { htmlToText, plainToHtml } from "./sanitize-html";
 import { useSettings } from "./use-settings";
 import { INTERACTIVE } from "./interaction-styles";
 import { Input, Select, Textarea } from "./form-controls";
@@ -36,9 +38,8 @@ import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
-import { PRIORITIES, TASK_STATUSES, type Absence, type NoteLogEntry, type Resource, type Task, type TaskStatus } from "./types";
+import { PRIORITIES, TASK_STATUSES, type Absence, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
-import { resourceDisplayName } from "./resource-foundation";
 
 export interface TaskFormFieldsProps {
   lang: Lang;
@@ -61,6 +62,9 @@ export interface TaskFormFieldsProps {
   /** Retained for the parent prop chain; unused here since the assignee field moved to ResourcePicker. Full removal is deferred to the contacts-retirement slice (SP4). */
   onRemoveContact: (name: string) => void;
   onAddAssigneeToAddressBook: (name: string, email: string) => void;
+  /** Opens the floating note-log window (wired by the host in Task E2). Optional
+   *  so this component still compiles/renders standalone before that wiring. */
+  onOpenNotes?: () => void;
 }
 
 export function TaskFormFields({
@@ -82,18 +86,27 @@ export function TaskFormFields({
   jiraProjectKey,
   jiraDefaultIssueType,
   onAddAssigneeToAddressBook,
+  onOpenNotes,
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
   const isEditing = editingId !== null;
   const { isVisible } = useModalVisibility("task");
   const { settings } = useSettings();
-  const { mic: notesMic, status: notesDictationStatus, registration: notesDictationReg } = useDictationMic({
+  // Description is rich HTML but dictation yields plain text: round-trip through
+  // text so appendDictation can join mid-utterance segments (Web Speech fires
+  // onFinal repeatedly — the functional setter reads the latest state each time),
+  // then re-wrap to valid HTML. Any prior rich formatting is flattened on
+  // dictation — an accepted trade-off for a plain-text input path.
+  const { mic: descriptionMic, status: descriptionDictationStatus, registration: descriptionDictationReg } = useDictationMic({
     lang,
     dictation: settings.dictation,
     enabled: true,
-    label: t(lang, "notes"),
+    label: t(lang, "description"),
     onAppendFinal: (txt) =>
-      setForm((prev) => ({ ...prev, notes: appendDictation(prev.notes ?? "", txt) })),
+      setForm((prev) => ({
+        ...prev,
+        description: plainToHtml(appendDictation(htmlToText(prev.description ?? ""), txt)),
+      })),
   });
   const { mic: titleMic, status: titleDictationStatus, registration: titleDictationReg } = useDictationMic({
     lang,
@@ -103,30 +116,6 @@ export function TaskFormFields({
     onAppendFinal: (txt) =>
       setForm((prev) => ({ ...prev, taskName: describeTextCap(appendDictation(prev.taskName ?? "", txt), TASK_NAME_MAX).value })),
   });
-
-  // Running note-log composer. The author defaults to the configured "me"
-  // resource (`settings.selfResourceId`) but is overridable per note. The value
-  // is DERIVED (not seeded state) so it tracks settings hydration without an
-  // effect; once the user picks an author, `chosenAuthor` pins it.
-  const [noteText, setNoteText] = useState("");
-  const [chosenAuthor, setChosenAuthor] = useState<number | "" | undefined>(undefined);
-  const noteAuthorValue: number | "" =
-    chosenAuthor === undefined ? (settings.selfResourceId ?? "") : chosenAuthor;
-  const addNote = () => {
-    const text = noteText.trim();
-    if (!text) return;
-    const authorId = noteAuthorValue === "" ? undefined : noteAuthorValue;
-    const author = authorId != null ? resources.find((r) => r.id === authorId) : undefined;
-    // `new Date()` lives HERE (event handler), never in the render body (purity).
-    const entry: NoteLogEntry = {
-      timestamp: new Date().toISOString(),
-      text,
-      ...(authorId != null ? { authorResourceId: authorId } : {}),
-      ...(author ? { authorName: resourceDisplayName(author) } : {}),
-    };
-    setForm((prev) => ({ ...prev, noteLog: [...(prev.noteLog ?? []), entry] }));
-    setNoteText("");
-  };
 
   // A field's error shows once it's been blurred (touched) or a submit was
   // attempted — a pristine form stays quiet. Reset when switching tasks via the
@@ -505,7 +494,7 @@ export function TaskFormFields({
               // Preview-only object for health derivation; status is not displayed, so a fixed seed is fine.
               status: "To Do",
               blockers: form.blockers,
-              notes: form.notes,
+              description: form.description,
               group: form.group,
               labels: form.labels,
               dependencies: form.dependencies,
@@ -556,88 +545,39 @@ export function TaskFormFields({
         )}
 
         {isVisible("notes") && (
-        <label className="block sm:col-span-2">
+        <div className="block sm:col-span-2">
           <span className="mb-1 flex items-center gap-1 text-sm font-medium text-foreground">
-            {t(lang, "notes")}
-            {notesMic}
+            {t(lang, "description")}
+            {descriptionMic}
           </span>
-          <Textarea
-            autoGrow
-            rows={3}
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            onFocus={notesDictationReg.onFocus}
-            onBlur={(e) => {
-              setForm({ ...form, notes: describeTextCap(e.target.value, TEXTAREA_MAX).value });
-              notesDictationReg.onBlur();
-            }}
-            placeholder={t(lang, "placeholderNotes")}
-            aria-describedby="notes-counter"
-            className="w-full"
-          />
-          <CharCounter value={form.notes} max={TEXTAREA_MAX} id="notes-counter" lang={lang} />
-          {notesDictationStatus}
-        </label>
+          {/* focus/blur bubble from the contenteditable, registering this field
+              as the active dictation target for the global hold-to-talk hotkey. */}
+          <div onFocus={descriptionDictationReg.onFocus} onBlur={descriptionDictationReg.onBlur}>
+            <RichTextEditor
+              variant="lean"
+              value={form.description}
+              onChange={(html) => setForm((p) => ({ ...p, description: html }))}
+              label={t(lang, "description")}
+              lang={lang}
+            />
+          </div>
+          {descriptionDictationStatus}
+        </div>
         )}
 
+        {/* The running dated note-log now lives in a dedicated floating window
+            (opened via onOpenNotes, wired by the host in Task E2). The in-form
+            composer was retired; this button surfaces the current count and
+            launches that window. */}
         <div className="sm:col-span-2">
-          <span className="mb-1 block text-sm font-medium text-foreground">{t(lang, "noteLogTitle")}</span>
-          {(form.noteLog ?? []).length > 0 && (
-            <ul className="mb-2 flex flex-col gap-1">
-              {(form.noteLog ?? []).map((n, i) => (
-                <li
-                  key={i}
-                  className="rounded-md border border-line bg-surface-muted px-2 py-1 text-xs"
-                >
-                  <span className="font-medium text-foreground">
-                    {n.authorName ?? t(lang, "noteLogNoAuthor")}
-                  </span>{" "}
-                  <span className="text-muted-foreground">
-                    {n.timestamp.slice(0, 16).replace("T", " ")}
-                  </span>
-                  <span className="text-foreground">: {n.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="min-w-[10rem] flex-1">
-              <Input
-                type="text"
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addNote();
-                  }
-                }}
-                placeholder={t(lang, "noteLogPlaceholder")}
-                aria-label={t(lang, "noteLogPlaceholder")}
-                className="w-full"
-              />
-            </div>
-            <Select
-              value={noteAuthorValue === "" ? "" : String(noteAuthorValue)}
-              onChange={(e) => setChosenAuthor(e.target.value === "" ? "" : Number(e.target.value))}
-              aria-label={t(lang, "noteLogAuthor")}
-            >
-              <option value="">{t(lang, "noteLogNoAuthor")}</option>
-              {resources.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {resourceDisplayName(r)}
-                </option>
-              ))}
-            </Select>
-            <button
-              type="button"
-              onClick={addNote}
-              disabled={!noteText.trim()}
-              className={`rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
-            >
-              {t(lang, "noteLogAdd")}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onOpenNotes}
+            disabled={!onOpenNotes}
+            className={`inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-ui-light-grey ${INTERACTIVE}`}
+          >
+            {t(lang, "noteLogTitle")} ({(form.noteLog ?? []).length})
+          </button>
         </div>
 
         <Field label={t(lang, "documents")} className="sm:col-span-2">

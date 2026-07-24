@@ -16,6 +16,7 @@ export const RAID_COL_WIDTHS = {
   targetDate: 110,
   linkedTasks: 140,
   causedBy: 140,
+  notesLog: 80,
 } as const;
 export type RaidCol = keyof typeof RAID_COL_WIDTHS;
 
@@ -31,4 +32,5 @@ export const RAID_CONFIG_COLS: readonly ColumnConfigCol[] = [
   { key: "targetDate", labelKey: "raidTargetDate" },
   { key: "linkedTasks", labelKey: "raidLinkedTasks" },
   { key: "causedBy", labelKey: "raidCausedBy" },
+  { key: "notesLog", labelKey: "noteLogTitle" },
 ];

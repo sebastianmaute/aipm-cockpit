@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.195.3";
-export const APP_BUILD_DATE = "2026-07-23"; // 0.195.3: the dashboard budget burn-down now shows when budget hours follow the plan (was blank); AI Assistant replies render code blocks and tables; the resource directory can hide external people — 0.195.2: a blended discipline with an unpriced grade no longer costs at a diluted rate; every cost-unknown state carries its own explanation (McGuire)
+export const APP_VERSION = "0.196.0";
+export const APP_BUILD_DATE = "2026-07-24"; // 0.196.0: a dated rich-text note log on tasks and RAID items, managed in a shared draggable Notes window; the task "Notes" field is promoted to a rich "Description" with a preview and note-count badge in Open Points (Emrys)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.195.x line is "McGuire" (Seanan McGuire, science-fiction and fantasy author). */
-export const APP_MILESTONE = "McGuire";
+ *  0.196.x line is "Emrys" (Ruthanna Emrys, science-fiction and fantasy author). */
+export const APP_MILESTONE = "Emrys";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -240,4 +240,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightBurndownFollowPlan",
   "versionHighlightChatFormatting",
   "versionHighlightDirectoryHideExternal",
+  "versionHighlightRichNotes",
+  "versionHighlightTaskDescription",
 ] as const;

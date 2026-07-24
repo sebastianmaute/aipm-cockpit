@@ -44,7 +44,7 @@ describe("Task.outlookEventId persistence", () => {
     priority: "Medium",
     status: "To Do",
     blockers: "",
-    notes: "",
+    description: "",
     outlookEventId: "E9",
   };
 

@@ -23,6 +23,7 @@ import {
   sanitizeStakeholder,
   sanitizeTaskName,
 } from "./sanitize";
+import { plainToHtml } from "./sanitize-html";
 import {
   DEPENDENCY_TYPES,
   RAID_CATEGORIES,
@@ -124,7 +125,7 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     priority: sanitizePriority(raw.priority),
     status: raw.status as Task["status"],
     blockers: sanitizeBlockers(raw.blockers),
-    notes: sanitizeNotes(raw.notes),
+    description: plainToHtml(sanitizeNotes(raw.notes)),
   };
   const startDate = sanitizeIsoDate(raw.startDate);
   if (startDate) task.startDate = startDate;

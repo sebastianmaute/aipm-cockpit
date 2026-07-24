@@ -77,6 +77,10 @@ export type RaidEditModalProps = {
   /** Send a status-inquiry email to the item's owner. Absent in popouts; the
    *  footer button only renders for a saved, review-active item. */
   onSendInquiry?: (item: RaidItem) => void;
+  /** Open the floating notes window (running note log) for the item. Absent in
+   *  popouts; the button is also disabled for an unsaved (new) draft, which
+   *  has no persisted id to resolve. */
+  onOpenNotes?: (id: number) => void;
 };
 
 export function RaidEditModal({
@@ -99,6 +103,7 @@ export function RaidEditModal({
   onCreateMitigationTask,
   onJumpToRaid,
   onSendInquiry,
+  onOpenNotes,
 }: RaidEditModalProps) {
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("raid");
@@ -377,6 +382,20 @@ export function RaidEditModal({
             {descriptionDictationStatus}
           </label>
           )}
+
+          {/* Running note log — opens the shared floating notes window. Disabled
+              for an unsaved draft (no persisted id yet) or in popouts (no
+              handler threaded). */}
+          <div className="flex items-center gap-2 sm:col-span-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onOpenNotes?.(draft.id)}
+              disabled={!onOpenNotes || isNew}
+            >
+              {t(lang, "noteLogTitle")} ({draft.noteLog?.length ?? 0})
+            </Button>
+          </div>
 
           {/* Risk scoring: for Risk items this is the matrix (full-only field
               `riskMatrix`); for non-Risk items it's the severity control

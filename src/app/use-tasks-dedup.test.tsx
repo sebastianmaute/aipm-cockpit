@@ -17,7 +17,7 @@ const AI_ON: Settings = {
 function mkTask(id: number, name: string): Task {
   return {
     id, taskName: name, assignee: "", assigneeEmail: "", dueDate: "2026-08-01",
-    lastUpdateDate: "2026-07-01", priority: "Medium", status: "To Do", blockers: "", notes: "",
+    lastUpdateDate: "2026-07-01", priority: "Medium", status: "To Do", blockers: "", description: "",
   };
 }
 

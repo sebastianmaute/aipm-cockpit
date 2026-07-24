@@ -79,9 +79,9 @@ export function TaskDedupModal({
                         {t(lang, "taskDedupUnifiedTitle")}: {g.unified.taskName}
                       </span>
                     )}
-                    {g.unified.notes && (
+                    {g.unified.description && (
                       <span className="mt-1 block whitespace-pre-wrap text-xs text-foreground">
-                        {t(lang, "taskDedupUnifiedNotes")}: {g.unified.notes}
+                        {t(lang, "taskDedupUnifiedNotes")}: {g.unified.description}
                       </span>
                     )}
                   </span>

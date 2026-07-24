@@ -20,7 +20,7 @@ function makeTask(p: Partial<Task> & { id: number; assignee: string }): Task {
     completedDate: p.completedDate,
     lastUpdateDate: p.lastUpdateDate ?? TODAY,
     blockers: p.blockers ?? "",
-    notes: p.notes ?? "",
+    description: p.description ?? "",
     inquiriesSent: p.inquiriesSent ?? 0,
     group: p.group ?? "",
     labels: p.labels ?? [],

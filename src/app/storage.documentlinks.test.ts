@@ -18,7 +18,7 @@ function wsWithTaskLinks(): Workspace {
   const ws = emptyWorkspace();
   ws.tasks = [{
     id: 1, taskName: "T", assignee: "A", assigneeEmail: "", dueDate: "2026-01-01",
-    lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", notes: "",
+    lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", description: "",
     knowledgeLinks: links,
   }];
   return ws;
@@ -39,7 +39,7 @@ describe("Task knowledgeLinks round-trips", () => {
   });
   test("empty knowledgeLinks serializes to an empty cell (byte-stable)", () => {
     const ws = emptyWorkspace();
-    ws.tasks = [{ id: 1, taskName: "T", assignee: "A", assigneeEmail: "", dueDate: "2026-01-01", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", notes: "" }];
+    ws.tasks = [{ id: 1, taskName: "T", assignee: "A", assigneeEmail: "", dueDate: "2026-01-01", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", description: "" }];
     const csv = workspaceToCsv(ws);
     expect(csv).toContain("knowledgeLinks");
     // Byte-stability: an empty links array must serialize to an empty cell, never "[]".

@@ -112,7 +112,7 @@ describe("METRIC_FIELD guard", () => {
       // Overdue vs TODAY, and untouched well past STALE_DAYS (14) so the same
       // tasks feed BOTH the overdueTrend and stalledWork detectors.
       dueDate: "2026-06-01", lastUpdateDate: "2026-05-01",
-      priority: "Medium", status: "To Do", blockers: "", notes: "",
+      priority: "Medium", status: "To Do", blockers: "", description: "",
       ...over,
     };
   }

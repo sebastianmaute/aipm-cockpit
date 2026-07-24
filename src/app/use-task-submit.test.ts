@@ -28,7 +28,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     ...overrides,
   };
 }
@@ -44,7 +44,7 @@ function validForm(): TaskFormDraft {
     priority: "Medium" as const,
     status: "To Do" as const,
     blockers: "",
-    notes: "",
+    description: "",
     group: "",
     labels: [],
     dependencies: [],

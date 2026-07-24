@@ -100,7 +100,7 @@ describe("useBulkOperations", () => {
             status: "To Do",
             priority: "Medium",
             blockers: "",
-            notes: "",
+            description: "",
             inquiriesSent: 0,
             localModifiedAt: "2026-05-20T00:00:00.000Z",
           },
@@ -114,7 +114,7 @@ describe("useBulkOperations", () => {
             status: "To Do",
             priority: "Medium",
             blockers: "",
-            notes: "",
+            description: "",
             inquiriesSent: 0,
             localModifiedAt: "2026-05-20T00:00:00.000Z",
           },
@@ -153,7 +153,7 @@ describe("useBulkOperations", () => {
             status: "To Do",
             priority: "Medium",
             blockers: "",
-            notes: "",
+            description: "",
             inquiriesSent: 0,
             localModifiedAt: "2026-05-20T00:00:00.000Z",
           },
@@ -183,7 +183,7 @@ describe("useBulkOperations", () => {
       const base = {
         assignee: "Alice", assigneeEmail: "", dueDate: "2026-06-01",
         lastUpdateDate: "2026-05-20", status: "To Do" as const, priority: "Medium" as const,
-        blockers: "", notes: "", group: "", inquiriesSent: 0,
+        blockers: "", description: "", group: "", inquiriesSent: 0,
         localModifiedAt: "2026-05-20T00:00:00.000Z",
       };
       act(() => {
@@ -221,7 +221,7 @@ describe("useBulkOperations", () => {
         result.current.workspace.setTasks([
           { id: 1, taskName: "Synced", jiraKey: "PROJ-1", assignee: "Alice", assigneeEmail: "",
             dueDate: "2026-06-01", lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium",
-            blockers: "", notes: "", group: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+            blockers: "", description: "", group: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
         ]);
       });
       act(() => { result.current.bulk.onToggleSelect(1); });
@@ -245,7 +245,7 @@ describe("useBulkOperations", () => {
         result.current.workspace.setTasks([
           { id: 1, taskName: "T", assignee: "", assigneeEmail: "", dueDate: "",
             lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium",
-            blockers: "", notes: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
         ]);
       });
       act(() => { result.current.bulk.onToggleSelect(1); });
@@ -264,7 +264,7 @@ describe("useBulkOperations", () => {
       const { result } = renderBulk({});
       const base = {
         assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "2026-05-20",
-        status: "To Do" as const, priority: "Medium" as const, blockers: "", notes: "",
+        status: "To Do" as const, priority: "Medium" as const, blockers: "", description: "",
         group: "", inquiriesSent: 0, localModifiedAt: "STAMP",
       };
       act(() => {
@@ -300,7 +300,7 @@ describe("useBulkOperations", () => {
       status: "To Do" as const,
       priority: "Medium" as const,
       blockers: "",
-      notes: "",
+      description: "",
       inquiriesSent: 0,
       localModifiedAt: "2026-05-20T00:00:00.000Z",
     });
@@ -374,7 +374,7 @@ describe("useBulkOperations", () => {
       status: "To Do" as const,
       priority: "Medium" as const,
       blockers: "",
-      notes: "",
+      description: "",
       inquiriesSent: 0,
       localModifiedAt: "2026-05-20T00:00:00.000Z",
     });
@@ -428,7 +428,7 @@ describe("useBulkOperations", () => {
         status: "To Do",
         priority: "High",
         blockers: "",
-        notes: "",
+        description: "",
         inquiriesSent: 0,
         localModifiedAt: "2026-05-20T00:00:00.000Z",
       };
@@ -453,7 +453,7 @@ describe("useBulkOperations", () => {
             status: "To Do",
             priority: "Medium",
             blockers: "",
-            notes: "",
+            description: "",
             inquiriesSent: 0,
             localModifiedAt: "2026-05-20T00:00:00.000Z",
           },
@@ -467,7 +467,7 @@ describe("useBulkOperations", () => {
             status: "To Do",
             priority: "Medium",
             blockers: "",
-            notes: "",
+            description: "",
             inquiriesSent: 0,
             localModifiedAt: "2026-05-20T00:00:00.000Z",
           },
@@ -498,7 +498,7 @@ describe("useBulkOperations", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
         inquiriesSent: 0,
         localModifiedAt: "2026-05-20T00:00:00.000Z",
       };

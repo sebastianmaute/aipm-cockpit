@@ -1,3 +1,4 @@
+import { plainToHtml } from "./sanitize-html";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "./feature-modules";
 import { applyTier, type FieldVisibilityConfig } from "./field-visibility";
@@ -37,20 +38,20 @@ function task(
     priority: "Medium",
     status: "To Do",
     blockers: "",
-    notes: "",
+    description: "",
     ...extra,
   };
 }
 
 // ── builtin-minimal ─────────────────────────────────────────────────────────
 const MINIMAL_TASKS: Task[] = [
-  task(1, "Kickoff", { notes: "Agree on goals, scope, and the people involved." }),
+  task(1, "Kickoff", { description: plainToHtml("Agree on goals, scope, and the people involved.") }),
   task(2, "Plan the work", {
-    notes: "Break the goal into concrete, checkable steps.",
+    description: plainToHtml("Break the goal into concrete, checkable steps."),
     dependencies: [{ taskId: 1, type: "FS" }],
   }),
   task(3, "Wrap up", {
-    notes: "Confirm the outcome and capture any follow-ups.",
+    description: plainToHtml("Confirm the outcome and capture any follow-ups."),
     dependencies: [{ taskId: 2, type: "FS" }],
   }),
 ];

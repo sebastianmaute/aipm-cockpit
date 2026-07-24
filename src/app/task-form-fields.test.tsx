@@ -1,15 +1,24 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { TestProviders } from "./test-providers";
 import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
-import { SETTINGS_KEY } from "./use-settings";
-import type { Resource } from "./types";
 import { t } from "./i18n";
 
-function Harness() {
+// The Description field renders a Tiptap/ProseMirror editor, which touches
+// layout APIs jsdom lacks; stub them so the editor mounts (mirrors rich-text-editor.test.tsx).
+beforeAll(() => {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore jsdom polyfill
+  Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: function* () {} });
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore jsdom polyfill
+  Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
+});
+
+function Harness(over: { onOpenNotes?: () => void } = {}) {
   return (
     <form aria-label="form">
       <TaskFormFields
@@ -32,6 +41,7 @@ function Harness() {
         jiraDefaultIssueType={undefined}
         onRemoveContact={vi.fn()}
         onAddAssigneeToAddressBook={vi.fn()}
+        onOpenNotes={over.onOpenNotes}
       />
     </form>
   );
@@ -134,64 +144,30 @@ describe("TaskFormFields", () => {
   });
 });
 
-const RESOURCES = [
-  { id: 5, firstName: "Alice", lastName: "Smith" },
-  { id: 6, firstName: "Bob", lastName: "Jones" },
-] as unknown as Resource[];
-
-function NoteLogHarness() {
-  return (
-    <form aria-label="form">
-      <TaskFormFields
-        lang="en-US" today="2026-05-29" nextId={1} contactsList={[]}
-        resources={RESOURCES} onCreateResource={vi.fn(() => 1)}
-        absences={[]} tasksForDeps={[]} uniqueGroups={[]} uniqueLabels={[]}
-        editingIsJiraLinked={false} jiraEnabled={false}
-        fieldErrors={{}} submitted={false}
-        holidaySet={new Set()} jiraProjectKey={undefined} jiraDefaultIssueType={undefined}
-        onRemoveContact={vi.fn()} onAddAssigneeToAddressBook={vi.fn()}
-      />
-    </form>
-  );
-}
-
-describe("TaskFormFields note log", () => {
-  afterEach(() => window.localStorage.removeItem(SETTINGS_KEY));
-
-  it("defaults the author to settings.selfResourceId and appends notes one per line", async () => {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ selfResourceId: 5 }));
-    const user = userEvent.setup();
-    render(<NoteLogHarness />, { wrapper: TestProviders });
-
-    const authorSelect = screen.getByLabelText(t("en-US", "noteLogAuthor"));
-    await waitFor(() => expect(authorSelect).toHaveValue("5")); // Alice, from selfResourceId
-
-    const input = screen.getByLabelText(t("en-US", "noteLogPlaceholder"));
-    await user.type(input, "Reviewed the scope");
-    await user.click(screen.getByRole("button", { name: t("en-US", "noteLogAdd") }));
-
-    const first = screen.getByRole("listitem");
-    expect(first.textContent).toContain("Alice Smith");
-    expect(first.textContent).toContain("Reviewed the scope");
-    expect(input).toHaveValue(""); // cleared after add
-
-    await user.type(input, "Second note");
-    await user.click(screen.getByRole("button", { name: t("en-US", "noteLogAdd") }));
-    expect(screen.getAllByRole("listitem")).toHaveLength(2); // one entry per line
+describe("TaskFormFields description + notes button", () => {
+  it("renders the rich Description editor (a labelled textbox)", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    // NoteEditor mounts a contenteditable with role=textbox + aria-label "Description".
+    expect(screen.getByRole("textbox", { name: "Description" })).toBeTruthy();
   });
 
-  it("lets the author be overridden per note", async () => {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({ selfResourceId: 5 }));
+  it("no longer renders the in-form note-log composer (author select + note input + add button)", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    expect(screen.queryByLabelText(t("en-US", "noteLogAuthor"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "noteLogPlaceholder"))).toBeNull();
+    expect(screen.queryByRole("button", { name: t("en-US", "noteLogAdd") })).toBeNull();
+  });
+
+  it("renders a 'Notes (N)' button that opens the note-log window when clicked", async () => {
+    const onOpenNotes = vi.fn();
     const user = userEvent.setup();
-    render(<NoteLogHarness />, { wrapper: TestProviders });
+    render(<Harness onOpenNotes={onOpenNotes} />, { wrapper: TestProviders });
 
-    const authorSelect = screen.getByLabelText(t("en-US", "noteLogAuthor"));
-    await waitFor(() => expect(authorSelect).toHaveValue("5"));
-    await user.selectOptions(authorSelect, "6"); // override to Bob
-
-    await user.type(screen.getByLabelText(t("en-US", "noteLogPlaceholder")), "Bob note");
-    await user.click(screen.getByRole("button", { name: t("en-US", "noteLogAdd") }));
-
-    expect(screen.getByRole("listitem").textContent).toContain("Bob Jones");
+    // Label is `${noteLogTitle} (${count})` — an empty draft reads "Notes log (0)".
+    const btn = screen.getByRole("button", {
+      name: `${t("en-US", "noteLogTitle")} (0)`,
+    });
+    await user.click(btn);
+    expect(onOpenNotes).toHaveBeenCalledTimes(1);
   });
 });

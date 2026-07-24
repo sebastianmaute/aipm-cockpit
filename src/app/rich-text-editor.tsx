@@ -3,9 +3,12 @@ import { useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { Editor } from "@tiptap/react";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeTemplateHtml, sanitizeNoteHtml } from "./sanitize-html";
 import { isSafeHttpUrl } from "./document-link";
 import { Button } from "./button";
+import { t, type Lang } from "./i18n";
+
+export type RichTextEditorVariant = "full" | "lean";
 
 export interface RichTextEditorLabels {
   bold: string;
@@ -24,9 +27,18 @@ export interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   label: string;
-  mergeFields: readonly string[];
-  fieldLabel: (field: string) => string;
-  labels: RichTextEditorLabels;
+  /** "full" (default) = full toolbar + merge fields + template sanitizer;
+   *  "lean" = Bold/Italic/lists/link only + note sanitizer. */
+  variant?: RichTextEditorVariant;
+  /** lean: plain Enter commits instead of splitting the paragraph. */
+  commitOnEnter?: boolean;
+  onCommit?: () => void;
+  /** required for the lean variant (drives its i18n toolbar labels + link prompt). */
+  lang?: Lang;
+  /** full-variant only (omitted by lean callers). */
+  mergeFields?: readonly string[];
+  fieldLabel?: (field: string) => string;
+  labels?: RichTextEditorLabels;
 }
 
 const BTN = "rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted";
@@ -48,10 +60,22 @@ function ToolbarButton(props: { label: string; active?: boolean; onClick: () => 
 
 export function RichTextEditor(props: RichTextEditorProps) {
   const { value, onChange, label, mergeFields, fieldLabel, labels } = props;
-  // useEditor binds onUpdate once at mount; route onChange through a ref so a
-  // future caller passing an inline callback isn't captured stale.
+  const variant = props.variant ?? "full";
+  const isLean = variant === "lean";
+  const lang: Lang = props.lang ?? "en-US";
+  // useEditor binds onUpdate/handleKeyDown once at mount; route the live
+  // callbacks + Enter-behaviour through refs so an inline caller isn't captured
+  // stale and the editor isn't torn down and rebuilt on every render.
   const onChangeRef = useRef(onChange);
+  const onCommitRef = useRef(props.onCommit);
+  const commitOnEnterRef = useRef(props.commitOnEnter);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+  useEffect(() => { onCommitRef.current = props.onCommit; }, [props.onCommit]);
+  useEffect(() => { commitOnEnterRef.current = props.commitOnEnter; }, [props.commitOnEnter]);
+
+  const sanitize = isLean ? sanitizeNoteHtml : sanitizeTemplateHtml;
+  const minH = isLean ? "min-h-24" : "min-h-40";
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: value,
@@ -62,14 +86,33 @@ export function RichTextEditor(props: RichTextEditorProps) {
         role: "textbox",
         "aria-multiline": "true",
         class:
-          "min-h-40 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green",
+          `${minH} w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ui-green`,
+      },
+      handleKeyDown: (_view, event) => {
+        // commitOnEnter: plain Enter commits (suppress Tiptap's paragraph split);
+        // Shift+Enter falls through to Tiptap's default hard-break behaviour.
+        // `isComposing` (keyCode 229 fallback) guards an IME candidate confirm —
+        // a CJK user pressing Enter to accept a suggestion must not commit early.
+        if (
+          commitOnEnterRef.current &&
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          !event.isComposing &&
+          event.keyCode !== 229
+        ) {
+          event.preventDefault();
+          onCommitRef.current?.();
+          return true;
+        }
+        return false;
       },
     },
-    onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitizeTemplateHtml(editor.getHTML())),
+    onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitize(editor.getHTML())),
   });
 
   function addLink() {
-    const url = window.prompt(labels.linkPrompt, "");
+    const prompt = isLean ? t(lang, "commTplLinkPrompt") : (labels?.linkPrompt ?? "");
+    const url = window.prompt(prompt, "");
     if (!url) return;
     const trimmed = url.trim();
     if (!isSafeHttpUrl(trimmed)) return;
@@ -78,7 +121,16 @@ export function RichTextEditor(props: RichTextEditorProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {editor && (
+      {editor && isLean && (
+        <div className="flex flex-wrap gap-1">
+          <ToolbarButton label={t(lang, "commTplBold")} active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} />
+          <ToolbarButton label={t(lang, "commTplItalic")} active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} />
+          <ToolbarButton label={t(lang, "commTplBulletList")} active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} />
+          <ToolbarButton label={t(lang, "commTplNumberedList")} active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+          <ToolbarButton label={t(lang, "commTplLink")} active={editor.isActive("link")} onClick={addLink} />
+        </div>
+      )}
+      {editor && !isLean && labels && (
         <>
           <div className="flex flex-wrap gap-1">
             <ToolbarButton label={labels.bold} active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} />
@@ -92,14 +144,14 @@ export function RichTextEditor(props: RichTextEditorProps) {
             <ToolbarButton label={labels.unlink} onClick={() => editor.chain().focus().unsetLink().run()} />
           </div>
           <div className="flex flex-wrap gap-1">
-            {mergeFields.map((field) => (
+            {(mergeFields ?? []).map((field) => (
               <Button
                 key={field}
                 variant="secondary"
                 size="xs"
                 onClick={() => editor.chain().focus().insertContent(`{{${field}}}`).run()}
               >
-                {fieldLabel(field)}
+                {fieldLabel ? fieldLabel(field) : field}
               </Button>
             ))}
           </div>

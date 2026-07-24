@@ -38,7 +38,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     ...overrides,
   };
 }
@@ -82,18 +82,9 @@ function makeArgs(
 }
 
 describe("useTaskRowHandlers", () => {
-  it("returns empty expandedNotes and pushingIds initially", () => {
+  it("returns empty pushingIds initially", () => {
     const { result } = renderHook(() => useTaskRowHandlers(makeArgs()));
-    expect(result.current.expandedNotes.size).toBe(0);
     expect(result.current.pushingIds.size).toBe(0);
-  });
-
-  it("onToggleNoteExpanded adds then removes id from expandedNotes", () => {
-    const { result } = renderHook(() => useTaskRowHandlers(makeArgs()));
-    act(() => result.current.onToggleNoteExpanded(1));
-    expect(result.current.expandedNotes.has(1)).toBe(true);
-    act(() => result.current.onToggleNoteExpanded(1));
-    expect(result.current.expandedNotes.has(1)).toBe(false);
   });
 
   it("onDelete calls setTasks when user confirms", () => {

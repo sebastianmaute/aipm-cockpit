@@ -17,7 +17,7 @@ function tinyWs(): Workspace {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
   };
   const stakeholder: Stakeholder = {
     id: 1,

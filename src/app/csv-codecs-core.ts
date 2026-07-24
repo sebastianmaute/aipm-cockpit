@@ -9,7 +9,7 @@
 
 import { riskSeverityFromMatrix } from "./raid";
 import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
-import { encodeNoteLog } from "./note-log";
+import { encodeNoteLog, decodeNoteLog } from "./note-log";
 import {
   encodeAllocations,
   encodeDisciplineAllocations,
@@ -51,7 +51,7 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "priority",
   "status",
   "blockers",
-  "notes",
+  "description",
   "completedDate",
   "inquiriesSent",
   "group",
@@ -105,6 +105,7 @@ export const RAID_CSV_COLUMNS: Array<keyof RaidItem> = [
   "knowledgeLinks",
   "outlookEventId",
   "inquiriesSent",
+  "noteLog",
 ];
 
 // Columns persisted for Absence items in CSV and Markdown. Order matches
@@ -268,6 +269,7 @@ export function raidFieldToString(r: RaidItem, c: keyof RaidItem): string {
   if (c === "stakeholderIds")
     return Array.isArray(r.stakeholderIds) ? r.stakeholderIds.join("|") : "";
   if (c === "knowledgeLinks") return encodeKnowledgeLinks(r.knowledgeLinks);
+  if (c === "noteLog") return encodeNoteLog(r.noteLog);
   return String(r[c] ?? "");
 }
 
@@ -346,6 +348,10 @@ export function buildRaidItemFromObj(obj: Record<string, string>): RaidItem | nu
     inquiriesSent: (() => {
       const n = Number(obj.inquiriesSent);
       return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+    })(),
+    noteLog: (() => {
+      const nl = decodeNoteLog(obj.noteLog);
+      return nl.length ? nl : undefined;
     })(),
   };
 }

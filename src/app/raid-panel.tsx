@@ -90,6 +90,9 @@ export type RaidPanelProps = EntityPaneCalendarHintsProps & {
   /** Open the task edit modal for the given task id (used by linked-task
    *  chip clicks). */
   onJumpToTask: (taskId: number) => void;
+  /** Open the floating notes window (running note log) for a RAID item.
+   *  Threaded to both the row badge and the edit modal's Notes button. */
+  onOpenNotes: (id: number) => void;
   /** Inline "Ask Claude" per-row edit (SP2). Absent when AI is off/popout. */
   onAiEdit?: (item: RaidItem) => void;
   /** Gate the per-row ✨ button (e.g. AI enabled && not Jira-synced). */
@@ -127,6 +130,7 @@ function RaidPanelBody({
   onCaptureBulk,
   onCreateMitigationTask,
   onJumpToTask,
+  onOpenNotes,
   showHints,
   isPopout,
   onLearnMore,
@@ -498,6 +502,7 @@ function RaidPanelBody({
               if (target) openEdit(target);
             }}
             onSendInquiry={onSendInquiry}
+            onOpenNotes={onOpenNotes}
           />
         )
       }
@@ -518,6 +523,7 @@ function RaidPanelBody({
           causesIndex={causesIndex}
           openEdit={openEdit}
           onJumpToTask={onJumpToTask}
+          onOpenNotes={onOpenNotes}
           effectiveCategory={effectiveCategory}
           openNew={openNew}
           flashId={flashId}

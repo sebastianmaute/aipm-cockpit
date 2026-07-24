@@ -573,7 +573,7 @@ describe("seedContactsFromTasks", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
       },
     ];
     const result = seedContactsFromTasks(contacts, tasks);
@@ -597,7 +597,7 @@ describe("seedContactsFromTasks", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
       },
     ];
     const result = seedContactsFromTasks(contacts, tasks);
@@ -620,7 +620,7 @@ describe("seedContactsFromTasks", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
       },
     ];
     const result = seedContactsFromTasks(contacts, tasks);
@@ -640,7 +640,7 @@ describe("seedContactsFromTasks", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
       },
     ];
     const result = seedContactsFromTasks(contacts, tasks);
@@ -662,7 +662,7 @@ describe("seedContactsFromTasks", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
       },
       {
         id: 2,
@@ -674,7 +674,7 @@ describe("seedContactsFromTasks", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
       },
       {
         id: 3,
@@ -686,7 +686,7 @@ describe("seedContactsFromTasks", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
       },
     ];
     const result = seedContactsFromTasks(contacts, tasks);
@@ -711,7 +711,7 @@ describe("seedContactsFromTasks", () => {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
       },
     ];
     const result = seedContactsFromTasks(contacts, tasks);

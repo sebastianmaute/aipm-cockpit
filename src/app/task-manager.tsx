@@ -36,6 +36,8 @@ import { applyTaskLink } from "./task-link";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
 import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
+import { NotesWindow } from "./notes-window";
+import { useNotesWindow } from "./use-notes-window";
 import { INTERACTIVE } from "./interaction-styles";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
@@ -1329,7 +1331,7 @@ function TaskManagerInner() {
         priority: draft.priority,
         status: DEFAULT_TASK_STATUS,
         blockers: "",
-        notes: "",
+        description: "",
         inquiriesSent: 0,
         dependencies: [],
       };
@@ -1349,6 +1351,9 @@ function TaskManagerInner() {
     },
     [today, setTasks, logActivity, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
   );
+
+  // Shared floating note-log window (tasks + RAID), popout-gated at the mount below (see use-notes-window.ts).
+  const { openTaskNotes, openRaidNotes, notesWindowProps } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
@@ -1415,9 +1420,7 @@ function TaskManagerInner() {
   const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
 
   const {
-    expandedNotes,
     pushingIds,
-    onToggleNoteExpanded,
     onJumpToRaid,
     onSendInquiry,
     onPushToJira,
@@ -2070,6 +2073,7 @@ function TaskManagerInner() {
     contactsList,
     onCreateResource: handleCreateResource,
     handleClearRaidTaskFilter,
+    onOpenNotes: openRaidNotes,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
     onSendRaidInquiry: isPopout ? undefined : handleSendRaidInquiry,
@@ -2161,9 +2165,7 @@ function TaskManagerInner() {
         ),
       ),
     ),
-    onRescheduleTask: guardEdit((taskId: number, iso: string) =>
-      setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk))),
-    ),
+    onRescheduleTask: guardEdit((taskId: number, iso: string) => setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk)))),
     // Clear an unlinked workload row (an owner string matching NO resource, so a
     // name/email string match can't hit a managed resource's record; a task
     // linked by resourceId keeps that link — we only touch the free-text field).
@@ -2292,7 +2294,7 @@ function TaskManagerInner() {
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}
-      onToggleNoteExpanded={onToggleNoteExpanded}
+      onOpenNotes={openTaskNotes}
       onJumpToRaid={onJumpToRaid}
       onSendInquiry={onSendInquiry}
       onPushToJira={onPushToJira}
@@ -2309,7 +2311,6 @@ function TaskManagerInner() {
       resetColWidths={resetColWidths}
       tableRef={tableRef}
       resetTableSize={resetTableSize}
-      expandedNotes={expandedNotes}
       pushingIds={pushingIds}
       raidByTask={raidByTask}
       changeByTask={changeByTask}
@@ -2379,11 +2380,7 @@ function TaskManagerInner() {
   // mounted below the fields in the modal editor. Never in popouts.
   const editorExtrasEl = !isPopout ? (
     <>
-      <TaskEditorRaidMini
-        lang={lang}
-        onAdd={handleAddRaidFromEditor}
-        pending={editorBuffer.pendingRaid}
-      />
+      <TaskEditorRaidMini lang={lang} onAdd={handleAddRaidFromEditor} pending={editorBuffer.pendingRaid} />
       <button
         type="button"
         onClick={() => setLinkedTaskOpen(true)}
@@ -2622,6 +2619,7 @@ function TaskManagerInner() {
         taskEditorActions={editorLeadingActions}
         taskDeleteAction={editorDeleteAction}
         taskEditorExtras={editorExtrasEl}
+        taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}
@@ -2674,6 +2672,7 @@ function TaskManagerInner() {
           onClose={() => setLinkedTaskOpen(false)}
         />
       )}
+      {!isPopout && <NotesWindow {...notesWindowProps} />}
     </>
   );
 

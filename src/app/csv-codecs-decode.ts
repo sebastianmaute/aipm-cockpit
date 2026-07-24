@@ -456,7 +456,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     priority: ((obj.priority as Priority) || "Medium") as Priority,
     status: obj.status as Task["status"],
     blockers: obj.blockers ?? "",
-    notes: obj.notes ?? "",
+    description: obj.description ?? "",
     completedDate: obj.completedDate || undefined,
     inquiriesSent: Number.isFinite(inq) && inq > 0 ? inq : 0,
     group: sanitizeGroup(obj.group),

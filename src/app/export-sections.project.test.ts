@@ -285,7 +285,7 @@ describe("buildExportSections – project section", () => {
         {
           id: 1, taskName: "T1", assignee: "", assigneeEmail: "",
           startDate: "2026-01-01", dueDate: "2026-06-01", lastUpdateDate: "2026-01-01",
-          status: "To Do" as const, priority: "Medium" as const, blockers: "", notes: "",
+          status: "To Do" as const, priority: "Medium" as const, blockers: "", description: "",
           completedDate: undefined, inquiriesSent: 0, group: undefined,
           labels: [], dependencies: [], jiraKey: undefined, jiraIssueType: undefined,
           lastSyncedAt: undefined, localModifiedAt: undefined, healthOverride: undefined,

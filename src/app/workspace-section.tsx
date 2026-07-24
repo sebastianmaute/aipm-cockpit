@@ -121,6 +121,7 @@ export function WorkspaceSection({
   onJumpToComms,
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
+  onOpenNotes,
   activityLog,
   logActivity,
   logActivityChanges,
@@ -411,12 +412,7 @@ export function WorkspaceSection({
           </div>
         )}
 
-        <div
-          id="panel-raid"
-          role="tabpanel"
-          hidden={activeTab !== "raid"}
-          className={panelClass}
-        >
+        <div id="panel-raid" role="tabpanel" hidden={activeTab !== "raid"} className={panelClass}>
           <RaidPanel
             lang={lang}
             tasks={tasks}
@@ -435,6 +431,7 @@ export function WorkspaceSection({
             onCaptureBulk={onCaptureRaidBulk}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
+            onOpenNotes={onOpenNotes}
             showHints={effectiveSettings.showViewHints !== false}
             isPopout={isPopout}
             onLearnMore={requestHelpConcept}

@@ -26,6 +26,7 @@ type TaskInput = {
   status?: string;
   blockers?: string;
   notes?: string;
+  description?: string;
   group?: string;
   labels?: string[];
 };
@@ -259,7 +260,11 @@ function buildPatch(input: Record<string, unknown>): Partial<Task> {
     if (s !== undefined) patch.status = s as Task["status"];
   }
   if (input.blockers !== undefined) patch.blockers = asString(input.blockers) ?? "";
-  if (input.notes !== undefined) patch.notes = asString(input.notes) ?? "";
+  // Plain text from the model; wrapped to HTML at the dispatcher (single write
+  // boundary — see use-chat-dispatcher updateTask). `input.description` is the
+  // future tool-input key (C2); `input.notes` is the current one.
+  if (input.description !== undefined || input.notes !== undefined)
+    patch.description = asString(input.description ?? input.notes) ?? "";
   if (input.group !== undefined) patch.group = sanitizeGroup(input.group);
   if (input.labels !== undefined) patch.labels = sanitizeLabels(input.labels);
   return patch;
@@ -376,6 +381,7 @@ export async function runTool(
         status: asString(input.status),
         blockers: asString(input.blockers),
         notes: asString(input.notes),
+        description: asString(input.description),
         group: asString(input.group),
         labels: Array.isArray(input.labels)
           ? sanitizeLabels(input.labels)

@@ -127,7 +127,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
       void recordLearning(action, "acted");
       handleCancelEdit(); // reset editor (clears editingId, form, and the pending ref)
       const seed = buildTaskSeedFromAction(action, lang);
-      setForm(() => ({ ...emptyForm(), taskName: seed.taskName, notes: seed.notes }));
+      setForm(() => ({ ...emptyForm(), taskName: seed.taskName, notes: seed.description }));
       pendingLinkRaidIdRef.current =
         action.source === "raid" && action.cta.kind === "open"
           ? Number(action.cta.id)

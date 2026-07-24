@@ -3407,6 +3407,8 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightBurndownFollowPlan: "Dashboard-Budget-Burndown: Wenn die Budgetstunden dem Plan folgen, zeigt das Burndown-Diagramm jetzt den geplanten und tatsächlichen Verbrauch statt einer leeren „kein Budget“-Meldung — es liest dieselbe Live-Kapazität wie der Budgetbericht.",
   versionHighlightChatFormatting: "KI-Assistent-Formatierung: Antworten stellen Codeblöcke und Tabellen jetzt formatiert dar, statt als Rohtext mit übrig gebliebenen Backticks und senkrechten Strichen.",
   versionHighlightDirectoryHideExternal: "Ressourcenverzeichnis: Ein Schalter „Externe ausblenden“ filtert externe Personen aus der Liste, pro Gerät gespeichert.",
+  versionHighlightRichNotes: "Notizprotokoll: Aufgaben und RAID-Einträge führen jetzt ein datiertes Rich-Text-Notizprotokoll, verwaltet in einem gemeinsamen, verschiebbaren Notizfenster — Notizen hinzufügen, bearbeiten oder löschen, verfasst als Ihre konfigurierte eigene Ressource, wobei Bearbeiten und Löschen auf den jeweiligen Verfasser der Notiz beschränkt sind (Notizen ohne Verfasser werden bei der ersten Bearbeitung übernommen); Enter bestätigt.",
+  versionHighlightTaskDescription: "Aufgabenbeschreibung: Das Freitextfeld „Notizen“ der Aufgabe wird zu einer formatierbaren „Beschreibung“ aufgewertet, und die Offenen Punkte zeigen eine Beschreibungsvorschau sowie ein Abzeichen mit der Notizenanzahl. (Die Beschreibung wird weiterhin als reiner Text mit Jira synchronisiert — Rich-Text-Formatierung bleibt über Jira nicht erhalten.)",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",

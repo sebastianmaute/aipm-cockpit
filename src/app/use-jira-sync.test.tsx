@@ -81,7 +81,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     ...overrides,
   };
 }
@@ -509,7 +509,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
       jiraKey: "TEST-1",
-      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", notes: "remote", completedDate: "remote" },
+      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", description: "remote", completedDate: "remote" },
     };
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
@@ -530,7 +530,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
       jiraKey: "TEST-1",
-      picks: { taskName: "remote", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", notes: "remote", completedDate: "remote" },
+      picks: { taskName: "remote", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", description: "remote", completedDate: "remote" },
     };
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
@@ -553,7 +553,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
       jiraKey: "TEST-1",
-      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", notes: "remote", completedDate: "remote" },
+      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", description: "remote", completedDate: "remote" },
     };
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
@@ -604,7 +604,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
       jiraKey: "OPS-1",
-      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", notes: "remote", completedDate: "remote" },
+      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", description: "remote", completedDate: "remote" },
     };
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 

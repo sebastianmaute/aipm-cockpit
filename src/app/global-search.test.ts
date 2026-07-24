@@ -30,7 +30,7 @@ function makeTask(over: Partial<Task> = {}): Task {
     priority: "Medium",
     status: "To Do",
     blockers: "",
-    notes: "",
+    description: "",
     ...over,
   };
 }
@@ -130,7 +130,7 @@ function ws(over: Partial<SearchableWorkspace> = {}): SearchableWorkspace {
 describe("searchWorkspace", () => {
   it("ranks a title match before a body-only match (title > body)", () => {
     const titleHit = makeTask({ id: 1, taskName: "Alpha gizmo" });
-    const bodyHit = makeTask({ id: 2, taskName: "Beta", notes: "has gizmo inside" });
+    const bodyHit = makeTask({ id: 2, taskName: "Beta", description: "has gizmo inside" });
     // iteration order puts the body hit first to prove ranking, not order, wins.
     const results = searchWorkspace(ws({ tasks: [bodyHit, titleHit] }), "gizmo");
 
@@ -294,7 +294,7 @@ describe("searchWorkspace", () => {
 describe("buildSearchIndex + searchIndex (query-independent index)", () => {
   it("querying a prebuilt index equals the searchWorkspace one-shot", () => {
     const w = ws({
-      tasks: [makeTask({ id: 1, taskName: "Alpha gizmo" }), makeTask({ id: 2, notes: "gizmo" })],
+      tasks: [makeTask({ id: 1, taskName: "Alpha gizmo" }), makeTask({ id: 2, description: "gizmo" })],
       raid: [makeRaid({ id: 5, owner: "Zara" })],
     });
     const index = buildSearchIndex(w);

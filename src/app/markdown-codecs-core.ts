@@ -81,6 +81,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
   { key: "inquiriesSent", label: "Inquiries" },
+  { key: "noteLog", label: "NoteLog" },
 ];
 
 
@@ -348,7 +349,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "priority", label: "Priority" },
   { key: "status", label: "Status" },
   { key: "blockers", label: "Blockers" },
-  { key: "notes", label: "Notes" },
+  { key: "description", label: "Description" },
   { key: "completedDate", label: "Completed" },
   { key: "inquiriesSent", label: "Inquiries" },
   { key: "group", label: "Group" },

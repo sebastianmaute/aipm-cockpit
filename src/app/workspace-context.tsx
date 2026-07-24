@@ -14,6 +14,7 @@ import type { FeatureModuleId } from "./feature-modules";
 import type { FieldVisibilityConfig } from "./field-visibility";
 import { defaultResourcePlan, effectiveAssignee } from "./resource-foundation";
 import { statusSortIndex } from "./task-status";
+import { htmlToText } from "./sanitize-html";
 import { resolveEffectiveFilters, type TaskFilterValues } from "./task-filters";
 import {
   PRIORITY_RANK,
@@ -206,7 +207,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           t.taskName,
           effectiveAssignee(t, resourcesById),
           t.blockers,
-          t.notes,
+          htmlToText(t.description),
           t.group ?? "",
           (t.labels ?? []).join(" "),
         ]

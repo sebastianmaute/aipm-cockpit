@@ -1,4 +1,5 @@
 import type { AppView } from "./nav-config";
+import { htmlToText } from "./sanitize-html";
 import type {
   BudgetBucket,
   ChangeItem,
@@ -108,7 +109,7 @@ export function buildSearchIndex(ws: SearchableWorkspace): SearchIndex {
       indexRow("task", "open-points", t.id, t.taskName, coerce(t.assignee), [
         coerce(t.assignee),
         coerce(t.assigneeEmail),
-        coerce(t.notes),
+        coerce(htmlToText(t.description)),
         coerce(t.blockers),
         coerce(t.group),
         joinLabels(t.labels),

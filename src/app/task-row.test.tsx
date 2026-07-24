@@ -3,7 +3,6 @@ import { render, renderHook, act, fireEvent, within } from "@testing-library/rea
 import React, { Profiler, type ReactNode, type ProfilerOnRenderCallback } from "react";
 import {
   TaskRow,
-  NotesCell,
   TaskActions,
   RowContextProvider,
   useTaskRowContext,
@@ -22,7 +21,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     group: "",
     labels: [],
     dependencies: [],
@@ -56,7 +55,7 @@ function makeContext(overrides: Partial<RowContextValue> = {}): RowContextValue 
     jiraProjectKey: "",
     hiddenCols: new Set(),
     onToggleSelect: vi.fn(),
-    onToggleNoteExpanded: vi.fn(),
+    onOpenNotes: vi.fn(),
     onJumpToRaid: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
@@ -122,9 +121,7 @@ describe("TaskRow", () => {
           <TaskRow
             task={task}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -150,7 +147,7 @@ describe("TaskRow", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isExpanded={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -169,7 +166,7 @@ describe("TaskRow", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isExpanded={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -191,9 +188,7 @@ describe("TaskRow", () => {
           <TaskRow
             task={task}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -215,7 +210,6 @@ describe("TaskRow", () => {
         task={task}
         isSelected={false}
         isEditing={false}
-        isExpanded={false}
         isPushing={false}
         raidRefs={undefined}
       />
@@ -249,9 +243,7 @@ describe("TaskRow", () => {
             <TaskRow
               task={task}
               isSelected={false}
-              isEditing={false}
-              isExpanded={false}
-              isPushing={false}
+              isEditing={false}              isPushing={false}
               raidRefs={undefined}
             />
           </Profiler>
@@ -287,9 +279,7 @@ describe("TaskRow", () => {
             <TaskRow
               task={task}
               isSelected={sel}
-              isEditing={false}
-              isExpanded={false}
-              isPushing={false}
+              isEditing={false}              isPushing={false}
               raidRefs={undefined}
             />
           </Profiler>
@@ -316,9 +306,7 @@ describe("TaskRow workflow-status badge", () => {
           <TaskRow
             task={makeTask({ id: 21, status: "In Review" })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -337,9 +325,7 @@ describe("TaskRow workflow-status badge", () => {
           <TaskRow
             task={makeTask({ id: 22, status: "On Hold" })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -358,9 +344,7 @@ describe("TaskRow workflow-status badge", () => {
           <TaskRow
             task={makeTask({ id: 1, taskName: "Alpha", status: "To Do" })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -380,9 +364,7 @@ describe("TaskRow workflow-status badge", () => {
           <TaskRow
             task={makeTask({ id: 1, taskName: "Sync", status: "In Progress", jiraKey: "LOP-1" })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -400,9 +382,7 @@ describe("TaskRow workflow-status badge", () => {
           <TaskRow
             task={makeTask({ id: 2, taskName: "Local", status: "To Do" })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -422,9 +402,7 @@ describe("TaskRow zebra striping", () => {
           <TaskRow
             task={makeTask({ id: 2 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
             isStriped
           />
@@ -444,9 +422,7 @@ describe("TaskRow zebra striping", () => {
           <TaskRow
             task={makeTask({ id: 3 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
             isStriped={false}
           />
@@ -466,9 +442,7 @@ describe("TaskRow zebra striping", () => {
           <TaskRow
             task={makeTask({ id: 4 })}
             isSelected={false}
-            isEditing
-            isExpanded={false}
-            isPushing={false}
+            isEditing            isPushing={false}
             raidRefs={undefined}
             isStriped
           />
@@ -489,9 +463,7 @@ describe("TaskRow zebra striping", () => {
           <TaskRow
             task={makeTask({ id: 5, completedDate: "2026-05-20" })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
             isStriped
           />
@@ -520,55 +492,73 @@ describe("useTaskRowContext", () => {
   });
 });
 
-describe("NotesCell", () => {
-  test("isolation: re-rendering cell A does not re-render cell B", () => {
+describe("TaskRow description + notes-log cells", () => {
+  test("renders a plain-text preview of the rich description", () => {
     const ctx = makeContext();
-    let setExpA: (b: boolean) => void = () => {};
-    const renderSpyB = vi.fn<ProfilerOnRenderCallback>();
-
-    function Harness() {
-      const [expA, setExpALocal] = React.useState(false);
-      setExpA = setExpALocal;
-      const cellBTree = React.useMemo(
-        () => (
-          <Profiler id="cellB" onRender={renderSpyB}>
-            <NotesCell
-              notes="B note also long enough to trigger expansion behaviour with more than fifty characters of body text here."
-              isExpanded={false}
-              taskId={2}
-            />
-          </Profiler>
+    const task = makeTask({ id: 60, description: "<p>Ship <strong>v2</strong> soon</p>" });
+    const { getByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
-        [],
-      );
-      return (
-        <table>
-          <tbody>
-            <tr>
-              <td>
-                <RowContextProvider value={ctx}>
-                  <NotesCell
-                    notes="A note long enough to trigger expansion behaviour with more than fifty characters of body text here."
-                    isExpanded={expA}
-                    taskId={1}
-                  />
-                </RowContextProvider>
-              </td>
-              <td>
-                <RowContextProvider value={ctx}>{cellBTree}</RowContextProvider>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      );
-    }
+      }),
+    );
+    expect(getByText("Ship v2 soon")).toBeTruthy();
+  });
 
-    render(<Harness />);
-    const before = renderSpyB.mock.calls.length;
+  test("shows an em dash when the description is empty", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 61, description: "" });
+    const { getAllByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+        ),
+      }),
+    );
+    expect(getAllByText("—").length).toBeGreaterThan(0);
+  });
 
-    act(() => setExpA(true));
+  test("notes-log badge shows the entry count and opens the notes window on click", () => {
+    const onOpenNotes = vi.fn();
+    const ctx = makeContext({ onOpenNotes });
+    const task = makeTask({
+      id: 62,
+      taskName: "Log task",
+      noteLog: [
+        { id: 1, timestamp: "2026-05-01T00:00:00.000Z", html: "<p>a</p>", text: "a" },
+        { id: 2, timestamp: "2026-05-02T00:00:00.000Z", html: "<p>b</p>", text: "b" },
+      ],
+    });
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+        ),
+      }),
+    );
+    // Row-unique accessible name (Notes log – <task>).
+    const badge = getByRole("button", { name: "Notes log – Log task" });
+    expect(badge.textContent).toContain("2");
+    fireEvent.click(badge);
+    expect(onOpenNotes).toHaveBeenCalledWith(62);
+  });
 
-    expect(renderSpyB.mock.calls.length).toBe(before);
+  test("notes-log badge shows 0 when the log is absent", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 63, taskName: "No log" });
+    const { getByRole } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+        ),
+      }),
+    );
+    expect(getByRole("button", { name: "Notes log – No log" }).textContent).toContain("0");
   });
 });
 
@@ -584,9 +574,7 @@ describe("TaskRow click-to-edit", () => {
           <TaskRow
             task={task}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -609,9 +597,7 @@ describe("TaskRow click-to-edit", () => {
             <TaskRow
               task={task}
               isSelected={false}
-              isEditing={false}
-              isExpanded={false}
-              isPushing={false}
+              isEditing={false}              isPushing={false}
               raidRefs={undefined}
             />
           ),
@@ -638,9 +624,7 @@ describe("TaskRow changes badge", () => {
           <TaskRow
             task={makeTask({ id: 8 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
             changeRefs={[makeChange({ id: 1 }), makeChange({ id: 2 })]}
           />
@@ -660,9 +644,7 @@ describe("TaskRow changes badge", () => {
           <TaskRow
             task={makeTask({ id: 9 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
             changeRefs={[]}
           />
@@ -681,9 +663,7 @@ describe("TaskRow changes badge", () => {
           <TaskRow
             task={makeTask({ id: 10 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -757,9 +737,7 @@ describe("TaskRow Ask-Claude leading cell", () => {
           <TaskRow
             task={task}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -793,9 +771,7 @@ describe("TaskRow Ask-Claude leading cell", () => {
           <TaskRow
             task={task}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -836,9 +812,7 @@ describe("TaskRow RAID badge", () => {
           <TaskRow
             task={makeTask({ id: 11 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={[makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })]}
           />
         ),
@@ -860,9 +834,7 @@ describe("TaskRow RAID badge", () => {
           <TaskRow
             task={makeTask({ id: 12 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -881,9 +853,7 @@ describe("TaskRow RAID badge", () => {
           <TaskRow
             task={makeTask({ id: 13 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={[]}
           />
         ),
@@ -902,9 +872,7 @@ describe("TaskRow RAID badge", () => {
           <TaskRow
             task={makeTask({ id: 14 })}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={[makeRaidItem({ id: 1 })]}
           />
         ),
@@ -924,9 +892,7 @@ describe("TaskRow inline cell editing", () => {
           <TaskRow
             task={task}
             isSelected={false}
-            isEditing={false}
-            isExpanded={false}
-            isPushing={false}
+            isEditing={false}            isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -1073,20 +1039,6 @@ describe("TaskRow inline cell editing", () => {
       assigneeEmail: "",
       resourceId: undefined,
     });
-  });
-
-  test("double-clicking the notes cell opens a textarea and commits a notes patch on blur", () => {
-    const onInlinePatch = vi.fn();
-    const ctx = makeContext({ onInlinePatch });
-    const task = makeTask({ id: 46, taskName: "Note me", notes: "old note" });
-    const { getByText, getByLabelText } = renderRow(ctx, task);
-
-    fireEvent.doubleClick(getByText("old note"));
-    const area = getByLabelText("Notes – Note me") as HTMLTextAreaElement;
-    fireEvent.change(area, { target: { value: "new note" } });
-    fireEvent.blur(area);
-
-    expect(onInlinePatch).toHaveBeenCalledWith(46, { notes: "new note" });
   });
 
   test("double-clicking the blockers cell opens a textarea and commits a blockers patch on blur", () => {

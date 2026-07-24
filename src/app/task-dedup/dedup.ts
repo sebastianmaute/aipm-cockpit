@@ -6,7 +6,8 @@
 // so every id it returns is re-grounded against the live task list before
 // anything can be applied. No React, no fetch, no i18n, no side effects.
 import { type Task } from "../types";
-import { sanitizeTaskName, sanitizeNotes } from "../sanitize";
+import { sanitizeTaskName } from "../sanitize";
+import { htmlToText, sanitizeNoteHtml } from "../sanitize-html";
 
 /** A raw group as parsed from the model tool input (shape-validated only — ids
  *  are NOT yet checked against the live workspace). */
@@ -14,7 +15,7 @@ export interface RawMergeGroup {
   keepId: number;
   mergeIds: number[];
   rationale: string;
-  unifiedFields?: { taskName?: string; notes?: string };
+  unifiedFields?: { taskName?: string; description?: string };
 }
 
 export interface MergedRef {
@@ -30,7 +31,7 @@ export interface GroundedMergeGroup {
   merged: MergedRef[];
   rationale: string;
   /** Sanitized unified field overrides for the keep task (empty when none). */
-  unified: { taskName?: string; notes?: string };
+  unified: { taskName?: string; description?: string };
 }
 
 /** Bound on how many tasks are described to the model (token budget). */
@@ -51,14 +52,15 @@ function firstLine(s: string, max: number): string {
 export function buildDedupContext(
   tasks: readonly Pick<
     Task,
-    "id" | "taskName" | "status" | "assignee" | "dueDate" | "notes"
+    "id" | "taskName" | "status" | "assignee" | "dueDate" | "description"
   >[],
 ): string {
   const shown = tasks.slice(0, DEDUP_CONTEXT_CAP);
   const lines = shown.map((tk) => {
     const assignee = tk.assignee?.trim() || "unassigned";
     const due = tk.dueDate?.trim() || "-";
-    const notes = tk.notes?.trim() ? ` :: ${firstLine(tk.notes, DIGEST_NOTES_MAX)}` : "";
+    const noteText = htmlToText(tk.description);
+    const notes = noteText ? ` :: ${firstLine(noteText, DIGEST_NOTES_MAX)}` : "";
     return `#${tk.id} [${tk.status}] ${assignee} due:${due} — ${firstLine(tk.taskName, 200)}${notes}`;
   });
   if (tasks.length > DEDUP_CONTEXT_CAP) {
@@ -146,8 +148,8 @@ export function parseMergeProposal(input: unknown): RawMergeGroup[] | null {
     if (g.unifiedFields && typeof g.unifiedFields === "object") {
       const uf = g.unifiedFields as { title?: unknown; description?: unknown; taskName?: unknown; notes?: unknown };
       const taskName = typeof uf.title === "string" ? uf.title : typeof uf.taskName === "string" ? uf.taskName : undefined;
-      const notes = typeof uf.description === "string" ? uf.description : typeof uf.notes === "string" ? uf.notes : undefined;
-      if (taskName !== undefined || notes !== undefined) unifiedFields = { taskName, notes };
+      const description = typeof uf.description === "string" ? uf.description : typeof uf.notes === "string" ? uf.notes : undefined;
+      if (taskName !== undefined || description !== undefined) unifiedFields = { taskName, description };
     }
     out.push({ keepId, mergeIds, rationale, unifiedFields });
   }
@@ -194,8 +196,8 @@ export function groundMergeGroups(
       const clean = sanitizeTaskName(g.unifiedFields.taskName);
       if (clean) unified.taskName = clean;
     }
-    if (g.unifiedFields?.notes !== undefined) {
-      unified.notes = sanitizeNotes(g.unifiedFields.notes);
+    if (g.unifiedFields?.description !== undefined) {
+      unified.description = sanitizeNoteHtml(g.unifiedFields.description);
     }
     out.push({ keepId: g.keepId, keepTitle: keep.taskName, merged, rationale: g.rationale, unified });
   }
@@ -227,7 +229,7 @@ export function applyMerges(
   nowIso: string,
 ): MergeApplyResult {
   const removedIds = new Set<number>();
-  const patchByKeep = new Map<number, { taskName?: string; notes?: string }>();
+  const patchByKeep = new Map<number, { taskName?: string; description?: string }>();
   for (const g of groups) {
     for (const m of g.merged) removedIds.add(m.id);
     patchByKeep.set(g.keepId, g.unified);
@@ -247,13 +249,13 @@ export function applyMerges(
       continue;
     }
     const nextName = patch.taskName !== undefined ? patch.taskName : tk.taskName;
-    const nextNotes = patch.notes !== undefined ? patch.notes : tk.notes;
-    if (nextName === tk.taskName && nextNotes === tk.notes) {
+    const nextDescription = patch.description !== undefined ? patch.description : tk.description;
+    if (nextName === tk.taskName && nextDescription === tk.description) {
       nextTasks.push(tk);
       continue;
     }
     editedBefore.push(tk);
-    nextTasks.push({ ...tk, taskName: nextName, notes: nextNotes, localModifiedAt: nowIso });
+    nextTasks.push({ ...tk, taskName: nextName, description: nextDescription, localModifiedAt: nowIso });
   }
   return { nextTasks, removed, editedBefore, removedCount: removed.length };
 }

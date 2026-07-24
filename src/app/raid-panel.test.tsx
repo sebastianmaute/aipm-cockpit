@@ -46,6 +46,7 @@ function makeProps(overrides: Partial<RaidPanelProps> = {}): RaidPanelProps {
     onDelete: vi.fn(),
     onCreateMitigationTask: vi.fn().mockReturnValue(null),
     onJumpToTask: vi.fn(),
+    onOpenNotes: vi.fn(),
     resources: [],
     contacts: [],
     onCreateResource: vi.fn(() => 1),

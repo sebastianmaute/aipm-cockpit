@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildTaskSeedFromAction } from "./action-task-seed";
+import { plainToHtml } from "./sanitize-html";
 import type { SuggestedAction } from "./next-actions/types";
 
 function raidAction(): SuggestedAction {
@@ -17,9 +18,13 @@ describe("buildTaskSeedFromAction", () => {
     const seed = buildTaskSeedFromAction(raidAction(), "en-US");
     expect(seed.taskName).toBe("RAID 12: DB outage");
   });
-  it("prepends a From: note with the translated source label and why", () => {
+  it("prepends a From: note as HTML with the translated source label and why", () => {
     const seed = buildTaskSeedFromAction(raidAction(), "en-US");
-    expect(seed.notes).toBe("From: RAID — Severity High — no owner assigned\n\n");
+    expect(seed.description).toBe(
+      plainToHtml("From: RAID — Severity High — no owner assigned\n\n"),
+    );
+    expect(seed.description).toContain("From: RAID — Severity High — no owner assigned");
+    expect(seed.description.startsWith("<p>")).toBe(true);
   });
   it("builds the seed for a non-raid (budget) source", () => {
     const action = {
@@ -30,9 +35,8 @@ describe("buildTaskSeedFromAction", () => {
     } as unknown as import("./next-actions/types").SuggestedAction;
     const seed = buildTaskSeedFromAction(action, "en-US");
     expect(seed.taskName).toBe("Budget: Acme");
-    expect(seed.notes.startsWith("From: ")).toBe(true);
-    expect(seed.notes.endsWith("\n\n")).toBe(true);
-    expect(seed.notes).toContain("Budget");
-    expect(seed.notes).toContain("Cost performance below target (CPI 0.80)");
+    expect(seed.description.startsWith("<p>From: ")).toBe(true);
+    expect(seed.description).toContain("Budget");
+    expect(seed.description).toContain("Cost performance below target (CPI 0.80)");
   });
 });

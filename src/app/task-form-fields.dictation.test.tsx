@@ -54,14 +54,15 @@ function Harness() {
 }
 
 describe("TaskFormFields dictation", () => {
-  it("renders a dictation mic button in the Notes field label row", () => {
+  it("renders a dictation mic button in the Description field label row", () => {
     render(<Harness />, { wrapper: TestProviders });
-    const notesLabel = screen.getByText("Notes").closest("label");
-    expect(notesLabel).not.toBeNull();
+    // The mic sits in the <span> label row beside the "Description" heading.
+    const descriptionLabelRow = screen.getByText("Description").closest("span");
+    expect(descriptionLabelRow).not.toBeNull();
     const mics = screen.getAllByRole("button", { name: /hold to dictate/i });
     expect(mics.length).toBe(2);
-    const notesMic = mics.find((m) => notesLabel!.contains(m));
-    expect(notesMic).toBeDefined();
+    const descriptionMic = mics.find((m) => descriptionLabelRow!.contains(m));
+    expect(descriptionMic).toBeDefined();
   });
 
   it("renders a dictation mic button next to the task-name input", () => {
@@ -80,8 +81,8 @@ describe("TaskFormFields dictation", () => {
       "What needs to happen?",
     ) as HTMLInputElement;
 
-    // Notes' useDictationMic is wired before the title's (source order), so
-    // the notes usePushToTalk call is captured first and the title's second.
+    // Description's useDictationMic is wired before the title's (source order), so
+    // the description usePushToTalk call is captured first and the title's second.
     expect(mockPushToTalkCalls.length).toBe(2);
     const titleAppendFinal = mockPushToTalkCalls[1].onAppendFinal;
 

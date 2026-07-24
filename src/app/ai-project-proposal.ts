@@ -20,6 +20,7 @@ import {
   sanitizeGroup,
   sanitizeResource,
 } from "./sanitize";
+import { plainToHtml } from "./sanitize-html";
 
 export const SEED_CAP_PER_ENTITY = 8;
 
@@ -242,7 +243,7 @@ function buildSeedTask(raw: unknown, id: number, today: string): Task | null {
     priority: sanitizePriority(raw.priority),
     status: "To Do",
     blockers: "",
-    notes: sanitizeNotes(raw.notes),
+    description: plainToHtml(sanitizeNotes(raw.notes)),
     inquiriesSent: 0,
     group: sanitizeGroup(raw.group),
     labels: [],

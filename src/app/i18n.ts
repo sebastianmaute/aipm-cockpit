@@ -3426,6 +3426,8 @@ const enUS = {
   versionHighlightBurndownFollowPlan: "Dashboard budget burn-down: when budget hours follow the plan, the burn-down chart now shows the planned and actual spend instead of a blank “no budget” message — it reads the same live capacity the budget report does.",
   versionHighlightChatFormatting: "AI Assistant formatting: replies now render fenced code blocks and tables as formatted output instead of raw text with stray backticks and pipes.",
   versionHighlightDirectoryHideExternal: "Resource directory: a “Hide external” toggle filters external people out of the list, remembered per device.",
+  versionHighlightRichNotes: "Note log: tasks and RAID items now carry a dated, rich-text note log, managed in a shared draggable Notes window — add, edit or delete notes, authored as your configured self, with editing and deleting limited to a note's own author (authorless notes are claimed on first edit); Enter commits.",
+  versionHighlightTaskDescription: "Task description: the task “Notes” free-text field is promoted to a rich “Description” with formatting, and Open Points shows a description preview plus a note-count badge. (The description still round-trips to Jira as plain text — rich formatting is not preserved through Jira.)",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

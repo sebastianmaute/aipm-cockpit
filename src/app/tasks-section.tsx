@@ -57,7 +57,7 @@ import { SortResizeTh } from "./report-table";
  *  reference-stable (a fresh `[]` each render would bust it). */
 const EMPTY_RESOURCES: readonly Resource[] = [];
 
-const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","notes","depRelations","estimate","spent","actions"] as const;
+const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","description","notesLog","depRelations","estimate","spent","actions"] as const;
 
 /** Fixed English friction phrase to confirm clearing all tasks (mirrors the
  *  factory-reset dialog). Deliberately not localized. */
@@ -73,7 +73,8 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "priority",       labelKey: "priority" },
   { key: "taskStatus",     labelKey: "colTaskStatus" },
   { key: "blockers",       labelKey: "blockers" },
-  { key: "notes",          labelKey: "notes" },
+  { key: "description",    labelKey: "description" },
+  { key: "notesLog",       labelKey: "noteLogTitle" },
   { key: "depRelations",   labelKey: "depRelations" },
   { key: "estimate",       labelKey: "taskOriginalEstimate" },
   { key: "spent",          labelKey: "taskTimeSpent" },
@@ -90,7 +91,8 @@ export interface TasksSectionProps {
   jiraExtraProjects: readonly JiraExtraProject[];
   // Row-context callbacks — assembled into rowContextValue useMemo internally
   onToggleSelect: (id: number) => void;
-  onToggleNoteExpanded: (id: number) => void;
+  /** Open the floating notes window for a task (running note log). */
+  onOpenNotes: (id: number) => void;
   onJumpToRaid: (id: number) => void;
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
@@ -110,7 +112,6 @@ export interface TasksSectionProps {
   tableRef: React.RefObject<HTMLElement | null>;
   resetTableSize: () => void;
   // row state
-  expandedNotes: Set<number>;
   pushingIds: Set<number>;
   raidByTask: Map<number, RaidItem[]>;
   changeByTask: Map<number, ChangeItem[]>;
@@ -174,7 +175,7 @@ export function TasksSection({
   jiraSiteUrl,
   jiraExtraProjects,
   onToggleSelect,
-  onToggleNoteExpanded,
+  onOpenNotes,
   onJumpToRaid,
   onSendInquiry,
   onPushToJira,
@@ -191,7 +192,6 @@ export function TasksSection({
   resetColWidths,
   tableRef,
   resetTableSize,
-  expandedNotes,
   pushingIds,
   raidByTask,
   changeByTask,
@@ -397,7 +397,7 @@ export function TasksSection({
       jiraProjectKey,
       hiddenCols,
       onToggleSelect,
-      onToggleNoteExpanded,
+      onOpenNotes,
       onJumpToRaid,
       onSendInquiry,
       onPushToJira,
@@ -420,7 +420,7 @@ export function TasksSection({
       jiraProjectKey,
       hiddenCols,
       onToggleSelect,
-      onToggleNoteExpanded,
+      onOpenNotes,
       onJumpToRaid,
       onSendInquiry,
       onPushToJira,
@@ -885,7 +885,8 @@ export function TasksSection({
                 {!hiddenCols.has("priority") && <SortResizeTh label={t(lang, "priority")} sortCol="priority" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "priority"))} />}
                 {!hiddenCols.has("taskStatus") && <SortResizeTh label={t(lang, "colTaskStatus")} sortCol="taskStatus" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colTaskStatus"))} />}
                 {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
-                {!hiddenCols.has("notes") && <Th onResize={(e) => startColResize("notes", e)}>{t(lang, "notes")}</Th>}
+                {!hiddenCols.has("description") && <Th onResize={(e) => startColResize("description", e)}>{t(lang, "description")}</Th>}
+                {!hiddenCols.has("notesLog") && <Th onResize={(e) => startColResize("notesLog", e)}>{t(lang, "noteLogTitle")}</Th>}
                 {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
                 {!hiddenCols.has("estimate") && <SortResizeTh label={t(lang, "colEstimate")} sortCol="estimate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colEstimate"))} />}
                 {!hiddenCols.has("spent") && <SortResizeTh label={t(lang, "colSpent")} sortCol="spent" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colSpent"))} />}
@@ -908,7 +909,6 @@ export function TasksSection({
                   task={task}
                   isSelected={selectedIds.has(task.id)}
                   isEditing={editingId === task.id}
-                  isExpanded={expandedNotes.has(task.id)}
                   isPushing={pushingIds.has(task.id)}
                   raidRefs={raidByTask.get(task.id)}
                   changeRefs={changeByTask.get(task.id)}

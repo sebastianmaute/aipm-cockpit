@@ -89,7 +89,7 @@ function makeTask(id: number, overrides: Partial<Task> = {}): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     completedDate: undefined,
     inquiriesSent: 0,
     group: undefined,
