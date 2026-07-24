@@ -249,6 +249,29 @@ describe("WorkspaceProvider", () => {
     expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([3, 1, 2]);
   });
 
+  test("sorts by the createdDate column", () => {
+    const { result } = renderHook(
+      () => ({ ws: useWorkspace(), filters: useFilters() }),
+      { wrapper },
+    );
+
+    act(() =>
+      result.current.ws.setTasks([
+        makeTask({ id: 1, createdDate: "2026-03-01" }),
+        makeTask({ id: 2, createdDate: "2026-01-15" }),
+        makeTask({ id: 3, createdDate: undefined }),
+      ]),
+    );
+
+    // Sort by createdDate asc → undefined ("") sorts first, then earliest date.
+    act(() => result.current.filters.setSortKey("createdDate"));
+    expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([3, 2, 1]);
+
+    // Toggle to desc → reverse order.
+    act(() => result.current.filters.setSortDir("desc"));
+    expect(result.current.ws.filteredSortedTasks.map((t) => t.id)).toEqual([1, 2, 3]);
+  });
+
   test("exposes budgets and fxRates state", () => {
     const { result } = renderHook(() => useWorkspace(), { wrapper });
     expect(result.current.budgets).toEqual([]);

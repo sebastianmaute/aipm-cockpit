@@ -283,6 +283,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         else cmp = av.localeCompare(bv);
       } else if (sortKey === "assignee")
         cmp = effectiveAssignee(a, resourcesById).localeCompare(effectiveAssignee(b, resourcesById));
+      else if (sortKey === "createdDate")
+        cmp = (a.createdDate ?? "").localeCompare(b.createdDate ?? "");
       else cmp = a[sortKey].localeCompare(b[sortKey]);
       return cmp * dir;
     });

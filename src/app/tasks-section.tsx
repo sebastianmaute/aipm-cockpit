@@ -57,7 +57,7 @@ import { SortResizeTh } from "./report-table";
  *  reference-stable (a fresh `[]` each render would bust it). */
 const EMPTY_RESOURCES: readonly Resource[] = [];
 
-const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","description","notesLog","depRelations","estimate","spent","actions"] as const;
+const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","createdDate","priority","taskStatus","blockers","description","notesLog","depRelations","estimate","spent","actions"] as const;
 
 /** Fixed English friction phrase to confirm clearing all tasks (mirrors the
  *  factory-reset dialog). Deliberately not localized. */
@@ -70,6 +70,7 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "startDate",      labelKey: "start" },
   { key: "dueDate",        labelKey: "due" },
   { key: "lastUpdateDate", labelKey: "lastUpdate" },
+  { key: "createdDate",    labelKey: "colCreatedDate" },
   { key: "priority",       labelKey: "priority" },
   { key: "taskStatus",     labelKey: "colTaskStatus" },
   { key: "blockers",       labelKey: "blockers" },
@@ -882,6 +883,7 @@ export function TasksSection({
                 {!hiddenCols.has("startDate") && <SortResizeTh label={t(lang, "start")} sortCol="startDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "start"))} />}
                 {!hiddenCols.has("dueDate") && <SortResizeTh label={t(lang, "due")} sortCol="dueDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "due"))} />}
                 {!hiddenCols.has("lastUpdateDate") && <SortResizeTh label={t(lang, "lastUpdate")} sortCol="lastUpdateDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "lastUpdate"))} />}
+                {!hiddenCols.has("createdDate") && <SortResizeTh label={t(lang, "colCreatedDate")} sortCol="createdDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colCreatedDate"))} />}
                 {!hiddenCols.has("priority") && <SortResizeTh label={t(lang, "priority")} sortCol="priority" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "priority"))} />}
                 {!hiddenCols.has("taskStatus") && <SortResizeTh label={t(lang, "colTaskStatus")} sortCol="taskStatus" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colTaskStatus"))} />}
                 {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}

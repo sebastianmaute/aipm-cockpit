@@ -334,6 +334,42 @@ describe("TaskRow workflow-status badge", () => {
     expect(queryByText("On Hold")).toBeNull();
   });
 
+  test("renders the Created column value when unhidden", () => {
+    const ctx = makeContext(); // hiddenCols is empty → createdDate column shown
+    const { getByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 23, createdDate: "2026-01-15" })}
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(getByText("2026-01-15")).toBeTruthy();
+  });
+
+  test("hides the Created column value when hidden", () => {
+    const ctx = makeContext({ hiddenCols: new Set(["createdDate"]) });
+    const { queryByText } = render(
+      rowWrapper({
+        context: ctx,
+        children: (
+          <TaskRow
+            task={makeTask({ id: 24, createdDate: "2026-01-15" })}
+            isSelected={false}
+            isEditing={false}            isPushing={false}
+            raidRefs={undefined}
+          />
+        ),
+      }),
+    );
+    expect(queryByText("2026-01-15")).toBeNull();
+  });
+
   test("changes status via the inline dropdown", () => {
     const onStatusChange = vi.fn();
     const ctx = makeContext({ onStatusChange });

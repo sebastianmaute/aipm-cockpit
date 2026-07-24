@@ -523,6 +523,7 @@ function TaskRowImpl({
         </Td>
       )}
       {!hiddenCols.has("lastUpdateDate") && <Td title={`${t(lang, "lastUpdateDate")}: ${task.lastUpdateDate || "—"}`}>{task.lastUpdateDate}</Td>}
+      {!hiddenCols.has("createdDate") && <Td title={`${t(lang, "colCreatedDate")}: ${task.createdDate || "—"}`}>{task.createdDate || "—"}</Td>}
       {!hiddenCols.has("priority") && (
         <Td stopClick>
           {inlineEditable && inline.editing === "priority" ? (

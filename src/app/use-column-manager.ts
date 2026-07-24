@@ -24,6 +24,7 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   startDate: 110,
   dueDate: 110,
   lastUpdateDate: 110,
+  createdDate: 110,
   priority: 90,
   taskStatus: 110,
   blockers: 140,
