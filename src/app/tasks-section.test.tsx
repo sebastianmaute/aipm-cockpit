@@ -611,6 +611,38 @@ describe("TasksSection", () => {
     expect(next.language).toBe("en-US");
   });
 
+  it("toggling 'Hide externals' persists via setSettings", () => {
+    const setSettings = vi.fn();
+    mockUseSettings.mockReturnValue({
+      settings: {
+        holidayCountries: [],
+        jira: { siteUrl: "", enabled: false, projectKey: "", issueTypes: [] },
+        notifications: { reminderLeadDays: 7, banner: { enabled: false }, popup: { enabled: false } },
+        ai: { consentAccepted: false },
+        lang: "en-US",
+        popout: { reuseWindow: false },
+        hideFinishedTasks: false,
+        hideExternalTasks: false,
+      },
+      setSettings,
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US",
+    });
+    const task = { id: 1, taskName: "T1", status: "To Do" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "hideExternalTasks") }));
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    // Same non-tautological shape as the "Hide finished" test above: the
+    // handler must forward e.target.checked (RTL reports false) through a
+    // spread updater, not hardcode true or drop sibling fields.
+    const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
+    const next = updater({ hideExternalTasks: true, language: "en-US" } as Settings);
+    expect(next.hideExternalTasks).toBe(false);
+    expect(next.language).toBe("en-US");
+  });
+
   it("view-mode toggle writes device settings when the project has no override", () => {
     const setSettings = vi.fn();
     mockUseSettings.mockReturnValue({

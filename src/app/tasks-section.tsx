@@ -273,6 +273,7 @@ export function TasksSection({
   });
 
   const hideFinished = settings.hideFinishedTasks ?? false;
+  const hideExternal = settings.hideExternalTasks ?? false;
   // View mode reads the EFFECTIVE value (device default OR this project's
   // appearance override). The in-pane toggle below writes to whichever scope is
   // active, so an override no longer snaps back when toggled. Keys off
@@ -533,6 +534,15 @@ export function TasksSection({
             className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
           />
           {t(lang, "hideFinishedTasks")}
+        </label>
+        <label className="flex items-center gap-1 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={hideExternal}
+            onChange={(e) => setSettings((s) => ({ ...s, hideExternalTasks: e.target.checked }))}
+            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
+          />
+          {t(lang, "hideExternalTasks")}
         </label>
         <SegmentedControl
           value={tasksViewMode}
