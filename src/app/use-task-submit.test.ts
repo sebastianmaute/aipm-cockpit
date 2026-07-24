@@ -306,6 +306,35 @@ describe("useTaskSubmit — new task: id, startDate clamp, push-to-jira", () => 
   });
 });
 
+describe("useTaskSubmit — createdDate stamp", () => {
+  it("a newly created task records its creation date", () => {
+    const setTasks = vi.fn();
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({ setTasks, tasks: [], tasksRef: { current: [] } })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const nextList = setTasks.mock.calls[0][0] as Task[];
+    const created = nextList.at(-1)!;
+    expect(created.createdDate).toBe(created.lastUpdateDate);
+  });
+
+  it("editing a task leaves its existing createdDate untouched", () => {
+    const setTasks = vi.fn();
+    const existing = makeTask({ id: 1, assignee: "Bob", createdDate: "2029-06-15" });
+    const { result } = renderHook(() =>
+      useTaskSubmit(makeArgs({
+        setTasks, editingId: 1, tasks: [existing],
+        tasksRef: { current: [existing] },
+        form: { ...validForm(), taskName: "New Name", assignee: "Bob" },
+      })),
+    );
+    act(() => result.current.handleSubmit(fakeSubmitEvent()));
+    const updater = setTasks.mock.calls[0][0] as (p: Task[]) => Task[];
+    const [patched] = updater([existing]);
+    expect(patched.createdDate).toBe("2029-06-15");
+  });
+});
+
 describe("useTaskSubmit — resourceId threading", () => {
   it("carries form.resourceId onto the created Task", () => {
     const setTasks = vi.fn();
