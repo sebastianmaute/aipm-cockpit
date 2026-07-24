@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { groupByStatus } from "./task-kanban";
-import { TASK_STATUSES, type Task } from "./types";
+import { groupByStatus, groupByStatusAndPerson, UNASSIGNED_LANE } from "./task-kanban";
+import { TASK_STATUSES, type Resource, type Task } from "./types";
 
 const t = (id: number, status: Task["status"]): Task =>
   ({ id, taskName: "T" + id, assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
@@ -16,5 +16,62 @@ describe("groupByStatus", () => {
     expect(g["To Do"].map((x) => x.id)).toEqual([1, 3]);
     expect(g["Done"].map((x) => x.id)).toEqual([2]);
     expect(g["In Progress"]).toEqual([]);
+  });
+});
+
+const task = (over: Partial<Task>): Task => ({
+  id: 1, taskName: "T", assignee: "", assigneeEmail: "",
+  dueDate: "2026-03-01", lastUpdateDate: "2026-02-01",
+  priority: "Medium", status: "To Do", blockers: "", description: "",
+  ...over,
+});
+
+const resources = new Map<number, Resource>([
+  [1, { id: 1, firstName: "Anna", lastName: "Jordan" } as Resource],
+  [2, { id: 2, firstName: "Bo", lastName: "Klein" } as Resource],
+]);
+
+describe("groupByStatusAndPerson", () => {
+  it("lanes sort by display name with Unassigned last", () => {
+    const out = groupByStatusAndPerson(
+      [task({ id: 1, resourceId: 2 }), task({ id: 2 }), task({ id: 3, resourceId: 1 })],
+      resources,
+      [],
+    );
+    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Jordan", "Bo Klein", ""]);
+    expect(out.lanes.at(-1)!.key).toBe(UNASSIGNED_LANE);
+  });
+
+  it("a linked lane uses the resource's LIVE name, not the cached assignee string", () => {
+    const out = groupByStatusAndPerson([task({ resourceId: 1, assignee: "Old Name" })], resources, []);
+    expect(out.lanes[0].label).toBe("Anna Jordan");
+  });
+
+  it("a free-string assignee gets its own lane keyed by the string", () => {
+    const out = groupByStatusAndPerson([task({ assignee: "Contractor X" })], resources, []);
+    expect(out.lanes[0].key).toBe("name:Contractor X");
+    expect(out.lanes[0].resourceId).toBeNull();
+  });
+
+  it("extra lane ids appear even with no tasks", () => {
+    const out = groupByStatusAndPerson([task({ resourceId: 1 })], resources, [2]);
+    expect(out.lanes.map((l) => l.label)).toEqual(["Anna Jordan", "Bo Klein", ""]);
+    expect(out.cells["res:2"]["To Do"]).toEqual([]);
+  });
+
+  it("an extra lane id already present is not duplicated", () => {
+    const out = groupByStatusAndPerson([task({ resourceId: 1 })], resources, [1]);
+    expect(out.lanes.filter((l) => l.key === "res:1")).toHaveLength(1);
+  });
+
+  it("every lane has a bucket for every status", () => {
+    const out = groupByStatusAndPerson([task({ resourceId: 1, status: "Done" })], resources, []);
+    expect(Object.keys(out.cells["res:1"]).sort()).toEqual([...TASK_STATUSES].sort());
+  });
+
+  it("an extra lane id that does not resolve to a live resource is ignored", () => {
+    const out = groupByStatusAndPerson([task({ resourceId: 1 })], resources, [999]);
+    expect(out.lanes.some((l) => l.key === "res:999")).toBe(false);
+    expect(out.cells["res:999"]).toBeUndefined();
   });
 });
