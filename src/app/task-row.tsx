@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { DocumentTextIcon, PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { RagDot } from "./rag-dot";
 import { htmlToText } from "./sanitize-html";
@@ -11,6 +11,7 @@ import { isReadOnlyIssue } from "./jira-projects";
 import type { JiraExtraProject } from "./settings-types";
 import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
+import { NotesBadgeButton } from "./notes-badge-button";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
@@ -586,16 +587,12 @@ function TaskRowImpl({
       {!hiddenCols.has("notesLog") && (
         <Td>
           {/* Count badge opening the floating notes window (running note log). */}
-          <button
-            type="button"
+          <NotesBadgeButton
+            count={task.noteLog?.length ?? 0}
+            entityName={task.taskName}
+            lang={lang}
             onClick={() => onOpenNotes(task.id)}
-            aria-label={`${t(lang, "noteLogTitle")} – ${task.taskName}`}
-            title={t(lang, "noteLogTitle")}
-            className={`inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-0.5 text-muted-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
-          >
-            <DocumentTextIcon aria-hidden="true" className="h-4 w-4" />
-            <span className="text-xs font-medium">{task.noteLog?.length ?? 0}</span>
-          </button>
+          />
         </Td>
       )}
       {!hiddenCols.has("depRelations") && (
