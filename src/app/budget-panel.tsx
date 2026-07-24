@@ -9,7 +9,7 @@ import type { Period } from "./resource-capacity";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
-import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role } from "./types";
+import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role, Task } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
 import { mintId } from "./id-mint-session";
 import { useColumnResize } from "./use-column-resize";
@@ -171,6 +171,8 @@ export interface BudgetPanelProps {
   holidaySet: Set<string>;
   workdayHours: number;
   today: string;
+  /** Tasks available to the bucket editor's "linked tasks" picker (earned value). */
+  tasks?: readonly Task[];
   onChangeBuckets: (next: BudgetBucket[]) => void;
   onSetBudgetFollowsPlan?: (v: boolean) => void;
   onRefreshFx: () => void;
@@ -217,7 +219,7 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, tasks = [] } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
 
@@ -648,6 +650,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           disciplines={props.disciplines}
           grades={props.grades}
           resources={resources}
+          tasks={tasks}
           onSave={(next) => {
             props.onChangeBuckets(buckets.map((b) => (b.id === next.id ? next : b)));
             setEditingBucketId(null);

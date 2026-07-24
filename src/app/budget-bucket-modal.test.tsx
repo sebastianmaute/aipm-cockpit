@@ -7,7 +7,7 @@ import { BudgetBucketModal } from "./budget-bucket-modal";
 import { applyTier } from "./field-visibility";
 import type { FieldTier } from "./modal-fields";
 import { t } from "./i18n";
-import type { BudgetBucket, Role } from "./types";
+import type { BudgetBucket, Role, Task } from "./types";
 
 // The planning-mode data-loss warning now routes through the branded
 // `useConfirm()` hook (async) instead of window.confirm. This test has no
@@ -59,6 +59,33 @@ const baseBucket: BudgetBucket = {
   status: "open",
   allocations: [],
 };
+
+const tasks: Task[] = [
+  {
+    id: 21,
+    taskName: "Kickoff workshop",
+    assignee: "Sam Lee",
+    assigneeEmail: "sam@example.com",
+    dueDate: "2026-02-01",
+    lastUpdateDate: "2026-01-15",
+    priority: "Medium",
+    status: "To Do",
+    blockers: "",
+    description: "",
+  },
+  {
+    id: 22,
+    taskName: "Draft scope doc",
+    assignee: "Sam Lee",
+    assigneeEmail: "sam@example.com",
+    dueDate: "2026-02-10",
+    lastUpdateDate: "2026-01-15",
+    priority: "Medium",
+    status: "Done",
+    blockers: "",
+    description: "",
+  },
+];
 
 function setup(
   over: Partial<React.ComponentProps<typeof BudgetBucketModal>> = {},
@@ -364,5 +391,43 @@ describe("BudgetBucketModal", () => {
     expect(screen.getByText(t("en-US", "budgetNoDisciplinesDefined"))).toBeInTheDocument();
     expect(screen.getByText(/add disciplines under/i)).toBeInTheDocument();
     expect(screen.queryByText(t("en-US", "budgetNoDisciplinesLeft"))).not.toBeInTheDocument();
+  });
+
+  // C4: link tasks + manual percent complete -----------------------------
+
+  test("linking a task writes taskIds", () => {
+    const { onSave } = setup({ tasks });
+    const search = screen.getByLabelText(t("en-US", "budgetLinkedTasks"));
+    fireEvent.change(search, { target: { value: "Kickoff" } });
+    fireEvent.click(screen.getByRole("button", { name: /kickoff workshop/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).taskIds).toEqual([21]);
+  });
+
+  test("removing a linked task drops it from taskIds", () => {
+    const { onSave } = setup({ tasks, bucket: { ...baseBucket, taskIds: [21, 22] } });
+    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "taskUnlink")} #21` }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect((onSave.mock.calls[0][0] as BudgetBucket).taskIds).toEqual([22]);
+  });
+
+  test("typing a percent writes percentComplete", () => {
+    const { onSave } = setup();
+    const percent = screen.getByLabelText(t("en-US", "budgetPercentComplete"));
+    fireEvent.change(percent, { target: { value: "40" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).percentComplete).toBe(40);
+  });
+
+  test("clearing the percent writes undefined, not 0", () => {
+    const { onSave } = setup({ bucket: { ...baseBucket, percentComplete: 50 } });
+    const percent = screen.getByLabelText(t("en-US", "budgetPercentComplete"));
+    fireEvent.change(percent, { target: { value: "" } });
+    fireEvent.blur(percent);
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).percentComplete).toBeUndefined();
   });
 });
