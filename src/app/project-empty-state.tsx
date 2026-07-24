@@ -141,8 +141,8 @@ export function ProjectEmptyState({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={brandLogo || "/AIPM-logo.svg"}
-                alt="Acme"
-                className={brandLogo ? "max-h-10 w-auto object-contain" : "h-7 w-auto"}
+                alt={brandLogo ? (settings.branding?.slogan ?? t(lang, "appTitle")) : "Acme"}
+                className={brandLogo ? "max-h-10 max-w-[200px] w-auto object-contain" : "h-7 w-auto"}
               />
             ) : undefined
           }
