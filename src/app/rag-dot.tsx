@@ -1,20 +1,14 @@
 "use client";
 import { healthDot, type Health } from "./health";
+import { Dot, type DotSize } from "./dot";
 
 // Shared RAG status dot — the small coloured circle that precedes a health
 // label across the app (task rows, RAID/change severity, reports groups, KPI
 // tiles, digests). Colour rides `healthDot` (the single --rag-* role-token map
-// in health.ts) so a given RAG letter reflows with the active scheme and reads
-// identically everywhere; this atom just pins the size + shape so the ~15 call
-// sites stop hand-rolling `h-2 w-2 rounded-full ${localDotMap[x]}`.
-export type RagDotSize = "xs" | "sm" | "md" | "lg";
-
-const RAG_DOT_SIZE: Record<RagDotSize, string> = {
-  xs: "h-1.5 w-1.5", // 6px  — inline chips
-  sm: "h-2 w-2", //     8px  — table severity/impact dots
-  md: "h-2.5 w-2.5", // 10px — KPI tiles, kanban cards
-  lg: "h-3 w-3", //    12px — reports group cards, digest
-};
+// in health.ts); the size+shape come from the shared `Dot` atom. This wrapper
+// pins the Health-only contract the codebase leans on — non-Health callers use
+// `Dot` directly with their own colour map, NOT this component.
+export type RagDotSize = DotSize;
 
 interface RagDotProps {
   level: Health;
@@ -29,11 +23,5 @@ interface RagDotProps {
 }
 
 export function RagDot({ level, size = "sm", className, label }: RagDotProps) {
-  const cls = `inline-block shrink-0 rounded-full ${RAG_DOT_SIZE[size]} ${healthDot[level]}${
-    className ? ` ${className}` : ""
-  }`;
-  if (label) {
-    return <span role="img" title={label} aria-label={label} className={cls} />;
-  }
-  return <span aria-hidden className={cls} />;
+  return <Dot color={healthDot[level]} size={size} className={className} label={label} />;
 }

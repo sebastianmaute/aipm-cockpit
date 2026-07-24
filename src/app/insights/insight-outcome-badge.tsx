@@ -4,13 +4,15 @@
 // DOT (non-text, AA-exempt); the wording is muted text and carries the meaning
 // on its own, so the badge is never colour-only.
 import { t, type Lang } from "../i18n";
+import { Dot } from "../dot";
 import type { InsightOutcome } from "./insight";
 
-// Deliberately NOT the shared `RagDot`: its `level` is `Health` ("R"|"A"|"G"),
-// which cannot express the neutral "unchanged" state — and mapping neutral to
-// amber would read as "at risk". A local token map is the established pattern
-// for every non-Health dot in the app (TIER_RAG in actions-panel/action-chips,
-// the resource-picker linked marker, tour step dots). Please don't "fix" this.
+// Deliberately NOT `RagDot`: its `level` is `Health` ("R"|"A"|"G"), which cannot
+// express the neutral "unchanged" state — mapping neutral to amber would read as
+// "at risk". This local token map stays here (the established pattern for every
+// non-Health dot: TIER_RAG in actions-panel/action-chips, the resource-picker
+// linked marker, tour step dots) and feeds the shared size+shape `Dot` atom's
+// `color` prop. Please don't "fix" this into RagDot.
 const DIRECTION_DOT: Record<InsightOutcome["direction"], string> = {
   improved: "bg-[var(--rag-green)]",
   unchanged: "bg-ui-medium-grey",
@@ -39,10 +41,7 @@ export function InsightOutcomeBadge({ outcome, lang }: InsightOutcomeBadgeProps)
           : t(lang, "insightOutcomeUnchanged");
   return (
     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-      <span
-        aria-hidden="true"
-        className={`h-2 w-2 shrink-0 rounded-full ${DIRECTION_DOT[outcome.direction]}`}
-      />
+      <Dot color={DIRECTION_DOT[outcome.direction]} size="sm" />
       {text}
     </span>
   );
