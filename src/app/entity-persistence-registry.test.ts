@@ -63,7 +63,7 @@ const REGISTRY: ReadonlyArray<{
       tasks: [{
         id: 1, taskName: "Wire calendar", assignee: "Alex", assigneeEmail: "alex@example.com",
         dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
-        blockers: "", notes: "", outlookEventId: EVT,
+        blockers: "", description: "", outlookEventId: EVT,
       }],
     }),
     read: (ws) => ws.tasks[0]?.outlookEventId,
@@ -133,6 +133,9 @@ describe("entity persistence registry — inquiriesSent + noteLog survive every 
   it("noteLog is in the Task CSV column registry (drives CSV + Turso single/tenant)", () => {
     expect(CSV_COLUMNS as readonly string[]).toContain("noteLog");
   });
+  it("noteLog is in the RAID CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(RAID_CSV_COLUMNS as readonly string[]).toContain("noteLog");
+  });
 
   const seedRaid = (): Workspace => ({
     ...emptyWorkspace(),
@@ -146,7 +149,15 @@ describe("entity persistence registry — inquiriesSent + noteLog survive every 
     tasks: [{
       id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.com",
       dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
-      blockers: "", notes: "",
+      blockers: "", description: "",
+      noteLog: [{ authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", text: "hi" }],
+    }],
+  });
+  const seedRaidNote = (): Workspace => ({
+    ...emptyWorkspace(),
+    raid: [{
+      id: 1, category: "R", title: "Risk", status: "Open", linkedTaskIds: [],
+      causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01",
       noteLog: [{ authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", text: "hi" }],
     }],
   });
@@ -162,6 +173,12 @@ describe("entity persistence registry — inquiriesSent + noteLog survive every 
   });
   it("task noteLog survives the Markdown round-trip", () => {
     expect(markdownToWorkspace(workspaceToMarkdown(seedNote())).tasks[0]?.noteLog?.[0]?.text).toBe("hi");
+  });
+  it("raid noteLog survives the CSV round-trip", () => {
+    expect(csvToWorkspace(workspaceToCsv(seedRaidNote())).raid[0]?.noteLog?.[0]?.text).toBe("hi");
+  });
+  it("raid noteLog survives the Markdown round-trip", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(seedRaidNote())).raid[0]?.noteLog?.[0]?.text).toBe("hi");
   });
 });
 

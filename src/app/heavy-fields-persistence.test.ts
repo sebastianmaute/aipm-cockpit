@@ -1,7 +1,8 @@
-// Round-trip guards for the two new persisted fields:
+// Round-trip guards for the new persisted fields:
 //   RaidItem.inquiriesSent  (mirrors Task.inquiriesSent)
 //   Task.noteLog            (structured JSON-in-cell array)
-// Both must survive the CSV and Markdown backends (CSV also drives Turso
+//   RaidItem.noteLog        (mirrors Task.noteLog)
+// All must survive the CSV and Markdown backends (CSV also drives Turso
 // single + tenant via *_CSV_COLUMNS).
 import { describe, it, expect } from "vitest";
 import {
@@ -27,11 +28,29 @@ const seedTaskNote = (): Workspace => ({
   tasks: [{
     id: 1, taskName: "Chase vendor", assignee: "Alex", assigneeEmail: "alex@example.com",
     dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
-    blockers: "", notes: "",
+    blockers: "", description: "",
     noteLog: [
-      { authorResourceId: 7, authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", text: "Left a voicemail" },
-      { authorName: "Bob", timestamp: "2026-07-17T09:30:00.000Z", text: "Emailed follow-up" },
+      {
+        id: 1, authorResourceId: 7, authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z",
+        html: "<p>Left a voicemail</p>", text: "Left a voicemail",
+      },
+      {
+        id: 2, authorName: "Bob", timestamp: "2026-07-17T09:30:00.000Z",
+        html: "<p>Emailed follow-up</p>", text: "Emailed follow-up",
+      },
     ],
+  }],
+});
+
+const seedRaidNote = (): Workspace => ({
+  ...emptyWorkspace(),
+  raid: [{
+    id: 1, category: "R", title: "Vendor risk", status: "Open", linkedTaskIds: [],
+    causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01", targetDate: "2026-03-01",
+    noteLog: [{
+      id: 1, timestamp: "2026-01-01T00:00:00.000Z",
+      html: '<p>hi | "q"</p>', text: 'hi | "q"',
+    }],
   }],
 });
 
@@ -72,10 +91,12 @@ describe("Task.noteLog persistence", () => {
       tasks: [{
         id: 9, taskName: "Edge", assignee: "A", assigneeEmail: "a@x.com",
         dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
-        blockers: "", notes: "",
+        blockers: "", description: "",
         noteLog: [{
+          id: 1,
           authorName: 'Zoe "Z", Ng | Lee',
           timestamp: "2026-07-16T10:00:00.000Z",
+          html: '<p>Called re: "vendor A, B | C" — no answer</p>',
           text: 'Called re: "vendor A, B | C" — no answer',
         }],
       }],
@@ -92,10 +113,36 @@ describe("Task.noteLog persistence", () => {
       tasks: [{
         id: 3, taskName: "Plain", assignee: "", assigneeEmail: "",
         dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
-        blockers: "", notes: "",
+        blockers: "", description: "",
       }],
     };
     const back = csvToWorkspace(workspaceToCsv(ws));
     expect(back.tasks[0]?.noteLog).toBeUndefined();
+  });
+});
+
+describe("RaidItem.noteLog persistence", () => {
+  it("survives the CSV round-trip", () => {
+    const back = csvToWorkspace(workspaceToCsv(seedRaidNote()));
+    expect(back.raid[0]?.noteLog?.[0]?.text).toBe('hi | "q"');
+    expect(back.raid[0]?.noteLog?.[0]?.html).toBe('<p>hi | "q"</p>');
+  });
+
+  it("survives the Markdown round-trip", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(seedRaidNote()));
+    expect(back.raid[0]?.noteLog?.[0]?.text).toBe('hi | "q"');
+    expect(back.raid[0]?.noteLog?.[0]?.html).toBe('<p>hi | "q"</p>');
+  });
+
+  it("a legacy RAID item without noteLog stays undefined (sparse)", () => {
+    const ws: Workspace = {
+      ...emptyWorkspace(),
+      raid: [{
+        id: 2, category: "I", title: "Issue", status: "Open", linkedTaskIds: [],
+        causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01",
+      }],
+    };
+    const back = csvToWorkspace(workspaceToCsv(ws));
+    expect(back.raid[0]?.noteLog).toBeUndefined();
   });
 });
