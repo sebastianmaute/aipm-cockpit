@@ -58,6 +58,10 @@ export type Task = {
   startDate?: string;
   dueDate: string;
   lastUpdateDate: string;
+  /** YYYY-MM-DD the task was created. Optional: absent on legacy data until the
+   *  load migrator backfills it from `lastUpdateDate`. Date-only like every
+   *  other Task date field — there is deliberately no instant precision here. */
+  createdDate?: string;
   priority: Priority;
   /** Workflow status. Source of truth for "done": status==="Done" keeps the
    *  invariant completedDate-set; "Cancelled" is terminal but not completed. */
