@@ -16,6 +16,7 @@ import { Fragment, useCallback, useId, useMemo, useRef, useState } from "react";
 import { ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type React from "react";
 import type { Contact } from "./contacts";
+import { Dot } from "./dot";
 import { type Lang, t } from "./i18n";
 import { resourceDisplayName } from "./resource-foundation";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
@@ -301,7 +302,7 @@ export function ResourcePicker({
                     ) : (
                       <>
                         <span className="flex items-center gap-1.5 truncate font-medium text-foreground">
-                          {row.kind === "resource" && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-ui-green" />}
+                          {row.kind === "resource" && <Dot color="bg-ui-green" size="xs" />}
                           {row.name}
                         </span>
                         {row.email && <span className="truncate text-xs text-muted-foreground">{row.email}</span>}
