@@ -35,7 +35,9 @@ import { TaskLinkedTaskModal, type LinkedTaskDraft } from "./task-linked-task-mo
 import { applyTaskLink } from "./task-link";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Task, type NoteLogEntry, DEFAULT_TASK_STATUS } from "./types";
+import { NotesWindow } from "./notes-window";
+import { addNote, editNote, deleteNote } from "./note-log";
 import { INTERACTIVE } from "./interaction-styles";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
@@ -1329,7 +1331,7 @@ function TaskManagerInner() {
         priority: draft.priority,
         status: DEFAULT_TASK_STATUS,
         blockers: "",
-        notes: "",
+        description: "",
         inquiriesSent: 0,
         dependencies: [],
       };
@@ -1349,6 +1351,106 @@ function TaskManagerInner() {
     },
     [today, setTasks, logActivity, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
   );
+
+  // Shared floating note-log window: which entity's log is open (null = closed).
+  // Never mounted/enabled in popouts (read-only). The window is a single surface
+  // reused by tasks + RAID; CRUD routes back into the live workspace state.
+  const [notesTarget, setNotesTarget] = useState<{ kind: "task" | "raid"; id: number } | null>(null);
+
+  const notesEntries: readonly NoteLogEntry[] =
+    notesTarget?.kind === "task"
+      ? tasks.find((tk) => tk.id === notesTarget.id)?.noteLog ?? []
+      : notesTarget?.kind === "raid"
+        ? raid.find((r) => r.id === notesTarget.id)?.noteLog ?? []
+        : [];
+
+  const notesSelf = settings.selfResourceId ?? null;
+  const notesAuthorName = (() => {
+    const r = resources.find((x) => x.id === notesSelf);
+    return r ? resourceDisplayName(r) : undefined;
+  })();
+
+  const notesEntityLabel =
+    notesTarget?.kind === "task"
+      ? tasks.find((tk) => tk.id === notesTarget.id)?.taskName ?? t(lang, "noteLogTitle")
+      : notesTarget?.kind === "raid"
+        ? raid.find((r) => r.id === notesTarget.id)?.title ?? t(lang, "noteLogTitle")
+        : t(lang, "noteLogTitle");
+
+  // CRUD handlers for the open note-log target. FUNCTIONAL setters throughout
+  // (a note change is a single-item entity edit; the functional form avoids the
+  // stale-closure trap). Timestamps are minted inside the event handler (never
+  // in render). Each write stamps `localModifiedAt` + logs the entity's own
+  // `*.updated` activity kind (no dedicated note kind exists).
+  const noteHandlersFor = (kind: "task" | "raid", id: number) => {
+    // Resolve the display name from the LIVE closure array (event-handler scope),
+    // never from inside the setState updater — reading an updater-assigned var
+    // after the setter is the documented stale-read landmine.
+    const entityName =
+      kind === "task"
+        ? tasks.find((tk) => tk.id === id)?.taskName ?? ""
+        : raid.find((r) => r.id === id)?.title ?? "";
+    return {
+      onAdd: (html: string, text: string) => {
+        const ts = new Date().toISOString();
+        if (kind === "task") {
+          setTasks((prev) =>
+            prev.map((tk) =>
+              tk.id === id
+                ? { ...tk, noteLog: addNote(tk.noteLog ?? [], { html, text, timestamp: ts, self: notesSelf, authorName: notesAuthorName }), localModifiedAt: ts }
+                : tk,
+            ),
+          );
+          logActivity("task.updated", id, entityName);
+        } else {
+          setRaid((prev) =>
+            prev.map((r) =>
+              r.id === id
+                ? { ...r, noteLog: addNote(r.noteLog ?? [], { html, text, timestamp: ts, self: notesSelf, authorName: notesAuthorName }), localModifiedAt: ts }
+                : r,
+            ),
+          );
+          logActivity("raid.updated", id, entityName);
+        }
+      },
+      onEdit: (noteId: number, html: string, text: string) => {
+        const ts = new Date().toISOString();
+        if (kind === "task") {
+          setTasks((prev) =>
+            prev.map((tk) =>
+              tk.id === id
+                ? { ...tk, noteLog: editNote(tk.noteLog ?? [], noteId, { html, text, editedAt: ts, self: notesSelf, authorName: notesAuthorName }), localModifiedAt: ts }
+                : tk,
+            ),
+          );
+          logActivity("task.updated", id, entityName);
+        } else {
+          setRaid((prev) =>
+            prev.map((r) =>
+              r.id === id
+                ? { ...r, noteLog: editNote(r.noteLog ?? [], noteId, { html, text, editedAt: ts, self: notesSelf, authorName: notesAuthorName }), localModifiedAt: ts }
+                : r,
+            ),
+          );
+          logActivity("raid.updated", id, entityName);
+        }
+      },
+      onDelete: (noteId: number) => {
+        const ts = new Date().toISOString();
+        if (kind === "task") {
+          setTasks((prev) =>
+            prev.map((tk) => (tk.id === id ? { ...tk, noteLog: deleteNote(tk.noteLog ?? [], noteId), localModifiedAt: ts } : tk)),
+          );
+          logActivity("task.updated", id, entityName);
+        } else {
+          setRaid((prev) =>
+            prev.map((r) => (r.id === id ? { ...r, noteLog: deleteNote(r.noteLog ?? [], noteId), localModifiedAt: ts } : r)),
+          );
+          logActivity("raid.updated", id, entityName);
+        }
+      },
+    };
+  };
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
@@ -1415,9 +1517,7 @@ function TaskManagerInner() {
   const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
 
   const {
-    expandedNotes,
     pushingIds,
-    onToggleNoteExpanded,
     onJumpToRaid,
     onSendInquiry,
     onPushToJira,
@@ -2292,7 +2392,7 @@ function TaskManagerInner() {
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}
-      onToggleNoteExpanded={onToggleNoteExpanded}
+      onOpenNotes={(id) => setNotesTarget({ kind: "task", id })}
       onJumpToRaid={onJumpToRaid}
       onSendInquiry={onSendInquiry}
       onPushToJira={onPushToJira}
@@ -2309,7 +2409,6 @@ function TaskManagerInner() {
       resetColWidths={resetColWidths}
       tableRef={tableRef}
       resetTableSize={resetTableSize}
-      expandedNotes={expandedNotes}
       pushingIds={pushingIds}
       raidByTask={raidByTask}
       changeByTask={changeByTask}
@@ -2622,6 +2721,11 @@ function TaskManagerInner() {
         taskEditorActions={editorLeadingActions}
         taskDeleteAction={editorDeleteAction}
         taskEditorExtras={editorExtrasEl}
+        taskOnOpenNotes={
+          // Only an EXISTING task has an id to target; a new unsaved draft's
+          // noteLog can't be addressed, so leave the button disabled (undefined).
+          editingId !== null ? () => setNotesTarget({ kind: "task", id: editingId }) : undefined
+        }
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}
@@ -2672,6 +2776,20 @@ function TaskManagerInner() {
           today={today}
           onCreate={handleCreateLinkedTask}
           onClose={() => setLinkedTaskOpen(false)}
+        />
+      )}
+      {!isPopout && (
+        <NotesWindow
+          open={notesTarget != null}
+          onClose={() => setNotesTarget(null)}
+          entries={notesEntries}
+          onAdd={(h, tx) => notesTarget && noteHandlersFor(notesTarget.kind, notesTarget.id).onAdd(h, tx)}
+          onEdit={(nid, h, tx) => notesTarget && noteHandlersFor(notesTarget.kind, notesTarget.id).onEdit(nid, h, tx)}
+          onDelete={(nid) => notesTarget && noteHandlersFor(notesTarget.kind, notesTarget.id).onDelete(nid)}
+          self={notesSelf}
+          resources={resources}
+          lang={lang}
+          entityLabel={notesEntityLabel}
         />
       )}
     </>

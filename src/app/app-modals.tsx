@@ -75,6 +75,10 @@ export interface AppModalsProps {
   taskDeleteAction?: ReactNode;
   /** Editor extras (create-RAID mini-form + new linked-task button) rendered below the classic modal fields. */
   taskEditorExtras?: ReactNode;
+  /** Opens the shared note-log window for the currently-edited task. Provided
+   *  only when editing an EXISTING task (an unsaved draft has no id to target);
+   *  absent → the form's "Notes" button is disabled. */
+  taskOnOpenNotes?: () => void;
 
   // Resource edit modal
   editingResource: { resource: Resource; isNew: boolean } | null;
@@ -133,6 +137,7 @@ export function AppModals({
   taskEditorActions,
   taskDeleteAction,
   taskEditorExtras,
+  taskOnOpenNotes,
   editingResource,
   onSaveResource,
   onDeleteResource,
@@ -174,6 +179,7 @@ export function AppModals({
           leadingActions={taskEditorActions}
           deleteAction={taskDeleteAction}
           editorExtras={taskEditorExtras}
+          onOpenNotes={taskOnOpenNotes}
         />
       )}
 

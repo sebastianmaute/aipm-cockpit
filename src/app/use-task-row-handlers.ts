@@ -70,7 +70,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
 
   const { setActiveTab } = useWorkspaceTab();
 
-  const [expandedNotes, setExpandedNotes] = useState<Set<number>>(new Set());
   const [pushingIds, setPushingIds] = useState<Set<number>>(new Set());
 
   // Stable ref wrappers for potentially-recreated callbacks — mirrors the
@@ -87,15 +86,6 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   useEffect(() => {
     handleCancelEditRef.current = handleCancelEdit;
   }, [handleCancelEdit]);
-
-  const onToggleNoteExpanded = useCallback((id: number) => {
-    setExpandedNotes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
 
   const onJumpToRaid = useCallback(
     (id: number) => {
@@ -317,11 +307,8 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
   );
 
   return {
-    expandedNotes,
-    setExpandedNotes,
     pushingIds,
     setPushingIds,
-    onToggleNoteExpanded,
     onJumpToRaid,
     onSendInquiry,
     onPushToJira,

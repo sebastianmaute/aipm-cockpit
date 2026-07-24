@@ -48,6 +48,9 @@ export interface TaskFormModalProps {
   /** Editor extras rendered below the fields (create-RAID mini-form + new
    *  linked-task button). Omitted in popouts (read-only). */
   editorExtras?: ReactNode;
+  /** Opens the shared note-log window for the edited task; absent → the in-form
+   *  "Notes" button is disabled (e.g. an unsaved new task with no id). */
+  onOpenNotes?: () => void;
 }
 
 export function TaskFormModal({
@@ -78,6 +81,7 @@ export function TaskFormModal({
   deleteAction,
   readOnlyJiraProjectName,
   editorExtras,
+  onOpenNotes,
 }: TaskFormModalProps) {
   const { editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
@@ -144,6 +148,7 @@ export function TaskFormModal({
             jiraDefaultIssueType={jiraDefaultIssueType}
             onRemoveContact={onRemoveContact}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
+            onOpenNotes={onOpenNotes}
           />
           {editorExtras && (
             <div className="space-y-3 border-t border-line pt-4">{editorExtras}</div>
