@@ -29,7 +29,10 @@ const RESIZABLE_FILES = [
 // Forbidden: a divergent rounded-md inset card on the resources inner tables or
 // the change/stakeholders/RAID register scroller (rendered via PanelTableScaffold).
 const INNER_FILES = [
-  "resources-panel.tsx",
+  // The planning inner table (with INNER_TABLE_CLASS) moved to
+  // resources-panel-rows.tsx in the gantt-convention split; resources-panel.tsx
+  // is now the orchestrator (keeps VIEW_PANE_RESIZABLE_CLASS, asserted above).
+  "resources-panel-rows.tsx",
   "resource-directory.tsx",
   "resource-workload.tsx",
   "panel-table-scaffold.tsx",
