@@ -1,4 +1,4 @@
-import { describe, expect, it, test } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   isTaskFinished,
   applyStatusChange,
@@ -97,31 +97,36 @@ describe("migrateTask createdDate backfill", () => {
     priority: "Medium", status: "To Do", blockers: "", description: "",
   };
 
-  test("keeps an existing createdDate", () => {
+  it("keeps an existing createdDate", () => {
     const out = migrateTask({ ...base, createdDate: "2026-01-15" });
     expect(out.createdDate).toBe("2026-01-15");
   });
 
-  test("backfills from lastUpdateDate when absent", () => {
+  it("backfills from lastUpdateDate when absent", () => {
     const out = migrateTask(base);
     expect(out.createdDate).toBe("2026-02-01");
   });
 
-  test("falls back to empty string when there is nothing to backfill from", () => {
+  it("falls back to empty string when there is nothing to backfill from", () => {
     const out = migrateTask({ ...base, lastUpdateDate: "" });
     expect(out.createdDate).toBe("");
   });
 
-  test("still migrates status (the original responsibility)", () => {
+  it("still migrates status (the original responsibility)", () => {
     const out = migrateTask({ ...base, status: "bogus" as TaskStatus, completedDate: "2026-02-02" });
     expect(out.status).toBe("Done");
     expect(out.createdDate).toBe("2026-02-01");
   });
 
-  test("returns a new object and never mutates its input", () => {
+  it("returns a new object and never mutates its input", () => {
     const input = { ...base };
     const out = migrateTask(input);
     expect(out).not.toBe(input);
     expect(input.createdDate).toBeUndefined();
+  });
+
+  it("returns the same reference when nothing needs migrating", () => {
+    const input = { ...base, createdDate: "2026-01-15" };
+    expect(migrateTask(input)).toBe(input);
   });
 });
