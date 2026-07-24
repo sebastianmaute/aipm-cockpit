@@ -12,6 +12,7 @@ import { DEFAULT_WEEK_HOURS, type Absence, type RaidItem, type Resource, type Ro
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { useWorkspace } from "./workspace-context";
 import { isValidEmail, sanitizeResource } from "./sanitize";
+import { plainToHtml } from "./sanitize-html";
 import { mergeImportedResources, type OutlookContact } from "./outlook-contacts";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import type { AbsenceType } from "./types";
@@ -882,7 +883,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         priority: "Medium",
         status: "To Do",
         blockers: "",
-        notes: item.mitigation ?? item.description ?? "",
+        description: plainToHtml(item.mitigation ?? item.description ?? ""),
         inquiriesSent: 0,
         localModifiedAt: stamp,
       };
