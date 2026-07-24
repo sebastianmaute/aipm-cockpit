@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { sanitizeTemplateHtml } from "./sanitize-html";
+import { sanitizeTemplateHtml, sanitizeNoteHtml, htmlToText } from "./sanitize-html";
 
 describe("sanitizeTemplateHtml", () => {
   it("drops <script> and event handlers", () => {
@@ -33,5 +33,31 @@ describe("sanitizeTemplateHtml", () => {
   });
   it("drops <style>", () => {
     expect(sanitizeTemplateHtml("<style>p{}</style><p>x</p>")).not.toContain("<style>");
+  });
+});
+
+describe("sanitizeNoteHtml", () => {
+  it("keeps the lean mark set", () => {
+    const out = sanitizeNoteHtml("<p><strong>a</strong> <em>b</em></p><ul><li>x</li></ul>");
+    expect(out).toContain("<strong>a</strong>");
+    expect(out).toContain("<em>b</em>");
+    expect(out).toContain("<li>x</li>");
+  });
+  it("strips disallowed tags and scripts", () => {
+    expect(sanitizeNoteHtml('<script>alert(1)</script><h1>no</h1><p>ok</p>'))
+      .toBe("<p>ok</p>");
+  });
+  it("keeps safe links, drops javascript: urls", () => {
+    expect(sanitizeNoteHtml('<a href="https://x.io">l</a>')).toContain('href="https://x.io"');
+    expect(sanitizeNoteHtml('<a href="javascript:alert(1)">l</a>')).not.toContain("javascript");
+  });
+});
+
+describe("htmlToText", () => {
+  it("extracts plain text", () => {
+    expect(htmlToText("<p><strong>Hi</strong> there</p>")).toBe("Hi there");
+  });
+  it("returns empty for empty", () => {
+    expect(htmlToText("")).toBe("");
   });
 });

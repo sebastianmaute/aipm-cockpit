@@ -17,3 +17,26 @@ export function sanitizeTemplateHtml(html: string): string {
     ALLOWED_URI_REGEXP: /^(?:https?|mailto):[^<>"]*$/i,
   });
 }
+
+const NOTE_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "a", "#text"];
+const NOTE_ALLOWED_ATTR = ["href", "target", "rel"];
+
+/** Storage-boundary sanitizer for task Description + note-log HTML (lean set:
+ *  bold/italic/lists/links). Mirrors the Tiptap editor schema. */
+export function sanitizeNoteHtml(html: string): string {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: NOTE_ALLOWED_TAGS,
+    ALLOWED_ATTR: NOTE_ALLOWED_ATTR,
+    ALLOWED_URI_REGEXP: /^(?:https?|mailto):[^<>"]*$/i,
+    // Drop the TEXT of a disallowed block too (not just the tag) — DOMPurify's
+    // default unwraps an unknown element but keeps its inner text, which would
+    // leak a stray heading/table body into the lean note body.
+    KEEP_CONTENT: false,
+  });
+}
+
+/** Plain-text projection of sanitized HTML — for search/export/preview cells. */
+export function htmlToText(html: string): string {
+  const stripped = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  return stripped.replace(/\s+/g, " ").trim();
+}
