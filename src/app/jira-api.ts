@@ -11,9 +11,9 @@ import {
   sanitizeEmail,
   sanitizeIsoDate,
   sanitizeLabels,
-  sanitizeNotes,
   sanitizeTaskName,
 } from "./sanitize";
+import { htmlToText, plainToHtml } from "./sanitize-html";
 import type { JiraConfig } from "./settings-types";
 import type { Priority, Task, TaskStatus } from "./types";
 
@@ -223,7 +223,7 @@ export function issueToTaskFields(
     lastUpdateDate: sanitizeIsoDate(updated) || todayIso,
     priority: mapPriority(f.priority?.name),
     labels: sanitizeLabels(f.labels ?? []),
-    notes: sanitizeNotes(adfToText(f.description)),
+    description: plainToHtml(adfToText(f.description)),
     completedDate: isDone
       ? sanitizeIsoDate(resolved) || sanitizeIsoDate(updated) || todayIso
       : undefined,
@@ -260,7 +260,7 @@ export function taskFieldsToJiraFields(task: Task): Record<string, unknown> {
     summary: task.taskName,
     priority: { name: priorityToJira(task.priority) },
     labels: Array.isArray(task.labels) ? task.labels : [],
-    description: textToAdf(task.notes ?? ""),
+    description: textToAdf(htmlToText(task.description ?? "")),
   };
   // Jira treats empty-string duedate as a clear; null also works. Use null
   // to keep the API expectation explicit.
@@ -335,7 +335,7 @@ export type ConflictFieldKey =
   | "dueDate"
   | "priority"
   | "labels"
-  | "notes"
+  | "description"
   | "completedDate";
 
 export type ConflictField = {
@@ -392,7 +392,7 @@ export function diffTaskAgainstIssue(
   check("dueDate");
   check("priority");
   check("labels");
-  check("notes");
+  check("description");
   check("completedDate");
   return out;
 }

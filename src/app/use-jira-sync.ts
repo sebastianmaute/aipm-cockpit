@@ -141,7 +141,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
               lastUpdateDate: patch.lastUpdateDate ?? row.lastUpdateDate,
               priority: patch.priority ?? row.priority,
               labels: patch.labels ?? row.labels,
-              notes: patch.notes ?? row.notes,
+              description: patch.description ?? row.description,
               status: patch.status,
               completedDate: patch.completedDate,
               jiraKey: issue.key,
@@ -229,7 +229,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
             lastUpdateDate: patch.lastUpdateDate ?? row.lastUpdateDate,
             priority: patch.priority ?? row.priority,
             labels: patch.labels ?? row.labels,
-            notes: patch.notes ?? row.notes,
+            description: patch.description ?? row.description,
             // Jira is authoritative for a synced task: take the patch's status +
             // completedDate directly so a done→reopen clears completedDate, keeping
             // the invariant `status==="Done" ⟺ completedDate set` consistent.
@@ -264,7 +264,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           // patch carries Jira's status (invariant-consistent with completedDate below).
           status: patch.status,
           blockers: "",
-          notes: patch.notes ?? "",
+          description: patch.description ?? "",
           // Taken directly from the patch: a real date only when Jira is done, else
           // undefined — keeping the `status==="Done" ⟺ completedDate set` invariant.
           completedDate: patch.completedDate,
@@ -367,7 +367,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           field.key === "assigneeEmail" ||
           field.key === "dueDate" ||
           field.key === "priority" ||
-          field.key === "notes"
+          field.key === "description"
         ) {
           (merged as Record<string, unknown>)[field.key] =
             typeof value === "string" ? value : "";

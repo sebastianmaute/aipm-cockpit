@@ -35,7 +35,7 @@ const fieldLabelKey: Record<ConflictFieldKey, TranslationKey> = {
   dueDate: "dueDate",
   priority: "priority",
   labels: "labels",
-  notes: "notes",
+  description: "description",
   completedDate: "completed",
 };
 
