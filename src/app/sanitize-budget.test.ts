@@ -221,6 +221,29 @@ describe("encode/decode allocations round-trip", () => {
   });
 });
 
+describe("sanitizeBudgetBucket task links + manual completion", () => {
+  const base = {
+    id: 1, name: "PAM", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+    allocations: [],
+  };
+
+  test("keeps a valid task link list and drops junk ids", () => {
+    const b = sanitizeBudgetBucket({ ...base, taskIds: [3, "4", 0, -1, "x", 3] })!;
+    expect(b.taskIds).toEqual([3, 4]);
+  });
+  test("clamps percentComplete into 0..100", () => {
+    expect(sanitizeBudgetBucket({ ...base, percentComplete: 150 })!.percentComplete).toBe(100);
+    expect(sanitizeBudgetBucket({ ...base, percentComplete: -5 })!.percentComplete).toBe(0);
+  });
+  test("omits percentComplete when absent, so existing buckets stay byte-identical", () => {
+    expect("percentComplete" in sanitizeBudgetBucket(base)!).toBe(false);
+  });
+  test("omits taskIds when absent, so existing buckets stay byte-identical", () => {
+    expect("taskIds" in sanitizeBudgetBucket(base)!).toBe(false);
+  });
+});
+
 describe("sanitizeFxRates", () => {
   test("accepts an EUR-base table", () => {
     const fx = sanitizeFxRates({ base: "EUR", date: "2026-05-26", fetchedAt: "2026-05-26T10:00:00Z", rates: { EUR: 1, USD: 1.08, JPY: 999 } })!;

@@ -444,6 +444,13 @@ function sanitizeAmount(n: unknown): number | undefined {
   return Math.min(AMOUNT_MAX, Math.round(num * 100) / 100);
 }
 
+function sanitizePercentComplete(n: unknown): number | undefined {
+  if (typeof n === "string" && n.trim() === "") return undefined; // empty CSV/MD cell = absent, not 0
+  const num = toNumber(n);
+  if (!Number.isFinite(num)) return undefined;
+  return Math.min(100, Math.max(0, num));
+}
+
 export function sanitizeIdList(input: unknown): number[] {
   let arr: unknown[];
   if (Array.isArray(input)) arr = input;
@@ -602,6 +609,10 @@ export function sanitizeBudgetBucket(input: unknown): BudgetBucket | null {
   const ri = sanitizeAmount(input.rateOverrideInternal); if (ri !== undefined) bucket.rateOverrideInternal = ri;
   const re = sanitizeAmount(input.rateOverrideExternal); if (re !== undefined) bucket.rateOverrideExternal = re;
   if (typeof input.localModifiedAt === "string" && input.localModifiedAt) bucket.localModifiedAt = input.localModifiedAt;
+  const taskIds = sanitizeIdList(input.taskIds);
+  if (taskIds.length > 0) bucket.taskIds = taskIds;
+  const pc = sanitizePercentComplete(input.percentComplete);
+  if (pc !== undefined) bucket.percentComplete = pc;
   return bucket;
 }
 

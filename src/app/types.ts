@@ -636,6 +636,12 @@ export type BudgetBucket = {
    *  back-compatible — when absent the engine falls back to sorting by `id`. */
   order?: number;
   localModifiedAt?: string;
+  /** Tasks whose completion drives this bucket's earned value. Empty/absent =>
+   *  no derived progress. */
+  taskIds?: number[];
+  /** Manual completion override (0-100). WINS over the linked-task derivation
+   *  whenever set — a PM's assessment beats a task count. */
+  percentComplete?: number;
 };
 
 /** Cached ECB reference rates (EUR base), one table per workspace. */
