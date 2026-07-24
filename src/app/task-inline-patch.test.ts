@@ -13,7 +13,7 @@ function ctx(overrides: Partial<InlinePatchContext> = {}): InlinePatchContext {
 
 describe("sanitizeInlinePatch", () => {
   it("emits ONLY the keys present in the patch (spread-safe)", () => {
-    expect(Object.keys(sanitizeInlinePatch({ notes: "hi" }, ctx()))).toEqual(["notes"]);
+    expect(Object.keys(sanitizeInlinePatch({ description: "hi" }, ctx()))).toEqual(["description"]);
     expect(sanitizeInlinePatch({}, ctx())).toEqual({});
   });
 
@@ -54,12 +54,12 @@ describe("sanitizeInlinePatch", () => {
 
   it("routes assignee/email/notes/blockers through their sanitizers (trim/cap)", () => {
     const out = sanitizeInlinePatch(
-      { assignee: "  Bob  ", assigneeEmail: "  b@x.io  ", notes: "note", blockers: "blk" },
+      { assignee: "  Bob  ", assigneeEmail: "  b@x.io  ", description: "note", blockers: "blk" },
       ctx(),
     );
     expect(out.assignee).toBe("Bob");
     expect(out.assigneeEmail).toBe("b@x.io");
-    expect(out.notes).toBe("note");
+    expect(out.description).toBe("note");
     expect(out.blockers).toBe("blk");
   });
 

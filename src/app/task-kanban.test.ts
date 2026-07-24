@@ -4,7 +4,7 @@ import { TASK_STATUSES, type Task } from "./types";
 
 const t = (id: number, status: Task["status"]): Task =>
   ({ id, taskName: "T" + id, assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
-     lastUpdateDate: "2026-05-01", priority: "Medium", blockers: "", notes: "", status }) as Task;
+     lastUpdateDate: "2026-05-01", priority: "Medium", blockers: "", description: "", status }) as Task;
 
 describe("groupByStatus", () => {
   it("returns a bucket for every status, empty ones included", () => {

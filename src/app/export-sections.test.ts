@@ -30,7 +30,7 @@ function makeTask(id: number): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     completedDate: undefined,
     inquiriesSent: 0,
     group: undefined,

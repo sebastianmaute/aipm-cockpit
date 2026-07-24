@@ -15,7 +15,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     ...overrides,
   };
 }

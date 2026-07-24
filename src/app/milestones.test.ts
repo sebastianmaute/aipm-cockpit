@@ -11,7 +11,7 @@ function ms(o: Partial<Milestone> = {}): Milestone {
   return { id: 1, name: "M", date: "2026-08-01", linkedTaskIds: [], ...o };
 }
 function task(o: Partial<Task> = {}): Task {
-  return { id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.io", dueDate: "2026-07-01", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", notes: "", ...o };
+  return { id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.io", dueDate: "2026-07-01", lastUpdateDate: "2026-06-01", status: "To Do", priority: "Medium", blockers: "", description: "", ...o };
 }
 const today = "2026-06-02";
 const holidays = new Set<string>();

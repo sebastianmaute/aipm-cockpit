@@ -17,7 +17,7 @@ function task(over: Partial<Task>): Task {
   return {
     id: 1, taskName: "T", assignee: "", assigneeEmail: "",
     dueDate: "2026-06-01", lastUpdateDate: TODAY,
-    priority: "Medium", status: "To Do", blockers: "", notes: "",
+    priority: "Medium", status: "To Do", blockers: "", description: "",
     ...over,
   };
 }

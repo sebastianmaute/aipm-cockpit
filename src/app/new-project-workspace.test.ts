@@ -20,7 +20,7 @@ const tpl: ProjectTemplate = {
         status: "To Do",
         priority: "Medium",
         blockers: "",
-        notes: "",
+        description: "",
         dependencies: [],
       },
     ],

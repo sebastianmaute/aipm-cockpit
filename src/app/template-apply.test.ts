@@ -25,7 +25,7 @@ function mkTask(id: number, name: string, deps: TaskDependency[] = []): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     dependencies: deps,
   };
 }

@@ -24,7 +24,7 @@ function makeTask(over: Partial<Task> & Pick<Task, "id" | "dueDate">): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     ...over,
   };
 }

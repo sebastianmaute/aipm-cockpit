@@ -20,7 +20,7 @@ function task(id: number, assignee: string, email?: string): Task {
   return {
     id, taskName: `T${id}`, assignee, assigneeEmail: email ?? "",
     dueDate: "2026-01-10", lastUpdateDate: "2026-01-01",
-    status: "To Do", priority: "Medium", blockers: "", notes: "",
+    status: "To Do", priority: "Medium", blockers: "", description: "",
   };
 }
 function absence(id: number, assignee: string): Absence {

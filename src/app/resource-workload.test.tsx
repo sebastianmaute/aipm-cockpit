@@ -65,7 +65,7 @@ describe("ResourceWorkload", () => {
 
   it("offers Add as resource for an unlinked assignee and seeds the name", () => {
     const onAddResource = vi.fn();
-    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", notes: "", inquiriesSent: 0 }];
+    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", description: "", inquiriesSent: 0 }];
     render(<ResourceWorkload {...baseProps} tasks={tasks} onAddResource={onAddResource} />);
     expect(screen.getByText("Bob Lee")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /add as resource/i }));
@@ -73,14 +73,14 @@ describe("ResourceWorkload", () => {
   });
 
   it("no clear-unlinked (×) button without onClearUnlinked", () => {
-    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", notes: "", inquiriesSent: 0 }];
+    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", description: "", inquiriesSent: 0 }];
     render(<ResourceWorkload {...baseProps} tasks={tasks} />);
     expect(screen.queryByRole("button", { name: /clear bob lee/i })).toBeNull();
   });
 
   it("clears an unlinked row via confirm → onClearUnlinked with the row identity", async () => {
     const onClearUnlinked = vi.fn();
-    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", notes: "", inquiriesSent: 0 }];
+    const tasks: Task[] = [{ id: 9, taskName: "T", assignee: "Bob Lee", assigneeEmail: "bob@x.com", dueDate: "2026-12-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium", blockers: "", description: "", inquiriesSent: 0 }];
     render(
       <ConfirmProvider lang="en-US">
         <ResourceWorkload {...baseProps} tasks={tasks} onClearUnlinked={onClearUnlinked} />

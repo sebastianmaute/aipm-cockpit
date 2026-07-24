@@ -150,7 +150,7 @@ describe("entity persistence registry — inquiriesSent + noteLog survive every 
       id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.com",
       dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", priority: "Medium", status: "To Do",
       blockers: "", description: "",
-      noteLog: [{ authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", text: "hi" }],
+      noteLog: [{ id: 1, authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", html: "<p>hi</p>", text: "hi" }],
     }],
   });
   const seedRaidNote = (): Workspace => ({
@@ -158,7 +158,7 @@ describe("entity persistence registry — inquiriesSent + noteLog survive every 
     raid: [{
       id: 1, category: "R", title: "Risk", status: "Open", linkedTaskIds: [],
       causedByRaidIds: [], stakeholderIds: [], raisedDate: "2026-01-01",
-      noteLog: [{ authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", text: "hi" }],
+      noteLog: [{ id: 1, authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", html: "<p>hi</p>", text: "hi" }],
     }],
   });
 

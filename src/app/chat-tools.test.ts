@@ -291,7 +291,7 @@ describe("runTool — update_task / buildPatch", () => {
   it("builds a partial patch from only the provided fields", async () => {
     const d = makeDispatcher();
     await runTool(d, "update_task", { id: 1, notes: "hello", blockers: "wait" });
-    expect(d.updateTask).toHaveBeenCalledWith(1, { notes: "hello", blockers: "wait" });
+    expect(d.updateTask).toHaveBeenCalledWith(1, { description: "hello", blockers: "wait" });
   });
 
   it("coerces a non-string field value to empty string when key is present", async () => {

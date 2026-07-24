@@ -14,7 +14,7 @@ function task(over: Partial<Task> = {}): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     inquiriesSent: 0,
     localModifiedAt: "2029-01-01T00:00:00.000Z",
     ...over,
@@ -61,7 +61,7 @@ describe("buildBulkEditUpdates", () => {
     const result = buildBulkEditUpdates(d, "2030-06-01");
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.updates).toEqual({ priority: "High", notes: "Follow up", dueDate: "2031-03-03" });
+      expect(result.updates).toEqual({ priority: "High", description: "Follow up", dueDate: "2031-03-03" });
     }
   });
 });

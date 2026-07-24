@@ -61,7 +61,7 @@ describe("detectGaps", () => {
 const baseTask = {
   taskName: "t", assignee: "", assigneeEmail: "", dueDate: "", lastUpdateDate: "",
   status: "To Do" as const,
-  priority: "Medium" as const, blockers: "", notes: "",
+  priority: "Medium" as const, blockers: "", description: "",
 };
 
 describe("forecastEndDate", () => {

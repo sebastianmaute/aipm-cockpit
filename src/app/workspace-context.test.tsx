@@ -23,7 +23,7 @@ function makeTask(overrides: Partial<import("./types").Task> = {}): import("./ty
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     group: "",
     labels: [],
     ...overrides,

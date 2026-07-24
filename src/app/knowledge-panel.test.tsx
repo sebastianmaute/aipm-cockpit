@@ -43,7 +43,7 @@ function seededTask(knowledgeLinks: KnowledgeLink[]): Task {
     status: "To Do",
     priority: "Medium",
     blockers: "",
-    notes: "",
+    description: "",
     knowledgeLinks,
   };
 }

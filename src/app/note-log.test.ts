@@ -11,7 +11,7 @@ describe("note-log codec", () => {
   };
 
   it("round-trips a valid entry through encode/decode (id minted, html derived from text)", () => {
-    const back = decodeNoteLog(encodeNoteLog([good]));
+    const back = decodeNoteLog(encodeNoteLog([good] as unknown as NoteLogEntry[]));
     expect(back).toEqual([{ ...good, id: 1, html: "<p>Called the vendor</p>" }]);
   });
 
