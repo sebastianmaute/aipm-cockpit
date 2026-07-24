@@ -36,11 +36,16 @@ export function sanitizeNoteHtml(html: string): string {
 }
 
 /** Wrap plain text as sanitized lean HTML for the rich `description`/note body.
- *  Escapes &<>, converts newlines to <br>, wraps in a single <p>. Empty→"". */
+ *  Escapes &<>, converts newlines to <br>, wraps in a single <p>. Empty→"".
+ *  The escape neutralizes every HTML metacharacter, so the only tags in the
+ *  result are the <p>/<br> added here — both in the note allow-list — which makes
+ *  a DOMPurify pass a provable no-op. Skipping it keeps this function SSR-safe:
+ *  DOMPurify needs a DOM/`window` (absent during Next server render), and this is
+ *  called at module-eval time by the built-in templates. */
 export function plainToHtml(text: string): string {
   if (!text) return "";
   const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return sanitizeNoteHtml("<p>" + esc.replace(/\r?\n/g, "<br>") + "</p>");
+  return "<p>" + esc.replace(/\r?\n/g, "<br>") + "</p>";
 }
 
 /** Plain-text projection of sanitized HTML — for search/export/preview cells. */
