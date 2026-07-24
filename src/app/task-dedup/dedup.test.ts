@@ -21,7 +21,7 @@ function task(over: Partial<Task> & { id: number }): Task {
     priority: over.priority ?? "Medium",
     status: over.status ?? "To Do",
     blockers: over.blockers ?? "",
-    notes: over.notes ?? "",
+    description: over.description ?? "",
     ...over,
   };
 }
@@ -47,7 +47,7 @@ describe("parseMergeProposal", () => {
       ],
     });
     expect(parsed).toEqual([
-      { keepId: 1, mergeIds: [2, 4], rationale: "dup", unifiedFields: { taskName: "Docs", notes: "d" } },
+      { keepId: 1, mergeIds: [2, 4], rationale: "dup", unifiedFields: { taskName: "Docs", description: "d" } },
     ]);
   });
 
@@ -101,11 +101,11 @@ describe("groundMergeGroups (anti-hallucination)", () => {
 
   test("sanitizes unified fields and ignores a blank unified title", () => {
     const grounded = groundMergeGroups(
-      [{ keepId: 1, mergeIds: [2], rationale: "x", unifiedFields: { taskName: "   ", notes: "merged notes" } }],
+      [{ keepId: 1, mergeIds: [2], rationale: "x", unifiedFields: { taskName: "   ", description: "merged notes" } }],
       TASKS,
     );
     expect(grounded[0].unified.taskName).toBeUndefined();
-    expect(grounded[0].unified.notes).toBe("merged notes");
+    expect(grounded[0].unified.description).toBe("merged notes");
   });
 
   test("caps the number of returned groups", () => {
@@ -123,7 +123,7 @@ describe("groundMergeGroups (anti-hallucination)", () => {
 describe("applyMerges", () => {
   test("removes duplicates and applies unified fields to the keep task", () => {
     const grounded = groundMergeGroups(
-      [{ keepId: 1, mergeIds: [2], rationale: "x", unifiedFields: { taskName: "API documentation", notes: "n" } }],
+      [{ keepId: 1, mergeIds: [2], rationale: "x", unifiedFields: { taskName: "API documentation", description: "n" } }],
       TASKS,
     );
     const res = applyMerges(TASKS, grounded, "2026-07-17T00:00:00.000Z");
@@ -132,7 +132,7 @@ describe("applyMerges", () => {
     expect(res.removedCount).toBe(1);
     const keep = res.nextTasks.find((tk) => tk.id === 1)!;
     expect(keep.taskName).toBe("API documentation");
-    expect(keep.notes).toBe("n");
+    expect(keep.description).toBe("n");
     expect(keep.localModifiedAt).toBe("2026-07-17T00:00:00.000Z");
     expect(res.editedBefore.map((tk) => tk.id)).toEqual([1]);
     // originals untouched (immutability)
@@ -165,7 +165,7 @@ describe("applyMerges", () => {
 
 describe("buildDedupContext", () => {
   test("emits one compact line per task with status/assignee/due/title", () => {
-    const ctx = buildDedupContext([task({ id: 7, taskName: "Ship it", assignee: "Ada", dueDate: "2026-09-01", status: "In Progress", notes: "line1\nline2" })]);
+    const ctx = buildDedupContext([task({ id: 7, taskName: "Ship it", assignee: "Ada", dueDate: "2026-09-01", status: "In Progress", description: "line1\nline2" })]);
     expect(ctx).toContain("#7 [In Progress] Ada due:2026-09-01 — Ship it :: line1 line2");
   });
 
