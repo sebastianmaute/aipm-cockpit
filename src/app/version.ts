@@ -2,11 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.196.0";
-export const APP_BUILD_DATE = "2026-07-24"; // 0.196.0: a dated rich-text note log on tasks and RAID items, managed in a shared draggable Notes window; the task "Notes" field is promoted to a rich "Description" with a preview and note-count badge in Open Points (Emrys)
+export const APP_VERSION = "0.197.0";
+export const APP_BUILD_DATE = "2026-07-24"; // 0.197.0: Budget EVM Phase C — bucket task links + manual %complete, a pure earned-value engine, and a real EV/AC Cost Performance Index tile (Turtledove)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.196.x line is "Emrys" (Ruthanna Emrys, science-fiction and fantasy author). */
-export const APP_MILESTONE = "Emrys";
+ *  0.197.x line is "Turtledove" (Harry Turtledove, science-fiction and
+ *  alternate-history author). */
+export const APP_MILESTONE = "Turtledove";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -242,4 +243,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightDirectoryHideExternal",
   "versionHighlightRichNotes",
   "versionHighlightTaskDescription",
+  "versionHighlightBudgetCpi",
 ] as const;

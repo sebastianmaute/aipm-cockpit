@@ -175,6 +175,8 @@ const BUDGETS_MD_COLUMNS: readonly { col: string; label: string }[] = [
   { col: "disciplineAllocations", label: "DisciplineAllocations" },
   { col: "rateOverrideInternal", label: "RateOverrideInternal" },
   { col: "rateOverrideExternal", label: "RateOverrideExternal" },
+  { col: "taskIds", label: "TaskIds" },
+  { col: "percentComplete", label: "PercentComplete" },
 ];
 
 const REF_MD_COLUMNS: readonly { col: string; label: string }[] = [

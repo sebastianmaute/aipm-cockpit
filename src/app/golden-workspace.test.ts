@@ -8,13 +8,13 @@
 // bytes so such a change fails loudly here instead.
 //
 // The fixtures under src/app/__fixtures__/ were generated ONCE from the
-// repo-root sample-workspace-small.json via the real decoder + serializers and are
-// committed verbatim (marked `-text` in .gitattributes so git never performs
-// line-ending conversion on them). They are intentionally DISTINCT from the
-// repo-root sample-workspace-small.md / sample-workspace-small.csv, which are curated
-// sources of truth with hand-escaped cells that the serializer does not
-// reproduce. Do NOT regenerate the fixtures to "fix" a failure of this test:
-// a failure means the storage byte format changed, which is the bug.
+// repo-root sample-workspace-small.json (the canonical curated source of
+// truth) via the real decoder + serializers and are committed verbatim
+// (marked `-text` in .gitattributes so git never performs line-ending
+// conversion on them). They are intentionally DISTINCT from what the
+// serializer emits for other inputs — do NOT regenerate the fixtures to
+// "fix" a failure of this test: a failure means the storage byte format
+// changed, which is the bug.
 
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";

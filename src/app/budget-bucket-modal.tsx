@@ -21,7 +21,9 @@ import {
   type PlanningMode,
   type Resource,
   type Role,
+  type Task,
 } from "./types";
+import { TaskLinkPicker } from "./task-link-picker";
 import { roleLabel, resourceDisplayName } from "./resource-foundation";
 import { CharCounter, FieldNotice, useAdjustmentTracker } from "./field-feedback";
 import { describeTextCap, describeClamp } from "./sanitize-report";
@@ -42,6 +44,8 @@ interface BudgetBucketModalProps {
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
   resources: readonly Resource[];
+  /** Tasks available for the "linked tasks" picker (earned-value derivation). */
+  tasks?: readonly Task[];
   onSave: (bucket: BudgetBucket) => void;
   onClose: () => void;
 }
@@ -56,6 +60,7 @@ export function BudgetBucketModal({
   disciplines,
   grades,
   resources,
+  tasks = [],
   onSave,
   onClose,
 }: BudgetBucketModalProps) {
@@ -74,6 +79,7 @@ export function BudgetBucketModal({
   const fxNoticeId = useId();
   const rateIntNoticeId = useId();
   const rateExtNoticeId = useId();
+  const percentNoticeId = useId();
 
   const allocatedRoleIds = new Set(draft.allocations.map((a) => a.roleId));
   const addableRoles = roles.filter((r) => !allocatedRoleIds.has(r.id));
@@ -176,6 +182,15 @@ export function BudgetBucketModal({
       disciplineAllocations: (d.disciplineAllocations ?? []).filter((a) => a.disciplineId !== disciplineId),
     }));
 
+  const addLinkedTask = (taskId: number) =>
+    setDraft((d) => ({ ...d, taskIds: [...(d.taskIds ?? []), taskId] }));
+
+  const removeLinkedTask = (taskId: number) =>
+    setDraft((d) => ({
+      ...d,
+      taskIds: (d.taskIds ?? []).filter((id) => id !== taskId),
+    }));
+
   const save = () => {
     setError(null);
     if (!draft.name.trim()) {
@@ -205,6 +220,18 @@ export function BudgetBucketModal({
       : undefined;
     if (adj.count() > 0) showToast("info", t(lang, "fieldsAdjusted", adj.count()));
     onSave({ ...draft, name: savedName, poNumber: savedPoNumber, localModifiedAt: new Date().toISOString() });
+  };
+
+  const applyPercentComplete = (raw: string) => {
+    const r = describeClamp(raw, { min: 0, max: 100, round: 2 });
+    setDraft((d) => ({ ...d, percentComplete: r.value }));
+    const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+    setNotice((n) => ({
+      ...n,
+      percentComplete: clamped
+        ? t(lang, clamped.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", clamped.to)
+        : "",
+    }));
   };
 
   const isFixed = draft.type === "fixed";
@@ -446,6 +473,40 @@ export function BudgetBucketModal({
             <FieldNotice id={fxNoticeId}>{notice.fxRateOverride}</FieldNotice>
           </label>
           )}
+
+          {/* Progress: linked tasks + manual percent-complete override (earned value) */}
+          <div className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="flex items-center gap-1 font-medium">
+              {t(lang, "budgetLinkedTasks")}
+              <InfoTooltip text={t(lang, "budgetLinkedTasksHint")} />
+            </span>
+            <TaskLinkPicker
+              lang={lang}
+              tasks={tasks}
+              selectedIds={draft.taskIds ?? []}
+              onAdd={addLinkedTask}
+              onRemove={removeLinkedTask}
+              label={t(lang, "budgetLinkedTasks")}
+            />
+          </div>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="flex items-center gap-1">{t(lang, "budgetPercentComplete")}<InfoTooltip text={t(lang, "budgetPercentCompleteHint")} /></span>
+            <input
+              className={inputClass}
+              type="number"
+              min={0}
+              max={100}
+              step="1"
+              value={draft.percentComplete ?? ""}
+              aria-label={t(lang, "budgetPercentComplete")}
+              aria-invalid={!!notice.percentComplete || undefined}
+              aria-describedby={notice.percentComplete ? percentNoticeId : undefined}
+              onChange={(e) => applyPercentComplete(e.target.value)}
+              onBlur={(e) => applyPercentComplete(e.target.value)}
+            />
+            <FieldNotice id={percentNoticeId}>{notice.percentComplete}</FieldNotice>
+          </label>
 
           {/* Detailed planning toggle (gates the allocation blocks under `planningDetail`) */}
           {isVisible("planningDetail") && (

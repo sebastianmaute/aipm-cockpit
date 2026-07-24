@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  ratioHealth, marginHealth, costPerformanceHealth, winLossHealth, marginAmountHealth,
-  planVsBudgetHealth, cellHealth,
+  ratioHealth, marginHealth, costPerformanceHealth, costPerformanceIndexHealth, winLossHealth,
+  marginAmountHealth, planVsBudgetHealth, cellHealth,
 } from "./budget-health";
 
 describe("ratioHealth (over-budget bands: G <90%, A 90-100%, R >100%)", () => {
@@ -68,6 +68,19 @@ describe("costPerformanceHealth (percent = budgetCost/cost*100; R <80, A <90, G 
     expect(costPerformanceHealth(89.9)).toBe("A");
   });
   it("is Green at 90 and above", () => { expect(costPerformanceHealth(90)).toBe("G"); });
+});
+
+describe("costPerformanceIndexHealth (EV/AC ratio; R <0.8, A <0.9, G >=0.9)", () => {
+  it("passes null through", () => { expect(costPerformanceIndexHealth(null)).toBeNull(); });
+  it("is Red below 0.8", () => { expect(costPerformanceIndexHealth(0.799)).toBe("R"); });
+  it("is Amber from 0.8 to <0.9", () => {
+    expect(costPerformanceIndexHealth(0.8)).toBe("A");
+    expect(costPerformanceIndexHealth(0.899)).toBe("A");
+  });
+  it("is Green at 0.9 and above", () => { expect(costPerformanceIndexHealth(0.9)).toBe("G"); });
+  it("is Green above 1.0 (earning value faster than spending)", () => {
+    expect(costPerformanceIndexHealth(1.2)).toBe("G");
+  });
 });
 
 describe("winLossHealth (mirrors consumption ratio)", () => {

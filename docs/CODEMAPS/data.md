@@ -178,6 +178,8 @@ BudgetBucket {
   allocations      BucketAllocation[]
   order?           number                  // 0.13.0 — drag-reorder position (persisted)
   localModifiedAt? string
+  taskIds?         number[]                // 0.197.0 — tasks driving derived %complete (budget-earned-value.ts)
+  percentComplete? number                  // 0.197.0 — manual %complete override (0-100); wins over taskIds derivation
 }
 
 BucketAllocation {                          // one role line within a bucket
@@ -707,27 +709,17 @@ All, and Jira sync churn.
 
 | File | Description |
 |---|---|
-| `sample-workspace-small.md` | Hand-curated master (Markdown pipe-table, all entities incl. blended budgets) — the source of truth |
-| `sample-workspace-small.csv` | Hand-curated CSV companion (partial by format design: no budgets/changes) |
-| `sample-workspace-small.json` | Generated full JSON envelope (`schemaVersion: 9`, all entities + a demo `project` ProjectMeta + demo enrichment) |
-| `sample-workspace-small.sqlite3` | Generated SQLite database mirroring the **multi-tenant** Turso relational schema (schema v10: one `projects` row + `project_id` on every table; WAL journal mode); import with `turso db create lop-demo --from-file sample-workspace-small.sqlite3` |
-| `sample-workspace-big.{json,sqlite3}` | Generated 3× scale-up of the small workspace (pure `scaleWorkspace`: id-offset + full FK remap; reference data not replicated) — for testing larger projects |
-| `sample-workspace-huge.{json,sqlite3}` | Generated 10× scale-up of the small workspace, same method |
+| `sample-workspace-small.json` | Hand-curated master (full JSON envelope, all entities incl. blended budgets + a demo `project` ProjectMeta) — the source of truth |
+| `sample-workspace-big.json` | Generated 3× scale-up of the small workspace (pure `scaleWorkspace`: id-offset + full FK remap, incl. `bucket.taskIds`; reference data not replicated) — for testing larger projects |
+| `sample-workspace-huge.json` | Generated 10× scale-up of the small workspace, same method |
 
-`scripts/generate-sample-workspace.ts` parses the curated `sample-workspace-small.md`,
-enriches it with a demo change-log + RAID→stakeholder links + a synthesized
-`ProjectMeta` (with a stable id `sample-project-0001`), and emits the two
-COMPLETE, faithfully-round-tripping formats (`.json` + `.sqlite3`) via
-`npx vite-node scripts/generate-sample-workspace.ts`. The `.sqlite3` is built
-through `tenantWorkspaceToStatements` + `upsertProjectStatement`
-(`turso-tenant-schema.ts`), so it is the multi-tenant v10 schema (one `projects`
-row, `project_id` on every table) and must be WAL journal mode for
-`turso db create --from-file`. It does NOT overwrite the `.md`/`.csv` masters:
-`workspaceToMarkdown` does not `\|`-escape the pipe-delimited blended-budget
-cell, so re-emitting the MD would corrupt the blended bucket. The dataset
-includes tasks, RAID items with `stakeholderIds` links, milestones, stakeholders
-with RACI assignments, change-log entries, budget buckets, resources, and the
-project header.
+`scripts/generate-sample-workspace.ts` reads the curated `sample-workspace-small.json`
+master directly and emits the `-big`/`-huge` JSON tiers via
+`npx vite-node scripts/generate-sample-workspace.ts`. There is no `.md`/`.csv`/`.sqlite3`
+sample artifact anymore — those were removed; the JSON master is the app's native format,
+so no codec round-trip is needed to edit it. The dataset includes tasks, RAID items with
+`stakeholderIds` links, milestones, stakeholders with RACI assignments, change-log entries,
+budget buckets, resources, and the project header.
 
 ## Document links (`document-link.ts`) — 0.60.0+
 

@@ -30,6 +30,8 @@ function project(budgetValue: number, consumedValue: number): ProjectReport {
     contributionMargin: { amount: 0, percent: null },
     costPerformance: { amount: 0, percent: null },
     consumption: { amount: 0, percent: null },
+    earnedValue: null,
+    costPerformanceIndex: null,
     budgetMirrorsPlan: false,
     costUnknownReason: null,
     unpricedDisciplineIds: [],

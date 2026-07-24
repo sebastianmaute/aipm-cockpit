@@ -32,6 +32,33 @@ describe("budget Markdown round-trip", () => {
     expect(back.budgets![0].order).toBe(3);
   });
 
+  test("bucket taskIds and percentComplete survive Markdown encode/decode", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      budgets: [{
+        id: 1, name: "EV bucket", type: "tm" as const, currency: "EUR" as const,
+        startDate: "2026-01-01", endDate: "2026-06-30", status: "open" as const,
+        taskIds: [3, 4], percentComplete: 40, allocations: [],
+      }],
+    };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.budgets![0].taskIds).toEqual([3, 4]);
+    expect(back.budgets![0].percentComplete).toBe(40);
+  });
+
+  test("a manual percentComplete of 0 survives a Markdown round-trip (not dropped as falsy)", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      budgets: [{
+        id: 1, name: "EV bucket", type: "tm" as const, currency: "EUR" as const,
+        startDate: "2026-01-01", endDate: "2026-06-30", status: "open" as const,
+        taskIds: [3, 4], percentComplete: 0, allocations: [],
+      }],
+    };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.budgets![0].percentComplete).toBe(0);
+  });
+
   test("blended planningMode, disciplineAllocations, and rate overrides survive Markdown encode/decode", () => {
     const ws = {
       ...emptyWorkspace(),

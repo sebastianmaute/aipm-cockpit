@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { markdownToWorkspace } from "./storage";
+import { jsonToWorkspace } from "./storage";
 import { computeBudgetReport } from "./budget-report";
 
-const md = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.md"), "utf8");
-const ws = markdownToWorkspace(md);
+const json = readFileSync(join(import.meta.dirname, "..", "..", "sample-workspace-small.json"), "utf8");
+const ws = jsonToWorkspace(json);
 
 describe("sample-workspace budgets", () => {
   test("parses five buckets", () => {

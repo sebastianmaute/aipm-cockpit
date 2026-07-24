@@ -68,6 +68,21 @@ export function costPerformanceHealth(percent: number | null): Health | null {
   return "G";
 }
 
+/**
+ * Health for the TRUE EVM cost-performance index (earned value ÷ actual cost,
+ * a ratio around 1.0 — NOT a percent). Named distinctly from
+ * `costPerformanceHealth` (which bands the pre-existing budgetCost/cost*100
+ * "burn" ratio) so the two never collide: same direction (higher is better)
+ * and the SAME band thresholds, just expressed on the 0-1 ratio scale via
+ * `COST_PERF_RED`/`COST_PERF_AMBER` ÷ 100 — one source of truth for both
+ * "cost performance" flavors. R <0.8, A <0.9, G >=0.9. */
+export function costPerformanceIndexHealth(cpi: number | null): Health | null {
+  if (cpi === null) return null;
+  if (cpi < COST_PERF_RED / 100) return "R";
+  if (cpi < COST_PERF_AMBER / 100) return "A";
+  return "G";
+}
+
 /** Win/Loss health mirrors the consumption ratio (the two are inverse). Pass the
  *  raw `consumedValue` and `budgetValue` amounts — NOT the precomputed
  *  `winLossValue` difference from budget-report.ts. */

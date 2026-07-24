@@ -161,6 +161,7 @@ export const BUDGETS_CSV_COLUMNS = [
   "startDate", "endDate", "successorId", "status", "closedDate",
   "fxRateOverride", "allocations", "localModifiedAt", "order",
   "planningMode", "disciplineAllocations", "rateOverrideInternal", "rateOverrideExternal",
+  "taskIds", "percentComplete",
 ] as const;
 
 export const CSV_SECTION_BUDGETS = "# BUDGETS";
@@ -604,6 +605,8 @@ export function budgetFieldToString(b: BudgetBucket, c: string): string {
     case "disciplineAllocations": return encodeDisciplineAllocations(b.disciplineAllocations);
     case "rateOverrideInternal": return b.rateOverrideInternal == null ? "" : String(b.rateOverrideInternal);
     case "rateOverrideExternal": return b.rateOverrideExternal == null ? "" : String(b.rateOverrideExternal);
+    case "taskIds": return Array.isArray(b.taskIds) ? b.taskIds.join(";") : "";
+    case "percentComplete": return b.percentComplete == null ? "" : String(b.percentComplete);
     default: return "";
   }
 }

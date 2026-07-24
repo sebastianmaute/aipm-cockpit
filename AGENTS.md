@@ -124,8 +124,9 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   derive from it; also extend that entity's `*FieldToString`/`build*FromObj` THERE), plus the
   markdown codec (`*_MD_COLUMNS` + table codec in `markdown-codecs-core.ts`) + `sanitize.ts` (see
   "Codec module maps" / "Sanitize module map" for which sub-file); REGENERATE `__fixtures__/golden-*`
-  (legit new-column format change)
-  and append column to curated `sample-workspace` `.md`/`.csv`. EXISTING Turso DBs:
+  (legit new-column format change) — the sample workspace is JSON-only now (no curated `.md`/`.csv`
+  sample to hand-edit); add the column to `sample-workspace-small.json` if it needs sample coverage.
+  EXISTING Turso DBs:
   `CREATE TABLE IF NOT EXISTS` can't add column and save INSERTs *named* columns, so old DB
   errors on save — `turso-migrate.ts` self-heals (PRAGMA-diff → `ALTER ADD COLUMN`, run inside
   write lock before save).
@@ -228,17 +229,15 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   beside `notifications.tsx`).
 - Storage facade (`storage.ts`) over backends: JSON file, CSV, Markdown, Turso (single + multi-tenant),
   IndexedDB. Snapshots/Trends + version history are Turso-ONLY.
-- **Sample data** tiered: `sample-workspace-small.*` is curated source; `-big` (3×) and `-huge` (10×)
-  JSON+SQLite GENERATED via pure `scaleWorkspace(ws, factor)` (id-offset `k*100000` + full FK remap;
+- **Sample data is JSON-only, tiered:** `sample-workspace-small.json` is the hand-curated MASTER (the
+  ONLY hand-edited sample artifact); `-big.json` (3×) and `-huge.json` (10×) are GENERATED from it via
+  pure `scaleWorkspace(ws, factor)` (id-offset `k*100000` + full FK remap, incl. `bucket.taskIds`;
   reference data — resources/roles/disciplines/grades — NOT replicated; replicas get distinct
-  stakeholder names + workstream-qualified titles, not "(2)"). Don't hand-edit `-big`/`-huge`; regenerate.
-  MASTER is `sample-workspace-small.md` — `scripts/generate-sample-workspace.ts` PARSES it and EMITS
-  `.json` + `.sqlite3` + `-big`/`-huge` (regen: `npx vite-node scripts/generate-sample-workspace.ts`,
-  then regenerate `__fixtures__/golden-*` via serializers). `project` meta + `status` SYNTHESIZED IN
-  GEN SCRIPT (not in .md). `sample-workspace-small.csv` is a SEPARATE hand-curated artifact (parsed by
-  sample tests). MD table cells with internal `|` are `\|`-escaped and CSV has MULTI-LINE quoted fields
-  → NEVER naive-split a row: edit .md by exact full-line replace, edit .csv via app codec
-  (`csvToWorkspace`→patch→`workspaceToCsv`, verified data-safe round-trip).
+  stakeholder names + workstream-qualified titles, not "(2)"). Don't hand-edit `-big`/`-huge`; regenerate
+  via `scripts/generate-sample-workspace.ts` (`npx vite-node scripts/generate-sample-workspace.ts`), then
+  regenerate `__fixtures__/golden-*` via serializers. There is NO `.md`/`.csv`/`.sqlite3` sample artifact
+  anymore — those were removed; edit the JSON master directly (it's the app's native format, no
+  round-trip codec needed).
 - **Action-Center CTAs surface-only:** thread optional handler task-manager → workspace-section →
   ActionsPanel → ActionRow (ActionsPanel renders in workspace-section, not task-manager, and renders
   TWO ActionRow lists — tier + monitor — so a new CTA prop must thread to BOTH); `next-actions/` engine
@@ -362,6 +361,27 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   state. Don't drop it back to colour-only. ★ the ✕ renders whenever there is something to clear — including a
   FREE-TEXT name (`!!display`), not just a linked/dangling one, since the control is labelled "Clear"; its
   colour/title fall back to neutral + `clear` when there is no link state.
+- **Rich-text note log (Tasks + RAID, v0.196.0 "Emrys"):** dated note LOG on `Task.noteLog?` +
+  `RaidItem.noteLog?` (`NoteLogEntry[]` = `{id;authorResourceId?;authorName?;timestamp;editedAt?;html;text}`),
+  surfaced by ONE shared draggable NON-modal floating CRUD window `notes-window.tsx` (+ `🗒 N` badge
+  `notes-badge-button.tsx` on Open Points + RAID rows, "Notes (N)" button in the editors). Author =
+  per-device `settings.selfResourceId` (honor-system, NO dropdown/auth); `canEditNote` gates edit/delete
+  (`authorResourceId == null || === self`; edit CLAIMS an authorless note). Pure model in `note-log.ts`
+  (`addNote`/`editNote`/`deleteNote` immutable; `sanitizeNoteLog`; `encodeNoteLog`/`decodeNoteLog`
+  JSON-in-cell for CSV/MD/Turso — mirrors `document-link.ts`). Composer = shared `RichTextEditor variant="lean"`
+  (`commitOnEnter`; note-editor.tsx folded in). Drag via shared `use-draggable-window.ts` (help-menu shares it).
+  ★★ `Task.notes` was RENAMED to `Task.description` (rich HTML) — NO back-compat decoder / NO runtime
+  migration; Turso `COLUMN_RENAMES` `{from:"notes",to:"description"}` self-heals; historical notes folded into
+  `noteLog` ONLY in the sample generator (Description starts empty); CSV task column renamed + goldens regen.
+  RaidItem's `description?` is PRE-EXISTING (unrelated); other entities' `notes?` fields are untouched.
+  ★★★ STORED-XSS defense-in-depth — noteLog `html` is `dangerouslySetInnerHTML`, guarded at THREE layers:
+  (1) SINK re-sanitize `sanitizeNoteHtml(html)` in `NoteBody` (idempotent; mirrors comm-send-preview/
+  meeting-report); (2) `sanitizeNoteFields(entity)` (note-log.ts) at the WHOLE-OBJECT load boundaries that
+  cast verbatim — `jsonToWorkspace` (file/sharepoint/local-file JSON) + IDB load (`browser-backend.ts`);
+  CSV/MD/Turso already route through `decodeNoteLog`. A NEW whole-object load path MUST call it.
+  ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
+  escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
+  `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
 - **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
   component is **`task-kanban-board.tsx`** — NOT `task-kanban.tsx` (the pure `task-kanban.ts` engine
   shadows a `.tsx` sibling via `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card
@@ -1791,6 +1811,7 @@ Opt-in timekeeping integration (Settings → Integrations). Key landmines:
 - **AI master switch:** `settings.ai.enabled` (default OFF, even for existing users) gates ALL AI features. Use `isAiEnabled(settings.ai)` (enabled && key present) / `aiKeyIfEnabled(settings.ai)` — NOT a raw `apiKey` read — at every AI activation site (chat, action analysis, scheduled jobs, weight suggestions, create-wizard). `sanitizeAiConfig` sets `enabled: obj.enabled === true`. AiSection collapses its config body until enabled.
 - **Usage-limit notices + counting knobs (★★ security):** pure `ai-errors.ts` — `classifyAiError(status, errorType)` → `"limit"|"auth"|"network"|"parse"|"generic"` (429 or Anthropic `error.type` `rate_limit_error`/`overloaded_error` ⇒ limit), the `AiHttpError(status, errorType?)` class (message is STATUS-ONLY), and `safeAiErrorType(body)` (reads ONLY `error.type`, never the body message; can't throw). `callClaude` throws `AiHttpError` on `!ok` (the old body-slice leak is GONE); all 6 AI call sites classify + surface a distinct translated `aiUsageLimitReached` for `"limit"`. ★★ NEVER log/echo the key or response body anywhere. Behaviour is ADVISORY — never blocks: the 100%-of-self-cap notice (`crossed100` in `usage-warning.ts` → `aiSelfLimitReached` toast) and the 429 notice both just inform. Chat APPENDS a `notice` DisplayItem (`setDisplay(prev=>[...prev,…])`) — never clears history. `AiConfig` gained `maxChatTurns` (default 12; ★ clamp via the SINGLE `clampMaxChatTurns` in `settings-types.ts`, used by `sanitizeAiConfig` + the `CapInput` onChange + the `chat-panel` loop read site — a directly-typed out-of-range value must never drive unbounded billed calls) and `tokenMultiplier` (default 5). ★★ the multiplier is applied ONCE up-front in `ai-usage-context.record()` to a `scaled` usage fed to BOTH the session total AND `addToBuckets` (weekly) — scaling only one puts the two caps on different scales.
 - **Rate card = DAY rates are the source of truth (★★):** `Role` has `internalRateDay?`/`externalRateDay?`/`rateBasis?:"day"|"hour"`; `internalRate`/`externalRate` stay HOURLY and remain the cost-math source every consumer reads (`resource-cost`/`budget-report`/EVM/reports UNCHANGED) — they are DERIVED. Pure `role-rates.ts` `materializeRoleRates(role, workdayHours)`: basis `"day"` → hourly = round2(day/wdh); basis `"hour"` → day = round2(hourly·wdh); guards `wdh<=0 → 8`. `roles-editor.tsx` edits materialize on change; "clear the filled cell to switch" flips `rateBasis`; the hour-basis day cell ALWAYS live-recomputes (never a frozen `internalRateDay`). ★★ `sanitizeRole` SPARSE-emits `rateBasis` (only `"day"`; absent⇒`"hour"`) + sparse day fields, so legacy roles stay byte-identical (an always-emit broke round-trip); consumers read `role.rateBasis ?? "hour"` / `=== "day"`. New columns ride `ROLES_CSV_COLUMNS` (auto CSV + Turso single/tenant + turso-migrate self-heal — roles ∈ ENTITY_SPECS, NO special migrate edit) + `ROLES_MD_COLUMNS`; golden regen roles-only; sample `rateBasis:"day"` synthesized in the gen script. ★★ `task-manager.tsx` re-materializes day-basis roles when `settings.resources.workdayHours` changes (guarded RENDER-TIME reconcile, NOT an effect) so the derived hourly can't go stale.
+- **Budget bucket earned value (Phase C EVM, ★):** `BudgetBucket` gained `taskIds?: number[]` (tasks whose completion drives the bucket's derived progress) + `percentComplete?: number` (manual 0-100 override — WINS over the derivation whenever set, including 0). Both ride `BUDGETS_CSV_COLUMNS` (→ CSV + Turso single/tenant DDL/insert, turso-migrate self-heals existing DBs) and `BUDGETS_MD_COLUMNS`, and are SPARSE-emitted so a bucket that never sets them stays byte-identical (no golden regen for untouched buckets). Pure i18n-free `budget-earned-value.ts`: `bucketPercentComplete(bucket, tasks)` (manual value first; else the share of `taskIds` that are `isTaskFinished` — Done|Cancelled — among the ones still present in `tasks`; `null` when neither source resolves — never guesses) and `earnedValueFor(budgetedCost, pct)` (= budgetedCost × pct/100, `null` when `pct` is `null`). `budget-report.ts` folds `earnedValue`/`costPerformanceIndex` (= earnedValue ÷ actual cost, guarded on `cost > 0`) into both `BucketReport` and the project rollup; `costPerformanceIndexHealth` (`budget-health.ts`) bands the TRUE 0-1 EVM ratio (R<0.8, A<0.9, G>=0.9 — same thresholds as the pre-existing `costPerformanceHealth` percent-flavor, just on a different scale, so the two never collide). ★★ PROJECT ROLLUP IS ALL-OR-NOTHING: `projectEarnedValue`/`projectCostPerformanceIndex` are `null` unless EVERY relevant budgeted bucket has a known `earnedValue` — one un-scored bucket blanks the whole rollup rather than silently summing a partial figure (mirrors the panel's `costIsKnowable` anti-approximation stance from the 0.195.x McGuire line). The Budget panel's fourth Cci tile ("Cost performance (CPI)", `budgetCciCpi` — the key freed when the old BAC/AC tile was renamed "Cost burn"/`budgetCciBurn` in 0.195.x) renders "—" whenever `costPerformanceIndex` is `null`. The bucket editor modal's task-link field reuses the shared `TaskLinkPicker` chip picker (same primitive as RAID/Change linked-tasks) — do not hand-roll a new one; clearing the manual % writes `undefined`, not `0`, mirroring the rate-override clear-to-undefined pattern.
 - **Integration disclaimer:** `integration-disclaimer.tsx` — a one-time security note shown the FIRST time any enable checkbox is ticked (AI/Jira/M365/Turso/Timelog). Context provider (no-op default) so the five checkboxes fire `useIntegrationDisclaimer().notifyEnable()` without prop-threading; gated by per-device `settings.integrationDisclaimerSeen`. Mounted at SettingsView + backend-setup-wizard + backend-config-modal. ★ memoize the context value (`useCallback`+`useMemo`) — an unstable value re-fires. NOT shown in popouts.
 - **Jira lives INSIDE Integrations:** `IntegrationsSection` renders `JiraSettingsSection` (below Timelog) gated on `!hideJira`; the wizard passes `hideJira` (it has a dedicated Jira step). `settings.jira` stays TOP-LEVEL.
 - **Multi-project Jira sync (per-project read-only):** `settings.jira` keeps a single PRIMARY `projectKey` (two-way,

@@ -165,10 +165,11 @@ prerendered.
 | `modal-edit-fields.tsx` | Shared modal edit pieces: `AssigneeField` + `ModalEditFooter` | Used by absence/shift/resource edit modals |
 | `dependencies-editor.tsx` | FS/SS/FF/SF predecessor picker with cycle detection | |
 | **Budget Panel** | | |
-| `budget-panel.tsx` | Budget tab UI: bucket list/editor, allocations, CCI cards | |
-| `budget-bucket-modal.tsx` | Modal for editing a bucket: name, PO, type, currency, dates, allocations | |
-| `budget-report.ts` | Pure calc engine: CCI ×3, spillover, project rollup | No React |
-| `budget-health.ts` | Pure RAG helpers for budget surfaces; gains `marginAmountHealth` (margin RAG, 0.48.0+) | No React; 0.47.0+ |
+| `budget-panel.tsx` | Budget tab UI: bucket list/editor, allocations, CCI cards (Margin/Burn/CPI/Consumption, 0.197.0+) | |
+| `budget-bucket-modal.tsx` | Modal for editing a bucket: name, PO, type, currency, dates, allocations, linked tasks + manual %complete (0.197.0+) | |
+| `budget-earned-value.ts` | Pure engine: `bucketPercentComplete` (manual override, else linked-task completion share) + `earnedValueFor` (budgetedCost × pct) | No React; 0.197.0+ |
+| `budget-report.ts` | Pure calc engine: CCI ×3, spillover, project rollup, `earnedValue`/`costPerformanceIndex` per bucket + all-or-nothing project rollup (0.197.0+) | No React |
+| `budget-health.ts` | Pure RAG helpers for budget surfaces; gains `marginAmountHealth` (margin RAG, 0.48.0+), `costPerformanceIndexHealth` (true EVM CPI RAG, 0.197.0+) | No React; 0.47.0+ |
 | `fx.ts` | Pure FX helpers: `resolveFxRate`, `convertAmount` | No React |
 | `ecb.ts` | ECB XML parser: `parseEcbRates` | No React |
 | `use-fx-rates.ts` | `useFxRates(workspace) → { rates, refresh }` — fetches `/api/ecb` | Client hook |

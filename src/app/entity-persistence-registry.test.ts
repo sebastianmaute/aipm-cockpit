@@ -32,6 +32,7 @@ import {
   CHANGES_CSV_COLUMNS,
   ABSENCES_CSV_COLUMNS,
   ROLES_CSV_COLUMNS,
+  BUDGETS_CSV_COLUMNS,
 } from "./csv-codecs-core";
 import type { Workspace } from "./workspace";
 
@@ -211,5 +212,35 @@ describe("entity persistence registry — role day rates survive every text back
     expect(r?.internalRateDay).toBe(800);
     expect(r?.externalRateDay).toBe(1200);
     expect(r?.rateBasis).toBe("day");
+  });
+});
+
+// Earned-value linkage (C2): BudgetBucket.taskIds/percentComplete ride the same
+// CSV+MD columns (CSV also drives Turso single/tenant).
+describe("entity persistence registry — bucket task links + manual completion survive every text backend", () => {
+  const seedBudget = (): Workspace => ({
+    ...emptyWorkspace(),
+    budgets: [{
+      id: 1, name: "EV bucket", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+      taskIds: [3, 4], percentComplete: 40, allocations: [],
+    }],
+  });
+
+  it("budget columns are in the CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(BUDGETS_CSV_COLUMNS as readonly string[]).toContain("taskIds");
+    expect(BUDGETS_CSV_COLUMNS as readonly string[]).toContain("percentComplete");
+  });
+
+  it("bucket taskIds + percentComplete survive the CSV round-trip", () => {
+    const b = csvToWorkspace(workspaceToCsv(seedBudget())).budgets?.[0];
+    expect(b?.taskIds).toEqual([3, 4]);
+    expect(b?.percentComplete).toBe(40);
+  });
+
+  it("bucket taskIds + percentComplete survive the Markdown round-trip", () => {
+    const b = markdownToWorkspace(workspaceToMarkdown(seedBudget())).budgets?.[0];
+    expect(b?.taskIds).toEqual([3, 4]);
+    expect(b?.percentComplete).toBe(40);
   });
 });

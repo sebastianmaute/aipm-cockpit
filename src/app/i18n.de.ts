@@ -495,6 +495,7 @@ export const de: Record<TranslationKey, string> = {
   budgetWinLoss: "Gewinn / Verlust",
   budgetCciMargin: "Deckungsbeitrag",
   budgetCciBurn: "Kostenverbrauch",
+  budgetCciCpi: "Kostenleistung (CPI)",
   budgetCciConsumption: "Verbrauch",
   budgetProjectTotal: "Projektsumme",
   budgetSpilloverIn: "Übertrag",
@@ -522,6 +523,10 @@ export const de: Record<TranslationKey, string> = {
   budgetSave: "Speichern",
   budgetAmountInvalid: "Betrag muss null oder größer sein.",
   budgetFxOverrideInvalid: "Wechselkurs muss größer als null sein.",
+  budgetLinkedTasks: "Verknüpfte Aufgaben",
+  budgetLinkedTasksHint: "Aufgaben verknüpfen, damit der Fertigstellungsgrad dieses Buckets aus deren Status abgeleitet werden kann. Ein manueller Prozentsatz unten überschreibt dies immer.",
+  budgetPercentComplete: "Manueller Fertigstellungsgrad (%)",
+  budgetPercentCompleteHint: "Überschreibt den aus verknüpften Aufgaben abgeleiteten Fertigstellungsgrad. Leer lassen, um den Fertigstellungsgrad der verknüpften Aufgaben zu verwenden.",
   budgetBucketsCount: "{0} Buckets",
   budgetDetailedPlanning: "Detaillierte Budgetplanung",
   budgetDetailedPlanningHint: "An: Planung je Rolle (Disziplin und Stufe). Aus: Planung je Disziplin mit dem Durchschnittssatz der Stufen dieser Disziplin.",
@@ -1166,7 +1171,7 @@ export const de: Record<TranslationKey, string> = {
     "Einstellungen → Jira: Atlassian-URL, E-Mail und API-Token hinterlegen, Projekt + Vorgangstypen auswählen, Bereich für Zugewiesene wählen. Unter \"Auch aus anderen Projekten synchronisieren\" können weitere Projekte hinzugefügt werden, jedes mit eigenem Schreibschutz-Schalter (standardmäßig an): schreibgeschützte Projekte ziehen Aktualisierungen herein, übertragen aber nie Ihre Änderungen zurück (Jira-verwaltete Felder werden beim nächsten Sync verworfen), bidirektionale Zusatzprojekte verhalten sich wie das primäre; ein Aufgaben-Badge und ein Editor-Banner zeigen, was gilt. Der Sync-Button neben der Aufgabenliste zieht Remote-Änderungen, schreibt lokale Anpassungen zurück und sammelt echte Konflikte in einem Review-Dialog je Aufgabe. Über \"An Jira übertragen\" (Zeilenaktion) oder die Checkbox \"Auch in Jira anlegen\" im Aufgabendialog wird ein neues Issue erstellt. Notizen ↔ Jira-Beschreibung sind verlustbehaftet – Rich-Text wird beim Sync zu Klartext. Jira-verwaltete Felder (Zugewiesener, Wiedereröffnen) sind in der App gesperrt. Tragen Sie das Ablaufdatum Ihres Tokens unter \"Token läuft ab am\" ein, um vor dem Ablauf (und danach) eine Erinnerung zu erhalten; erkennt ein Sync ein abgelaufenes oder ungültiges Token oder ist Jira nicht erreichbar, erscheint eine klare, handlungsleitende Meldung statt eines generischen Fehlers.",
   helpSecStorageTitle: "Speicherort",
   helpSecStorageBody:
-    "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen. Die mitgelieferte sample-workspace-small.sqlite3 lässt sich direkt in eine Turso-Datenbank importieren (z. B. per Turso-CLI: turso db create aipm-cockpit-demo --from-file sample-workspace-small.sqlite3); anschließend die Datenbank-URL und den Token unter Einstellungen → Integrationen eintragen.",
+    "Aufgaben liegen standardmäßig in der IndexedDB des Browsers (Datensatz-Updates; alte localStorage-Daten werden beim ersten Laden automatisch migriert). In den Einstellungen → Speicher auf eine lokale JSON-, CSV- oder Markdown-Datei umstellen (Chrome / Edge / Opera). Der Browser fragt beim ersten Speichern nach Schreibrechten; falls verweigert, in den Einstellungen \"Schreibzugriff erteilen\" klicken. SharePoint-Backends folgen.",
   helpSecSetupWizardTitle: "Einrichtungsassistent",
   helpSecSetupWizardBody:
     "Eine geführte, schrittweise Alternative zum flachen Bereich Einstellungen → Integrationen. Starten Sie ihn über die Schaltfläche zum Starten des Einrichtungsassistenten unter Einstellungen → Integrationen oder im Fenster für neue Projekte. Er führt Sie durch Speicher und Verbindungen (Browser-IndexedDB, eine lokale JSON-, CSV- oder Markdown-Datei, eine einzelne Turso-Datenbank oder Multi-Tenant-Turso sowie die Microsoft-365-Anmeldung und Timelog), dann den KI-Schlüssel und Jira – jeder optional und überspringbar – und endet mit einer Zusammenfassung des konfigurierten Status (Speicher, Microsoft 365, KI, Jira und Timelog). Alle Änderungen entsprechen dem Bearbeiten des flachen Integrationen-Bereichs; der Bereich bleibt für spätere Änderungen verfügbar. Der Assistent wird in Pop-out-Fenstern nicht angezeigt.",
@@ -2706,6 +2711,7 @@ export const de: Record<TranslationKey, string> = {
   absenceNoteHint: "Optionale Notiz zur Abwesenheit.",
   budgetPlanHoursHint: "Geplante Aufwandsstunden für diesen Bereich.",
   budgetCciBurnHint: "Budgetierte Kosten ÷ bisherige Kosten. Über 100 % bedeutet, dass bisher weniger ausgegeben wurde als budgetiert. Dies ist kein EVM-Index — siehe Kostenleistung (CPI).",
+  budgetCciCpiHint: "Erarbeiteter Wert ÷ tatsächliche Kosten. 100 % oder mehr bedeutet, dass die bisher gelieferte Arbeit mindestens so viel wert ist wie die dafür ausgegebenen Kosten. Benötigt verknüpfte Aufgaben oder einen manuellen Fertigstellungsgrad am Budgetposten zur Berechnung.",
   budgetCciMarginHint: "Marge = (externer Wert − interne Kosten) ÷ externer Wert.",
   budgetCciConsumptionHint: "Bisher verbrauchtes Budget. Der Prozentwert bezieht sich auf das Gesamtbudget.",
   budgetNoInternalRates: "Für die Rollen dieses Budgetblocks sind keine internen Sätze hinterlegt, daher können Kosten, Marge und Kostenverbrauch nicht berechnet werden. Sie werden in der Ratecard unter Ressourcen → Rollen gepflegt.",
@@ -3409,6 +3415,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightDirectoryHideExternal: "Ressourcenverzeichnis: Ein Schalter „Externe ausblenden“ filtert externe Personen aus der Liste, pro Gerät gespeichert.",
   versionHighlightRichNotes: "Notizprotokoll: Aufgaben und RAID-Einträge führen jetzt ein datiertes Rich-Text-Notizprotokoll, verwaltet in einem gemeinsamen, verschiebbaren Notizfenster — Notizen hinzufügen, bearbeiten oder löschen, verfasst als Ihre konfigurierte eigene Ressource, wobei Bearbeiten und Löschen auf den jeweiligen Verfasser der Notiz beschränkt sind (Notizen ohne Verfasser werden bei der ersten Bearbeitung übernommen); Enter bestätigt.",
   versionHighlightTaskDescription: "Aufgabenbeschreibung: Das Freitextfeld „Notizen“ der Aufgabe wird zu einer formatierbaren „Beschreibung“ aufgewertet, und die Offenen Punkte zeigen eine Beschreibungsvorschau sowie ein Abzeichen mit der Notizenanzahl. (Die Beschreibung wird weiterhin als reiner Text mit Jira synchronisiert — Rich-Text-Formatierung bleibt über Jira nicht erhalten.)",
+  versionHighlightBudgetCpi: "Budget-Fertigstellungswert: Verknüpfen Sie Aufgaben mit einem Budget-Bucket oder legen Sie einen manuellen Fertigstellungsgrad (%) fest — das Budget-Panel zeigt jetzt eine echte Kostenleistung (CPI, Fertigstellungswert ÷ Ist-Kosten) neben Deckungsbeitrag, Kostenverbrauch und Verbrauch. Statt zu schätzen, zeigt sie „—“, wenn Fortschritt oder Kosten nicht bekannt sind, und der Wert auf Projektebene wird nur summiert, wenn für jeden budgetierten Bucket ein bekannter Wert vorliegt.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",

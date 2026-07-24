@@ -3,7 +3,7 @@ import {
   bucketActivePeriods, allocationPlannedHours, computeBudgetReport, computeBucketReport,
   costIsKnowable, ratesMissing, type CostUnknownReason,
 } from "./budget-report";
-import type { ResourcePlan, Resource, BudgetBucket, Role } from "./types";
+import type { ResourcePlan, Resource, BudgetBucket, Role, Task } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-03-31", granularity: "month", currency: "EUR" };
 const noHolidays = new Set<string>();
@@ -932,5 +932,80 @@ describe("computeBudgetReport — project costUnknownReason", () => {
     const rep = computeBudgetReport([blended(1), blended(2)], plan, blendRoles, [], 8, noHolidays);
     expect(rep.project.costUnknownReason).toBe("unpriced-blend");
     expect(rep.project.unpricedDisciplineIds).toEqual([9]);
+  });
+});
+
+describe("computeBudgetReport — cost performance index (EV/AC)", () => {
+  const roles: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 10, externalRate: 15 }];
+  const resources = [res(5, 1, { "2026-01": 100 })];
+
+  function task(o: Partial<Task> = {}): Task {
+    return {
+      id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.io",
+      dueDate: "2026-01-31", lastUpdateDate: "2026-01-01", status: "To Do", priority: "Medium",
+      blockers: "", description: "", ...o,
+    };
+  }
+
+  // 100 budgeted hours × internal rate 10 = 1000 budgeted cost;
+  // 50 actual hours × internal rate 10 = 500 actual cost.
+  function bucket40pct(overrides: Partial<BudgetBucket> = {}): BudgetBucket {
+    return {
+      id: 1, name: "EV bucket", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      percentComplete: 40,
+      allocations: [{ roleId: 1, resourceIds: [5], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 50 } }],
+      ...overrides,
+    };
+  }
+
+  test("CPI is earned value over actual cost", () => {
+    // 1000 budgeted cost, 40% complete => EV 400; 500 spent => CPI 0.8.
+    const report = computeBudgetReport([bucket40pct()], plan, roles, resources, 8, noHolidays);
+    expect(report.buckets[0].earnedValue).toBeCloseTo(400, 5);
+    expect(report.buckets[0].costPerformanceIndex).toBeCloseTo(0.8, 3);
+  });
+
+  test("resolves earned value from linked tasks when no manual percent is set", () => {
+    // Same budget/actual cost as above (1000 / 500), but progress comes from
+    // 2 linked tasks, one finished => 50% => EV 500 => CPI 500/500 = 1.
+    const linked = bucket40pct({ percentComplete: undefined, taskIds: [101, 102] });
+    const tasks = [task({ id: 101, status: "Done" }), task({ id: 102, status: "To Do" })];
+    const report = computeBudgetReport([linked], plan, roles, resources, 8, noHolidays, [], tasks);
+    expect(report.buckets[0].earnedValue).toBeCloseTo(500, 5);
+    expect(report.buckets[0].costPerformanceIndex).toBeCloseTo(1, 3);
+  });
+
+  test("CPI is null when progress is unknown", () => {
+    const bucketNoProgress = bucket40pct({ percentComplete: undefined, taskIds: undefined });
+    const report = computeBudgetReport([bucketNoProgress], plan, roles, resources, 8, noHolidays, [], []);
+    expect(report.buckets[0].earnedValue).toBeNull();
+    expect(report.buckets[0].costPerformanceIndex).toBeNull();
+  });
+
+  test("CPI is null when cost is unknown", () => {
+    // No internal rates => AC is 0 => the index is undefined, not infinite.
+    const rateless: Role[] = [{ id: 1, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0 }];
+    const ratelessReport = computeBudgetReport([bucket40pct()], plan, rateless, resources, 8, noHolidays);
+    expect(ratelessReport.buckets[0].costPerformanceIndex).toBeNull();
+  });
+
+  test("project rollup sums EV where knowable and derives CPI as ΣEV / ΣAC", () => {
+    const second = bucket40pct({
+      id: 2, name: "Second bucket", percentComplete: 100,
+      allocations: [{ roleId: 1, resourceIds: [5], budgetHours: { "2026-01": 10 }, actualHours: { "2026-01": 10 } }],
+    });
+    // Bucket 1: budgetCost 1000, 40% => EV 400, AC 500.
+    // Bucket 2: budgetCost 100, 100% => EV 100, AC 100.
+    const report = computeBudgetReport([bucket40pct(), second], plan, roles, resources, 8, noHolidays);
+    expect(report.project.earnedValue).toBeCloseTo(500, 5);
+    expect(report.project.costPerformanceIndex).toBeCloseTo(500 / 600, 5);
+  });
+
+  test("project EV/CPI is null when any bucket's progress is unknown", () => {
+    const unknownProgress = bucket40pct({ id: 2, name: "Unknown", percentComplete: undefined, taskIds: undefined });
+    const report = computeBudgetReport([bucket40pct(), unknownProgress], plan, roles, resources, 8, noHolidays);
+    expect(report.project.earnedValue).toBeNull();
+    expect(report.project.costPerformanceIndex).toBeNull();
   });
 });

@@ -212,6 +212,7 @@ const BUDGET_ALIASES: Record<string, string> = {
   order: "order", planningmode: "planningMode",
   disciplineallocations: "disciplineAllocations",
   rateoverrideinternal: "rateOverrideInternal", rateoverrideexternal: "rateOverrideExternal",
+  taskids: "taskIds", percentcomplete: "percentComplete",
 };
 
 function markdownToBudgets(md: string, diag?: ImportDiag): BudgetBucket[] {

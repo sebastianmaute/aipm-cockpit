@@ -687,6 +687,7 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               workdayHours={settings.resources.workdayHours}
               today={today}
+              tasks={tasks}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}

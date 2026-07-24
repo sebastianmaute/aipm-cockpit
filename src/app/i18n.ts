@@ -489,6 +489,7 @@ const enUS = {
   budgetWinLoss: "Win / loss",
   budgetCciMargin: "Contribution margin",
   budgetCciBurn: "Cost burn",
+  budgetCciCpi: "Cost performance (CPI)",
   budgetCciConsumption: "Consumption",
   budgetProjectTotal: "Project total",
   budgetSpilloverIn: "Spilled in",
@@ -516,6 +517,10 @@ const enUS = {
   budgetSave: "Save",
   budgetAmountInvalid: "Amount must be zero or greater.",
   budgetFxOverrideInvalid: "FX rate must be greater than zero.",
+  budgetLinkedTasks: "Linked tasks",
+  budgetLinkedTasksHint: "Link tasks so this bucket's completion can be derived from their status. A manual percent below always overrides this.",
+  budgetPercentComplete: "Manual % complete",
+  budgetPercentCompleteHint: "Overrides the completion derived from linked tasks. Leave blank to use linked-task completion.",
   budgetBucketsCount: "{0} buckets",
   budgetDetailedPlanning: "Detailed budget planning",
   budgetDetailedPlanningHint: "On: plan per role (discipline and grade). Off: plan per discipline using the average rate of that discipline's grades.",
@@ -1174,7 +1179,7 @@ const enUS = {
     "Settings → Jira: paste your Atlassian site URL, email, and API token, pick a primary project + issue types, and choose an assignee scope. Under \"Also sync from other projects\" you can add extra projects to sync, each with a per-project read-only toggle (default on): read-only projects pull updates in but never push your edits back (Jira-managed fields revert on the next sync), while two-way extras behave like the primary; a task badge and an editor banner show which is which. The Sync button next to the tasks list pulls remote changes, pushes local edits, and queues true conflicts in a per-task review dialog. Push to Jira (row action) or the \"Also create in Jira\" checkbox in the task modal creates a brand-new issue. Notes ↔ Jira description sync is lossy — rich formatting flattens to plain text. Jira-managed fields (assignee, status reopen) are locked in the app. Record your token's expiry in \"Token expires on\" to get a reminder banner before it lapses (and once it has); if a sync finds the token expired or invalid, or can't reach Jira, you get a clear, actionable message instead of a generic failure.",
   helpSecStorageTitle: "Storage",
   helpSecStorageBody:
-    "Tasks live in this browser's IndexedDB by default (record-level writes; legacy localStorage data migrates automatically on first load). Switch to a local JSON, CSV, or Markdown file in Settings → Storage to sync with disk (Chrome / Edge / Opera). The browser will ask for write permission on the first save; if it denies, click \"Grant write access\" in Settings. SharePoint backends are coming soon. The bundled sample-workspace-small.sqlite3 can be imported directly into a Turso database (e.g. via the Turso CLI: turso db create aipm-cockpit-demo --from-file sample-workspace-small.sqlite3), then configure the database URL and token in Settings → Integrations.",
+    "Tasks live in this browser's IndexedDB by default (record-level writes; legacy localStorage data migrates automatically on first load). Switch to a local JSON, CSV, or Markdown file in Settings → Storage to sync with disk (Chrome / Edge / Opera). The browser will ask for write permission on the first save; if it denies, click \"Grant write access\" in Settings. SharePoint backends are coming soon.",
   helpSecSetupWizardTitle: "Backend setup wizard",
   helpSecSetupWizardBody:
     "A guided, stepped alternative to the flat Settings → Integrations panel. Launch it from the \"Run setup wizard\" button in Settings → Integrations, or from the new-project window. It walks you through storage & connections (browser IndexedDB, a local JSON/CSV/Markdown file, a single Turso database or multi-tenant Turso, plus Microsoft 365 sign-in and Timelog), then the AI assistant key and Jira — each optional and skippable — and ends with a review summary of what is configured (storage, Microsoft 365, AI, Jira and Timelog). Everything it changes is the same as editing the flat Integrations panel; the panel stays available for later edits. The wizard is not shown in pop-out windows.",
@@ -2743,6 +2748,7 @@ const enUS = {
   // Budget tooltips
   budgetPlanHoursHint: "Planned effort hours for this bucket.",
   budgetCciBurnHint: "Budgeted cost ÷ cost to date. Above 100% means less has been spent than budgeted so far. This is not an EVM index — see Cost performance (CPI).",
+  budgetCciCpiHint: "Earned value ÷ actual cost. 100% or above means the work delivered so far is worth at least what was spent on it. Needs linked tasks or a manual % complete on the bucket to compute.",
   budgetCciMarginHint: "Margin = (external value − internal cost) ÷ external value.",
   budgetCciConsumptionHint: "Budget consumed so far. Percent is of the total budget.",
   budgetNoInternalRates: "No internal rates are set for this bucket's roles, so cost, margin and burn cannot be calculated. Set them on the rate card under Resources → Roles.",
@@ -3428,6 +3434,7 @@ const enUS = {
   versionHighlightDirectoryHideExternal: "Resource directory: a “Hide external” toggle filters external people out of the list, remembered per device.",
   versionHighlightRichNotes: "Note log: tasks and RAID items now carry a dated, rich-text note log, managed in a shared draggable Notes window — add, edit or delete notes, authored as your configured self, with editing and deleting limited to a note's own author (authorless notes are claimed on first edit); Enter commits.",
   versionHighlightTaskDescription: "Task description: the task “Notes” free-text field is promoted to a rich “Description” with formatting, and Open Points shows a description preview plus a note-count badge. (The description still round-trips to Jira as plain text — rich formatting is not preserved through Jira.)",
+  versionHighlightBudgetCpi: "Budget earned value: link tasks to a bucket, or set a manual % complete, and the Budget panel now shows a real Cost Performance Index (earned value ÷ actual cost) alongside Margin, Burn and Consumption — it reads “—” rather than guess when progress or cost isn't known, and the project-level figure only totals when every budgeted bucket has a known value.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

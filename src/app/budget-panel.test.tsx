@@ -386,6 +386,59 @@ describe("Cci primary prop", () => {
   });
 });
 
+describe("BudgetPanel — CPI card (EV/AC)", () => {
+  const cpiLabel = t("en-US", "budgetCciCpi");
+  const cpiCardsIn = () =>
+    Array.from(document.querySelectorAll(".rounded-lg.border.border-line.p-3"))
+      .filter((c) => c.textContent?.includes(cpiLabel));
+
+  test("renders unknown (—) when no bucket has progress set", () => {
+    // The default `buckets` fixture carries no percentComplete/taskIds.
+    render(<BudgetPanel {...props} />);
+    const cards = cpiCardsIn();
+    expect(cards.length).toBeGreaterThanOrEqual(1);
+    for (const card of cards) {
+      const big = card.querySelector(".text-lg.font-semibold");
+      expect(big?.textContent).toBe("—");
+    }
+  });
+
+  test("computes and renders a known CPI from a manual percent-complete", () => {
+    // 100 budgeted hours × rate 100 = 10,000 budgeted cost; 40% complete => EV 4,000;
+    // 80 actual hours × rate 100 = 8,000 actual cost => CPI 4,000/8,000 = 50%.
+    const cpiBuckets: BudgetBucket[] = [{
+      id: 1, name: "B1", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+      percentComplete: 40,
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+    }];
+    render(<BudgetPanel {...props} buckets={cpiBuckets} />);
+    const cards = cpiCardsIn();
+    expect(cards.length).toBeGreaterThanOrEqual(1);
+    const bucketCard = cards.find((c) => c.textContent?.includes("50.0%"));
+    expect(bucketCard).toBeTruthy();
+  });
+
+  test("resolves earned value from linked tasks via the tasks prop", () => {
+    // Same budgeted/actual cost as above (10,000 / 8,000), but progress comes
+    // from one finished linked task out of two => 50% => EV 5,000 => CPI 62.5%.
+    const linkedBuckets: BudgetBucket[] = [{
+      id: 1, name: "B1", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-06-30", status: "open",
+      taskIds: [101, 102],
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+    }];
+    const tasks = [
+      { id: 101, taskName: "T1", assignee: "A", assigneeEmail: "a@x.io", dueDate: "2026-02-01", lastUpdateDate: "2026-01-01", status: "Done" as const, priority: "Medium" as const, blockers: "", description: "" },
+      { id: 102, taskName: "T2", assignee: "A", assigneeEmail: "a@x.io", dueDate: "2026-02-01", lastUpdateDate: "2026-01-01", status: "To Do" as const, priority: "Medium" as const, blockers: "", description: "" },
+    ];
+    render(<BudgetPanel {...props} buckets={linkedBuckets} tasks={tasks} />);
+    const cards = cpiCardsIn();
+    const bucketCard = cards.find((c) => c.textContent?.includes("62.5%"));
+    expect(bucketCard).toBeTruthy();
+  });
+});
+
 describe("budget: follow-plan mirror (Task 8)", () => {
   // A resource with January capacity so allocationPlannedHours > 0.
   const resourceWithCapacity: Resource = {
