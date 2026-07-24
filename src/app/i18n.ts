@@ -489,6 +489,7 @@ const enUS = {
   budgetWinLoss: "Win / loss",
   budgetCciMargin: "Contribution margin",
   budgetCciBurn: "Cost burn",
+  budgetCciCpi: "Cost performance (CPI)",
   budgetCciConsumption: "Consumption",
   budgetProjectTotal: "Project total",
   budgetSpilloverIn: "Spilled in",
@@ -2747,6 +2748,7 @@ const enUS = {
   // Budget tooltips
   budgetPlanHoursHint: "Planned effort hours for this bucket.",
   budgetCciBurnHint: "Budgeted cost ÷ cost to date. Above 100% means less has been spent than budgeted so far. This is not an EVM index — see Cost performance (CPI).",
+  budgetCciCpiHint: "Earned value ÷ actual cost. 100% or above means the work delivered so far is worth at least what was spent on it. Needs linked tasks or a manual % complete on the bucket to compute.",
   budgetCciMarginHint: "Margin = (external value − internal cost) ÷ external value.",
   budgetCciConsumptionHint: "Budget consumed so far. Percent is of the total budget.",
   budgetNoInternalRates: "No internal rates are set for this bucket's roles, so cost, margin and burn cannot be calculated. Set them on the rate card under Resources → Roles.",

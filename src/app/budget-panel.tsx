@@ -18,7 +18,10 @@ import { DataTable } from "./data-table";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
 import { TableFilter, SortResizeTh, nextSortDir, type SortDir } from "./report-table";
-import { ratioHealth, cellHealth, marginHealth, costPerformanceHealth, winLossHealth, planVsBudgetHealth } from "./budget-health";
+import {
+  ratioHealth, cellHealth, marginHealth, costPerformanceHealth, costPerformanceIndexHealth,
+  winLossHealth, planVsBudgetHealth,
+} from "./budget-health";
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
@@ -207,6 +210,16 @@ function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amoun
   );
 }
 
+/** Builds the Cci-shaped value for the CPI tile: `costPerformanceIndex` is a
+ *  0-1 ratio (not the 0-100 percent every other CciValue.percent carries), so
+ *  it is scaled ×100 here at the one render boundary rather than in the pure
+ *  engine. `earnedValue` is EUR, like every other CciValue.amount — callers
+ *  convert it to the bucket's display currency the same way they already do
+ *  for margin/burn (`cci(...)`). */
+function cpiCciValue(earnedValue: number | null, costPerformanceIndex: number | null): CciValue {
+  return { amount: earnedValue ?? 0, percent: costPerformanceIndex === null ? null : costPerformanceIndex * 100 };
+}
+
 function nextBucketId(buckets: readonly BudgetBucket[]): number {
   return mintId("budgetBucket", buckets);
 }
@@ -224,8 +237,8 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const confirm = useConfirm();
 
   const report = useMemo(
-    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences),
-    [buckets, plan, roles, resources, workdayHours, holidaySet, absences],
+    () => computeBudgetReport(buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, tasks],
   );
 
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
@@ -409,9 +422,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
         <h2 className="mb-2 text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {t(lang, "budgetTitle")} — {t(lang, "budgetProjectTotal")}
         </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={report.project.contributionMargin} currency={projCur} locale={locale} lang={lang} rag={marginHealth(report.project.contributionMargin.percent)} unknown={!costIsKnowable(report.project)} />
           <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={report.project.costPerformance} currency={projCur} locale={locale} lang={lang} rag={costPerformanceHealth(report.project.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(report.project)} />
+          <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={cpiCciValue(report.project.earnedValue, report.project.costPerformanceIndex)} currency={projCur} locale={locale} lang={lang} rag={costPerformanceIndexHealth(report.project.costPerformanceIndex)} primary="percent" unknown={report.project.costPerformanceIndex === null} />
           <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={report.project.consumption} currency={projCur} locale={locale} lang={lang} rag={ratioHealth(report.project.consumedValue, report.project.budgetValue)} primary="percent" />
         </div>
         <CostUnknownNotice
@@ -506,9 +520,14 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   <span>: {br.spilloverInHours.toFixed(0)} h · {inCur(br.spilloverInValue)}</span>
                 </div>
               )}
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} unknown={!costIsKnowable(br)} />
                 <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(br)} />
+                {/* Earned value needs progress (linked tasks or a manual %),
+                    on top of the same internal-rate basis burn/margin need —
+                    so it is gated on its OWN null-ness, not `costIsKnowable`
+                    alone (a rated bucket with no progress set is still "—"). */}
+                <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
                 {/* Consumption is an EXTERNAL-rate ratio — knowable without a
                     rate card, so it is deliberately not gated. */}
                 <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />

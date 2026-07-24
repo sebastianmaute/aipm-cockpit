@@ -3,7 +3,7 @@ import {
 } from "./resource-capacity";
 import type {
   Absence, BudgetBucket, PlanGranularity,
-  Resource, ResourcePlan, Role,
+  Resource, ResourcePlan, Role, Task,
 } from "./types";
 import {
   blendedDisciplineRate,
@@ -13,6 +13,7 @@ import {
   type RatePair,
 } from "./budget-rates";
 import { RATIO_EPSILON } from "./budget-health";
+import { bucketPercentComplete, earnedValueFor } from "./budget-earned-value";
 
 /** Plan periods whose start falls within the bucket's [startDate,endDate]. */
 export function bucketActivePeriods(bucket: Pick<BudgetBucket, "startDate" | "endDate">, plan: ResourcePlan): Period[] {
@@ -147,6 +148,19 @@ export type BucketReport = {
   contributionMargin: CciValue;
   costPerformance: CciValue;
   consumption: CciValue;
+  /** Earned value = budgeted (internal-rate) cost of this bucket scaled by its
+   *  percent-complete (see `bucketPercentComplete`/`earnedValueFor` in
+   *  `budget-earned-value.ts`). Null whenever progress is unknown (no manual
+   *  percent and no resolvable linked tasks) OR the cost basis itself is
+   *  unknowable (`costUnknownReason !== null`) — an unrated bucket must not
+   *  report a phantom €0 earned value. */
+  earnedValue: number | null;
+  /** True EVM cost-performance index = earnedValue ÷ actual cost (a ratio
+   *  around 1.0 — NOT the same figure as `costPerformance`, which is the
+   *  pre-existing budgetCost/cost "burn" ratio). Null when `earnedValue` is
+   *  null, or when actual cost is 0 (nothing spent yet — EV/0 is undefined,
+   *  never rendered as an infinite/phantom-green index). */
+  costPerformanceIndex: number | null;
   /** True when this bucket's budget hours ARE its planned hours (follow-plan on
    *  and every row resourced). The Plan-vs-Budget badge is then a comparison of
    *  a number with itself and carries no information — surfaces do not render it. */
@@ -228,6 +242,7 @@ export function computeBucketReport(
   spilloverInHours = 0,
   spilloverInValue = 0,
   absences: readonly Absence[] = [],
+  tasks: readonly Task[] = [],
 ): BucketReport {
   const periods = bucketActivePeriods(bucket, plan);
   const keys = periods.map((p) => p.key);
@@ -360,6 +375,19 @@ export function computeBucketReport(
   // For fixed-price with no budgeted hours, consumption % is meaningless.
   const consumptionPercent = isFixed && budgetHours === 0 ? null : pct(consumedValue, budgetValue);
 
+  // Earned value rides the SAME cost-knowability gate as `cost`/`budgetCost`:
+  // a rateless/unrated bucket's `budgetCost` collapses to 0 like `cost` does,
+  // so scaling it by percent-complete would report a phantom €0 EV instead of
+  // an honest unknown — the exact "0 reads as a perfect figure" trap this
+  // file's costUnknownReason system exists to close. `earnedValueFor` itself
+  // returns null when progress (`pctComplete`) is unknown.
+  const pctComplete = costUnknownReason === null ? bucketPercentComplete(bucket, tasks) : null;
+  const earnedValue = costUnknownReason === null ? earnedValueFor(budgetCost, pctComplete) : null;
+  // Guarded on `cost > 0` (not just `earnedValue !== null`) so a bucket with
+  // known progress but zero actual cost booked yet renders "—", never an
+  // infinite/phantom-green index.
+  const costPerformanceIndex = earnedValue !== null && cost > 0 ? earnedValue / cost : null;
+
   return {
     bucketId: bucket.id, name: bucket.name, currency: bucket.currency,
     type: bucket.type, status: bucket.status,
@@ -373,6 +401,8 @@ export function computeBucketReport(
     // SAME quantity — consumed, not remaining. Remaining is already carried by
     // win/loss.
     consumption: { amount: consumedValue, percent: consumptionPercent },
+    earnedValue,
+    costPerformanceIndex,
     budgetMirrorsPlan,
     costUnknownReason,
     unpricedDisciplineIds,
@@ -392,6 +422,19 @@ export type ProjectReport = {
   contributionMargin: CciValue;
   costPerformance: CciValue;
   consumption: CciValue;
+  /** Sum of bucket `earnedValue` — see the rollup rule on `costPerformanceIndex`
+   *  below for when this is null vs. a partial-but-honest sum. */
+  earnedValue: number | null;
+  /** ΣEV / ΣAC (ΣAC = `cost` above, the project's total actual cost).
+   *  `earnedValue`/`costPerformanceIndex` are null unless EVERY bucket that
+   *  actually carries budgeted cost (`budgetCost > 0`) has a known
+   *  `earnedValue` — a single un-scored budgeted bucket blanks the ROLLUP
+   *  rather than silently omitting its share (mirrors the project cost-
+   *  knowability "refuse rather than approximate" rule elsewhere in this
+   *  file). A bucket with no budgeted cost at all is exempt — it has nothing
+   *  to earn and cannot distort the total. Also null when total actual cost
+   *  is 0 (nothing spent yet). */
+  costPerformanceIndex: number | null;
   /** True when EVERY bucket's budget hours ARE its planned hours — see
    *  BucketReport.budgetMirrorsPlan. */
   budgetMirrorsPlan: boolean;
@@ -467,6 +510,7 @@ export function computeBudgetReport(
   workdayHours: number,
   holidaySet: ReadonlySet<string>,
   absences: readonly Absence[] = [],
+  tasks: readonly Task[] = [],
 ): BudgetReport {
   const spill = computeSpillover(buckets, plan, roles, resources, workdayHours, holidaySet);
   // Spillover is built from `successorId` links and keyed by bucket id, so it
@@ -475,7 +519,7 @@ export function computeBudgetReport(
   const reports = ordered.map((b) =>
     computeBucketReport(
       b, plan, roles, resources, workdayHours, holidaySet,
-      spill.hours.get(b.id) ?? 0, spill.value.get(b.id) ?? 0, absences,
+      spill.hours.get(b.id) ?? 0, spill.value.get(b.id) ?? 0, absences, tasks,
     ),
   );
 
@@ -529,6 +573,18 @@ export function computeBudgetReport(
   const blamed = projectCostIsKnowable
     ? []
     : reports.filter((b) => !costIsKnowable(b) && !(b.revenue === 0 && !ratesMissing(b)));
+
+  // EV rollup: a bucket with NO budgeted cost has nothing to earn and cannot
+  // distort the total, so it is exempt (mirrors the zero-revenue exemption
+  // above). Every OTHER bucket must have a known `earnedValue` or the whole
+  // rollup goes null — a partial sum here would silently under-report EV for
+  // a bucket that simply has no progress data entered yet, the same
+  // "approximation reads as fact" trap the cost rollup above refuses.
+  const evRelevant = reports.filter((r) => r.budgetCost > 0);
+  const evKnowable = evRelevant.length > 0 && evRelevant.every((r) => r.earnedValue !== null);
+  const projectEarnedValue = evKnowable ? sum((r) => r.earnedValue ?? 0) : null;
+  const projectCostPerformanceIndex =
+    projectEarnedValue !== null && cost > 0 ? projectEarnedValue / cost : null;
   // Highest-severity (lowest-rank) reason among the blamed buckets; a project
   // with none (only reachable when every bucket is a zero-revenue empty one) is
   // "no-rows". The reduce over REASON_RANK is exhaustive by the Record's type.
@@ -553,6 +609,8 @@ export function computeBudgetReport(
     // SAME quantity — consumed, not remaining. Remaining is already carried by
     // win/loss.
     consumption: { amount: consumedValue, percent: pct(consumedValue, budgetValue) },
+    earnedValue: projectEarnedValue,
+    costPerformanceIndex: projectCostPerformanceIndex,
     budgetMirrorsPlan: reports.length > 0 && reports.every((b) => b.budgetMirrorsPlan),
     costUnknownReason: projectReason,
     // Scoped to the unpriced-blend HEADLINE only: when a more severe reason
