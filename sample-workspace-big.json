@@ -3796,13 +3796,7 @@
       "description": "Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20.",
       "type": "Scope",
       "status": "Under Review",
-      "impact": "High",
-      "impactDescription": "Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.",
-      "scheduleImpactDays": 21,
-      "costImpact": 18000,
-      "requestedBy": "Morgan Standin",
       "raisedDate": "2026-05-21",
-      "decisionBy": "Elena Fischer",
       "linkedTaskIds": [
         2
       ],
@@ -3813,6 +3807,12 @@
         1,
         5
       ],
+      "impact": "High",
+      "impactDescription": "Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.",
+      "scheduleImpactDays": 21,
+      "costImpact": 18000,
+      "requestedBy": "Morgan Standin",
+      "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-05-21T09:00:00.000Z"
     },
     {
@@ -3821,13 +3821,7 @@
       "description": "Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
       "type": "Schedule",
       "status": "Proposed",
-      "impact": "Medium",
-      "impactDescription": "Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
-      "scheduleImpactDays": 14,
-      "costImpact": 6000,
-      "requestedBy": "Alex Example",
       "raisedDate": "2026-05-28",
-      "decisionBy": "Elena Fischer",
       "linkedTaskIds": [],
       "linkedRaidIds": [
         2
@@ -3836,6 +3830,12 @@
         1,
         4
       ],
+      "impact": "Medium",
+      "impactDescription": "Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
+      "scheduleImpactDays": 14,
+      "costImpact": 6000,
+      "requestedBy": "Alex Example",
+      "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-05-28T14:30:00.000Z"
     },
     {
@@ -3844,13 +3844,7 @@
       "description": "Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20.",
       "type": "Scope",
       "status": "Under Review",
-      "impact": "High",
-      "impactDescription": "Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.",
-      "scheduleImpactDays": 21,
-      "costImpact": 18000,
-      "requestedBy": "Morgan Standin",
       "raisedDate": "2026-05-21",
-      "decisionBy": "Elena Fischer",
       "linkedTaskIds": [
         100002
       ],
@@ -3861,6 +3855,12 @@
         100001,
         100005
       ],
+      "impact": "High",
+      "impactDescription": "Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.",
+      "scheduleImpactDays": 21,
+      "costImpact": 18000,
+      "requestedBy": "Morgan Standin",
+      "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-05-21T09:00:00.000Z"
     },
     {
@@ -3869,13 +3869,7 @@
       "description": "Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
       "type": "Schedule",
       "status": "Proposed",
-      "impact": "Medium",
-      "impactDescription": "Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
-      "scheduleImpactDays": 14,
-      "costImpact": 6000,
-      "requestedBy": "Alex Example",
       "raisedDate": "2026-05-28",
-      "decisionBy": "Elena Fischer",
       "linkedTaskIds": [],
       "linkedRaidIds": [
         100002
@@ -3884,6 +3878,12 @@
         100001,
         100004
       ],
+      "impact": "Medium",
+      "impactDescription": "Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
+      "scheduleImpactDays": 14,
+      "costImpact": 6000,
+      "requestedBy": "Alex Example",
+      "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-05-28T14:30:00.000Z"
     },
     {
@@ -3892,13 +3892,7 @@
       "description": "Extend the current SSO implementation to require multi-factor authentication (TOTP / push) for all privileged accounts before production go-live. Driven by updated InfoSec policy issued 2026-05-20.",
       "type": "Scope",
       "status": "Under Review",
-      "impact": "High",
-      "impactDescription": "Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.",
-      "scheduleImpactDays": 21,
-      "costImpact": 18000,
-      "requestedBy": "Morgan Standin",
       "raisedDate": "2026-05-21",
-      "decisionBy": "Elena Fischer",
       "linkedTaskIds": [
         200002
       ],
@@ -3909,6 +3903,12 @@
         200001,
         200005
       ],
+      "impact": "High",
+      "impactDescription": "Adds ~3 weeks of backend + frontend work. Requires additional security review cycle and re-scoping of load-test scenarios.",
+      "scheduleImpactDays": 21,
+      "costImpact": 18000,
+      "requestedBy": "Morgan Standin",
+      "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-05-21T09:00:00.000Z"
     },
     {
@@ -3917,13 +3917,7 @@
       "description": "Proposed two-week slip of the production cutover (from 2026-09-01 to 2026-09-15) to accommodate the MFA scope addition and unresolved SSO provider SLA concerns. Allows a full regression cycle and a second hypercare rehearsal.",
       "type": "Schedule",
       "status": "Proposed",
-      "impact": "Medium",
-      "impactDescription": "Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
-      "scheduleImpactDays": 14,
-      "costImpact": 6000,
-      "requestedBy": "Alex Example",
       "raisedDate": "2026-05-28",
-      "decisionBy": "Elena Fischer",
       "linkedTaskIds": [],
       "linkedRaidIds": [
         200002
@@ -3932,6 +3926,12 @@
         200001,
         200004
       ],
+      "impact": "Medium",
+      "impactDescription": "Delays hypercare exit to 2026-12-29. Minor cost impact (two additional sprint weeks). Customer comms required; maintenance-window notice must be re-issued.",
+      "scheduleImpactDays": 14,
+      "costImpact": 6000,
+      "requestedBy": "Alex Example",
+      "decisionBy": "Elena Fischer",
       "localModifiedAt": "2026-05-28T14:30:00.000Z"
     }
   ],
@@ -4228,8 +4228,6 @@
   "project": {
     "name": "Customer Identity Platform",
     "code": "CIP-2026",
-    "description": "Demo project: customer SSO / identity platform rollout with MFA and compliance gates.",
-    "sponsor": "Elena Fischer",
     "projectManager": "Alex Example",
     "keyStakeholdersInternal": [
       "Elena Fischer",
@@ -4246,20 +4244,11 @@
       "B2C",
       "B2B"
     ],
-    "identityCount": 500000,
-    "stakeholderCount": 5,
     "products": "SSO, MFA, Customer Directory",
-    "platform": "Azure AD B2C",
     "deployment": "Cloud",
     "startDate": "2026-01-15",
     "endDate": "2026-09-15",
     "profitCenter": "PC-4711",
-    "quotes": "Q-2026-0042",
-    "salesforceUrl": "https://example.salesforce.com/opportunity/cip-2026",
-    "sharepointUrl": "https://example.sharepoint.com/sites/cip-2026",
-    "confluenceUrl": "https://example.atlassian.net/wiki/spaces/CIP",
-    "jiraUrl": "https://example.atlassian.net/browse/CIP",
-    "operatingTimezone": "Europe/Berlin",
     "contactPersons": [
       {
         "name": "David Okoro",
@@ -4272,12 +4261,23 @@
         "synced": true
       }
     ],
-    "docRepoLocation": "https://example.sharepoint.com/sites/cip-2026/Shared Documents",
     "regulatory": [
       "GDPR / data protection regulation",
       "NIS2"
     ],
-    "notes": "Generated sample project for the multi-tenant Turso demo database."
+    "description": "Demo project: customer SSO / identity platform rollout with MFA and compliance gates.",
+    "sponsor": "Elena Fischer",
+    "platform": "Azure AD B2C",
+    "quotes": "Q-2026-0042",
+    "salesforceUrl": "https://example.salesforce.com/opportunity/cip-2026",
+    "sharepointUrl": "https://example.sharepoint.com/sites/cip-2026",
+    "confluenceUrl": "https://example.atlassian.net/wiki/spaces/CIP",
+    "jiraUrl": "https://example.atlassian.net/browse/CIP",
+    "operatingTimezone": "Europe/Berlin",
+    "docRepoLocation": "https://example.sharepoint.com/sites/cip-2026/Shared Documents",
+    "notes": "Generated sample project for the multi-tenant Turso demo database.",
+    "identityCount": 500000,
+    "stakeholderCount": 5
   },
   "steeringCommittee": {
     "name": "CIP Steering Committee",
