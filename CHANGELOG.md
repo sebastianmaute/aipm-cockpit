@@ -8,6 +8,29 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.196.0] - 2026-07-24 "Emrys"
+
+### Added
+
+- **A dated rich-text note log on tasks and RAID items.** Both entity types now
+  carry a running note log, managed through a shared draggable, non-modal Notes
+  window that leaves the app interactive underneath. You can add, edit and delete
+  notes; each note is authored as your configured self resource, and editing or
+  deleting a note is limited to its own author. Notes with no author (e.g. seeded
+  or imported) are claimed by you on first edit. Pressing Enter commits a note
+  (Shift+Enter for a new line).
+
+### Changed
+
+- **The task "Notes" free-text field is promoted to a rich "Description".** The
+  field now accepts formatted (sanitized) HTML instead of plain text, and the
+  Open Points table shows a description preview alongside a note-count badge
+  column linking to the note log.
+- Task **Description ↔ Jira description round-trips as plain text.** Jira stores
+  descriptions as ADF, so rich formatting entered in the app (or arriving from
+  Jira) is flattened to plain text on sync — the text content is preserved, the
+  formatting is not.
+
 ## [0.195.3] - 2026-07-23 "McGuire"
 
 ### Fixed
