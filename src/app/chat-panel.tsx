@@ -743,7 +743,7 @@ function ChatPanelInner({
         )}
       </div>
 
-      {!apiKeyMissing && !apiKeyLocked && (
+      {!apiKeyMissing && (
         <div className="mt-2 shrink-0">
           <ChatPromptChips
             lang={lang}

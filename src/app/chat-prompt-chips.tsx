@@ -33,7 +33,7 @@ export function ChatPromptChips({
         <li key={chip.labelKey}>
           <button
             type="button"
-            onClick={() => onPick(t(lang, chip.bodyKey), !!chip.autoSend)}
+            onClick={() => onPick(t(lang, chip.bodyKey), chip.autoSend)}
             className={`rounded-full border border-ui-dark-blue/40 bg-surface px-3 py-1 text-xs font-medium text-ui-dark-blue hover:bg-ui-dark-blue/10 focus:outline-none focus:ring-2 focus:ring-ui-dark-blue/50 dark:border-ui-dark-blue/60 dark:text-ui-dark-blue dark:hover:bg-ui-dark-blue/20 ${TRANSITION} ${PRESS}`}
           >
             {t(lang, chip.labelKey)}
