@@ -453,6 +453,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     startDate: obj.startDate || undefined,
     dueDate: obj.dueDate ?? "",
     lastUpdateDate: obj.lastUpdateDate ?? "",
+    createdDate: obj.createdDate || undefined,
     priority: ((obj.priority as Priority) || "Medium") as Priority,
     status: obj.status as Task["status"],
     blockers: obj.blockers ?? "",

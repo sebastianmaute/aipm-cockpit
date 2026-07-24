@@ -348,6 +348,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "startDate", label: "Start" },
   { key: "dueDate", label: "Due" },
   { key: "lastUpdateDate", label: "Last update" },
+  { key: "createdDate", label: "Created" },
   { key: "priority", label: "Priority" },
   { key: "status", label: "Status" },
   { key: "blockers", label: "Blockers" },

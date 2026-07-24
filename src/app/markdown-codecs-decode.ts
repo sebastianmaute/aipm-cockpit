@@ -346,6 +346,8 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
     else if (norm === "due" || norm === "duedate") colMap[idx] = "dueDate";
     else if (norm === "lastupdate" || norm === "lastupdatedate")
       colMap[idx] = "lastUpdateDate";
+    else if (norm === "created" || norm === "createddate")
+      colMap[idx] = "createdDate";
     else if (norm === "priority") colMap[idx] = "priority";
     else if (norm === "status") colMap[idx] = "status";
     else if (norm === "blockers") colMap[idx] = "blockers";
@@ -401,6 +403,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       startDate: obj.startDate || undefined,
       dueDate: obj.dueDate ?? "",
       lastUpdateDate: obj.lastUpdateDate ?? "",
+      createdDate: obj.createdDate || undefined,
       priority: ((obj.priority as Priority) || "Medium") as Priority,
       status: obj.status as Task["status"],
       blockers: obj.blockers ?? "",

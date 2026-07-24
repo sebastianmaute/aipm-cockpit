@@ -215,6 +215,31 @@ describe("entity persistence registry — role day rates survive every text back
   });
 });
 
+// Task.createdDate (Open Points Kanban roadmap): rides the same CSV+MD columns
+// (CSV also drives Turso single/tenant).
+describe("entity persistence registry — task createdDate survives every text backend", () => {
+  it("createdDate is in the Task CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(CSV_COLUMNS as readonly string[]).toContain("createdDate");
+  });
+
+  const seedTask = (): Workspace => ({
+    ...emptyWorkspace(),
+    tasks: [{
+      id: 1, taskName: "T", assignee: "A", assigneeEmail: "a@x.com",
+      dueDate: "2026-02-01", lastUpdateDate: "2026-01-10", createdDate: "2026-01-01",
+      priority: "Medium", status: "To Do", blockers: "", description: "",
+    }],
+  });
+
+  it("task createdDate survives the CSV round-trip", () => {
+    expect(csvToWorkspace(workspaceToCsv(seedTask())).tasks[0]?.createdDate).toBe("2026-01-01");
+  });
+
+  it("task createdDate survives the Markdown round-trip", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(seedTask())).tasks[0]?.createdDate).toBe("2026-01-01");
+  });
+});
+
 // Earned-value linkage (C2): BudgetBucket.taskIds/percentComplete ride the same
 // CSV+MD columns (CSV also drives Turso single/tenant).
 describe("entity persistence registry — bucket task links + manual completion survive every text backend", () => {
