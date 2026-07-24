@@ -166,6 +166,21 @@ describe("runTool — update_settings", () => {
       "no recognized settings fields to update",
     );
   });
+
+  it("routes a hideExternalTasks patch and returns the applied field", async () => {
+    const d = makeDispatcher();
+    const patch = { hideExternalTasks: true };
+    const result = await runTool(d, "update_settings", patch);
+    expect(d.updateSettings).toHaveBeenCalledWith(patch);
+    expect(result).toEqual({ applied: patch });
+  });
+
+  it("still rejects a payload with no recognized field (e.g. a secret-adjacent one)", async () => {
+    const d = makeDispatcher({ updateSettings: vi.fn(() => ({})) });
+    await expect(runTool(d, "update_settings", { apiKey: "sk-ant-nope" })).rejects.toThrow(
+      "no recognized settings fields to update",
+    );
+  });
 });
 
 describe("runTool — list_tasks / get_task", () => {

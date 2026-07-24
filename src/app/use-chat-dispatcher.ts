@@ -415,6 +415,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           changes.tasksViewMode = patch.tasksViewMode;
           applied.tasksViewMode = patch.tasksViewMode;
         }
+        if (typeof patch.hideExternalTasks === "boolean") {
+          changes.hideExternalTasks = patch.hideExternalTasks;
+          applied.hideExternalTasks = patch.hideExternalTasks;
+        }
         if (patch.enabledModules !== undefined) {
           // sanitizeFeatures drops any unknown/invalid module id — a hallucinated
           // id can never enable a non-existent module.
