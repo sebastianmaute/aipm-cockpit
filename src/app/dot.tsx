@@ -16,7 +16,8 @@ export const DOT_SIZE: Record<DotSize, string> = {
 };
 
 interface DotProps {
-  /** A bg colour-token className, e.g. "bg-[var(--rag-red)]" or "bg-ui-green". */
+  /** A bg colour-token className, e.g. "bg-[var(--rag-red)]" or "bg-ui-green".
+   *  Token use is enforced by lint + the palette-sweep, not by this type. */
   color: string;
   /** Diameter token; defaults to "sm" (8px). */
   size?: DotSize;

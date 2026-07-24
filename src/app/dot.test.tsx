@@ -8,6 +8,8 @@ describe("Dot", () => {
     const dot = container.querySelector("span")!;
     expect(dot).toHaveAttribute("aria-hidden");
     expect(dot).not.toHaveAttribute("role");
+    expect(dot).not.toHaveAttribute("aria-label");
+    expect(dot).not.toHaveAttribute("title");
     expect(dot.className).toContain("bg-ui-green");
     expect(dot.className).toContain("h-2 w-2");
     expect(dot.className).toContain("rounded-full");
