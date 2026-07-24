@@ -8,6 +8,35 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.198.0] - 2026-07-24 "Abraham"
+
+### Added
+
+- **Suggested chat prompts stay available all session.** The AI Assistant's
+  prompt-suggestion chips were extracted into their own component and now
+  render in a persistent strip below the output, instead of only appearing on
+  an empty transcript.
+
+### Changed
+
+- **New Knowledge links default to the project library.** The add-link target
+  now defaults to "Standalone" (the project's Knowledge library) instead of an
+  empty placeholder, so an entry attaches to the project by default; linking to
+  a task stays optional. The default also survives Cancel + reopen.
+- **The no-project landing-page logo follows the active theme.** It now reads
+  the active scheme's branding logo (with a slogan-aware alt text and width
+  cap, mirroring the sidebar/header), instead of a hardcoded mark.
+- **The time-booking apply-to-budget bar is a cleaner card** — an outline card
+  with the shared button styling, replacing the filled block.
+
+### Fixed
+
+- **Time bookings now remember the last fetched customer and projects.**
+  `Workspace.timelogLinks` was omitted from the autosave (both the save
+  payloads and the autosave effect's dependencies), so the fetched scope was
+  never persisted and the picker came back blank after a reload. It is now
+  saved on every write path; a refresh reloads the last scope automatically.
+
 ## [0.197.0] - 2026-07-24 "Turtledove"
 
 ### Added

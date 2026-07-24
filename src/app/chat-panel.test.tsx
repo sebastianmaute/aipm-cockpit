@@ -345,7 +345,7 @@ describe("suggested prompt chips", () => {
     expect(textarea.value).toBe("Show overdue tasks");
   });
 
-  it("chips are hidden after the first message is sent (while busy)", async () => {
+  it("chips stay available after the first message is sent (while busy)", async () => {
     let rejectFetch!: (reason: unknown) => void;
     const pending = new Promise<Response>((_res, rej) => { rejectFetch = rej; });
     vi.spyOn(globalThis, "fetch").mockReturnValue(pending);
@@ -359,7 +359,10 @@ describe("suggested prompt chips", () => {
       // Two Stops while busy: the send-slot swap + the one in the Thinking bubble.
       expect(screen.getAllByRole("button", { name: "Stop" }).length).toBeGreaterThan(0),
     );
-    expect(screen.queryByRole("list", { name: "Suggested prompts" })).toBeNull();
+    // The chip strip is now a persistent element below the output scroller,
+    // so it stays visible for the whole session rather than disappearing
+    // once the transcript is non-empty.
+    expect(screen.queryByRole("list", { name: "Suggested prompts" })).not.toBeNull();
 
     // clean up
     const abortError = Object.assign(new Error("Aborted"), { name: "AbortError" });

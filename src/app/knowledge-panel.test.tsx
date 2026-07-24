@@ -201,14 +201,24 @@ describe("KnowledgePanel", () => {
     expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
   });
 
-  it("Cancel is reachable and closes the add panel before any target is chosen", () => {
-    // The empty-project first-use flow: open Add, then back out without picking a
-    // target. Cancel must exist independent of the target-gated manual-link row.
+  it("defaults the target to Standalone so the manual-add row is immediately available", () => {
     renderWithTasks([seededTask([])]);
     const addBtn = screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0];
     fireEvent.click(addBtn);
-    expect(screen.getByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeInTheDocument();
+    const target = screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }) as HTMLSelectElement;
+    expect(target.value).toBe("__standalone__");
+    expect(screen.getByLabelText(t("en-US", "documentsManualName"))).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
+  });
+
+  it("keeps the Standalone default after Cancel and reopen", () => {
+    renderWithTasks([seededTask([])]);
+    const openAdd = () => fireEvent.click(screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0]);
+    openAdd();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    openAdd();
+    const target = screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }) as HTMLSelectElement;
+    expect(target.value).toBe("__standalone__");
   });
 });

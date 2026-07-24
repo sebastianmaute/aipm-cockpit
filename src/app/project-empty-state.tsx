@@ -110,6 +110,7 @@ export function ProjectEmptyState({
 
   const titleKey = view === "create" ? "projectsNew" : "projectsEmptyTitle";
   const TITLE_ID = "project-empty-state-title";
+  const brandLogo = settings.branding?.logo;
 
   return (
     <Modal
@@ -138,7 +139,11 @@ export function ProjectEmptyState({
           logo={
             view === "choices" ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src="/AIPM-logo.svg" alt="Acme" className="h-7 w-auto" />
+              <img
+                src={brandLogo || "/AIPM-logo.svg"}
+                alt={brandLogo ? (settings.branding?.slogan ?? t(lang, "appTitle")) : "Acme"}
+                className={brandLogo ? "max-h-10 max-w-[200px] w-auto object-contain" : "h-7 w-auto"}
+              />
             ) : undefined
           }
         />

@@ -61,6 +61,8 @@ const SORT_LABEL = {
 const SORT_OPTIONS: DocSort[] = ["added", "name", "source", "type"];
 const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "change", "stakeholder"];
 
+const STANDALONE_KEY = "__standalone__";
+
 export function KnowledgePanel() {
   const { settings } = useSettings();
   const lang = settings.language;
@@ -113,14 +115,13 @@ export function KnowledgePanel() {
   }
 
   const [addOpen, setAddOpen] = useState(false);
-  const [targetKey, setTargetKey] = useState("");
+  const [targetKey, setTargetKey] = useState(STANDALONE_KEY);
   const [manualName, setManualName] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [manualKind, setManualKind] = useState<KnowledgeLinkKind>("url");
   // Task ids to attach when creating a STANDALONE item (the optional 2nd step).
   const [linkTaskIds, setLinkTaskIds] = useState<number[]>([]);
   const manualValid = manualName.trim() !== "" && isSafeHttpUrl(manualUrl.trim());
-  const STANDALONE_KEY = "__standalone__";
   const isStandalone = targetKey === STANDALONE_KEY;
   const kItems: readonly KnowledgeItem[] = ws.knowledgeItems ?? [];
   const targets: DocSource[] = useMemo(
@@ -236,7 +237,7 @@ export function KnowledgePanel() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => { setManualName(""); setManualUrl(""); setTargetKey(""); setAddOpen(false); }}
+              onClick={() => { setManualName(""); setManualUrl(""); setTargetKey(STANDALONE_KEY); setAddOpen(false); }}
             >
               {t(lang, "cancel")}
             </Button>

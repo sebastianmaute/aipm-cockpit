@@ -267,4 +267,33 @@ describe("ProjectEmptyState", () => {
       screen.queryByRole("button", { name: t("en-US", "tourLoadDemo") }),
     ).toBeNull();
   });
+
+  it("uses the active branding logo on the no-project landing when set", () => {
+    const LOGO = "data:image/png;base64,QUJD";
+    setup({
+      settings: { ...defaultSettings, branding: { ...defaultSettings.branding, logo: LOGO } },
+    });
+    const img = screen.getByRole("img", { name: t("en-US", "appTitle") });
+    expect(img).toHaveAttribute("src", LOGO);
+  });
+
+  it("uses the branding slogan as the custom logo's alt text when set", () => {
+    const LOGO = "data:image/png;base64,QUJD";
+    const SLOGAN = "Acme Consulting";
+    setup({
+      settings: {
+        ...defaultSettings,
+        branding: { ...defaultSettings.branding, logo: LOGO, slogan: SLOGAN },
+      },
+    });
+    expect(screen.getByRole("img", { name: SLOGAN })).toHaveAttribute("src", LOGO);
+  });
+
+  it("falls back to the default Acme alt text when no branding logo is set", () => {
+    setup();
+    expect(screen.getByRole("img", { name: "Acme" })).toHaveAttribute(
+      "src",
+      "/AIPM-logo.svg",
+    );
+  });
 });
