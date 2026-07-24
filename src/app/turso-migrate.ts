@@ -46,9 +46,15 @@ const PROJECTS_TABLE = "projects";
  * column, renamed when the Documents view became Knowledge. It lives on the five
  * entity tables (tasks/raid/changes/milestones/stakeholders) AND the tenant
  * `projects` table (ProjectMeta), all of which now expect `knowledgeLinks`.
+ *
+ * `notes` → `description`: the tasks table's rich free-text field, renamed
+ * alongside `Task.notes`→`Task.description`. Only the `tasks` ENTITY_SPEC
+ * expects `description` (resources keep their own `notes` column), so the
+ * `want.has(to)` gate above scopes this rename to that table alone.
  */
 const COLUMN_RENAMES: readonly { readonly from: string; readonly to: string }[] = [
   { from: "documentLinks", to: "knowledgeLinks" },
+  { from: "notes", to: "description" },
 ];
 
 export interface TableColumns {
