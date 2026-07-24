@@ -49,8 +49,9 @@ import { TABLE_NAMES } from "../src/app/turso-schema";
 import { tenantWorkspaceToStatements, upsertProjectStatement, PROJECTS_TABLE } from "../src/app/turso-tenant-schema";
 import { scaleWorkspace } from "../src/app/scale-workspace";
 import { materializeRoleRates } from "../src/app/role-rates";
+import { nextNoteId } from "../src/app/note-log";
 import type { Workspace } from "../src/app/workspace";
-import type { ChangeItem, RaidItem, ProjectMeta, ProjectStatus, SteeringCommittee } from "../src/app/types";
+import type { ChangeItem, RaidItem, ProjectMeta, ProjectStatus, SteeringCommittee, Task, NoteLogEntry } from "../src/app/types";
 
 /** Sample workday hours (matches defaultSettings.resources.workdayHours). */
 const SAMPLE_WORKDAY_HOURS = 8;
@@ -106,6 +107,125 @@ const enrichedRaid: RaidItem[] = ws.raid.map((item) => {
   if (item.id === 11) return { ...item, stakeholderIds: [1, 5] };
   if (item.id === 13) return { ...item, stakeholderIds: [5] };
   return item;
+});
+
+// ---------------------------------------------------------------------------
+// Step 2a: Rich-text migration + demo note logs.
+//
+// The curated .md carries each task's free text in the (renamed) Description
+// column. The persisted model now stores rich HTML: the running dated log lives
+// in `noteLog`, and `description` is reserved for a rich free-text body. Fold
+// every task's plain Description into a single sanitized noteLog entry and clear
+// description — this exercises the rich-text storage path in every emitted
+// format. Deterministic (no clock): the entry timestamp derives from the task's
+// own lastUpdateDate; the entry id is minted with the shared nextNoteId helper.
+//
+// A handful of DEMO authored notes are then appended to a couple of tasks and a
+// couple of RAID items so the note-log surface renders attributed, multi-entry
+// content. Authors reference real resource ids (1 Alex Example, 2 Sam Placeholder,
+// 4 Morgan Standin); timestamps are fixed literal ISO strings.
+// ---------------------------------------------------------------------------
+
+/** Minimal &/</> escape for wrapping folded plain text in a synthetic <p>. */
+const escHtml = (s: string): string =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// A single escaped `<p>…</p>` is already within the note allow-list, so it is
+// byte-identical to sanitizeNoteHtml(...) — and this build script runs under
+// node (no DOM), where DOMPurify has no window. Build the html inline; the app's
+// load path re-sanitizes on read.
+const noteHtml = (text: string): string => `<p>${escHtml(text)}</p>`;
+
+type DemoNote = { authorResourceId: number; authorName: string; timestamp: string; text: string };
+
+/** Append a demo authored note to a log, minting a unique id + sanitizing html. */
+function appendDemoNotes(log: NoteLogEntry[] | undefined, notes: readonly DemoNote[]): NoteLogEntry[] {
+  let out: NoteLogEntry[] = [...(log ?? [])];
+  for (const n of notes) {
+    // Key order MUST mirror sanitizeNoteLog's output ({id, timestamp, html,
+    // text, authorResourceId, authorName}) so the JSON pass-through and the
+    // MD/CSV decode paths produce byte-identical cells (golden fixed point).
+    out = [
+      ...out,
+      {
+        id: nextNoteId(out),
+        timestamp: n.timestamp,
+        html: noteHtml(n.text),
+        text: n.text,
+        authorResourceId: n.authorResourceId,
+        authorName: n.authorName,
+      },
+    ];
+  }
+  return out;
+}
+
+const DEMO_TASK_NOTES: Record<number, readonly DemoNote[]> = {
+  1: [
+    {
+      authorResourceId: 1,
+      authorName: "Alex Example",
+      timestamp: "2026-04-23T09:15:00.000Z",
+      text: "Partner confirmed the OIDC discovery endpoint is stable; no SAML fallback needed.",
+    },
+  ],
+  4: [
+    {
+      authorResourceId: 2,
+      authorName: "Sam Placeholder",
+      timestamp: "2026-05-14T11:00:00.000Z",
+      text: "Redis sliding-window middleware drafted; awaiting DBA schema review before wiring rate limits.",
+    },
+  ],
+};
+
+const DEMO_RAID_NOTES: Record<number, readonly DemoNote[]> = {
+  2: [
+    {
+      authorResourceId: 4,
+      authorName: "Morgan Standin",
+      timestamp: "2026-05-22T08:30:00.000Z",
+      text: "Vendor SLA call scheduled; requesting a 99.95% uptime commitment for peak windows.",
+    },
+  ],
+  11: [
+    {
+      authorResourceId: 4,
+      authorName: "Morgan Standin",
+      timestamp: "2026-05-25T16:45:00.000Z",
+      text: "Compliance pre-review complete; formal sign-off pending the final pen-test report.",
+    },
+  ],
+};
+
+// Fold Description → noteLog + clear description (tasks only; RAID keeps its own
+// description field), then append the demo task notes.
+const foldedTasks: Task[] = ws.tasks.map((task) => {
+  const desc = (task.description ?? "").trim();
+  let noteLog: NoteLogEntry[] | undefined = task.noteLog;
+  let description = task.description;
+  if (desc) {
+    const ts = task.lastUpdateDate
+      ? `${task.lastUpdateDate}T00:00:00.000Z`
+      : "2026-01-01T00:00:00.000Z";
+    const base: NoteLogEntry[] = [...(task.noteLog ?? [])];
+    noteLog = [
+      ...base,
+      { id: nextNoteId(base), timestamp: ts, html: noteHtml(desc), text: desc },
+    ];
+    description = "";
+  }
+  const demo = DEMO_TASK_NOTES[task.id];
+  if (demo) noteLog = appendDemoNotes(noteLog, demo);
+  return noteLog === task.noteLog && description === task.description
+    ? task
+    : { ...task, description, noteLog };
+});
+
+// Append demo authored notes to the enriched RAID items (RAID description stays).
+const raidWithNotes: RaidItem[] = enrichedRaid.map((item) => {
+  const demo = DEMO_RAID_NOTES[item.id];
+  return demo ? { ...item, noteLog: appendDemoNotes(item.noteLog, demo) } : item;
 });
 
 // Two new ChangeItem entries
@@ -251,7 +371,8 @@ const enrichedRoles = ws.roles.map((r) =>
 
 const enrichedWs = {
   ...ws,
-  raid: enrichedRaid,
+  tasks: foldedTasks,
+  raid: raidWithNotes,
   roles: enrichedRoles,
   changes,
   project: sampleProjectMeta,

@@ -1,6 +1,6 @@
 # AIPM Tasks
 
-| ID | Task | Assignee | Email | Start | Due | Last update | Priority | Status | Blockers | Notes | Completed | Inquiries | Group | Labels | Dependencies | Jira | JiraType | LastSynced | LocalModified | Health | ResourceId | OrigEstimateMin | TimeSpentMin | KnowledgeLinks | OutlookEventId |
+| ID | Task | Assignee | Email | Start | Due | Last update | Priority | Status | Blockers | Description | Completed | Inquiries | Group | Labels | Dependencies | Jira | JiraType | LastSynced | LocalModified | Health | ResourceId | OrigEstimateMin | TimeSpentMin | KnowledgeLinks | OutlookEventId |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Design SSO architecture | Alex Example | Sample.Dummy@example.com | 2026-04-01 | 2026-04-20 | 2026-04-22 | High | Done |  | Reviewed OIDC vs SAML; OIDC selected based on partner roadmap. | 2026-04-22 | 0 | Auth Migration | design\|architecture |  | LOP-101 | Story |  |  |  | 1 |  |  | [{"name":"OIDC Architecture Decision.docx","url":"https://example.sharepoint.com/sites/auth-migration/Shared%20Documents/OIDC-Architecture-Decision.docx","kind":"file"}] |  |
 | 2 | POC OIDC integration | Sam Placeholder | Fictional.Jordan@example.com | 2026-04-15 | 2026-04-30 | 2026-05-04 | High | Done |  | Worked through token refresh edge cases. One inquiry from product lead about UX. Merged to main. | 2026-05-04 | 1 | Auth Migration | poc\|backend | FS:1 | LOP-102 | Story |  |  |  | 2 |  |  |  |  |
