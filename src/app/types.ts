@@ -29,14 +29,20 @@ export type TaskDependency = {
   type: DependencyType;
 };
 
-/** A single dated note in a task's running note log. Author is best-effort:
- *  `authorResourceId` links to a Resource; `authorName` is the display fallback.
- *  `timestamp` is an ISO instant; `text` is the (control-char-stripped) body. */
+/** A single dated note in an entity's running note log. `id` is stable within
+ *  the entity's array (max+1). `html` is sanitized rich body; `text` is the
+ *  plain-text projection (search/export/fallback). Author is best-effort. */
 export type NoteLogEntry = {
+  id: number;
   authorResourceId?: number;
   authorName?: string;
   /** ISO timestamp when the note was recorded. */
   timestamp: string;
+  /** ISO timestamp of the last edit; absent until edited → renders "(edited)". */
+  editedAt?: string;
+  /** Sanitized rich HTML body. */
+  html: string;
+  /** Plain-text projection of html. */
   text: string;
 };
 
@@ -57,7 +63,9 @@ export type Task = {
    *  invariant completedDate-set; "Cancelled" is terminal but not completed. */
   status: TaskStatus;
   blockers: string;
-  notes: string;
+  /** Rich free-text description (sanitized HTML). Renamed from the former
+   *  plain `notes` field; the running dated log lives in `noteLog`. */
+  description: string;
   /** YYYY-MM-DD when the task was marked complete; "" or absent when still open. */
   completedDate?: string;
   /** Total number of status-inquiry emails sent for this task. */
@@ -220,6 +228,9 @@ export type RaidItem = {
   /** Total number of status-inquiry emails sent for this item (mirrors
    *  Task.inquiriesSent). Optional + sparse; absent/0 on legacy data. */
   inquiriesSent?: number;
+  /** Running note log — dated rich notes. Optional + sparse; absent on legacy
+   *  data. Persisted as a JSON-in-cell array across the text backends. */
+  noteLog?: NoteLogEntry[];
 };
 
 /** A zero-duration key date, distinct from a task. `achievedDate` is a manual
