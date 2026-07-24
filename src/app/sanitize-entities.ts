@@ -454,7 +454,9 @@ function sanitizePercentComplete(n: unknown): number | undefined {
 export function sanitizeIdList(input: unknown): number[] {
   let arr: unknown[];
   if (Array.isArray(input)) arr = input;
-  else if (typeof input === "string") arr = input.split(".");
+  // "." separates a resourceIds cell nested inside an allocation (roleId;resourceIds;...);
+  // ";" separates a bare top-level id-list column (e.g. BudgetBucket.taskIds).
+  else if (typeof input === "string") arr = input.split(/[.;]/);
   else return [];
   const out: number[] = [];
   const seen = new Set<number>();

@@ -41,6 +41,20 @@ describe("budget CSV round-trip", () => {
     expect(back.budgets![0].order).toBe(3);
   });
 
+  test("bucket taskIds and percentComplete survive CSV encode/decode", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      budgets: [{
+        id: 1, name: "EV bucket", type: "tm" as const, currency: "EUR" as const,
+        startDate: "2026-01-01", endDate: "2026-06-30", status: "open" as const,
+        taskIds: [3, 4], percentComplete: 40, allocations: [],
+      }],
+    };
+    const back = csvToWorkspace(workspaceToCsv(ws));
+    expect(back.budgets![0].taskIds).toEqual([3, 4]);
+    expect(back.budgets![0].percentComplete).toBe(40);
+  });
+
   test("blended planningMode, disciplineAllocations, and rate overrides survive CSV encode/decode", () => {
     const ws = {
       ...emptyWorkspace(),
