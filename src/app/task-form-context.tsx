@@ -28,7 +28,8 @@ export function emptyForm() {
     priority: "Medium" as Priority,
     status: "To Do" as TaskStatus,
     blockers: "",
-    notes: "",
+    // Rich HTML task description (was `notes`; edited via the NoteEditor).
+    description: "",
     group: "",
     labels: [] as string[],
     dependencies: [] as TaskDependency[],
