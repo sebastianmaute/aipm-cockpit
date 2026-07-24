@@ -122,6 +122,7 @@ export const de: Record<TranslationKey, string> = {
   colTaskStatus: "Status",
   colCreatedDate: "Erstellt",
   hideFinishedTasks: "Erledigte ausblenden",
+  hideExternalTasks: "Externe ausblenden",
   tasksViewModeLabel: "Ansicht",
   tasksViewTable: "Tabelle",
   tasksViewBoard: "Board",

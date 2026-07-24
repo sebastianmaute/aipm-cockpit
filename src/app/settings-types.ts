@@ -540,6 +540,9 @@ export type Settings = {
   expertMode?: boolean;
   /** Per-device tasks-view toggle: hide finished (Done + Cancelled) tasks. Default OFF. */
   hideFinishedTasks?: boolean;
+  /** Per-device tasks-view toggle: hide tasks owned by external resources.
+   *  Default OFF. View-level only — never filters exports or engines. */
+  hideExternalTasks?: boolean;
   /** Per-device tasks-pane layout: table list or Kanban board. Default "table". */
   tasksViewMode?: "table" | "board";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
@@ -631,6 +634,7 @@ export const defaultSettings: Settings = {
   layout: "modern",
   expertMode: false,
   hideFinishedTasks: false,
+  hideExternalTasks: false,
   tasksViewMode: "table",
   dashboardDensity: "comfortable",
   digest: { enabled: false, cadenceDays: 7 },

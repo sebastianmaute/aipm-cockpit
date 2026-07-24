@@ -119,6 +119,7 @@ const enUS = {
   colTaskStatus: "Status",
   colCreatedDate: "Created",
   hideFinishedTasks: "Hide finished",
+  hideExternalTasks: "Hide externals",
   tasksViewModeLabel: "View",
   tasksViewTable: "Table",
   tasksViewBoard: "Board",
