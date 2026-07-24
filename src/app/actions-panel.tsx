@@ -24,6 +24,7 @@ import type { RescheduleBundle } from "./reschedule-popover";
 import type { SuggestedAction, ActionTier } from "./next-actions/types";
 import { groupNextActions, type ActionGroup } from "./next-actions/group";
 import { TIER_RAG } from "./next-actions/action-cta";
+import { Dot } from "./dot";
 
 const TIERS: { tier: ActionTier; labelKey: TranslationKey }[] = [
   { tier: "now", labelKey: "actionTierNow" },
@@ -194,7 +195,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
                     onClick={() => setMonitorOpen((o) => !o)}
                     className="mb-2 inline-flex w-full items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
                   >
-                    <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${TIER_RAG.monitor.dot}`} />
+                    <Dot color={TIER_RAG.monitor.dot} size="xs" />
                     <span aria-hidden>{monitorOpen ? "▾" : "▸"}</span>
                     {t(lang, "actionMonitoredCount", rows.length)}
                   </button>
@@ -210,7 +211,7 @@ export function ActionsPanel({ lang, actions, onOpen, onSnooze, onCreateTask, as
             return (
               <section key={tier}>
                 <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${TIER_RAG[tier].dot}`} />
+                  <Dot color={TIER_RAG[tier].dot} size="xs" />
                   {t(lang, labelKey)} ({rows.length})
                 </h3>
                 <div id={`action-${tier}-list`} className="flex flex-col gap-2">{visible.map(renderRow)}</div>
