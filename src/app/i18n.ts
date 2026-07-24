@@ -117,6 +117,7 @@ const enUS = {
   statusCancelled: "Cancelled",
   statusDone: "Done",
   colTaskStatus: "Status",
+  colCreatedDate: "Created",
   hideFinishedTasks: "Hide finished",
   tasksViewModeLabel: "View",
   tasksViewTable: "Table",

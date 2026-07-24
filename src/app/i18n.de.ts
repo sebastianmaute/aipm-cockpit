@@ -120,6 +120,7 @@ export const de: Record<TranslationKey, string> = {
   statusCancelled: "Abgebrochen",
   statusDone: "Erledigt",
   colTaskStatus: "Status",
+  colCreatedDate: "Erstellt",
   hideFinishedTasks: "Erledigte ausblenden",
   tasksViewModeLabel: "Ansicht",
   tasksViewTable: "Tabelle",
