@@ -10,7 +10,7 @@ import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
-import { migrateTaskStatus } from "./task-status";
+import { migrateTask } from "./task-status";
 import { sanitizeNoteFields } from "./note-log";
 import {
   type Absence,
@@ -247,7 +247,7 @@ export class BrowserBackend implements StorageBackend {
 
     // Migrate legacy task rows (IDB or localStorage) lacking a workflow status
     // to a valid TaskStatus before assembling the workspace.
-    tasks = tasks.map(migrateTaskStatus);
+    tasks = tasks.map(migrateTask);
     // Untrusted-import boundary: an imported/attacker-crafted IDB workspace can
     // carry malicious sanitized-HTML fields (noteLog[].html / description) that
     // the whole-object read would pass through verbatim — scrub them like the

@@ -18,12 +18,18 @@ export function applyStatusChange(task: Task, next: TaskStatus, today: string): 
   return { ...task, status: next, completedDate: "" };
 }
 
-/** Normalize a raw/legacy task to a valid status. Absent/invalid status derives
- *  from completedDate (set => Done, else To Do). Valid status is kept as-is. */
-export function migrateTaskStatus(task: Task): Task {
-  if (typeof task.status === "string" && STATUS_SET.has(task.status)) return task;
-  const derived: TaskStatus = task.completedDate ? "Done" : DEFAULT_TASK_STATUS;
-  return { ...task, status: derived };
+/** Normalize a raw/legacy task on LOAD. Two jobs, both idempotent:
+ *  - status: absent/invalid derives from completedDate (set => Done, else To Do)
+ *  - createdDate: absent falls back to lastUpdateDate, else "" (never invented)
+ *  Runs on all six load paths, so it is the single backfill seam. */
+export function migrateTask(task: Task): Task {
+  const statusOk = typeof task.status === "string" && STATUS_SET.has(task.status);
+  const createdOk = typeof task.createdDate === "string";
+  if (statusOk && createdOk) return task;
+  const out = { ...task };
+  if (!statusOk) out.status = task.completedDate ? "Done" : DEFAULT_TASK_STATUS;
+  if (!createdOk) out.createdDate = task.lastUpdateDate || "";
+  return out;
 }
 
 /** Sort index following TASK_STATUSES order. Unknown => end. */

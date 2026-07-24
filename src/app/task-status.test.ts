@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import {
   isTaskFinished,
   applyStatusChange,
-  migrateTaskStatus,
+  migrateTask,
   statusSortIndex,
 } from "./task-status";
-import type { Task } from "./types";
+import type { Task, TaskStatus } from "./types";
 
 const base = (over: Partial<Task> = {}): Task =>
   ({
@@ -64,22 +64,22 @@ describe("applyStatusChange", () => {
   });
 });
 
-describe("migrateTaskStatus", () => {
+describe("migrateTask", () => {
   it("derives Done from a set completedDate when status is absent", () => {
     const raw = { ...base(), completedDate: "2026-01-01" } as Partial<Task>;
     delete (raw as Record<string, unknown>).status;
-    expect(migrateTaskStatus(raw as Task).status).toBe("Done");
+    expect(migrateTask(raw as Task).status).toBe("Done");
   });
   it("derives To Do when no completedDate and status absent", () => {
     const raw = { ...base() } as Partial<Task>;
     delete (raw as Record<string, unknown>).status;
-    expect(migrateTaskStatus(raw as Task).status).toBe("To Do");
+    expect(migrateTask(raw as Task).status).toBe("To Do");
   });
   it("keeps a valid existing status", () => {
-    expect(migrateTaskStatus(base({ status: "On Hold" })).status).toBe("On Hold");
+    expect(migrateTask(base({ status: "On Hold" })).status).toBe("On Hold");
   });
   it("falls back to To Do on an invalid status string", () => {
-    expect(migrateTaskStatus(base({ status: "garbage" as unknown as Task["status"] })).status).toBe("To Do");
+    expect(migrateTask(base({ status: "garbage" as unknown as Task["status"] })).status).toBe("To Do");
   });
 });
 
@@ -87,5 +87,41 @@ describe("statusSortIndex", () => {
   it("orders by TASK_STATUSES position", () => {
     expect(statusSortIndex("To Do")).toBeLessThan(statusSortIndex("Done"));
     expect(statusSortIndex("Cancelled")).toBeLessThan(statusSortIndex("Done"));
+  });
+});
+
+describe("migrateTask createdDate backfill", () => {
+  const base: Task = {
+    id: 1, taskName: "T", assignee: "", assigneeEmail: "",
+    dueDate: "2026-03-01", lastUpdateDate: "2026-02-01",
+    priority: "Medium", status: "To Do", blockers: "", description: "",
+  };
+
+  test("keeps an existing createdDate", () => {
+    const out = migrateTask({ ...base, createdDate: "2026-01-15" });
+    expect(out.createdDate).toBe("2026-01-15");
+  });
+
+  test("backfills from lastUpdateDate when absent", () => {
+    const out = migrateTask(base);
+    expect(out.createdDate).toBe("2026-02-01");
+  });
+
+  test("falls back to empty string when there is nothing to backfill from", () => {
+    const out = migrateTask({ ...base, lastUpdateDate: "" });
+    expect(out.createdDate).toBe("");
+  });
+
+  test("still migrates status (the original responsibility)", () => {
+    const out = migrateTask({ ...base, status: "bogus" as TaskStatus, completedDate: "2026-02-02" });
+    expect(out.status).toBe("Done");
+    expect(out.createdDate).toBe("2026-02-01");
+  });
+
+  test("returns a new object and never mutates its input", () => {
+    const input = { ...base };
+    const out = migrateTask(input);
+    expect(out).not.toBe(input);
+    expect(input.createdDate).toBeUndefined();
   });
 });

@@ -8,7 +8,7 @@
 
 import { decodeKnowledgeLinks } from "./document-link";
 import { decodeNoteLog } from "./note-log";
-import { migrateTaskStatus } from "./task-status";
+import { migrateTask } from "./task-status";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
@@ -393,7 +393,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       continue;
     }
     const inq = Number(obj.inquiriesSent);
-    tasks.push(migrateTaskStatus({
+    tasks.push(migrateTask({
       id,
       taskName: obj.taskName ?? "",
       assignee: obj.assignee ?? "",
