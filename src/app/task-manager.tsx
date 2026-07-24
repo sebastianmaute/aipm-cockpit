@@ -2170,6 +2170,7 @@ function TaskManagerInner() {
     contactsList,
     onCreateResource: handleCreateResource,
     handleClearRaidTaskFilter,
+    onOpenNotes: (id: number) => setNotesTarget({ kind: "raid", id }),
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
     onSendRaidInquiry: isPopout ? undefined : handleSendRaidInquiry,

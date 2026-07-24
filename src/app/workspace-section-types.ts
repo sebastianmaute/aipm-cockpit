@@ -160,6 +160,9 @@ export interface WorkspaceSectionProps {
   onJumpToComms?: (stakeholderId: number) => void;
   handleCreateMitigationTaskFromRaid: (raidId: number) => number | null | undefined;
   handleJumpToTaskFromRaid: (taskId: number) => void;
+  /** Open the floating notes window (running note log) for a RAID item. Threaded
+   *  to the RAID panel (row badge + edit modal). */
+  onOpenNotes: (id: number) => void;
   activityLog: ActivityEntry[];
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   logActivityChanges: (

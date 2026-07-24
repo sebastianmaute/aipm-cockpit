@@ -24,6 +24,7 @@ import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { useRowSelection } from "./use-row-selection";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
+import { NotesBadgeButton } from "./notes-badge-button";
 import { DataTable } from "./data-table";
 
 const categoryPillClass: Record<RaidCategory, string> = {
@@ -53,6 +54,8 @@ export interface RaidTableProps {
   causesIndex: Map<number, readonly RaidItem[]>;
   openEdit: (item: RaidItem) => void;
   onJumpToTask: (taskId: number) => void;
+  /** Open the floating notes window (running note log) for a RAID item. */
+  onOpenNotes: (id: number) => void;
   effectiveCategory: RaidCategory;
   openNew: (category?: RaidCategory) => void;
   flashId: number | null;
@@ -81,6 +84,7 @@ export function RaidTable({
   causesIndex,
   openEdit,
   onJumpToTask,
+  onOpenNotes,
   effectiveCategory,
   openNew,
   flashId,
@@ -166,6 +170,12 @@ export function RaidTable({
           <th className="relative px-3 py-2" style={{ width: colWidths.causedBy, minWidth: colWidths.causedBy }}>
             {t(lang, "raidCausedBy")}
             <ColumnResizeHandle col="causedBy" onMouseDown={startResize} />
+          </th>
+          )}
+          {!hiddenSet.has("notesLog") && (
+          <th className="relative px-3 py-2" style={{ width: colWidths.notesLog, minWidth: colWidths.notesLog }}>
+            {t(lang, "noteLogTitle")}
+            <ColumnResizeHandle col="notesLog" onMouseDown={startResize} />
           </th>
           )}
         </tr>
@@ -337,6 +347,18 @@ export function RaidTable({
                     </span>
                   );
                 })()}
+              </td>
+              )}
+              {!hiddenSet.has("notesLog") && (
+              // Cell-level stopPropagation so opening the notes window does not
+              // also fire the row click (which opens the edit modal).
+              <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                <NotesBadgeButton
+                  count={item.noteLog?.length ?? 0}
+                  entityName={item.title}
+                  lang={lang}
+                  onClick={() => onOpenNotes(item.id)}
+                />
               </td>
               )}
             </tr>

@@ -121,6 +121,7 @@ export function WorkspaceSection({
   onJumpToComms,
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
+  onOpenNotes,
   activityLog,
   logActivity,
   logActivityChanges,
@@ -435,6 +436,7 @@ export function WorkspaceSection({
             onCaptureBulk={onCaptureRaidBulk}
             onCreateMitigationTask={handleCreateMitigationTaskFromRaid}
             onJumpToTask={handleJumpToTaskFromRaid}
+            onOpenNotes={onOpenNotes}
             showHints={effectiveSettings.showViewHints !== false}
             isPopout={isPopout}
             onLearnMore={requestHelpConcept}
