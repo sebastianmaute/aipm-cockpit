@@ -237,7 +237,7 @@ export function KnowledgePanel() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => { setManualName(""); setManualUrl(""); setTargetKey(""); setAddOpen(false); }}
+              onClick={() => { setManualName(""); setManualUrl(""); setTargetKey(STANDALONE_KEY); setAddOpen(false); }}
             >
               {t(lang, "cancel")}
             </Button>

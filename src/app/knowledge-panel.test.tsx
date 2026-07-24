@@ -211,4 +211,14 @@ describe("KnowledgePanel", () => {
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
   });
+
+  it("keeps the Standalone default after Cancel and reopen", () => {
+    renderWithTasks([seededTask([])]);
+    const openAdd = () => fireEvent.click(screen.getAllByRole("button", { name: new RegExp(t("en-US", "documentsTabAdd")) })[0]);
+    openAdd();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    openAdd();
+    const target = screen.getByRole("combobox", { name: t("en-US", "documentsTarget") }) as HTMLSelectElement;
+    expect(target.value).toBe("__standalone__");
+  });
 });
