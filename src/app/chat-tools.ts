@@ -26,6 +26,7 @@ type TaskInput = {
   status?: string;
   blockers?: string;
   notes?: string;
+  description?: string;
   group?: string;
   labels?: string[];
 };
@@ -380,6 +381,7 @@ export async function runTool(
         status: asString(input.status),
         blockers: asString(input.blockers),
         notes: asString(input.notes),
+        description: asString(input.description),
         group: asString(input.group),
         labels: Array.isArray(input.labels)
           ? sanitizeLabels(input.labels)

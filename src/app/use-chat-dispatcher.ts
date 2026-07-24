@@ -241,7 +241,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           status: DEFAULT_TASK_STATUS,
           blockers: sanitizeBlockers(input.blockers),
           // Model supplies plain text → wrap to sanitized HTML for `description`.
-          description: plainToHtml(sanitizeNotes(input.notes)),
+          description: plainToHtml(sanitizeNotes(input.description ?? input.notes)),
           inquiriesSent: 0,
           group: sanitizeGroup(input.group),
           labels: sanitizeLabels(input.labels),
