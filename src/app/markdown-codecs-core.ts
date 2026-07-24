@@ -348,7 +348,7 @@ const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "priority", label: "Priority" },
   { key: "status", label: "Status" },
   { key: "blockers", label: "Blockers" },
-  { key: "notes", label: "Notes" },
+  { key: "description", label: "Description" },
   { key: "completedDate", label: "Completed" },
   { key: "inquiriesSent", label: "Inquiries" },
   { key: "group", label: "Group" },

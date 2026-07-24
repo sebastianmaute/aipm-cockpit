@@ -347,7 +347,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
     else if (norm === "priority") colMap[idx] = "priority";
     else if (norm === "status") colMap[idx] = "status";
     else if (norm === "blockers") colMap[idx] = "blockers";
-    else if (norm === "notes") colMap[idx] = "notes";
+    else if (norm === "description") colMap[idx] = "description";
     else if (norm === "completed" || norm === "completeddate")
       colMap[idx] = "completedDate";
     else if (norm === "inquiries" || norm === "inquiriessent")
@@ -402,7 +402,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       priority: ((obj.priority as Priority) || "Medium") as Priority,
       status: obj.status as Task["status"],
       blockers: obj.blockers ?? "",
-      notes: obj.notes ?? "",
+      description: obj.description ?? "",
       completedDate: obj.completedDate || undefined,
       inquiriesSent: Number.isFinite(inq) && inq > 0 ? inq : 0,
       group: sanitizeGroup(obj.group),

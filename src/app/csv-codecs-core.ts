@@ -51,7 +51,7 @@ export const CSV_COLUMNS: Array<keyof Task> = [
   "priority",
   "status",
   "blockers",
-  "notes",
+  "description",
   "completedDate",
   "inquiriesSent",
   "group",
