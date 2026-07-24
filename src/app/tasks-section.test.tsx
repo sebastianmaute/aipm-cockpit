@@ -164,7 +164,7 @@ function makeProps(): TasksSectionProps {
     jiraSiteUrl: "",
     jiraExtraProjects: [],
     onToggleSelect: vi.fn(),
-    onToggleNoteExpanded: vi.fn(),
+    onOpenNotes: vi.fn(),
     onJumpToRaid: vi.fn(),
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
@@ -184,7 +184,6 @@ function makeProps(): TasksSectionProps {
     tableRef: React.createRef<HTMLElement>(),
     resetTableSize: vi.fn(),
     // row state
-    expandedNotes: new Set(),
     pushingIds: new Set(),
     raidByTask: new Map(),
     changeByTask: new Map(),
@@ -757,8 +756,8 @@ describe("TasksSection", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("captures a field-level undo entry for an inline cell edit (notes)", () => {
-    const task = { id: 1, taskName: "T1", notes: "old note" };
+  it("captures a field-level undo entry for an inline cell edit (blockers)", () => {
+    const task = { id: 1, taskName: "T1", blockers: "old note" };
     let currentTasks: unknown[] = [task];
     const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
       currentTasks = updater(currentTasks);
@@ -789,21 +788,21 @@ describe("TasksSection", () => {
       onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
     };
     act(() => {
-      ctx.onInlinePatch(1, { notes: "new note" });
+      ctx.onInlinePatch(1, { blockers: "new note" });
     });
 
     expect(captureFieldEdit).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "task.updated",
         id: 1,
-        before: { notes: "old note" },
-        after: { notes: "new note" },
+        before: { blockers: "old note" },
+        after: { blockers: "new note" },
       }),
     );
   });
 
   it("does not capture an undo entry for a Jira-synced task's inline edit (no-op)", () => {
-    const task = { id: 1, taskName: "T1", notes: "old note", jiraKey: "LOP-1" };
+    const task = { id: 1, taskName: "T1", blockers: "old note", jiraKey: "LOP-1" };
     let currentTasks: unknown[] = [task];
     const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
       currentTasks = updater(currentTasks);
@@ -830,14 +829,14 @@ describe("TasksSection", () => {
       onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
     };
     act(() => {
-      ctx.onInlinePatch(1, { notes: "new note" });
+      ctx.onInlinePatch(1, { blockers: "new note" });
     });
 
     expect(captureFieldEdit).not.toHaveBeenCalled();
   });
 
   it("does not capture an undo entry when the inline patch value is unchanged (no-op)", () => {
-    const task = { id: 1, taskName: "T1", notes: "same note" };
+    const task = { id: 1, taskName: "T1", blockers: "same note" };
     let currentTasks: unknown[] = [task];
     const setTasks = vi.fn((updater: (prev: unknown[]) => unknown[]) => {
       currentTasks = updater(currentTasks);
@@ -864,7 +863,7 @@ describe("TasksSection", () => {
       onInlinePatch: (id: number, patch: Record<string, unknown>) => void;
     };
     act(() => {
-      ctx.onInlinePatch(1, { notes: "same note" });
+      ctx.onInlinePatch(1, { blockers: "same note" });
     });
 
     expect(captureFieldEdit).not.toHaveBeenCalled();
