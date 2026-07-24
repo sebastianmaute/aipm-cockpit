@@ -62,11 +62,6 @@ describe("useColumnManager", () => {
   // migrated into an existing user's stored set exactly once, without disturbing
   // a column they have since deliberately unhidden.
   describe("hidden-cols storage migration", () => {
-    it("fresh install hides estimate, spent and createdDate", () => {
-      const { result } = renderHook(() => useColumnManager());
-      expect([...result.current.hiddenCols].sort()).toEqual(["createdDate", "estimate", "spent"]);
-    });
-
     it("a legacy bare array keeps its hides and gains createdDate", () => {
       localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify(["blockers"]));
       const { result } = renderHook(() => useColumnManager());
@@ -83,6 +78,21 @@ describe("useColumnManager", () => {
       localStorage.setItem(HIDDEN_COLS_KEY, "{not json");
       const { result } = renderHook(() => useColumnManager());
       expect([...result.current.hiddenCols].sort()).toEqual(["createdDate", "estimate", "spent"]);
+    });
+
+    it("persists the v2 shape after a state update — a regression to writing a bare array would be misread as v1 on the next load", () => {
+      const { result } = renderHook(() => useColumnManager());
+      act(() => {
+        result.current.setHiddenCols((prev) => {
+          const next = new Set(prev);
+          next.delete("createdDate");
+          return next;
+        });
+      });
+      expect(JSON.parse(window.localStorage.getItem(HIDDEN_COLS_KEY)!)).toEqual({
+        v: 2,
+        hidden: ["estimate", "spent"],
+      });
     });
   });
 });
