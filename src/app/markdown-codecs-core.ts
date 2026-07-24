@@ -81,6 +81,7 @@ const RAID_MD_COLUMNS: Array<{ key: keyof RaidItem; label: string }> = [
   { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
   { key: "inquiriesSent", label: "Inquiries" },
+  { key: "noteLog", label: "NoteLog" },
 ];
 
 

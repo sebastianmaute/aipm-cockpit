@@ -270,6 +270,7 @@ const RAID_ALIASES: Record<string, string> = {
   stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
   documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks", outlookeventid: "outlookEventId",
   inquiries: "inquiriesSent", inquiriessent: "inquiriesSent",
+  notelog: "noteLog",
 };
 
 function markdownToRaid(md: string, diag?: ImportDiag): RaidItem[] {
