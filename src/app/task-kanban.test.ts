@@ -74,4 +74,15 @@ describe("groupByStatusAndPerson", () => {
     expect(out.lanes.some((l) => l.key === "res:999")).toBe(false);
     expect(out.cells["res:999"]).toBeUndefined();
   });
+
+  it("a task with a dangling resourceId falls back to its assignee string", () => {
+    const out = groupByStatusAndPerson([task({ resourceId: 99, assignee: "Ghost" })], resources, []);
+    expect(out.lanes[0].key).toBe("name:Ghost");
+    expect(out.lanes[0].resourceId).toBeNull();
+  });
+
+  it("a task with a dangling resourceId and no assignee string lands in Unassigned", () => {
+    const out = groupByStatusAndPerson([task({ resourceId: 99 })], resources, []);
+    expect(out.cells[UNASSIGNED_LANE]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
 });
