@@ -498,8 +498,8 @@ export const TOOL_DEFS = [
         },
         tasksViewMode: {
           type: "string",
-          enum: ["table", "board"],
-          description: "Open Points layout: sortable table or Kanban board.",
+          enum: ["table", "board", "swimlane"],
+          description: "Open Points layout: sortable table, Kanban board, or person swimlanes.",
         },
         hideExternalTasks: {
           type: "boolean",

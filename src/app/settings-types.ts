@@ -543,8 +543,8 @@ export type Settings = {
   /** Per-device tasks-view toggle: hide tasks owned by external resources.
    *  Default OFF. View-level only — never filters exports or engines. */
   hideExternalTasks?: boolean;
-  /** Per-device tasks-pane layout: table list or Kanban board. Default "table". */
-  tasksViewMode?: "table" | "board";
+  /** Per-device tasks-pane layout: table list, Kanban board, or person swimlanes. Default "table". */
+  tasksViewMode?: "table" | "board" | "swimlane";
   /** Per-device Dashboard density (spacing only). Default "comfortable". */
   dashboardDensity?: "comfortable" | "compact";
   /** Per-device: the Resource id representing "me" (the current user). Drives

@@ -208,12 +208,13 @@ export function ProjectOverridesSection({
           </label>
           <label className="flex flex-wrap items-center justify-between gap-2 text-sm text-foreground">
             {t(lang, "tasksViewModeLabel")}
-            <SegmentedControl<"table" | "board">
+            <SegmentedControl<"table" | "board" | "swimlane">
               value={effective.tasksViewMode ?? "table"}
               ariaLabel={t(lang, "tasksViewModeLabel")}
               options={[
                 { value: "table", label: t(lang, "tasksViewTable") },
                 { value: "board", label: t(lang, "tasksViewBoard") },
+                { value: "swimlane", label: t(lang, "tasksViewSwimlane") },
               ]}
               onChange={(v) => setAppearance({ tasksViewMode: v })}
             />

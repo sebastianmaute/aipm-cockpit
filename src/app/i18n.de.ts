@@ -126,6 +126,7 @@ export const de: Record<TranslationKey, string> = {
   tasksViewModeLabel: "Ansicht",
   tasksViewTable: "Tabelle",
   tasksViewBoard: "Board",
+  tasksViewSwimlane: "Swimlanes",
   dashboardDensityLabel: "Dichte",
   dashboardDensityHint: "Kompakt verringert die Abstände im Dashboard, um mehr auf den Bildschirm zu bringen. Wird pro Gerät gespeichert.",
   dashboardDensityComfortable: "Komfortabel",

@@ -290,7 +290,7 @@ export function TasksSection({
   const tasksViewMode = effectiveSettings.tasksViewMode ?? "table";
   const viewModeOverridden = projectAppearance.tasksViewMode !== undefined;
   const setTasksViewMode = useCallback(
-    (mode: "table" | "board") => {
+    (mode: "table" | "board" | "swimlane") => {
       if (viewModeOverridden)
         saveProjectAppearance(pid, { ...projectAppearance, tasksViewMode: mode });
       else setSettings((s) => ({ ...s, tasksViewMode: mode }));
@@ -549,6 +549,7 @@ export function TasksSection({
           options={[
             { value: "table", label: t(lang, "tasksViewTable") },
             { value: "board", label: t(lang, "tasksViewBoard") },
+            { value: "swimlane", label: t(lang, "tasksViewSwimlane") },
           ]}
           onChange={setTasksViewMode}
           ariaLabel={t(lang, "tasksViewModeLabel")}

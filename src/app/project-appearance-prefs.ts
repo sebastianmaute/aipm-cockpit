@@ -18,7 +18,7 @@ export interface ProjectAppearancePref {
   theme?: "light" | "dark" | "system";
   activeSchemeId?: string;
   showViewHints?: boolean;
-  tasksViewMode?: "table" | "board";
+  tasksViewMode?: "table" | "board" | "swimlane";
 }
 
 const PROJECT_APPEARANCE_KEY = "aipm-cockpit:project-appearance";
@@ -46,7 +46,7 @@ function sanitizePref(v: unknown): ProjectAppearancePref {
     if (trimmed) out.activeSchemeId = trimmed;
   }
   if (typeof o.showViewHints === "boolean") out.showViewHints = o.showViewHints;
-  if (o.tasksViewMode === "table" || o.tasksViewMode === "board") {
+  if (o.tasksViewMode === "table" || o.tasksViewMode === "board" || o.tasksViewMode === "swimlane") {
     out.tasksViewMode = o.tasksViewMode;
   }
   return out;

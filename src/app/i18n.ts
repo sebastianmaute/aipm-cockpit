@@ -123,6 +123,7 @@ const enUS = {
   tasksViewModeLabel: "View",
   tasksViewTable: "Table",
   tasksViewBoard: "Board",
+  tasksViewSwimlane: "Swimlanes",
   dashboardDensityLabel: "Density",
   dashboardDensityHint: "Compact tightens the Dashboard spacing to fit more on screen. Saved per device.",
   dashboardDensityComfortable: "Comfortable",

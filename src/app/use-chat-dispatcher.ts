@@ -411,7 +411,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           changes.showViewHints = patch.showViewHints;
           applied.showViewHints = patch.showViewHints;
         }
-        if (patch.tasksViewMode === "table" || patch.tasksViewMode === "board") {
+        if (
+          patch.tasksViewMode === "table" ||
+          patch.tasksViewMode === "board" ||
+          patch.tasksViewMode === "swimlane"
+        ) {
           changes.tasksViewMode = patch.tasksViewMode;
           applied.tasksViewMode = patch.tasksViewMode;
         }
