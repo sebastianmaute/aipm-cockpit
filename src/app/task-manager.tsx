@@ -35,9 +35,9 @@ import { TaskLinkedTaskModal, type LinkedTaskDraft } from "./task-linked-task-mo
 import { applyTaskLink } from "./task-link";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Task, type NoteLogEntry, DEFAULT_TASK_STATUS } from "./types";
+import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
 import { NotesWindow } from "./notes-window";
-import { addNote, editNote, deleteNote } from "./note-log";
+import { useNotesWindow } from "./use-notes-window";
 import { INTERACTIVE } from "./interaction-styles";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
@@ -1352,105 +1352,8 @@ function TaskManagerInner() {
     [today, setTasks, logActivity, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
   );
 
-  // Shared floating note-log window: which entity's log is open (null = closed).
-  // Never mounted/enabled in popouts (read-only). The window is a single surface
-  // reused by tasks + RAID; CRUD routes back into the live workspace state.
-  const [notesTarget, setNotesTarget] = useState<{ kind: "task" | "raid"; id: number } | null>(null);
-
-  const notesEntries: readonly NoteLogEntry[] =
-    notesTarget?.kind === "task"
-      ? tasks.find((tk) => tk.id === notesTarget.id)?.noteLog ?? []
-      : notesTarget?.kind === "raid"
-        ? raid.find((r) => r.id === notesTarget.id)?.noteLog ?? []
-        : [];
-
-  const notesSelf = settings.selfResourceId ?? null;
-  const notesAuthorName = (() => {
-    const r = resources.find((x) => x.id === notesSelf);
-    return r ? resourceDisplayName(r) : undefined;
-  })();
-
-  const notesEntityLabel =
-    notesTarget?.kind === "task"
-      ? tasks.find((tk) => tk.id === notesTarget.id)?.taskName ?? t(lang, "noteLogTitle")
-      : notesTarget?.kind === "raid"
-        ? raid.find((r) => r.id === notesTarget.id)?.title ?? t(lang, "noteLogTitle")
-        : t(lang, "noteLogTitle");
-
-  // CRUD handlers for the open note-log target. FUNCTIONAL setters throughout
-  // (a note change is a single-item entity edit; the functional form avoids the
-  // stale-closure trap). Timestamps are minted inside the event handler (never
-  // in render). Each write stamps `localModifiedAt` + logs the entity's own
-  // `*.updated` activity kind (no dedicated note kind exists).
-  const noteHandlersFor = (kind: "task" | "raid", id: number) => {
-    // Resolve the display name from the LIVE closure array (event-handler scope),
-    // never from inside the setState updater — reading an updater-assigned var
-    // after the setter is the documented stale-read landmine.
-    const entityName =
-      kind === "task"
-        ? tasks.find((tk) => tk.id === id)?.taskName ?? ""
-        : raid.find((r) => r.id === id)?.title ?? "";
-    return {
-      onAdd: (html: string, text: string) => {
-        const ts = new Date().toISOString();
-        if (kind === "task") {
-          setTasks((prev) =>
-            prev.map((tk) =>
-              tk.id === id
-                ? { ...tk, noteLog: addNote(tk.noteLog ?? [], { html, text, timestamp: ts, self: notesSelf, authorName: notesAuthorName }), localModifiedAt: ts }
-                : tk,
-            ),
-          );
-          logActivity("task.updated", id, entityName);
-        } else {
-          setRaid((prev) =>
-            prev.map((r) =>
-              r.id === id
-                ? { ...r, noteLog: addNote(r.noteLog ?? [], { html, text, timestamp: ts, self: notesSelf, authorName: notesAuthorName }), localModifiedAt: ts }
-                : r,
-            ),
-          );
-          logActivity("raid.updated", id, entityName);
-        }
-      },
-      onEdit: (noteId: number, html: string, text: string) => {
-        const ts = new Date().toISOString();
-        if (kind === "task") {
-          setTasks((prev) =>
-            prev.map((tk) =>
-              tk.id === id
-                ? { ...tk, noteLog: editNote(tk.noteLog ?? [], noteId, { html, text, editedAt: ts, self: notesSelf, authorName: notesAuthorName }), localModifiedAt: ts }
-                : tk,
-            ),
-          );
-          logActivity("task.updated", id, entityName);
-        } else {
-          setRaid((prev) =>
-            prev.map((r) =>
-              r.id === id
-                ? { ...r, noteLog: editNote(r.noteLog ?? [], noteId, { html, text, editedAt: ts, self: notesSelf, authorName: notesAuthorName }), localModifiedAt: ts }
-                : r,
-            ),
-          );
-          logActivity("raid.updated", id, entityName);
-        }
-      },
-      onDelete: (noteId: number) => {
-        const ts = new Date().toISOString();
-        if (kind === "task") {
-          setTasks((prev) =>
-            prev.map((tk) => (tk.id === id ? { ...tk, noteLog: deleteNote(tk.noteLog ?? [], noteId), localModifiedAt: ts } : tk)),
-          );
-          logActivity("task.updated", id, entityName);
-        } else {
-          setRaid((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, noteLog: deleteNote(r.noteLog ?? [], noteId), localModifiedAt: ts } : r)),
-          );
-          logActivity("raid.updated", id, entityName);
-        }
-      },
-    };
-  };
+  // Shared floating note-log window (tasks + RAID), popout-gated at the mount below (see use-notes-window.ts).
+  const { openTaskNotes, openRaidNotes, notesWindowProps } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
@@ -2170,7 +2073,7 @@ function TaskManagerInner() {
     contactsList,
     onCreateResource: handleCreateResource,
     handleClearRaidTaskFilter,
-    onOpenNotes: (id: number) => setNotesTarget({ kind: "raid", id }),
+    onOpenNotes: openRaidNotes,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
     onSendRaidInquiry: isPopout ? undefined : handleSendRaidInquiry,
@@ -2262,9 +2165,7 @@ function TaskManagerInner() {
         ),
       ),
     ),
-    onRescheduleTask: guardEdit((taskId: number, iso: string) =>
-      setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk))),
-    ),
+    onRescheduleTask: guardEdit((taskId: number, iso: string) => setTasks((prev) => prev.map((tk) => (tk.id === taskId ? { ...tk, dueDate: iso } : tk)))),
     // Clear an unlinked workload row (an owner string matching NO resource, so a
     // name/email string match can't hit a managed resource's record; a task
     // linked by resourceId keeps that link — we only touch the free-text field).
@@ -2393,7 +2294,7 @@ function TaskManagerInner() {
       jiraSiteUrl={settings.jira.siteUrl}
       jiraExtraProjects={settings.jira.extraProjects ?? NO_JIRA_EXTRA_PROJECTS}
       onToggleSelect={onToggleSelect}
-      onOpenNotes={(id) => setNotesTarget({ kind: "task", id })}
+      onOpenNotes={openTaskNotes}
       onJumpToRaid={onJumpToRaid}
       onSendInquiry={onSendInquiry}
       onPushToJira={onPushToJira}
@@ -2479,11 +2380,7 @@ function TaskManagerInner() {
   // mounted below the fields in the modal editor. Never in popouts.
   const editorExtrasEl = !isPopout ? (
     <>
-      <TaskEditorRaidMini
-        lang={lang}
-        onAdd={handleAddRaidFromEditor}
-        pending={editorBuffer.pendingRaid}
-      />
+      <TaskEditorRaidMini lang={lang} onAdd={handleAddRaidFromEditor} pending={editorBuffer.pendingRaid} />
       <button
         type="button"
         onClick={() => setLinkedTaskOpen(true)}
@@ -2722,11 +2619,7 @@ function TaskManagerInner() {
         taskEditorActions={editorLeadingActions}
         taskDeleteAction={editorDeleteAction}
         taskEditorExtras={editorExtrasEl}
-        taskOnOpenNotes={
-          // Only an EXISTING task has an id to target; a new unsaved draft's
-          // noteLog can't be addressed, so leave the button disabled (undefined).
-          editingId !== null ? () => setNotesTarget({ kind: "task", id: editingId }) : undefined
-        }
+        taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}
@@ -2779,20 +2672,7 @@ function TaskManagerInner() {
           onClose={() => setLinkedTaskOpen(false)}
         />
       )}
-      {!isPopout && (
-        <NotesWindow
-          open={notesTarget != null}
-          onClose={() => setNotesTarget(null)}
-          entries={notesEntries}
-          onAdd={(h, tx) => notesTarget && noteHandlersFor(notesTarget.kind, notesTarget.id).onAdd(h, tx)}
-          onEdit={(nid, h, tx) => notesTarget && noteHandlersFor(notesTarget.kind, notesTarget.id).onEdit(nid, h, tx)}
-          onDelete={(nid) => notesTarget && noteHandlersFor(notesTarget.kind, notesTarget.id).onDelete(nid)}
-          self={notesSelf}
-          resources={resources}
-          lang={lang}
-          entityLabel={notesEntityLabel}
-        />
-      )}
+      {!isPopout && <NotesWindow {...notesWindowProps} />}
     </>
   );
 

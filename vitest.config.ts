@@ -59,6 +59,7 @@ export default defineConfig({
         "src/app/use-calendar-integrations.ts",
         "src/app/use-action-center-handlers.ts",
         "src/app/use-ai-orchestration.ts",
+        "src/app/use-notes-window.ts",
         "src/app/use-digest.ts",
         "src/app/use-meeting-report-actions.ts",
         // Color-scheme selection glue: loads/reconciles the store + fires the
