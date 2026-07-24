@@ -5,8 +5,8 @@ import { NotesWindow } from "./notes-window";
 import { t } from "./i18n";
 import type { NoteLogEntry, Resource } from "./types";
 
-// ProseMirror (the composer + inline edit NoteEditor) touches layout APIs jsdom
-// lacks; stub them so the editor mounts. Mirrors note-editor.test.tsx.
+// ProseMirror (the composer + inline edit RichTextEditor) touches layout APIs
+// jsdom lacks; stub them so the editor mounts. Mirrors rich-text-editor.test.tsx.
 beforeAll(() => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore jsdom polyfill

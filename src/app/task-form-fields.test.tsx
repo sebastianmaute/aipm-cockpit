@@ -8,7 +8,7 @@ import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { t } from "./i18n";
 
 // The Description field renders a Tiptap/ProseMirror editor, which touches
-// layout APIs jsdom lacks; stub them so the editor mounts (mirrors note-editor.test.tsx).
+// layout APIs jsdom lacks; stub them so the editor mounts (mirrors rich-text-editor.test.tsx).
 beforeAll(() => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore jsdom polyfill

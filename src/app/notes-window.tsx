@@ -12,7 +12,7 @@ import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
 import { useResizable } from "./use-resizable";
 import { ResetSizeButton } from "./task-manager-ui";
-import { NoteEditor } from "./note-editor";
+import { RichTextEditor } from "./rich-text-editor";
 import { canEditNote } from "./note-log";
 import { htmlToText } from "./sanitize-html";
 import { formatDisplayTimestamp } from "./tz-display";
@@ -118,7 +118,8 @@ function NoteEntryRow(props: NoteEntryRowProps) {
 
       {editing ? (
         <div className="flex flex-col gap-2">
-          <NoteEditor
+          <RichTextEditor
+            variant="lean"
             value={entry.html}
             onChange={props.onChangeEditHtml}
             onCommit={() => props.onCommitEdit(entry.id)}
@@ -313,8 +314,9 @@ export function NotesWindow(props: NotesWindowProps) {
       </div>
 
       <div className="shrink-0 border-b border-line p-3">
-        <NoteEditor
+        <RichTextEditor
           key={composerNonce}
+          variant="lean"
           value=""
           onChange={setComposerHtml}
           onCommit={handleAdd}

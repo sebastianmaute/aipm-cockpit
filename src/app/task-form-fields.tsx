@@ -11,7 +11,7 @@ import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import { InfoTooltip } from "./info-tooltip";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import { NoteEditor } from "./note-editor";
+import { RichTextEditor } from "./rich-text-editor";
 import { htmlToText, plainToHtml } from "./sanitize-html";
 import { useSettings } from "./use-settings";
 import { INTERACTIVE } from "./interaction-styles";
@@ -553,10 +553,10 @@ export function TaskFormFields({
           {/* focus/blur bubble from the contenteditable, registering this field
               as the active dictation target for the global hold-to-talk hotkey. */}
           <div onFocus={descriptionDictationReg.onFocus} onBlur={descriptionDictationReg.onBlur}>
-            <NoteEditor
+            <RichTextEditor
+              variant="lean"
               value={form.description}
               onChange={(html) => setForm((p) => ({ ...p, description: html }))}
-              commitOnEnter={false}
               label={t(lang, "description")}
               lang={lang}
             />
