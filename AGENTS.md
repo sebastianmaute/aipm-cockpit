@@ -362,6 +362,27 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   state. Don't drop it back to colour-only. ★ the ✕ renders whenever there is something to clear — including a
   FREE-TEXT name (`!!display`), not just a linked/dangling one, since the control is labelled "Clear"; its
   colour/title fall back to neutral + `clear` when there is no link state.
+- **Rich-text note log (Tasks + RAID, v0.196.0 "Emrys"):** dated note LOG on `Task.noteLog?` +
+  `RaidItem.noteLog?` (`NoteLogEntry[]` = `{id;authorResourceId?;authorName?;timestamp;editedAt?;html;text}`),
+  surfaced by ONE shared draggable NON-modal floating CRUD window `notes-window.tsx` (+ `🗒 N` badge
+  `notes-badge-button.tsx` on Open Points + RAID rows, "Notes (N)" button in the editors). Author =
+  per-device `settings.selfResourceId` (honor-system, NO dropdown/auth); `canEditNote` gates edit/delete
+  (`authorResourceId == null || === self`; edit CLAIMS an authorless note). Pure model in `note-log.ts`
+  (`addNote`/`editNote`/`deleteNote` immutable; `sanitizeNoteLog`; `encodeNoteLog`/`decodeNoteLog`
+  JSON-in-cell for CSV/MD/Turso — mirrors `document-link.ts`). Composer = shared `RichTextEditor variant="lean"`
+  (`commitOnEnter`; note-editor.tsx folded in). Drag via shared `use-draggable-window.ts` (help-menu shares it).
+  ★★ `Task.notes` was RENAMED to `Task.description` (rich HTML) — NO back-compat decoder / NO runtime
+  migration; Turso `COLUMN_RENAMES` `{from:"notes",to:"description"}` self-heals; historical notes folded into
+  `noteLog` ONLY in the sample generator (Description starts empty); CSV task column renamed + goldens regen.
+  RaidItem's `description?` is PRE-EXISTING (unrelated); other entities' `notes?` fields are untouched.
+  ★★★ STORED-XSS defense-in-depth — noteLog `html` is `dangerouslySetInnerHTML`, guarded at THREE layers:
+  (1) SINK re-sanitize `sanitizeNoteHtml(html)` in `NoteBody` (idempotent; mirrors comm-send-preview/
+  meeting-report); (2) `sanitizeNoteFields(entity)` (note-log.ts) at the WHOLE-OBJECT load boundaries that
+  cast verbatim — `jsonToWorkspace` (file/sharepoint/local-file JSON) + IDB load (`browser-backend.ts`);
+  CSV/MD/Turso already route through `decodeNoteLog`. A NEW whole-object load path MUST call it.
+  ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
+  escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
+  `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).
 - **Kanban board:** tasks pane has a Table/Board toggle (per-device `settings.tasksViewMode`). Board
   component is **`task-kanban-board.tsx`** — NOT `task-kanban.tsx` (the pure `task-kanban.ts` engine
   shadows a `.tsx` sibling via `.ts`-before-`.tsx` resolution). Native HTML5 DnD (no lib); the per-card
