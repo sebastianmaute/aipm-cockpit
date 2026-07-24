@@ -35,6 +35,14 @@ export function sanitizeNoteHtml(html: string): string {
   });
 }
 
+/** Wrap plain text as sanitized lean HTML for the rich `description`/note body.
+ *  Escapes &<>, converts newlines to <br>, wraps in a single <p>. Empty→"". */
+export function plainToHtml(text: string): string {
+  if (!text) return "";
+  const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return sanitizeNoteHtml("<p>" + esc.replace(/\r?\n/g, "<br>") + "</p>");
+}
+
 /** Plain-text projection of sanitized HTML — for search/export/preview cells. */
 export function htmlToText(html: string): string {
   const stripped = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });

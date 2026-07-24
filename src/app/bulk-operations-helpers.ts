@@ -14,9 +14,9 @@ import {
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
-  sanitizeNotes,
   sanitizePriority,
 } from "./sanitize";
+import { sanitizeNoteHtml } from "./sanitize-html";
 
 export type BulkEditBuild =
   | { ok: false; error: "pastDate" | "invalidEmail" }
@@ -48,7 +48,7 @@ export function buildBulkEditUpdates(
   if (fields.assignee) updates.assignee = sanitizeAssignee(bulkEdit.assignee);
   if (fields.assigneeEmail) updates.assigneeEmail = newEmail;
   if (fields.blockers) updates.blockers = sanitizeBlockers(bulkEdit.blockers);
-  if (fields.notes) updates.notes = sanitizeNotes(bulkEdit.notes);
+  if (fields.notes) updates.description = sanitizeNoteHtml(bulkEdit.notes);
   if (fields.group) updates.group = sanitizeGroup(bulkEdit.group);
   if (fields.labels) updates.labels = sanitizeLabels(bulkEdit.labels);
   return { ok: true, updates };

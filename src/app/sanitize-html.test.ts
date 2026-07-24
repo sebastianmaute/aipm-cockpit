@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { sanitizeTemplateHtml, sanitizeNoteHtml, htmlToText } from "./sanitize-html";
+import { sanitizeTemplateHtml, sanitizeNoteHtml, htmlToText, plainToHtml } from "./sanitize-html";
 
 describe("sanitizeTemplateHtml", () => {
   it("drops <script> and event handlers", () => {
@@ -50,6 +50,27 @@ describe("sanitizeNoteHtml", () => {
   it("keeps safe links, drops javascript: urls", () => {
     expect(sanitizeNoteHtml('<a href="https://x.io">l</a>')).toContain('href="https://x.io"');
     expect(sanitizeNoteHtml('<a href="javascript:alert(1)">l</a>')).not.toContain("javascript");
+  });
+});
+
+describe("plainToHtml", () => {
+  it("escapes < so no literal tag survives", () => {
+    const out = plainToHtml("a<b");
+    expect(out).toContain("&lt;");
+    expect(out).not.toContain("<b");
+  });
+  it("wraps the text in a single <p>", () => {
+    const out = plainToHtml("hello");
+    expect(out).toBe("<p>hello</p>");
+  });
+  it("returns empty string for empty input", () => {
+    expect(plainToHtml("")).toBe("");
+  });
+  it("converts newlines to <br>", () => {
+    const out = plainToHtml("line1\nline2");
+    expect(out).toContain("<br>");
+    expect(out).toContain("line1");
+    expect(out).toContain("line2");
   });
 });
 
