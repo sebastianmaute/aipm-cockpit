@@ -38,6 +38,11 @@ longer carries its own changelog comment.
   across all six write paths (JSON, CSV, Markdown, Turso single-tenant,
   Turso multi-tenant, IndexedDB). Both are sparse-emitted, so a bucket that
   never sets them stays byte-identical on round-trip.
+- **Sample workspace consolidated to JSON-only.** `sample-workspace-small.json`
+  is now the sole hand-curated master; the `.md` and `.csv` sample artifacts
+  and all `.sqlite3` sample databases were removed. The generator
+  (`scripts/generate-sample-workspace.ts`) now reads the JSON master directly
+  and emits only the `-big`/`-huge` scaled JSON tiers.
 
 ## [0.196.0] - 2026-07-24 "Emrys"
 

@@ -124,8 +124,9 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   derive from it; also extend that entity's `*FieldToString`/`build*FromObj` THERE), plus the
   markdown codec (`*_MD_COLUMNS` + table codec in `markdown-codecs-core.ts`) + `sanitize.ts` (see
   "Codec module maps" / "Sanitize module map" for which sub-file); REGENERATE `__fixtures__/golden-*`
-  (legit new-column format change)
-  and append column to curated `sample-workspace` `.md`/`.csv`. EXISTING Turso DBs:
+  (legit new-column format change) — the sample workspace is JSON-only now (no curated `.md`/`.csv`
+  sample to hand-edit); add the column to `sample-workspace-small.json` if it needs sample coverage.
+  EXISTING Turso DBs:
   `CREATE TABLE IF NOT EXISTS` can't add column and save INSERTs *named* columns, so old DB
   errors on save — `turso-migrate.ts` self-heals (PRAGMA-diff → `ALTER ADD COLUMN`, run inside
   write lock before save).
@@ -228,17 +229,15 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   beside `notifications.tsx`).
 - Storage facade (`storage.ts`) over backends: JSON file, CSV, Markdown, Turso (single + multi-tenant),
   IndexedDB. Snapshots/Trends + version history are Turso-ONLY.
-- **Sample data** tiered: `sample-workspace-small.*` is curated source; `-big` (3×) and `-huge` (10×)
-  JSON+SQLite GENERATED via pure `scaleWorkspace(ws, factor)` (id-offset `k*100000` + full FK remap;
+- **Sample data is JSON-only, tiered:** `sample-workspace-small.json` is the hand-curated MASTER (the
+  ONLY hand-edited sample artifact); `-big.json` (3×) and `-huge.json` (10×) are GENERATED from it via
+  pure `scaleWorkspace(ws, factor)` (id-offset `k*100000` + full FK remap, incl. `bucket.taskIds`;
   reference data — resources/roles/disciplines/grades — NOT replicated; replicas get distinct
-  stakeholder names + workstream-qualified titles, not "(2)"). Don't hand-edit `-big`/`-huge`; regenerate.
-  MASTER is `sample-workspace-small.md` — `scripts/generate-sample-workspace.ts` PARSES it and EMITS
-  `.json` + `.sqlite3` + `-big`/`-huge` (regen: `npx vite-node scripts/generate-sample-workspace.ts`,
-  then regenerate `__fixtures__/golden-*` via serializers). `project` meta + `status` SYNTHESIZED IN
-  GEN SCRIPT (not in .md). `sample-workspace-small.csv` is a SEPARATE hand-curated artifact (parsed by
-  sample tests). MD table cells with internal `|` are `\|`-escaped and CSV has MULTI-LINE quoted fields
-  → NEVER naive-split a row: edit .md by exact full-line replace, edit .csv via app codec
-  (`csvToWorkspace`→patch→`workspaceToCsv`, verified data-safe round-trip).
+  stakeholder names + workstream-qualified titles, not "(2)"). Don't hand-edit `-big`/`-huge`; regenerate
+  via `scripts/generate-sample-workspace.ts` (`npx vite-node scripts/generate-sample-workspace.ts`), then
+  regenerate `__fixtures__/golden-*` via serializers. There is NO `.md`/`.csv`/`.sqlite3` sample artifact
+  anymore — those were removed; edit the JSON master directly (it's the app's native format, no
+  round-trip codec needed).
 - **Action-Center CTAs surface-only:** thread optional handler task-manager → workspace-section →
   ActionsPanel → ActionRow (ActionsPanel renders in workspace-section, not task-manager, and renders
   TWO ActionRow lists — tier + monitor — so a new CTA prop must thread to BOTH); `next-actions/` engine
