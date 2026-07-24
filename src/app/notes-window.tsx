@@ -6,11 +6,12 @@
 // focus, so the app stays interactive underneath. Drag/resize mechanics clone
 // `help-menu.tsx`; the composer + inline edit reuse `NoteEditor`.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
 import { useResizable } from "./use-resizable";
+import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
 import { ResetSizeButton } from "./task-manager-ui";
 import { RichTextEditor } from "./rich-text-editor";
 import { canEditNote } from "./note-log";
@@ -26,43 +27,9 @@ const STORAGE_KEY_SIZE = "aipm-cockpit:notes-window-size";
 const DEFAULT_X = 96;
 const DEFAULT_Y = 96;
 
-type Pos = { x: number; y: number };
-
-function clampPos(p: Pos, panelW: number, panelH: number): Pos {
-  return {
-    x: Math.max(0, Math.min(p.x, window.innerWidth - panelW)),
-    y: Math.max(0, Math.min(p.y, window.innerHeight - panelH)),
-  };
-}
-
-function loadPos(): Pos | null {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY_POS);
-    if (!raw) return null;
-    const p = JSON.parse(raw) as unknown;
-    if (
-      p &&
-      typeof p === "object" &&
-      "x" in p &&
-      "y" in p &&
-      typeof (p as Pos).x === "number" &&
-      typeof (p as Pos).y === "number"
-    ) {
-      return p as Pos;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-function savePos(p: Pos) {
-  try {
-    window.localStorage.setItem(STORAGE_KEY_POS, JSON.stringify(p));
-  } catch {
-    // non-fatal
-  }
-}
+// Place the window on first open: saved position, else a default corner gap.
+const computeNotesInitialPos: ComputeInitialPos = ({ saved, clamp }) =>
+  clamp(saved ?? { x: DEFAULT_X, y: DEFAULT_Y });
 
 /** Resolve an entry's display author: an explicit `authorName`, else the live
  *  directory name for `authorResourceId`, else an em-dash. */
@@ -182,7 +149,6 @@ export interface NotesWindowProps {
 export function NotesWindow(props: NotesWindowProps) {
   const { open, onClose, entries, onAdd, onEdit, onDelete, self, resources, lang, entityLabel } = props;
 
-  const [pos, setPos] = useState<Pos | null>(null);
   const [composerHtml, setComposerHtml] = useState("");
   // Remount nonce: bumping it swaps a fresh (empty) composer NoteEditor in after
   // a commit, since NoteEditor only reads `value` as its mount-time content.
@@ -191,18 +157,15 @@ export function NotesWindow(props: NotesWindowProps) {
   const [editHtml, setEditHtml] = useState("");
 
   const { ref: panelRef, reset: resetSize } = useResizable(STORAGE_KEY_SIZE);
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  // Drag/position (shared with help-menu); size stays on useResizable above.
+  const { pos, onTitleBarMouseDown } = useDraggableWindow(STORAGE_KEY_POS, {
+    open,
+    panelRef,
+    computeInitialPos: computeNotesInitialPos,
+    fallbackWidth: 480,
+    fallbackHeight: 560,
+  });
   const tz = browserTimeZone();
-
-  // Place the window on first open (saved position, else a default corner gap).
-  useEffect(() => {
-    if (!open || pos !== null) return;
-    const el = panelRef.current;
-    const panelW = el?.offsetWidth ?? 480;
-    const panelH = el?.offsetHeight ?? 560;
-    const saved = loadPos();
-    setPos(clampPos(saved ?? { x: DEFAULT_X, y: DEFAULT_Y }, panelW, panelH));
-  }, [open, pos, panelRef]);
 
   // Escape closes (only while open).
   useEffect(() => {
@@ -213,48 +176,6 @@ export function NotesWindow(props: NotesWindowProps) {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
-
-  const onTitleBarMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!pos) return;
-      // Never start a window drag from a control in the bar (reset-size / close).
-      if ((e.target as HTMLElement).closest("button, a, input, select, textarea")) return;
-      dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
-
-      function onMove(mv: MouseEvent) {
-        if (!dragRef.current) return;
-        const el = panelRef.current;
-        const panelW = el?.offsetWidth ?? 480;
-        const panelH = el?.offsetHeight ?? 560;
-        setPos(
-          clampPos(
-            {
-              x: dragRef.current.origX + mv.clientX - dragRef.current.startX,
-              y: dragRef.current.origY + mv.clientY - dragRef.current.startY,
-            },
-            panelW,
-            panelH,
-          ),
-        );
-      }
-
-      function onUp() {
-        if (dragRef.current) {
-          setPos((p) => {
-            if (p) savePos(p);
-            return p;
-          });
-          dragRef.current = null;
-        }
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      }
-
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    },
-    [pos, panelRef],
-  );
 
   const handleAdd = useCallback(() => {
     const text = htmlToText(composerHtml);
