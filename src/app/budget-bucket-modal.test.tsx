@@ -430,4 +430,25 @@ describe("BudgetBucketModal", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     expect((onSave.mock.calls[0][0] as BudgetBucket).percentComplete).toBeUndefined();
   });
+
+  test("typing an out-of-range percent above 100 clamps on change, not just blur", () => {
+    const { onSave } = setup();
+    const percent = screen.getByLabelText(t("en-US", "budgetPercentComplete"));
+    fireEvent.change(percent, { target: { value: "150" } });
+    // Assert the draft/preview is clamped immediately, before any blur.
+    expect(percent).toHaveValue(100);
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).percentComplete).toBe(100);
+  });
+
+  test("typing a negative percent clamps to 0 on change", () => {
+    const { onSave } = setup();
+    const percent = screen.getByLabelText(t("en-US", "budgetPercentComplete"));
+    fireEvent.change(percent, { target: { value: "-5" } });
+    expect(percent).toHaveValue(0);
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((onSave.mock.calls[0][0] as BudgetBucket).percentComplete).toBe(0);
+  });
 });

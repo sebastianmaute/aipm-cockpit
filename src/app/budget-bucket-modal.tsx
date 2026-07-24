@@ -222,6 +222,18 @@ export function BudgetBucketModal({
     onSave({ ...draft, name: savedName, poNumber: savedPoNumber, localModifiedAt: new Date().toISOString() });
   };
 
+  const applyPercentComplete = (raw: string) => {
+    const r = describeClamp(raw, { min: 0, max: 100, round: 2 });
+    setDraft((d) => ({ ...d, percentComplete: r.value }));
+    const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
+    setNotice((n) => ({
+      ...n,
+      percentComplete: clamped
+        ? t(lang, clamped.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", clamped.to)
+        : "",
+    }));
+  };
+
   const isFixed = draft.type === "fixed";
 
   return (
@@ -490,24 +502,8 @@ export function BudgetBucketModal({
               aria-label={t(lang, "budgetPercentComplete")}
               aria-invalid={!!notice.percentComplete || undefined}
               aria-describedby={notice.percentComplete ? percentNoticeId : undefined}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  percentComplete:
-                    e.target.value === "" ? undefined : Number(e.target.value),
-                }))
-              }
-              onBlur={(e) => {
-                const r = describeClamp(e.target.value, { min: 0, max: 100, round: 2 });
-                setDraft((d) => ({ ...d, percentComplete: r.value }));
-                const clamped = r.adjustment?.kind === "clamped" ? r.adjustment : null;
-                setNotice((n) => ({
-                  ...n,
-                  percentComplete: clamped
-                    ? t(lang, clamped.bound === "max" ? "fieldAdjustedMax" : "fieldAdjustedMin", clamped.to)
-                    : "",
-                }));
-              }}
+              onChange={(e) => applyPercentComplete(e.target.value)}
+              onBlur={(e) => applyPercentComplete(e.target.value)}
             />
             <FieldNotice id={percentNoticeId}>{notice.percentComplete}</FieldNotice>
           </label>
