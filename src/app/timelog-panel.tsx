@@ -4,7 +4,7 @@
 // tiles, and the apply-to-budget flow. Consumes only pure engines + context —
 // no direct API calls in render; all network happens inside event handlers.
 import { useEffect, useMemo, useState } from "react";
-import { ArrowPathIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { t, type Lang } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useSettings } from "./use-settings";
@@ -13,7 +13,6 @@ import { logDiag } from "./diagnostics";
 import { reportSilentFailure } from "./guard-feedback";
 import { useTimelogSync } from "./use-timelog-sync";
 import { autoMatchUsers, autoMatchProjects, resolveCustomerByName, type TimelogProjectRef } from "./timelog-match";
-import { TimelogCustomerScope } from "./timelog-customer-scope";
 import { TimelogProjectScope } from "./timelog-project-scope";
 import { useRowSelection } from "./use-row-selection";
 import { Modal } from "./modal";
@@ -27,12 +26,12 @@ import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Spinner } from "./spinner";
 import { Card } from "./card";
 import { useConfirm } from "./confirm-dialog";
-import { DataTable } from "./data-table";
 import { Tile } from "./report-table";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
-import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
-import { Checkbox, Input, Select } from "./form-controls";
+import { Input } from "./form-controls";
+import { TimelogToolbar } from "./timelog-panel-toolbar";
+import { TimelogProjectsTable } from "./timelog-projects-table";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -511,68 +510,31 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
-      {/* Header — the main fetch controls (customer search + dropdown, Clear all,
-          Fetch) are LEFT-aligned; the view utilities (Print, resets) stay right. */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Customer scope (lazy-loads on focus). Selecting a customer loads its
-              projects into the picker below; Fetch is gated on customer + ≥1 project. */}
-          <TimelogCustomerScope
-            lang={lang}
-            value={projectCustomerId}
-            options={customerOptions}
-            filter={customerFilter}
-            disabled={isPopout}
-            onFilterChange={setCustomerFilter}
-            onSelectChange={(v) => { setUserPicked(true); setProjectCustomerId(v); setSelectedProjectIds(new Set()); setProjectFilter(""); }}
-            onFocusLoad={() =>
-              void sync
-                .loadCustomers()
-                .catch((e) => reportSilentFailure(showToast, lang, "timelog.customersLoadFailed", e, "guardTimelogCustomersFailed"))
-            }
-          />
-          <button
-            type="button"
-            disabled={sync.busy || isPopout || !sync.fetchedAt || confirming}
-            onClick={clearAllFetched}
-            className={`rounded-md border border-ui-pink/50 bg-surface px-3 py-1.5 text-sm font-medium text-ui-pink-strong hover:bg-ui-pink/10 disabled:opacity-50 ${INTERACTIVE}`}
-          >
-            {t(lang, "clearAll")}
-          </button>
-          <button
-            type="button"
-            disabled={sync.busy || isPopout || isMisconfigured || confirming || projectCustomerId === "" || selectedProjectIds.size === 0}
-            onClick={() => void handleFetchBookings()}
-            title={projectCustomerId === "" || selectedProjectIds.size === 0 ? t(lang, "timelogFetchNeedsSelection") : undefined}
-            className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
-          >
-            {sync.busy
-              ? t(lang, "loadingTimelog")
-              : `${t(lang, "timelogSync")}${selectedProjectIds.size > 0 ? ` (${selectedProjectIds.size})` : ""}`}
-          </button>
-          {/* Refresh — appears once bookings have been read; re-fetches the
-              LAST-FETCHED (persisted) customer + project scope so the user can
-              pull the latest bookings without re-picking, even if the picker was
-              since changed. Distinct from Fetch (current selection). */}
-          {sync.fetchedAt && (
-            <button
-              type="button"
-              disabled={sync.busy || isPopout || isMisconfigured || confirming || !canRefresh}
-              onClick={() => void handleRefreshBookings()}
-              title={t(lang, "timelogRefreshHint")}
-              className={`inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
-            >
-              <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
-              {t(lang, "timelogRefresh")}
-            </button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <PrintButton lang={lang} />
-          <ResetColWidthsButton onClick={resetColWidths} lang={lang} />
-          <ResetSizeButton onClick={resetPaneSize} lang={lang} />
-        </div>
-      </div>
+      <TimelogToolbar
+        lang={lang}
+        isPopout={isPopout}
+        projectCustomerId={projectCustomerId}
+        customerOptions={customerOptions}
+        customerFilter={customerFilter}
+        onCustomerFilterChange={setCustomerFilter}
+        onCustomerSelectChange={(v) => { setUserPicked(true); setProjectCustomerId(v); setSelectedProjectIds(new Set()); setProjectFilter(""); }}
+        onCustomerFocusLoad={() =>
+          void sync
+            .loadCustomers()
+            .catch((e) => reportSilentFailure(showToast, lang, "timelog.customersLoadFailed", e, "guardTimelogCustomersFailed"))
+        }
+        syncBusy={sync.busy}
+        fetchedAt={sync.fetchedAt}
+        confirming={confirming}
+        isMisconfigured={isMisconfigured}
+        selectedCount={selectedProjectIds.size}
+        onClearAll={clearAllFetched}
+        onFetch={() => void handleFetchBookings()}
+        onRefresh={() => void handleRefreshBookings()}
+        canRefresh={canRefresh}
+        onResetColWidths={resetColWidths}
+        onResetPaneSize={resetPaneSize}
+      />
       {isMisconfigured && (
         <p className="mb-3 text-sm text-muted-foreground print:hidden">{t(lang, "timelogEnable")}</p>
       )}
@@ -739,103 +701,20 @@ export function TimelogPanel({ lang, isPopout = false }: { lang: Lang; isPopout?
       </section>
 
       {/* Projects matching table */}
-      <section className="mb-6">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-            {t(lang, "timelogMatchProjects")}
-          </h3>
-          {/* Bootstrap the projects the token owner MANAGES (REST PM filter) so a
-              PM can link them to budgets without first pulling bookings. */}
-          <div className="flex items-center gap-2 print:hidden">
-            {/* The customer scope picker now lives in the header (it governs the
-                booking fetch too); this row keeps the project-discovery controls.
-                "Load my projects" still reads the same header customer selection —
-                a customer loads that client's projects, else my managed (PM) ones. */}
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Checkbox
-                checked={includeClosedProjects}
-                disabled={isPopout}
-                onChange={(e) => setIncludeClosedProjects(e.target.checked)}
-                className="align-middle"
-              />
-              {t(lang, "timelogIncludeClosed")}
-            </label>
-            <button
-              type="button"
-              disabled={sync.busy || isPopout || isMisconfigured || confirming}
-              onClick={() => void handleLoadManagedProjects()}
-              className={`rounded-md border border-line px-2.5 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
-            >
-              {t(lang, "timelogLoadManagedProjects")}
-            </button>
-          </div>
-        </div>
-        {knownProjectRefs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t(lang, "timelogMatchNone")}</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <DataTable className="w-full text-sm" head={<>
-                <tr>
-                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchProjects")}</th>
-                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "tabBudget")}</th>
-                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "status")}</th>
-                  <th scope="col" className="px-2 py-1 text-left">{t(lang, "timelogMatchClear")}</th>
-                </tr>
-              </>}>
-                {knownProjectRefs.map((p) => {
-                  const pLink = effectiveProjectLinks.find((l) => l.timelogProjectId === p.id);
-                  const displayId = p.name;
-                  const selectLabel = `${t(lang, "timelogMatchProjects")} – ${displayId}`;
-                  const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
-                  return (
-                    <tr key={p.id} className="border-b border-line last:border-0">
-                      <td className="py-2 pr-3 text-foreground">{displayId}</td>
-                      <td className="py-2 pr-2">
-                        <Select
-                          size="xs"
-                          aria-label={selectLabel}
-                          value={pLink?.bucketId ?? ""}
-                          disabled={isPopout}
-                          onChange={(e) =>
-                            manualLinkProject(
-                              p.id,
-                              e.target.value === "" ? null : Number(e.target.value),
-                            )
-                          }
-                        >
-                          <option value="">{t(lang, "timelogMatchNone")}</option>
-                          {budgets.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.name}
-                            </option>
-                          ))}
-                        </Select>
-                      </td>
-                      <td className="py-2 pr-2">
-                        {pLink && (
-                          <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted-foreground">
-                            {t(lang, pLink.manual ? "timelogMatchManual" : "timelogMatchAuto")}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2">
-                        <button
-                          type="button"
-                          aria-label={clearLabel}
-                          disabled={isPopout}
-                          onClick={() => manualLinkProject(p.id, null)}
-                          className={`rounded border border-line px-2 py-0.5 text-xs text-muted-foreground ${INTERACTIVE}`}
-                        >
-                          {t(lang, "timelogMatchClear")}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-            </DataTable>
-          </div>
-        )}
-      </section>
+      <TimelogProjectsTable
+        lang={lang}
+        isPopout={isPopout}
+        knownProjectRefs={knownProjectRefs}
+        effectiveProjectLinks={effectiveProjectLinks}
+        budgets={budgets}
+        onManualLinkProject={manualLinkProject}
+        includeClosedProjects={includeClosedProjects}
+        onIncludeClosedChange={setIncludeClosedProjects}
+        syncBusy={sync.busy}
+        isMisconfigured={isMisconfigured}
+        confirming={confirming}
+        onLoadManagedProjects={() => void handleLoadManagedProjects()}
+      />
 
       {/* Apply to budget */}
       {skippedApplyBuckets.length > 0 && (

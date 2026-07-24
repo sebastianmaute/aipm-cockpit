@@ -21,7 +21,10 @@ const SWEPT_FILES = [
   "activity-log-panel.tsx",
   "resource-directory.tsx",
   "resource-workload.tsx",
-  "resources-panel.tsx",
+  // The planning table markup (TABLE_HEAD_CLASS + DataTable rollup) moved to
+  // resources-panel-rows.tsx in the gantt-convention split; resources-panel.tsx
+  // is now the header-less orchestrator (mirrors the raid-panel-rows precedent).
+  "resources-panel-rows.tsx",
   "resources-report.tsx",
   "jira-conflicts-modal.tsx",
   "roles-editor.tsx",
