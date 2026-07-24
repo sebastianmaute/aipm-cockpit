@@ -9722,7 +9722,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        1,
+        2,
+        4
+      ]
     },
     {
       "id": 2,
@@ -9797,7 +9802,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 4,
@@ -9929,7 +9935,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        100001,
+        100002,
+        100004
+      ]
     },
     {
       "id": 100002,
@@ -10004,7 +10015,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 100004,
@@ -10136,7 +10148,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        200001,
+        200002,
+        200004
+      ]
     },
     {
       "id": 200002,
@@ -10211,7 +10228,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 200004,
@@ -10343,7 +10361,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        300001,
+        300002,
+        300004
+      ]
     },
     {
       "id": 300002,
@@ -10418,7 +10441,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 300004,
@@ -10550,7 +10574,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        400001,
+        400002,
+        400004
+      ]
     },
     {
       "id": 400002,
@@ -10625,7 +10654,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 400004,
@@ -10757,7 +10787,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        500001,
+        500002,
+        500004
+      ]
     },
     {
       "id": 500002,
@@ -10832,7 +10867,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 500004,
@@ -10964,7 +11000,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        600001,
+        600002,
+        600004
+      ]
     },
     {
       "id": 600002,
@@ -11039,7 +11080,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 600004,
@@ -11171,7 +11213,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        700001,
+        700002,
+        700004
+      ]
     },
     {
       "id": 700002,
@@ -11246,7 +11293,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 700004,
@@ -11378,7 +11426,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        800001,
+        800002,
+        800004
+      ]
     },
     {
       "id": 800002,
@@ -11453,7 +11506,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 800004,
@@ -11585,7 +11639,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        900001,
+        900002,
+        900004
+      ]
     },
     {
       "id": 900002,
@@ -11660,7 +11719,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 900004,

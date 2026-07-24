@@ -209,6 +209,13 @@ function remapBudget(b: BudgetBucket, offset: number, replica: number): BudgetBu
     ...(b.disciplineAllocations
       ? { disciplineAllocations: b.disciplineAllocations.map(remapDisciplineAllocation) }
       : {}),
+    // taskIds -> Task (a replicated content entity, not reference data): each
+    // replica's tasks are replicated with the SAME per-replica `offset` this
+    // function receives (both loops share the same k in `replicate`), so
+    // bumping by it keeps the link pointed at this replica's own tasks.
+    // percentComplete is a scalar (manual override) and needs no remap — it
+    // rides through unchanged via the `...b` spread above.
+    ...(b.taskIds ? { taskIds: bumpArray(b.taskIds, offset) } : {}),
   };
 }
 

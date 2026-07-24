@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { scaleWorkspace } from "./scale-workspace";
 import { emptyWorkspace, workspaceToJson, jsonToWorkspace, type Workspace } from "./workspace";
-import type { Task, RaidItem, Milestone, Stakeholder } from "./types";
+import type { Task, RaidItem, Milestone, Stakeholder, BudgetBucket } from "./types";
 
 /** A minimal but referentially-linked workspace: 1 task, 1 raid (linking that
- *  task + a stakeholder), 1 milestone (linking the task), 1 stakeholder. */
+ *  task + a stakeholder), 1 milestone (linking the task), 1 stakeholder, 1
+ *  budget bucket (linking the task via `taskIds` + a manual `percentComplete`). */
 function tinyWs(): Workspace {
   const base = emptyWorkspace();
   const task: Task = {
@@ -43,12 +44,25 @@ function tinyWs(): Workspace {
     date: "2026-02-01",
     linkedTaskIds: [1],
   };
+  const budget: BudgetBucket = {
+    id: 1,
+    name: "Budget A",
+    type: "tm",
+    currency: "EUR",
+    startDate: "2026-01-01",
+    endDate: "2026-03-01",
+    status: "open",
+    allocations: [],
+    taskIds: [1],
+    percentComplete: 50,
+  };
   return {
     ...base,
     tasks: [task],
     raid: [raid],
     milestones: [milestone],
     stakeholders: [stakeholder],
+    budgets: [budget],
   };
 }
 
@@ -111,6 +125,30 @@ describe("scaleWorkspace", () => {
     expect(replica1Raid).toBeDefined();
     expect(replica1Raid!.linkedTaskIds).toEqual([100001]);
     expect(replica1Raid!.stakeholderIds).toEqual([100001]);
+  });
+
+  it("factor 2 remaps BudgetBucket.taskIds to the replica's OWN tasks (FK, not reference data)", () => {
+    const out = scaleWorkspace(tinyWs(), 2);
+    const taskIds = new Set(out.tasks.map((t) => t.id));
+    expect(taskIds).toEqual(new Set([1, 100001]));
+
+    const original = (out.budgets ?? []).find((b) => b.id === 1);
+    const replica = (out.budgets ?? []).find((b) => b.id === 100001);
+    expect(original).toBeDefined();
+    expect(replica).toBeDefined();
+    // Replica 0 pristine.
+    expect(original!.taskIds).toEqual([1]);
+    // Replica 1's taskIds point at replica 1's OWN task (100001), not the
+    // original (1) or any other replica — same offset as the task itself.
+    expect(replica!.taskIds).toEqual([100001]);
+    for (const b of out.budgets ?? []) {
+      for (const tid of b.taskIds ?? []) {
+        expect(taskIds.has(tid)).toBe(true);
+      }
+    }
+    // percentComplete is a scalar manual override — copied as-is, no remap.
+    expect(original!.percentComplete).toBe(50);
+    expect(replica!.percentComplete).toBe(50);
   });
 
   it("factor 2 qualifies replica work-item titles by workstream, originals pristine", () => {

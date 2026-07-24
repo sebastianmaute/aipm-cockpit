@@ -81,9 +81,9 @@ id,firstName,lastName,title,businessPhone,location,department,email,company,birt
 
 # BUDGETS
 id,name,poNumber,type,currency,fixedPriceAmount,startDate,endDate,successorId,status,closedDate,fxRateOverride,allocations,localModifiedAt,order,planningMode,disciplineAllocations,rateOverrideInternal,rateOverrideExternal,taskIds,percentComplete
-1,Identity Platform – T&M,4400125303,tm,EUR,,2026-04-01,2026-07-31,,open,,,1;1;2026-04=120|2026-05=120|2026-06=80|2026-07=60;2026-04=118|2026-05=130|2026-06=44~3;3;2026-04=60|2026-05=80|2026-06=70|2026-07=40;2026-04=55|2026-05=78~4;4;2026-04=40|2026-05=40|2026-06=40|2026-07=30;2026-04=42|2026-05=38,,0,detailed,,,,,
+1,Identity Platform – T&M,4400125303,tm,EUR,,2026-04-01,2026-07-31,,open,,,1;1;2026-04=120|2026-05=120|2026-06=80|2026-07=60;2026-04=118|2026-05=130|2026-06=44~3;3;2026-04=60|2026-05=80|2026-06=70|2026-07=40;2026-04=55|2026-05=78~4;4;2026-04=40|2026-05=40|2026-06=40|2026-07=30;2026-04=42|2026-05=38,,0,detailed,,,,1;2;4,
 2,Advisory Retainer (blended),4400141354,tm,EUR,,2026-04-01,2026-07-31,,open,,,,,1,blended,3;5;2026-04=80|2026-05=80|2026-06=60;2026-04=75|2026-05=82~1;2;2026-04=40|2026-05=40;2026-04=38|2026-05=36,,,,
-3,Capped SOW (rate override),4400087177,tm,EUR,,2026-04-01,2026-07-31,,open,,,2;2;2026-04=50|2026-05=50|2026-06=50;2026-04=48|2026-05=52,,2,detailed,,90,200,,
+3,Capped SOW (rate override),4400087177,tm,EUR,,2026-04-01,2026-07-31,,open,,,2;2;2026-04=50|2026-05=50|2026-06=50;2026-04=48|2026-05=52,,2,detailed,,90,200,,45
 4,Data Migration (fixed price),4400098499,fixed,EUR,80000,2026-04-01,2026-07-31,,open,,,1;1;2026-04=60|2026-05=60;2026-04=62|2026-05=58~5;5;2026-04=40;2026-04=40,,3,detailed,,,,,
 5,Discovery Phase (closed),4400053230,tm,EUR,,2026-04-01,2026-04-30,1,closed,2026-04-30,,3;3;2026-04=50;2026-04=30,,4,detailed,,,,,
 

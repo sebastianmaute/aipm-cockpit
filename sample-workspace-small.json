@@ -1235,7 +1235,12 @@
       ],
       "poNumber": "4400125303",
       "order": 0,
-      "planningMode": "detailed"
+      "planningMode": "detailed",
+      "taskIds": [
+        1,
+        2,
+        4
+      ]
     },
     {
       "id": 2,
@@ -1310,7 +1315,8 @@
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
-      "rateOverrideExternal": 200
+      "rateOverrideExternal": 200,
+      "percentComplete": 45
     },
     {
       "id": 4,
