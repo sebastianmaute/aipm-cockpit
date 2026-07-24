@@ -103,6 +103,25 @@ export function sanitizeNoteLog(raw: unknown): NoteLogEntry[] {
   return out;
 }
 
+/** Re-sanitize an entity's sanitized-HTML fields (`description` + `noteLog`) at a
+ *  load boundary. Used by the whole-object JSON + IndexedDB load paths, which cast
+ *  their tasks/raid verbatim with no per-entity sanitizer (unlike CSV/MD/Turso,
+ *  which route noteLog through `decodeNoteLog`). Idempotent on already-clean data
+ *  (byte-stable goldens/sample stay green). Returns the entity unchanged when it
+ *  carries neither field, so tasks/raid with no rich fields keep identity. */
+export function sanitizeNoteFields<T extends { description?: string; noteLog?: NoteLogEntry[] }>(
+  entity: T,
+): T {
+  const hasDescription = typeof entity.description === "string";
+  const hasNoteLog = Array.isArray(entity.noteLog);
+  if (!hasDescription && !hasNoteLog) return entity;
+  return {
+    ...entity,
+    ...(hasDescription ? { description: sanitizeNoteHtml(entity.description as string) } : {}),
+    ...(hasNoteLog ? { noteLog: sanitizeNoteLog(entity.noteLog) } : {}),
+  };
+}
+
 /** Next stable id for a new entry — max-seen id + 1 (1 for an empty log). */
 export function nextNoteId(log: readonly NoteLogEntry[]): number {
   return log.reduce((m, n) => Math.max(m, n.id ?? 0), 0) + 1;

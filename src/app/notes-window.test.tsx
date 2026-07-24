@@ -132,4 +132,33 @@ describe("NotesWindow", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("re-sanitizes a malicious entry html at the render sink (defense in depth)", () => {
+    const evil: NoteLogEntry[] = [
+      {
+        id: 1,
+        timestamp: "2026-01-01T10:00:00Z",
+        html: "<img src=x onerror=alert(1)><script>alert(2)</script><p>Safe body</p>",
+        text: "Safe body",
+      },
+    ];
+    const { container } = render(
+      <NotesWindow
+        open
+        onClose={vi.fn()}
+        entries={evil}
+        onAdd={vi.fn()}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        self={1}
+        resources={RESOURCES}
+        lang="en-US"
+        entityLabel="Task ABC"
+      />,
+    );
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("script")).toBeNull();
+    expect(container.innerHTML).not.toContain("onerror");
+    expect(screen.getByText("Safe body")).toBeTruthy();
+  });
 });

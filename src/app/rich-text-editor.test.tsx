@@ -138,4 +138,18 @@ describe("RichTextEditor commitOnEnter", () => {
     fireEvent.keyDown(surface, { key: "Enter" });
     expect(onCommit).not.toHaveBeenCalled();
   });
+
+  it("does not commit on Enter fired during IME composition (isComposing)", async () => {
+    const { onCommit } = setupLean({ commitOnEnter: true });
+    const surface = await screen.findByRole("textbox", { name: "Note" });
+    // Enter to confirm a CJK IME candidate must not commit the note.
+    fireEvent.keyDown(surface, { key: "Enter", isComposing: true });
+    expect(onCommit).not.toHaveBeenCalled();
+    // The legacy keyCode 229 IME sentinel is also guarded.
+    fireEvent.keyDown(surface, { key: "Enter", keyCode: 229 });
+    expect(onCommit).not.toHaveBeenCalled();
+    // A normal Enter afterwards still commits.
+    fireEvent.keyDown(surface, { key: "Enter" });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
 });

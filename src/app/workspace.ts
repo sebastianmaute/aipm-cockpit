@@ -16,6 +16,7 @@ import {
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { migrateTaskStatus } from "./task-status";
+import { sanitizeNoteFields } from "./note-log";
 import {
   sanitizeAbsence,
   sanitizeBudgetBucket,
@@ -516,8 +517,11 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
       return emptyWorkspace();
     }
     const raw: Workspace = {
-      tasks: (p.tasks as Task[]).map(migrateTaskStatus),
-      raid: p.raid as RaidItem[],
+      // Untrusted-import boundary: an attacker-crafted .json can carry malicious
+      // sanitized-HTML fields (noteLog[].html / description) that CSV/MD/Turso
+      // scrub on load but the whole-object JSON cast would pass through verbatim.
+      tasks: (p.tasks as Task[]).map(migrateTaskStatus).map(sanitizeNoteFields),
+      raid: (p.raid as RaidItem[]).map(sanitizeNoteFields),
       absences: ((p.absences as unknown[]) ?? []).map((a) => sanitizeAbsence(a)).filter((a): a is Absence => a !== null),
       shifts: ((p.shifts as unknown[]) ?? []).map((s) => sanitizeShift(s)).filter((s): s is Shift => s !== null),
       resources: ((p.resources as unknown[]) ?? []).map((r) => sanitizeResource(r)).filter((r): r is Resource => r !== null),

@@ -11,6 +11,7 @@ import { sanitizeKnowledgeItems } from "./document-link";
 import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { migrateTaskStatus } from "./task-status";
+import { sanitizeNoteFields } from "./note-log";
 import {
   type Absence,
   type BudgetBucket,
@@ -247,6 +248,12 @@ export class BrowserBackend implements StorageBackend {
     // Migrate legacy task rows (IDB or localStorage) lacking a workflow status
     // to a valid TaskStatus before assembling the workspace.
     tasks = tasks.map(migrateTaskStatus);
+    // Untrusted-import boundary: an imported/attacker-crafted IDB workspace can
+    // carry malicious sanitized-HTML fields (noteLog[].html / description) that
+    // the whole-object read would pass through verbatim — scrub them like the
+    // CSV/MD/Turso load paths do (idempotent on already-clean data).
+    tasks = tasks.map(sanitizeNoteFields);
+    raid = raid.map(sanitizeNoteFields);
     const raw: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, milestones, changes, stakeholders };
     if (project) raw.project = project;
     if (fieldVisibility) raw.fieldVisibility = fieldVisibility;

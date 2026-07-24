@@ -91,7 +91,15 @@ export function RichTextEditor(props: RichTextEditorProps) {
       handleKeyDown: (_view, event) => {
         // commitOnEnter: plain Enter commits (suppress Tiptap's paragraph split);
         // Shift+Enter falls through to Tiptap's default hard-break behaviour.
-        if (commitOnEnterRef.current && event.key === "Enter" && !event.shiftKey) {
+        // `isComposing` (keyCode 229 fallback) guards an IME candidate confirm —
+        // a CJK user pressing Enter to accept a suggestion must not commit early.
+        if (
+          commitOnEnterRef.current &&
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          !event.isComposing &&
+          event.keyCode !== 229
+        ) {
           event.preventDefault();
           onCommitRef.current?.();
           return true;
