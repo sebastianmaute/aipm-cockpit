@@ -35,7 +35,7 @@ describe("resolveBucketChain", () => {
     expect(r).toMatchObject({ kind: "chain", start: "2026-01-01", end: "2026-06-30" });
   });
 
-  it("reports multiple roots with their names — but only once something IS chained", () => {
+  it("reports multiple roots with their names — but only once an OPEN bucket IS chained", () => {
     // Bucket 3 -> 4 is the intent that makes "not one chain" a real complaint;
     // without it these are ordinary parallel buckets (see the unchained tests).
     const r = resolveBucketChain([
@@ -55,6 +55,39 @@ describe("resolveBucketChain", () => {
     // Parallel workstream buckets are the normal budget model (the shipped
     // sample workspace chains nothing), so this must not warn.
     const r = resolveBucketChain([bucket({ id: 1, name: "Phase 1" }), bucket({ id: 2, name: "Phase 2" })]);
+    expect(r).toEqual({ kind: "unchained" });
+  });
+
+  it("treats a CLOSED bucket's successor as spillover, not as a chain declaration", () => {
+    // The shipped sample's exact shape: a closed "Discovery Phase" spilling into
+    // bucket 1, everything else a parallel workstream. `successorId` is shared
+    // with computeSpillover, so counting this as chain intent bannered the demo.
+    const r = resolveBucketChain([
+      bucket({ id: 1, name: "T&M" }),
+      bucket({ id: 2, name: "Retainer" }),
+      bucket({ id: 3, name: "Fixed price" }),
+      bucket({ id: 4, name: "Discovery", status: "closed", successorId: 1 }),
+    ]);
+    expect(r).toEqual({ kind: "unchained" });
+  });
+
+  it("still trims a COMPLETE chain that starts at a closed bucket", () => {
+    // The case the closed-bucket exclusion must not cost us: "phase 1 done,
+    // phase 2 next" is the commonest real chain there is. A complete chain is
+    // returned regardless of intent, so it trims exactly as before.
+    const r = resolveBucketChain([
+      bucket({ id: 1, status: "closed", startDate: "2026-01-01", endDate: "2026-03-31", successorId: 2 }),
+      bucket({ id: 2, startDate: "2026-04-01", endDate: "2026-06-30" }),
+    ]);
+    expect(r).toEqual({ kind: "chain", start: "2026-01-01", end: "2026-06-30", order: [1, 2] });
+  });
+
+  it("stays silent when only a closed bucket carries a dangling link", () => {
+    // A spillover target that no longer exists says nothing about the axis.
+    const r = resolveBucketChain([
+      bucket({ id: 1 }),
+      bucket({ id: 2, status: "closed", successorId: 99 }),
+    ]);
     expect(r).toEqual({ kind: "unchained" });
   });
 

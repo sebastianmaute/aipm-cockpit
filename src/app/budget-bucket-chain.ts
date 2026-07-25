@@ -7,13 +7,14 @@
 // computeSpillover (budget-report.ts), is a single-hop CLOSED-bucket transfer and
 // is deliberately untouched: a chain of open buckets is still a chain.
 //
-// ★ Because the field is SHARED with that spillover feature, this module cannot
-// tell a spillover link from a chain declaration — a closed bucket pointing at
-// its successor is exactly what a real "phase 1 done, phase 2 next" chain looks
-// like. So a project using spillover alone still reads as a half-built chain.
-// Special-casing closed buckets out of the intent gate below would silence that,
-// but it would ALSO stop trimming for the commonest legitimate chain there is,
-// so it is deliberately not done. See the `unchained` note.
+// ★★ The intent gate below gates the WARNING, not the TRIM, and that split is
+// what makes the shared field workable. A CLOSED bucket's `successorId` is a
+// spillover declaration, so it does not count as chain intent — otherwise every
+// project using spillover alone (including the shipped sample) reads as a
+// half-built chain and banners forever. The case that costs nothing to give up:
+// a real "phase 1 (closed) → phase 2" pair resolves to a COMPLETE chain, and a
+// complete chain is returned regardless of intent, so it still trims exactly as
+// before. Only BREAKS are filtered by intent.
 import type { BudgetBucket } from "./types";
 
 export type BucketRef = { id: number; name: string };
@@ -23,13 +24,29 @@ export type BucketChainBreak =
 
 export type BucketChain =
   | { kind: "chain"; start: string; end: string; order: readonly number[] }
-  // No bucket has a successorId set at all: parallel workstream buckets are the normal
-  // budget model, not a mistake. Behaves like `broken` (full plan span, no trim)
-  // but is NOT warned about — see the intent rule in resolveBucketChain.
+  // The buckets do not form one chain, but nobody DECLARED one either, so there
+  // is nothing to repair: parallel workstream buckets are the normal budget
+  // model. Behaves like `broken` (full plan span, no trim) but is NOT warned
+  // about — see the intent gate in resolveBucketChain.
   | { kind: "unchained" }
   | { kind: "broken"; reason: BucketChainBreak; offenders: readonly BucketRef[] };
 
 const ref = (b: BudgetBucket): BucketRef => ({ id: b.id, name: b.name });
+
+/** A chain result before the intent gate: either it resolves or it explains why not. */
+type ChainOutcome = Exclude<BucketChain, { kind: "unchained" }>;
+
+/** Did the user DECLARE an ordering? A successor typed on an OPEN bucket is a
+ *  chain declaration; the same field on a CLOSED bucket is the pre-existing
+ *  single-hop spillover transfer (computeSpillover), which says nothing about
+ *  how the burn-down axis should be trimmed. A self-reference conveys no
+ *  ordering either. ★ Intent is "typed", not "resolves": a link pointing at a
+ *  deleted bucket is BROKEN intent, and reporting it is the whole point of the
+ *  "dangling" break — reading intent off resolvable links only would swallow
+ *  exactly that case. */
+function hasChainIntent(buckets: readonly BudgetBucket[]): boolean {
+  return buckets.some((b) => b.status !== "closed" && b.successorId != null && b.successorId !== b.id);
+}
 
 /** Resolve the buckets into one connected successor chain, or explain why not.
  *
@@ -42,6 +59,21 @@ export function resolveBucketChain(
 ): BucketChain {
   if (buckets.length === 0) return { kind: "broken", reason: "unreachable", offenders: [] };
 
+  const outcome = analyseChain(buckets, planRange);
+  // ★★ INTENT GATES THE WARNING, NOT THE TRIM.
+  // A COMPLETE chain is returned whatever the user intended — buckets that
+  // happen to form one still trim the axis correctly, and there is nothing to
+  // warn about, so intent is irrelevant. Only a BREAK is filtered: nagging
+  // someone to repair a chain they never declared is the false alarm this gate
+  // exists to stop (parallel workstream buckets are the ordinary budget model).
+  if (outcome.kind === "chain" || hasChainIntent(buckets)) return outcome;
+  return { kind: "unchained" };
+}
+
+function analyseChain(
+  buckets: readonly BudgetBucket[],
+  planRange?: { start: string; end: string },
+): ChainOutcome {
   const byId = new Map(buckets.map((b) => [b.id, b] as const));
   const isSuccessor = new Set<number>();
   for (const b of buckets) {
@@ -49,25 +81,11 @@ export function resolveBucketChain(
     if (s != null && s !== b.id && byId.has(s)) isSuccessor.add(s);
   }
 
-  // ★★ INTENT GATE, and it runs before every other check: `successorId` is
-  // OPTIONAL and parallel workstream buckets are the ordinary budget model.
-  // Treating "nobody chained anything" as a break bannered such a project — on
-  // two surfaces — to fix something that was never broken. With no intent there
-  // is nothing to trim, so nothing to
-  // explain either: full plan span, silently. It also subsumes missing-dates,
-  // whose only job is to stop a trim that was never going to happen.
-  // ★ Intent is "a successor was TYPED", not "a successor resolves": a link
-  // pointing at a deleted bucket is broken intent, and the whole point of the
-  // "dangling" branch below is to say so. Reading intent off `isSuccessor`
-  // (resolvable links only) would swallow exactly that case as `unchained`.
-  // A self-reference conveys no ordering, so it does not count.
-  const hasIntent = buckets.some((b) => b.successorId != null && b.successorId !== b.id);
-  if (!hasIntent && buckets.length > 1) return { kind: "unchained" };
-
   // ★ Load-bearing guard: a bucket without both dates claims EVERY plan period
   // (bucketActivePeriods, budget-report.ts:21), so a trimmed axis would drop
   // hours the report still counts. Refuse to trim rather than under-report.
-  // Reached only WITH intent, and then it still wins over everything below.
+  // (With no chain intent the gate downgrades this to `unchained` — nothing was
+  // going to be trimmed, so there is no under-reporting to prevent.)
   const undated = buckets.filter((b) => !b.startDate || !b.endDate);
   if (undated.length > 0) return { kind: "broken", reason: "missing-dates", offenders: undated.map(ref) };
 
