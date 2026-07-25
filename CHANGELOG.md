@@ -8,6 +8,32 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.201.0] - 2026-07-26 "Powers"
+
+### Added
+
+- **The AI assistant can read your project's live health.** A new `get_dashboard_snapshot`
+  tool exposes the current RAG ratings (including whether each one was manually
+  overridden), completion progress, earned-value figures and the budget rollup, so
+  you can ask it things like "how are we tracking?" without opening the Dashboard.
+  Money figures it can't honestly compute — because the cost basis isn't sound —
+  come back as unknown with a stated reason, never as a silent zero.
+- **Plan with AI (Resources → Planning).** Describe how you want work distributed
+  across the team and one AI call proposes allocation cells for the planner grid.
+  Every proposed cell is checked against your live workspace, converted into each
+  resource's own storage unit against their real available capacity, and clamped
+  to the same bounds the planner itself enforces — then shown to you as a
+  current-value-to-proposed-value list for individual approval. Nothing is written
+  until you approve it; only the cells you approve are applied, in a single pass,
+  as one undo step.
+- **`list_allocations`**, a read-only chat tool that reports the planner grid as
+  it stands today: each cell's stored value, what that means in hours, and the
+  capacity behind it.
+- **`set_task_dependencies`**, letting the AI assistant wire up predecessor
+  links (finish-to-start, start-to-start, finish-to-finish, start-to-finish)
+  from chat. A link that would create a dependency cycle is refused and reported
+  back rather than silently dropped.
+
 ## [0.200.0] - 2026-07-25 "Kadrey"
 
 ### Added
