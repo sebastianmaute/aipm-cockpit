@@ -78,9 +78,9 @@ export interface ChatDispatcherArgs {
   /** Live dashboard render model. A getter (not the value) so the dispatcher
    *  identity stays stable — it is read through a ref at tool-call time. */
   getDashboardModel: () => DashboardModel;
-  /** Live budget rollup, or null when the budget module is off / there is no
-   *  real plan. Deliberately NOT memoized upstream: it runs only when a tool
-   *  actually asks, so an unused read tool costs nothing per render. */
+  /** Live budget rollup, or null when the budget module is off. Deliberately
+   *  NOT memoized upstream: it runs only when a tool actually asks, so an
+   *  unused read tool costs nothing per render. */
   getBudgetRollup: () => ProjectReport | null;
 }
 

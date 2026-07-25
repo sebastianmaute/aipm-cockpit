@@ -14,9 +14,13 @@ import { type SettingsUpdateInput } from "./chat-tools";
 import { type DashboardModel } from "./dashboard";
 
 /** Minimal stub getters for the dashboard-snapshot deps: none of these tests
- *  exercise get_dashboard_snapshot, so a benign cast + null keep the fixtures
- *  focused on the behavior under test. */
-const stubGetDashboardModel = () => ({}) as unknown as DashboardModel;
+ *  exercise get_dashboard_snapshot. `stubGetDashboardModel` throws a named
+ *  error rather than yielding a fake object, so a future test that reuses
+ *  these fixtures and forgets to override it fails legibly instead of
+ *  crashing deep inside buildDashboardSnapshot on an undefined property. */
+const stubGetDashboardModel = (): DashboardModel => {
+  throw new Error("getDashboardModel not stubbed for this test");
+};
 const stubGetBudgetRollup = () => null;
 
 function makeSettings(): Settings {

@@ -1621,19 +1621,8 @@ function TaskManagerInner() {
 
   // Deliberately NOT memoized: this runs only when the assistant calls
   // get_dashboard_snapshot, so an unused read tool costs nothing per render.
-  // Unlike the dashboard's own internal report, this one is task-aware, so
-  // earnedValue / costPerformanceIndex are the real figures.
-  // ★ Gate mirrors dashboard-panel.tsx's `showBudget` prop
-  // (`isModuleEnabled("budget", settings.features)`, workspace-section.tsx) —
-  // the only budget-input gate this codebase applies to the CURRENT project's
-  // computeDashboard/buildDashboardInput pairing, so the tool can't diverge
-  // from what the panel shows. A second "no real plan" gate (the
-  // `FALLBACK_PLAN` pattern in use-portfolio-health.ts) does not apply here:
-  // that substitute exists only for OTHER Turso portfolio projects loaded raw
-  // from storage, where `Workspace.plan` can be genuinely absent. In this live
-  // render scope `plan` (from workspace-context) is always a real,
-  // user-editable ResourcePlan with no separate "ever configured" signal, and
-  // dashboard-panel.tsx does not gate on one either.
+  // Passes `tasks` (which the dashboard's own computeBudgetReport call omits),
+  // so earnedValue / costPerformanceIndex here are the real figures.
   const getBudgetRollup = (): ProjectReport | null => {
     if (!isModuleEnabled("budget", settings.features)) return null;
     return computeBudgetReport(

@@ -48,7 +48,7 @@ export interface DashboardSnapshot {
     cpi: number | null;
     coverage: { withEstimate: number; total: number };
   };
-  /** null when the budget module is off or the workspace has no real plan. */
+  /** null when the budget module is off. */
   budget: DashboardSnapshotBudget | null;
   counts: {
     overdueTasks: number;
