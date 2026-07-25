@@ -48,16 +48,24 @@ export function NarrativeEditor({
   // instance to become visible. Mirrors the notes-window composer nonce.
   const [seedNonce, setSeedNonce] = useState(0);
 
-  if (storedHtml !== prevStoredNarrative) {
-    setPrevStoredNarrative(storedHtml);
-    setDraftNarrative(storedHtml);
-    setSeedNonce((n) => n + 1);
-  }
-
   // What a commit would store: blank markup collapses to "", so clearing the
   // editor stores an empty narrative rather than an empty paragraph.
   const nextValue = isNarrativeEmpty(draftNarrative) ? "" : normalizeNarrativeHtml(draftNarrative);
   const unchanged = nextValue === storedHtml;
+
+  if (storedHtml !== prevStoredNarrative) {
+    setPrevStoredNarrative(storedHtml);
+    setDraftNarrative(storedHtml);
+    // ★★ Bump the remount nonce ONLY for a change the editor does not already
+    // hold. A re-seed that originates from our OWN commit-on-blur carries
+    // exactly the content in the editor, so remounting is pure loss: mousedown
+    // on a toolbar button blurs -> commits -> changes storedHtml -> replaced the
+    // editor node before mouseup, so no `click` fired and no format command ever
+    // ran (and the fresh instance had no selection to apply one to). A genuine
+    // external change (workspace reload) still remounts - useEditor binds
+    // `content` once, so that is the only way a new value becomes visible.
+    if (storedHtml !== nextValue) setSeedNonce((n) => n + 1);
+  }
 
   const commitNarrative = () => {
     if (unchanged) return;

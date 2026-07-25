@@ -113,4 +113,36 @@ describe("NarrativeEditor", () => {
     const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
     expect(surface.textContent).toContain("External status from reload");
   });
+
+  // The toolbar was dead: mousedown on Bold blurred the editor -> committed ->
+  // changed status.narrative -> the render-time reconcile bumped the remount
+  // nonce -> the `key` swap replaced the editor node BETWEEN mousedown and
+  // mouseup, so no click was ever dispatched and the format command never ran.
+  it("applies Bold to the selection instead of losing the click to a remount", async () => {
+    const user = userEvent.setup();
+    render(<EditorHost />);
+    await user.click(screen.getByText("Status summary"));
+    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    await user.click(surface);
+    await user.keyboard("hello world");
+    await user.keyboard("{Control>}a{/Control}");
+    await user.click(screen.getByRole("button", { name: /bold/i }));
+    const after = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    expect(after).toBe(surface); // same node: the editor was NOT remounted
+    expect(after.querySelector("strong")?.textContent).toBe("hello world");
+  });
+
+  it("keeps the editor instance when a commit re-seeds it with its own content", async () => {
+    const user = userEvent.setup();
+    render(<EditorHost />);
+    await user.click(screen.getByText("Status summary"));
+    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    await user.click(surface);
+    await user.keyboard("committed text");
+    // Blur out of the editor: commit-on-blur fires and stores the draft.
+    await user.click(screen.getByText("Status summary"));
+    const after = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    expect(after).toBe(surface);
+    expect(after.textContent).toContain("committed text");
+  });
 });

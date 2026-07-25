@@ -50,6 +50,14 @@ function ToolbarButton(props: { label: string; active?: boolean; onClick: () => 
       type="button"
       aria-label={props.label}
       aria-pressed={props.active ?? false}
+      // ★★ A toolbar button must NEVER take focus from the contenteditable it
+      // formats. Without this, mousedown blurs the editor surface, and any
+      // consumer that commits on blur (the dashboard narrative, notes-window)
+      // re-renders — or worse, remounts — the editor BETWEEN mousedown and
+      // mouseup, so no `click` is ever dispatched and the format command never
+      // runs. Keeping focus in the editor also preserves the selection the
+      // command applies to.
+      onMouseDown={(e) => e.preventDefault()}
       onClick={props.onClick}
       className={props.active ? BTN_ON : BTN}
     >
@@ -149,6 +157,10 @@ export function RichTextEditor(props: RichTextEditorProps) {
                 key={field}
                 variant="secondary"
                 size="xs"
+                // Same reason as ToolbarButton: these chips are a SEPARATE
+                // element (the shared Button primitive), so they need the same
+                // don't-steal-focus treatment or the insert lands after a blur.
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => editor.chain().focus().insertContent(`{{${field}}}`).run()}
               >
                 {fieldLabel ? fieldLabel(field) : field}
