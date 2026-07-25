@@ -258,7 +258,7 @@ export const TOOL_DEFS = [
             type: "object",
             properties: {
               taskId: { type: "number", description: "Id of the PREDECESSOR task." },
-              type: { type: "string", enum: [...DEPENDENCY_TYPES] },
+              type: { type: "string", enum: DEPENDENCY_TYPES as unknown as string[] },
             },
             required: ["taskId", "type"],
           },
