@@ -605,6 +605,21 @@ describe("applyAllocationCells", () => {
     expect(editedBefore).toEqual([]);
   });
 
+  it("treats an absent period as already zero, so an explicit nextValue: 0 is a no-op", () => {
+    const original = resource(1, { utilizationMode: "hours", utilization: {} });
+    const before = [original];
+
+    const { nextResources, editedBefore } = applyAllocationCells(
+      before,
+      [cell({ nextValue: 0 })],
+      "2026-07-25T00:00:00.000Z",
+    );
+
+    expect(nextResources[0]).toBe(original);
+    expect(editedBefore).toEqual([]);
+    expect(nextResources[0]?.localModifiedAt).toBeUndefined();
+  });
+
   it("writes an explicit nextValue of 0 into the map instead of deleting the key", () => {
     const before = [resource(1, { utilizationMode: "hours", utilization: { "2026-08": 40 } })];
 

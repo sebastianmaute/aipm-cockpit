@@ -484,7 +484,7 @@ export function applyAllocationCells(
     const utilization = { ...r.utilization };
     let changed = false;
     for (const c of own) {
-      if (utilization[c.periodKey] !== c.nextValue) {
+      if ((utilization[c.periodKey] ?? 0) !== c.nextValue) {
         utilization[c.periodKey] = c.nextValue;
         changed = true;
       }
