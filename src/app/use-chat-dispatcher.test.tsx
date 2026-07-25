@@ -12,6 +12,7 @@ import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
 import { type SettingsUpdateInput } from "./chat-tools";
 import { type DashboardModel } from "./dashboard";
+import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
 /** Minimal stub getters for the dashboard-snapshot deps: none of these tests
  *  exercise get_dashboard_snapshot. `stubGetDashboardModel` throws a named
@@ -22,6 +23,12 @@ const stubGetDashboardModel = (): DashboardModel => {
   throw new Error("getDashboardModel not stubbed for this test");
 };
 const stubGetBudgetRollup = () => null;
+/** Same "throw a named error" convention as `stubGetDashboardModel` — none of
+ *  these tests exercise list_allocations, and AllocationsSnapshot (unlike
+ *  ProjectReport) has no cheap null fallback. */
+const stubGetAllocationsSnapshot = (): AllocationsSnapshot => {
+  throw new Error("getAllocationsSnapshot not stubbed for this test");
+};
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -139,6 +146,7 @@ function renderDispatcher(
         currentView,
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot,
       }),
     { wrapper },
   );
@@ -480,6 +488,7 @@ describe("useChatDispatcher", () => {
           currentView: "milestones",
           getDashboardModel: stubGetDashboardModel,
           getBudgetRollup: stubGetBudgetRollup,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot,
         }),
       { wrapper },
     );
@@ -502,6 +511,7 @@ describe("useChatDispatcher", () => {
         currentView: "open-points",
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot,
       });
       const form = useTaskForm();
       return { dispatcher, form };

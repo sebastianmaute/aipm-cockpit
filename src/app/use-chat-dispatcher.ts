@@ -24,6 +24,7 @@ import type { AppView } from "./nav-config";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
+import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
 import { effectivePersonEmail } from "./resource-foundation";
@@ -83,6 +84,9 @@ export interface ChatDispatcherArgs {
    *  NOT memoized upstream: it runs only when a tool actually asks, so an
    *  unused read tool costs nothing per render. */
   getBudgetRollup: () => ProjectReport | null;
+  /** Live resource-planning grid snapshot for `list_allocations`. Deliberately
+   *  NOT memoized upstream — same reasoning as `getBudgetRollup`. */
+  getAllocationsSnapshot: () => AllocationsSnapshot;
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -127,6 +131,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const insightsRef = useRef(insights);
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
+  const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -166,6 +171,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     getBudgetRollupRef.current = args.getBudgetRollup;
   }, [args.getBudgetRollup]);
+  useEffect(() => {
+    getAllocationsSnapshotRef.current = args.getAllocationsSnapshot;
+  }, [args.getAllocationsSnapshot]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
@@ -740,6 +748,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           getBudgetRollupRef.current(),
           todayRef.current,
         ),
+
+      listAllocations: () => getAllocationsSnapshotRef.current(),
     }),
     // Empty deps: every reactive value is read via a ref. Identity is stable.
     // Note: when Task 6 lands, audit whether any captured value still needs

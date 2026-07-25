@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   ALLOC_CONTEXT_MAX_RESOURCES,
+  ALLOC_TOOL_MAX_CELLS,
   MAX_ALLOC_CELLS,
   PROPOSE_ALLOCATIONS_TOOL,
   applyAllocationCells,
   availableCapacityHours,
   buildAllocContext,
   buildAllocSystemPrompt,
+  buildAllocationsSnapshot,
   cellKey,
   formatAllocValue,
   groundAllocationCells,
@@ -627,5 +629,126 @@ describe("applyAllocationCells", () => {
 
     expect(nextResources[0]?.utilization).toEqual({ "2026-08": 0 });
     expect(Object.prototype.hasOwnProperty.call(nextResources[0]?.utilization ?? {}, "2026-08")).toBe(true);
+  });
+});
+
+describe("buildAllocationsSnapshot", () => {
+  it("reports the plan window, granularity, and period keys", () => {
+    const snap = buildAllocationsSnapshot({
+      resources: [resource(1)],
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    expect(snap.planStartDate).toBe("2026-08-01");
+    expect(snap.planEndDate).toBe("2026-09-30");
+    expect(snap.granularity).toBe("month");
+    expect(snap.periods).toEqual(["2026-08", "2026-09"]);
+  });
+
+  it("emits only non-zero cells, but still lists a resource with none", () => {
+    const r = resource(1, { utilizationMode: "hours", utilization: {} });
+
+    const snap = buildAllocationsSnapshot({
+      resources: [r],
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    expect(snap.resources).toHaveLength(1);
+    expect(snap.resources[0]?.id).toBe(1);
+    expect(snap.resources[0]?.cells).toEqual([]);
+  });
+
+  it("skips a zero-value period on a resource that also has a real cell elsewhere", () => {
+    const r = resource(1, { utilizationMode: "hours", utilization: { "2026-08": 0, "2026-09": 10 } });
+
+    const snap = buildAllocationsSnapshot({
+      resources: [r],
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    expect(snap.resources[0]?.cells).toEqual([
+      { periodKey: "2026-09", value: 10, unit: "hours", hours: 10, capacityHours: 176 },
+    ]);
+  });
+
+  // Regression: capacityHours/hours must come from availableCapacityHours, NOT
+  // periodCapacityHours — the latter multiplies by the resource's own stored
+  // utilization, so a 50%-allocated, otherwise-unallocated person would be
+  // reported as 42/84 (capacityHours wrongly scaled down to 84) instead of the
+  // real 84/168. capacityHours here must be the REAL, non-scaled-down 168.
+  it("reports the hours a percent-mode cell stands for, against the REAL (non-zero) capacity", () => {
+    const r = resource(1, { utilizationMode: "percent", utilization: { "2026-08": 50 } });
+
+    const snap = buildAllocationsSnapshot({
+      resources: [r],
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    expect(snap.resources[0]?.cells).toEqual([
+      { periodKey: "2026-08", value: 50, unit: "percent", hours: 84, capacityHours: 168 },
+    ]);
+  });
+
+  it("passes an hours-mode cell's value straight through as hours", () => {
+    const r = resource(1, { utilizationMode: "hours", utilization: { "2026-08": 40 } });
+
+    const snap = buildAllocationsSnapshot({
+      resources: [r],
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    expect(snap.resources[0]?.cells).toEqual([
+      { periodKey: "2026-08", value: 40, unit: "hours", hours: 40, capacityHours: 168 },
+    ]);
+  });
+
+  it("does not flag truncated when every non-zero cell fits under the cap", () => {
+    const r = resource(1, { utilizationMode: "hours", utilization: { "2026-08": 10 } });
+
+    const snap = buildAllocationsSnapshot({
+      resources: [r],
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    expect(snap.truncated).toBe(false);
+  });
+
+  it("stops emitting cells once ALLOC_TOOL_MAX_CELLS is reached and flags truncated", () => {
+    const resourceCount = Math.ceil((ALLOC_TOOL_MAX_CELLS + 20) / 2);
+    const resources = Array.from({ length: resourceCount }, (_, i) =>
+      resource(i + 1, { utilizationMode: "hours", utilization: { "2026-08": 10, "2026-09": 10 } }),
+    );
+
+    const snap = buildAllocationsSnapshot({
+      resources,
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    const totalCells = snap.resources.reduce((sum, r) => sum + r.cells.length, 0);
+    expect(totalCells).toBe(ALLOC_TOOL_MAX_CELLS);
+    expect(snap.truncated).toBe(true);
+    // every resource is still listed even though some of its cells were dropped
+    expect(snap.resources).toHaveLength(resourceCount);
   });
 });

@@ -17,6 +17,7 @@ import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
+import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
 type TaskInput = {
@@ -239,6 +240,7 @@ export type ToolDispatcher = {
     insights?: readonly Insight[];
   };
   getDashboardSnapshot(): DashboardSnapshot;
+  listAllocations(): AllocationsSnapshot;
 };
 
 function asString(v: unknown): string | undefined {
@@ -486,6 +488,9 @@ export async function runTool(
 
     case "list_resources":
       return d.listResources();
+
+    case "list_allocations":
+      return d.listAllocations();
 
     case "create_raid_item":
       return d.createRaid(input as RaidInput);

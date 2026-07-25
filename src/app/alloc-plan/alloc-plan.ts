@@ -498,3 +498,92 @@ export function applyAllocationCells(
 
   return { nextResources, editedBefore };
 }
+
+/** Bound on how many allocation cells the read tool will emit (token budget). */
+export const ALLOC_TOOL_MAX_CELLS = 500;
+
+export interface AllocationsSnapshotCell {
+  periodKey: string;
+  /** The stored value, in this resource's own unit. */
+  value: number;
+  unit: Resource["utilizationMode"];
+  /** What that value means in hours, so the model can answer in hours. */
+  hours: number;
+  capacityHours: number;
+}
+
+export interface AllocationsSnapshotResource {
+  id: number;
+  name: string;
+  roleId: number | null;
+  unit: Resource["utilizationMode"];
+  cells: AllocationsSnapshotCell[];
+}
+
+export interface AllocationsSnapshot {
+  planStartDate: string;
+  planEndDate: string;
+  granularity: ResourcePlan["granularity"];
+  periods: string[];
+  resources: AllocationsSnapshotResource[];
+  /** True when the cell cap was hit and some cells were omitted. */
+  truncated: boolean;
+}
+
+export interface AllocationsSnapshotArgs {
+  resources: readonly Resource[];
+  plan: ResourcePlan;
+  absences: readonly Absence[];
+  workdayHours: number;
+  holidaySet: ReadonlySet<string>;
+}
+
+/**
+ * Read-only digest of the planning grid for the `list_allocations` chat tool.
+ * Unlike `buildAllocContext` (which feeds the MODEL a proposal digest and
+ * truncates the RESOURCE list for token budget), this feeds an ANSWER back to
+ * the model, so every resource is listed — a resource with no non-zero cells
+ * still needs to be nameable ("does X have any planned load?" → "no"). What's
+ * bounded instead is the CELL count (`ALLOC_TOOL_MAX_CELLS`), since a resource
+ * with a fully populated grid can contribute many cells on its own.
+ *
+ * Only NON-ZERO cells are emitted — a full resources × periods grid would
+ * dominate the transcript with zeros. `hours`/`capacityHours` use
+ * `availableCapacityHours` (see its doc comment) — NEVER `periodCapacityHours`,
+ * which multiplies by the resource's OWN stored utilization and would answer
+ * "hours already allocated" instead of "hours available".
+ */
+export function buildAllocationsSnapshot(args: AllocationsSnapshotArgs): AllocationsSnapshot {
+  const { resources, plan, absences, workdayHours, holidaySet } = args;
+  const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+
+  let emitted = 0;
+  let truncated = false;
+
+  const snapshotResources: AllocationsSnapshotResource[] = resources.map((r) => {
+    const resourceAbsences = absencesForResource(absences, r);
+    const cells: AllocationsSnapshotCell[] = [];
+    for (const period of periods) {
+      const value = r.utilization[period.key] ?? 0;
+      if (value === 0) continue;
+      if (emitted >= ALLOC_TOOL_MAX_CELLS) {
+        truncated = true;
+        continue;
+      }
+      const capacityHours = availableCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
+      const hours = r.utilizationMode === "percent" ? Math.round((value / 100) * capacityHours) : value;
+      cells.push({ periodKey: period.key, value, unit: r.utilizationMode, hours, capacityHours });
+      emitted++;
+    }
+    return { id: r.id, name: resourceLabel(r), roleId: r.roleId, unit: r.utilizationMode, cells };
+  });
+
+  return {
+    planStartDate: plan.startDate,
+    planEndDate: plan.endDate,
+    granularity: plan.granularity,
+    periods: periods.map((p) => p.key),
+    resources: snapshotResources,
+    truncated,
+  };
+}

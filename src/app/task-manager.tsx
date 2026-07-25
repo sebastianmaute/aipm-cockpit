@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import type { SettingsSectionId } from "./dashboard-coaching";
 import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
+import { buildAllocationsSnapshot, type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
 import { t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
@@ -1637,6 +1638,17 @@ function TaskManagerInner() {
     ).project;
   };
 
+  // Deliberately NOT memoized: this runs only when the assistant calls
+  // list_allocations, so an unused read tool costs nothing per render.
+  const getAllocationsSnapshot = (): AllocationsSnapshot =>
+    buildAllocationsSnapshot({
+      resources,
+      plan,
+      absences,
+      workdayHours: settings.resources.workdayHours,
+      holidaySet,
+    });
+
   const dispatcher = useChatDispatcher({
     settings,
     today,
@@ -1646,6 +1658,7 @@ function TaskManagerInner() {
     currentView: activeTab,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
+    getAllocationsSnapshot,
   });
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------

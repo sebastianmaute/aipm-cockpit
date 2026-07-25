@@ -365,6 +365,12 @@ export const TOOL_DEFS = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "list_allocations",
+    description:
+      "Read the resource planning grid: the plan window, its granularity, the valid period keys, and each resource's planned load per period. Each cell reports the stored value with its unit (percent or hours), what that means in hours, and the capacity available in that period. Only non-zero cells are listed; `truncated` is true when some were omitted. Read-only — planning changes are made in the app's Plan-with-AI review, not from chat.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "create_resource",
     description:
       "Add a person to the resource directory. Provide firstName and lastName, OR a single full `name` (it is split). At least one of these is required — a call with no name is rejected. Use this when a document describes a team/resource plan — assigning a task to a name alone does NOT create a directory entry. Discipline/grade are assigned in the app, not here.",

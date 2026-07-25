@@ -157,6 +157,12 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
           budget: null,
         }) as unknown as ReturnType<ToolDispatcher["getDashboardSnapshot"]>,
     ),
+    // None of the tests using this fixture exercise list_allocations; throw a
+    // named error (rather than a fake object) so a future test that reuses
+    // this fixture and forgets to override it fails legibly.
+    listAllocations: vi.fn(() => {
+      throw new Error("listAllocations not stubbed");
+    }),
     ...over,
   };
 }
@@ -765,5 +771,21 @@ describe("get_dashboard_snapshot", () => {
     const d = { getDashboardSnapshot: () => snapshot } as unknown as ToolDispatcher;
 
     await expect(runTool(d, "get_dashboard_snapshot", {})).resolves.toBe(snapshot);
+  });
+});
+
+describe("list_allocations", () => {
+  it("returns the dispatcher's allocations snapshot verbatim", async () => {
+    const snapshot = {
+      planStartDate: "2026-08-01",
+      planEndDate: "2026-09-30",
+      granularity: "month",
+      periods: ["2026-08", "2026-09"],
+      resources: [],
+      truncated: false,
+    } as unknown as ReturnType<ToolDispatcher["listAllocations"]>;
+    const d = { listAllocations: () => snapshot } as unknown as ToolDispatcher;
+
+    await expect(runTool(d, "list_allocations", {})).resolves.toBe(snapshot);
   });
 });
