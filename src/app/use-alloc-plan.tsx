@@ -36,7 +36,7 @@ import {
 import { AllocPlanModal } from "./alloc-plan-modal";
 import { INTERACTIVE } from "./interaction-styles";
 
-type Phase = "idle" | "open" | "thinking" | "preview" | "applying";
+type Phase = "idle" | "input" | "thinking" | "preview" | "applying";
 
 export interface AllocPlanDeps {
   settings: Settings;
@@ -102,11 +102,11 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     setCells([]);
     setSkipped([]);
     setSelected(new Set());
-    setPhase("open");
+    setPhase("input");
   }, [enabled, phase]);
 
   const onPropose = useCallback(async () => {
-    if (phase !== "open" || !instruction.trim()) return;
+    if (phase !== "input" || !instruction.trim()) return;
     const reqId = ++reqIdRef.current;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -121,19 +121,20 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       const grounded = groundAllocationCells(raw, { resources, plan, absences, workdayHours, holidaySet });
       setCells(grounded.cells);
       setSkipped(grounded.skipped);
-      if (grounded.cells.length === 0) {
-        showToast("info", t(lang, "allocPlanNoChanges"));
-      }
       if (grounded.cells.length > 0 || grounded.skipped.length > 0) {
         // Preselect every grounded cell; skipped-only results still surface
-        // via the preview stage (the only stage the modal renders them in).
+        // via the preview stage (the only stage the modal renders them in) —
+        // silently, since a modal explaining what was refused and why is not
+        // "nothing was proposed".
         setSelected(new Set(grounded.cells.map(cellKey)));
         setPhase("preview");
       } else {
-        // Nothing at all came back — stay on the instruction step so the
+        // Nothing at all came back (no cells AND no skips) — only now is
+        // "nothing was proposed" true. Stay on the instruction step so the
         // user can revise and retry without reopening.
+        showToast("info", t(lang, "allocPlanNoChanges"));
         setSelected(new Set());
-        setPhase("open");
+        setPhase("input");
       }
     } catch (e) {
       if (reqId !== reqIdRef.current) return; // stale failure — ignore
@@ -144,7 +145,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       // boundary — mirrors chat-panel.tsx.
       const errName = e instanceof Error ? e.name : (e as { name?: string }).name;
       if (errName === "AbortError") {
-        setPhase("open");
+        setPhase("input");
         return;
       }
       if (e instanceof AiHttpError && classifyAiError(e.status, e.errorType) === "limit") {
@@ -155,7 +156,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       } else {
         showToast("error", t(lang, "allocPlanError"));
       }
-      setPhase("open");
+      setPhase("input");
     }
   }, [phase, instruction, resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, apiKey, settings.ai.model, lang, showToast]);
 

@@ -165,6 +165,38 @@ describe("useAllocPlan (plan-then-apply)", () => {
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("error", expect.any(String)));
   });
 
+  it("skipped-only result opens the preview silently (no 'nothing proposed' toast)", async () => {
+    // resourceId 999 names no live resource — groundAllocationCells refuses it
+    // as "unknown-resource", so cells.length is 0 but skipped.length is 1.
+    vi.mocked(call.runAllocProposal).mockResolvedValue([
+      { resourceId: 999, periodKey: "2026-08", hours: 40 },
+    ]);
+    renderHarness();
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+
+    // The preview opens to explain what was skipped and why...
+    await waitFor(() => expect(screen.getByText(/unknown resource/i)).toBeTruthy());
+    // ...and Confirm has nothing to apply, so it stays disabled.
+    expect(screen.getByRole("button", { name: /apply selected/i })).toBeDisabled();
+    // Critically: no toast claiming nothing was proposed while this is on screen.
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it("truly empty result (no cells, no skips) stays on the instruction step and toasts", async () => {
+    vi.mocked(call.runAllocProposal).mockResolvedValue([]);
+    renderHarness();
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith("info", expect.stringMatching(/no allocation changes/i)),
+    );
+    // Still on the instruction step — Propose is there, Apply selected is not.
+    expect(screen.getByRole("button", { name: /^propose$/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /apply selected/i })).toBeNull();
+  });
+
   it("confirm applies ONLY the selected cells", async () => {
     vi.mocked(call.runAllocProposal).mockResolvedValue([
       { resourceId: 1, periodKey: "2026-08", hours: 40 },
