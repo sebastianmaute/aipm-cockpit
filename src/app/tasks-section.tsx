@@ -6,6 +6,9 @@ import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
+import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
+import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
+import type { KanbanLane } from "./task-kanban";
 import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
 import { useSettings } from "./use-settings";
@@ -98,6 +101,8 @@ export interface TasksSectionProps {
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
+  /** Swimlane cell drop: identifies both the person (lane) and status in one call. */
+  onSwimlaneDrop: (id: number, lane: KanbanLane, status: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
   // column manager
@@ -181,6 +186,7 @@ export function TasksSection({
   onSendInquiry,
   onPushToJira,
   onStatusChange,
+  onSwimlaneDrop,
   onEdit,
   onDelete,
   hiddenCols,
@@ -296,6 +302,18 @@ export function TasksSection({
       else setSettings((s) => ({ ...s, tasksViewMode: mode }));
     },
     [viewModeOverridden, pid, projectAppearance, setSettings],
+  );
+
+  // Extra swimlane rows the user pulled in so an empty person is droppable.
+  // Session-only: not persisted, cleared on unmount.
+  const [extraLaneIds, setExtraLaneIds] = useState<readonly number[]>([]);
+  const addLane = useCallback(
+    (id: number) => setExtraLaneIds((prev) => (prev.includes(id) ? prev : [...prev, id])),
+    [],
+  );
+  const removeLane = useCallback(
+    (id: number) => setExtraLaneIds((prev) => prev.filter((x) => x !== id)),
+    [],
   );
 
   // Outlook calendar write-back (SP1): manual push of unfinished, dated tasks.
@@ -554,6 +572,14 @@ export function TasksSection({
           onChange={setTasksViewMode}
           ariaLabel={t(lang, "tasksViewModeLabel")}
         />
+        {tasksViewMode === "swimlane" && (
+          <TaskSwimlaneToolbar
+            lang={lang}
+            resources={resources}
+            laneResourceIds={extraLaneIds}
+            onAddLane={addLane}
+          />
+        )}
         <Input
           type="search"
           size="xs"
@@ -818,7 +844,32 @@ export function TasksSection({
 
       </div>{/* end shrink-0 */}
 
-      {tasksViewMode === "board" ? (
+      {tasksViewMode === "swimlane" ? (
+        /* Swimlane view shows the same search/people-filtered task set as the
+           board (NOT the hide-finished filtered `visibleRows`) so cancelled/done
+           columns stay populated. */
+        <TaskKanbanSwimlanes
+          lang={lang}
+          tasks={healthFilteredTasks}
+          resourcesById={resourcesById}
+          extraLaneIds={extraLaneIds}
+          today={today}
+          holidaySet={holidaySet}
+          raidByTask={raidByTask}
+          changeByTask={changeByTask}
+          onSwimlaneDrop={onSwimlaneDrop}
+          onStatusChange={onStatusChange}
+          onEdit={onEdit}
+          onRemoveLane={removeLane}
+          onJumpToRaid={onJumpToRaid}
+          jiraProjectKey={jiraProjectKey}
+          jiraExtraProjects={jiraExtraProjects}
+          containerRef={containerRef}
+          flashId={flashId}
+          onAiEdit={onAiEdit}
+          aiEditEnabled={aiEditEnabled}
+        />
+      ) : tasksViewMode === "board" ? (
         /* Board view shows every search/people-filtered task (NOT the
            hide-finished filtered `visibleRows`) so cancelled/done columns
            stay populated. SP-B Task 6 swaps in the rich <TaskKanbanCard>. */

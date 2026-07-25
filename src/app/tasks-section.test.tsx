@@ -169,6 +169,7 @@ function makeProps(): TasksSectionProps {
     onSendInquiry: vi.fn(),
     onPushToJira: vi.fn(),
     onStatusChange: vi.fn(),
+    onSwimlaneDrop: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
     // column manager
