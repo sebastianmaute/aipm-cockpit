@@ -761,6 +761,36 @@ describe("set_task_dependencies", () => {
       runTool(d, "set_task_dependencies", { dependencies: [] }),
     ).rejects.toThrow("id must be a number");
   });
+
+  it("rejects a non-array dependencies instead of silently clearing the graph", async () => {
+    // A non-array `dependencies` (missing field, a stray string, ...) is
+    // byte-identical to a legitimate "clear all links" once it reaches the
+    // dispatcher — malformed model output must never wipe a task's
+    // dependency graph with zero visible rejection. The dispatcher must
+    // never even be called.
+    const setTaskDependencies = vi.fn();
+    const d = { setTaskDependencies } as unknown as ToolDispatcher;
+
+    await expect(
+      runTool(d, "set_task_dependencies", { id: 7, dependencies: "FS on task 12" }),
+    ).rejects.toThrow("dependencies must be an array");
+    await expect(
+      runTool(d, "set_task_dependencies", { id: 7 }),
+    ).rejects.toThrow("dependencies must be an array");
+    expect(setTaskDependencies).not.toHaveBeenCalled();
+  });
+
+  it("still clears every link for a real empty array", async () => {
+    const d = {
+      setTaskDependencies: (id: number, raw: unknown) => ({ id, dependencies: raw, rejected: [] }),
+    } as unknown as ToolDispatcher;
+
+    await expect(runTool(d, "set_task_dependencies", { id: 7, dependencies: [] })).resolves.toEqual({
+      id: 7,
+      dependencies: [],
+      rejected: [],
+    });
+  });
 });
 
 describe("get_dashboard_snapshot", () => {

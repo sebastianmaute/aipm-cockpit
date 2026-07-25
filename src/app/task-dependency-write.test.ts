@@ -108,6 +108,12 @@ describe("resolveDependencyWrite", () => {
   });
 
   it("treats a non-array input as a clear", () => {
+    // This lenient behaviour is deliberate DEFENSE IN DEPTH for a non-tool
+    // caller, not the guard against malformed AI output — the `set_task_dependencies`
+    // chat tool (chat-tools.ts) rejects a non-array `dependencies` BEFORE it
+    // ever reaches this resolver, precisely because a resolver-level "clear"
+    // here is byte-identical to a real "clear all links" and would let
+    // malformed model output silently wipe a task's dependency graph.
     const tasks = [task(1), task(2)];
     expect(resolveDependencyWrite(2, null, tasks).applied).toEqual([]);
     expect(resolveDependencyWrite(2, "nope", tasks).applied).toEqual([]);

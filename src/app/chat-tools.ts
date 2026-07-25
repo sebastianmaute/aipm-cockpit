@@ -414,6 +414,13 @@ export async function runTool(
 
     case "set_task_dependencies": {
       const id = requireId(input);
+      // A non-array here is byte-identical to a legitimate "clear all links"
+      // once it reaches setTaskDependencies/resolveDependencyWrite (which
+      // treats non-array input as a clear for non-tool callers). Reject it
+      // AT THE TOOL BOUNDARY instead — malformed model output (a stray
+      // string, an omitted field) must never silently wipe a task's
+      // dependency graph with zero visible rejection.
+      if (!Array.isArray(input.dependencies)) throw new Error("dependencies must be an array");
       const result = d.setTaskDependencies(id, input.dependencies);
       if (!result) throw new Error(`Task #${id} not found`);
       return result;
