@@ -25,8 +25,11 @@ export function BurndownChainWarning({ lang, chain }: { lang: Lang; chain: Bucke
   // Takes the primitive's severity-derived role (warn → role="status"): the
   // banner only mounts on real, actionable bucket-data breaks now, so a polite
   // announcement is the right behaviour rather than noise on every view mount.
+  // ★ NOT `print:hidden`: the chart is the artefact people circulate, and without
+  // this line a printed burn-down shows a full-plan x-axis with nothing saying why
+  // it is not the budget window.
   return (
-    <Banner severity="warn" className="mb-2 print:hidden">
+    <Banner severity="warn" className="mb-2">
       {t(lang, REASON_KEY[chain.reason], names)}
     </Banner>
   );

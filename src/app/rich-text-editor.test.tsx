@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { RichTextEditor, type RichTextEditorLabels } from "./rich-text-editor";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so the editor mounts.
@@ -10,6 +11,10 @@ beforeAll(() => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore jsdom polyfill
   Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
+  // userEvent's pointer press calls document.elementFromPoint (absent in jsdom).
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore jsdom polyfill
+  if (!document.elementFromPoint) document.elementFromPoint = () => null;
 });
 
 const labels: RichTextEditorLabels = {
@@ -63,6 +68,19 @@ describe("RichTextEditor", () => {
     await screen.findByLabelText("Body");
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  // The counterpart to the lean input-rule guard below: the full variant HAS
+  // heading toolbar buttons and a sanitizer that allows h1/h2, so disabling the
+  // markdown shortcut here would be a regression, not a fix.
+  it("still turns a markdown '# ' shortcut into a heading", async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup({ value: "" });
+    const surface = await screen.findByLabelText("Body");
+    await user.click(surface);
+    await user.keyboard("# Full heading");
+    expect(surface.querySelector("h1")?.textContent).toBe("Full heading");
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain("<h1>Full heading</h1>");
+  });
 });
 
 function setupLean(over: Partial<React.ComponentProps<typeof RichTextEditor>> = {}) {
@@ -110,6 +128,32 @@ describe("RichTextEditor lean variant", () => {
     await screen.findByRole("textbox", { name: "Note" });
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  // ★★ The lean sanitizer's allow-list has no h1-h6/blockquote/pre and drops a
+  // disallowed block's TEXT with it, so a markdown input rule used to turn the
+  // whole paragraph into "" on commit while the editor kept showing it.
+  it.each([
+    // typed, visible text, the word the SANITIZED commit must still carry
+    ["heading", "# Q3 highlights", "# Q3 highlights", "Q3 highlights"],
+    ["blockquote", "> quoted text", "> quoted text", "quoted text"],
+    ["code block", "```fenced", "```fenced", "fenced"],
+  ])(
+    "keeps a markdown %s shortcut as literal text instead of discarding it",
+    async (_name, typed, visible, kept) => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<RichTextEditor variant="lean" value="" onChange={onChange} label="Note" lang="en-US" />);
+      const surface = await screen.findByRole("textbox", { name: "Note" });
+      await user.click(surface);
+      await user.keyboard(typed);
+      expect(surface.querySelector("h1, h2, h3, blockquote, pre")).toBeNull();
+      expect(surface.textContent).toContain(visible);
+      // The sanitized commit is what gets stored; "> " serializes escaped, so
+      // assert the payload survived rather than the exact source spelling.
+      const html = (onChange.mock.calls.at(-1)?.[0] ?? "") as string;
+      expect(html).toContain(kept);
+    },
+  );
 
   it("emits sanitized HTML through onChange when content changes via the toolbar", async () => {
     const { onChange } = setupLean();

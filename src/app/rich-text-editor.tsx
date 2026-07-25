@@ -41,6 +41,19 @@ export interface RichTextEditorProps {
   labels?: RichTextEditorLabels;
 }
 
+// ★★ The LEAN variant sanitizes with `sanitizeNoteHtml`, whose allow-list has no
+// h1-h6 / blockquote / pre AND which drops a disallowed block's TEXT with it
+// (KEEP_CONTENT: false). StarterKit's markdown input rules turn "# ", "> " and
+// "```" into exactly those nodes, so typing "# Q3 highlights" left the heading on
+// screen while the committed value collapsed to "" — no error, no toast, and (for
+// the dashboard narrative) Save disabled because "unchanged" was then true. The
+// text was simply never saved. Disabling the extensions removes their input rules
+// at the source, so "# " now stays literal text in a paragraph.
+// The FULL variant is untouched: it has heading toolbar buttons and its own
+// sanitizer allows h1/h2 (and unwraps the rest, keeping the text).
+const LEAN_EXTENSIONS = [StarterKit.configure({ heading: false, blockquote: false, codeBlock: false })];
+const FULL_EXTENSIONS = [StarterKit];
+
 const BTN = "rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted";
 const BTN_ON = "rounded-md border border-line bg-ui-dark-blue px-2 py-1 text-xs text-white";
 
@@ -85,7 +98,7 @@ export function RichTextEditor(props: RichTextEditorProps) {
   const minH = isLean ? "min-h-24" : "min-h-40";
 
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: isLean ? LEAN_EXTENSIONS : FULL_EXTENSIONS,
     content: value,
     immediatelyRender: false,
     editorProps: {
