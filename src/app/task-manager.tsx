@@ -253,6 +253,7 @@ function TaskManagerInner() {
   const {
     tasks,
     setTasks,
+    uniqueAssignees,
     uniqueGroups,
     uniqueLabels,
     raid,
@@ -951,9 +952,15 @@ function TaskManagerInner() {
   const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
   const openAction = useCallback(
     (a: SuggestedAction) => {
-      executeActionCta(a.cta, { requestOpen, resetFilters, setAssigneeFilter, setHealthFilter, setActiveTab });
+      executeActionCta(a.cta, {
+        requestOpen, resetFilters, setAssigneeFilter, setHealthFilter, setActiveTab,
+        // The live options the assignee <select> offers, so an "open this
+        // person's tasks" CTA resolves to the STORED spelling instead of
+        // orphaning the filter (which silently reads "All").
+        assigneeOptions: uniqueAssignees,
+      });
     },
-    [requestOpen, resetFilters, setAssigneeFilter, setHealthFilter, setActiveTab],
+    [requestOpen, resetFilters, setAssigneeFilter, setHealthFilter, setActiveTab, uniqueAssignees],
   );
   const openActionCenter = useCallback(() => {
     if (typeof window !== "undefined") window.focus();

@@ -36,6 +36,40 @@ describe("executeActionCta", () => {
     expect(d.requestOpen).not.toHaveBeenCalled();
   });
 
+  // The workload engine joins an unlinked task to a directory resource by
+  // CASE-FOLDED name, but the task filter compares assignee exactly and an
+  // unmatched value resolves to "All" — showing every red task in the project.
+  it("uses the exact-case assignee option when one is present", () => {
+    const d = deps();
+    executeActionCta(
+      { kind: "open-tasks-for", resourceId: 7, resourceName: "Bo Smith" },
+      { ...d, assigneeOptions: ["Ann Lee", "Bo Smith"] },
+    );
+    expect(d.setAssigneeFilter).toHaveBeenCalledWith("Bo Smith");
+  });
+
+  it("uses the STORED spelling when only a differently-cased option exists", () => {
+    const d = deps();
+    executeActionCta(
+      { kind: "open-tasks-for", resourceId: 7, resourceName: "Bo Smith" },
+      { ...d, assigneeOptions: ["ann lee", "bo smith"] },
+    );
+    expect(d.setAssigneeFilter).toHaveBeenCalledWith("bo smith");
+  });
+
+  it("falls back to the CTA name with no options or no match", () => {
+    const noOptions = deps();
+    executeActionCta({ kind: "open-tasks-for", resourceId: 7, resourceName: "Bo Smith" }, noOptions);
+    expect(noOptions.setAssigneeFilter).toHaveBeenCalledWith("Bo Smith");
+
+    const noMatch = deps();
+    executeActionCta(
+      { kind: "open-tasks-for", resourceId: 7, resourceName: "Bo Smith" },
+      { ...noMatch, assigneeOptions: ["Ann Lee"] },
+    );
+    expect(noMatch.setAssigneeFilter).toHaveBeenCalledWith("Bo Smith");
+  });
+
   it("ignores a snooze CTA", () => {
     const d = deps();
     executeActionCta({ kind: "snooze", actionId: "x" }, d);

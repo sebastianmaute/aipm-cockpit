@@ -13,6 +13,12 @@ export interface ActionCtaExecDeps {
   setAssigneeFilter: (value: string) => void;
   setHealthFilter: (value: HealthFilter) => void;
   setActiveTab: (view: AppView) => void;
+  /** Live assignee filter options. The CTA carries the resource's display name,
+   *  but an unlinked task keeps its raw `assignee` string and the filter matches
+   *  EXACTLY — while the workload engine that raised the action joins by
+   *  case-folded name. Without this the filter value can match no option, silently
+   *  resolve to "All", and show every red task in the project. */
+  assigneeOptions?: readonly string[];
 }
 
 /** ★★ An exhaustive switch, NOT a chain of `if (cta.kind === …)` guards. Every
@@ -29,7 +35,14 @@ export function executeActionCta(cta: ActionCta, deps: ActionCtaExecDeps): void 
       // Reset FIRST: a stale search/group/label filter would otherwise intersect
       // the new one to zero rows and the deep-link would look broken.
       deps.resetFilters();
-      deps.setAssigneeFilter(cta.resourceName);
+      // Match the STORED option, not the CTA's display name: the filter compares
+      // assignee exactly, so "Bo Smith" against a task assigned "bo smith" hides
+      // every row — and an unmatched value resolves to "All", which shows every
+      // red task in the project as if it were one person's overdue work.
+      deps.setAssigneeFilter(
+        deps.assigneeOptions?.find((o) => o.toLowerCase() === cta.resourceName.toLowerCase())
+          ?? cta.resourceName,
+      );
       // "red" is the existing needs-attention filter (overdue OR blocked OR a
       // manual R override) - the closest standing filter to "their overdue work".
       deps.setHealthFilter("red");
