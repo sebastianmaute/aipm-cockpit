@@ -71,6 +71,7 @@ import type { Settings } from "./settings-types";
 import type { ToolDispatcher } from "./chat-tools";
 import { useHolidaySet } from "./use-holiday-set";
 import { TasksSection, type TasksSectionProps } from "./tasks-section";
+import { TASK_STATUSES } from "./types";
 
 const mockUseWorkspace = useWorkspace as ReturnType<typeof vi.fn>;
 const mockUseFilters = useFilters as ReturnType<typeof vi.fn>;
@@ -482,6 +483,70 @@ describe("TasksSection", () => {
     const shownSelect = screen.getByRole("combobox", { name: t("en-US", "swimlaneAddLane") });
     const shownLabels = Array.from(shownSelect.querySelectorAll("option")).map((o) => o.textContent);
     expect(shownLabels).toContain("Ext Person");
+  });
+
+  it("a lane added via the picker before 'Hide externals' is toggled on stops being a live drop target", () => {
+    // Excluding externals from the picker was not enough: the picker only
+    // stops OFFERING them going forward, it never retracts a lane already in
+    // (session-only) extraLaneIds state. Reachable sequence: toggle off, add
+    // the still-empty lane via the picker (allowed — they own nothing yet),
+    // then they pick up a REAL task while the toggle is still off (a
+    // legitimate drop). A fixture that never gives the external real owned
+    // work can't distinguish "an always-empty lane never rendered" from "a
+    // lane that legitimately held a card is now correctly gone" once the
+    // toggle flips on — this fixture exercises the latter.
+    const otherTask = {
+      id: 1, taskName: "T1", assignee: "", resourceId: 9,
+      priority: "Medium", status: "To Do", dueDate: "", lastUpdateDate: "2026-05-01",
+    };
+    const ownedByExternal = {
+      id: 2, taskName: "Owned by ext", assignee: "", resourceId: 7,
+      priority: "Medium", status: "To Do", dueDate: "", lastUpdateDate: "2026-05-01",
+    };
+    const resources = [
+      { id: 7, firstName: "Ext", lastName: "Person", isExternal: true, roleId: null, utilizationMode: "percent", utilization: {} },
+      { id: 9, firstName: "Internal", lastName: "Person", roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+
+    stubSettings({ tasksViewMode: "swimlane", hideExternalTasks: false });
+    stubWorkspace([otherTask], [otherTask], resources);
+    const { rerender } = render(<TasksSection {...makeProps()} />);
+
+    // Add the external's still-empty lane via the picker. Query by the lane's
+    // own `<section aria-label>` (region role), not by text — the picker's
+    // own <option> also reads "Ext Person" and would collide with a text query.
+    fireEvent.change(
+      screen.getByRole("combobox", { name: t("en-US", "swimlaneAddLane") }),
+      { target: { value: "7" } },
+    );
+    expect(screen.getByRole("region", { name: "Ext Person" })).toBeInTheDocument();
+
+    // They pick up a real task while the toggle is still off.
+    stubWorkspace([otherTask, ownedByExternal], [otherTask, ownedByExternal], resources);
+    rerender(<TasksSection {...makeProps()} />);
+    expect(screen.getByTestId("swimlane-card-2")).toBeInTheDocument();
+
+    // Toggle "Hide externals" on. Upstream filtering (workspace-context, not
+    // under test here) would already have dropped the external's task from
+    // filteredSortedTasks by this point — mirrored here by omitting it — but
+    // the session-only extra-lane state is untouched by that toggle, so
+    // WITHOUT the fix the lane (and its drop target) would still render.
+    stubSettings({ tasksViewMode: "swimlane", hideExternalTasks: true });
+    stubWorkspace([otherTask], [otherTask], resources);
+    rerender(<TasksSection {...makeProps()} />);
+
+    expect(screen.queryByRole("region", { name: "Ext Person" })).not.toBeInTheDocument();
+    for (const status of TASK_STATUSES) {
+      expect(screen.queryByTestId(`swimlane-cell-res:7-${status}`)).not.toBeInTheDocument();
+    }
+
+    // Toggling back off restores the lane — the raw extraLaneIds state was
+    // never mutated, matching the app's self-healing orphaned-filter
+    // convention (the picker's addLane/removeLane are the only writers).
+    stubSettings({ tasksViewMode: "swimlane", hideExternalTasks: false });
+    stubWorkspace([otherTask], [otherTask], resources);
+    rerender(<TasksSection {...makeProps()} />);
+    expect(screen.getByRole("region", { name: "Ext Person" })).toBeInTheDocument();
   });
 
   it("renders a Dark-Blue sticky table header", () => {

@@ -51,13 +51,17 @@ function emptyCells(): Record<TaskStatus, Task[]> {
 
 /** Resource ids that already have a swimlane: everyone owning a visible task,
  *  plus the lanes the user pulled in explicitly. The add-lane picker excludes
- *  these so it never offers a lane that already exists. */
+ *  these so it never offers a lane that already exists. Mirrors
+ *  `groupByStatusAndPerson`'s own dangling-FK handling: an id (task-owned or
+ *  extra) that does not resolve in the directory is dropped, not just deduped. */
 export function laneResourceIds(
   tasks: readonly Task[],
+  resourcesById: ReadonlyMap<number, Resource>,
   extraLaneIds: readonly number[],
 ): number[] {
-  const ids = new Set<number>(extraLaneIds);
-  for (const t of tasks) if (t.resourceId != null) ids.add(t.resourceId);
+  const ids = new Set<number>();
+  for (const id of extraLaneIds) if (resourcesById.has(id)) ids.add(id);
+  for (const t of tasks) if (t.resourceId != null && resourcesById.has(t.resourceId)) ids.add(t.resourceId);
   return [...ids];
 }
 

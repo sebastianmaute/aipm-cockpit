@@ -367,14 +367,29 @@ export function TasksSection({
     : healthFilteredTasks;
 
   const laneIds = useMemo(
-    () => laneResourceIds(healthFilteredTasks, extraLaneIds),
-    [healthFilteredTasks, extraLaneIds],
+    () => laneResourceIds(healthFilteredTasks, resourcesById, extraLaneIds),
+    [healthFilteredTasks, resourcesById, extraLaneIds],
   );
   // Both assign pickers narrow to internals while "Hide externals" is on, so
   // a user can't assign work to someone whose card the toggle then hides.
   const assignableResources = useMemo(
     () => (hideExternal ? resources.filter((r) => !r.isExternal) : resources),
     [hideExternal, resources],
+  );
+  // A lane pulled in via the picker while "Hide externals" was OFF must not
+  // outlive the toggle: the picker only stops OFFERING an external going
+  // forward, it doesn't retract a lane already in extraLaneIds, so without
+  // this filter that lane keeps rendering as a live drop target — dropping a
+  // task there assigns it to the external and the card silently vanishes
+  // (the same defect the picker fix closed on the picker side). The raw
+  // extraLaneIds state is left untouched so the lane returns when the toggle
+  // flips back off (mirrors the orphaned-filter self-healing convention).
+  const visibleExtraLaneIds = useMemo(
+    () =>
+      hideExternal
+        ? extraLaneIds.filter((id) => !resourcesById.get(id)?.isExternal)
+        : extraLaneIds,
+    [hideExternal, extraLaneIds, resourcesById],
   );
 
   // Swimlane keyboard assign path: reuses onSwimlaneDrop (the same functional
@@ -883,7 +898,7 @@ export function TasksSection({
           lang={lang}
           tasks={healthFilteredTasks}
           resourcesById={resourcesById}
-          extraLaneIds={extraLaneIds}
+          extraLaneIds={visibleExtraLaneIds}
           today={today}
           holidaySet={holidaySet}
           raidByTask={raidByTask}

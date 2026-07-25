@@ -89,18 +89,25 @@ describe("groupByStatusAndPerson", () => {
 
 describe("laneResourceIds", () => {
   it("includes a resource that owns a task", () => {
-    expect(laneResourceIds([task({ resourceId: 1 })], [])).toEqual([1]);
+    expect(laneResourceIds([task({ resourceId: 1 })], resources, [])).toEqual([1]);
   });
 
   it("includes an extra lane id with no owning task", () => {
-    expect(laneResourceIds([], [2])).toEqual([2]);
+    expect(laneResourceIds([], resources, [2])).toEqual([2]);
   });
 
   it("dedupes a resource that is both a task owner and an extra lane id", () => {
-    expect(laneResourceIds([task({ resourceId: 1 })], [1])).toEqual([1]);
+    expect(laneResourceIds([task({ resourceId: 1 })], resources, [1])).toEqual([1]);
   });
 
   it("a task with no resourceId contributes nothing", () => {
-    expect(laneResourceIds([task({ resourceId: undefined })], [])).toEqual([]);
+    expect(laneResourceIds([task({ resourceId: undefined })], resources, [])).toEqual([]);
+  });
+
+  // Mirrors groupByStatusAndPerson's own dangling-FK handling: an id that does
+  // not resolve in the directory must not surface as a lane, whether it comes
+  // from a task's stale resourceId or a stale extra lane id.
+  it("drops a task-owned id and an extra lane id that do not resolve in the directory", () => {
+    expect(laneResourceIds([task({ resourceId: 999 })], resources, [998])).toEqual([]);
   });
 });
