@@ -225,3 +225,21 @@ describe("BudgetReportPanel — detail table sorting with an uncostable bucket",
     expect(names[0]).not.toBe("Unstarted contract");
   });
 });
+
+describe("BudgetReportPanel burn-down chain warning", () => {
+  it("warns when the buckets are not one successor chain", () => {
+    renderPanel();
+    expect(screen.getByText(/not linked into one chain/)).toBeInTheDocument();
+  });
+
+  it("does not warn once the buckets are chained", () => {
+    renderPanel({
+      buckets: [
+        { ...buckets[0], successorId: 2 },
+        { ...buckets[1], successorId: 3 },
+        buckets[2],
+      ],
+    });
+    expect(screen.queryByText(/not linked into one chain/)).toBeNull();
+  });
+});

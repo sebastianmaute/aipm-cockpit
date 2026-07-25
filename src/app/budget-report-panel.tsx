@@ -26,6 +26,7 @@ import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } 
 import { computeBurndownSeries } from "./budget-burndown";
 import { resolveBucketChain } from "./budget-bucket-chain";
 import { BurndownCharts } from "./burndown-chart";
+import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
 
@@ -150,6 +151,7 @@ export function BudgetReportPanel({
       </Section>
 
       <Section title={t(lang, "budgetBurndownTitle")}>
+        <BurndownChainWarning lang={lang} chain={bucketChain} />
         <BurndownCharts series={burndown} lang={lang} currency={plan.currency || "EUR"} />
         <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
       </Section>

@@ -18,6 +18,7 @@ import type { Absence, BudgetBucket, ChangeItem, ChangeStatus, Milestone, RaidIt
 import { formatCurrency } from "./resource-cost";
 import { RagBadge } from "./rag-badge";
 import { BurndownCharts } from "./burndown-chart";
+import { BurndownChainWarning } from "./budget-chain-warning";
 import type { SuggestedAction } from "./next-actions/types";
 import type { InsightActions } from "./insights/insight";
 import { useResizable } from "./use-resizable";
@@ -426,6 +427,7 @@ export function DashboardPanel(props: DashboardPanelProps) {
                 )}
                 {model.burndown ? (
                   <div className="mt-3">
+                    <BurndownChainWarning lang={lang} chain={model.bucketChain} />
                     <BurndownCharts series={model.burndown} lang={lang} currency={props.plan.currency || "EUR"} />
                   </div>
                 ) : null}
