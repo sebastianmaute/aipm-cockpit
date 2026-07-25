@@ -43,6 +43,12 @@ interface TaskKanbanSwimlanesProps {
   /** Swimlane cell drop: the cell identifies BOTH the person (lane) and the
    *  status, so one drop writes both in a single call. */
   onSwimlaneDrop: (id: number, lane: KanbanLane, status: TaskStatus) => void;
+  /** Keyboard equivalent of the drag: assigns/unassigns a task via a per-card
+   *  person select. Reuses onSwimlaneDrop under the hood at the caller. Both
+   *  optional (mirrors TaskKanbanCard) so lightweight callers/tests can omit
+   *  them — the control simply doesn't render on any card. */
+  assignableResources?: readonly Resource[];
+  onAssign?: (taskId: number, resourceId: number | null) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
   onEdit: (task: Task) => void;
   /** Remove an explicitly-added, still-empty linked lane (the reverse of
@@ -89,6 +95,8 @@ export function TaskKanbanSwimlanes({
   flashId = null,
   onAiEdit,
   aiEditEnabled,
+  assignableResources,
+  onAssign,
 }: TaskKanbanSwimlanesProps) {
   const grouping = useMemo(
     () => groupByStatusAndPerson(tasks, resourcesById, extraLaneIds),
@@ -175,6 +183,8 @@ export function TaskKanbanSwimlanes({
                           readOnlyProject={!!task.jiraKey && isReadOnlyIssue(task.jiraKey, { projectKey: jiraProjectKey, extraProjects: jiraExtraProjects })}
                           onAiEdit={onAiEdit}
                           aiEditEnabled={aiEditEnabled}
+                          assignableResources={assignableResources}
+                          onAssign={onAssign}
                         />
                       </article>
                     );

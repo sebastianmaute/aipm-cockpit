@@ -131,6 +131,7 @@ export const de: Record<TranslationKey, string> = {
   swimlaneAddLane: "Personenspur hinzufügen",
   swimlaneRemoveLane: "Spur entfernen",
   swimlaneCell: "{0} – {1}",
+  assignPersonLabel: "Zuweisen – {0}",
   dashboardDensityLabel: "Dichte",
   dashboardDensityHint: "Kompakt verringert die Abstände im Dashboard, um mehr auf den Bildschirm zu bringen. Wird pro Gerät gespeichert.",
   dashboardDensityComfortable: "Komfortabel",

@@ -8,7 +8,8 @@ import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
-import type { KanbanLane } from "./task-kanban";
+import { UNASSIGNED_LANE, type KanbanLane } from "./task-kanban";
+import { resourceDisplayName } from "./resource-foundation";
 import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
 import { useSettings } from "./use-settings";
@@ -364,6 +365,25 @@ export function TasksSection({
   const visibleRows = hideFinished
     ? healthFilteredTasks.filter((r) => !isTaskFinished(r))
     : healthFilteredTasks;
+
+  // Swimlane keyboard assign path: reuses onSwimlaneDrop (the same functional
+  // write the drag uses) with the task's CURRENT status, so keyboard and mouse
+  // can never diverge in what they write.
+  const onAssignFromCard = useCallback(
+    (taskId: number, resourceId: number | null) => {
+      const current = healthFilteredTasks.find((t) => t.id === taskId);
+      if (!current) return;
+      const r = resourceId != null ? resourcesById.get(resourceId) : undefined;
+      onSwimlaneDrop(
+        taskId,
+        r
+          ? { key: `res:${r.id}`, label: resourceDisplayName(r), resourceId: r.id }
+          : { key: UNASSIGNED_LANE, label: "", resourceId: null },
+        current.status,
+      );
+    },
+    [healthFilteredTasks, resourcesById, onSwimlaneDrop],
+  );
 
   // Inline Open-Points cell edit: apply one sanitized field patch to a task via
   // a functional setter, stamping localModifiedAt. Mirrors the form-save
@@ -858,6 +878,8 @@ export function TasksSection({
           raidByTask={raidByTask}
           changeByTask={changeByTask}
           onSwimlaneDrop={onSwimlaneDrop}
+          assignableResources={resources ?? EMPTY_RESOURCES}
+          onAssign={onAssignFromCard}
           onStatusChange={onStatusChange}
           onEdit={onEdit}
           onRemoveLane={removeLane}

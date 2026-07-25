@@ -128,6 +128,7 @@ const enUS = {
   swimlaneAddLane: "Add person lane",
   swimlaneRemoveLane: "Remove lane",
   swimlaneCell: "{0} – {1}",
+  assignPersonLabel: "Assign – {0}",
   dashboardDensityLabel: "Density",
   dashboardDensityHint: "Compact tightens the Dashboard spacing to fit more on screen. Saved per device.",
   dashboardDensityComfortable: "Comfortable",
