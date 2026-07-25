@@ -469,13 +469,39 @@ describe("groundAllocationCells", () => {
     expect(r.skipped[0]?.reason).toBe("duplicate");
   });
 
-  it("omits a cell that would not change anything", () => {
+  it("silently drops a genuinely zero request against an already-zero value", () => {
+    // The one exception to below-resolution reporting: hours: 0 is a real
+    // no-op (nothing was actually asked for), not a rounded-away request.
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 0 }],
+      groundCtx([resource(1, { utilizationMode: "hours", utilization: {} })]),
+    );
+    expect(r.cells).toEqual([]);
+    expect(r.skipped).toEqual([]);
+  });
+
+  it("reports a below-resolution skip when a non-zero request produces no change (hours mode)", () => {
+    // Not a rounding artifact here — hours mode has no division — but still a
+    // non-zero ask that collapsed to the resource's existing value, so it
+    // must be visible instead of silently vanishing like the old behaviour.
     const r = groundAllocationCells(
       [{ resourceId: 1, periodKey: "2026-08", hours: 40 }],
       groundCtx([resource(1, { utilizationMode: "hours", utilization: { "2026-08": 40 } })]),
     );
     expect(r.cells).toEqual([]);
-    expect(r.skipped).toEqual([]);
+    expect(r.skipped).toEqual([{ resourceId: 1, periodKey: "2026-08", reason: "below-resolution" }]);
+  });
+
+  it("reports a below-resolution skip for a percent-mode request too small to move the rounded percentage off zero", () => {
+    // The bug this closes: 0.4h against a 168h month rounds to 0%, and with
+    // an already-zero stored value the old no-op guard dropped it with no
+    // trace anywhere the user could see.
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 0.4 }],
+      groundCtx([resource(1, { utilizationMode: "percent", utilization: {} })]),
+    );
+    expect(r.cells).toEqual([]);
+    expect(r.skipped).toEqual([{ resourceId: 1, periodKey: "2026-08", reason: "below-resolution" }]);
   });
 
   it("keeps an explicit zero, so a cell can be cleared", () => {
@@ -492,7 +518,7 @@ describe("groundAllocationCells", () => {
     expect(cellKey({ resourceId: 3, periodKey: "2026-08" })).toBe("3:2026-08");
   });
 
-  it("stops accumulating once MAX_ALLOC_CELLS accepted cells are reached", () => {
+  it("stops accumulating once MAX_ALLOC_CELLS accepted cells are reached, and reports truncated", () => {
     const resourceCount = Math.ceil((MAX_ALLOC_CELLS + 20) / 2);
     const resources = Array.from({ length: resourceCount }, (_, i) =>
       resource(i + 1, { utilizationMode: "hours" }),
@@ -507,6 +533,31 @@ describe("groundAllocationCells", () => {
 
     expect(r.cells).toHaveLength(MAX_ALLOC_CELLS);
     expect(r.skipped).toEqual([]);
+    expect(r.truncated).toBe(true);
+  });
+
+  it("does not report truncated when every raw cell was processed (under the cap)", () => {
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 10 }],
+      groundCtx([resource(1, { utilizationMode: "hours" })]),
+    );
+    expect(r.truncated).toBe(false);
+  });
+
+  it("does not report truncated when raw input lands exactly at the cap with nothing left over", () => {
+    const resources = Array.from({ length: MAX_ALLOC_CELLS }, (_, i) =>
+      resource(i + 1, { utilizationMode: "hours" }),
+    );
+    const raw = Array.from({ length: MAX_ALLOC_CELLS }, (_, i) => ({
+      resourceId: i + 1,
+      periodKey: "2026-08",
+      hours: 10,
+    }));
+
+    const r = groundAllocationCells(raw, groundCtx(resources));
+
+    expect(r.cells).toHaveLength(MAX_ALLOC_CELLS);
+    expect(r.truncated).toBe(false);
   });
 });
 

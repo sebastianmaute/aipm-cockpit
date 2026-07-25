@@ -3536,12 +3536,15 @@ const enUS = {
   allocPlanError: "Could not plan allocations.",
   allocPlanApplied: "Applied {0} allocation changes.",
   allocPlanClamped: "trimmed to the maximum",
+  allocPlanTruncated: "Some proposed changes were not shown — the plan was too large.",
+  allocPlanSkippedStale: "{0} change(s) were skipped because the plan changed.",
   allocPlanSkippedTitle: "Not planned",
   allocPlanSkipUnknownResource: "unknown resource",
   allocPlanSkipOutOfWindow: "period outside the plan window",
   allocPlanSkipNoCapacity: "no capacity in that period",
   allocPlanSkipBadHours: "invalid hours",
   allocPlanSkipDuplicate: "duplicate cell",
+  allocPlanSkipBelowResolution: "too small to record at this resolution",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
 } as const;
 

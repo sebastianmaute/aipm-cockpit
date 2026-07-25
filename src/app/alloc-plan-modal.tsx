@@ -19,7 +19,7 @@
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { Modal } from "./modal";
 import { Button } from "./button";
-import { Textarea } from "./form-controls";
+import { Checkbox, Textarea } from "./form-controls";
 import {
   type GroundedAllocCell,
   type SkipReason,
@@ -38,6 +38,8 @@ export interface AllocPlanModalProps {
   onPropose: () => void;
   cells: readonly GroundedAllocCell[];
   skipped: readonly SkippedCell[];
+  /** True when the proposal was too large and some cells were not shown at all. */
+  truncated: boolean;
   /** cellKey()s the user has selected to apply. */
   selected: ReadonlySet<string>;
   onToggle: (key: string) => void;
@@ -59,6 +61,7 @@ const SKIP_REASON_KEY: Record<SkipReason, TranslationKey> = {
   "no-capacity": "allocPlanSkipNoCapacity",
   "bad-hours": "allocPlanSkipBadHours",
   duplicate: "allocPlanSkipDuplicate",
+  "below-resolution": "allocPlanSkipBelowResolution",
 };
 
 export function AllocPlanModal({
@@ -70,6 +73,7 @@ export function AllocPlanModal({
   onPropose,
   cells,
   skipped,
+  truncated,
   selected,
   onToggle,
   onConfirm,
@@ -109,7 +113,7 @@ export function AllocPlanModal({
               value={instruction}
               onChange={(e) => onInstruction(e.target.value)}
               placeholder={t(lang, "allocPlanInstructionPlaceholder")}
-              disabled={busy}
+              disabled={busy || isPreview}
               rows={3}
               className="w-full"
             />
@@ -117,6 +121,9 @@ export function AllocPlanModal({
 
           {isPreview && (
             <>
+              {truncated && (
+                <p className="mt-4 text-xs text-muted-foreground">{t(lang, "allocPlanTruncated")}</p>
+              )}
               <ul className="mt-4 space-y-2">
                 {cells.map((c) => {
                   const key = cellKey(c);
@@ -127,13 +134,12 @@ export function AllocPlanModal({
                       className="rounded-md border border-line bg-surface-muted px-3 py-2"
                     >
                       <label className="flex cursor-pointer items-start gap-2">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={on}
                           disabled={busy}
                           onChange={() => onToggle(key)}
                           aria-label={`${t(lang, "allocPlanInclude")} – ${c.resourceName} (#${c.resourceId}) – ${c.periodKey}`}
-                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-line text-ui-dark-blue focus:ring-ui-green"
+                          className="mt-0.5 shrink-0"
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-foreground">
@@ -144,6 +150,12 @@ export function AllocPlanModal({
                             {formatAllocValue({ mode: c.mode, value: c.currentValue })}
                             {" → "}
                             {formatAllocValue({ mode: c.mode, value: c.nextValue })}
+                            {c.mode === "percent" && (
+                              <span className="text-muted-foreground">
+                                {" "}
+                                ({Math.round(c.hours)}h of {Math.round(c.capacityHours)}h)
+                              </span>
+                            )}
                             {c.clamped && (
                               <span className="text-muted-foreground"> ({t(lang, "allocPlanClamped")})</span>
                             )}

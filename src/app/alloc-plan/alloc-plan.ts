@@ -215,7 +215,13 @@ export function parseAllocationProposal(input: unknown): RawAllocCell[] | null {
 }
 
 /** Why a proposed cell was refused instead of turned into a change. */
-export type SkipReason = "unknown-resource" | "out-of-window" | "no-capacity" | "bad-hours" | "duplicate";
+export type SkipReason =
+  | "unknown-resource"
+  | "out-of-window"
+  | "no-capacity"
+  | "bad-hours"
+  | "duplicate"
+  | "below-resolution";
 
 export interface SkippedCell {
   resourceId: number;
@@ -332,18 +338,29 @@ function resolveNextValue(
  * persists.
  *
  * Finally, a cell whose (clamped) next value equals the CURRENT stored value
- * is omitted (not pushed to `cells`, and NOT recorded as skipped either) so
- * the preview lists only real changes — except an explicit `0` against a
- * non-zero current value, which IS a change (it is how a user clears a cell)
- * and is always kept.
+ * is either dropped SILENTLY — only when the request itself was a genuine
+ * zero against an already-zero value, i.e. nothing was actually asked for —
+ * or recorded as a `below-resolution` skip: any OTHER non-zero request that
+ * still produced no discernible change (the canonical case is a percent-mode
+ * `hours` figure too small to move the rounded percentage off an
+ * already-zero — or otherwise matching — stored value). Without that skip a
+ * request the model was explicitly given vanishes from both `cells` and
+ * `skipped` with no trace anywhere the user can see. An explicit `0` against
+ * a non-zero current value is unaffected by either branch — nextValue (0)
+ * does not equal currentValue there, so it is still a real change (how a
+ * user clears a cell) and is always kept.
  *
  * Stops accumulating once `cells.length` reaches MAX_ALLOC_CELLS (defense in
  * depth — parseAllocationProposal already caps the raw input to that count).
+ * The returned `truncated` is set precisely when that cap is hit WITH raw
+ * input still unconsumed — never when `raw` was simply exhausted at or under
+ * the cap — so a caller can tell "some proposed changes were not shown"
+ * apart from "everything was shown".
  */
 export function groundAllocationCells(
   raw: readonly RawAllocCell[],
   ctx: AllocGroundContext,
-): { cells: GroundedAllocCell[]; skipped: SkippedCell[] } {
+): { cells: GroundedAllocCell[]; skipped: SkippedCell[]; truncated: boolean } {
   const periods = generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity);
   const periodByKey = new Map(periods.map((p) => [p.key, p]));
   const resourceById = new Map(ctx.resources.map((r) => [r.id, r]));
@@ -351,9 +368,13 @@ export function groundAllocationCells(
   const cells: GroundedAllocCell[] = [];
   const skipped: SkippedCell[] = [];
   const seen = new Set<string>();
+  let truncated = false;
 
   for (const c of raw) {
-    if (cells.length >= MAX_ALLOC_CELLS) break;
+    if (cells.length >= MAX_ALLOC_CELLS) {
+      truncated = true;
+      break;
+    }
 
     const key = cellKey(c);
     if (seen.has(key)) {
@@ -391,7 +412,17 @@ export function groundAllocationCells(
     }
     const { nextValue, clamped } = resolved;
 
-    if (nextValue === currentValue) continue;
+    if (nextValue === currentValue) {
+      // A genuinely zero request against an already-zero value is a real
+      // no-op (nothing was asked for) — drop it silently. Anything else that
+      // collapsed to no change (most commonly a percent-mode hours figure
+      // too small to move the rounded percentage) must not vanish without a
+      // trace: the model was asked to do something and nothing happened.
+      if (c.hours !== 0) {
+        skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "below-resolution" });
+      }
+      continue;
+    }
 
     cells.push({
       resourceId: c.resourceId,
@@ -406,7 +437,7 @@ export function groundAllocationCells(
     });
   }
 
-  return { cells, skipped };
+  return { cells, skipped, truncated };
 }
 
 /**
@@ -499,12 +530,11 @@ export function applyAllocationCells(
   return { nextResources, editedBefore };
 }
 
-/** Bound on how many allocation cells the read tool will emit. Kept LOW
- *  (unlike the model-facing MAX_ALLOC_CELLS/ALLOC_CONTEXT_MAX_RESOURCES
- *  above) because `chat-api.ts`'s `stringifyResult` pretty-prints tool
- *  results (`JSON.stringify(value, null, 2)`) into the CONVERSATION
- *  HISTORY, where — unlike a one-shot forced call — it is replayed on
- *  every subsequent turn. At 120 resources on a weekly plan a 500-cell cap
+/** Bound on how many allocation cells the read tool will emit, chosen because
+ *  `chat-api.ts`'s `stringifyResult` pretty-prints tool results
+ *  (`JSON.stringify(value, null, 2)`) into the CONVERSATION HISTORY, where —
+ *  unlike a one-shot forced call — it is replayed on every subsequent turn.
+ *  At 120 resources on a weekly plan a 500-cell cap
  *  measured ~50.9KB compact but ~96KB / ≈27.5k tokens once pretty-printed;
  *  200 cuts that worst case to roughly a third while staying useful for
  *  the questions this tool exists to answer. */
