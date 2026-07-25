@@ -124,6 +124,16 @@ describe("useSettings", () => {
       expect(result.current.settings.tasksViewMode).toBe("board");
     });
 
+    it("tasksViewMode is 'swimlane' only when persisted strictly 'swimlane'", async () => {
+      localStorage.setItem(
+        SETTINGS_KEY,
+        JSON.stringify({ ...defaultSettings, tasksViewMode: "swimlane" }),
+      );
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.settings.tasksViewMode).toBe("swimlane");
+    });
+
     it("defaults dictation.engine to 'web-speech' when absent from persisted blob", async () => {
       const legacy: Record<string, unknown> = { ...defaultSettings };
       delete legacy.dictation;
