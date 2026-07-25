@@ -45,6 +45,10 @@ export interface AllocPlanModalProps {
   onCancel: () => void;
   /** True while proposing or applying — disables the controls. */
   busy: boolean;
+  /** False only while an apply is in flight — Cancel stays reachable while
+   *  merely proposing (a billed call the user may want to call off).
+   *  Defaults to true so the component stays usable without it. */
+  canCancel?: boolean;
 }
 
 // Exhaustive so a future SkipReason is a compile error here, not a blank row.
@@ -70,6 +74,7 @@ export function AllocPlanModal({
   onConfirm,
   onCancel,
   busy,
+  canCancel = true,
 }: AllocPlanModalProps) {
   const title = t(lang, "allocPlanTitle");
   const isPreview = stage === "preview";
@@ -129,11 +134,13 @@ export function AllocPlanModal({
                             {c.resourceName}
                             <span className="text-muted-foreground"> · {c.periodKey}</span>
                           </span>
-                          <span className="mt-1 block text-xs text-muted-foreground">
+                          <span className="mt-1 block text-sm text-foreground">
                             {formatAllocValue({ mode: c.mode, value: c.currentValue })}
                             {" → "}
                             {formatAllocValue({ mode: c.mode, value: c.nextValue })}
-                            {c.clamped && ` (${t(lang, "allocPlanClamped")})`}
+                            {c.clamped && (
+                              <span className="text-muted-foreground"> ({t(lang, "allocPlanClamped")})</span>
+                            )}
                           </span>
                         </span>
                       </label>
@@ -148,8 +155,8 @@ export function AllocPlanModal({
                     {t(lang, "allocPlanSkippedTitle")}
                   </h3>
                   <ul className="mt-2 space-y-1">
-                    {skipped.map((s) => (
-                      <li key={cellKey(s)} className="text-xs text-muted-foreground">
+                    {skipped.map((s, i) => (
+                      <li key={`${cellKey(s)}:${s.reason}:${i}`} className="text-xs text-muted-foreground">
                         #{s.resourceId} · {s.periodKey} — {t(lang, SKIP_REASON_KEY[s.reason])}
                       </li>
                     ))}
@@ -161,7 +168,7 @@ export function AllocPlanModal({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-line px-6 py-4">
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={!canCancel}>
             {t(lang, "allocPlanCancel")}
           </Button>
           {isPreview ? (
