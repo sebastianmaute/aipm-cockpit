@@ -3526,7 +3526,7 @@ export const de: Record<TranslationKey, string> = {
   allocPlanSkipNoCapacity: "keine Kapazität in dieser Periode",
   allocPlanSkipBadHours: "ungültige Stunden",
   allocPlanSkipDuplicate: "doppelte Zelle",
-  allocPlanSkipBelowResolution: "zu klein für diese Auflösung",
+  allocPlanSkipBelowResolution: "keine Änderung bei dieser Auflösung",
   allocPlanSkipAlreadySet: "bereits auf diesem Wert",
   activityAiAllocationPlan: "KI hat {0} Planungszellen geplant",
 };

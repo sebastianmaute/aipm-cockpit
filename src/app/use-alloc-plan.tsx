@@ -122,20 +122,20 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     setPhase("thinking");
     try {
       const context = buildAllocContext({ resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet });
-      const raw = await runAllocProposal(context, { apiKey, model: settings.ai.model }, instruction, controller.signal);
+      const parsed = await runAllocProposal(context, { apiKey, model: settings.ai.model }, instruction, controller.signal);
       if (reqId !== reqIdRef.current) return; // superseded — discard
       // Re-ground UNTRUSTED model ids/keys against the LIVE resources/plan
       // before anything can be shown or applied. A hallucinated resource or an
       // out-of-window period key is dropped here.
-      const grounded = groundAllocationCells(raw.cells, { resources, plan, absences, workdayHours, holidaySet });
+      const grounded = groundAllocationCells(parsed.cells, { resources, plan, absences, workdayHours, holidaySet });
       setCells(grounded.cells);
       setSkipped(grounded.skipped);
-      // raw.truncated is where an over-large proposal ACTUALLY gets cut
+      // parsed.truncated is where an over-large proposal ACTUALLY gets cut
       // (parseAllocationProposal caps at the same MAX_ALLOC_CELLS grounding
       // does, so grounded.truncated alone can never fire on this real path —
       // it stays as defense in depth for a caller that skips parsing). OR
       // both so neither omission goes unreported.
-      setTruncated(raw.truncated || grounded.truncated);
+      setTruncated(parsed.truncated || grounded.truncated);
       if (grounded.cells.length > 0 || grounded.skipped.length > 0) {
         // Preselect every grounded cell; skipped-only results still surface
         // via the preview stage (the only stage the modal renders them in) —
