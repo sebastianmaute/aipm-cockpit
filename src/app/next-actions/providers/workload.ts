@@ -27,7 +27,10 @@ export const workloadProvider: ActionProvider = {
         why,
         score,
         tier: bandTier(score),
-        cta: { kind: "open", view: "workload", id: al.resourceId },
+        cta:
+          al.reason === "overload"
+            ? { kind: "open-tasks-for", resourceId: al.resourceId, resourceName: al.resourceName }
+            : { kind: "open", view: "workload", id: al.resourceId },
       };
     });
   },

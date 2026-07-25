@@ -25,6 +25,16 @@ describe("workloadProvider", () => {
     const a = workloadProvider.provide(input([{ resourceId: 2, resourceName: "Bo", reason: "overload", value: 4 }]));
     expect(a[0].why).toEqual({ key: "actionWorkloadWhyOverload", params: [4] });
   });
+  it("routes an overload alert to the person's tasks, not the workload view", () => {
+    const a = workloadProvider.provide(input([{ resourceId: 2, resourceName: "Bo", reason: "overload", value: 4 }]));
+    expect(a[0].cta).toEqual({ kind: "open-tasks-for", resourceId: 2, resourceName: "Bo" });
+  });
+
+  it("leaves an over-allocated alert on the workload view", () => {
+    const a = workloadProvider.provide(input([{ resourceId: 1, resourceName: "Aria", reason: "over-allocated", value: 135 }]));
+    expect(a[0].cta).toEqual({ kind: "open", view: "workload", id: 1 });
+  });
+
   it("emits nothing when there are no alerts", () => {
     expect(workloadProvider.provide(input([]))).toEqual([]);
     expect(workloadProvider.provide(input(undefined))).toEqual([]);

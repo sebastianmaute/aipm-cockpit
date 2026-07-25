@@ -18,6 +18,18 @@ describe("chipsForView", () => {
     const b: SuggestedAction = { ...mk("b", "now"), cta: { kind: "open", view: "budget", id: 0 } };
     expect(chipsForView([a, b], "raid")).toEqual([a]);
   });
+
+  it("surfaces an open-tasks-for action on the Open Points strip only", () => {
+    const tasksFor: SuggestedAction = {
+      id: "workload:7:overload", source: "workload",
+      title: { key: "actionWorkloadTitle", params: ["Bo"] },
+      why: { key: "actionWorkloadWhyOverload", params: [4] },
+      score: 10, tier: "now",
+      cta: { kind: "open-tasks-for", resourceId: 7, resourceName: "Bo" },
+    };
+    expect(chipsForView([tasksFor], "open-points")).toEqual([tasksFor]);
+    expect(chipsForView([tasksFor], "workload")).toEqual([]);
+  });
 });
 
 describe("ActionChips", () => {

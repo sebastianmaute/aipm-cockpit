@@ -69,3 +69,21 @@ describe("overflowCtas", () => {
     expect(overflowCtas(a("task-due", "actionTaskWhyOverdue"), { ...NONE, createTask: true })).toEqual([]);
   });
 });
+
+describe("open-tasks-for CTA", () => {
+  const tasksFor: SuggestedAction = {
+    id: "workload:7:overload", source: "workload",
+    title: { key: "actionWorkloadTitle", params: ["Bo"] },
+    why: { key: "actionWorkloadWhyOverload", params: [4] },
+    score: 10, tier: "now",
+    cta: { kind: "open-tasks-for", resourceId: 7, resourceName: "Bo" },
+  };
+
+  it("keeps the plain Open verb", () => {
+    expect(pickPrimaryCta(tasksFor, ALL)).toBe("open");
+  });
+
+  it("never attaches the task verbs - there is no task id on this row", () => {
+    expect(overflowCtas(tasksFor, ALL)).not.toContain("markDone");
+  });
+});
