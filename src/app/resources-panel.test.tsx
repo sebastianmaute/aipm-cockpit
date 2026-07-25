@@ -1,11 +1,30 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ReactNode } from "react";
 import { describe, test, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render as rtlRender, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
+import { WorkspaceProvider } from "./workspace-context";
+import { FiltersProvider } from "./filters-context";
 import { t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, Task } from "./types";
+
+// ResourcesPanel now reads disciplines/grades/setResources via useWorkspace()
+// (feeds useAllocPlan for the "Plan with AI" button) — a WorkspaceProvider
+// ancestor is required or that hook throws, and WorkspaceProvider itself needs
+// a FiltersProvider ancestor. Wrapping here keeps every existing
+// `render(<ResourcesPanel .../>)` call site unchanged.
+function Wrapper({ children }: { children: ReactNode }) {
+  return (
+    <FiltersProvider>
+      <WorkspaceProvider>{children}</WorkspaceProvider>
+    </FiltersProvider>
+  );
+}
+function render(ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) {
+  return rtlRender(ui, { wrapper: Wrapper, ...options });
+}
 
 const resources: Resource[] = [
   { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} },

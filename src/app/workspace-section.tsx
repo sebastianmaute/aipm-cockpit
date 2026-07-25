@@ -541,6 +541,8 @@ export function WorkspaceSection({
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
+              onCaptureUndo={onCaptureUndo}
+              logActivity={logActivity}
             />
           </div>
         )}

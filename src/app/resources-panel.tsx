@@ -38,6 +38,10 @@ import {
 } from "./types";
 import { effectivePersonEmail, effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import { useSettings } from "./use-settings";
+import { useWorkspace } from "./workspace-context";
+import { useAllocPlan } from "./use-alloc-plan";
+import { type ActivityKind } from "./activity-log";
+import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useColumnResize } from "./use-column-resize";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { EmptyState } from "./empty-state";
@@ -106,6 +110,8 @@ interface Props {
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  onCaptureUndo?: UndoStackApi["capture"];
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
 }
 
 type AssigneeRow = {
@@ -163,6 +169,8 @@ function ResourcesPanelInner({
   showHints,
   isPopout,
   onLearnMore,
+  onCaptureUndo,
+  logActivity,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
   const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
@@ -191,6 +199,27 @@ function ResourcesPanelInner({
   // Per-device: include external resources in the calendar (default include).
   const { settings, setSettings } = useSettings();
   const includeExternals = settings.calendarIncludeExternals !== false;
+
+  // AI-assisted allocation planning (Resources → Planning toolbar only). Called
+  // unconditionally — its rendered output (button/modal) is planning-only, but
+  // the hook itself must run every render regardless of `view`.
+  const { setResources, disciplines, grades } = useWorkspace();
+  const allocPlan = useAllocPlan({
+    settings,
+    isPopout: !!isPopout,
+    lang,
+    resources,
+    setResources,
+    roles,
+    disciplines,
+    grades,
+    plan,
+    absences,
+    workdayHours,
+    holidaySet,
+    capture: onCaptureUndo,
+    logActivity,
+  });
 
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");
   const [calendarAnchor, setCalendarAnchor] = useState<string>(today);
@@ -485,10 +514,12 @@ function ResourcesPanelInner({
             utilizationMode={utilizationMode}
             onSetAllUtilizationMode={onSetAllUtilizationMode}
             hideExternalToggle={hideExternalToggle}
+            aiPlanButton={allocPlan.button}
             headerActions={headerActions}
             planFilter={planFilter}
             onPlanFilter={setPlanFilter}
           />
+          {allocPlan.modal}
           <PlanningTable
             lang={lang}
             plan={plan}

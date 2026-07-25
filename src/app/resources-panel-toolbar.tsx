@@ -27,6 +27,8 @@ interface PlanningToolbarProps {
   utilizationMode: "percent" | "hours";
   onSetAllUtilizationMode: (mode: "percent" | "hours") => void;
   hideExternalToggle: ReactNode;
+  /** AI planning trigger, or null when AI is off / this is a popout. */
+  aiPlanButton?: ReactNode;
   headerActions: ReactNode;
   planFilter: string;
   onPlanFilter: (value: string) => void;
@@ -42,6 +44,7 @@ export function PlanningToolbar({
   utilizationMode,
   onSetAllUtilizationMode,
   hideExternalToggle,
+  aiPlanButton,
   headerActions,
   planFilter,
   onPlanFilter,
@@ -80,6 +83,7 @@ export function PlanningToolbar({
           onChange={onSetAllUtilizationMode}
         />
         {hideExternalToggle}
+        {aiPlanButton}
         <div className="ml-auto">{headerActions}</div>
       </div>
       <div className="print:hidden">
