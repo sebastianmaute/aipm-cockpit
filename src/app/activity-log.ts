@@ -54,6 +54,7 @@ export type ActivityKind =
   | "ai.inlineEdit"
   | "ai.taskDedup"
   | "ai.insightRecommendation"
+  | "ai.allocationPlan"
   | "undo"
   | "redo";
 
@@ -202,6 +203,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "ai.inlineEdit": "activityAiInlineEdit",
   "ai.taskDedup": "activityAiTaskDedup",
   "ai.insightRecommendation": "activityAiInsightRecommendation",
+  "ai.allocationPlan": "activityAiAllocationPlan",
   "undo": "activityUndo",
   "redo": "activityRedo",
 };

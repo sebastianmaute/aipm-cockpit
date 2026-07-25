@@ -3435,6 +3435,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightPolishR1: "Feinschliff: Chat-Vorschläge bleiben die ganze Sitzung verfügbar, neue Wissenslinks landen standardmäßig in der Projektbibliothek, das Startseiten-Logo folgt Ihrem Theme und die Zeitbuchungs-Übernahmeleiste ist eine aufgeräumtere Karte.",
   versionHighlightKanbanSwimlanes: "Spalte Erstellt, Externe ausblenden und Kanban-Personenspuren: Aufgaben speichern jetzt, wann sie erstellt wurden (eine sortierbare, standardmäßig ausgeblendete Spalte, für bestehende Aufgaben nachträglich befüllt); die Offenen Punkte können extern verantwortete Aufgaben und deren Filteroptionen mit einem Schalter ausblenden; und das Kanban-Board erhält eine Personenspur-Ansicht — eine Karte in die Spur einer Person ziehen, um sie in einem Schritt neu zuzuweisen und den Status zu ändern, oder die Personenauswahl je Karte als Tastatur-Äquivalent nutzen.",
   versionHighlightDashboardR3: "Dashboard: Die Aktion „überlastet mit überfälliger Arbeit“ öffnet jetzt die Offenen Punkte gefiltert auf diese Person statt der Auslastungsansicht; die x-Achse des Burn-down folgt der Nachfolger-Kette der Budget-Buckets — mit einem Hinweis, der die betroffenen Buckets benennt, wenn sie keine Kette bilden (und der stumm bleibt, wenn niemand etwas verkettet hat); und die Projektstatus-Zusammenfassung ist ein Rich-Text-Editor mit Fett, Kursiv, Listen und Links, wobei eine bestehende Klartext-Zusammenfassung beim Lesen aufgewertet und erst beim Speichern neu geschrieben wird.",
+  versionHighlight0201: "KI-Planung: Projektstatus lesen, Auslastung planen, Aufgaben-Abhängigkeiten setzen.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",
@@ -3499,4 +3500,28 @@ export const de: Record<TranslationKey, string> = {
   insightRecommendationSuggests: "KI schlägt vor: {0}",
   insightRecommendationRejected: "Empfehlung verworfen.",
   activityAiInsightRecommendation: "KI hat eine Insight-Empfehlung angewendet: {1}",
+
+  // AI resource-allocation planning
+  allocPlan: "Mit KI planen",
+  allocPlanTitle: "Ressourcenplanung mit KI",
+  allocPlanIntro:
+    "Beschreiben Sie, wie die Arbeit verteilt werden soll. Es wird nichts geschrieben, bis Sie bestätigen — jede Änderung wird zuerst unten aufgeführt.",
+  allocPlanInstructionLabel: "Was soll geplant werden?",
+  allocPlanInstructionPlaceholder: "z. B. 200 Stunden im August auf die Rolle Design verteilen",
+  allocPlanThinking: "Planung läuft …",
+  allocPlanPropose: "Vorschlagen",
+  allocPlanCancel: "Abbrechen",
+  allocPlanConfirm: "Auswahl anwenden",
+  allocPlanInclude: "Diese Änderung übernehmen",
+  allocPlanNoChanges: "Es wurden keine Änderungen an der Planung vorgeschlagen.",
+  allocPlanError: "Planung konnte nicht erstellt werden.",
+  allocPlanApplied: "{0} Planungsänderungen angewendet.",
+  allocPlanClamped: "auf das Maximum gekürzt",
+  allocPlanSkippedTitle: "Nicht geplant",
+  allocPlanSkipUnknownResource: "unbekannte Ressource",
+  allocPlanSkipOutOfWindow: "Periode außerhalb des Planungszeitraums",
+  allocPlanSkipNoCapacity: "keine Kapazität in dieser Periode",
+  allocPlanSkipBadHours: "ungültige Stunden",
+  allocPlanSkipDuplicate: "doppelte Zelle",
+  activityAiAllocationPlan: "KI hat {0} Planungszellen geplant",
 };
