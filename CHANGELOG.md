@@ -8,6 +8,59 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.200.0] - 2026-07-25 "Kadrey"
+
+### Added
+
+- **The burn-down follows the budget bucket chain.** A new pure
+  `budget-bucket-chain.ts` resolves the buckets' `successorId` links into one
+  chain, and the burn-down x-axis — on the Dashboard and in the Budget report —
+  spans that chain's window instead of the whole resource-plan period.
+- **A burn-down chain warning.** When the buckets were meant to form a chain but
+  do not, a banner above the chart names the offending buckets and says the axis
+  covers the whole plan period instead. Break reasons: more than one starting
+  bucket, a loop, an unreachable bucket, a successor that no longer exists, a
+  bucket with no start or end date, and a chain dated outside the plan. It stays
+  silent when nobody chained anything — parallel buckets are the normal budget
+  model, and a closed bucket's successor is the pre-existing spillover link, not
+  a chain declaration.
+- **A rich-text project status narrative.** The Dashboard status summary is now
+  the shared lean rich-text editor (bold, italic, bullet and numbered lists,
+  link) instead of a plain textarea. Stored HTML is re-sanitised where it is
+  rendered, through a new shared `RichTextView` sink that the note log also
+  uses. A legacy plain-text narrative is upgraded on read and only rewritten
+  once you save, so an untouched project's stored bytes are unchanged.
+
+### Changed
+
+- **The "overloaded with overdue work" action opens that person's tasks.** Its
+  Open button used to land on Resources → Workload; it now switches to Open
+  Points filtered to that person with the health filter set to red. A new
+  `open-tasks-for` CTA carries the person, and a new shared `action-cta-exec.ts`
+  executes it for both the action row and the desktop-notification click. The
+  person filter is matched case-insensitively against the live assignee options,
+  and only the row-hiding filters are reset — your sort survives.
+- The demo project's budget buckets are chained and staggered into a phased
+  programme, so the burn-down shows the trimmed span out of the box.
+
+### Fixed
+
+- **The Markdown status codec no longer truncates a narrative at a newline.**
+  Each status field is one list item, read back with a single-line regex, so an
+  embedded newline silently cut away everything after it. Newlines now collapse
+  to a space when the status is written.
+- **Markdown shortcuts no longer discard what you type.** In the lean editor
+  (status narrative, task and RAID notes) a leading `#`, `>`, a backtick, `~~`
+  or `---` produced headings, quotes, code and strikethrough — nodes the lean
+  sanitizer strips along with their text, so the formatting appeared on screen
+  while the committed value was silently emptied, with no error. Those input
+  rules are gone; the punctuation now stays literal text.
+- **The narrative formatting toolbar applies formatting again.** Its buttons
+  took focus from the editor on mousedown, so a commit-on-blur consumer
+  re-rendered between mousedown and mouseup and the click never fired.
+- **Clear empties the narrative editor.** It left the old text behind, so the
+  next keystroke brought it back.
+
 ## [0.199.0] - 2026-07-25 "Budrys"
 
 ### Added
