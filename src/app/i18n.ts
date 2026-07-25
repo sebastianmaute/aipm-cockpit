@@ -2655,6 +2655,7 @@ const enUS = {
   guardFxRefreshFailed: "Couldn't refresh exchange rates. Currency conversions may be stale or missing.",
   guardExportFailed: "Export failed — nothing was downloaded. Please try again.",
   guardJiraIssueTypesFailed: "Couldn't load issue types for this project. Jira sync may not pick up the types you expect — try reselecting the project.",
+  guardActionAssigneeUnavailable: "Couldn't filter the task list to that person — none of the tasks it can show are assigned to them. Hidden external resources are the usual cause.",
   // SP4 tour catalog titles + blurbs
   tourGettingStartedTitle: "Getting started",
   tourGettingStartedDesc: "A quick tour of the main areas — projects, tasks, actions, and the dashboard.",

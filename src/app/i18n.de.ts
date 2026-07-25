@@ -2628,6 +2628,7 @@ export const de: Record<TranslationKey, string> = {
   guardFxRefreshFailed: "Wechselkurse konnten nicht aktualisiert werden. Währungsumrechnungen sind möglicherweise veraltet oder fehlen.",
   guardExportFailed: "Export fehlgeschlagen — es wurde nichts heruntergeladen. Bitte versuchen Sie es erneut.",
   guardJiraIssueTypesFailed: "Vorgangstypen für dieses Projekt konnten nicht geladen werden. Die Jira-Synchronisierung erfasst möglicherweise nicht die erwarteten Typen — wählen Sie das Projekt erneut aus.",
+  guardActionAssigneeUnavailable: "Die Aufgabenliste konnte nicht nach dieser Person gefiltert werden — keine der anzeigbaren Aufgaben ist ihr zugewiesen. Meist liegt es an ausgeblendeten externen Ressourcen.",
   tourGettingStartedTitle: "Erste Schritte",
   tourGettingStartedDesc: "Ein kurzer Rundgang durch die wichtigsten Bereiche — Projekte, Aufgaben, Aktionen und das Dashboard.",
   tourRaidTitle: "Risiken managen",

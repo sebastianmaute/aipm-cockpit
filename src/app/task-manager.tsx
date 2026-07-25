@@ -141,7 +141,7 @@ import {
   type ProjectsRegistry,
 } from "./projects-registry";
 import { deleteHandle } from "./project-file-handles";
-import { exportWorkspace, type ExportFormat } from "./export"; import { reportSilentFailure } from "./guard-feedback";
+import { exportWorkspace, type ExportFormat } from "./export"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import { ProjectEmptyState } from "./project-empty-state";
 import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
@@ -958,9 +958,15 @@ function TaskManagerInner() {
         // person's tasks" CTA resolves to the STORED spelling instead of
         // orphaning the filter (which silently reads "All").
         assigneeOptions: uniqueAssignees,
+        // ...and when the person is in NO option — hideExternalTasks keeps their
+        // tasks out of uniqueAssignees while the workload engine still raises
+        // their overload — the CTA filters nothing and explains itself rather
+        // than presenting the project's whole red backlog as their overdue work.
+        onUnresolvedAssignee: () =>
+          reportCapabilityGap(showToast, lang, "actions.assigneeFilterUnavailable", "guardActionAssigneeUnavailable"),
       });
     },
-    [requestOpen, resetFilterValues, setAssigneeFilter, setHealthFilter, setActiveTab, uniqueAssignees],
+    [requestOpen, resetFilterValues, setAssigneeFilter, setHealthFilter, setActiveTab, uniqueAssignees, showToast, lang],
   );
   const openActionCenter = useCallback(() => {
     if (typeof window !== "undefined") window.focus();
