@@ -61,15 +61,52 @@ describe("buildDashboardSnapshot", () => {
     expect(snap.rag.overridden.overall).toBe(true);
     expect(snap.rag.schedule).toBe("G");
     expect(snap.rag.overridden.schedule).toBe(false);
+    expect(snap.rag.budget).toBe("R");
+    expect(snap.rag.overridden.budget).toBe(false);
     expect(snap.rag.scope).toBeNull();
   });
 
   it("passes EVM nulls through unchanged", () => {
     const snap = buildDashboardSnapshot(model(), report(), "2026-07-25");
 
+    expect(snap.evm.pv).toBe(100);
+    expect(snap.evm.ev).toBe(80);
+    expect(snap.evm.ac).toBe(0);
     expect(snap.evm.spi).toBe(0.8);
     expect(snap.evm.cpi).toBeNull();
     expect(snap.evm.coverage).toEqual({ withEstimate: 6, total: 10 });
+  });
+
+  it("emits the progress shape exactly, without leaking counts into it", () => {
+    const snap = buildDashboardSnapshot(model(), report(), "2026-07-25");
+
+    expect(snap.progress).toEqual({ total: 10, completed: 4, percent: 40 });
+  });
+
+  it("passes real cost figures through when cost is knowable", () => {
+    const snap = buildDashboardSnapshot(model(), report(), "2026-07-25");
+
+    expect(snap.budget?.cost).toBe(8000);
+    expect(snap.budget?.revenue).toBe(20000);
+    expect(snap.budget?.contributionMarginPct).toBe(60);
+    expect(snap.budget?.costUnknownReason).toBeNull();
+    expect(snap.budget?.budgetHours).toBe(200);
+    expect(snap.budget?.actualHours).toBe(90);
+    expect(snap.budget?.budgetValue).toBe(20000);
+    expect(snap.budget?.consumedValue).toBe(9000);
+    expect(snap.budget?.earnedValue).toBe(7000);
+    expect(snap.budget?.costPerformanceIndex).toBe(0.875);
+  });
+
+  it("passes a null earnedValue through as null, not 0", () => {
+    const snap = buildDashboardSnapshot(
+      model(),
+      report({ earnedValue: null, costPerformanceIndex: null }),
+      "2026-07-25",
+    );
+
+    expect(snap.budget?.earnedValue).toBeNull();
+    expect(snap.budget?.costPerformanceIndex).toBeNull();
   });
 
   it("nulls cost figures and keeps the reason when cost is not knowable", () => {
