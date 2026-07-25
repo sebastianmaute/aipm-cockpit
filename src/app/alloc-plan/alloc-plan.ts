@@ -255,6 +255,37 @@ export function cellKey(c: { resourceId: number; periodKey: string }): string {
 }
 
 /**
+ * Convert an already-validated (non-negative, finite) hours figure into the
+ * resource's own stored unit and clamp it to the SAME bounds the load-path
+ * sanitizer enforces (percent 0..100, hours 0..HOURS_MAP_MAX).
+ *
+ * Returns `null` only for the PERCENT-MODE no-capacity case — `capacityHours
+ * <= 0` (e.g. a full-period absence) means there is no fraction to express
+ * `hours` as a percentage OF, so 0 and 100 would both misrepresent what the
+ * model asked for. Hours-mode has no such dependency (its stored value IS
+ * hours) and never returns null.
+ *
+ * `clamped` reports only whether the RAW converted value fell outside the
+ * bound — NOT a `< 0` case, which cannot occur here: the caller has already
+ * refused negative/non-finite hours, and capacityHours > 0 in the branch
+ * that computes rawPercent, so neither rawPercent nor hours can go negative.
+ * A `< 0` disjunct would read as handling that case while never actually
+ * firing.
+ */
+function resolveNextValue(
+  mode: Resource["utilizationMode"],
+  hours: number,
+  capacityHours: number,
+): { nextValue: number; clamped: boolean } | null {
+  if (mode === "percent") {
+    if (capacityHours <= 0) return null;
+    const rawPercent = Math.round((hours / capacityHours) * 100);
+    return { nextValue: Math.max(0, Math.min(100, rawPercent)), clamped: rawPercent > 100 };
+  }
+  return { nextValue: Math.max(0, Math.min(HOURS_MAP_MAX, hours)), clamped: hours > HOURS_MAP_MAX };
+}
+
+/**
  * Ground UNTRUSTED model-proposed allocation cells against the live workspace.
  * This is the anti-hallucination gate AND the unit-conversion boundary — it is
  * the only place a model's `hours` figure is allowed to become a value that
@@ -352,21 +383,12 @@ export function groundAllocationCells(
 
     const mode = resource.utilizationMode;
     const currentValue = resource.utilization[period.key] ?? 0;
-    let nextValue: number;
-    let clamped: boolean;
-
-    if (mode === "percent") {
-      if (capacityHours <= 0) {
-        skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "no-capacity" });
-        continue;
-      }
-      const rawPercent = Math.round((c.hours / capacityHours) * 100);
-      clamped = rawPercent > 100 || rawPercent < 0;
-      nextValue = Math.min(100, Math.max(0, rawPercent));
-    } else {
-      clamped = c.hours > HOURS_MAP_MAX || c.hours < 0;
-      nextValue = Math.min(HOURS_MAP_MAX, Math.max(0, c.hours));
+    const resolved = resolveNextValue(mode, c.hours, capacityHours);
+    if (resolved === null) {
+      skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "no-capacity" });
+      continue;
     }
+    const { nextValue, clamped } = resolved;
 
     if (nextValue === currentValue) continue;
 
@@ -384,4 +406,18 @@ export function groundAllocationCells(
   }
 
   return { cells, skipped };
+}
+
+/**
+ * Render a stored allocation value with its unit's suffix. `GroundedAllocCell`
+ * carries FOUR same-typed `number` fields — `currentValue`/`nextValue` are in
+ * the resource's own unit, `hours`/`capacityHours` are always hours — with
+ * nothing but prose and the sibling `mode` telling them apart. Takes a
+ * `{mode, value}` pair (rather than a whole cell) so it can format EITHER
+ * currentValue or nextValue without the caller reconstructing a cell just to
+ * read one field — one place decides the suffix instead of every render site
+ * remembering to branch on `mode` itself.
+ */
+export function formatAllocValue(cell: { mode: Resource["utilizationMode"]; value: number }): string {
+  return cell.mode === "percent" ? `${cell.value}%` : `${cell.value}h`;
 }

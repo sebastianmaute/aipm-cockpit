@@ -7,6 +7,7 @@ import {
   buildAllocContext,
   buildAllocSystemPrompt,
   cellKey,
+  formatAllocValue,
   groundAllocationCells,
   parseAllocationProposal,
   resourceLabel,
@@ -19,6 +20,7 @@ import {
   type ResourcePlan,
   type Role,
 } from "../types";
+import { periodCapacityHours } from "../resource-capacity";
 
 const plan: ResourcePlan = {
   startDate: "2026-08-01",
@@ -225,6 +227,54 @@ describe("availableCapacityHours", () => {
     ];
     // Without the override this would be 168 - 168 = 0; the override (20) wins.
     expect(availableCapacityHours(r, period, absences, 8, new Set<string>())).toBe(148);
+  });
+});
+
+// Drift guard: availableCapacityHours' absence-override precedence is meant to
+// mirror periodCapacityHours EXACTLY (see the doc comment on the former). At
+// 100% utilization, periodCapacityHours' percent-mode formula
+// `(100/100) * max(0, possible - absence)` collapses to the same "gross minus
+// absence" figure availableCapacityHours computes directly — so the two
+// MUST agree here across all three absence branches. A future edit to either
+// function's absence resolution that breaks that lockstep fails this test,
+// not just a comment.
+describe("availableCapacityHours vs periodCapacityHours (contract pin)", () => {
+  const period = { key: "2026-08", start: "2026-08-01", end: "2026-08-31" };
+  const fullyUtilized = (over: Partial<Resource> = {}) =>
+    resource(1, { utilizationMode: "percent", utilization: { "2026-08": 100 }, ...over });
+
+  it("agree with no absence", () => {
+    const r = fullyUtilized();
+    expect(availableCapacityHours(r, period, [], 8, new Set<string>())).toBe(
+      periodCapacityHours(r, period, [], 8, new Set<string>()),
+    );
+  });
+
+  it("agree with an absenceOverride set", () => {
+    const r = fullyUtilized({ absenceOverride: { "2026-08": 20 } });
+    expect(availableCapacityHours(r, period, [], 8, new Set<string>())).toBe(
+      periodCapacityHours(r, period, [], 8, new Set<string>()),
+    );
+  });
+
+  it("agree with computed absence days", () => {
+    const r = fullyUtilized();
+    const absences: Absence[] = [
+      { id: 1, assignee: "Last1", startDate: "2026-08-01", endDate: "2026-08-15", type: "vacation", resourceId: 1 },
+    ];
+    expect(availableCapacityHours(r, period, absences, 8, new Set<string>())).toBe(
+      periodCapacityHours(r, period, absences, 8, new Set<string>()),
+    );
+  });
+});
+
+describe("formatAllocValue", () => {
+  it("formats a percent-mode value with a % suffix", () => {
+    expect(formatAllocValue({ mode: "percent", value: 50 })).toBe("50%");
+  });
+
+  it("formats an hours-mode value with an h suffix", () => {
+    expect(formatAllocValue({ mode: "hours", value: 84 })).toBe("84h");
   });
 });
 
