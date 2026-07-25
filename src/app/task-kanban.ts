@@ -49,6 +49,18 @@ function emptyCells(): Record<TaskStatus, Task[]> {
   return out;
 }
 
+/** Resource ids that already have a swimlane: everyone owning a visible task,
+ *  plus the lanes the user pulled in explicitly. The add-lane picker excludes
+ *  these so it never offers a lane that already exists. */
+export function laneResourceIds(
+  tasks: readonly Task[],
+  extraLaneIds: readonly number[],
+): number[] {
+  const ids = new Set<number>(extraLaneIds);
+  for (const t of tasks) if (t.resourceId != null) ids.add(t.resourceId);
+  return [...ids];
+}
+
 /**
  * Group tasks into a 2-D status × person grid.
  *

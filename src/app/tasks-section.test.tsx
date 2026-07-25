@@ -458,6 +458,32 @@ describe("TasksSection", () => {
     expect(labels).toContain("Other Person");
   });
 
+  it("swimlane add-lane picker excludes externals while 'Hide externals' is on, includes them while off", () => {
+    // Both assign pickers (add-lane + per-card select) must stay in step with
+    // the hide-externals toggle: offering an external here lets a user assign
+    // work to someone whose card is then hidden by the very same toggle.
+    const task = { id: 1, taskName: "T1", assignee: "", priority: "Medium", status: "To Do", dueDate: "", lastUpdateDate: "2026-05-01" };
+    const resources = [
+      { id: 7, firstName: "Ext", lastName: "Person", isExternal: true, roleId: null, utilizationMode: "percent", utilization: {} },
+      { id: 9, firstName: "Internal", lastName: "Person", roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    stubWorkspace([task], [task], resources);
+
+    stubSettings({ tasksViewMode: "swimlane", hideExternalTasks: true });
+    const { unmount } = render(<TasksSection {...makeProps()} />);
+    const hiddenSelect = screen.getByRole("combobox", { name: t("en-US", "swimlaneAddLane") });
+    const hiddenLabels = Array.from(hiddenSelect.querySelectorAll("option")).map((o) => o.textContent);
+    expect(hiddenLabels).not.toContain("Ext Person");
+    expect(hiddenLabels).toContain("Internal Person");
+    unmount();
+
+    stubSettings({ tasksViewMode: "swimlane", hideExternalTasks: false });
+    render(<TasksSection {...makeProps()} />);
+    const shownSelect = screen.getByRole("combobox", { name: t("en-US", "swimlaneAddLane") });
+    const shownLabels = Array.from(shownSelect.querySelectorAll("option")).map((o) => o.textContent);
+    expect(shownLabels).toContain("Ext Person");
+  });
+
   it("renders a Dark-Blue sticky table header", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);

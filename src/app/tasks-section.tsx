@@ -8,7 +8,7 @@ import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
 import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
-import { UNASSIGNED_LANE, type KanbanLane } from "./task-kanban";
+import { UNASSIGNED_LANE, laneResourceIds, type KanbanLane } from "./task-kanban";
 import { resourceDisplayName } from "./resource-foundation";
 import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
@@ -366,16 +366,16 @@ export function TasksSection({
     ? healthFilteredTasks.filter((r) => !isTaskFinished(r))
     : healthFilteredTasks;
 
-  // The add-lane picker must exclude anyone who ALREADY has a lane — not just
-  // the session-added ones (extraLaneIds), but also anyone the grid derives a
-  // lane for because they own a visible task (groupByStatusAndPerson). Derived
-  // from healthFilteredTasks — the same list fed to the swimlane grid — so the
-  // picker never drifts out of step with what's actually rendered.
-  const laneResourceIds = useMemo(() => {
-    const ids = new Set<number>(extraLaneIds);
-    for (const tk of healthFilteredTasks) if (tk.resourceId != null) ids.add(tk.resourceId);
-    return [...ids];
-  }, [extraLaneIds, healthFilteredTasks]);
+  const laneIds = useMemo(
+    () => laneResourceIds(healthFilteredTasks, extraLaneIds),
+    [healthFilteredTasks, extraLaneIds],
+  );
+  // Both assign pickers narrow to internals while "Hide externals" is on, so
+  // a user can't assign work to someone whose card the toggle then hides.
+  const assignableResources = useMemo(
+    () => (hideExternal ? resources.filter((r) => !r.isExternal) : resources),
+    [hideExternal, resources],
+  );
 
   // Swimlane keyboard assign path: reuses onSwimlaneDrop (the same functional
   // write the drag uses) with the task's CURRENT status, so keyboard and mouse
@@ -606,8 +606,8 @@ export function TasksSection({
         {tasksViewMode === "swimlane" && (
           <TaskSwimlaneToolbar
             lang={lang}
-            resources={resources}
-            laneResourceIds={laneResourceIds}
+            resources={assignableResources}
+            laneResourceIds={laneIds}
             onAddLane={addLane}
           />
         )}
@@ -889,7 +889,7 @@ export function TasksSection({
           raidByTask={raidByTask}
           changeByTask={changeByTask}
           onSwimlaneDrop={onSwimlaneDrop}
-          assignableResources={resources ?? EMPTY_RESOURCES}
+          assignableResources={assignableResources}
           onAssign={onAssignFromCard}
           onStatusChange={onStatusChange}
           onEdit={onEdit}

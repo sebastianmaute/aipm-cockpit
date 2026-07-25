@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupByStatus, groupByStatusAndPerson, UNASSIGNED_LANE } from "./task-kanban";
+import { groupByStatus, groupByStatusAndPerson, laneResourceIds, UNASSIGNED_LANE } from "./task-kanban";
 import { TASK_STATUSES, type Resource, type Task } from "./types";
 
 const t = (id: number, status: Task["status"]): Task =>
@@ -84,5 +84,23 @@ describe("groupByStatusAndPerson", () => {
   it("a task with a dangling resourceId and no assignee string lands in Unassigned", () => {
     const out = groupByStatusAndPerson([task({ resourceId: 99 })], resources, []);
     expect(out.cells[UNASSIGNED_LANE]["To Do"].map((x) => x.id)).toEqual([1]);
+  });
+});
+
+describe("laneResourceIds", () => {
+  it("includes a resource that owns a task", () => {
+    expect(laneResourceIds([task({ resourceId: 1 })], [])).toEqual([1]);
+  });
+
+  it("includes an extra lane id with no owning task", () => {
+    expect(laneResourceIds([], [2])).toEqual([2]);
+  });
+
+  it("dedupes a resource that is both a task owner and an extra lane id", () => {
+    expect(laneResourceIds([task({ resourceId: 1 })], [1])).toEqual([1]);
+  });
+
+  it("a task with no resourceId contributes nothing", () => {
+    expect(laneResourceIds([task({ resourceId: undefined })], [])).toEqual([]);
   });
 });
