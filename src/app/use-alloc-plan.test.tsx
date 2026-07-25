@@ -39,9 +39,20 @@ interface HarnessProps {
   captureSpy?: ReturnType<typeof vi.fn>;
   logActivitySpy?: ReturnType<typeof vi.fn>;
   onResources?: (r: readonly Resource[]) => void;
+  /** Test-only escape hatch: when provided, renders a button that mutates
+   *  `resources` DIRECTLY (bypassing the alloc-plan hook) — simulating
+   *  another edit/background sync landing while the preview modal is open. */
+  externalEdit?: (resources: readonly Resource[]) => readonly Resource[];
 }
 
-function Harness({ settings = AI_ON, isPopout = false, captureSpy, logActivitySpy, onResources }: HarnessProps) {
+function Harness({
+  settings = AI_ON,
+  isPopout = false,
+  captureSpy,
+  logActivitySpy,
+  onResources,
+  externalEdit,
+}: HarnessProps) {
   const [resources, setResources] = useState<readonly Resource[]>([
     mkResource(1, "Alice", "Anderson"),
     mkResource(2, "Bob", "Baker"),
@@ -71,6 +82,11 @@ function Harness({ settings = AI_ON, isPopout = false, captureSpy, logActivitySp
     <div>
       {alloc.button}
       {alloc.modal}
+      {externalEdit && (
+        <button type="button" onClick={() => setResources((prev) => externalEdit(prev))}>
+          external-edit
+        </button>
+      )}
       <output data-testid="util">{JSON.stringify(resources.map((r) => ({ id: r.id, u: r.utilization })))}</output>
     </div>
   );
@@ -243,6 +259,77 @@ describe("useAllocPlan (plan-then-apply)", () => {
     expect(arg.edited[0].utilization).toEqual({});
     expect(logActivitySpy).toHaveBeenCalledWith("ai.allocationPlan", 1);
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
+  });
+
+  it("confirm skips a cell whose live value moved since propose, applies the rest, and reports the reduced count", async () => {
+    vi.mocked(call.runAllocProposal).mockResolvedValue([
+      { resourceId: 1, periodKey: "2026-08", hours: 40 },
+      { resourceId: 2, periodKey: "2026-08", hours: 20 },
+    ]);
+    const captureSpy = vi.fn();
+    const logActivitySpy = vi.fn();
+    // Alice's utilization moves (another edit / background sync) while the
+    // preview modal is open — her stored value no longer matches the
+    // currentValue captured at propose time (0).
+    const externalEdit = (prev: readonly Resource[]) =>
+      prev.map((r) => (r.id === 1 ? { ...r, utilization: { "2026-08": 5 } } : r));
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Harness captureSpy={captureSpy} logActivitySpy={logActivitySpy} externalEdit={externalEdit} />
+      </ToastProvider>,
+    );
+
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+    await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "external-edit" }));
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+
+    await waitFor(() => {
+      const util = JSON.parse(screen.getByTestId("util").textContent ?? "[]");
+      // Alice's stale cell was NOT overwritten — her externally-set value (5)
+      // survives untouched; only Bob's still-fresh cell was applied.
+      expect(util).toEqual([
+        { id: 1, u: { "2026-08": 5 } },
+        { id: 2, u: { "2026-08": 20 } },
+      ]);
+    });
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
+    // The applied count (1) — not the original selection count (2) — is what
+    // gets logged, since the two diverge exactly in this window.
+    expect(logActivitySpy).toHaveBeenCalledWith("ai.allocationPlan", 1);
+  });
+
+  it("confirm applies nothing and stays quiet on capture/logActivity when every chosen cell went stale", async () => {
+    vi.mocked(call.runAllocProposal).mockResolvedValue([
+      { resourceId: 1, periodKey: "2026-08", hours: 40 },
+    ]);
+    const captureSpy = vi.fn();
+    const logActivitySpy = vi.fn();
+    const externalEdit = (prev: readonly Resource[]) =>
+      prev.map((r) => (r.id === 1 ? { ...r, utilization: { "2026-08": 5 } } : r));
+    render(
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <Harness captureSpy={captureSpy} logActivitySpy={logActivitySpy} externalEdit={externalEdit} />
+      </ToastProvider>,
+    );
+
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+    await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "external-edit" }));
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1")));
+    expect(captureSpy).not.toHaveBeenCalled();
+    expect(logActivitySpy).not.toHaveBeenCalled();
+    const util = JSON.parse(screen.getByTestId("util").textContent ?? "[]");
+    expect(util).toEqual([
+      { id: 1, u: { "2026-08": 5 } },
+      { id: 2, u: {} },
+    ]);
   });
 
   it("toggling twice returns to the original selection (each toggle produced a NEW Set)", async () => {

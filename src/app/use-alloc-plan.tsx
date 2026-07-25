@@ -73,6 +73,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const [instruction, setInstruction] = useState("");
   const [cells, setCells] = useState<readonly GroundedAllocCell[]>([]);
   const [skipped, setSkipped] = useState<readonly SkippedCell[]>([]);
+  const [truncated, setTruncated] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // Monotonic request generation: a slow proposal that resolves after cancel /
   // a new open is discarded (can't land a stale proposal or a stale error toast).
@@ -92,6 +93,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     setInstruction("");
     setCells([]);
     setSkipped([]);
+    setTruncated(false);
     setSelected(new Set());
   }, []);
 
@@ -128,6 +130,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       const grounded = groundAllocationCells(raw, { resources, plan, absences, workdayHours, holidaySet });
       setCells(grounded.cells);
       setSkipped(grounded.skipped);
+      setTruncated(grounded.truncated);
       if (grounded.cells.length > 0 || grounded.skipped.length > 0) {
         // Preselect every grounded cell; skipped-only results still surface
         // via the preview stage (the only stage the modal renders them in) —
@@ -182,7 +185,38 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     if (chosen.length === 0) return;
     setPhase("applying");
     const before = resources;
-    const result = applyAllocationCells(before, chosen, new Date().toISOString());
+
+    // Each cell's currentValue was captured at PROPOSE time; confirm applies
+    // against these CONFIRM-time resources. If the grid changed while the
+    // modal was open (another edit, a background sync, ...), a chosen cell's
+    // live stored value may no longer match what the user reviewed — writing
+    // it anyway would silently overwrite a value the user never saw or
+    // approved (the same silent-overwrite class timelog-apply.ts had to
+    // close). Drop any cell whose live value has moved and tell the user how
+    // many were skipped for that reason, rather than applying blind.
+    const resourceById = new Map(before.map((r) => [r.id, r]));
+    const fresh: GroundedAllocCell[] = [];
+    let staleCount = 0;
+    for (const c of chosen) {
+      const live = resourceById.get(c.resourceId);
+      const liveValue = live?.utilization[c.periodKey] ?? 0;
+      if (live && liveValue === c.currentValue) {
+        fresh.push(c);
+      } else {
+        staleCount++;
+      }
+    }
+    if (staleCount > 0) {
+      showToast("info", t(lang, "allocPlanSkippedStale", staleCount));
+    }
+    if (fresh.length === 0) {
+      // Every chosen cell had moved — the stale toast above already told the
+      // user why; there is nothing left to apply.
+      reset();
+      return;
+    }
+
+    const result = applyAllocationCells(before, fresh, new Date().toISOString());
     if (result.editedBefore.length === 0) {
       // Nothing actually changed (e.g. resources moved under us) — close quietly.
       reset();
@@ -198,8 +232,11 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       fromArray: before,
       entityKey: "resource",
     });
-    logActivity?.("ai.allocationPlan", chosen.length);
-    showToast("info", t(lang, "allocPlanApplied", chosen.length));
+    // Report what was ACTUALLY applied (`fresh.length`), not the original
+    // selection count (`chosen.length`) — the two diverge exactly when the
+    // stale-cell guard above dropped one or more cells.
+    logActivity?.("ai.allocationPlan", fresh.length);
+    showToast("info", t(lang, "allocPlanApplied", fresh.length));
     reset();
   }, [phase, cells, selected, resources, setResources, capture, logActivity, showToast, lang, reset]);
 
@@ -231,6 +268,7 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
       onPropose={() => void onPropose()}
       cells={cells}
       skipped={skipped}
+      truncated={truncated}
       selected={selected}
       onToggle={onToggle}
       onConfirm={onConfirm}
