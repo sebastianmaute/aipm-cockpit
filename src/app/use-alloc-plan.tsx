@@ -15,7 +15,7 @@
 // can touch anything — a hallucinated resource id or an out-of-window period
 // key can never reach a write.
 
-import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useRef, useState } from "react";
+import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { SparklesIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
@@ -82,28 +82,35 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   const apiKey = aiKeyIfEnabled(settings.ai);
   const enabled = isAiEnabled(settings.ai) && !isPopout && !!apiKey.trim() && resources.length > 0;
 
-  const reset = useCallback(() => {
+  // Invalidate/abort anything pending and clear the propose/preview state.
+  // Shared by reset() (which also drops the phase to idle) and onOpen()
+  // (which instead lands on "input" — there shouldn't be anything pending
+  // while idle, but clearing unconditionally mirrors reset() exactly).
+  const clearProposalState = useCallback(() => {
     abortRef.current?.abort();
     reqIdRef.current++;
-    setPhase("idle");
     setInstruction("");
     setCells([]);
     setSkipped([]);
     setSelected(new Set());
   }, []);
 
+  const reset = useCallback(() => {
+    clearProposalState();
+    setPhase("idle");
+  }, [clearProposalState]);
+
   const onOpen = useCallback(() => {
     if (!enabled || phase !== "idle") return;
-    // Invalidate/abort anything still pending from a previous session (there
-    // shouldn't be one while idle, but this mirrors reset()'s guard exactly).
-    abortRef.current?.abort();
-    reqIdRef.current++;
-    setInstruction("");
-    setCells([]);
-    setSkipped([]);
-    setSelected(new Set());
+    clearProposalState();
     setPhase("input");
-  }, [enabled, phase]);
+  }, [enabled, phase, clearProposalState]);
+
+  // Abort any in-flight proposal if the pane unmounts (e.g. the user
+  // navigates away from Resources) — a response must never land against a
+  // dead component. Cleanup-only: sets no state, so it doesn't run into the
+  // set-state-in-effect ban.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const onPropose = useCallback(async () => {
     if (phase !== "input" || !instruction.trim()) return;
