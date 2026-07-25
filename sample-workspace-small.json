@@ -1248,6 +1248,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 4,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -1326,6 +1327,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 2,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -1369,6 +1371,7 @@
         }
       ],
       "poNumber": "4400098499",
+      "successorId": 3,
       "fixedPriceAmount": 80000,
       "order": 3,
       "planningMode": "detailed"

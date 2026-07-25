@@ -9861,6 +9861,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 4,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -9939,6 +9940,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 2,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -9983,6 +9985,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 3,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -10074,6 +10077,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 100004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -10152,6 +10156,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 100002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -10196,6 +10201,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 100003,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -10287,6 +10293,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 200004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -10365,6 +10372,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 200002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -10409,6 +10417,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 200003,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -10500,6 +10509,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 300004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -10578,6 +10588,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 300002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -10622,6 +10633,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 300003,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -10713,6 +10725,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 400004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -10791,6 +10804,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 400002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -10835,6 +10849,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 400003,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -10926,6 +10941,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 500004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -11004,6 +11020,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 500002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -11048,6 +11065,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 500003,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -11139,6 +11157,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 600004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -11217,6 +11236,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 600002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -11261,6 +11281,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 600003,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -11352,6 +11373,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 700004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -11430,6 +11452,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 700002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -11474,6 +11497,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 700003,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -11565,6 +11589,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 800004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -11643,6 +11668,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 800002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -11687,6 +11713,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 800003,
       "order": 3,
       "planningMode": "detailed"
     },
@@ -11778,6 +11805,7 @@
         }
       ],
       "poNumber": "4400125303",
+      "successorId": 900004,
       "order": 0,
       "planningMode": "detailed",
       "taskIds": [
@@ -11856,6 +11884,7 @@
         }
       ],
       "poNumber": "4400087177",
+      "successorId": 900002,
       "order": 2,
       "planningMode": "detailed",
       "rateOverrideInternal": 90,
@@ -11900,6 +11929,7 @@
       ],
       "poNumber": "4400098499",
       "fixedPriceAmount": 80000,
+      "successorId": 900003,
       "order": 3,
       "planningMode": "detailed"
     },
