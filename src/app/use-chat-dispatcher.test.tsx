@@ -11,6 +11,13 @@ import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
 import { type SettingsUpdateInput } from "./chat-tools";
+import { type DashboardModel } from "./dashboard";
+
+/** Minimal stub getters for the dashboard-snapshot deps: none of these tests
+ *  exercise get_dashboard_snapshot, so a benign cast + null keep the fixtures
+ *  focused on the behavior under test. */
+const stubGetDashboardModel = () => ({}) as unknown as DashboardModel;
+const stubGetBudgetRollup = () => null;
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -126,6 +133,8 @@ function renderDispatcher(
         setSettings,
         isReadOnly,
         currentView,
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
       }),
     { wrapper },
   );
@@ -465,6 +474,8 @@ describe("useChatDispatcher", () => {
           setSettings,
           isReadOnly: false,
           currentView: "milestones",
+          getDashboardModel: stubGetDashboardModel,
+          getBudgetRollup: stubGetBudgetRollup,
         }),
       { wrapper },
     );
@@ -485,6 +496,8 @@ describe("useChatDispatcher", () => {
         setSettings: vi.fn(),
         isReadOnly: false,
         currentView: "open-points",
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
       });
       const form = useTaskForm();
       return { dispatcher, form };

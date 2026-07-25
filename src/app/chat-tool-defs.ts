@@ -304,6 +304,12 @@ export const TOOL_DEFS = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "get_dashboard_snapshot",
+    description:
+      "Read the project's current health: RAG ratings (overall, schedule, budget, scope) with whether each was manually overridden, completion progress, earned-value metrics (PV/EV/AC/SPI/CPI), the budget rollup (hours, value, cost, margin, EV, CPI), and counts of overdue tasks, due-soon tasks, open RAID items, overdue and at-risk milestones, and changes by state. Read-only. When a money figure is null, `costUnknownReason` says why the cost basis is unsound — report it as unknown, never as zero.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "list_raid",
     description:
       "List all RAID items (Risks, Assumptions, Issues, Dependencies) with id, category, title, status, severity, owner, and stakeholderIds. Read-only.",

@@ -14,6 +14,7 @@ import type { Lang } from "./i18n";
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
+import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
 type TaskInput = {
@@ -228,6 +229,7 @@ export type ToolDispatcher = {
     currentView: AppView;
     insights?: readonly Insight[];
   };
+  getDashboardSnapshot(): DashboardSnapshot;
 };
 
 function asString(v: unknown): string | undefined {
@@ -450,6 +452,9 @@ export async function runTool(
 
     case "get_app_state":
       return d.getSnapshot();
+
+    case "get_dashboard_snapshot":
+      return d.getDashboardSnapshot();
 
     case "list_raid":
       return d.listRaid();

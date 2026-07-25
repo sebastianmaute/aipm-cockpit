@@ -21,6 +21,9 @@ import {
 } from "./chat-tools";
 import { deriveMode, sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
+import { type DashboardModel } from "./dashboard";
+import { type ProjectReport } from "./budget-report";
+import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
 import { effectivePersonEmail } from "./resource-foundation";
@@ -72,6 +75,13 @@ export interface ChatDispatcherArgs {
    *  can't be silently lost (popouts neither persist nor broadcast). */
   isReadOnly: boolean;
   currentView: AppView;
+  /** Live dashboard render model. A getter (not the value) so the dispatcher
+   *  identity stays stable — it is read through a ref at tool-call time. */
+  getDashboardModel: () => DashboardModel;
+  /** Live budget rollup, or null when the budget module is off / there is no
+   *  real plan. Deliberately NOT memoized upstream: it runs only when a tool
+   *  actually asks, so an unused read tool costs nothing per render. */
+  getBudgetRollup: () => ProjectReport | null;
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -114,6 +124,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const stakeholdersRef = useRef(stakeholders);
   const resourcesRef = useRef(resources);
   const insightsRef = useRef(insights);
+  const getDashboardModelRef = useRef(args.getDashboardModel);
+  const getBudgetRollupRef = useRef(args.getBudgetRollup);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -147,6 +159,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     insightsRef.current = insights;
   }, [insights]);
+  useEffect(() => {
+    getDashboardModelRef.current = args.getDashboardModel;
+  }, [args.getDashboardModel]);
+  useEffect(() => {
+    getBudgetRollupRef.current = args.getBudgetRollup;
+  }, [args.getBudgetRollup]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
@@ -699,6 +717,13 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           insights: insightsRef.current ?? [],
         };
       },
+
+      getDashboardSnapshot: () =>
+        buildDashboardSnapshot(
+          getDashboardModelRef.current(),
+          getBudgetRollupRef.current(),
+          todayRef.current,
+        ),
     }),
     // Empty deps: every reactive value is read via a ref. Identity is stable.
     // Note: when Task 6 lands, audit whether any captured value still needs

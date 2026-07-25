@@ -147,6 +147,13 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       enabledModules: [] as import("./feature-modules").FeatureModuleId[],
       currentView: "chat" as import("./nav-config").AppView,
     })),
+    getDashboardSnapshot: vi.fn(
+      () =>
+        ({
+          today: "2026-06-02",
+          budget: null,
+        }) as unknown as ReturnType<ToolDispatcher["getDashboardSnapshot"]>,
+    ),
     ...over,
   };
 }
@@ -709,5 +716,16 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
     await expect(runTool(d, "get_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
     await expect(runTool(d, "update_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
     await expect(runTool(d, "delete_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
+  });
+});
+
+describe("get_dashboard_snapshot", () => {
+  it("returns the dispatcher's snapshot verbatim", async () => {
+    const snapshot = { today: "2026-07-25", budget: null } as unknown as ReturnType<
+      ToolDispatcher["getDashboardSnapshot"]
+    >;
+    const d = { getDashboardSnapshot: () => snapshot } as unknown as ToolDispatcher;
+
+    await expect(runTool(d, "get_dashboard_snapshot", {})).resolves.toBe(snapshot);
   });
 });
