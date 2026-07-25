@@ -18,6 +18,9 @@ export function sanitizeTemplateHtml(html: string): string {
   });
 }
 
+// ★ narrative-html.ts's HTML_START mirrors this list (minus "#text"): it decides
+// whether a stored narrative is already HTML, and recognising a tag THIS list
+// omits means the sink below deletes the element and its text. Edit both together.
 const NOTE_ALLOWED_TAGS = ["p", "br", "strong", "em", "ul", "ol", "li", "a", "#text"];
 const NOTE_ALLOWED_ATTR = ["href", "target", "rel"];
 

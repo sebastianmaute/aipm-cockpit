@@ -8,19 +8,35 @@ import { Button } from "../button";
 import { Card } from "../card";
 import { RichTextEditor } from "../rich-text-editor";
 import { RichTextView } from "../rich-text-view";
+import { sanitizeNoteHtml } from "../sanitize-html";
 import { isNarrativeEmpty, narrativeToHtml, normalizeNarrativeHtml } from "../narrative-html";
 import type { ProjectStatus } from "../types";
 
 /** Read-only exec-summary of the saved status narrative (Tier 0). Renders null
  *  when empty so a blank project shows nothing up top. Rich text since R3 — the
  *  HTML is re-sanitised at the SINK (RichTextView), so a regressed load path can
- *  never put markup in the DOM. */
+ *  never put markup in the DOM.
+ *
+ *  ★★ Emptiness is decided on the SANITISED html, not the stored value. The two
+ *  diverge whenever the sink strips an element with its text (KEEP_CONTENT is
+ *  false), e.g. a Word-pasted `<p><u>text</u></p>` that sanitises to `<p></p>`:
+ *  judging the pre-sanitised value called that non-empty and rendered a blank
+ *  card carrying nothing but an "Updated <date>" line. Deciding on what actually
+ *  reaches the DOM cannot drift from what the user sees.
+ *
+ *  ★ The sanitised value is then handed to RichTextView, which sanitises AGAIN.
+ *  That is deliberate rather than wasteful: sanitizeNoteHtml is idempotent
+ *  (documented in rich-text-view.tsx, and the second pass is a verified no-op on
+ *  its own output), and the alternative — a prop telling the sink to trust its
+ *  input — would put a bypass switch on the app's defence-in-depth boundary for
+ *  every other caller too. One cheap redundant pass is the better trade. */
 export function NarrativeSummary({ lang, status }: { lang: Lang; status: ProjectStatus }) {
   const html = narrativeToHtml(status.narrative);
-  if (!html || isNarrativeEmpty(html)) return null;
+  const rendered = html ? sanitizeNoteHtml(html) : "";
+  if (!rendered || isNarrativeEmpty(rendered)) return null;
   return (
     <Card boxed className="p-3">
-      <RichTextView html={html} />
+      <RichTextView html={rendered} />
       {status.narrativeUpdatedAt ? (
         <p className="mt-1 text-xs text-muted-foreground">
           {t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))}

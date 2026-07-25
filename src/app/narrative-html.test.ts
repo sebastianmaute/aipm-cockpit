@@ -22,6 +22,30 @@ describe("narrativeToHtml", () => {
     expect(narrativeToHtml("<br>then text")).toBe("<br>then text");
   });
 
+  // ★★ Tags the SINK sanitizer strips must NOT be recognised here. sanitizeNoteHtml
+  // runs KEEP_CONTENT false, so treating these as ready-to-render HTML deleted the
+  // element AND its text: `<h1>Q3 status</h1><p>All good</p>` rendered as just
+  // "All good", and a div/blockquote-wrapped narrative rendered as nothing at all.
+  // Escaped, the user still reads their text — exactly what `<pre>` always did.
+  it("escapes a legacy value opening with a tag the note sanitizer strips", () => {
+    expect(narrativeToHtml("<h1>Q3 status</h1><p>All good</p>")).toBe(
+      "<p>&lt;h1&gt;Q3 status&lt;/h1&gt;&lt;p&gt;All good&lt;/p&gt;</p>",
+    );
+    expect(narrativeToHtml("<div>Status text</div>")).toBe("<p>&lt;div&gt;Status text&lt;/div&gt;</p>");
+    expect(narrativeToHtml("<blockquote>Quoted</blockquote>")).toBe(
+      "<p>&lt;blockquote&gt;Quoted&lt;/blockquote&gt;</p>",
+    );
+    // Every heading level, not just h1 — the old pattern was h[1-6].
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      expect(narrativeToHtml(`<h${n}>Head</h${n}>`)).toBe(`<p>&lt;h${n}&gt;Head&lt;/h${n}&gt;</p>`);
+    }
+    // The property that actually matters: the words the user typed are still in
+    // the output. (dashboard-narrative.test.tsx asserts they survive the SINK too.)
+    expect(narrativeToHtml("<h1>Q3 status</h1><p>All good</p>")).toContain("Q3 status");
+    expect(narrativeToHtml("<div>Status text</div>")).toContain("Status text");
+    expect(narrativeToHtml("<blockquote>Quoted</blockquote>")).toContain("Quoted");
+  });
+
   // The widened test must not start treating prose as markup: a `<` that is not
   // leading, or is not followed by a tag name, is still plain text.
   it("still escapes plain text containing a literal angle bracket", () => {

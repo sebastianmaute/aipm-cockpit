@@ -54,6 +54,39 @@ describe("NarrativeSummary", () => {
       render(<NarrativeSummary lang="en-US" status={{ narrative: "<p></p>" }} />).container.firstChild,
     ).toBeNull();
   });
+
+  // ★★ End-to-end for the vanished-narrative defect, through the REAL pipeline
+  // (narrativeToHtml -> sanitizeNoteHtml -> RichTextView). These tags were treated
+  // as ready-to-render HTML while the sink strips them WITH their text
+  // (KEEP_CONTENT false), so the stored words were simply deleted on screen:
+  // the h1 case rendered "All good" alone, the div and blockquote cases rendered
+  // an empty card. Reachable by anyone who pasted HTML into the old plain textarea
+  // to fake formatting — where it used to show as visible literal text.
+  it.each([
+    ["<h1>Q3 status</h1><p>All good</p>", ["Q3 status", "All good"]],
+    ["<div>Status text</div>", ["Status text"]],
+    ["<blockquote>Quoted</blockquote>", ["Quoted"]],
+    ["<h3>Deep heading</h3>", ["Deep heading"]],
+  ])("keeps the text of a legacy %s narrative visible", (narrative, expected) => {
+    const { container } = render(<NarrativeSummary lang="en-US" status={{ narrative }} />);
+    for (const word of expected) expect(container.textContent).toContain(word);
+  });
+
+  // The other half: a value that DOES open with a recognised tag but sanitises to
+  // nothing. `<u>` is not in the note allow-list and KEEP_CONTENT is false, so a
+  // Word/Outlook paste collapses to `<p></p>`. Judging emptiness on the stored
+  // value called this non-empty and rendered a card holding nothing but the
+  // "Updated <date>" line — a blank status card with a timestamp.
+  it("renders nothing when the narrative sanitises away to nothing", () => {
+    const { container } = render(
+      <NarrativeSummary
+        lang="en-US"
+        status={{ narrative: "<p><u>underlined only</u></p>", narrativeUpdatedAt: "2026-06-20T10:00:00.000Z" }}
+      />,
+    );
+    expect(container.firstChild).toBeNull();
+    expect(container.textContent).not.toMatch(/Updated/);
+  });
 });
 
 // A host that owns ProjectStatus state so the editor's commit/clear + the

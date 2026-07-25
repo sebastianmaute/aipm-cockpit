@@ -15,16 +15,24 @@ import { plainToHtml } from "./sanitize-html";
  *  lean editor always emits a block wrapper, but an imported or hand-edited
  *  workspace can perfectly well store `<strong>bold</strong> lead`, and treating
  *  that as legacy plain text escaped it into literal `&lt;strong&gt;` markup on
- *  screen. The set mirrors sanitize-html.ts's NOTE_ALLOWED_TAGS — the sink
- *  sanitizer this value is rendered through — plus the h1-6/blockquote/div block
- *  names that predate it, kept so a legacy value opening with one is treated
- *  exactly as it is today.
+ *  screen.
+ *
+ *  ★★ The set is EXACTLY sanitize-html.ts's NOTE_ALLOWED_TAGS (minus the `#text`
+ *  pseudo-entry) — the sink sanitizer every one of these values is rendered
+ *  through — and must stay aligned with it. Recognising a tag the sink STRIPS is
+ *  worse than not recognising it at all: `sanitizeNoteHtml` runs KEEP_CONTENT
+ *  false, so it deletes such an element together with its TEXT. h1-6, blockquote
+ *  and div used to sit here on the theory that a legacy value opening with one
+ *  should render "as it is today"; in fact it made `<h1>Q3</h1><p>ok</p>` render
+ *  as just "ok" and `<div>Status</div>` render as nothing at all. Left OUT, the
+ *  same value is escaped and the user still reads their text — which is what
+ *  `<pre>` (never in this set) has correctly done all along.
  *
  *  ★ Anchored at the string start and each name is `\b`-terminated, so a plain
  *  narrative containing a stray `<` ("5 < 10 items", "<3 open") still escapes:
  *  the `<` is not leading, or what follows it is not a tag name. `\b` also keeps
  *  `<abbr>`/`<embed>`/`<pre>` out — they are not `a`/`em`/`p`. */
-const HTML_START = /^\s*<(p|ul|ol|li|strong|em|a|br|h[1-6]|blockquote|div)\b/i;
+const HTML_START = /^\s*<(p|br|strong|em|ul|ol|li|a)\b/i;
 
 /** Stored narrative -> HTML. A legacy plain-text value is escaped and wrapped. */
 export function narrativeToHtml(stored: string | undefined): string {
