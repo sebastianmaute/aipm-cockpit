@@ -308,20 +308,47 @@ describe("parseAllocationProposal", () => {
       rationale: "spread the design load",
     });
 
-    expect(parsed).toEqual([
+    expect(parsed?.cells).toEqual([
       { resourceId: 1, periodKey: "2026-08", hours: 40 },
       { resourceId: 3, periodKey: "2026-09", hours: 12.5 },
     ]);
+    expect(parsed?.truncated).toBe(false);
   });
 
-  it("caps the number of cells it will parse", () => {
+  it("caps the number of cells it will parse AND reports truncated: true", () => {
+    // THIS is where a too-large proposal actually gets cut in the real
+    // Anthropic-tool-response path — groundAllocationCells's own cap never
+    // sees the overflow, because it never receives more than this many cells.
     const cells = Array.from({ length: MAX_ALLOC_CELLS + 10 }, (_, i) => ({
       resourceId: 1,
       periodKey: `2026-${String((i % 12) + 1).padStart(2, "0")}`,
       hours: 1,
     }));
 
-    expect(parseAllocationProposal({ cells })).toHaveLength(MAX_ALLOC_CELLS);
+    const parsed = parseAllocationProposal({ cells });
+
+    expect(parsed?.cells).toHaveLength(MAX_ALLOC_CELLS);
+    expect(parsed?.truncated).toBe(true);
+  });
+
+  it("does not report truncated when the raw proposal fits under the cap", () => {
+    const parsed = parseAllocationProposal({
+      cells: [{ resourceId: 1, periodKey: "2026-08", hours: 10 }],
+    });
+    expect(parsed?.truncated).toBe(false);
+  });
+
+  it("does not report truncated when raw input lands exactly at the cap with nothing left over", () => {
+    const cells = Array.from({ length: MAX_ALLOC_CELLS }, (_, i) => ({
+      resourceId: 1,
+      periodKey: `2026-${String((i % 12) + 1).padStart(2, "0")}`,
+      hours: 1,
+    }));
+
+    const parsed = parseAllocationProposal({ cells });
+
+    expect(parsed?.cells).toHaveLength(MAX_ALLOC_CELLS);
+    expect(parsed?.truncated).toBe(false);
   });
 
   it("drops a non-object cell entry (falsy, and truthy-but-not-an-object)", () => {
@@ -329,7 +356,7 @@ describe("parseAllocationProposal", () => {
       cells: [null, 42, { resourceId: 9, periodKey: "2026-08", hours: 5 }],
     });
 
-    expect(parsed).toEqual([{ resourceId: 9, periodKey: "2026-08", hours: 5 }]);
+    expect(parsed?.cells).toEqual([{ resourceId: 9, periodKey: "2026-08", hours: 5 }]);
   });
 
   it("drops a cell whose resourceId is neither a number nor a string", () => {
@@ -340,7 +367,7 @@ describe("parseAllocationProposal", () => {
       ],
     });
 
-    expect(parsed).toEqual([{ resourceId: 9, periodKey: "2026-08", hours: 5 }]);
+    expect(parsed?.cells).toEqual([{ resourceId: 9, periodKey: "2026-08", hours: 5 }]);
   });
 
   it("drops a cell whose hours is neither a finite number nor a numeric string", () => {
@@ -351,7 +378,51 @@ describe("parseAllocationProposal", () => {
       ],
     });
 
-    expect(parsed).toEqual([{ resourceId: 9, periodKey: "2026-09", hours: 5 }]);
+    expect(parsed?.cells).toEqual([{ resourceId: 9, periodKey: "2026-09", hours: 5 }]);
+  });
+});
+
+describe("parseAllocationProposal -> groundAllocationCells (real production pipeline)", () => {
+  it("surfaces truncation only when the caller ORs BOTH functions' flags — grounded.truncated alone misses a parse-level drop", () => {
+    // A proposal 50 cells over the cap, one distinct resource per cell so
+    // every cell that survives parsing grounds cleanly (nothing else gets
+    // skipped, isolating the truncation signal).
+    const overCap = MAX_ALLOC_CELLS + 50;
+    const resources = Array.from({ length: overCap }, (_, i) =>
+      resource(i + 1, { utilizationMode: "hours" }),
+    );
+    const raw = Array.from({ length: overCap }, (_, i) => ({
+      resourceId: i + 1,
+      periodKey: "2026-08",
+      hours: 10,
+    }));
+
+    const parsed = parseAllocationProposal({ cells: raw });
+    expect(parsed).not.toBeNull();
+    const grounded = groundAllocationCells(parsed!.cells, groundCtx(resources));
+
+    // parseAllocationProposal already cut 50 cells before grounding ever ran,
+    // so grounding receives exactly MAX_ALLOC_CELLS cells and never hits its
+    // OWN cap — grounded.truncated is false even though real cells were lost.
+    expect(parsed!.cells).toHaveLength(MAX_ALLOC_CELLS);
+    expect(parsed!.truncated).toBe(true);
+    expect(grounded.truncated).toBe(false);
+
+    // A caller reading only grounded.truncated would report "everything was
+    // shown" while 50 cells were silently dropped. Only the OR is correct.
+    expect(parsed!.truncated || grounded.truncated).toBe(true);
+  });
+
+  it("reports no truncation anywhere when a proposal fits comfortably under the cap", () => {
+    const resources = [resource(1, { utilizationMode: "hours" })];
+    const parsed = parseAllocationProposal({
+      cells: [{ resourceId: 1, periodKey: "2026-08", hours: 10 }],
+    });
+    expect(parsed).not.toBeNull();
+    const grounded = groundAllocationCells(parsed!.cells, groundCtx(resources));
+
+    expect(parsed!.truncated).toBe(false);
+    expect(grounded.truncated).toBe(false);
   });
 });
 
@@ -469,9 +540,9 @@ describe("groundAllocationCells", () => {
     expect(r.skipped[0]?.reason).toBe("duplicate");
   });
 
-  it("silently drops a genuinely zero request against an already-zero value", () => {
-    // The one exception to below-resolution reporting: hours: 0 is a real
-    // no-op (nothing was actually asked for), not a rounded-away request.
+  it("silently drops a genuinely zero request against an already-zero value (hours mode)", () => {
+    // The one exception to either skip reason: hours: 0 is a real no-op
+    // (nothing was actually asked for), not a collapsed-away request.
     const r = groundAllocationCells(
       [{ resourceId: 1, periodKey: "2026-08", hours: 0 }],
       groundCtx([resource(1, { utilizationMode: "hours", utilization: {} })]),
@@ -480,25 +551,51 @@ describe("groundAllocationCells", () => {
     expect(r.skipped).toEqual([]);
   });
 
-  it("reports a below-resolution skip when a non-zero request produces no change (hours mode)", () => {
-    // Not a rounding artifact here — hours mode has no division — but still a
-    // non-zero ask that collapsed to the resource's existing value, so it
-    // must be visible instead of silently vanishing like the old behaviour.
+  it("silently drops a genuinely zero request against an already-zero value (percent mode)", () => {
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 0 }],
+      groundCtx([resource(1, { utilizationMode: "percent", utilization: {} })]),
+    );
+    expect(r.cells).toEqual([]);
+    expect(r.skipped).toEqual([]);
+  });
+
+  it('reports an "already-set" skip (not below-resolution) when an hours-mode request exactly restates the current value', () => {
+    // Not a rounding artifact here — hours mode has no division — this is a
+    // ROUTINE, unambiguous restatement of the existing value (e.g. "make sure
+    // Ada has 40h in August" when she already does), and must be labelled as
+    // such rather than as a precision/resolution problem, which would be false.
     const r = groundAllocationCells(
       [{ resourceId: 1, periodKey: "2026-08", hours: 40 }],
       groundCtx([resource(1, { utilizationMode: "hours", utilization: { "2026-08": 40 } })]),
     );
     expect(r.cells).toEqual([]);
-    expect(r.skipped).toEqual([{ resourceId: 1, periodKey: "2026-08", reason: "below-resolution" }]);
+    expect(r.skipped).toEqual([{ resourceId: 1, periodKey: "2026-08", reason: "already-set" }]);
   });
 
   it("reports a below-resolution skip for a percent-mode request too small to move the rounded percentage off zero", () => {
     // The bug this closes: 0.4h against a 168h month rounds to 0%, and with
     // an already-zero stored value the old no-op guard dropped it with no
-    // trace anywhere the user could see.
+    // trace anywhere the user could see. This one IS a genuine precision
+    // problem — the hours-to-percent conversion is what collapsed it — unlike
+    // the hours-mode "already-set" case above.
     const r = groundAllocationCells(
       [{ resourceId: 1, periodKey: "2026-08", hours: 0.4 }],
       groundCtx([resource(1, { utilizationMode: "percent", utilization: {} })]),
+    );
+    expect(r.cells).toEqual([]);
+    expect(r.skipped).toEqual([{ resourceId: 1, periodKey: "2026-08", reason: "below-resolution" }]);
+  });
+
+  it('reports a below-resolution skip for a percent-mode request that restates the current non-zero percentage', () => {
+    // Even an "exact" percent-mode restatement is reported as below-resolution
+    // (not already-set) — the model's hours figure went through a conversion
+    // before it could be compared, so percent mode is ALWAYS the conversion
+    // family, never the exact-restatement family (see the mode-based split
+    // documented on groundAllocationCells).
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 84 }],
+      groundCtx([resource(1, { utilizationMode: "percent", utilization: { "2026-08": 50 } })]),
     );
     expect(r.cells).toEqual([]);
     expect(r.skipped).toEqual([{ resourceId: 1, periodKey: "2026-08", reason: "below-resolution" }]);
@@ -518,7 +615,14 @@ describe("groundAllocationCells", () => {
     expect(cellKey({ resourceId: 3, periodKey: "2026-08" })).toBe("3:2026-08");
   });
 
-  it("stops accumulating once MAX_ALLOC_CELLS accepted cells are reached, and reports truncated", () => {
+  it("[defense in depth] stops accumulating once MAX_ALLOC_CELLS accepted cells are reached, and reports truncated", () => {
+    // This calls groundAllocationCells DIRECTLY with 220 raw cells — a state
+    // parseAllocationProposal's own MAX_ALLOC_CELLS cap never lets through in
+    // the real Anthropic-tool-response path (see the
+    // "parseAllocationProposal -> groundAllocationCells" describe above for
+    // the real production pipeline). This test exercises ONLY the
+    // defense-in-depth branch documented on groundAllocationCells, for a
+    // hypothetical caller that skips parseAllocationProposal.
     const resourceCount = Math.ceil((MAX_ALLOC_CELLS + 20) / 2);
     const resources = Array.from({ length: resourceCount }, (_, i) =>
       resource(i + 1, { utilizationMode: "hours" }),

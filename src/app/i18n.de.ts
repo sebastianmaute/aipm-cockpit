@@ -3517,6 +3517,7 @@ export const de: Record<TranslationKey, string> = {
   allocPlanError: "Planung konnte nicht erstellt werden.",
   allocPlanApplied: "{0} Planungsänderungen angewendet.",
   allocPlanClamped: "auf das Maximum gekürzt",
+  allocPlanHoursOfCapacity: "{0}h von {1}h",
   allocPlanTruncated: "Einige vorgeschlagene Änderungen wurden nicht angezeigt — der Plan war zu groß.",
   allocPlanSkippedStale: "{0} Änderung(en) wurden übersprungen, weil sich die Planung geändert hat.",
   allocPlanSkippedTitle: "Nicht geplant",
@@ -3526,5 +3527,6 @@ export const de: Record<TranslationKey, string> = {
   allocPlanSkipBadHours: "ungültige Stunden",
   allocPlanSkipDuplicate: "doppelte Zelle",
   allocPlanSkipBelowResolution: "zu klein für diese Auflösung",
+  allocPlanSkipAlreadySet: "bereits auf diesem Wert",
   activityAiAllocationPlan: "KI hat {0} Planungszellen geplant",
 };

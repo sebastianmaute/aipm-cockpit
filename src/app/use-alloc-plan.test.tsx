@@ -6,9 +6,16 @@ import { ToastProvider } from "./toast-context";
 import { defaultSettings, type Settings } from "./settings-types";
 import { type Resource, type ResourcePlan } from "./types";
 import * as call from "./alloc-plan-call";
-import { type RawAllocCell } from "./alloc-plan/alloc-plan";
+import { type ParsedAllocationProposal } from "./alloc-plan/alloc-plan";
+import { t } from "./i18n";
 
 vi.mock("./alloc-plan-call");
+
+/** Test-only shorthand — most propose-mock responses are a fully fresh cell
+ *  set (nothing dropped at parse). */
+function proposal(cells: ParsedAllocationProposal["cells"], truncated = false): ParsedAllocationProposal {
+  return { cells, truncated };
+}
 
 const AI_ON: Settings = {
   ...defaultSettings,
@@ -125,7 +132,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
   });
 
   it("a proposal that resolves AFTER cancel does not apply anything and leaves the hook idle", async () => {
-    let resolveProposal!: (v: RawAllocCell[]) => void;
+    let resolveProposal!: (v: ParsedAllocationProposal) => void;
     vi.mocked(call.runAllocProposal).mockImplementation(
       () => new Promise((resolve) => { resolveProposal = resolve; }),
     );
@@ -146,7 +153,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
 
     // The stale call now resolves — it must be discarded (superseded request id).
     await act(async () => {
-      resolveProposal([{ resourceId: 1, periodKey: "2026-08", hours: 40 }]);
+      resolveProposal(proposal([{ resourceId: 1, periodKey: "2026-08", hours: 40 }]));
     });
 
     expect(onResources).not.toHaveBeenCalled();
@@ -184,9 +191,9 @@ describe("useAllocPlan (plan-then-apply)", () => {
   it("skipped-only result opens the preview silently (no 'nothing proposed' toast)", async () => {
     // resourceId 999 names no live resource — groundAllocationCells refuses it
     // as "unknown-resource", so cells.length is 0 but skipped.length is 1.
-    vi.mocked(call.runAllocProposal).mockResolvedValue([
-      { resourceId: 999, periodKey: "2026-08", hours: 40 },
-    ]);
+    vi.mocked(call.runAllocProposal).mockResolvedValue(
+      proposal([{ resourceId: 999, periodKey: "2026-08", hours: 40 }]),
+    );
     renderHarness();
     openAndType();
     fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
@@ -200,7 +207,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
   });
 
   it("truly empty result (no cells, no skips) stays on the instruction step and toasts", async () => {
-    vi.mocked(call.runAllocProposal).mockResolvedValue([]);
+    vi.mocked(call.runAllocProposal).mockResolvedValue(proposal([]));
     renderHarness();
     openAndType();
     fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
@@ -213,11 +220,42 @@ describe("useAllocPlan (plan-then-apply)", () => {
     expect(screen.queryByRole("button", { name: /apply selected/i })).toBeNull();
   });
 
+  it("shows the truncated notice from the PARSE-level flag alone (grounding itself is not truncated)", async () => {
+    // The real production path: parseAllocationProposal is where a too-large
+    // proposal actually gets cut, so the mock returns truncated: true even
+    // though only ONE cell is present here — grounding this single cell can
+    // never hit its own cap. If the hook read only groundAllocationCells's
+    // truncated flag (dropping raw.truncated), this notice would never show.
+    vi.mocked(call.runAllocProposal).mockResolvedValue(
+      proposal([{ resourceId: 1, periodKey: "2026-08", hours: 40 }], true),
+    );
+    renderHarness();
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+
+    await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(1));
+    expect(screen.getByText(t("en-US", "allocPlanTruncated"))).toBeTruthy();
+  });
+
+  it("does not show the truncated notice when neither parse nor grounding truncated anything", async () => {
+    vi.mocked(call.runAllocProposal).mockResolvedValue(
+      proposal([{ resourceId: 1, periodKey: "2026-08", hours: 40 }]),
+    );
+    renderHarness();
+    openAndType();
+    fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
+
+    await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(1));
+    expect(screen.queryByText(t("en-US", "allocPlanTruncated"))).toBeNull();
+  });
+
   it("confirm applies ONLY the selected cells", async () => {
-    vi.mocked(call.runAllocProposal).mockResolvedValue([
-      { resourceId: 1, periodKey: "2026-08", hours: 40 },
-      { resourceId: 2, periodKey: "2026-08", hours: 20 },
-    ]);
+    vi.mocked(call.runAllocProposal).mockResolvedValue(
+      proposal([
+        { resourceId: 1, periodKey: "2026-08", hours: 40 },
+        { resourceId: 2, periodKey: "2026-08", hours: 20 },
+      ]),
+    );
     renderHarness();
     openAndType();
     fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));
@@ -237,9 +275,9 @@ describe("useAllocPlan (plan-then-apply)", () => {
   });
 
   it("confirm records exactly ONE undo capture, with edited carrying the pre-edit image", async () => {
-    vi.mocked(call.runAllocProposal).mockResolvedValue([
-      { resourceId: 1, periodKey: "2026-08", hours: 40 },
-    ]);
+    vi.mocked(call.runAllocProposal).mockResolvedValue(
+      proposal([{ resourceId: 1, periodKey: "2026-08", hours: 40 }]),
+    );
     const captureSpy = vi.fn();
     const logActivitySpy = vi.fn();
     renderHarness({ captureSpy, logActivitySpy });
@@ -262,10 +300,12 @@ describe("useAllocPlan (plan-then-apply)", () => {
   });
 
   it("confirm skips a cell whose live value moved since propose, applies the rest, and reports the reduced count", async () => {
-    vi.mocked(call.runAllocProposal).mockResolvedValue([
-      { resourceId: 1, periodKey: "2026-08", hours: 40 },
-      { resourceId: 2, periodKey: "2026-08", hours: 20 },
-    ]);
+    vi.mocked(call.runAllocProposal).mockResolvedValue(
+      proposal([
+        { resourceId: 1, periodKey: "2026-08", hours: 40 },
+        { resourceId: 2, periodKey: "2026-08", hours: 20 },
+      ]),
+    );
     const captureSpy = vi.fn();
     const logActivitySpy = vi.fn();
     // Alice's utilization moves (another edit / background sync) while the
@@ -295,16 +335,20 @@ describe("useAllocPlan (plan-then-apply)", () => {
         { id: 2, u: { "2026-08": 20 } },
       ]);
     });
-    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
+    // Assert the STALE toast specifically (not just "contains 1") — the
+    // applied-count toast below ALSO contains "1", so a loose stringContaining
+    // assertion here would pass even if the stale toast were never sent.
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "allocPlanSkippedStale", 1));
+    expect(showToast).toHaveBeenCalledWith("info", t("en-US", "allocPlanApplied", 1));
     // The applied count (1) — not the original selection count (2) — is what
     // gets logged, since the two diverge exactly in this window.
     expect(logActivitySpy).toHaveBeenCalledWith("ai.allocationPlan", 1);
   });
 
   it("confirm applies nothing and stays quiet on capture/logActivity when every chosen cell went stale", async () => {
-    vi.mocked(call.runAllocProposal).mockResolvedValue([
-      { resourceId: 1, periodKey: "2026-08", hours: 40 },
-    ]);
+    vi.mocked(call.runAllocProposal).mockResolvedValue(
+      proposal([{ resourceId: 1, periodKey: "2026-08", hours: 40 }]),
+    );
     const captureSpy = vi.fn();
     const logActivitySpy = vi.fn();
     const externalEdit = (prev: readonly Resource[]) =>
@@ -333,9 +377,9 @@ describe("useAllocPlan (plan-then-apply)", () => {
   });
 
   it("toggling twice returns to the original selection (each toggle produced a NEW Set)", async () => {
-    vi.mocked(call.runAllocProposal).mockResolvedValue([
-      { resourceId: 1, periodKey: "2026-08", hours: 40 },
-    ]);
+    vi.mocked(call.runAllocProposal).mockResolvedValue(
+      proposal([{ resourceId: 1, periodKey: "2026-08", hours: 40 }]),
+    );
     renderHarness();
     openAndType();
     fireEvent.click(screen.getByRole("button", { name: /^propose$/i }));

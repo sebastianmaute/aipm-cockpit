@@ -190,17 +190,35 @@ function toFiniteNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Result of parsing the model's raw tool input: the shape-validated cells
+ *  (ids/keys are grounded later, by `groundAllocationCells`) plus whether the
+ *  raw `cells` array itself had to be cut short at `MAX_ALLOC_CELLS`. THIS is
+ *  where a too-large proposal actually gets cut — `groundAllocationCells`'s
+ *  own cap is defense in depth for a caller that skips this parse step, and
+ *  in the real Anthropic-tool-response path never fires, so a caller MUST
+ *  read `truncated` from here (and OR it with the ground-level flag) to
+ *  learn that anything was dropped. */
+export interface ParsedAllocationProposal {
+  cells: RawAllocCell[];
+  truncated: boolean;
+}
+
 /** Parse the untrusted model tool input into raw cells (shape only — ids/keys
  *  are grounded later). Returns null only when the overall shape is unusable
  *  (no `cells` array); individual malformed cells are dropped, not fatal.
- *  Stops at MAX_ALLOC_CELLS. */
-export function parseAllocationProposal(input: unknown): RawAllocCell[] | null {
+ *  Stops at MAX_ALLOC_CELLS, and reports that stop via `truncated` — see
+ *  `ParsedAllocationProposal`. */
+export function parseAllocationProposal(input: unknown): ParsedAllocationProposal | null {
   if (!input || typeof input !== "object") return null;
-  const cells = (input as { cells?: unknown }).cells;
-  if (!Array.isArray(cells)) return null;
+  const cellsRaw = (input as { cells?: unknown }).cells;
+  if (!Array.isArray(cellsRaw)) return null;
   const out: RawAllocCell[] = [];
-  for (const raw of cells) {
-    if (out.length >= MAX_ALLOC_CELLS) break;
+  let truncated = false;
+  for (const raw of cellsRaw) {
+    if (out.length >= MAX_ALLOC_CELLS) {
+      truncated = true;
+      break;
+    }
     if (!raw || typeof raw !== "object") continue;
     const c = raw as { resourceId?: unknown; periodKey?: unknown; hours?: unknown };
     const resourceId = toInt(c.resourceId);
@@ -211,7 +229,7 @@ export function parseAllocationProposal(input: unknown): RawAllocCell[] | null {
     if (hours === null) continue;
     out.push({ resourceId, periodKey, hours });
   }
-  return out;
+  return { cells: out, truncated };
 }
 
 /** Why a proposed cell was refused instead of turned into a change. */
@@ -221,7 +239,8 @@ export type SkipReason =
   | "no-capacity"
   | "bad-hours"
   | "duplicate"
-  | "below-resolution";
+  | "below-resolution"
+  | "already-set";
 
 export interface SkippedCell {
   resourceId: number;
@@ -340,22 +359,34 @@ function resolveNextValue(
  * Finally, a cell whose (clamped) next value equals the CURRENT stored value
  * is either dropped SILENTLY — only when the request itself was a genuine
  * zero against an already-zero value, i.e. nothing was actually asked for —
- * or recorded as a `below-resolution` skip: any OTHER non-zero request that
- * still produced no discernible change (the canonical case is a percent-mode
- * `hours` figure too small to move the rounded percentage off an
- * already-zero — or otherwise matching — stored value). Without that skip a
- * request the model was explicitly given vanishes from both `cells` and
- * `skipped` with no trace anywhere the user can see. An explicit `0` against
- * a non-zero current value is unaffected by either branch — nextValue (0)
- * does not equal currentValue there, so it is still a real change (how a
- * user clears a cell) and is always kept.
+ * or recorded as a skip whose REASON depends on the resource's mode, because
+ * the two ways this can happen are not the same fact:
+ *   - `below-resolution`: PERCENT-MODE ONLY. The model's `hours` figure went
+ *     through a hours-to-percent conversion (division + rounding) before it
+ *     could be compared to the stored percent, so the model literally cannot
+ *     see the value at the precision that conversion collapsed — the
+ *     canonical case is a few tenths of an hour that rounds to 0% against an
+ *     already-zero stored value.
+ *   - `already-set`: HOURS-MODE. There is no conversion at all here (the
+ *     stored value IS hours), so an identical nextValue/currentValue means
+ *     the model asked for EXACTLY the value already stored — a routine,
+ *     unambiguous restatement ("make sure Ada has 40h in August" when she
+ *     already does), not a precision problem, and must not be reported as one.
+ * Without one of these two skips a request the model was explicitly given
+ * vanishes from both `cells` and `skipped` with no trace anywhere the user
+ * can see. An explicit `0` against a non-zero current value is unaffected by
+ * either branch — nextValue (0) does not equal currentValue there, so it is
+ * still a real change (how a user clears a cell) and is always kept.
  *
- * Stops accumulating once `cells.length` reaches MAX_ALLOC_CELLS (defense in
- * depth — parseAllocationProposal already caps the raw input to that count).
- * The returned `truncated` is set precisely when that cap is hit WITH raw
+ * Stops accumulating once `cells.length` reaches MAX_ALLOC_CELLS. This is
+ * DEFENSE IN DEPTH ONLY: `parseAllocationProposal` already caps the raw
+ * input to the same count before this function ever sees it, so on the real
+ * Anthropic-tool-response path this branch cannot fire — a caller MUST read
+ * `truncated` from `parseAllocationProposal`'s own result too (and OR the two
+ * together) to learn that a too-large proposal was cut. The `truncated`
+ * returned here is set precisely when THIS function's own cap is hit WITH
  * input still unconsumed — never when `raw` was simply exhausted at or under
- * the cap — so a caller can tell "some proposed changes were not shown"
- * apart from "everything was shown".
+ * the cap.
  */
 export function groundAllocationCells(
   raw: readonly RawAllocCell[],
@@ -415,11 +446,17 @@ export function groundAllocationCells(
     if (nextValue === currentValue) {
       // A genuinely zero request against an already-zero value is a real
       // no-op (nothing was asked for) — drop it silently. Anything else that
-      // collapsed to no change (most commonly a percent-mode hours figure
-      // too small to move the rounded percentage) must not vanish without a
-      // trace: the model was asked to do something and nothing happened.
+      // collapsed to no change must not vanish without a trace: the model
+      // was asked to do something and nothing happened. WHICH reason depends
+      // on the mode (see the doc comment above) — percent-mode collapses are
+      // a rounding/precision artifact the model can't see; hours-mode
+      // collapses are an exact, unambiguous restatement of the current value.
       if (c.hours !== 0) {
-        skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "below-resolution" });
+        skipped.push({
+          resourceId: c.resourceId,
+          periodKey: c.periodKey,
+          reason: mode === "percent" ? "below-resolution" : "already-set",
+        });
       }
       continue;
     }

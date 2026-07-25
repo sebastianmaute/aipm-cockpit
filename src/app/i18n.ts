@@ -3536,6 +3536,7 @@ const enUS = {
   allocPlanError: "Could not plan allocations.",
   allocPlanApplied: "Applied {0} allocation changes.",
   allocPlanClamped: "trimmed to the maximum",
+  allocPlanHoursOfCapacity: "{0}h of {1}h",
   allocPlanTruncated: "Some proposed changes were not shown — the plan was too large.",
   allocPlanSkippedStale: "{0} change(s) were skipped because the plan changed.",
   allocPlanSkippedTitle: "Not planned",
@@ -3545,6 +3546,7 @@ const enUS = {
   allocPlanSkipBadHours: "invalid hours",
   allocPlanSkipDuplicate: "duplicate cell",
   allocPlanSkipBelowResolution: "too small to record at this resolution",
+  allocPlanSkipAlreadySet: "already at that value",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
 } as const;
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runAllocProposal } from "./alloc-plan-call";
+import { MAX_ALLOC_CELLS } from "./alloc-plan/alloc-plan";
 
 const ok = (body: unknown) => ({ ok: true, json: async () => body }) as unknown as Response;
 
@@ -7,7 +8,7 @@ describe("runAllocProposal", () => {
   beforeEach(() => vi.restoreAllMocks());
   afterEach(() => vi.restoreAllMocks());
 
-  it("returns the raw parsed cells from a forced tool_use response", async () => {
+  it("returns the parsed cells (plus truncated: false) from a forced tool_use response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       ok({
         content: [
@@ -20,7 +21,24 @@ describe("runAllocProposal", () => {
       }),
     );
     const result = await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "spread the work");
-    expect(result).toEqual([{ resourceId: 1, periodKey: "2026-08", hours: 40 }]);
+    expect(result).toEqual({
+      cells: [{ resourceId: 1, periodKey: "2026-08", hours: 40 }],
+      truncated: false,
+    });
+  });
+
+  it("propagates parseAllocationProposal's truncated: true when the tool response over-fills cells", async () => {
+    const cells = Array.from({ length: MAX_ALLOC_CELLS + 10 }, (_, i) => ({
+      resourceId: 1,
+      periodKey: `2026-${String((i % 12) + 1).padStart(2, "0")}`,
+      hours: 1,
+    }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { cells } }] }),
+    );
+    const result = await runAllocProposal("ctx", { apiKey: "k", model: "m" }, "spread the work");
+    expect(result.truncated).toBe(true);
+    expect(result.cells).toHaveLength(MAX_ALLOC_CELLS);
   });
 
   it("sends the forced tool_choice and the propose tool", async () => {

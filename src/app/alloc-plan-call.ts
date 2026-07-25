@@ -2,8 +2,9 @@
 //
 // Non-hook single forced-tool Anthropic call for AI allocation planning.
 // Mirrors task-dedup-call.ts: ONE request, tool_choice forced, NO agentic loop.
-// Returns the RAW parsed cells — grounding against the live workspace happens
-// in the caller (groundAllocationCells), never here.
+// Returns the RAW parsed cells (plus whether parsing itself had to truncate
+// an over-large proposal) — grounding against the live workspace happens in
+// the caller (groundAllocationCells), never here.
 //
 // SECURITY: the shared runForcedToolCall envelope never logs or echoes the api
 // key or the raw response body. Thrown errors carry only the HTTP status
@@ -12,7 +13,7 @@ import {
   PROPOSE_ALLOCATIONS_TOOL,
   buildAllocSystemPrompt,
   parseAllocationProposal,
-  type RawAllocCell,
+  type ParsedAllocationProposal,
 } from "./alloc-plan/alloc-plan";
 import { runForcedToolCall } from "./ai-forced-call";
 
@@ -21,16 +22,19 @@ interface AiCreds {
   model: string;
 }
 
-/** Run one forced propose_allocations tool call and return the raw parsed
- *  cells. Throws AiHttpError(status, errorType?, safeMessage?) on a non-OK
- *  response and Error("parse") on absent/malformed tool output. The api key is
- *  NEVER included in the thrown error — only the status + safe body tokens. */
+/** Run one forced propose_allocations tool call and return the parsed result
+ *  (`{cells, truncated}` — see `parseAllocationProposal`'s doc comment for
+ *  why `truncated` must be read from HERE, not only from the later
+ *  grounding step). Throws AiHttpError(status, errorType?, safeMessage?) on a
+ *  non-OK response and Error("parse") on absent/malformed tool output. The
+ *  api key is NEVER included in the thrown error — only the status + safe
+ *  body tokens. */
 export async function runAllocProposal(
   context: string,
   ai: AiCreds,
   instruction: string,
   signal?: AbortSignal,
-): Promise<RawAllocCell[]> {
+): Promise<ParsedAllocationProposal> {
   // The context digest is `#`/newline-formatted data; the instruction is free
   // user text. A labeled separator keeps the two visually distinct for
   // readability — it is NOT the security boundary. That boundary is

@@ -62,6 +62,7 @@ const SKIP_REASON_KEY: Record<SkipReason, TranslationKey> = {
   "bad-hours": "allocPlanSkipBadHours",
   duplicate: "allocPlanSkipDuplicate",
   "below-resolution": "allocPlanSkipBelowResolution",
+  "already-set": "allocPlanSkipAlreadySet",
 };
 
 export function AllocPlanModal({
@@ -153,7 +154,7 @@ export function AllocPlanModal({
                             {c.mode === "percent" && (
                               <span className="text-muted-foreground">
                                 {" "}
-                                ({Math.round(c.hours)}h of {Math.round(c.capacityHours)}h)
+                                ({t(lang, "allocPlanHoursOfCapacity", Math.round(c.hours), Math.round(c.capacityHours))})
                               </span>
                             )}
                             {c.clamped && (
