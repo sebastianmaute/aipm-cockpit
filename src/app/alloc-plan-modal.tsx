@@ -47,8 +47,9 @@ export interface AllocPlanModalProps {
   busy: boolean;
   /** False only while an apply is in flight — Cancel stays reachable while
    *  merely proposing (a billed call the user may want to call off).
-   *  Defaults to true so the component stays usable without it. */
-  canCancel?: boolean;
+   *  Required (no permissive default) so a caller can't forget it and
+   *  silently get dismissal-during-apply back with no compiler signal. */
+  canCancel: boolean;
 }
 
 // Exhaustive so a future SkipReason is a compile error here, not a blank row.
@@ -74,16 +75,22 @@ export function AllocPlanModal({
   onConfirm,
   onCancel,
   busy,
-  canCancel = true,
+  canCancel,
 }: AllocPlanModalProps) {
   const title = t(lang, "allocPlanTitle");
   const isPreview = stage === "preview";
   const selectedCount = cells.reduce((n, c) => (selected.has(cellKey(c)) ? n + 1 : n), 0);
   const canPropose = instruction.trim().length > 0 && !busy;
   const canConfirm = !busy && selectedCount > 0;
+  // Modal's Escape/backdrop-click call onClose unconditionally — they know
+  // nothing about canCancel — so during an apply (the one moment every other
+  // control is disabled) they would be the ONLY remaining way to dismiss.
+  // Neutering onClose itself, not just the visible button, is what actually
+  // gates it.
+  const handleClose = canCancel ? onCancel : () => {};
 
   return (
-    <Modal open={open} onClose={onCancel} ariaLabel={title}>
+    <Modal open={open} onClose={handleClose} ariaLabel={title}>
       <div
         data-modal-panel
         className="relative flex max-h-[90vh] w-[620px] max-w-[95vw] flex-col rounded-xl border border-line bg-surface"
@@ -102,7 +109,6 @@ export function AllocPlanModal({
               value={instruction}
               onChange={(e) => onInstruction(e.target.value)}
               placeholder={t(lang, "allocPlanInstructionPlaceholder")}
-              aria-label={t(lang, "allocPlanInstructionLabel")}
               disabled={busy}
               rows={3}
               className="w-full"
@@ -126,7 +132,7 @@ export function AllocPlanModal({
                           checked={on}
                           disabled={busy}
                           onChange={() => onToggle(key)}
-                          aria-label={`${t(lang, "allocPlanInclude")} – ${c.resourceName} – ${c.periodKey}`}
+                          aria-label={`${t(lang, "allocPlanInclude")} – ${c.resourceName} (#${c.resourceId}) – ${c.periodKey}`}
                           className="mt-0.5 h-4 w-4 shrink-0 rounded border-line text-ui-dark-blue focus:ring-ui-green"
                         />
                         <span className="min-w-0 flex-1">
