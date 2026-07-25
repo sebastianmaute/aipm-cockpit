@@ -35,7 +35,7 @@ const baseArgs = () => ({
   enabled: true,
   isPopout: false,
   lang: "en-US" as const,
-  requestOpen: vi.fn(),
+  onOpenAction: vi.fn(),
   openActionCenter: vi.fn(),
 });
 
@@ -102,7 +102,7 @@ describe("useActionNotifications firing", () => {
     expect(ctor).toHaveBeenCalledTimes(1);
     expect(notifInstances[0].tag).toBe("a");
     notifInstances[0].onclick?.();
-    expect(args.requestOpen).toHaveBeenCalledWith("milestones", 1);
+    expect(args.onOpenAction).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }));
   });
   it("fires one summary notification for a burst and opens the action center on click", () => {
     installNotification("granted");

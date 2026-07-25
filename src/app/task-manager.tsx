@@ -104,6 +104,7 @@ import { buildRecommendContext } from "./insights/recommend-context";
 import { describeRecommendationPlan } from "./insights/recommend-plan";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
 import { buildGroundingIndex } from "./action-ai";
+import { executeActionCta } from "./action-cta-exec";
 import { runTool } from "./chat-tools";
 import { getTursoConfig } from "./turso-config";
 import { aiKeyIfEnabled, isAiEnabled, DEFAULT_INSIGHT_REC_INTERVAL_MIN, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
@@ -243,7 +244,7 @@ function TaskManagerInner() {
     if (target !== activeTab) setActiveTab(target);
   }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
-  const { setRaidFilterTaskId } = useFilters();
+  const { setRaidFilterTaskId, resetFilters, setAssigneeFilter, setHealthFilter } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
   // docs/superpowers/specs/2026-05-18-workspace-context-slice2-design.md).
@@ -950,9 +951,9 @@ function TaskManagerInner() {
   const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
   const openAction = useCallback(
     (a: SuggestedAction) => {
-      if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
+      executeActionCta(a.cta, { requestOpen, resetFilters, setAssigneeFilter, setHealthFilter, setActiveTab });
     },
-    [requestOpen],
+    [requestOpen, resetFilters, setAssigneeFilter, setHealthFilter, setActiveTab],
   );
   const openActionCenter = useCallback(() => {
     if (typeof window !== "undefined") window.focus();
@@ -986,7 +987,7 @@ function TaskManagerInner() {
     enabled: effectiveNotifications.desktopUrgent.enabled,
     isPopout,
     lang,
-    requestOpen,
+    onOpenAction: openAction,
     openActionCenter,
   });
 
