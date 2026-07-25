@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { sanitizeDependencies } from "./sanitize";
 import { resolveDependencyWrite } from "./task-dependency-write";
 import { type Task } from "./types";
 
@@ -62,7 +63,7 @@ describe("resolveDependencyWrite", () => {
     expect(r.rejected[0]?.reason).toBe("cycle");
   });
 
-  it("refuses a set that is acyclic link-by-link but cyclic together", () => {
+  it("applies the valid links and refuses only the cyclic one", () => {
     const tasks = [task(1), task(2, { dependencies: [{ taskId: 1, type: "FS" }] }), task(3)];
     const r = resolveDependencyWrite(1, [{ taskId: 3, type: "FS" }, { taskId: 2, type: "FS" }], tasks);
     expect(r.applied).toEqual([{ taskId: 3, type: "FS" }]);
@@ -96,5 +97,37 @@ describe("resolveDependencyWrite", () => {
     expect(r.applied).toHaveLength(20);
     expect(r.rejected).toHaveLength(5);
     expect(r.rejected.every((x) => x.reason === "cap")).toBe(true);
+  });
+
+  it("keeps the applied set aligned with sanitizeDependencies directly (drift alarm)", () => {
+    // resolveDependencyWrite reimplements sanitizeDependencies' precedence in
+    // pass 1 to attach a reason to every rejection (the sanitizer itself
+    // returns no reason info). If the sanitizer ever adds or reorders a rule,
+    // an item could clear pass 1, get dropped in pass 2, and be mislabelled
+    // "cap" when the real reason was something else. Pinning `applied` to a
+    // direct `sanitizeDependencies` call on the same input catches that drift.
+    const tasks = [task(1), task(2), task(3)];
+    const knownTaskIds = new Set(tasks.map((t) => t.id));
+    const raw = [
+      { taskId: 2, type: "FS" },
+      { taskId: 1, type: "FS" }, // self
+      { taskId: 99, type: "FS" }, // unknown id
+      { taskId: 3, type: "SS" },
+      { taskId: 3, type: "SS" }, // duplicate
+      { taskId: 2, type: "NOPE" }, // bad type
+    ];
+    const r = resolveDependencyWrite(1, raw, tasks);
+    expect(r.applied).toEqual(sanitizeDependencies(raw, knownTaskIds, 1));
+  });
+
+  it("silently drops entries with no classifiable shape", () => {
+    // A non-object entry, or an object whose taskId isn't a finite number,
+    // can't be reported as a DepRejection (its `taskId` field requires a real
+    // number) — this is deliberate, not an oversight, and both land in
+    // neither applied nor rejected.
+    const tasks = [task(1), task(2)];
+    const r = resolveDependencyWrite(2, ["not-an-object", { taskId: Number.NaN, type: "FS" }], tasks);
+    expect(r.applied).toEqual([]);
+    expect(r.rejected).toEqual([]);
   });
 });

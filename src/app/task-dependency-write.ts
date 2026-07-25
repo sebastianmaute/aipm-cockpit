@@ -49,10 +49,15 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
  *  2. Hand those candidates to the real `sanitizeDependencies` — it stays the
  *     single source of truth for the 20-link cap; whatever it drops that
  *     survived pass 1 was dropped purely for the cap.
- * Cycle-checking then walks the sanitized survivors IN ORDER against a
- * working map that grows with each accepted link (the own task's
- * `dependencies` array in that map IS the `applied` array being built), so a
- * set of links that is acyclic one-at-a-time but cyclic together is caught.
+ * Cycle-checking then walks the sanitized survivors against the plain task
+ * graph via `wouldCreateDependencyCycle`. `sanitizeDependencies` deliberately
+ * does not cycle-check (that's documented as the form layer's job at insert
+ * time), so without this pass an AI write would be the one path in the app
+ * able to create one. (A map that "grows" with each accepted link was tried
+ * and dropped: the walk returns as soon as it reaches `ownTaskId`, before it
+ * ever reads that node's own `.dependencies`, and every link in one call is a
+ * predecessor of that same single `ownId` — no other task's list changes —
+ * so whether an earlier link was accepted can never affect a later walk.)
  *
  * Mutates nothing passed in.
  */
@@ -116,14 +121,9 @@ export function resolveDependencyWrite(
     }
   }
 
-  // Pass 3: cycle-check the sanitized survivors in order, against a working
-  // map whose entry for `ownId` carries the `applied` array itself — so each
-  // walk sees every link accepted so far, not just the original graph.
+  // Pass 3: cycle-check the sanitized survivors against the plain task graph.
   const applied: TaskDependency[] = [];
-  const ownTask = tasks.find((t) => t.id === ownId);
-  const workingOwnTask: Task = { ...(ownTask ?? ({ id: ownId } as Task)), dependencies: applied };
   const taskById = new Map<number, Task>(tasks.map((t) => [t.id, t]));
-  taskById.set(ownId, workingOwnTask);
 
   for (const dep of sanitized) {
     if (wouldCreateDependencyCycle(ownId, dep.taskId, taskById)) {
