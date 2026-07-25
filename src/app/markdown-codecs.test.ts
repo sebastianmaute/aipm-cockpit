@@ -48,12 +48,24 @@ describe("markdown status narrative round-trip", () => {
     expect(markdownToWorkspace(workspaceToMarkdown(ws)).status?.narrative).toBe(RICH);
   });
 
-  // The single-line regex is why normalizeNarrativeHtml collapses newlines: a
-  // value that reached storage WITH one truncates at the first break. Asserted
-  // so the coupling is visible if either side is ever "simplified".
-  it("truncates at an embedded newline - the reason the editor normalizes", () => {
-    const back = markdownToStatus(statusToMarkdown({ narrative: "<p>a</p>\n<p>b</p>" }));
-    expect(back.narrative).toBe("<p>a</p>");
+  // A newline used to cut everything after it away, silently. The editor path
+  // normalizes newlines out, but an imported / AI-written / backend-converted
+  // status never passes through that — so the codec honours its own single-line
+  // format for any value it is handed.
+  it.each([
+    ["\n", "<p>a</p>\n<p>b</p>"],
+    ["\r\n", "<p>a</p>\r\n<p>b</p>"],
+    ["bare \\r", "<p>a</p>\r<p>b</p>"],
+  ])("collapses an embedded %s instead of truncating", (_label, narrative) => {
+    const back = markdownToStatus(statusToMarkdown({ narrative }));
+    expect(back.narrative).toBe("<p>a</p> <p>b</p>");
+  });
+
+  it("keeps every field when one of them carried a newline", () => {
+    const back = markdownToStatus(
+      statusToMarkdown({ ragOverride: "R", narrative: "<p>a</p>\n<p>b</p>", narrativeUpdatedAt: "2026-07-25" }),
+    );
+    expect(back).toEqual({ ragOverride: "R", narrative: "<p>a</p> <p>b</p>", narrativeUpdatedAt: "2026-07-25" });
   });
 });
 

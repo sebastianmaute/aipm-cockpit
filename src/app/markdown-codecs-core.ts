@@ -186,13 +186,21 @@ const REF_MD_COLUMNS: readonly { col: string; label: string }[] = [
 ];
 
 
-/** Serializes status as "## Project Status" + "- field: value" bullets. The
- *  narrative is a single list item; embedded newlines are not preserved. */
+/** Serializes status as "## Project Status" + "- field: value" bullets.
+ *
+ *  ★ Each field is ONE list item and `markdownToStatus` reads it back with a
+ *  single-line regex, so a newline in a value would silently cut everything
+ *  after it away. That is this codec's own structural constraint, so it is
+ *  honoured HERE for every value rather than trusted to each upstream writer:
+ *  the rich-text narrative is normalized on the editor's save path, but an
+ *  imported, AI-written or backend-converted status never passes through it.
+ *  Collapsing to a space is lossless for HTML (inter-tag whitespace) and for
+ *  the prose the other fields hold. */
 export function statusToMarkdown(status: ProjectStatus): string {
   const lines = ["## Project Status", ""];
   for (const f of STATUS_FIELDS) {
     const v = status[f];
-    if (v != null && v !== "") lines.push(`- ${f}: ${String(v)}`);
+    if (v != null && v !== "") lines.push(`- ${f}: ${String(v).replace(/\r\n|[\r\n]/g, " ")}`);
   }
   return lines.join("\n") + "\n";
 }
