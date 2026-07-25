@@ -19,7 +19,13 @@ import {
   type ResourcePlan,
   type Role,
 } from "../types";
-import { generatePeriods, periodCapacityHours, absencesForResource } from "../resource-capacity";
+import {
+  type Period,
+  absenceWorkdays,
+  absencesForResource,
+  generatePeriods,
+  workdaysInRange,
+} from "../resource-capacity";
 import { HOURS_MAP_MAX } from "../sanitize";
 
 /** A raw cell as parsed from the model tool input (shape-validated only —
@@ -69,6 +75,34 @@ function roleLabel(
   return `${discipline ?? "?"} / ${grade ?? "?"}`;
 }
 
+/** Hours a resource could actually work in a period: gross workdays minus
+ *  holidays and absences, with NO utilization applied.
+ *
+ *  Deliberately NOT `periodCapacityHours` (in "../resource-capacity") —
+ *  despite its name that function multiplies by the resource's OWN STORED
+ *  utilization (`percent: (util/100) × possible`, `hours: util − absence`),
+ *  so it answers "hours already allocated", not "hours available". Feeding it
+ *  to the planner told the model every unallocated resource had ZERO
+ *  capacity. Absence resolution mirrors `periodCapacityHours` EXACTLY
+ *  (`absenceOverride[key]` wins when set, else computed absence workdays) —
+ *  if that precedence ever diverges between the two functions, the planner
+ *  and the resource grid would disagree about the same person's capacity. */
+export function availableCapacityHours(
+  resource: Resource,
+  period: Period,
+  resourceAbsences: readonly Absence[],
+  workdayHours: number,
+  holidaySet: ReadonlySet<string>,
+): number {
+  const possibleHours = workdaysInRange(period.start, period.end, holidaySet) * workdayHours;
+  const override = resource.absenceOverride?.[period.key];
+  const absenceHours =
+    override != null
+      ? override
+      : absenceWorkdays(resourceAbsences, period.start, period.end, holidaySet) * workdayHours;
+  return Math.max(0, possibleHours - absenceHours);
+}
+
 /** Compact, token-bounded digest of resources + their per-period capacity and
  *  current load (both in HOURS regardless of the resource's stored unit). Sent
  *  as the (volatile) user message — never in the cached system block. */
@@ -88,7 +122,7 @@ export function buildAllocContext(args: AllocContextArgs): string {
     const role = roleLabel(r.roleId, roles, disciplines, grades);
     const external = r.isExternal ? " external" : "";
     const cells = periods.map((period) => {
-      const capacityRaw = periodCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
+      const capacityRaw = availableCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
       const stored = r.utilization[period.key] ?? 0;
       const current = r.utilizationMode === "percent" ? (stored / 100) * capacityRaw : stored;
       return `${period.key}=${Math.round(current)}/${Math.round(capacityRaw)}`;
@@ -249,7 +283,7 @@ export function cellKey(c: { resourceId: number; periodKey: string }): string {
  *                         speaks hours; a negative or NaN figure has no
  *                         meaningful conversion in either unit.
  *   5. no-capacity      — PERCENT-MODE ONLY: the period's available capacity
- *                         (absence- and holiday-aware, via periodCapacityHours)
+ *                         (absence- and holiday-aware, via availableCapacityHours)
  *                         is <= 0 — e.g. a full-period absence. A percentage is
  *                         a fraction OF that capacity, so with zero capacity
  *                         there is no fraction to compute; writing 0 or 100
@@ -314,15 +348,7 @@ export function groundAllocationCells(
     }
 
     const resourceAbsences = absencesForResource(ctx.absences, resource);
-    // Full available hours for this (resource, period) — a "what's the ceiling"
-    // probe via periodCapacityHours, deliberately NOT the resource's own stored
-    // utilization value. periodCapacityHours' percent-mode formula already
-    // multiplies by (stored-util / 100), so calling it against the resource
-    // as-is would fold the CURRENT percentage back into "capacity" (e.g. an
-    // empty/0% resource would report zero capacity) instead of reporting what
-    // 100% of the period actually holds.
-    const probe: Resource = { ...resource, utilizationMode: "percent", utilization: { [period.key]: 100 } };
-    const capacityHours = periodCapacityHours(probe, period, resourceAbsences, ctx.workdayHours, ctx.holidaySet);
+    const capacityHours = availableCapacityHours(resource, period, resourceAbsences, ctx.workdayHours, ctx.holidaySet);
 
     const mode = resource.utilizationMode;
     const currentValue = resource.utilization[period.key] ?? 0;

@@ -3,6 +3,7 @@ import {
   ALLOC_CONTEXT_MAX_RESOURCES,
   MAX_ALLOC_CELLS,
   PROPOSE_ALLOCATIONS_TOOL,
+  availableCapacityHours,
   buildAllocContext,
   buildAllocSystemPrompt,
   cellKey,
@@ -161,6 +162,69 @@ describe("buildAllocContext", () => {
     });
 
     expect(text).toContain("2026-08=20/");
+  });
+
+  // Regression: capacity must come from availableCapacityHours (workdays minus
+  // absences, no utilization applied) — NOT periodCapacityHours, which
+  // multiplies by the resource's OWN stored utilization and would report an
+  // unallocated resource as having zero capacity.
+  it("reports the real 168h August capacity for a percent-mode resource with no stored utilization yet", () => {
+    const r = resource(30, { utilizationMode: "percent" }); // utilization: {}
+
+    const text = buildAllocContext({
+      resources: [r], roles: [], disciplines: [], grades: [], plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain("2026-08=0/168");
+  });
+
+  it("derives current hours as stored% of the REAL capacity for a percent-mode resource", () => {
+    const r = resource(31, { utilizationMode: "percent", utilization: { "2026-08": 50 } });
+
+    const text = buildAllocContext({
+      resources: [r], roles: [], disciplines: [], grades: [], plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain("2026-08=84/168");
+  });
+
+  it("reports the same 168h capacity for an hours-mode resource regardless of its stored value", () => {
+    const r = resource(32, { utilizationMode: "hours", utilization: { "2026-08": 40 } });
+
+    const text = buildAllocContext({
+      resources: [r], roles: [], disciplines: [], grades: [], plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain("2026-08=40/168");
+  });
+});
+
+describe("availableCapacityHours", () => {
+  const period = { key: "2026-08", start: "2026-08-01", end: "2026-08-31" };
+
+  it("returns the gross workday capacity when there is no absence", () => {
+    const r = resource(1);
+    expect(availableCapacityHours(r, period, [], 8, new Set<string>())).toBe(168);
+  });
+
+  it("returns 0 when a full-period absence consumes every workday", () => {
+    const r = resource(1);
+    const absences: Absence[] = [
+      { id: 1, assignee: "Last1", startDate: "2026-08-01", endDate: "2026-08-31", type: "vacation", resourceId: 1 },
+    ];
+    expect(availableCapacityHours(r, period, absences, 8, new Set<string>())).toBe(0);
+  });
+
+  it("prefers an explicit absenceOverride over the computed absence-day figure", () => {
+    const r = resource(1, { absenceOverride: { "2026-08": 20 } });
+    const absences: Absence[] = [
+      { id: 1, assignee: "Last1", startDate: "2026-08-01", endDate: "2026-08-31", type: "vacation", resourceId: 1 },
+    ];
+    // Without the override this would be 168 - 168 = 0; the override (20) wins.
+    expect(availableCapacityHours(r, period, absences, 8, new Set<string>())).toBe(148);
   });
 });
 
