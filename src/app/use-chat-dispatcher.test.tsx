@@ -804,6 +804,45 @@ describe("useChatDispatcher – read-only guard for entity write methods", () =>
   });
 });
 
+describe("useChatDispatcher – setTaskDependencies", () => {
+  it("writes a valid link: the task's dependencies becomes the applied list", () => {
+    const { result } = renderDispatcher();
+    const res = result.current.setTaskDependencies(1, [{ taskId: 2, type: "FS" }]);
+    expect(res).toMatchObject({
+      id: 1,
+      dependencies: [{ taskId: 2, type: "FS" }],
+      rejected: [],
+    });
+    expect(result.current.getTask(1)?.dependencies).toEqual([{ taskId: 2, type: "FS" }]);
+  });
+
+  it("does not write a link that would create a cycle, and reports it rejected", () => {
+    // Seed task 1 already depending on task 2 (1 -> 2). Proposing 2 -> 1 would
+    // close the loop, so it must be refused and task 2 must keep whatever
+    // links it had before the call (none, here).
+    const seeded = seedTasks().map((t) =>
+      t.id === 1 ? { ...t, dependencies: [{ taskId: 2, type: "FS" as const }] } : t,
+    );
+    const { result } = renderDispatcher(seeded);
+
+    const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+    expect(res).toMatchObject({
+      id: 2,
+      dependencies: [],
+      rejected: [{ taskId: 1, type: "FS", reason: "cycle" }],
+    });
+    expect(result.current.getTask(2)?.dependencies ?? []).toEqual([]);
+  });
+
+  it("throws in a popout (read-only) and writes nothing", () => {
+    const { result } = renderDispatcher(seedTasks(), true);
+    expect(() =>
+      result.current.setTaskDependencies(1, [{ taskId: 2, type: "FS" }]),
+    ).toThrow();
+    expect(result.current.getTask(1)?.dependencies ?? []).toEqual([]);
+  });
+});
+
 describe("useChatDispatcher – resource directory", () => {
   it("createResource adds a person and listResources returns them", () => {
     const { result } = renderDispatcher();

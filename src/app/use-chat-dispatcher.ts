@@ -27,6 +27,7 @@ import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
 import { effectivePersonEmail } from "./resource-foundation";
+import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
 import {
@@ -363,6 +364,21 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         tasksRef.current = next;
         setTasks(next);
         return merged;
+      },
+      setTaskDependencies: (id, raw) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const list = tasksRef.current;
+        const target = list.find((row) => row.id === id);
+        if (!target) return null;
+        const { applied, rejected } = resolveDependencyWrite(id, raw, list);
+        const next = list.map((row) =>
+          row.id === id
+            ? { ...row, dependencies: applied, localModifiedAt: new Date().toISOString() }
+            : row,
+        );
+        tasksRef.current = next; // keep ref in sync for back-to-back tool calls
+        setTasks(next);
+        return { id, dependencies: applied, rejected };
       },
       deleteTask: (id) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));

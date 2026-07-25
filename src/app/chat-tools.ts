@@ -8,8 +8,10 @@ import {
   type Milestone,
   type Stakeholder,
   type Resource,
+  type TaskDependency,
 } from "./types";
 import type { Lang } from "./i18n";
+import { type DepRejection } from "./task-dependency-write";
 
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
@@ -187,6 +189,13 @@ export type ToolDispatcher = {
   getTask(id: number): Task | null;
   createTask(input: TaskInput): Task;
   updateTask(id: number, patch: Partial<Task>): Task | null;
+  /** Replace task `id`'s predecessor-link list wholesale. `raw` is untrusted
+   *  model output; `resolveDependencyWrite` sanitizes + cycle-checks it.
+   *  Returns null when the task doesn't exist. */
+  setTaskDependencies(
+    id: number,
+    raw: unknown,
+  ): { id: number; dependencies: TaskDependency[]; rejected: DepRejection[] } | null;
   deleteTask(id: number): boolean;
   deleteAllTasks(): number;
   sendInquiry(id: number): { sent: boolean; reason?: string };
@@ -399,6 +408,13 @@ export async function runTool(
       const updated = d.updateTask(id, patch);
       if (!updated) throw new Error(`task #${id} not found`);
       return updated;
+    }
+
+    case "set_task_dependencies": {
+      const id = requireId(input);
+      const result = d.setTaskDependencies(id, input.dependencies);
+      if (!result) throw new Error(`Task #${id} not found`);
+      return result;
     }
 
     case "delete_task": {

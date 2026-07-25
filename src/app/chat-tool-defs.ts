@@ -7,6 +7,7 @@ import {
   CHANGE_STATUSES,
   CHANGE_TYPES,
   DEPENDENCY_STATUSES,
+  DEPENDENCY_TYPES,
   INFLUENCE_INTEREST_LEVELS,
   ISSUE_STATUSES,
   PRIORITIES,
@@ -240,6 +241,30 @@ export const TOOL_DEFS = [
         ...taskFields,
       },
       required: ["id"],
+    },
+  },
+  {
+    name: "set_task_dependencies",
+    description:
+      "Replace the predecessor links of one task. A dependency lives on the DEPENDENT task and points at its PREDECESSOR: {taskId: 12, type: 'FS'} on task 40 means task 40 starts after task 12 finishes. Types: FS (finish-to-start), SS (start-to-start), FF (finish-to-finish), SF (start-to-finish). Pass an empty array to clear all links. Links that would create a cycle, point at a task that does not exist, or point at the task itself are refused and reported back in the result — read `rejected` and tell the user what could not be linked. Use list_tasks first to see the current graph.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "Id of the task whose links are being replaced." },
+        dependencies: {
+          type: "array",
+          description: "The complete new list of predecessor links. An empty array clears them.",
+          items: {
+            type: "object",
+            properties: {
+              taskId: { type: "number", description: "Id of the PREDECESSOR task." },
+              type: { type: "string", enum: [...DEPENDENCY_TYPES] },
+            },
+            required: ["taskId", "type"],
+          },
+        },
+      },
+      required: ["id", "dependencies"],
     },
   },
   {
