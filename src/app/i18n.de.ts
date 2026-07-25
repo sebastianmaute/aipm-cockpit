@@ -567,6 +567,8 @@ export const de: Record<TranslationKey, string> = {
   burndownChainUnreachable: "Burn-down umfasst den gesamten Planzeitraum: Diese Buckets sind vom ersten Bucket aus nicht erreichbar ({0}). Setze bei jedem Bucket den Nachfolger.",
   burndownChainCycle: "Burn-down umfasst den gesamten Planzeitraum: Die Nachfolger-Verknüpfungen der Buckets bilden einen Kreis ({0}).",
   burndownChainMissingDates: "Burn-down umfasst den gesamten Planzeitraum: Diese Buckets haben kein Start- oder Enddatum ({0}).",
+  burndownChainDangling: "Burn-down umfasst den gesamten Planzeitraum: Diese Buckets verweisen auf einen Nachfolger, den es nicht mehr gibt ({0}).",
+  burndownChainOutsidePlan: "Burn-down umfasst den gesamten Planzeitraum: Die verketteten Buckets liegen außerhalb des Zeitraums der Ressourcenplanung ({0}). Erweitere den Plan oder korrigiere die Bucket-Daten.",
   burndownPlanned: "Geplant",
   burndownActual: "Ist",
   burndownToday: "heute",

@@ -757,9 +757,17 @@ describe("DashboardPanel burn-down chain warning", () => {
     allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: {} }],
   } as unknown as BudgetBucket;
   const bucketB = { ...bucketA, id: 2, name: "Phase 2" };
+  const bucketC = { ...bucketA, id: 3, name: "Phase 3" };
 
-  it("warns when the budget buckets are not one successor chain", () => {
+  it("stays silent when no bucket was ever chained", () => {
+    // Parallel buckets are the normal budget model — warning here fired on every
+    // project, including the shipped demo.
     render(<DashboardPanel {...chainProps} budgets={[bucketA, bucketB]} />, { wrapper });
+    expect(screen.queryByText(/Burn-down covers the whole plan period/)).toBeNull();
+  });
+
+  it("warns when a half-built chain leaves a bucket outside it", () => {
+    render(<DashboardPanel {...chainProps} budgets={[{ ...bucketA, successorId: 2 }, bucketB, bucketC]} />, { wrapper });
     expect(screen.getByText(/not linked into one chain/)).toBeInTheDocument();
   });
 

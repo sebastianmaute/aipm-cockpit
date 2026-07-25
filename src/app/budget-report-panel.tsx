@@ -73,7 +73,12 @@ export function BudgetReportPanel({
     [tasks, today, roles],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
-  const bucketChain = useMemo(() => resolveBucketChain(buckets), [buckets]);
+  const planStart = plan.startDate;
+  const planEnd = plan.endDate;
+  const bucketChain = useMemo(
+    () => resolveBucketChain(buckets, { start: planStart, end: planEnd }),
+    [buckets, planStart, planEnd],
+  );
   const burndown = useMemo(
     () => computeBurndownSeries(
       buckets, plan, roles, resources, workdayHours, holidaySet, absences, today,

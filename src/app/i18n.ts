@@ -561,6 +561,8 @@ const enUS = {
   burndownChainUnreachable: "Burn-down covers the whole plan period: these budget buckets are not reachable from the first one ({0}). Set each bucket's successor to chain them.",
   burndownChainCycle: "Burn-down covers the whole plan period: the buckets' successor links form a loop ({0}).",
   burndownChainMissingDates: "Burn-down covers the whole plan period: these budget buckets have no start or end date ({0}).",
+  burndownChainDangling: "Burn-down covers the whole plan period: these budget buckets point at a successor that no longer exists ({0}).",
+  burndownChainOutsidePlan: "Burn-down covers the whole plan period: the chained budget buckets fall outside the resource plan's date range ({0}). Extend the plan or correct the bucket dates.",
   burndownPlanned: "Planned",
   burndownActual: "Actual",
   burndownToday: "today",

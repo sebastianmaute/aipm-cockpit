@@ -283,9 +283,31 @@ describe("computeDashboard", () => {
     expect(m.burndown?.periods).toEqual(["2026-03", "2026-04", "2026-05", "2026-06"]);
   });
 
-  it("keeps the plan range and reports the break when the buckets are unchained", () => {
+  it("keeps the plan range without a break when the buckets are unchained", () => {
+    // Nobody set a successor, which is the ordinary parallel-workstream model —
+    // full axis, but no warning to act on.
     const m = computeDashboard(baseInput({ budgets: [bucketA, bucketB] }));
+    expect(m.bucketChain).toEqual({ kind: "unchained" });
+    expect(m.burndown?.periods).toHaveLength(12);
+  });
+
+  it("keeps the plan range and reports the break when a chain is half-built", () => {
+    const budgets = [{ ...bucketA, successorId: 2 }, bucketB, {
+      id: 3, name: "Phase 3", type: "tm", currency: "EUR",
+      startDate: "2026-07-01", endDate: "2026-08-31", status: "open", allocations: [],
+    } as unknown as BudgetBucket];
+    const m = computeDashboard(baseInput({ budgets }));
     expect(m.bucketChain).toMatchObject({ kind: "broken", reason: "multiple-roots" });
+    expect(m.burndown?.periods).toHaveLength(12);
+  });
+
+  it("keeps the plan range and reports a chain dated outside it", () => {
+    const budgets = [
+      { ...bucketA, startDate: "2027-03-01", endDate: "2027-04-30", successorId: 2 },
+      { ...bucketB, startDate: "2027-05-01", endDate: "2027-06-30" },
+    ];
+    const m = computeDashboard(baseInput({ budgets }));
+    expect(m.bucketChain).toMatchObject({ kind: "broken", reason: "outside-plan" });
     expect(m.burndown?.periods).toHaveLength(12);
   });
 });

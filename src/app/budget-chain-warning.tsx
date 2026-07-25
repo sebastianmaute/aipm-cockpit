@@ -12,15 +12,21 @@ const REASON_KEY: Record<BucketChainBreak, TranslationKey> = {
   unreachable: "burndownChainUnreachable",
   cycle: "burndownChainCycle",
   "missing-dates": "burndownChainMissingDates",
+  dangling: "burndownChainDangling",
+  "outside-plan": "burndownChainOutsidePlan",
 };
 
+/** Renders nothing for a resolved `chain`, and nothing for `unchained` either:
+ *  buckets with no successor links at all are the ordinary parallel-workstream
+ *  budget model, so there is no break to explain. */
 export function BurndownChainWarning({ lang, chain }: { lang: Lang; chain: BucketChain | null }) {
   if (!chain || chain.kind !== "broken" || chain.offenders.length === 0) return null;
   const names = chain.offenders.map((o) => o.name).join(", ");
-  // role="none": this is a static explanation of the chart below it, not a live
-  // update — a role="status" banner would re-announce on every view mount.
+  // Takes the primitive's severity-derived role (warn → role="status"): the
+  // banner only mounts on real, actionable bucket-data breaks now, so a polite
+  // announcement is the right behaviour rather than noise on every view mount.
   return (
-    <Banner severity="warn" role="none" className="mb-2 print:hidden">
+    <Banner severity="warn" className="mb-2 print:hidden">
       {t(lang, REASON_KEY[chain.reason], names)}
     </Banner>
   );

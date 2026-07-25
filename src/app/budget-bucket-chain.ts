@@ -6,33 +6,81 @@
 // No React, no I/O, no clock read. `successorId`'s only other consumer,
 // computeSpillover (budget-report.ts), is a single-hop CLOSED-bucket transfer and
 // is deliberately untouched: a chain of open buckets is still a chain.
+//
+// ★ Because the field is SHARED with that spillover feature, this module cannot
+// tell a spillover link from a chain declaration — a closed bucket pointing at
+// its successor is exactly what a real "phase 1 done, phase 2 next" chain looks
+// like. So a project using spillover alone still reads as a half-built chain.
+// Special-casing closed buckets out of the intent gate below would silence that,
+// but it would ALSO stop trimming for the commonest legitimate chain there is,
+// so it is deliberately not done. See the `unchained` note.
 import type { BudgetBucket } from "./types";
 
 export type BucketRef = { id: number; name: string };
 
-export type BucketChainBreak = "multiple-roots" | "cycle" | "unreachable" | "missing-dates";
+export type BucketChainBreak =
+  | "multiple-roots" | "cycle" | "unreachable" | "missing-dates" | "dangling" | "outside-plan";
 
 export type BucketChain =
   | { kind: "chain"; start: string; end: string; order: readonly number[] }
+  // No bucket has a successorId set at all: parallel workstream buckets are the normal
+  // budget model, not a mistake. Behaves like `broken` (full plan span, no trim)
+  // but is NOT warned about — see the intent rule in resolveBucketChain.
+  | { kind: "unchained" }
   | { kind: "broken"; reason: BucketChainBreak; offenders: readonly BucketRef[] };
 
 const ref = (b: BudgetBucket): BucketRef => ({ id: b.id, name: b.name });
 
-/** Resolve the buckets into one connected successor chain, or explain why not. */
-export function resolveBucketChain(buckets: readonly BudgetBucket[]): BucketChain {
+/** Resolve the buckets into one connected successor chain, or explain why not.
+ *
+ *  `planRange` (the resource plan's own window) is optional and only used to
+ *  reject a chain that cannot be drawn on the plan axis at all — see the
+ *  "outside-plan" branch. */
+export function resolveBucketChain(
+  buckets: readonly BudgetBucket[],
+  planRange?: { start: string; end: string },
+): BucketChain {
   if (buckets.length === 0) return { kind: "broken", reason: "unreachable", offenders: [] };
-
-  // ★ Load-bearing guard: a bucket without both dates claims EVERY plan period
-  // (bucketActivePeriods, budget-report.ts:21), so a trimmed axis would drop
-  // hours the report still counts. Refuse to trim rather than under-report.
-  const undated = buckets.filter((b) => !b.startDate || !b.endDate);
-  if (undated.length > 0) return { kind: "broken", reason: "missing-dates", offenders: undated.map(ref) };
 
   const byId = new Map(buckets.map((b) => [b.id, b] as const));
   const isSuccessor = new Set<number>();
   for (const b of buckets) {
     const s = b.successorId;
     if (s != null && s !== b.id && byId.has(s)) isSuccessor.add(s);
+  }
+
+  // ★★ INTENT GATE, and it runs before every other check: `successorId` is
+  // OPTIONAL and parallel workstream buckets are the ordinary budget model.
+  // Treating "nobody chained anything" as a break bannered such a project — on
+  // two surfaces — to fix something that was never broken. With no intent there
+  // is nothing to trim, so nothing to
+  // explain either: full plan span, silently. It also subsumes missing-dates,
+  // whose only job is to stop a trim that was never going to happen.
+  // ★ Intent is "a successor was TYPED", not "a successor resolves": a link
+  // pointing at a deleted bucket is broken intent, and the whole point of the
+  // "dangling" branch below is to say so. Reading intent off `isSuccessor`
+  // (resolvable links only) would swallow exactly that case as `unchained`.
+  // A self-reference conveys no ordering, so it does not count.
+  const hasIntent = buckets.some((b) => b.successorId != null && b.successorId !== b.id);
+  if (!hasIntent && buckets.length > 1) return { kind: "unchained" };
+
+  // ★ Load-bearing guard: a bucket without both dates claims EVERY plan period
+  // (bucketActivePeriods, budget-report.ts:21), so a trimmed axis would drop
+  // hours the report still counts. Refuse to trim rather than under-report.
+  // Reached only WITH intent, and then it still wins over everything below.
+  const undated = buckets.filter((b) => !b.startDate || !b.endDate);
+  if (undated.length > 0) return { kind: "broken", reason: "missing-dates", offenders: undated.map(ref) };
+
+  // A successorId pointing at a bucket that no longer exists (import / CSV / MD /
+  // Turso — sanitizeBudgetBucket only checks `> 0` and `!== id`) never enters
+  // `isSuccessor`, so without this it surfaced as "multiple-roots" and told the
+  // user to set a successor that IS already set. Only meaningful with siblings:
+  // a lone bucket resolves to its own window regardless, hiding nothing.
+  if (buckets.length > 1) {
+    const dangling = buckets.filter(
+      (b) => b.successorId != null && b.successorId !== b.id && !byId.has(b.successorId),
+    );
+    if (dangling.length > 0) return { kind: "broken", reason: "dangling", offenders: dangling.map(ref) };
   }
 
   const roots = buckets.filter((b) => !isSuccessor.has(b.id));
@@ -71,6 +119,15 @@ export function resolveBucketChain(buckets: readonly BudgetBucket[]): BucketChai
   for (const b of walked) {
     if (b.startDate < start) start = b.startDate;
     if (b.endDate > end) end = b.endDate;
+  }
+
+  // ★ A perfectly valid chain dated entirely outside the plan (buckets moved to
+  // next year, plan not extended) selects no period, so the burn-down falls back
+  // to the full plan axis — silently, because a `chain` result warns about
+  // nothing. That is exactly the misleading span this module exists to prevent,
+  // so say it here, where the plan window is visible.
+  if (planRange && (end < planRange.start || start > planRange.end)) {
+    return { kind: "broken", reason: "outside-plan", offenders: buckets.map(ref) };
   }
   return { kind: "chain", start, end, order: walked.map((b) => b.id) };
 }

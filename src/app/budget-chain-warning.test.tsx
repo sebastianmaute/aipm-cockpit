@@ -10,6 +10,33 @@ describe("BurndownChainWarning", () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it("renders nothing for unchained buckets", () => {
+    // Parallel workstream buckets are the normal budget model — nothing broke,
+    // so there is nothing to explain.
+    const { container } = render(<BurndownChainWarning lang="en-US" chain={{ kind: "unchained" }} />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("names the offending bucket for a dangling successor", () => {
+    render(
+      <BurndownChainWarning
+        lang="en-US"
+        chain={{ kind: "broken", reason: "dangling", offenders: [{ id: 1, name: "Phase 1" }] }}
+      />,
+    );
+    expect(screen.getByText(/successor that no longer exists \(Phase 1\)/)).toBeInTheDocument();
+  });
+
+  it("explains a chain dated outside the plan", () => {
+    render(
+      <BurndownChainWarning
+        lang="en-US"
+        chain={{ kind: "broken", reason: "outside-plan", offenders: [{ id: 1, name: "Phase 1" }] }}
+      />,
+    );
+    expect(screen.getByText(/outside the resource plan's date range \(Phase 1\)/)).toBeInTheDocument();
+  });
+
   it("renders nothing when the chain is null", () => {
     const { container } = render(<BurndownChainWarning lang="en-US" chain={null} />);
     expect(container.firstChild).toBeNull();

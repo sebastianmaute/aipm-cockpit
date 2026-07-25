@@ -313,7 +313,9 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         costUnknownReason: project.costUnknownReason,
       }
     : null;
-  const bucketChain: BucketChain | null = input.budgets.length > 0 ? resolveBucketChain(input.budgets) : null;
+  const bucketChain: BucketChain | null = input.budgets.length > 0
+    ? resolveBucketChain(input.budgets, { start: input.plan.startDate, end: input.plan.endDate })
+    : null;
   const burndown: BurndownSeries | null =
     input.budgets.length > 0
       ? computeBurndownSeries(

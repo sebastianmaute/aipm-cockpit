@@ -35,13 +35,42 @@ describe("resolveBucketChain", () => {
     expect(r).toMatchObject({ kind: "chain", start: "2026-01-01", end: "2026-06-30" });
   });
 
-  it("reports multiple roots with their names", () => {
-    const r = resolveBucketChain([bucket({ id: 1, name: "Phase 1" }), bucket({ id: 2, name: "Phase 2" })]);
+  it("reports multiple roots with their names — but only once something IS chained", () => {
+    // Bucket 3 -> 4 is the intent that makes "not one chain" a real complaint;
+    // without it these are ordinary parallel buckets (see the unchained tests).
+    const r = resolveBucketChain([
+      bucket({ id: 1, name: "Phase 1" }),
+      bucket({ id: 2, name: "Phase 2" }),
+      bucket({ id: 3, name: "Phase 3", successorId: 4 }),
+      bucket({ id: 4, name: "Phase 4" }),
+    ]);
     expect(r).toEqual({
       kind: "broken",
       reason: "multiple-roots",
-      offenders: [{ id: 1, name: "Phase 1" }, { id: 2, name: "Phase 2" }],
+      offenders: [{ id: 1, name: "Phase 1" }, { id: 2, name: "Phase 2" }, { id: 3, name: "Phase 3" }],
     });
+  });
+
+  it("returns unchained — not a break — when nobody set a successor", () => {
+    // Parallel workstream buckets are the normal budget model (the shipped
+    // sample workspace chains nothing), so this must not warn.
+    const r = resolveBucketChain([bucket({ id: 1, name: "Phase 1" }), bucket({ id: 2, name: "Phase 2" })]);
+    expect(r).toEqual({ kind: "unchained" });
+  });
+
+  it("still reports a single bucket as a chain, so its window trims the axis", () => {
+    const r = resolveBucketChain([bucket({ id: 1, startDate: "2026-02-01", endDate: "2026-04-30" })]);
+    expect(r).toMatchObject({ kind: "chain", start: "2026-02-01", end: "2026-04-30" });
+  });
+
+  it("reports a successor that no longer exists as dangling, not as multiple roots", () => {
+    // Arrives via import/CSV/MD/Turso — sanitizeBudgetBucket only checks >0 and
+    // !== id, and an in-app delete clears successors.
+    const r = resolveBucketChain([
+      bucket({ id: 1, name: "Phase 1", successorId: 99 }),
+      bucket({ id: 2, name: "Phase 2" }),
+    ]);
+    expect(r).toEqual({ kind: "broken", reason: "dangling", offenders: [{ id: 1, name: "Phase 1" }] });
   });
 
   it("reports a bucket unreachable from the root", () => {
@@ -68,6 +97,25 @@ describe("resolveBucketChain", () => {
     expect(r).toEqual({ kind: "broken", reason: "missing-dates", offenders: [{ id: 2, name: "Undated" }] });
   });
 
+  it("stays silent about an undated bucket when nothing is chained", () => {
+    // Nothing was going to be trimmed, so the missing date cannot mislead the
+    // axis — reporting it would banner the project over a non-problem.
+    const r = resolveBucketChain([
+      bucket({ id: 1 }),
+      bucket({ id: 2, name: "Undated", startDate: "", endDate: "" }),
+    ]);
+    expect(r).toEqual({ kind: "unchained" });
+  });
+
+  it("still reports an undated bucket once something else IS chained", () => {
+    const r = resolveBucketChain([
+      bucket({ id: 1, successorId: 3 }),
+      bucket({ id: 2, name: "Undated", startDate: "", endDate: "" }),
+      bucket({ id: 3 }),
+    ]);
+    expect(r).toEqual({ kind: "broken", reason: "missing-dates", offenders: [{ id: 2, name: "Undated" }] });
+  });
+
   it("treats a self-reference and a dangling successor as the end of the walk", () => {
     expect(resolveBucketChain([bucket({ id: 1, successorId: 1 })])).toMatchObject({ kind: "chain", order: [1] });
     expect(resolveBucketChain([bucket({ id: 1, successorId: 99 })])).toMatchObject({ kind: "chain", order: [1] });
@@ -88,5 +136,37 @@ describe("resolveBucketChain", () => {
 
   it("returns broken for an empty list", () => {
     expect(resolveBucketChain([])).toEqual({ kind: "broken", reason: "unreachable", offenders: [] });
+  });
+});
+
+describe("resolveBucketChain — plan range", () => {
+  const chained = [
+    bucket({ id: 1, name: "Phase 1", startDate: "2027-01-01", endDate: "2027-03-31", successorId: 2 }),
+    bucket({ id: 2, name: "Phase 2", startDate: "2027-04-01", endDate: "2027-06-30" }),
+  ];
+
+  it("reports a chain dated entirely outside the plan range", () => {
+    // Without this the burn-down's empty-slice fallback draws the whole plan
+    // axis under a `chain` result, so nothing warns about the wrong span.
+    const r = resolveBucketChain(chained, { start: "2026-01-01", end: "2026-12-31" });
+    expect(r).toEqual({
+      kind: "broken",
+      reason: "outside-plan",
+      offenders: [{ id: 1, name: "Phase 1" }, { id: 2, name: "Phase 2" }],
+    });
+  });
+
+  it("reports a chain ending before the plan starts", () => {
+    const r = resolveBucketChain(chained, { start: "2028-01-01", end: "2028-12-31" });
+    expect(r).toMatchObject({ kind: "broken", reason: "outside-plan" });
+  });
+
+  it("keeps a chain that overlaps the plan range even partially", () => {
+    const r = resolveBucketChain(chained, { start: "2027-06-01", end: "2027-12-31" });
+    expect(r).toMatchObject({ kind: "chain", start: "2027-01-01", end: "2027-06-30" });
+  });
+
+  it("keeps a chain when no plan range is supplied", () => {
+    expect(resolveBucketChain(chained)).toMatchObject({ kind: "chain" });
   });
 });

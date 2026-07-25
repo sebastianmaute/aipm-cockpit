@@ -48,8 +48,13 @@ export function computeBurndownSeries(
   span?: { start: string; end: string },
 ): BurndownSeries {
   const allPeriods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
-  const sliced = span
-    ? allPeriods.filter((p) => p.start >= span.start && p.start <= span.end)
+  // Extend the window forward to today: a chart whose axis stops before today
+  // draws the today marker on its last tick and reads as "actuals complete".
+  // Forward only — a chain starting after today must still show its full future
+  // glide-path from the chain start. `allPeriods` bounds the result either way.
+  const effectiveEnd = span && today > span.end ? today : span?.end;
+  const sliced = span && effectiveEnd !== undefined
+    ? allPeriods.filter((p) => p.start >= span.start && p.start <= effectiveEnd)
     : allPeriods;
   // A span that selects nothing (e.g. buckets dated outside the plan) would make
   // an empty chart; fall back to the full range rather than render nothing.
