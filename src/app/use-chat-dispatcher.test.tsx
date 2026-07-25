@@ -10,6 +10,7 @@ import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
+import { type SettingsUpdateInput } from "./chat-tools";
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -386,6 +387,40 @@ describe("useChatDispatcher", () => {
     const prev = makeSettings();
     const next = updater(prev);
     expect(next.language).toBe("de");
+    expect(next.ai).toBe(prev.ai);
+  });
+
+  it("updateSettings applies hideExternalTasks and merges it onto prior settings", () => {
+    const { result, setSettings } = renderDispatcher();
+    act(() => {
+      result.current.updateSettings({ hideExternalTasks: true });
+    });
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
+    const prev = makeSettings();
+    const next = updater(prev);
+    expect(next.hideExternalTasks).toBe(true);
+    expect(next.ai).toBe(prev.ai);
+  });
+
+  it("updateSettings applies ONLY the allowlisted field from a patch that also carries a secret-adjacent one", () => {
+    const { result, setSettings } = renderDispatcher();
+    // Simulate the untrusted, arbitrary-shape input the model can actually send —
+    // the same `Record<string, unknown> as SettingsUpdateInput` cast `runTool`
+    // performs before handing the raw tool-call args to the dispatcher.
+    const patch: Record<string, unknown> = {
+      hideExternalTasks: true,
+      apiKey: "sk-ant-nope",
+    };
+    act(() => {
+      result.current.updateSettings(patch as SettingsUpdateInput);
+    });
+    expect(setSettings).toHaveBeenCalledTimes(1);
+    const updater = setSettings.mock.calls[0][0] as (s: Settings) => Settings;
+    const prev = makeSettings();
+    const next = updater(prev);
+    expect(next.hideExternalTasks).toBe(true);
+    expect(next).not.toHaveProperty("apiKey");
     expect(next.ai).toBe(prev.ai);
   });
 
