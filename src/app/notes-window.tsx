@@ -15,7 +15,10 @@ import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-wind
 import { ResetSizeButton } from "./task-manager-ui";
 import { RichTextEditor } from "./rich-text-editor";
 import { canEditNote } from "./note-log";
-import { htmlToText, sanitizeNoteHtml } from "./sanitize-html";
+import { htmlToText } from "./sanitize-html";
+// A note body renders stored HTML through the shared sanitized sink, which
+// re-sanitizes at render as defense in depth (see rich-text-view.tsx).
+import { RichTextView } from "./rich-text-view";
 import { formatDisplayTimestamp } from "./tz-display";
 import { browserTimeZone } from "./timezone";
 import { resourceDisplayName } from "./resource-foundation";
@@ -37,20 +40,6 @@ function authorLabel(entry: NoteLogEntry, resources: readonly Resource[]): strin
   if (entry.authorName) return entry.authorName;
   const r = resources.find((x) => x.id === entry.authorResourceId);
   return r ? resourceDisplayName(r) : "—";
-}
-
-/** Render a note's rich body. `entry.html` is sanitized at every storage
- *  boundary, but we re-sanitize AT THE SINK as defense in depth — mirroring the
- *  app's other `dangerouslySetInnerHTML` sinks (comm-send-preview, meeting-report)
- *  — so an attacker-crafted workspace can never reach the DOM even if a load path
- *  regresses. `sanitizeNoteHtml` is idempotent on already-clean html. */
-function NoteBody({ html }: { html: string }) {
-  return (
-    <div
-      className="text-sm text-foreground [&_a]:text-ui-dark-blue [&_a]:underline [&_li]:ml-4 [&_ol]:list-decimal [&_ul]:list-disc"
-      dangerouslySetInnerHTML={{ __html: sanitizeNoteHtml(html) }}
-    />
-  );
 }
 
 interface NoteEntryRowProps {
@@ -108,7 +97,7 @@ function NoteEntryRow(props: NoteEntryRowProps) {
         </div>
       ) : (
         <>
-          <NoteBody html={entry.html} />
+          <RichTextView html={entry.html} />
           {canEdit && (
             <div className="flex justify-end gap-2">
               <button
