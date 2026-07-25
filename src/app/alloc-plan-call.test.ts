@@ -33,7 +33,7 @@ describe("runAllocProposal", () => {
     expect(body.tools[0].name).toBe("propose_allocations");
   });
 
-  it("sends a user message containing both the context digest and the instruction", async () => {
+  it("sends a user message with the exact context-then-instruction template", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       ok({ content: [{ type: "tool_use", name: "propose_allocations", input: { cells: [] } }] }),
     );
@@ -43,8 +43,7 @@ describe("runAllocProposal", () => {
     const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
     expect(body.messages).toHaveLength(1);
     const userContent = body.messages[0].content as string;
-    expect(userContent).toContain(context);
-    expect(userContent).toContain(instruction);
+    expect(userContent).toBe(`${context}\n\n---\nUSER REQUEST: ${instruction}`);
   });
 
   it("throws the HTTP status on a non-OK response, leaking neither key nor body message anywhere on the error", async () => {

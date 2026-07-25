@@ -32,9 +32,10 @@ export async function runAllocProposal(
   signal?: AbortSignal,
 ): Promise<RawAllocCell[]> {
   // The context digest is `#`/newline-formatted data; the instruction is free
-  // user text. Delimiting them with a labeled separator (rather than simple
-  // concatenation) keeps the model from reading the instruction as another
-  // digest line or the digest as part of the request.
+  // user text. A labeled separator keeps the two visually distinct for
+  // readability — it is NOT the security boundary. That boundary is
+  // downstream: groundAllocationCells refuses any resourceId/periodKey that
+  // isn't real, and nothing is written without per-cell human confirmation.
   const userMessage = `${context}\n\n---\nUSER REQUEST: ${instruction}`;
 
   const input = await runForcedToolCall({
@@ -44,7 +45,13 @@ export async function runAllocProposal(
     tools: [PROPOSE_ALLOCATIONS_TOOL],
     toolName: PROPOSE_ALLOCATIONS_TOOL.name,
     messages: [{ role: "user", content: userMessage }],
-    maxTokens: 4096,
+    // A worst-case MAX_ALLOC_CELLS=200 proposal serializes to roughly
+    // 2,900-3,300 tokens of tool-use JSON alone; 4096 left too little
+    // headroom for a broad request and a truncated response surfaced as an
+    // undifferentiated Error("parse"). 8192 gives real room; the system
+    // prompt also asks the model to prioritise rather than enumerate
+    // exhaustively when a request is very broad.
+    maxTokens: 8192,
     signal,
   });
   const parsed = parseAllocationProposal(input);

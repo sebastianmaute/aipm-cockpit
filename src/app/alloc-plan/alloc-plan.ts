@@ -147,6 +147,7 @@ export function buildAllocSystemPrompt(): string {
     "Respect the shown per-period capacity unless the user explicitly asks to overload a resource.",
     "When asked to spread work across a role, split it across the resources holding that role, preferring whoever has spare capacity (current well below capacity).",
     "If you cannot honor the request without inventing a resource or period, return an empty `cells` array rather than guessing.",
+    "For a very broad request (many resources across many periods), prioritise the most impactful cells rather than exhaustively enumerating every resource and period.",
     "Call the propose_allocations tool exactly once. Keep `rationale` to one short line.",
   ].join(" ");
 }
