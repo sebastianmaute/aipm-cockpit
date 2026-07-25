@@ -82,7 +82,8 @@ describe("resolveBucketChain", () => {
       bucket({ id: 3, name: "B", successorId: 2 }),
     ]);
     expect(r).toMatchObject({ kind: "broken", reason: "cycle" });
-    expect((r as { offenders: readonly { id: number }[] }).offenders.map((o) => o.id)).toEqual([1, 2, 3]);
+    // Only the loop members — bucket 1 is upstream of the loop, not part of it.
+    expect((r as { offenders: readonly { id: number }[] }).offenders.map((o) => o.id)).toEqual([2, 3]);
   });
 
   it("returns broken for an empty list", () => {

@@ -45,7 +45,14 @@ export function resolveBucketChain(buckets: readonly BudgetBucket[]): BucketChai
   const seen = new Set<number>();
   let cur: BudgetBucket | undefined = roots[0];
   while (cur) {
-    if (seen.has(cur.id)) return { kind: "broken", reason: "cycle", offenders: walked.map(ref) };
+    if (seen.has(cur.id)) {
+      // Report ONLY the buckets in the loop, not the whole walked prefix: the
+      // offenders are rendered as a user-facing "these form a loop" list, and
+      // naming an innocent upstream bucket sends the user to fix the wrong link.
+      const revisitedId = cur.id;
+      const loopStart = walked.findIndex((b) => b.id === revisitedId);
+      return { kind: "broken", reason: "cycle", offenders: walked.slice(loopStart).map(ref) };
+    }
     seen.add(cur.id);
     walked.push(cur);
     // Annotated because `cur` is reassigned from `next` below — without it TS
