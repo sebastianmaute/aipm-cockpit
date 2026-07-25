@@ -16,14 +16,18 @@ describe("sample-workspace budgets", () => {
     expect(b.planningMode ?? "detailed").toBe("detailed");
     expect(b.allocations).toHaveLength(3);
     const r1 = b.allocations.find((a) => a.roleId === 1)!;
-    expect(r1.budgetHours["2026-04"]).toBe(120);
-    expect(r1.actualHours["2026-05"]).toBe(130);
+    // The buckets are a staggered chain (5 -> 1 -> 4 -> 3 -> 2), so each one
+    // carries hours only in the periods its own window covers. Bucket 1 runs
+    // 2026-05-01..2026-06-30.
+    expect(r1.budgetHours["2026-05"]).toBe(200);
+    expect(r1.actualHours["2026-05"]).toBe(158);
   });
   test("bucket 2 is blended with two discipline allocations", () => {
     const b = ws.budgets!.find((x) => x.id === 2)!;
     expect(b.planningMode).toBe("blended");
     expect(b.disciplineAllocations).toHaveLength(2);
-    expect(b.disciplineAllocations!.find((a) => a.disciplineId === 3)!.budgetHours["2026-04"]).toBe(80);
+    // Bucket 2 is the tail of the chain: 2026-07-01..2026-07-31.
+    expect(b.disciplineAllocations!.find((a) => a.disciplineId === 3)!.budgetHours["2026-07"]).toBe(220);
   });
   test("bucket 3 carries per-bucket rate overrides", () => {
     const b = ws.budgets!.find((x) => x.id === 3)!;
