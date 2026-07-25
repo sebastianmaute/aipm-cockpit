@@ -34,7 +34,22 @@ describe("isNarrativeEmpty", () => {
     expect(isNarrativeEmpty("<p>&nbsp;</p>")).toBe(true);
   });
 
+  // A numeric-entity blank is what a paste from Word/Outlook produces. It used to
+  // read as non-empty, so Save stored a narrative whose summary card rendered
+  // blank — visible nothing, stored something.
+  it("treats a numeric-entity non-breaking space as empty", () => {
+    expect(isNarrativeEmpty("<p>&#160;</p>")).toBe(true);
+    expect(isNarrativeEmpty("<p>&#0160;</p>")).toBe(true);
+    expect(isNarrativeEmpty("<p>&#xa0;</p>")).toBe(true);
+    expect(isNarrativeEmpty("<p>&#xA0;</p>")).toBe(true);
+    expect(isNarrativeEmpty("<p>&#x00a0;</p>")).toBe(true);
+    expect(isNarrativeEmpty(`<p>${String.fromCharCode(160)}</p>`)).toBe(true);
+    expect(isNarrativeEmpty("<p>&nbsp;&#160;&#xa0;</p>")).toBe(true);
+  });
+
   it("is false when there is visible text", () => {
     expect(isNarrativeEmpty("<p>x</p>")).toBe(false);
+    // The entity spelling must not swallow neighbouring text.
+    expect(isNarrativeEmpty("<p>&#160;x</p>")).toBe(false);
   });
 });

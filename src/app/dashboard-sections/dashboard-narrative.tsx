@@ -74,12 +74,16 @@ export function NarrativeEditor({
 
   const clearNarrative = () => {
     setDraftNarrative("");
+    // ★★ Bump UNCONDITIONALLY: the nonce is the only thing that empties the
+    // editor DOM, and the reconcile below can never cover Clear. By the time it
+    // runs, `draftNarrative` is already "" so `nextValue === storedHtml === ""`
+    // and its `storedHtml !== nextValue` guard is false. Bumping only in the
+    // nothing-stored branch left a CLEARED narrative on screen while the stored
+    // value was gone — and the next keystroke committed the two merged back
+    // together.
+    setSeedNonce((n) => n + 1);
     if (storedHtml !== "") {
       setStatus((s) => ({ ...s, narrative: "", narrativeUpdatedAt: new Date().toISOString() }));
-    } else {
-      // Nothing stored to reconcile against, so bump the nonce here: the editor
-      // must drop its own content even though `storedHtml` does not change.
-      setSeedNonce((n) => n + 1);
     }
   };
 

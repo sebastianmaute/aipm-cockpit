@@ -26,7 +26,16 @@ export function normalizeNarrativeHtml(html: string): string {
   return html.replace(/[\r\n]+/g, " ").trim();
 }
 
+/** A non-breaking space in every form the editor / a paste can produce: the named
+ *  entity, both numeric spellings, and the literal character. The ENTITY forms are
+ *  what matter — tag-stripping leaves them as the plain text "&#160;", which
+ *  `trim()` cannot touch, so a narrative of blanks counted as non-empty and stored
+ *  a value that renders an empty summary card. (The literal U+00A0 branch is
+ *  belt-and-braces: `trim()` already drops it, but the emptiness rule should not
+ *  depend on which of the three spellings arrived.) */
+const NBSP = /&nbsp;|&#0*160;|&#x0*a0;|\u00a0/gi;
+
 /** True when the HTML carries no visible text — e.g. the editor's empty `<p></p>`. */
 export function isNarrativeEmpty(html: string): boolean {
-  return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/gi, " ").trim() === "";
+  return html.replace(/<[^>]*>/g, "").replace(NBSP, " ").trim() === "";
 }

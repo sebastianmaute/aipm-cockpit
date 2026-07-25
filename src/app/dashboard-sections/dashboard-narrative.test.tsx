@@ -65,6 +65,10 @@ function EditorHost({ initial = "", externalNarrative }: { initial?: string; ext
       <button type="button" onClick={() => setStatus({ narrative: externalNarrative ?? "" })}>
         external reload
       </button>
+      {/* The STORED value, so a test can tell "the editor looks empty" apart from
+          "the narrative was actually cleared" — the two diverged in the defect
+          this host's Clear tests cover. */}
+      <span data-testid="stored">{status.narrative ?? ""}</span>
       <NarrativeEditor lang="en-US" status={status} setStatus={setStatus} />
     </>
   );
@@ -97,12 +101,39 @@ describe("NarrativeEditor", () => {
     expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
   });
 
-  it("Clear empties a stored narrative", async () => {
+  // ★★ Assert the EDITOR SURFACE, not just the disabled Clear button: that button
+  // is disabled by `storedHtml === "" && isNarrativeEmpty(draft)`, both of which
+  // were already true in the broken implementation that wiped the stored value
+  // while leaving the old text on screen. The surface is the only thing that
+  // distinguishes the two.
+  it("Clear empties the editor surface, not just the stored value", async () => {
+    const user = userEvent.setup();
+    render(<EditorHost initial="<p>Something</p>" />);
+    await user.click(screen.getByText("Status summary"));
+    const before = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    expect(before.textContent).toContain("Something");
+    await user.click(screen.getByRole("button", { name: /clear/i }));
+    const surface = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    expect(surface.textContent).toBe("");
+    expect(screen.getByTestId("stored").textContent).toBe("");
+    expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
+  });
+
+  // The other half of the same defect: an editor still holding the cleared text
+  // merges it back into the next commit, so the deleted narrative reappears.
+  it("typing after Clear does not resurrect the cleared narrative", async () => {
     const user = userEvent.setup();
     render(<EditorHost initial="<p>Something</p>" />);
     await user.click(screen.getByText("Status summary"));
     await user.click(screen.getByRole("button", { name: /clear/i }));
-    expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
+    const surface = screen.getByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    await user.click(surface);
+    await user.keyboard("X");
+    // Blur out of the editor: commit-on-blur stores the draft.
+    await user.click(screen.getByText("Status summary"));
+    const stored = screen.getByTestId("stored").textContent ?? "";
+    expect(stored).not.toContain("Something");
+    expect(stored).toContain("X");
   });
 
   it("re-seeds the draft when status.narrative changes externally (workspace reload)", async () => {
@@ -112,6 +143,20 @@ describe("NarrativeEditor", () => {
     await user.click(screen.getByRole("button", { name: /external reload/i }));
     const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
     expect(surface.textContent).toContain("External status from reload");
+  });
+
+  // End-to-end for the sanitizer/input-rule defect: "# " used to become an <h1>
+  // that the note sanitizer dropped content and all, so the commit stored "",
+  // Save stayed disabled (`unchanged`) and the text was silently never saved.
+  it("stores a narrative typed with a markdown '# ' shortcut", async () => {
+    const user = userEvent.setup();
+    render(<EditorHost />);
+    await user.click(screen.getByText("Status summary"));
+    const surface = await screen.findByLabelText(t("en-US", "dashboardNarrativePlaceholder"));
+    await user.click(surface);
+    await user.keyboard("# Q3 highlights");
+    await user.click(screen.getByText("Status summary")); // blur -> commit
+    expect(screen.getByTestId("stored").textContent).toContain("# Q3 highlights");
   });
 
   // The toolbar was dead: mousedown on Bold blurred the editor -> committed ->
