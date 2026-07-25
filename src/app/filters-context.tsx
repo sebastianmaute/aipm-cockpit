@@ -31,6 +31,7 @@ export type SortKey =
   | "startDate"
   | "dueDate"
   | "lastUpdateDate"
+  | "createdDate"
   | "priority"
   | "taskStatus"
   | "estimate"

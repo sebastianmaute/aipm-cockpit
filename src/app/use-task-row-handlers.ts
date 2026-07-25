@@ -11,6 +11,7 @@ import { plainTextToHtml, type CommSendRequest } from "./comm-send";
 import { greetingName } from "./contacts";
 import { loadJiraApi } from "./use-jira-sync";
 import { applyStatusChange } from "./task-status";
+import { type KanbanLane } from "./task-kanban";
 import type { ActivityKind } from "./activity-log";
 import type { Task, TaskStatus, Resource } from "./types";
 import { effectivePersonEmail } from "./resource-foundation";
@@ -252,6 +253,52 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     [today, setTasks, tasksRef, captureFieldEdit],
   );
 
+  /** Swimlane cell drop: the cell is (person, status), so ONE write covers both.
+   *  Jira-synced tasks are read-only. A drop that changes nothing writes nothing
+   *  and records no undo entry. */
+  const onSwimlaneDrop = useCallback(
+    (id: number, lane: KanbanLane, next: TaskStatus) => {
+      const prevRow = tasksRef.current.find((row) => row.id === id);
+      if (!prevRow || prevRow.jiraKey) return;
+
+      const nextAssignee = lane.resourceId != null || lane.key.startsWith("name:") ? lane.label : "";
+      const nextResourceId = lane.resourceId ?? undefined;
+      const sameLane =
+        (prevRow.resourceId ?? undefined) === nextResourceId && prevRow.assignee === nextAssignee;
+      if (sameLane && prevRow.status === next) return;
+
+      const stamp = new Date().toISOString();
+      const after = applyStatusChange(
+        { ...prevRow, assignee: nextAssignee, resourceId: nextResourceId },
+        next,
+        today,
+      );
+      setTasks((prev) =>
+        prev.map((row) => (row.id === id ? { ...after, localModifiedAt: stamp } : row)),
+      );
+      captureFieldEdit?.({
+        setter: setTasks,
+        kind: "task.updated",
+        id,
+        before: {
+          assignee: prevRow.assignee,
+          resourceId: prevRow.resourceId,
+          status: prevRow.status,
+          completedDate: prevRow.completedDate,
+        },
+        after: {
+          assignee: after.assignee,
+          resourceId: after.resourceId,
+          status: after.status,
+          completedDate: after.completedDate,
+        },
+        stampField: "localModifiedAt",
+        name: prevRow.taskName,
+      });
+    },
+    [today, setTasks, tasksRef, captureFieldEdit],
+  );
+
   const onEdit = useCallback(
     (task: Task) => {
       openEditModal(task);
@@ -313,6 +360,7 @@ export function useTaskRowHandlers(args: UseTaskRowHandlersArgs) {
     onSendInquiry,
     onPushToJira,
     onStatusChange,
+    onSwimlaneDrop,
     onEdit,
     onDelete,
     handleClearRaidTaskFilter,

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import fc from "fast-check";
-import { applyStatusChange, isTaskFinished, migrateTaskStatus, statusSortIndex } from "./task-status";
+import { applyStatusChange, isTaskFinished, migrateTask, statusSortIndex } from "./task-status";
 import { TASK_STATUSES, type Task, type TaskStatus } from "./types";
 
-// Minimal Task builder — applyStatusChange / migrateTaskStatus / isTaskFinished
+// Minimal Task builder — applyStatusChange / migrateTask / isTaskFinished
 // only read `status` + `completedDate` and spread the rest, so a representative
 // subset of fields is enough to exercise the invariants and field-preservation.
 function mkTask(status: string, completedDate: string): Task {
@@ -67,11 +67,11 @@ describe("task-status — properties", () => {
     );
   });
 
-  test("migrateTaskStatus keeps any valid status and always yields a valid status", () => {
+  test("migrateTask keeps any valid status and always yields a valid status", () => {
     fc.assert(
       fc.property(fc.string(), fc.boolean(), (rawStatus, hasCompleted) => {
         const task = mkTask(rawStatus, hasCompleted ? "2025-06-01" : "");
-        const out = migrateTaskStatus(task);
+        const out = migrateTask(task);
         expect(TASK_STATUSES).toContain(out.status);
         // A status that was already valid is preserved verbatim.
         if ((TASK_STATUSES as string[]).includes(rawStatus)) {

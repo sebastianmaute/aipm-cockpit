@@ -218,7 +218,13 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
         }
       } else {
         const newTask: Task = applyStatusChange(
-          { id: mintId("task", tasks), ...payload, status: form.status, inquiriesSent: 0 },
+          {
+            id: mintId("task", tasks),
+            ...payload,
+            status: form.status,
+            inquiriesSent: 0,
+            createdDate: today,
+          },
           form.status,
           today,
         );

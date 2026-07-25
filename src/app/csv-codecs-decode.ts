@@ -44,7 +44,7 @@ import {
   type Task,
 } from "./types";
 import { type Workspace, migrateWorkspaceV10 } from "./workspace";
-import { migrateTaskStatus } from "./task-status";
+import { migrateTask } from "./task-status";
 import {
   CSV_SECTION_ABSENCES,
   CSV_SECTION_BUDGETS,
@@ -445,7 +445,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
   const id = Number(obj.id);
   if (!Number.isFinite(id) || id <= 0) return null;
   const inq = Number(obj.inquiriesSent);
-  return migrateTaskStatus({
+  return migrateTask({
     id,
     taskName: obj.taskName ?? "",
     assignee: obj.assignee ?? "",
@@ -453,6 +453,7 @@ export function buildTaskFromObj(obj: Record<string, string>): Task | null {
     startDate: obj.startDate || undefined,
     dueDate: obj.dueDate ?? "",
     lastUpdateDate: obj.lastUpdateDate ?? "",
+    createdDate: obj.createdDate || undefined,
     priority: ((obj.priority as Priority) || "Medium") as Priority,
     status: obj.status as Task["status"],
     blockers: obj.blockers ?? "",

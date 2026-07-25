@@ -6,6 +6,10 @@ import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { type JiraExtraProject } from "./settings-types";
 import { TaskKanban } from "./task-kanban-board";
+import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
+import { TaskSwimlaneToolbar } from "./task-swimlane-toolbar";
+import { UNASSIGNED_LANE, laneResourceIds, type KanbanLane } from "./task-kanban";
+import { resourceDisplayName } from "./resource-foundation";
 import { ToggleButton } from "./toggle-button";
 import { SegmentedControl } from "./segmented-control";
 import { useSettings } from "./use-settings";
@@ -57,7 +61,7 @@ import { SortResizeTh } from "./report-table";
  *  reference-stable (a fresh `[]` each render would bust it). */
 const EMPTY_RESOURCES: readonly Resource[] = [];
 
-const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","priority","taskStatus","blockers","description","notesLog","depRelations","estimate","spent","actions"] as const;
+const ALL_TASK_COLS = ["sel","status","id","taskName","assignee","startDate","dueDate","lastUpdateDate","createdDate","priority","taskStatus","blockers","description","notesLog","depRelations","estimate","spent","actions"] as const;
 
 /** Fixed English friction phrase to confirm clearing all tasks (mirrors the
  *  factory-reset dialog). Deliberately not localized. */
@@ -70,6 +74,7 @@ const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
   { key: "startDate",      labelKey: "start" },
   { key: "dueDate",        labelKey: "due" },
   { key: "lastUpdateDate", labelKey: "lastUpdate" },
+  { key: "createdDate",    labelKey: "colCreatedDate" },
   { key: "priority",       labelKey: "priority" },
   { key: "taskStatus",     labelKey: "colTaskStatus" },
   { key: "blockers",       labelKey: "blockers" },
@@ -97,6 +102,8 @@ export interface TasksSectionProps {
   onSendInquiry: (task: Task) => void;
   onPushToJira: (id: number) => void;
   onStatusChange: (id: number, next: TaskStatus) => void;
+  /** Swimlane cell drop: identifies both the person (lane) and status in one call. */
+  onSwimlaneDrop: (id: number, lane: KanbanLane, status: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: number) => void;
   // column manager
@@ -180,6 +187,7 @@ export function TasksSection({
   onSendInquiry,
   onPushToJira,
   onStatusChange,
+  onSwimlaneDrop,
   onEdit,
   onDelete,
   hiddenCols,
@@ -272,6 +280,7 @@ export function TasksSection({
   });
 
   const hideFinished = settings.hideFinishedTasks ?? false;
+  const hideExternal = settings.hideExternalTasks ?? false;
   // View mode reads the EFFECTIVE value (device default OR this project's
   // appearance override). The in-pane toggle below writes to whichever scope is
   // active, so an override no longer snaps back when toggled. Keys off
@@ -288,12 +297,24 @@ export function TasksSection({
   const tasksViewMode = effectiveSettings.tasksViewMode ?? "table";
   const viewModeOverridden = projectAppearance.tasksViewMode !== undefined;
   const setTasksViewMode = useCallback(
-    (mode: "table" | "board") => {
+    (mode: "table" | "board" | "swimlane") => {
       if (viewModeOverridden)
         saveProjectAppearance(pid, { ...projectAppearance, tasksViewMode: mode });
       else setSettings((s) => ({ ...s, tasksViewMode: mode }));
     },
     [viewModeOverridden, pid, projectAppearance, setSettings],
+  );
+
+  // Extra swimlane rows the user pulled in so an empty person is droppable.
+  // Session-only: not persisted, cleared on unmount.
+  const [extraLaneIds, setExtraLaneIds] = useState<readonly number[]>([]);
+  const addLane = useCallback(
+    (id: number) => setExtraLaneIds((prev) => (prev.includes(id) ? prev : [...prev, id])),
+    [],
+  );
+  const removeLane = useCallback(
+    (id: number) => setExtraLaneIds((prev) => prev.filter((x) => x !== id)),
+    [],
   );
 
   // Outlook calendar write-back (SP1): manual push of unfinished, dated tasks.
@@ -344,6 +365,51 @@ export function TasksSection({
   const visibleRows = hideFinished
     ? healthFilteredTasks.filter((r) => !isTaskFinished(r))
     : healthFilteredTasks;
+
+  const laneIds = useMemo(
+    () => laneResourceIds(healthFilteredTasks, resourcesById, extraLaneIds),
+    [healthFilteredTasks, resourcesById, extraLaneIds],
+  );
+  // Both assign pickers narrow to internals while "Hide externals" is on, so
+  // a user can't assign work to someone whose card the toggle then hides.
+  const assignableResources = useMemo(
+    () => (hideExternal ? resources.filter((r) => !r.isExternal) : resources),
+    [hideExternal, resources],
+  );
+  // A lane pulled in via the picker while "Hide externals" was OFF must not
+  // outlive the toggle: the picker only stops OFFERING an external going
+  // forward, it doesn't retract a lane already in extraLaneIds, so without
+  // this filter that lane keeps rendering as a live drop target — dropping a
+  // task there assigns it to the external and the card silently vanishes
+  // (the same defect the picker fix closed on the picker side). The raw
+  // extraLaneIds state is left untouched so the lane returns when the toggle
+  // flips back off (mirrors the orphaned-filter self-healing convention).
+  const visibleExtraLaneIds = useMemo(
+    () =>
+      hideExternal
+        ? extraLaneIds.filter((id) => !resourcesById.get(id)?.isExternal)
+        : extraLaneIds,
+    [hideExternal, extraLaneIds, resourcesById],
+  );
+
+  // Swimlane keyboard assign path: reuses onSwimlaneDrop (the same functional
+  // write the drag uses) with the task's CURRENT status, so keyboard and mouse
+  // can never diverge in what they write.
+  const onAssignFromCard = useCallback(
+    (taskId: number, resourceId: number | null) => {
+      const current = healthFilteredTasks.find((t) => t.id === taskId);
+      if (!current) return;
+      const r = resourceId != null ? resourcesById.get(resourceId) : undefined;
+      onSwimlaneDrop(
+        taskId,
+        r
+          ? { key: `res:${r.id}`, label: resourceDisplayName(r), resourceId: r.id }
+          : { key: UNASSIGNED_LANE, label: "", resourceId: null },
+        current.status,
+      );
+    },
+    [healthFilteredTasks, resourcesById, onSwimlaneDrop],
+  );
 
   // Inline Open-Points cell edit: apply one sanitized field patch to a task via
   // a functional setter, stamping localModifiedAt. Mirrors the form-save
@@ -533,15 +599,33 @@ export function TasksSection({
           />
           {t(lang, "hideFinishedTasks")}
         </label>
+        <label className="flex items-center gap-1 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={hideExternal}
+            onChange={(e) => setSettings((s) => ({ ...s, hideExternalTasks: e.target.checked }))}
+            className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
+          />
+          {t(lang, "hideExternalTasks")}
+        </label>
         <SegmentedControl
           value={tasksViewMode}
           options={[
             { value: "table", label: t(lang, "tasksViewTable") },
             { value: "board", label: t(lang, "tasksViewBoard") },
+            { value: "swimlane", label: t(lang, "tasksViewSwimlane") },
           ]}
           onChange={setTasksViewMode}
           ariaLabel={t(lang, "tasksViewModeLabel")}
         />
+        {tasksViewMode === "swimlane" && (
+          <TaskSwimlaneToolbar
+            lang={lang}
+            resources={assignableResources}
+            laneResourceIds={laneIds}
+            onAddLane={addLane}
+          />
+        )}
         <Input
           type="search"
           size="xs"
@@ -806,7 +890,34 @@ export function TasksSection({
 
       </div>{/* end shrink-0 */}
 
-      {tasksViewMode === "board" ? (
+      {tasksViewMode === "swimlane" ? (
+        /* Swimlane view shows the same search/people-filtered task set as the
+           board (NOT the hide-finished filtered `visibleRows`) so cancelled/done
+           columns stay populated. */
+        <TaskKanbanSwimlanes
+          lang={lang}
+          tasks={healthFilteredTasks}
+          resourcesById={resourcesById}
+          extraLaneIds={visibleExtraLaneIds}
+          today={today}
+          holidaySet={holidaySet}
+          raidByTask={raidByTask}
+          changeByTask={changeByTask}
+          onSwimlaneDrop={onSwimlaneDrop}
+          assignableResources={assignableResources}
+          onAssign={onAssignFromCard}
+          onStatusChange={onStatusChange}
+          onEdit={onEdit}
+          onRemoveLane={removeLane}
+          onJumpToRaid={onJumpToRaid}
+          jiraProjectKey={jiraProjectKey}
+          jiraExtraProjects={jiraExtraProjects}
+          containerRef={containerRef}
+          flashId={flashId}
+          onAiEdit={onAiEdit}
+          aiEditEnabled={aiEditEnabled}
+        />
+      ) : tasksViewMode === "board" ? (
         /* Board view shows every search/people-filtered task (NOT the
            hide-finished filtered `visibleRows`) so cancelled/done columns
            stay populated. SP-B Task 6 swaps in the rich <TaskKanbanCard>. */
@@ -882,6 +993,7 @@ export function TasksSection({
                 {!hiddenCols.has("startDate") && <SortResizeTh label={t(lang, "start")} sortCol="startDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "start"))} />}
                 {!hiddenCols.has("dueDate") && <SortResizeTh label={t(lang, "due")} sortCol="dueDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "due"))} />}
                 {!hiddenCols.has("lastUpdateDate") && <SortResizeTh label={t(lang, "lastUpdate")} sortCol="lastUpdateDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "lastUpdate"))} />}
+                {!hiddenCols.has("createdDate") && <SortResizeTh label={t(lang, "colCreatedDate")} sortCol="createdDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colCreatedDate"))} />}
                 {!hiddenCols.has("priority") && <SortResizeTh label={t(lang, "priority")} sortCol="priority" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "priority"))} />}
                 {!hiddenCols.has("taskStatus") && <SortResizeTh label={t(lang, "colTaskStatus")} sortCol="taskStatus" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colTaskStatus"))} />}
                 {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}

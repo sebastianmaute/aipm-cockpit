@@ -1,5 +1,5 @@
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
-import { migrateTaskStatus } from "./task-status";
+import { migrateTask } from "./task-status";
 import type { Workspace } from "./workspace";
 import {
   sanitizeFieldVisibility,
@@ -164,7 +164,7 @@ function sanitizeSeedTask(raw: unknown): Task | null {
   if (deps.length) task.dependencies = deps;
   // Derive a valid workflow status (Done-if-completedDate, else To Do) for
   // legacy/sparse seed content; a present-and-valid status is preserved.
-  return migrateTaskStatus(task);
+  return migrateTask(task);
 }
 
 function sanitizeRiskScale(raw: unknown): 1 | 2 | 3 | 4 | 5 | undefined {

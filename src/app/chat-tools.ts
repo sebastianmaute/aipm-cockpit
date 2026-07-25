@@ -143,6 +143,7 @@ export type SettingsUpdateInput = {
   dashboardDensity?: string;
   showViewHints?: boolean;
   tasksViewMode?: string;
+  hideExternalTasks?: boolean;
   /** COMPLETE desired set of enabled feature-module ids (replaces current). */
   enabledModules?: unknown;
   /** Map of next-actions tuning field → numeric value; unknown keys ignored. */

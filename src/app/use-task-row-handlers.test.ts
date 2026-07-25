@@ -185,6 +185,119 @@ describe("useTaskRowHandlers", () => {
   });
 });
 
+describe("useTaskRowHandlers — onSwimlaneDrop", () => {
+  /** Applies the (sole) updater passed to a mocked setTasks against `tasks`.
+   *  When setTasks was never called (a refused/no-op drop), returns `tasks`
+   *  unchanged — mirrors "nothing was written". */
+  function applyUpdater(setTasksMock: ReturnType<typeof vi.fn>, tasks: Task[]): Task[] {
+    if (setTasksMock.mock.calls.length === 0) return tasks;
+    const updater = setTasksMock.mock.calls[0][0] as (p: Task[]) => Task[];
+    return updater(tasks);
+  }
+
+  it("a swimlane drop writes assignment and status in one update", () => {
+    const setTasks = vi.fn();
+    const captureFieldEdit = vi.fn();
+    const tasks = [makeTask({ id: 1, status: "To Do", assignee: "", resourceId: undefined })];
+    const tasksRef = { current: tasks };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() =>
+      result.current.onSwimlaneDrop(
+        1,
+        { key: "res:7", label: "Anna Jordan", resourceId: 7 },
+        "In Progress",
+      ),
+    );
+    expect(setTasks).toHaveBeenCalledTimes(1);
+    const next = applyUpdater(setTasks, tasks);
+    expect(next[0]).toMatchObject({ resourceId: 7, assignee: "Anna Jordan", status: "In Progress" });
+    // One undo entry captures all four changed fields.
+    expect(captureFieldEdit).toHaveBeenCalledTimes(1);
+    const opts = captureFieldEdit.mock.calls[0][0] as {
+      before: Partial<Task>;
+      after: Partial<Task>;
+    };
+    expect(opts.before).toMatchObject({ assignee: "", resourceId: undefined, status: "To Do" });
+    expect(opts.after).toMatchObject({ assignee: "Anna Jordan", resourceId: 7, status: "In Progress" });
+  });
+
+  it("dropping into Unassigned clears both the link and the name", () => {
+    const setTasks = vi.fn();
+    const tasks = [makeTask({ id: 1, status: "To Do", assignee: "Anna Jordan", resourceId: 7 })];
+    const tasksRef = { current: tasks };
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ tasksRef, setTasks })));
+    act(() =>
+      result.current.onSwimlaneDrop(1, { key: "unassigned", label: "", resourceId: null }, "To Do"),
+    );
+    const next = applyUpdater(setTasks, tasks);
+    expect(next[0].resourceId).toBeUndefined();
+    expect(next[0].assignee).toBe("");
+  });
+
+  it("dropping into Done sets completedDate (status invariant holds)", () => {
+    const setTasks = vi.fn();
+    const tasks = [makeTask({ id: 1, status: "To Do", assignee: "", resourceId: undefined })];
+    const tasksRef = { current: tasks };
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ tasksRef, setTasks })));
+    act(() =>
+      result.current.onSwimlaneDrop(1, { key: "unassigned", label: "", resourceId: null }, "Done"),
+    );
+    const next = applyUpdater(setTasks, tasks);
+    expect(next[0].completedDate).toBeTruthy();
+  });
+
+  it("dropping into a free-string lane sets assignee without a resourceId", () => {
+    const setTasks = vi.fn();
+    const tasks = [makeTask({ id: 1, status: "To Do", assignee: "", resourceId: undefined })];
+    const tasksRef = { current: tasks };
+    const { result } = renderHook(() => useTaskRowHandlers(makeArgs({ tasksRef, setTasks })));
+    act(() =>
+      result.current.onSwimlaneDrop(
+        1,
+        { key: "name:Contractor X", label: "Contractor X", resourceId: null },
+        "To Do",
+      ),
+    );
+    const next = applyUpdater(setTasks, tasks);
+    expect(next[0].assignee).toBe("Contractor X");
+    expect(next[0].resourceId).toBeUndefined();
+  });
+
+  it("a Jira-synced task is not written at all", () => {
+    const setTasks = vi.fn();
+    const captureFieldEdit = vi.fn();
+    const tasks = [makeTask({ id: 1, jiraKey: "LOP-9", status: "To Do", assignee: "Alice", resourceId: undefined })];
+    const tasksRef = { current: tasks };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() =>
+      result.current.onSwimlaneDrop(1, { key: "res:7", label: "A", resourceId: 7 }, "Done"),
+    );
+    expect(setTasks).not.toHaveBeenCalled();
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+    const next = applyUpdater(setTasks, tasks);
+    expect(next[0]).toEqual(tasks[0]);
+  });
+
+  it("a no-op drop (same lane, same status) records no undo entry", () => {
+    const setTasks = vi.fn();
+    const captureFieldEdit = vi.fn();
+    const tasks = [makeTask({ id: 1, status: "To Do", assignee: "", resourceId: undefined })];
+    const tasksRef = { current: tasks };
+    const { result } = renderHook(() =>
+      useTaskRowHandlers(makeArgs({ tasksRef, setTasks, captureFieldEdit })),
+    );
+    act(() =>
+      result.current.onSwimlaneDrop(1, { key: "unassigned", label: "", resourceId: null }, "To Do"),
+    );
+    expect(captureFieldEdit).not.toHaveBeenCalled();
+    expect(setTasks).not.toHaveBeenCalled();
+  });
+});
+
 describe("useTaskRowHandlers — onSendInquiry", () => {
   let hrefValue = "";
   let originalLocation: Location;

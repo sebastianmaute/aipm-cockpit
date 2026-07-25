@@ -8,6 +8,29 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.199.0] - 2026-07-25 "Budrys"
+
+### Added
+
+- **Created date column.** Tasks now record when they were created; the
+  column is sortable and off by default (enable it in the column config).
+  Existing tasks are backfilled from their last-update date.
+- **Hide externals.** An Open Points toggle hides tasks owned by external
+  resources and removes their values from the assignee, group and label
+  filters.
+- **Kanban person swimlanes.** A third Open Points view mode: status columns
+  crossed with person rows. Drag a card into someone's lane to reassign it
+  and set its status in one move; a per-card person select is the keyboard
+  equivalent. Jira-synced tasks stay read-only. An add-lane picker pulls in a
+  person who has no work yet.
+- **The AI assistant can toggle hide-externals and switch to the swimlane
+  view** through `update_settings`.
+
+### Changed
+
+- Task storage gained a `createdDate` column across CSV, Markdown and both
+  Turso schemas; existing Turso databases self-heal on the next save.
+
 ## [0.198.0] - 2026-07-24 "Abraham"
 
 ### Added

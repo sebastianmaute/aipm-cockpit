@@ -239,7 +239,13 @@ describe("WorkspaceSection", () => {
   });
 
   it("omits Gantt (and RAID/Resources/Budget) tab buttons when those modules are disabled", () => {
-    vi.mocked(useSettings).mockReturnValueOnce({
+    // Not *Once*: WorkspaceProvider (workspace-context.tsx) now also calls
+    // useSettings() to apply the hideExternalTasks filter, and it renders
+    // before WorkspaceSection — a one-shot stub would be consumed there and
+    // WorkspaceSection would fall through to the suite's default (all
+    // modules enabled) mock. Every consumer in the tree must see this
+    // module-disabled config.
+    vi.mocked(useSettings).mockReturnValue({
       settings: {
         language: "en-US",
         ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
@@ -270,5 +276,30 @@ describe("WorkspaceSection", () => {
     expect(screen.queryByRole("tab", { name: /^raid$/i })).toBeNull();
     expect(screen.queryByRole("tab", { name: /^resources$/i })).toBeNull();
     expect(screen.queryByRole("tab", { name: /^budget$/i })).toBeNull();
+
+    // This file has no beforeEach/afterEach mock reset, so a non-Once stub
+    // would otherwise leak into any test appended after this one. Restore
+    // the suite's default (all-modules-enabled) mock explicitly. Uses the
+    // same full settings shape as above (required by mockReturnValue's
+    // type check against the real useSettings return type), with the
+    // module list flipped back to "everything enabled".
+    vi.mocked(useSettings).mockReturnValue({
+      settings: {
+        language: "en-US",
+        ai: { consentAccepted: false, apiKey: "", model: "claude-sonnet-4-6", groundInGuides: true },
+        jira: { enabled: false, siteUrl: "", email: "", apiToken: "", projectKey: "", projectName: "", extraProjects: [], issueTypes: [], assigneeMode: "currentUser", assigneeAccountId: "", assigneeDisplayName: "", tokenExpiresAt: "" },
+        notifications: { reminderLeadDays: 7, useGlobalLeadDays: true, birthday: { enabled: false }, raidReview: { enabled: false }, raidReviewIntervalDays: 14, dueSoonWorkdays: 3, stakeholderComms: { enabled: false }, stakeholderCommsLeadDays: { "manage-closely": 14, "keep-satisfied": 7, "keep-informed": 7, monitor: 3 }, jiraTokenError: { enabled: false }, desktopUrgent: { enabled: false } },
+        holidayCountries: [],
+        resources: { workdayHours: 8 },
+        popout: { reuseWindow: false },
+        storageConfig: { kind: "browser" as const },
+        layout: "modern" as const,
+        features: ["dashboard", "trends", "gantt", "milestones", "resources", "budget", "raid", "changes", "stakeholders"],
+      },
+      setSettings: vi.fn(),
+      hydrated: true,
+      i18nReady: true,
+      lang: "en-US" as const,
+    });
   });
 });

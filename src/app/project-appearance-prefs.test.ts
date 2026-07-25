@@ -96,6 +96,16 @@ describe("project-appearance-prefs", () => {
     expect(loadProjectAppearance("p2")).toEqual({ activeSchemeId: "u-7" });
   });
 
+  test("swimlane is a valid persisted tasksViewMode", () => {
+    saveProjectAppearance("p1", { tasksViewMode: "swimlane" });
+    expect(getAppearanceSnapshot("p1").tasksViewMode).toBe("swimlane");
+  });
+
+  test("an unknown mode is still dropped", () => {
+    saveProjectAppearance("p2", { tasksViewMode: "grid" as never });
+    expect(getAppearanceSnapshot("p2").tasksViewMode).toBeUndefined();
+  });
+
   test("caps the map, evicting the oldest inserted entry", () => {
     for (let i = 0; i < PROJECT_APPEARANCE_MAX_PROJECTS + 5; i++) {
       const n = String(i).padStart(2, "0");

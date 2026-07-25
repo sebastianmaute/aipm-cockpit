@@ -8,7 +8,7 @@
 
 import { decodeKnowledgeLinks } from "./document-link";
 import { decodeNoteLog } from "./note-log";
-import { migrateTaskStatus } from "./task-status";
+import { migrateTask } from "./task-status";
 import { defaultResourcePlan } from "./resource-foundation";
 import {
   dropDanglingDependencies,
@@ -346,6 +346,8 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
     else if (norm === "due" || norm === "duedate") colMap[idx] = "dueDate";
     else if (norm === "lastupdate" || norm === "lastupdatedate")
       colMap[idx] = "lastUpdateDate";
+    else if (norm === "created" || norm === "createddate")
+      colMap[idx] = "createdDate";
     else if (norm === "priority") colMap[idx] = "priority";
     else if (norm === "status") colMap[idx] = "status";
     else if (norm === "blockers") colMap[idx] = "blockers";
@@ -393,7 +395,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       continue;
     }
     const inq = Number(obj.inquiriesSent);
-    tasks.push(migrateTaskStatus({
+    tasks.push(migrateTask({
       id,
       taskName: obj.taskName ?? "",
       assignee: obj.assignee ?? "",
@@ -401,6 +403,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
       startDate: obj.startDate || undefined,
       dueDate: obj.dueDate ?? "",
       lastUpdateDate: obj.lastUpdateDate ?? "",
+      createdDate: obj.createdDate || undefined,
       priority: ((obj.priority as Priority) || "Medium") as Priority,
       status: obj.status as Task["status"],
       blockers: obj.blockers ?? "",

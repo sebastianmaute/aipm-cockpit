@@ -11,10 +11,12 @@ import { RagDot } from "./rag-dot";
 import { isTaskFinished } from "./task-status";
 import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
+import { isJiraSynced } from "./jira-status-map";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
-import { effectiveAssignee } from "./resource-foundation";
+import { effectiveAssignee, resourceDisplayName } from "./resource-foundation";
+import { Select } from "./form-controls";
 import type { ChangeItem, RaidItem, Resource, Task, TaskStatus } from "./types";
 
 const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
@@ -38,6 +40,10 @@ interface TaskKanbanCardProps {
    *  callers/tests can omit them (mirrors task-row.tsx's context-driven gate). */
   onAiEdit?: (task: Task) => void;
   aiEditEnabled?: (task: Task) => boolean;
+  /** Swimlane keyboard assign path. Both must be passed to render the control;
+   *  the board (1-D) passes neither. */
+  assignableResources?: readonly Resource[];
+  onAssign?: (taskId: number, resourceId: number | null) => void;
 }
 
 export function TaskKanbanCard({
@@ -54,6 +60,8 @@ export function TaskKanbanCard({
   readOnlyProject,
   onAiEdit,
   aiEditEnabled,
+  assignableResources,
+  onAssign,
 }: TaskKanbanCardProps) {
   // Linked tasks show the resource's LIVE name; the stored `assignee` cache can
   // be stale after a rename/re-link (falls back to the cache when unlinked).
@@ -128,6 +136,22 @@ export function TaskKanbanCard({
           </button>
         )}
       </div>
+
+      {onAssign && assignableResources && !isJiraSynced(task) && (
+        <Select
+          size="xs"
+          value={task.resourceId ?? ""}
+          aria-label={t(lang, "assignPersonLabel", task.taskName)}
+          onChange={(e) => onAssign(task.id, e.target.value ? Number(e.target.value) : null)}
+        >
+          <option value="">{t(lang, "swimlaneUnassigned")}</option>
+          {assignableResources.map((r) => (
+            <option key={r.id} value={r.id}>
+              {resourceDisplayName(r)}
+            </option>
+          ))}
+        </Select>
+      )}
     </div>
   );
 }

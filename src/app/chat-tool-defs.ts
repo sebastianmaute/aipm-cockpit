@@ -483,7 +483,7 @@ export const TOOL_DEFS = [
   {
     name: "update_settings",
     description:
-      "Update a SAFE subset of the app's own settings when the user asks to change how the app looks or behaves: dashboard density, per-view hint banners, the Open Points table/board mode, which feature modules are enabled, and next-actions ranking weights. It CANNOT touch API keys, secrets, storage/backends, or any integration credential. All values are validated and clamped; unknown fields are ignored. Only pass the fields the user wants changed.",
+      "Update a SAFE subset of the app's own settings when the user asks to change how the app looks or behaves: dashboard density, per-view hint banners, the Open Points table/board/swimlane mode and its hide-externals filter, which feature modules are enabled, and next-actions ranking weights. It CANNOT touch API keys, secrets, storage/backends, or any integration credential. All values are validated and clamped; unknown fields are ignored. Only pass the fields the user wants changed.",
     input_schema: {
       type: "object",
       properties: {
@@ -498,8 +498,12 @@ export const TOOL_DEFS = [
         },
         tasksViewMode: {
           type: "string",
-          enum: ["table", "board"],
-          description: "Open Points layout: sortable table or Kanban board.",
+          enum: ["table", "board", "swimlane"],
+          description: "Open Points layout: sortable table, Kanban board, or person swimlanes.",
+        },
+        hideExternalTasks: {
+          type: "boolean",
+          description: "Whether Open Points hides tasks owned by external resources.",
         },
         enabledModules: {
           type: "array",
