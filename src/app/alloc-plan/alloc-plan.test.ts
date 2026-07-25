@@ -5,10 +5,19 @@ import {
   PROPOSE_ALLOCATIONS_TOOL,
   buildAllocContext,
   buildAllocSystemPrompt,
+  cellKey,
+  groundAllocationCells,
   parseAllocationProposal,
   resourceLabel,
 } from "./alloc-plan";
-import { type Discipline, type Grade, type Resource, type ResourcePlan, type Role } from "../types";
+import {
+  type Absence,
+  type Discipline,
+  type Grade,
+  type Resource,
+  type ResourcePlan,
+  type Role,
+} from "../types";
 
 const plan: ResourcePlan = {
   startDate: "2026-08-01",
@@ -225,5 +234,160 @@ describe("parseAllocationProposal", () => {
     });
 
     expect(parsed).toEqual([{ resourceId: 9, periodKey: "2026-09", hours: 5 }]);
+  });
+});
+
+const groundCtx = (
+  resources: Resource[],
+  over: Partial<Parameters<typeof groundAllocationCells>[1]> = {},
+) => ({
+  resources,
+  plan,
+  absences: [],
+  workdayHours: 8,
+  holidaySet: new Set<string>(),
+  ...over,
+});
+
+describe("groundAllocationCells", () => {
+  it("drops a cell whose resource does not exist", () => {
+    const r = groundAllocationCells([{ resourceId: 99, periodKey: "2026-08", hours: 10 }], groundCtx([resource(1)]));
+    expect(r.cells).toEqual([]);
+    expect(r.skipped).toEqual([{ resourceId: 99, periodKey: "2026-08", reason: "unknown-resource" }]);
+  });
+
+  it("skips a period key outside the plan window", () => {
+    const r = groundAllocationCells([{ resourceId: 1, periodKey: "2027-01", hours: 10 }], groundCtx([resource(1)]));
+    expect(r.cells).toEqual([]);
+    expect(r.skipped[0]?.reason).toBe("out-of-window");
+  });
+
+  it("skips a key at the wrong granularity", () => {
+    const r = groundAllocationCells([{ resourceId: 1, periodKey: "2026-W32", hours: 10 }], groundCtx([resource(1)]));
+    expect(r.cells).toEqual([]);
+    expect(r.skipped[0]?.reason).toBe("out-of-window");
+  });
+
+  it("skips negative or non-finite hours", () => {
+    const r = groundAllocationCells(
+      [
+        { resourceId: 1, periodKey: "2026-08", hours: -5 },
+        { resourceId: 1, periodKey: "2026-09", hours: Number.NaN },
+      ],
+      groundCtx([resource(1)]),
+    );
+    expect(r.cells).toEqual([]);
+    expect(r.skipped.every((s) => s.reason === "bad-hours")).toBe(true);
+  });
+
+  it("converts hours to a percentage of the period's capacity", () => {
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 84 }],
+      groundCtx([resource(1, { utilizationMode: "percent" })]),
+    );
+    expect(r.cells).toHaveLength(1);
+    expect(r.cells[0]?.mode).toBe("percent");
+    expect(r.cells[0]?.nextValue).toBe(50);
+    expect(r.cells[0]?.capacityHours).toBe(168);
+    expect(r.cells[0]?.clamped).toBe(false);
+  });
+
+  it("writes hours straight through for an hours-mode resource", () => {
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 84 }],
+      groundCtx([resource(1, { utilizationMode: "hours" })]),
+    );
+    expect(r.cells[0]?.nextValue).toBe(84);
+  });
+
+  it("clamps a percentage above 100 and flags it", () => {
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 400 }],
+      groundCtx([resource(1, { utilizationMode: "percent" })]),
+    );
+    expect(r.cells[0]?.nextValue).toBe(100);
+    expect(r.cells[0]?.clamped).toBe(true);
+  });
+
+  it("clamps hours to the sanitizer's ceiling and flags it", () => {
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 5000 }],
+      groundCtx([resource(1, { utilizationMode: "hours" })]),
+    );
+    expect(r.cells[0]?.nextValue).toBe(1000);
+    expect(r.cells[0]?.clamped).toBe(true);
+  });
+
+  it("skips a percent-mode cell with zero capacity instead of writing 0 or 100", () => {
+    // A full-period absence leaves no capacity to express a percentage against.
+    const absences: Absence[] = [
+      {
+        id: 1,
+        assignee: "Last1",
+        startDate: "2026-08-01",
+        endDate: "2026-08-31",
+        type: "vacation",
+        resourceId: 1,
+      },
+    ];
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 40 }],
+      groundCtx([resource(1, { utilizationMode: "percent" })], { absences }),
+    );
+    expect(r.cells).toEqual([]);
+    expect(r.skipped[0]?.reason).toBe("no-capacity");
+  });
+
+  it("keeps the first of two cells for the same resource and period", () => {
+    const r = groundAllocationCells(
+      [
+        { resourceId: 1, periodKey: "2026-08", hours: 80 },
+        { resourceId: 1, periodKey: "2026-08", hours: 20 },
+      ],
+      groundCtx([resource(1, { utilizationMode: "hours" })]),
+    );
+    expect(r.cells).toHaveLength(1);
+    expect(r.cells[0]?.nextValue).toBe(80);
+    expect(r.skipped[0]?.reason).toBe("duplicate");
+  });
+
+  it("omits a cell that would not change anything", () => {
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 40 }],
+      groundCtx([resource(1, { utilizationMode: "hours", utilization: { "2026-08": 40 } })]),
+    );
+    expect(r.cells).toEqual([]);
+    expect(r.skipped).toEqual([]);
+  });
+
+  it("keeps an explicit zero, so a cell can be cleared", () => {
+    const r = groundAllocationCells(
+      [{ resourceId: 1, periodKey: "2026-08", hours: 0 }],
+      groundCtx([resource(1, { utilizationMode: "hours", utilization: { "2026-08": 40 } })]),
+    );
+    expect(r.cells).toHaveLength(1);
+    expect(r.cells[0]?.currentValue).toBe(40);
+    expect(r.cells[0]?.nextValue).toBe(0);
+  });
+
+  it("builds a stable cell key", () => {
+    expect(cellKey({ resourceId: 3, periodKey: "2026-08" })).toBe("3:2026-08");
+  });
+
+  it("stops accumulating once MAX_ALLOC_CELLS accepted cells are reached", () => {
+    const resourceCount = Math.ceil((MAX_ALLOC_CELLS + 20) / 2);
+    const resources = Array.from({ length: resourceCount }, (_, i) =>
+      resource(i + 1, { utilizationMode: "hours" }),
+    );
+    const raw = Array.from({ length: MAX_ALLOC_CELLS + 20 }, (_, i) => ({
+      resourceId: (i % resourceCount) + 1,
+      periodKey: i < resourceCount ? "2026-08" : "2026-09",
+      hours: 10,
+    }));
+
+    const r = groundAllocationCells(raw, groundCtx(resources));
+
+    expect(r.cells).toHaveLength(MAX_ALLOC_CELLS);
+    expect(r.skipped).toEqual([]);
   });
 });

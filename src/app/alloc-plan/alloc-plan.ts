@@ -20,6 +20,7 @@ import {
   type Role,
 } from "../types";
 import { generatePeriods, periodCapacityHours, absencesForResource } from "../resource-capacity";
+import { HOURS_MAP_MAX } from "../sanitize";
 
 /** A raw cell as parsed from the model tool input (shape-validated only —
  *  resourceId/periodKey are NOT yet checked against the live workspace). */
@@ -176,4 +177,185 @@ export function parseAllocationProposal(input: unknown): RawAllocCell[] | null {
     out.push({ resourceId, periodKey, hours });
   }
   return out;
+}
+
+/** Why a proposed cell was refused instead of turned into a change. */
+export type SkipReason = "unknown-resource" | "out-of-window" | "no-capacity" | "bad-hours" | "duplicate";
+
+export interface SkippedCell {
+  resourceId: number;
+  periodKey: string;
+  reason: SkipReason;
+}
+
+/** A cell that survived grounding and represents a REAL change to a resource's
+ *  stored utilization value (in that resource's own unit). */
+export interface GroundedAllocCell {
+  resourceId: number;
+  resourceName: string;
+  periodKey: string;
+  mode: Resource["utilizationMode"];
+  /** Current stored value, in the resource's own unit (percent or hours). */
+  currentValue: number;
+  /** Proposed value, in the resource's own unit — what would actually be written. */
+  nextValue: number;
+  /** What the model asked for, in hours (before conversion/clamping). */
+  hours: number;
+  /** Hours available in this period for this resource (absence/holiday-aware). */
+  capacityHours: number;
+  /** True when nextValue was trimmed to fit a bound the sanitizer also enforces. */
+  clamped: boolean;
+}
+
+export interface AllocGroundContext {
+  resources: readonly Resource[];
+  plan: ResourcePlan;
+  absences: readonly Absence[];
+  workdayHours: number;
+  holidaySet: ReadonlySet<string>;
+}
+
+/** Stable identity for a (resource, period) cell — used to dedupe and to key skip entries. */
+export function cellKey(c: { resourceId: number; periodKey: string }): string {
+  return `${c.resourceId}:${c.periodKey}`;
+}
+
+/**
+ * Ground UNTRUSTED model-proposed allocation cells against the live workspace.
+ * This is the anti-hallucination gate AND the unit-conversion boundary — it is
+ * the only place a model's `hours` figure is allowed to become a value that
+ * could be written into Resource.utilization.
+ *
+ * Per-cell checks, in order (a cell is refused at the FIRST that applies):
+ *   1. duplicate       — a later cell naming the same (resourceId, periodKey)
+ *                         as an earlier one in THIS proposal. The first wins;
+ *                         later ones are refused regardless of their own
+ *                         validity, so one proposal can't silently overwrite
+ *                         itself before the user even sees a diff.
+ *   2. unknown-resource — resourceId does not name a resource in the live
+ *                         workspace. A hallucinated id must never reach a write.
+ *   3. out-of-window    — periodKey is not one of the plan's OWN period keys.
+ *                         This also catches a key at the WRONG GRANULARITY
+ *                         (e.g. a "2026-W32" ISO-week key against a monthly
+ *                         plan) — the plan's period keys are always in its own
+ *                         granularity, so a mismatched key simply isn't among
+ *                         them. If a wrong-granularity key slipped through,
+ *                         PERIOD_KEY_RE would still accept it on the next load
+ *                         (it matches EITHER granularity's shape) and it would
+ *                         sit there as a dead, never-read cell rather than
+ *                         erroring — refusing it HERE is the only place that
+ *                         actually stops it.
+ *   4. bad-hours        — hours is negative or non-finite. The model always
+ *                         speaks hours; a negative or NaN figure has no
+ *                         meaningful conversion in either unit.
+ *   5. no-capacity      — PERCENT-MODE ONLY: the period's available capacity
+ *                         (absence- and holiday-aware, via periodCapacityHours)
+ *                         is <= 0 — e.g. a full-period absence. A percentage is
+ *                         a fraction OF that capacity, so with zero capacity
+ *                         there is no fraction to compute; writing 0 or 100
+ *                         would both be a LIE about what the model asked for.
+ *                         Hours-mode cells have no such dependency (their
+ *                         stored value IS hours) and are never skipped here.
+ *
+ * A cell that clears all of the above is then converted and clamped to the
+ * SAME bounds the load-path sanitizer enforces (percent 0..100, hours
+ * 0..HOURS_MAP_MAX) — `clamped` is set when that trim actually changed the
+ * value, so the preview can say so. Skipping the clamp (or silently trimming
+ * without flagging it) would let a user confirm a value that then gets
+ * silently re-trimmed on the next load — what they approved would not be what
+ * persists.
+ *
+ * Finally, a cell whose (clamped) next value equals the CURRENT stored value
+ * is omitted (not pushed to `cells`, and NOT recorded as skipped either) so
+ * the preview lists only real changes — except an explicit `0` against a
+ * non-zero current value, which IS a change (it is how a user clears a cell)
+ * and is always kept.
+ *
+ * Stops accumulating once `cells.length` reaches MAX_ALLOC_CELLS (defense in
+ * depth — parseAllocationProposal already caps the raw input to that count).
+ */
+export function groundAllocationCells(
+  raw: readonly RawAllocCell[],
+  ctx: AllocGroundContext,
+): { cells: GroundedAllocCell[]; skipped: SkippedCell[] } {
+  const periods = generatePeriods(ctx.plan.startDate, ctx.plan.endDate, ctx.plan.granularity);
+  const periodByKey = new Map(periods.map((p) => [p.key, p]));
+  const resourceById = new Map(ctx.resources.map((r) => [r.id, r]));
+
+  const cells: GroundedAllocCell[] = [];
+  const skipped: SkippedCell[] = [];
+  const seen = new Set<string>();
+
+  for (const c of raw) {
+    if (cells.length >= MAX_ALLOC_CELLS) break;
+
+    const key = cellKey(c);
+    if (seen.has(key)) {
+      skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "duplicate" });
+      continue;
+    }
+    seen.add(key);
+
+    const resource = resourceById.get(c.resourceId);
+    if (!resource) {
+      skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "unknown-resource" });
+      continue;
+    }
+
+    const period = periodByKey.get(c.periodKey);
+    if (!period) {
+      skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "out-of-window" });
+      continue;
+    }
+
+    if (!Number.isFinite(c.hours) || c.hours < 0) {
+      skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "bad-hours" });
+      continue;
+    }
+
+    const resourceAbsences = absencesForResource(ctx.absences, resource);
+    // Full available hours for this (resource, period) — a "what's the ceiling"
+    // probe via periodCapacityHours, deliberately NOT the resource's own stored
+    // utilization value. periodCapacityHours' percent-mode formula already
+    // multiplies by (stored-util / 100), so calling it against the resource
+    // as-is would fold the CURRENT percentage back into "capacity" (e.g. an
+    // empty/0% resource would report zero capacity) instead of reporting what
+    // 100% of the period actually holds.
+    const probe: Resource = { ...resource, utilizationMode: "percent", utilization: { [period.key]: 100 } };
+    const capacityHours = periodCapacityHours(probe, period, resourceAbsences, ctx.workdayHours, ctx.holidaySet);
+
+    const mode = resource.utilizationMode;
+    const currentValue = resource.utilization[period.key] ?? 0;
+    let nextValue: number;
+    let clamped: boolean;
+
+    if (mode === "percent") {
+      if (capacityHours <= 0) {
+        skipped.push({ resourceId: c.resourceId, periodKey: c.periodKey, reason: "no-capacity" });
+        continue;
+      }
+      const rawPercent = Math.round((c.hours / capacityHours) * 100);
+      clamped = rawPercent > 100 || rawPercent < 0;
+      nextValue = Math.min(100, Math.max(0, rawPercent));
+    } else {
+      clamped = c.hours > HOURS_MAP_MAX || c.hours < 0;
+      nextValue = Math.min(HOURS_MAP_MAX, Math.max(0, c.hours));
+    }
+
+    if (nextValue === currentValue) continue;
+
+    cells.push({
+      resourceId: c.resourceId,
+      resourceName: resourceLabel(resource),
+      periodKey: c.periodKey,
+      mode,
+      currentValue,
+      nextValue,
+      hours: c.hours,
+      capacityHours,
+      clamped,
+    });
+  }
+
+  return { cells, skipped };
 }
