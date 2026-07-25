@@ -81,14 +81,23 @@ export function NarrativeEditor({
         {t(lang, "dashboardStatusSummary")}
       </summary>
       <div className="mt-2">
-        <RichTextEditor
-          key={seedNonce}
-          variant="lean"
-          lang={lang}
-          label={t(lang, "dashboardNarrativePlaceholder")}
-          value={draftNarrative}
-          onChange={setDraftNarrative}
-        />
+        {/* Commit-on-blur, as the textarea this replaced did: typing and then
+            clicking away or folding the disclosure must not silently discard the
+            edit. React's onBlur is focusout, so it bubbles from the editor
+            surface — the lean editor exposes no blur prop of its own. Clear
+            keeps its onMouseDown preventDefault so its blur can't commit the
+            text it is about to discard; Save's blur commit is a no-op because
+            `unchanged` is then true. */}
+        <div onBlur={commitNarrative}>
+          <RichTextEditor
+            key={seedNonce}
+            variant="lean"
+            lang={lang}
+            label={t(lang, "dashboardNarrativePlaceholder")}
+            value={draftNarrative}
+            onChange={setDraftNarrative}
+          />
+        </div>
         <div className="mt-2 flex justify-end gap-2 print:hidden">
           <Button variant="primary" size="sm" onClick={commitNarrative} disabled={unchanged}>
             {t(lang, "dashboardStatusSave")}
