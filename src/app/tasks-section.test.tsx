@@ -429,6 +429,35 @@ describe("TasksSection", () => {
     expect(screen.queryByText("Old Removed")).not.toBeInTheDocument();
   });
 
+  it("swimlane add-lane picker excludes a resource who already owns a task-derived lane", () => {
+    // The picker only excluded session-added lanes (extraLaneIds), but the
+    // swimlane grid ALSO derives a lane for anyone who owns a visible task
+    // (groupByStatusAndPerson). Without the union, a person whose cards are
+    // already on the board stayed selectable — picking them was a silent
+    // no-op. Derive from the same healthFilteredTasks list the grid renders.
+    stubSettings({ tasksViewMode: "swimlane" });
+    const task = {
+      id: 1,
+      taskName: "T1",
+      assignee: "Correct Name",
+      resourceId: 7,
+      priority: "Medium",
+      status: "To Do",
+      dueDate: "",
+      lastUpdateDate: "2026-05-01",
+    };
+    const resources = [
+      { id: 7, firstName: "Correct", lastName: "Name", roleId: null, utilizationMode: "percent", utilization: {} },
+      { id: 9, firstName: "Other", lastName: "Person", roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    stubWorkspace([task], [task], resources);
+    render(<TasksSection {...makeProps()} />);
+    const select = screen.getByRole("combobox", { name: t("en-US", "swimlaneAddLane") });
+    const labels = Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
+    expect(labels).not.toContain("Correct Name");
+    expect(labels).toContain("Other Person");
+  });
+
   it("renders a Dark-Blue sticky table header", () => {
     const task = { id: 1, taskName: "T1" };
     stubWorkspace([task], [task]);

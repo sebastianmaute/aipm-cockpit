@@ -11,6 +11,7 @@ import { RagDot } from "./rag-dot";
 import { isTaskFinished } from "./task-status";
 import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
+import { isJiraSynced } from "./jira-status-map";
 import { RaidBadge } from "./task-raid-badge";
 import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
@@ -136,7 +137,7 @@ export function TaskKanbanCard({
         )}
       </div>
 
-      {onAssign && assignableResources && !task.jiraKey && (
+      {onAssign && assignableResources && !isJiraSynced(task) && (
         <Select
           size="xs"
           value={task.resourceId ?? ""}

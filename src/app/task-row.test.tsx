@@ -343,7 +343,7 @@ describe("TaskRow workflow-status badge", () => {
           <TaskRow
             task={makeTask({ id: 23, createdDate: "2026-01-15" })}
             isSelected={false}
-            isEditing={false}            isPushing={false}
+            isEditing={false} isPushing={false}
             raidRefs={undefined}
           />
         ),
@@ -361,7 +361,7 @@ describe("TaskRow workflow-status badge", () => {
           <TaskRow
             task={makeTask({ id: 24, createdDate: "2026-01-15" })}
             isSelected={false}
-            isEditing={false}            isPushing={false}
+            isEditing={false} isPushing={false}
             raidRefs={undefined}
           />
         ),

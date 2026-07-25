@@ -366,6 +366,17 @@ export function TasksSection({
     ? healthFilteredTasks.filter((r) => !isTaskFinished(r))
     : healthFilteredTasks;
 
+  // The add-lane picker must exclude anyone who ALREADY has a lane — not just
+  // the session-added ones (extraLaneIds), but also anyone the grid derives a
+  // lane for because they own a visible task (groupByStatusAndPerson). Derived
+  // from healthFilteredTasks — the same list fed to the swimlane grid — so the
+  // picker never drifts out of step with what's actually rendered.
+  const laneResourceIds = useMemo(() => {
+    const ids = new Set<number>(extraLaneIds);
+    for (const tk of healthFilteredTasks) if (tk.resourceId != null) ids.add(tk.resourceId);
+    return [...ids];
+  }, [extraLaneIds, healthFilteredTasks]);
+
   // Swimlane keyboard assign path: reuses onSwimlaneDrop (the same functional
   // write the drag uses) with the task's CURRENT status, so keyboard and mouse
   // can never diverge in what they write.
@@ -596,7 +607,7 @@ export function TasksSection({
           <TaskSwimlaneToolbar
             lang={lang}
             resources={resources}
-            laneResourceIds={extraLaneIds}
+            laneResourceIds={laneResourceIds}
             onAddLane={addLane}
           />
         )}
