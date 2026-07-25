@@ -104,6 +104,7 @@ import { buildRecommendContext } from "./insights/recommend-context";
 import { describeRecommendationPlan } from "./insights/recommend-plan";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
 import { buildGroundingIndex } from "./action-ai";
+import { executeActionCta } from "./action-cta-exec";
 import { runTool } from "./chat-tools";
 import { getTursoConfig } from "./turso-config";
 import { aiKeyIfEnabled, isAiEnabled, DEFAULT_INSIGHT_REC_INTERVAL_MIN, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
@@ -140,7 +141,7 @@ import {
   type ProjectsRegistry,
 } from "./projects-registry";
 import { deleteHandle } from "./project-file-handles";
-import { exportWorkspace, type ExportFormat } from "./export"; import { reportSilentFailure } from "./guard-feedback";
+import { exportWorkspace, type ExportFormat } from "./export"; import { reportCapabilityGap, reportSilentFailure } from "./guard-feedback";
 import { ProjectEmptyState } from "./project-empty-state";
 import { SecretUnlockGate } from "./secret-unlock-gate";
 import { isPassphraseLocked } from "./secrets-store";
@@ -243,7 +244,7 @@ function TaskManagerInner() {
     if (target !== activeTab) setActiveTab(target);
   }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
-  const { setRaidFilterTaskId } = useFilters();
+  const { setRaidFilterTaskId, resetFilterValues, setAssigneeFilter, setHealthFilter } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
   // docs/superpowers/specs/2026-05-18-workspace-context-slice2-design.md).
@@ -252,6 +253,7 @@ function TaskManagerInner() {
   const {
     tasks,
     setTasks,
+    uniqueAssignees,
     uniqueGroups,
     uniqueLabels,
     raid,
@@ -950,9 +952,21 @@ function TaskManagerInner() {
   const clearSettingsSectionRequest = useCallback(() => setSettingsSectionRequest(undefined), []);
   const openAction = useCallback(
     (a: SuggestedAction) => {
-      if (a.cta.kind === "open") requestOpen(a.cta.view, Number(a.cta.id));
+      executeActionCta(a.cta, {
+        requestOpen, resetFilterValues, setAssigneeFilter, setHealthFilter, setActiveTab,
+        // The live options the assignee <select> offers, so an "open this
+        // person's tasks" CTA resolves to the STORED spelling instead of
+        // orphaning the filter (which silently reads "All").
+        assigneeOptions: uniqueAssignees,
+        // ...and when the person is in NO option — hideExternalTasks keeps their
+        // tasks out of uniqueAssignees while the workload engine still raises
+        // their overload — the CTA filters nothing and explains itself rather
+        // than presenting the project's whole red backlog as their overdue work.
+        onUnresolvedAssignee: () =>
+          reportCapabilityGap(showToast, lang, "actions.assigneeFilterUnavailable", "guardActionAssigneeUnavailable"),
+      });
     },
-    [requestOpen],
+    [requestOpen, resetFilterValues, setAssigneeFilter, setHealthFilter, setActiveTab, uniqueAssignees, showToast, lang],
   );
   const openActionCenter = useCallback(() => {
     if (typeof window !== "undefined") window.focus();
@@ -986,7 +1000,7 @@ function TaskManagerInner() {
     enabled: effectiveNotifications.desktopUrgent.enabled,
     isPopout,
     lang,
-    requestOpen,
+    onOpenAction: openAction,
     openActionCenter,
   });
 

@@ -557,6 +557,12 @@ const enUS = {
   budgetBurndownTitle: "Burn-down",
   burndownHoursRemaining: "Hours remaining",
   burndownBudgetRemaining: "Budget remaining",
+  burndownChainMultipleRoots: "Burn-down covers the whole plan period: these budget buckets are not linked into one chain ({0}). Set each bucket's successor to chain them.",
+  burndownChainUnreachable: "Burn-down covers the whole plan period: these budget buckets are not reachable from the first one ({0}). Set each bucket's successor to chain them.",
+  burndownChainCycle: "Burn-down covers the whole plan period: the buckets' successor links form a loop ({0}).",
+  burndownChainMissingDates: "Burn-down covers the whole plan period: these budget buckets have no start or end date ({0}).",
+  burndownChainDangling: "Burn-down covers the whole plan period: these budget buckets point at a successor that no longer exists ({0}).",
+  burndownChainOutsidePlan: "Burn-down covers the whole plan period: the chained budget buckets fall outside the resource plan's date range ({0}). Extend the plan or correct the bucket dates.",
   burndownPlanned: "Planned",
   burndownActual: "Actual",
   burndownToday: "today",
@@ -2649,6 +2655,7 @@ const enUS = {
   guardFxRefreshFailed: "Couldn't refresh exchange rates. Currency conversions may be stale or missing.",
   guardExportFailed: "Export failed — nothing was downloaded. Please try again.",
   guardJiraIssueTypesFailed: "Couldn't load issue types for this project. Jira sync may not pick up the types you expect — try reselecting the project.",
+  guardActionAssigneeUnavailable: "Couldn't filter the task list to that person — none of the tasks it can show are assigned to them. Hidden external resources are the usual cause.",
   // SP4 tour catalog titles + blurbs
   tourGettingStartedTitle: "Getting started",
   tourGettingStartedDesc: "A quick tour of the main areas — projects, tasks, actions, and the dashboard.",
@@ -3446,6 +3453,7 @@ const enUS = {
   versionHighlightTimelogScopeMemory: "Time bookings now remember the last customer and projects you fetched, so a refresh reloads them automatically.",
   versionHighlightPolishR1: "Polish: chat prompt suggestions stay available for the whole session, new knowledge links default to the project library, the landing-page logo follows your theme, and the time-booking apply bar is a cleaner card.",
   versionHighlightKanbanSwimlanes: "Created date column, hide externals, and Kanban person swimlanes: tasks now record when they were created (a sortable, off-by-default column, backfilled for existing tasks); Open Points can hide externally-owned tasks and their filter options in one toggle; and the Kanban board gains a person-swimlane view — drag a card into someone's lane to reassign and re-status it in one move, or use the per-card person select as the keyboard equivalent.",
+  versionHighlightDashboardR3: "Dashboard: the “overloaded with overdue work” action now opens Open Points filtered to that person instead of the workload view; the burn-down x-axis follows the budget buckets' successor chain, with a banner naming the offending buckets when they are not one chain (and staying silent when nobody chained anything); and the project status summary is a rich-text editor — bold, italic, lists and links — with an existing plain-text narrative upgraded on read and only rewritten when you save.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

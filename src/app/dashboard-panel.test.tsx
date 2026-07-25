@@ -8,7 +8,7 @@ import { DashboardPanel } from "./dashboard-panel";
 import { RaidRegisterCard } from "./dashboard-sections/registers-band";
 import { t } from "./i18n";
 import { loadActivityLog } from "./activity-log";
-import type { RaidItem, Milestone, ChangeItem } from "./types";
+import type { BudgetBucket, RaidItem, Milestone, ChangeItem } from "./types";
 
 vi.mock("./activity-log", async (orig) => ({
   ...(await orig<typeof import("./activity-log")>()),
@@ -742,5 +742,37 @@ describe("DashboardPanel Tier-3 folds", () => {
     const progress = screen.getByText("Progress");
     const editor = screen.getByText("Status summary");
     expect(progress.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("DashboardPanel burn-down chain warning", () => {
+  const chainProps = {
+    lang: "en-US" as const,
+    tasks: [], raid: [], plan, roles: [], resources: [], absences: [],
+    holidaySet: new Set<string>(), workdayHours: 8, today: "2026-06-02",
+  };
+  const bucketA = {
+    id: 1, name: "Phase 1", type: "tm", currency: "EUR",
+    startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+    allocations: [{ roleId: 1, resourceIds: [], budgetHours: { "2026-01": 10 }, actualHours: {} }],
+  } as unknown as BudgetBucket;
+  const bucketB = { ...bucketA, id: 2, name: "Phase 2" };
+  const bucketC = { ...bucketA, id: 3, name: "Phase 3" };
+
+  it("stays silent when no bucket was ever chained", () => {
+    // Parallel buckets are the normal budget model — warning here fired on every
+    // project, including the shipped demo.
+    render(<DashboardPanel {...chainProps} budgets={[bucketA, bucketB]} />, { wrapper });
+    expect(screen.queryByText(/Burn-down covers the whole plan period/)).toBeNull();
+  });
+
+  it("warns when a half-built chain leaves a bucket outside it", () => {
+    render(<DashboardPanel {...chainProps} budgets={[{ ...bucketA, successorId: 2 }, bucketB, bucketC]} />, { wrapper });
+    expect(screen.getByText(/not linked into one chain/)).toBeInTheDocument();
+  });
+
+  it("does not warn when the buckets form one chain", () => {
+    render(<DashboardPanel {...chainProps} budgets={[{ ...bucketA, successorId: 2 }, bucketB]} />, { wrapper });
+    expect(screen.queryByText(/not linked into one chain/)).toBeNull();
   });
 });

@@ -24,7 +24,9 @@ import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
 import { computeBurndownSeries } from "./budget-burndown";
+import { resolveBucketChain } from "./budget-bucket-chain";
 import { BurndownCharts } from "./burndown-chart";
+import { BurndownChainWarning } from "./budget-chain-warning";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
 
@@ -71,9 +73,18 @@ export function BudgetReportPanel({
     [tasks, today, roles],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
+  const planStart = plan.startDate;
+  const planEnd = plan.endDate;
+  const bucketChain = useMemo(
+    () => resolveBucketChain(buckets, { start: planStart, end: planEnd }),
+    [buckets, planStart, planEnd],
+  );
   const burndown = useMemo(
-    () => computeBurndownSeries(buckets, plan, roles, resources, workdayHours, holidaySet, absences, today),
-    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today],
+    () => computeBurndownSeries(
+      buckets, plan, roles, resources, workdayHours, holidaySet, absences, today,
+      bucketChain.kind === "chain" ? { start: bucketChain.start, end: bucketChain.end } : undefined,
+    ),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, bucketChain],
   );
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);
@@ -145,6 +156,7 @@ export function BudgetReportPanel({
       </Section>
 
       <Section title={t(lang, "budgetBurndownTitle")}>
+        <BurndownChainWarning lang={lang} chain={bucketChain} />
         <BurndownCharts series={burndown} lang={lang} currency={plan.currency || "EUR"} />
         <p className="mt-2 text-xs text-muted-foreground">{t(lang, "dashboardBurnCaption")}</p>
       </Section>

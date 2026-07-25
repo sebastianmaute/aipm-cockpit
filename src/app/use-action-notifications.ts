@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { t, type Lang } from "./i18n";
-import type { AppView } from "./nav-config";
 import type { SuggestedAction } from "./next-actions/types";
 import { buildNotificationPlan, newUrgentActions, nextSeenIds } from "./action-notifications";
 
@@ -14,7 +13,11 @@ interface UseActionNotificationsArgs {
   enabled: boolean;
   isPopout: boolean;
   lang: Lang;
-  requestOpen: (view: AppView, id: number) => void;
+  /** Runs the action's primary CTA. Takes the whole action (not view+id) so the
+   *  notification click and the row's Open button share ONE implementation — a
+   *  `cta.kind === "open"` guard here would silently do nothing for any other
+   *  arm, and tsc would not flag it. */
+  onOpenAction: (action: SuggestedAction) => void;
   openActionCenter: () => void;
 }
 
@@ -49,19 +52,19 @@ export function useActionNotifications({
   enabled,
   isPopout,
   lang,
-  requestOpen,
+  onOpenAction,
   openActionCenter,
 }: UseActionNotificationsArgs): void {
   const seenRef = useRef<string[] | null>(null);
   const seededRef = useRef(false);
-  const cbRef = useRef({ lang, requestOpen, openActionCenter });
+  const cbRef = useRef({ lang, onOpenAction, openActionCenter });
 
   // Mirror the latest callbacks/lang into a ref WITHOUT widening the main
   // effect's deps. This effect MUST stay declared before the main effect:
   // React runs effects in declaration order, so cbRef is refreshed before the
   // main effect reads it. Reordering these two effects would make it stale.
   useEffect(() => {
-    cbRef.current = { lang, requestOpen, openActionCenter };
+    cbRef.current = { lang, onOpenAction, openActionCenter };
   });
 
   useEffect(() => {
@@ -87,7 +90,7 @@ export function useActionNotifications({
     if (!focused) {
       const plan = buildNotificationPlan(newUrgentActions(actions, seenRef.current));
       if (plan) {
-        const { lang: l, requestOpen: open, openActionCenter: center } = cbRef.current;
+        const { lang: l, onOpenAction: open, openActionCenter: center } = cbRef.current;
         try {
           if (plan.kind === "single") {
             const a = plan.action;
@@ -97,10 +100,7 @@ export function useActionNotifications({
             });
             n.onclick = () => {
               window.focus();
-              if (a.cta.kind === "open") {
-                const id = Number(a.cta.id);
-                if (Number.isFinite(id)) open(a.cta.view, id);
-              }
+              open(a);
               n.close();
             };
           } else {

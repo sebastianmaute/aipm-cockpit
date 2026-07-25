@@ -11,7 +11,11 @@ const MAX_CHIPS = 3;
 
 /** Open-CTA actions targeting `view` (used by the data-view strip + report cards). */
 export function chipsForView(actions: readonly SuggestedAction[], view: AppView): SuggestedAction[] {
-  return actions.filter((a) => a.cta.kind === "open" && a.cta.view === view);
+  return actions.filter((a) =>
+    a.cta.kind === "open"
+      ? a.cta.view === view
+      : a.cta.kind === "open-tasks-for" && view === "open-points",
+  );
 }
 
 interface ActionChipsProps {

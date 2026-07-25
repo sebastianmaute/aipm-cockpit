@@ -8,6 +8,7 @@ import { workdaysUntil } from "./due-dates";
 import { partitionMilestones } from "./milestones";
 import { computeEvm, projectBlendedInternalRate, type EvmMetrics } from "./evm";
 import { computeBurndownSeries, type BurndownSeries } from "./budget-burndown";
+import { resolveBucketChain, type BucketChain } from "./budget-bucket-chain";
 import { computeScopeStatus, countByStatus, isPendingChange, selectTopChanges, SCOPE_PENDING_RED } from "./change-log";
 import type {
   Absence, BudgetBucket, ChangeItem, Milestone, ProjectStatus, RaidItem, RaidSeverity,
@@ -198,6 +199,9 @@ export type DashboardModel = {
   progress: DashboardProgress;
   burn: DashboardBurn | null;
   burndown: BurndownSeries | null;
+  /** The buckets' successor-chain resolution — drives the burn-down x-axis span
+   *  and the "not one chain" warning. Null when there are no budgets. */
+  bucketChain: BucketChain | null;
   evm: EvmMetrics;
   topRaid: RaidItem[];
   /** Total open (non-terminal) RAID items — the trend-arrow source, since
@@ -309,11 +313,15 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
         costUnknownReason: project.costUnknownReason,
       }
     : null;
+  const bucketChain: BucketChain | null = input.budgets.length > 0
+    ? resolveBucketChain(input.budgets, { start: input.plan.startDate, end: input.plan.endDate })
+    : null;
   const burndown: BurndownSeries | null =
     input.budgets.length > 0
       ? computeBurndownSeries(
           input.budgets, input.plan, input.roles, input.resources,
           input.workdayHours, holidaySet, input.absences, today,
+          bucketChain?.kind === "chain" ? { start: bucketChain.start, end: bucketChain.end } : undefined,
         )
       : null;
 
@@ -338,6 +346,7 @@ export function computeDashboard(input: DashboardInput, opts: DashboardOptions =
     progress: computeDashboardProgress(input.tasks, today, holidaySet),
     burn,
     burndown,
+    bucketChain,
     evm,
     topRaid: selectTopRaid(input.raid, topRaidN),
     openRaidCount: input.raid.filter((r) => !isTerminalStatus(r.status, r.category)).length,

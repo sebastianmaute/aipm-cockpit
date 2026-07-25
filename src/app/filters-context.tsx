@@ -67,6 +67,12 @@ interface FiltersValue {
   setSortDir: Dispatch<SetStateAction<SortDir>>;
   setRaidFilterTaskId: Dispatch<SetStateAction<number | null>>;
 
+  /** Clears exactly the row-HIDING state (search + the five filters + the RAID
+   *  backlink) and LEAVES the sort alone. For callers that are about to apply a
+   *  filter of their own and only need the stale ones out of the way — a sort
+   *  cannot hide a row, so resetting it just discards a deliberate user choice. */
+  resetFilterValues: () => void;
+  /** resetFilterValues + the sort back to its default. The toolbar "reset" verb. */
   resetFilters: () => void;
 }
 
@@ -102,7 +108,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [raidFilterTaskId, setRaidFilterTaskId] = useState<number | null>(null);
 
-  const resetFilters = useCallback(() => {
+  const resetFilterValues = useCallback(() => {
     setSearch("");
     setSearchDebouncedOverride(null);
     setPriorityFilter("All");
@@ -110,14 +116,20 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     setGroupFilter("All");
     setLabelFilter("All");
     setHealthFilter("all");
-    setSortKey("id");
-    setSortDir("asc");
     setRaidFilterTaskId(null);
   }, []);
 
+  // Delegates rather than repeating the setter list, so the two resets cannot
+  // drift: whatever counts as a row-hiding filter is defined in exactly one place.
+  const resetFilters = useCallback(() => {
+    resetFilterValues();
+    setSortKey("id");
+    setSortDir("asc");
+  }, [resetFilterValues]);
+
   // Memoized container: useState setters are identity-stable and excluded
-  // from deps. setSearchImmediate / resetFilters are useCallback([]) — also
-  // stable, but listed because they are not useState setters.
+  // from deps. setSearchImmediate / resetFilterValues / resetFilters are
+  // useCallback-stable, but listed because they are not useState setters.
   const value: FiltersValue = useMemo(
     () => ({
       search,
@@ -140,6 +152,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       setSortKey,
       setSortDir,
       setRaidFilterTaskId,
+      resetFilterValues,
       resetFilters,
     }),
     [
@@ -154,6 +167,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       sortDir,
       raidFilterTaskId,
       setSearchImmediate,
+      resetFilterValues,
       resetFilters,
     ],
   );

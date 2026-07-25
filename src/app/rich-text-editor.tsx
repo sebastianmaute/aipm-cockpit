@@ -41,6 +41,36 @@ export interface RichTextEditorProps {
   labels?: RichTextEditorLabels;
 }
 
+// ★★ The LEAN variant sanitizes with `sanitizeNoteHtml`, whose allow-list has no
+// h1-h6 / blockquote / pre / code / s / hr AND which drops a disallowed node's
+// TEXT with it (KEEP_CONTENT: false). StarterKit's markdown input rules produce
+// exactly those nodes from "# ", "> ", "```", "`x`", "~~x~~" and "--- ", so the
+// keystroke left the formatting on screen while the committed value silently lost
+// it: a whole block collapsed to "" for the block rules (typing "# Q3 highlights"
+// stored nothing at all — no error, no toast, and for the dashboard narrative
+// Save stayed disabled because `unchanged` was then true), and the marked WORD
+// vanished for the inline ones ("ship `staging` now" -> "ship  now").
+// Disabling the extensions removes the input rules at the source, so the markdown
+// punctuation now stays literal text. This is deliberately NOT a widening of
+// NOTE_ALLOWED_TAGS: that list is security-relevant and widening it would also
+// change how already-stored note HTML renders, whereas dropping an input rule
+// cannot touch stored data. It also matches the lean toolbar, which offers
+// Bold/Italic/lists/link and nothing else — a mark with no visible control should
+// not be creatable by an invisible keystroke either.
+// The FULL variant is untouched: it has heading toolbar buttons, its sanitizer
+// allows h1/h2, and it keeps the text of anything it unwraps (KEEP_CONTENT).
+const LEAN_EXTENSIONS = [
+  StarterKit.configure({
+    heading: false,
+    blockquote: false,
+    codeBlock: false,
+    code: false,
+    strike: false,
+    horizontalRule: false,
+  }),
+];
+const FULL_EXTENSIONS = [StarterKit];
+
 const BTN = "rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted";
 const BTN_ON = "rounded-md border border-line bg-ui-dark-blue px-2 py-1 text-xs text-white";
 
@@ -50,6 +80,14 @@ function ToolbarButton(props: { label: string; active?: boolean; onClick: () => 
       type="button"
       aria-label={props.label}
       aria-pressed={props.active ?? false}
+      // ★★ A toolbar button must NEVER take focus from the contenteditable it
+      // formats. Without this, mousedown blurs the editor surface, and any
+      // consumer that commits on blur (the dashboard narrative, notes-window)
+      // re-renders — or worse, remounts — the editor BETWEEN mousedown and
+      // mouseup, so no `click` is ever dispatched and the format command never
+      // runs. Keeping focus in the editor also preserves the selection the
+      // command applies to.
+      onMouseDown={(e) => e.preventDefault()}
       onClick={props.onClick}
       className={props.active ? BTN_ON : BTN}
     >
@@ -77,7 +115,7 @@ export function RichTextEditor(props: RichTextEditorProps) {
   const minH = isLean ? "min-h-24" : "min-h-40";
 
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: isLean ? LEAN_EXTENSIONS : FULL_EXTENSIONS,
     content: value,
     immediatelyRender: false,
     editorProps: {
@@ -149,6 +187,10 @@ export function RichTextEditor(props: RichTextEditorProps) {
                 key={field}
                 variant="secondary"
                 size="xs"
+                // Same reason as ToolbarButton: these chips are a SEPARATE
+                // element (the shared Button primitive), so they need the same
+                // don't-steal-focus treatment or the insert lands after a blur.
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => editor.chain().focus().insertContent(`{{${field}}}`).run()}
               >
                 {fieldLabel ? fieldLabel(field) : field}

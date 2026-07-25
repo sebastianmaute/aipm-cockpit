@@ -22,6 +22,11 @@ export interface I18nText {
 /** A serializable description of the primary action — the surface executes it. */
 export type ActionCta =
   | { kind: "open"; view: AppView; id: string | number } // deep-link to the entity
+  // Open the task list filtered to one person's at-risk work. Deliberately NOT
+  // an `open` arm with a sentinel id: `onPoints(a)` would then be true and would
+  // attach the task-specific verbs (mark-done / reschedule / clear-blocker),
+  // which all do Number(cta.id) and have no task to act on here.
+  | { kind: "open-tasks-for"; resourceId: number; resourceName: string }
   | { kind: "snooze"; actionId: string };
 
 export interface SuggestedAction {

@@ -563,6 +563,12 @@ export const de: Record<TranslationKey, string> = {
   budgetBurndownTitle: "Burn-down",
   burndownHoursRemaining: "Verbleibende Stunden",
   burndownBudgetRemaining: "Verbleibendes Budget",
+  burndownChainMultipleRoots: "Burn-down umfasst den gesamten Planzeitraum: Diese Buckets sind nicht zu einer Kette verknüpft ({0}). Setze bei jedem Bucket den Nachfolger.",
+  burndownChainUnreachable: "Burn-down umfasst den gesamten Planzeitraum: Diese Buckets sind vom ersten Bucket aus nicht erreichbar ({0}). Setze bei jedem Bucket den Nachfolger.",
+  burndownChainCycle: "Burn-down umfasst den gesamten Planzeitraum: Die Nachfolger-Verknüpfungen der Buckets bilden einen Kreis ({0}).",
+  burndownChainMissingDates: "Burn-down umfasst den gesamten Planzeitraum: Diese Buckets haben kein Start- oder Enddatum ({0}).",
+  burndownChainDangling: "Burn-down umfasst den gesamten Planzeitraum: Diese Buckets verweisen auf einen Nachfolger, den es nicht mehr gibt ({0}).",
+  burndownChainOutsidePlan: "Burn-down umfasst den gesamten Planzeitraum: Die verketteten Buckets liegen außerhalb des Zeitraums der Ressourcenplanung ({0}). Erweitere den Plan oder korrigiere die Bucket-Daten.",
   burndownPlanned: "Geplant",
   burndownActual: "Ist",
   burndownToday: "heute",
@@ -2622,6 +2628,7 @@ export const de: Record<TranslationKey, string> = {
   guardFxRefreshFailed: "Wechselkurse konnten nicht aktualisiert werden. Währungsumrechnungen sind möglicherweise veraltet oder fehlen.",
   guardExportFailed: "Export fehlgeschlagen — es wurde nichts heruntergeladen. Bitte versuchen Sie es erneut.",
   guardJiraIssueTypesFailed: "Vorgangstypen für dieses Projekt konnten nicht geladen werden. Die Jira-Synchronisierung erfasst möglicherweise nicht die erwarteten Typen — wählen Sie das Projekt erneut aus.",
+  guardActionAssigneeUnavailable: "Die Aufgabenliste konnte nicht nach dieser Person gefiltert werden — keine der anzeigbaren Aufgaben ist ihr zugewiesen. Meist liegt es an ausgeblendeten externen Ressourcen.",
   tourGettingStartedTitle: "Erste Schritte",
   tourGettingStartedDesc: "Ein kurzer Rundgang durch die wichtigsten Bereiche — Projekte, Aufgaben, Aktionen und das Dashboard.",
   tourRaidTitle: "Risiken managen",
@@ -3427,6 +3434,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightTimelogScopeMemory: "Zeitbuchungen merken sich jetzt den zuletzt abgerufenen Kunden und die zugehörigen Projekte, sodass eine Aktualisierung sie automatisch neu lädt.",
   versionHighlightPolishR1: "Feinschliff: Chat-Vorschläge bleiben die ganze Sitzung verfügbar, neue Wissenslinks landen standardmäßig in der Projektbibliothek, das Startseiten-Logo folgt Ihrem Theme und die Zeitbuchungs-Übernahmeleiste ist eine aufgeräumtere Karte.",
   versionHighlightKanbanSwimlanes: "Spalte Erstellt, Externe ausblenden und Kanban-Personenspuren: Aufgaben speichern jetzt, wann sie erstellt wurden (eine sortierbare, standardmäßig ausgeblendete Spalte, für bestehende Aufgaben nachträglich befüllt); die Offenen Punkte können extern verantwortete Aufgaben und deren Filteroptionen mit einem Schalter ausblenden; und das Kanban-Board erhält eine Personenspur-Ansicht — eine Karte in die Spur einer Person ziehen, um sie in einem Schritt neu zuzuweisen und den Status zu ändern, oder die Personenauswahl je Karte als Tastatur-Äquivalent nutzen.",
+  versionHighlightDashboardR3: "Dashboard: Die Aktion „überlastet mit überfälliger Arbeit“ öffnet jetzt die Offenen Punkte gefiltert auf diese Person statt der Auslastungsansicht; die x-Achse des Burn-down folgt der Nachfolger-Kette der Budget-Buckets — mit einem Hinweis, der die betroffenen Buckets benennt, wenn sie keine Kette bilden (und der stumm bleibt, wenn niemand etwas verkettet hat); und die Projektstatus-Zusammenfassung ist ein Rich-Text-Editor mit Fett, Kursiv, Listen und Links, wobei eine bestehende Klartext-Zusammenfassung beim Lesen aufgewertet und erst beim Speichern neu geschrieben wird.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",

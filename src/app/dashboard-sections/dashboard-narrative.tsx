@@ -6,18 +6,37 @@ import { type Lang, t } from "../i18n";
 import { FOCUS_RING } from "../interaction-styles";
 import { Button } from "../button";
 import { Card } from "../card";
-import { Textarea } from "../form-controls";
+import { RichTextEditor } from "../rich-text-editor";
+import { RichTextView } from "../rich-text-view";
+import { sanitizeNoteHtml } from "../sanitize-html";
+import { isNarrativeEmpty, narrativeToHtml, normalizeNarrativeHtml } from "../narrative-html";
 import type { ProjectStatus } from "../types";
 
 /** Read-only exec-summary of the saved status narrative (Tier 0). Renders null
- *  when empty so a blank project shows nothing up top. Plain text — no
- *  aria-label on the wrapper (dead-label landmine). */
+ *  when empty so a blank project shows nothing up top. Rich text since R3 — the
+ *  HTML is re-sanitised at the SINK (RichTextView), so a regressed load path can
+ *  never put markup in the DOM.
+ *
+ *  ★★ Emptiness is decided on the SANITISED html, not the stored value. The two
+ *  diverge whenever the sink strips an element with its text (KEEP_CONTENT is
+ *  false), e.g. a Word-pasted `<p><u>text</u></p>` that sanitises to `<p></p>`:
+ *  judging the pre-sanitised value called that non-empty and rendered a blank
+ *  card carrying nothing but an "Updated <date>" line. Deciding on what actually
+ *  reaches the DOM cannot drift from what the user sees.
+ *
+ *  ★ The sanitised value is then handed to RichTextView, which sanitises AGAIN.
+ *  That is deliberate rather than wasteful: sanitizeNoteHtml is idempotent
+ *  (documented in rich-text-view.tsx, and the second pass is a verified no-op on
+ *  its own output), and the alternative — a prop telling the sink to trust its
+ *  input — would put a bypass switch on the app's defence-in-depth boundary for
+ *  every other caller too. One cheap redundant pass is the better trade. */
 export function NarrativeSummary({ lang, status }: { lang: Lang; status: ProjectStatus }) {
-  const text = (status.narrative ?? "").trim();
-  if (!text) return null;
+  const html = narrativeToHtml(status.narrative);
+  const rendered = html ? sanitizeNoteHtml(html) : "";
+  if (!rendered || isNarrativeEmpty(rendered)) return null;
   return (
     <Card boxed className="p-3">
-      <p className="whitespace-pre-wrap text-sm text-foreground">{text}</p>
+      <RichTextView html={rendered} />
       {status.narrativeUpdatedAt ? (
         <p className="mt-1 text-xs text-muted-foreground">
           {t(lang, "dashboardNarrativeUpdated", status.narrativeUpdatedAt.slice(0, 10))}
@@ -27,10 +46,9 @@ export function NarrativeSummary({ lang, status }: { lang: Lang; status: Project
   );
 }
 
-/** Folded status-summary editor (Tier 3). Owns the draft + autogrow + the
- *  render-time reconcile that re-seeds the draft when an external workspace
- *  reload changes status.narrative (NOT a useEffect — set-state-in-effect is
- *  banned). */
+/** Folded status-summary editor (Tier 3). Owns the draft + the render-time
+ *  reconcile that re-seeds it when an external workspace reload changes
+ *  status.narrative (NOT a useEffect — set-state-in-effect is banned). */
 export function NarrativeEditor({
   lang, status, setStatus,
 }: {
@@ -38,29 +56,51 @@ export function NarrativeEditor({
   status: ProjectStatus;
   setStatus: Dispatch<SetStateAction<ProjectStatus>>;
 }) {
-  const [prevStoredNarrative, setPrevStoredNarrative] = useState(status.narrative ?? "");
-  const [draftNarrative, setDraftNarrative] = useState(status.narrative ?? "");
+  const storedHtml = narrativeToHtml(status.narrative);
+  const [prevStoredNarrative, setPrevStoredNarrative] = useState(storedHtml);
+  const [draftNarrative, setDraftNarrative] = useState(storedHtml);
+  // Remount nonce: RichTextEditor reads `value` only as its mount-time content
+  // (useEditor binds it once), so a re-seeded draft needs a fresh editor
+  // instance to become visible. Mirrors the notes-window composer nonce.
+  const [seedNonce, setSeedNonce] = useState(0);
 
-  const storedNarrative = status.narrative ?? "";
-  if (storedNarrative !== prevStoredNarrative) {
-    setPrevStoredNarrative(storedNarrative);
-    setDraftNarrative(storedNarrative);
+  // What a commit would store: blank markup collapses to "", so clearing the
+  // editor stores an empty narrative rather than an empty paragraph.
+  const nextValue = isNarrativeEmpty(draftNarrative) ? "" : normalizeNarrativeHtml(draftNarrative);
+  const unchanged = nextValue === storedHtml;
+
+  if (storedHtml !== prevStoredNarrative) {
+    setPrevStoredNarrative(storedHtml);
+    setDraftNarrative(storedHtml);
+    // ★★ Bump the remount nonce ONLY for a change the editor does not already
+    // hold. A re-seed that originates from our OWN commit-on-blur carries
+    // exactly the content in the editor, so remounting is pure loss: mousedown
+    // on a toolbar button blurs -> commits -> changes storedHtml -> replaced the
+    // editor node before mouseup, so no `click` fired and no format command ever
+    // ran (and the fresh instance had no selection to apply one to). A genuine
+    // external change (workspace reload) still remounts - useEditor binds
+    // `content` once, so that is the only way a new value becomes visible.
+    if (storedHtml !== nextValue) setSeedNonce((n) => n + 1);
   }
 
   const commitNarrative = () => {
-    const trimmed = draftNarrative.trim();
-    if (trimmed === (status.narrative ?? "")) return;
-    setStatus((s) => ({ ...s, narrative: trimmed, narrativeUpdatedAt: new Date().toISOString() }));
+    if (unchanged) return;
+    setStatus((s) => ({ ...s, narrative: nextValue, narrativeUpdatedAt: new Date().toISOString() }));
   };
 
   const clearNarrative = () => {
     setDraftNarrative("");
-    if ((status.narrative ?? "") !== "") {
+    // ★★ Bump UNCONDITIONALLY: the nonce is the only thing that empties the
+    // editor DOM, and the reconcile below can never cover Clear. By the time it
+    // runs, `draftNarrative` is already "" so `nextValue === storedHtml === ""`
+    // and its `storedHtml !== nextValue` guard is false. Bumping only in the
+    // nothing-stored branch left a CLEARED narrative on screen while the stored
+    // value was gone — and the next keystroke committed the two merged back
+    // together.
+    setSeedNonce((n) => n + 1);
+    if (storedHtml !== "") {
       setStatus((s) => ({ ...s, narrative: "", narrativeUpdatedAt: new Date().toISOString() }));
     }
-    // No synchronous resize here: the draft state hasn't flushed yet, so the
-    // textarea still holds its old value. The useAutogrow pass re-measures
-    // after the cleared value lands in the DOM.
   };
 
   return (
@@ -69,22 +109,25 @@ export function NarrativeEditor({
         {t(lang, "dashboardStatusSummary")}
       </summary>
       <div className="mt-2">
-        <Textarea
-          autoGrow
-          className="min-h-24 w-full"
-          aria-label={t(lang, "dashboardNarrativePlaceholder")}
-          placeholder={t(lang, "dashboardNarrativePlaceholder")}
-          value={draftNarrative}
-          onChange={(e) => setDraftNarrative(e.target.value)}
-          onBlur={commitNarrative}
-        />
+        {/* Commit-on-blur, as the textarea this replaced did: typing and then
+            clicking away or folding the disclosure must not silently discard the
+            edit. React's onBlur is focusout, so it bubbles from the editor
+            surface — the lean editor exposes no blur prop of its own. Clear
+            keeps its onMouseDown preventDefault so its blur can't commit the
+            text it is about to discard; Save's blur commit is a no-op because
+            `unchanged` is then true. */}
+        <div onBlur={commitNarrative}>
+          <RichTextEditor
+            key={seedNonce}
+            variant="lean"
+            lang={lang}
+            label={t(lang, "dashboardNarrativePlaceholder")}
+            value={draftNarrative}
+            onChange={setDraftNarrative}
+          />
+        </div>
         <div className="mt-2 flex justify-end gap-2 print:hidden">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={commitNarrative}
-            disabled={draftNarrative.trim() === (status.narrative ?? "")}
-          >
+          <Button variant="primary" size="sm" onClick={commitNarrative} disabled={unchanged}>
             {t(lang, "dashboardStatusSave")}
           </Button>
           <Button
@@ -92,7 +135,7 @@ export function NarrativeEditor({
             size="sm"
             onClick={clearNarrative}
             onMouseDown={(e) => e.preventDefault()}
-            disabled={(status.narrative ?? "") === "" && draftNarrative === ""}
+            disabled={storedHtml === "" && isNarrativeEmpty(draftNarrative)}
           >
             {t(lang, "dashboardStatusClear")}
           </Button>

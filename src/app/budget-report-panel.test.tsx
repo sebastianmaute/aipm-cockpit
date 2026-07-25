@@ -225,3 +225,34 @@ describe("BudgetReportPanel — detail table sorting with an uncostable bucket",
     expect(names[0]).not.toBe("Unstarted contract");
   });
 });
+
+describe("BudgetReportPanel burn-down chain warning", () => {
+  it("stays silent when no bucket was ever chained", () => {
+    // The default fixture links nothing — parallel buckets are the normal budget
+    // model, so a permanent warning here is a false alarm on every project.
+    renderPanel();
+    expect(screen.queryByText(/not linked into one chain/)).toBeNull();
+    expect(screen.queryByText(/Burn-down covers the whole plan period/)).toBeNull();
+  });
+
+  it("warns when a half-built chain leaves a bucket outside it", () => {
+    renderPanel({ buckets: [{ ...buckets[0], successorId: 2 }, buckets[1], buckets[2]] });
+    expect(screen.getByText(/not linked into one chain/)).toBeInTheDocument();
+  });
+
+  it("warns when a bucket points at a successor that no longer exists", () => {
+    renderPanel({ buckets: [{ ...buckets[0], successorId: 99 }, buckets[1], buckets[2]] });
+    expect(screen.getByText(/successor that no longer exists \(Alpha\)/)).toBeInTheDocument();
+  });
+
+  it("does not warn once the buckets are chained", () => {
+    renderPanel({
+      buckets: [
+        { ...buckets[0], successorId: 2 },
+        { ...buckets[1], successorId: 3 },
+        buckets[2],
+      ],
+    });
+    expect(screen.queryByText(/not linked into one chain/)).toBeNull();
+  });
+});

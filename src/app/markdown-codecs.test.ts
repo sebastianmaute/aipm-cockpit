@@ -1,6 +1,6 @@
 // src/app/markdown-codecs.test.ts
 import { describe, it, expect } from "vitest";
-import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
+import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus } from "./markdown-codecs";
 import { emptyWorkspace } from "./workspace";
 
 describe("markdown fieldVisibility section", () => {
@@ -27,6 +27,45 @@ describe("markdown fieldVisibility section", () => {
     expect(back.plan.startDate).toBe(base.plan.startDate);
     expect(back.plan.endDate).toBe(base.plan.endDate);
     expect(back.fieldVisibility?.task.fields).toContain("taskName");
+  });
+});
+
+// The status narrative became rich HTML in R3, and the markdown backend writes
+// it as ONE `- narrative: <value>` line decoded by a single-line regex. Nothing
+// pinned that, and the golden fixture's narrative is still plain text — so the
+// one property the format depends on (normalizeNarrativeHtml collapses newlines,
+// therefore the value is always single-line) had no test behind it.
+describe("markdown status narrative round-trip", () => {
+  const RICH = "<p>Week 30</p><p>Shipped <strong>auth</strong></p><ul><li>one</li></ul>";
+
+  it("survives statusToMarkdown -> markdownToStatus intact", () => {
+    const status = { ragOverride: "A" as const, narrative: RICH, narrativeUpdatedAt: "2026-07-25" };
+    expect(markdownToStatus(statusToMarkdown(status))).toEqual(status);
+  });
+
+  it("survives the whole-workspace markdown round-trip", () => {
+    const ws = { ...emptyWorkspace(), status: { narrative: RICH } };
+    expect(markdownToWorkspace(workspaceToMarkdown(ws)).status?.narrative).toBe(RICH);
+  });
+
+  // A newline used to cut everything after it away, silently. The editor path
+  // normalizes newlines out, but an imported / AI-written / backend-converted
+  // status never passes through that — so the codec honours its own single-line
+  // format for any value it is handed.
+  it.each([
+    ["\n", "<p>a</p>\n<p>b</p>"],
+    ["\r\n", "<p>a</p>\r\n<p>b</p>"],
+    ["bare \\r", "<p>a</p>\r<p>b</p>"],
+  ])("collapses an embedded %s instead of truncating", (_label, narrative) => {
+    const back = markdownToStatus(statusToMarkdown({ narrative }));
+    expect(back.narrative).toBe("<p>a</p> <p>b</p>");
+  });
+
+  it("keeps every field when one of them carried a newline", () => {
+    const back = markdownToStatus(
+      statusToMarkdown({ ragOverride: "R", narrative: "<p>a</p>\n<p>b</p>", narrativeUpdatedAt: "2026-07-25" }),
+    );
+    expect(back).toEqual({ ragOverride: "R", narrative: "<p>a</p> <p>b</p>", narrativeUpdatedAt: "2026-07-25" });
   });
 });
 
