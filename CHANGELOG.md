@@ -41,7 +41,10 @@ longer carries its own changelog comment.
   person filter is matched case-insensitively against the live assignee options,
   and only the row-hiding filters are reset — your sort survives.
 - The demo project's budget buckets are chained and staggered into a phased
-  programme, so the burn-down shows the trimmed span out of the box.
+  programme — discovery, then the platform build, the data migration, the capped
+  SOW and the retainer — so the demo models a real chain. Its span still fills
+  the whole plan window, so the axis is unchanged; what changes is the shape of
+  the curve, which now reads as phased work rather than a flat glide.
 
 ### Fixed
 
