@@ -6,7 +6,7 @@ import {
   type DashboardInput,
 } from "./dashboard";
 import type { ProjectReport } from "./budget-report";
-import type { Task, RaidItem, Milestone, ChangeItem } from "./types";
+import type { Task, RaidItem, Milestone, ChangeItem, BudgetBucket } from "./types";
 import type { ActivityEntry } from "./activity-log";
 
 function task(o: Partial<Task> = {}): Task {
@@ -259,6 +259,34 @@ describe("computeDashboard", () => {
     expect(m.budget.computed).toBe("A");
     expect(m.budget.effective).toBe("G");
     expect(m.budget.overridden).toBe(true);
+  });
+
+  // Two buckets covering Mar-Jun of a Jan-Dec plan, so a chained span is a
+  // strictly narrower window than the plan range.
+  const bucketA = {
+    id: 1, name: "Phase 1", type: "tm", currency: "EUR",
+    startDate: "2026-03-01", endDate: "2026-04-30", status: "open", allocations: [],
+  } as unknown as BudgetBucket;
+  const bucketB = {
+    id: 2, name: "Phase 2", type: "tm", currency: "EUR",
+    startDate: "2026-05-01", endDate: "2026-06-30", status: "open", allocations: [],
+  } as unknown as BudgetBucket;
+
+  it("has no bucket chain when there are no budgets", () => {
+    expect(computeDashboard(baseInput()).bucketChain).toBeNull();
+  });
+
+  it("trims the burn-down to a connected successor chain", () => {
+    const budgets = [{ ...bucketA, successorId: 2 }, bucketB];
+    const m = computeDashboard(baseInput({ budgets }));
+    expect(m.bucketChain).toMatchObject({ kind: "chain", start: "2026-03-01", end: "2026-06-30" });
+    expect(m.burndown?.periods).toEqual(["2026-03", "2026-04", "2026-05", "2026-06"]);
+  });
+
+  it("keeps the plan range and reports the break when the buckets are unchained", () => {
+    const m = computeDashboard(baseInput({ budgets: [bucketA, bucketB] }));
+    expect(m.bucketChain).toMatchObject({ kind: "broken", reason: "multiple-roots" });
+    expect(m.burndown?.periods).toHaveLength(12);
   });
 });
 

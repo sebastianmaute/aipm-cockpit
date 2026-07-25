@@ -24,6 +24,7 @@ import { RagBadge } from "./rag-badge";
 import { InfoTooltip } from "./info-tooltip";
 import { ratioHealth, marginHealth, costPerformanceHealth, planVsBudgetHealth } from "./budget-health";
 import { computeBurndownSeries } from "./budget-burndown";
+import { resolveBucketChain } from "./budget-bucket-chain";
 import { BurndownCharts } from "./burndown-chart";
 import { EmptyState } from "./empty-state";
 import { ViewCallout } from "./view-callout";
@@ -71,9 +72,13 @@ export function BudgetReportPanel({
     [tasks, today, roles],
   );
   const bucketById = useMemo(() => new Map(buckets.map((b) => [b.id, b])), [buckets]);
+  const bucketChain = useMemo(() => resolveBucketChain(buckets), [buckets]);
   const burndown = useMemo(
-    () => computeBurndownSeries(buckets, plan, roles, resources, workdayHours, holidaySet, absences, today),
-    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today],
+    () => computeBurndownSeries(
+      buckets, plan, roles, resources, workdayHours, holidaySet, absences, today,
+      bucketChain.kind === "chain" ? { start: bucketChain.start, end: bucketChain.end } : undefined,
+    ),
+    [buckets, plan, roles, resources, workdayHours, holidaySet, absences, today, bucketChain],
   );
   const { ref, reset } = useResizable("aipm-cockpit:budget-report-size");
   const detail = useColumnResize<DetailCol>("budgetReportDetail", DETAIL_COL_WIDTHS);
