@@ -104,3 +104,41 @@ describe("computeBurndownSeries — budget follows plan", () => {
     expect(s.totalBudgetValue).toBeCloseTo(rep.project.budgetValue, 5);
   });
 });
+
+describe("computeBurndownSeries span", () => {
+  // One bucket living entirely inside February, so a February span is a
+  // strictly narrower window than the Jan-Mar plan.
+  const febOnly = [
+    bucket({
+      startDate: "2026-02-01",
+      endDate: "2026-02-28",
+      allocations: [{
+        roleId: 1, resourceIds: [],
+        budgetHours: { "2026-02": 100 },
+        actualHours: { "2026-02": 40 },
+      }],
+    }),
+  ];
+
+  it("slices the plan periods to the span without changing the totals", () => {
+    const full = computeBurndownSeries(febOnly, plan, roles, [], 8, new Set<string>(), [], "2026-02-15");
+    const sliced = computeBurndownSeries(febOnly, plan, roles, [], 8, new Set<string>(), [], "2026-02-15",
+      { start: "2026-02-01", end: "2026-02-28" });
+    expect(full.periods).toEqual(["2026-01", "2026-02", "2026-03"]);
+    expect(sliced.periods).toEqual(["2026-02"]);
+    expect(sliced.totalBudgetHours).toBe(full.totalBudgetHours);
+    expect(sliced.totalBudgetValue).toBe(full.totalBudgetValue);
+  });
+
+  it("is identical to the un-sliced call when no span is given", () => {
+    const a = computeBurndownSeries(febOnly, plan, roles, [], 8, new Set<string>(), [], "2026-02-15");
+    const b = computeBurndownSeries(febOnly, plan, roles, [], 8, new Set<string>(), [], "2026-02-15", undefined);
+    expect(b).toEqual(a);
+  });
+
+  it("falls back to the full plan range when the span selects no period", () => {
+    const r = computeBurndownSeries(febOnly, plan, roles, [], 8, new Set<string>(), [], "2026-02-15",
+      { start: "2099-01-01", end: "2099-12-31" });
+    expect(r.periods).toEqual(["2026-01", "2026-02", "2026-03"]);
+  });
+});

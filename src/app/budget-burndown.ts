@@ -1,6 +1,7 @@
 // Pure per-period burn-down series for the dashboard + budget report charts.
 // Reads budgeted vs actual hours (and € on the external-rate basis) across all
-// buckets, returns "remaining" arrays that descend over the plan periods.
+// buckets, returns "remaining" arrays that descend over the plan periods —
+// optionally sliced to a narrower x-axis span (see `span` below).
 // No React, no I/O.
 
 import { generatePeriods } from "./resource-capacity";
@@ -40,8 +41,19 @@ export function computeBurndownSeries(
   holidaySet: ReadonlySet<string>,
   absences: readonly Absence[],
   today: string,
+  /** Optional x-axis window. The plan periods are SLICED to it — never
+   *  re-generated from these dates, because every bucket contribution is looked
+   *  up by the plan-derived period key (bucketActivePeriods). Re-generating
+   *  could produce keys that no longer match and silently drop hours. */
+  span?: { start: string; end: string },
 ): BurndownSeries {
-  const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+  const allPeriods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+  const sliced = span
+    ? allPeriods.filter((p) => p.start >= span.start && p.start <= span.end)
+    : allPeriods;
+  // A span that selects nothing (e.g. buckets dated outside the plan) would make
+  // an empty chart; fall back to the full range rather than render nothing.
+  const periods = sliced.length > 0 ? sliced : allPeriods;
   const n = periods.length;
   const indexByKey = new Map(periods.map((p, i) => [p.key, i] as const));
   const budgetFollowsPlan = plan.budgetFollowsPlan ?? false;
