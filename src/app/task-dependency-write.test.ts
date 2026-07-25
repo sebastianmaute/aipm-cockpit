@@ -8,11 +8,15 @@ function task(id: number, over: Partial<Task> = {}): Task {
     id,
     taskName: `Task ${id}`,
     assignee: "",
+    assigneeEmail: "",
     dueDate: "",
-    status: "To Do",
+    lastUpdateDate: "",
     priority: "Medium",
+    status: "To Do",
+    blockers: "",
+    description: "",
     ...over,
-  } as Task;
+  };
 }
 
 describe("resolveDependencyWrite", () => {
@@ -42,6 +46,25 @@ describe("resolveDependencyWrite", () => {
     const r = resolveDependencyWrite(2, [{ taskId: 1, type: "NOPE" }], tasks);
     expect(r.applied).toEqual([]);
     expect(r.rejected).toEqual([{ taskId: 1, type: "NOPE", reason: "bad-type" }]);
+  });
+
+  it("stringifies a non-string type for the coercion branch", () => {
+    // This is untrusted AI JSON — the model can omit `type`, send `null`, or
+    // send a number. All three fail validation the same way as "NOPE" above,
+    // but exercise the `String(typeRaw)` fallback instead of the plain
+    // string passthrough.
+    const tasks = [task(1), task(2)];
+    const r = resolveDependencyWrite(2, [
+      { taskId: 1 }, // missing `type`
+      { taskId: 1, type: null },
+      { taskId: 1, type: 3 },
+    ], tasks);
+    expect(r.applied).toEqual([]);
+    expect(r.rejected).toEqual([
+      { taskId: 1, type: "undefined", reason: "bad-type" },
+      { taskId: 1, type: "null", reason: "bad-type" },
+      { taskId: 1, type: "3", reason: "bad-type" },
+    ]);
   });
 
   it("refuses a direct cycle", () => {
@@ -102,10 +125,18 @@ describe("resolveDependencyWrite", () => {
   it("keeps the applied set aligned with sanitizeDependencies directly (drift alarm)", () => {
     // resolveDependencyWrite reimplements sanitizeDependencies' precedence in
     // pass 1 to attach a reason to every rejection (the sanitizer itself
-    // returns no reason info). If the sanitizer ever adds or reorders a rule,
-    // an item could clear pass 1, get dropped in pass 2, and be mislabelled
-    // "cap" when the real reason was something else. Pinning `applied` to a
-    // direct `sanitizeDependencies` call on the same input catches that drift.
+    // returns no reason info). If the sanitizer ever adds/reorders a rule so
+    // pass 1 becomes too STRICT — wrongly rejecting something the real
+    // sanitizer would keep — `applied` would be starved of an item it should
+    // contain. Pinning `applied` to a direct `sanitizeDependencies` call on
+    // the same input catches exactly that drift.
+    //
+    // It does NOT catch the opposite drift: if pass 1 becomes too PERMISSIVE
+    // (an item that should have been rejected for some other reason slips
+    // through to pass 2), pass 2's real `sanitizeDependencies` call is still
+    // the final gate, so the item is dropped there and `applied` stays
+    // correct — only its `rejected` entry ends up mislabelled "cap" instead
+    // of the true reason, and this assertion never inspects `rejected`.
     const tasks = [task(1), task(2), task(3)];
     const knownTaskIds = new Set(tasks.map((t) => t.id));
     const raw = [

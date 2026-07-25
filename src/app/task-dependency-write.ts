@@ -16,13 +16,17 @@ export type DepRejectionReason =
 
 export interface DepRejection {
   taskId: number;
-  /** The type as the model wrote it — echoed back even when invalid. */
-  type?: string;
+  /** The type as the model wrote it — echoed back even when invalid. Every
+   *  push site supplies this (coercing non-strings via `String()`), so it is
+   *  required, not optional. */
+  type: string;
   reason: DepRejectionReason;
 }
 
 export interface DependencyWriteResult {
   applied: TaskDependency[];
+  /** Ordered pass-by-pass (pass-1 reasons in raw input order, then cap
+   *  overflow, then cycle rejections) — NOT the original raw-array order. */
   rejected: DepRejection[];
 }
 
@@ -34,44 +38,27 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+interface ClassifyResult {
+  /** Pre-cap candidates — everything `sanitizeDependencies` would also keep,
+   *  short of the 20-link cap. */
+  candidates: TaskDependency[];
+  rejected: DepRejection[];
+}
+
 /**
- * Resolve an AI-proposed dependency write for task `ownId`.
- *
- * `raw` is untrusted model output. A non-array `raw` (missing field, `null`,
- * a stray string, …) means "clear all links" — both `applied` and `rejected`
- * come back empty.
- *
- * Two passes over the surviving candidates:
- *  1. Classify each entry against `sanitizeDependencies`' own precedence
- *     (shape → bad-type → self → unknown-id → duplicate) so every rejection
- *     the sanitizer would also produce is labeled with why, and only the
- *     entries the sanitizer would keep (pre-cap) go forward.
- *  2. Hand those candidates to the real `sanitizeDependencies` — it stays the
- *     single source of truth for the 20-link cap; whatever it drops that
- *     survived pass 1 was dropped purely for the cap.
- * Cycle-checking then walks the sanitized survivors against the plain task
- * graph via `wouldCreateDependencyCycle`. `sanitizeDependencies` deliberately
- * does not cycle-check (that's documented as the form layer's job at insert
- * time), so without this pass an AI write would be the one path in the app
- * able to create one. (A map that "grows" with each accepted link was tried
- * and dropped: the walk returns as soon as it reaches `ownTaskId`, before it
- * ever reads that node's own `.dependencies`, and every link in one call is a
- * predecessor of that same single `ownId` — no other task's list changes —
- * so whether an earlier link was accepted can never affect a later walk.)
- *
- * Mutates nothing passed in.
+ * Pass 1: classify each raw entry against `sanitizeDependencies`' own
+ * precedence (shape → bad-type → self → unknown-id → duplicate), attaching a
+ * reason to every rejection — the sanitizer itself returns no reason info.
+ * An entry with no classifiable shape (not a plain object, or a `taskId`
+ * that isn't a finite number) is dropped silently: it can't be reported as a
+ * `DepRejection` (its `taskId` requires a real number), and the sanitizer
+ * would drop it too.
  */
-export function resolveDependencyWrite(
+function classifyDependencyEntries(
   ownId: number,
-  raw: unknown,
-  tasks: readonly Task[],
-): DependencyWriteResult {
-  if (!Array.isArray(raw)) return { applied: [], rejected: [] };
-
-  const knownTaskIds = new Set(tasks.map((t) => t.id));
-
-  // Pass 1: classify against the sanitizer's own precedence, keeping only
-  // the pre-cap candidates it would also keep.
+  raw: unknown[],
+  knownTaskIds: ReadonlySet<number>,
+): ClassifyResult {
   const rejected: DepRejection[] = [];
   const candidates: TaskDependency[] = [];
   const seenKeys = new Set<string>();
@@ -108,21 +95,34 @@ export function resolveDependencyWrite(
     seenKeys.add(key);
     candidates.push({ taskId, type });
   }
+  return { candidates, rejected };
+}
 
-  // Pass 2: sanitizeDependencies is the source of truth for the cap (it
-  // re-confirms shape/self/unknown-id/dedupe too, but those were already
-  // filtered out above, so the only thing it can still drop here is the
-  // 20-link overflow).
-  const sanitized = sanitizeDependencies(candidates, knownTaskIds, ownId);
-  const sanitizedKeys = new Set(sanitized.map((d) => `${d.taskId}:${d.type}`));
-  for (const candidate of candidates) {
-    if (!sanitizedKeys.has(`${candidate.taskId}:${candidate.type}`)) {
-      rejected.push({ taskId: candidate.taskId, type: candidate.type, reason: "cap" });
-    }
-  }
+interface CycleCheckResult {
+  applied: TaskDependency[];
+  rejected: DepRejection[];
+}
 
-  // Pass 3: cycle-check the sanitized survivors against the plain task graph.
+/**
+ * Pass 3: cycle-check the sanitized survivors against the plain task graph
+ * via `wouldCreateDependencyCycle`. `sanitizeDependencies` deliberately does
+ * not cycle-check (that's documented as the form layer's job at insert
+ * time), so without this pass an AI write would be the one path in the app
+ * able to create one.
+ *
+ * (A map that "grows" with each accepted link was tried and dropped: the
+ * walk returns as soon as it reaches `ownTaskId`, before it ever reads that
+ * node's own `.dependencies`, and every link in one call is a predecessor of
+ * that same single `ownId` — no other task's list changes — so whether an
+ * earlier link was accepted can never affect a later walk.)
+ */
+function checkDependencyCycles(
+  ownId: number,
+  sanitized: readonly TaskDependency[],
+  tasks: readonly Task[],
+): CycleCheckResult {
   const applied: TaskDependency[] = [];
+  const rejected: DepRejection[] = [];
   const taskById = new Map<number, Task>(tasks.map((t) => [t.id, t]));
 
   for (const dep of sanitized) {
@@ -132,6 +132,46 @@ export function resolveDependencyWrite(
     }
     applied.push(dep);
   }
-
   return { applied, rejected };
+}
+
+/**
+ * Resolve an AI-proposed dependency write for task `ownId`.
+ *
+ * `raw` is untrusted model output. A non-array `raw` (missing field, `null`,
+ * a stray string, …) means "clear all links" — both `applied` and `rejected`
+ * come back empty.
+ *
+ * Three passes:
+ *  1. `classifyDependencyEntries` labels every entry the sanitizer would
+ *     also drop (shape/bad-type/self/unknown-id/duplicate), keeping only the
+ *     pre-cap candidates.
+ *  2. The real `sanitizeDependencies` is the single source of truth for the
+ *     20-link cap; whatever candidate it drops that survived pass 1 was
+ *     dropped purely for the cap.
+ *  3. `checkDependencyCycles` cycle-checks the survivors against the plain
+ *     task graph.
+ *
+ * Mutates nothing passed in.
+ */
+export function resolveDependencyWrite(
+  ownId: number,
+  raw: unknown,
+  tasks: readonly Task[],
+): DependencyWriteResult {
+  if (!Array.isArray(raw)) return { applied: [], rejected: [] };
+
+  const knownTaskIds = new Set(tasks.map((t) => t.id));
+  const { candidates, rejected } = classifyDependencyEntries(ownId, raw, knownTaskIds);
+
+  const sanitized = sanitizeDependencies(candidates, knownTaskIds, ownId);
+  const sanitizedKeys = new Set(sanitized.map((d) => `${d.taskId}:${d.type}`));
+  for (const candidate of candidates) {
+    if (!sanitizedKeys.has(`${candidate.taskId}:${candidate.type}`)) {
+      rejected.push({ taskId: candidate.taskId, type: candidate.type, reason: "cap" });
+    }
+  }
+
+  const cycles = checkDependencyCycles(ownId, sanitized, tasks);
+  return { applied: cycles.applied, rejected: [...rejected, ...cycles.rejected] };
 }
