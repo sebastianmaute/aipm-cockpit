@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALLOC_CONTEXT_MAX_RESOURCES,
   MAX_ALLOC_CELLS,
   PROPOSE_ALLOCATIONS_TOOL,
   buildAllocContext,
+  buildAllocSystemPrompt,
   parseAllocationProposal,
+  resourceLabel,
 } from "./alloc-plan";
 import { type Discipline, type Grade, type Resource, type ResourcePlan, type Role } from "../types";
 
@@ -30,6 +33,18 @@ describe("PROPOSE_ALLOCATIONS_TOOL", () => {
   it("requires a cells array", () => {
     expect(PROPOSE_ALLOCATIONS_TOOL.name).toBe("propose_allocations");
     expect(PROPOSE_ALLOCATIONS_TOOL.input_schema.required).toContain("cells");
+  });
+});
+
+describe("resourceLabel", () => {
+  it("falls back to the email when there is no name", () => {
+    const r = resource(9, { firstName: "", lastName: "", email: "ada@example.com" });
+    expect(resourceLabel(r)).toBe("ada@example.com");
+  });
+
+  it("falls back to #id when there is no name and no email", () => {
+    const r = resource(9, { firstName: "", lastName: "" });
+    expect(resourceLabel(r)).toBe("#9");
   });
 });
 
@@ -61,6 +76,90 @@ describe("buildAllocContext", () => {
     expect(text).toContain("month");
     expect(text).toContain("2026-08-01");
     expect(text).toContain("2026-09-30");
+  });
+
+  it("truncates past ALLOC_CONTEXT_MAX_RESOURCES and reports how many were dropped", () => {
+    const extra = 1;
+    const resources = Array.from({ length: ALLOC_CONTEXT_MAX_RESOURCES + extra }, (_, i) => resource(i + 1));
+
+    const text = buildAllocContext({
+      resources, roles: [], disciplines: [], grades: [], plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain(`…(${extra} more resources truncated)`);
+  });
+
+  it("falls back to '-' for a dangling roleId that matches no role", () => {
+    const r = resource(20, { roleId: 42 });
+
+    const text = buildAllocContext({
+      resources: [r], roles: [], disciplines: [], grades: [], plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain("role=- ::");
+  });
+
+  it("falls back to '-' when the role's discipline AND grade are both missing", () => {
+    const roles: Role[] = [{ id: 8, disciplineId: 999, gradeId: 999, internalRate: 50, externalRate: 100 }];
+    const r = resource(21, { roleId: 8 });
+
+    const text = buildAllocContext({
+      resources: [r], roles, disciplines: [], grades: [], plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain("role=- ::");
+  });
+
+  it("renders a '?' placeholder for whichever half (discipline or grade) is missing", () => {
+    const roles: Role[] = [
+      { id: 6, disciplineId: 1, gradeId: 999, internalRate: 50, externalRate: 100 }, // grade missing
+      { id: 7, disciplineId: 999, gradeId: 2, internalRate: 50, externalRate: 100 }, // discipline missing
+    ];
+    const disciplines: Discipline[] = [{ id: 1, name: "Design" }];
+    const grades: Grade[] = [{ id: 2, name: "Senior" }];
+    const gradeMissing = resource(22, { roleId: 6 });
+    const disciplineMissing = resource(23, { roleId: 7 });
+
+    const text = buildAllocContext({
+      resources: [gradeMissing, disciplineMissing], roles, disciplines, grades, plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain("role=Design / ? ::");
+    expect(text).toContain("role=? / Senior ::");
+  });
+
+  it("marks an external resource in its digest line", () => {
+    const r = resource(24, { isExternal: true });
+
+    const text = buildAllocContext({
+      resources: [r], roles: [], disciplines: [], grades: [], plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain(" external ::");
+  });
+
+  it("reads current load straight from the stored value for an hours-mode resource", () => {
+    const r = resource(25, { utilizationMode: "hours", utilization: { "2026-08": 20 } });
+
+    const text = buildAllocContext({
+      resources: [r], roles: [], disciplines: [], grades: [], plan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain("2026-08=20/");
+  });
+});
+
+describe("buildAllocSystemPrompt", () => {
+  it("returns a non-empty prompt mentioning the tool name", () => {
+    const prompt = buildAllocSystemPrompt();
+    expect(prompt.length).toBeGreaterThan(0);
+    expect(prompt).toContain("propose_allocations");
   });
 });
 
@@ -96,5 +195,35 @@ describe("parseAllocationProposal", () => {
     }));
 
     expect(parseAllocationProposal({ cells })).toHaveLength(MAX_ALLOC_CELLS);
+  });
+
+  it("drops a non-object cell entry (falsy, and truthy-but-not-an-object)", () => {
+    const parsed = parseAllocationProposal({
+      cells: [null, 42, { resourceId: 9, periodKey: "2026-08", hours: 5 }],
+    });
+
+    expect(parsed).toEqual([{ resourceId: 9, periodKey: "2026-08", hours: 5 }]);
+  });
+
+  it("drops a cell whose resourceId is neither a number nor a string", () => {
+    const parsed = parseAllocationProposal({
+      cells: [
+        { resourceId: null, periodKey: "2026-08", hours: 5 },
+        { resourceId: 9, periodKey: "2026-08", hours: 5 },
+      ],
+    });
+
+    expect(parsed).toEqual([{ resourceId: 9, periodKey: "2026-08", hours: 5 }]);
+  });
+
+  it("drops a cell whose hours is neither a finite number nor a numeric string", () => {
+    const parsed = parseAllocationProposal({
+      cells: [
+        { resourceId: 9, periodKey: "2026-08", hours: null },
+        { resourceId: 9, periodKey: "2026-09", hours: 5 },
+      ],
+    });
+
+    expect(parsed).toEqual([{ resourceId: 9, periodKey: "2026-09", hours: 5 }]);
   });
 });

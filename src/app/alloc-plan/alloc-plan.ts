@@ -87,10 +87,10 @@ export function buildAllocContext(args: AllocContextArgs): string {
     const role = roleLabel(r.roleId, roles, disciplines, grades);
     const external = r.isExternal ? " external" : "";
     const cells = periods.map((period) => {
-      const capacity = Math.round(periodCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet));
+      const capacityRaw = periodCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
       const stored = r.utilization[period.key] ?? 0;
-      const current = r.utilizationMode === "percent" ? Math.round((stored / 100) * capacity) : stored;
-      return `${period.key}=${current}/${capacity}`;
+      const current = r.utilizationMode === "percent" ? (stored / 100) * capacityRaw : stored;
+      return `${period.key}=${Math.round(current)}/${Math.round(capacityRaw)}`;
     });
     lines.push(
       `#${r.id} ${resourceLabel(r)} [${r.utilizationMode}] role=${role}${external} :: ${cells.join(" ")}`,
