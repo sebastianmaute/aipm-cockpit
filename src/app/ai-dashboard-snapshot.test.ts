@@ -49,7 +49,7 @@ function report(over: Partial<ProjectReport> = {}): ProjectReport {
     costUnknownReason: null,
     unpricedDisciplineIds: [],
     ...over,
-  } as ProjectReport;
+  } satisfies ProjectReport;
 }
 
 describe("buildDashboardSnapshot", () => {

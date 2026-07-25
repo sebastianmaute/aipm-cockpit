@@ -108,6 +108,13 @@ export function buildDashboardSnapshot(
             cost: knowable ? project.cost : null,
             revenue: knowable ? project.revenue : null,
             contributionMarginPct: knowable ? project.contributionMargin.percent : null,
+            // Deliberately NOT gated on `knowable`: these two already self-null
+            // inside computeBudgetReport via its own independent earned-value
+            // check (see ProjectReport.costPerformanceIndex), and in a
+            // mixed-bucket case can legitimately be non-null even when the
+            // project-level costUnknownReason is set — matching what the
+            // budget panel's CPI tile itself shows. Adding the gate here would
+            // make this payload diverge from the panel.
             earnedValue: project.earnedValue,
             costPerformanceIndex: project.costPerformanceIndex,
             costUnknownReason: project.costUnknownReason,
