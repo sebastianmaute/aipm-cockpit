@@ -15,21 +15,34 @@ export interface ActionCtaExecDeps {
   setActiveTab: (view: AppView) => void;
 }
 
+/** ★★ An exhaustive switch, NOT a chain of `if (cta.kind === …)` guards. Every
+ *  OTHER consumer of a CTA in this app is an if-guard, which is exactly why a new
+ *  arm can be added and silently do nothing everywhere — the compiler never
+ *  objects. This is the one dispatch point that must fail loudly instead, so the
+ *  `never` default turns a future arm into a tsc error here. */
 export function executeActionCta(cta: ActionCta, deps: ActionCtaExecDeps): void {
-  if (cta.kind === "open") {
-    deps.requestOpen(cta.view, Number(cta.id));
-    return;
-  }
-  if (cta.kind === "open-tasks-for") {
-    // Reset FIRST: a stale search/group/label filter would otherwise intersect
-    // the new one to zero rows and the deep-link would look broken.
-    deps.resetFilters();
-    deps.setAssigneeFilter(cta.resourceName);
-    // "red" is the existing needs-attention filter (overdue OR blocked OR a
-    // manual R override) - the closest standing filter to "their overdue work".
-    deps.setHealthFilter("red");
-    // No requestOpen / hash write: there is no entity id to deep-link, and
-    // requestOpen would push #open-points/<id>. Mirrors requestChat.
-    deps.setActiveTab("open-points");
+  switch (cta.kind) {
+    case "open":
+      deps.requestOpen(cta.view, Number(cta.id));
+      return;
+    case "open-tasks-for":
+      // Reset FIRST: a stale search/group/label filter would otherwise intersect
+      // the new one to zero rows and the deep-link would look broken.
+      deps.resetFilters();
+      deps.setAssigneeFilter(cta.resourceName);
+      // "red" is the existing needs-attention filter (overdue OR blocked OR a
+      // manual R override) - the closest standing filter to "their overdue work".
+      deps.setHealthFilter("red");
+      // No requestOpen / hash write: there is no entity id to deep-link, and
+      // requestOpen would push #open-points/<id>. Mirrors requestChat.
+      deps.setActiveTab("open-points");
+      return;
+    case "snooze":
+      // The row's snooze control owns this one; nothing to navigate to.
+      return;
+    default: {
+      const exhaustive: never = cta;
+      return exhaustive;
+    }
   }
 }
