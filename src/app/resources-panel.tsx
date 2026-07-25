@@ -16,7 +16,7 @@
 // name so "Alex Example" and "Alex Example" land in the same row; display uses the
 // first observed original casing.
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
@@ -27,6 +27,8 @@ import { periodCost } from "./resource-cost";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
+  type Discipline,
+  type Grade,
   type PlanGranularity,
   type RaidItem,
   type Resource,
@@ -38,7 +40,6 @@ import {
 } from "./types";
 import { effectivePersonEmail, effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import { useSettings } from "./use-settings";
-import { useWorkspace } from "./workspace-context";
 import { useAllocPlan } from "./use-alloc-plan";
 import { type ActivityKind } from "./activity-log";
 import { type UndoStackApi } from "./undo/use-undo-stack";
@@ -81,6 +82,9 @@ interface Props {
     assignee: { display: string; email: string },
   ) => void;
   roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  setResources: Dispatch<SetStateAction<readonly Resource[]>>;
   plan: ResourcePlan;
   workdayHours: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
@@ -146,6 +150,9 @@ function ResourcesPanelInner({
   onEditAbsence,
   onEditShift,
   roles,
+  disciplines,
+  grades,
+  setResources,
   plan,
   workdayHours,
   onSetUtilization,
@@ -202,8 +209,10 @@ function ResourcesPanelInner({
 
   // AI-assisted allocation planning (Resources → Planning toolbar only). Called
   // unconditionally — its rendered output (button/modal) is planning-only, but
-  // the hook itself must run every render regardless of `view`.
-  const { setResources, disciplines, grades } = useWorkspace();
+  // the hook itself must run every render regardless of `view`. `disciplines`/
+  // `grades`/`setResources` come in as PROPS (not useWorkspace()) — this panel
+  // is the only memo'd panel workspace-section renders, and a direct context
+  // consumer would defeat that memo bailout on every unrelated workspace edit.
   const allocPlan = useAllocPlan({
     settings,
     isPopout: !!isPopout,
