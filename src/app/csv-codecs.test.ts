@@ -1,6 +1,6 @@
 // src/app/csv-codecs.test.ts
 import { describe, it, expect } from "vitest";
-import { workspaceToCsv, csvToWorkspace } from "./csv-codecs";
+import { workspaceToCsv, csvToWorkspace, statusToCsv, csvToStatus } from "./csv-codecs";
 import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
 import { workspaceToJson, jsonToWorkspace, emptyWorkspace } from "./workspace";
 import type { Task } from "./types";
@@ -17,6 +17,32 @@ describe("csv fieldVisibility section", () => {
     const ws = { ...emptyWorkspace(), fieldVisibility: { task: { fields: ["taskName", "assignee"] } } };
     const back = csvToWorkspace(workspaceToCsv(ws));
     expect(back.fieldVisibility?.task.fields).toEqual(["taskName", "assignee"]);
+  });
+});
+
+// The status blob round-trips through the CSV config codec too, and the R3 rich
+// narrative carries the characters CSV actually cares about (quotes in an href,
+// commas in prose). Pinned alongside the markdown round-trip so a change to
+// either format shows up as a failing test rather than a mangled narrative.
+describe("csv status narrative round-trip", () => {
+  const RICH = "<p>Week 30</p><p>Shipped <strong>auth</strong></p><ul><li>one</li></ul>";
+
+  it("survives statusToCsv -> csvToStatus intact", () => {
+    const status = { ragOverride: "A" as const, narrative: RICH, narrativeUpdatedAt: "2026-07-25" };
+    expect(csvToStatus(statusToCsv(status))).toEqual(status);
+  });
+
+  it("survives the whole-workspace CSV round-trip", () => {
+    const ws = { ...emptyWorkspace(), status: { narrative: RICH } };
+    expect(csvToWorkspace(workspaceToCsv(ws)).status?.narrative).toBe(RICH);
+  });
+
+  // A comma splits a CSV cell and a double quote is the escape character, so a
+  // narrative with a link and prose punctuation is the case that would break
+  // first if the cell escaping were ever bypassed for this field.
+  it("survives commas and quoted attributes", () => {
+    const rich = '<p>Auth, billing and <a href="https://x.test">the "plan"</a> shipped.</p>';
+    expect(csvToStatus(statusToCsv({ narrative: rich })).narrative).toBe(rich);
   });
 });
 

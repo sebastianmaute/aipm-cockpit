@@ -3,7 +3,7 @@ import { executeActionCta } from "./action-cta-exec";
 
 const deps = () => ({
   requestOpen: vi.fn(),
-  resetFilters: vi.fn(),
+  resetFilterValues: vi.fn(),
   setAssigneeFilter: vi.fn(),
   setHealthFilter: vi.fn(),
   setActiveTab: vi.fn(),
@@ -14,18 +14,18 @@ describe("executeActionCta", () => {
     const d = deps();
     executeActionCta({ kind: "open", view: "milestones", id: 4 }, d);
     expect(d.requestOpen).toHaveBeenCalledWith("milestones", 4);
-    expect(d.resetFilters).not.toHaveBeenCalled();
+    expect(d.resetFilterValues).not.toHaveBeenCalled();
   });
 
   it("resets the filters BEFORE applying the person filter", () => {
     const d = deps();
     executeActionCta({ kind: "open-tasks-for", resourceId: 7, resourceName: "Alice Anders" }, d);
-    expect(d.resetFilters).toHaveBeenCalledTimes(1);
+    expect(d.resetFilterValues).toHaveBeenCalledTimes(1);
     expect(d.setAssigneeFilter).toHaveBeenCalledWith("Alice Anders");
     expect(d.setHealthFilter).toHaveBeenCalledWith("red");
     expect(d.setActiveTab).toHaveBeenCalledWith("open-points");
     // Order matters: a reset AFTER the set would wipe the filter we just applied.
-    expect(d.resetFilters.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(d.resetFilterValues.mock.invocationCallOrder[0]).toBeLessThan(
       d.setAssigneeFilter.mock.invocationCallOrder[0],
     );
   });

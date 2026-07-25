@@ -83,7 +83,14 @@ describe("open-tasks-for CTA", () => {
     expect(pickPrimaryCta(tasksFor, ALL)).toBe("open");
   });
 
-  it("never attaches the task verbs - there is no task id on this row", () => {
-    expect(overflowCtas(tasksFor, ALL)).not.toContain("markDone");
+  // Pinned EXACTLY, not with a not.toContain: the loose assertion passed against
+  // any menu that merely omitted markDone. The task verbs (markDone / draft) are
+  // absent because both require cta.kind === "open" and this row has no task id.
+  // createTask IS offered — canCreateTask has no isOpen guard, and that is fine
+  // (handleCreateTaskFromAction guards its only cta.id read), but the menu's real
+  // shape belongs in the diff if it ever changes.
+  it("offers only createTask + snooze - the task verbs need a task id", () => {
+    expect(overflowCtas(tasksFor, ALL)).toEqual(["createTask", "snooze"]);
+    expect(overflowCtas(tasksFor, NONE)).toEqual([]);
   });
 });

@@ -9,7 +9,9 @@ import type { HealthFilter } from "./health";
 
 export interface ActionCtaExecDeps {
   requestOpen: (view: AppView, id: number) => void;
-  resetFilters: () => void;
+  /** Clears the row-HIDING filters ONLY, never the sort — see the open-tasks-for
+   *  arm below for why the distinction matters. */
+  resetFilterValues: () => void;
   setAssigneeFilter: (value: string) => void;
   setHealthFilter: (value: HealthFilter) => void;
   setActiveTab: (view: AppView) => void;
@@ -34,7 +36,10 @@ export function executeActionCta(cta: ActionCta, deps: ActionCtaExecDeps): void 
     case "open-tasks-for":
       // Reset FIRST: a stale search/group/label filter would otherwise intersect
       // the new one to zero rows and the deep-link would look broken.
-      deps.resetFilters();
+      // ★ Filter VALUES only — the sort is deliberately left alone. That
+      // argument is about rows being HIDDEN, and a sort order cannot hide a row;
+      // resetting it would silently throw away an ordering the user chose.
+      deps.resetFilterValues();
       // Match the STORED option, not the CTA's display name: the filter compares
       // assignee exactly, so "Bo Smith" against a task assigned "bo smith" hides
       // every row — and an unmatched value resolves to "All", which shows every

@@ -244,7 +244,7 @@ function TaskManagerInner() {
     if (target !== activeTab) setActiveTab(target);
   }, [activeTab, settings.features, settings.layout, isPopout, setActiveTab]);
 
-  const { setRaidFilterTaskId, resetFilters, setAssigneeFilter, setHealthFilter } = useFilters();
+  const { setRaidFilterTaskId, resetFilterValues, setAssigneeFilter, setHealthFilter } = useFilters();
   // Tasks data + derivations owned by WorkspaceProvider (Slice 2 of the
   // task-manager decomposition; see
   // docs/superpowers/specs/2026-05-18-workspace-context-slice2-design.md).
@@ -953,14 +953,14 @@ function TaskManagerInner() {
   const openAction = useCallback(
     (a: SuggestedAction) => {
       executeActionCta(a.cta, {
-        requestOpen, resetFilters, setAssigneeFilter, setHealthFilter, setActiveTab,
+        requestOpen, resetFilterValues, setAssigneeFilter, setHealthFilter, setActiveTab,
         // The live options the assignee <select> offers, so an "open this
         // person's tasks" CTA resolves to the STORED spelling instead of
         // orphaning the filter (which silently reads "All").
         assigneeOptions: uniqueAssignees,
       });
     },
-    [requestOpen, resetFilters, setAssigneeFilter, setHealthFilter, setActiveTab, uniqueAssignees],
+    [requestOpen, resetFilterValues, setAssigneeFilter, setHealthFilter, setActiveTab, uniqueAssignees],
   );
   const openActionCenter = useCallback(() => {
     if (typeof window !== "undefined") window.focus();

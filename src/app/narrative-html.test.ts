@@ -10,6 +10,26 @@ describe("narrativeToHtml", () => {
     expect(narrativeToHtml("<p>Already <strong>rich</strong></p>")).toBe("<p>Already <strong>rich</strong></p>");
   });
 
+  // Not producible by the lean editor (its output is always block-wrapped) but
+  // perfectly reachable from an imported or hand-edited workspace. Escaping it
+  // showed the user literal `&lt;strong&gt;` markup instead of bold text.
+  it("passes HTML that starts with an INLINE tag through untouched", () => {
+    expect(narrativeToHtml("<strong>bold</strong> lead")).toBe("<strong>bold</strong> lead");
+    expect(narrativeToHtml("<em>note</em> follows")).toBe("<em>note</em> follows");
+    expect(narrativeToHtml('<a href="https://x.test">link</a> first')).toBe(
+      '<a href="https://x.test">link</a> first',
+    );
+    expect(narrativeToHtml("<br>then text")).toBe("<br>then text");
+  });
+
+  // The widened test must not start treating prose as markup: a `<` that is not
+  // leading, or is not followed by a tag name, is still plain text.
+  it("still escapes plain text containing a literal angle bracket", () => {
+    expect(narrativeToHtml("5 < 10 items")).toBe("<p>5 &lt; 10 items</p>");
+    expect(narrativeToHtml("<3 open items")).toBe("<p>&lt;3 open items</p>");
+    expect(narrativeToHtml("< p > spaced")).toBe("<p>&lt; p &gt; spaced</p>");
+  });
+
   it("returns empty string for undefined / blank", () => {
     expect(narrativeToHtml(undefined)).toBe("");
     expect(narrativeToHtml("   ")).toBe("");

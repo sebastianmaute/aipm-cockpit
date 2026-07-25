@@ -87,6 +87,38 @@ describe("FiltersProvider", () => {
     expect(result.current.raidFilterTaskId).toBeNull();
   });
 
+  // The person-filter CTA (executeActionCta "open-tasks-for") clears the stale
+  // row-HIDING filters before applying its own, but a sort cannot hide a row —
+  // wiping it would silently discard an ordering the user deliberately chose.
+  test("resetFilterValues clears the filters but PRESERVES a non-default sort", () => {
+    const { result } = renderHook(() => useFilters(), { wrapper });
+
+    act(() => {
+      result.current.setSearch("hello");
+      result.current.setPriorityFilter("High");
+      result.current.setAssigneeFilter("Alex Example");
+      result.current.setGroupFilter("Auth Migration");
+      result.current.setLabelFilter("backend");
+      result.current.setHealthFilter("red");
+      result.current.setRaidFilterTaskId(42);
+      result.current.setSortKey("dueDate");
+      result.current.setSortDir("desc");
+    });
+
+    act(() => result.current.resetFilterValues());
+
+    expect(result.current.search).toBe("");
+    expect(result.current.priorityFilter).toBe("All");
+    expect(result.current.assigneeFilter).toBe("All");
+    expect(result.current.groupFilter).toBe("All");
+    expect(result.current.labelFilter).toBe("All");
+    expect(result.current.healthFilter).toBe("all");
+    expect(result.current.raidFilterTaskId).toBeNull();
+    // The point of the split.
+    expect(result.current.sortKey).toBe("dueDate");
+    expect(result.current.sortDir).toBe("desc");
+  });
+
   test("searchDebounced lags search by 150 ms", () => {
     const { result } = renderHook(() => useFilters(), { wrapper });
     expect(result.current.searchDebounced).toBe("");

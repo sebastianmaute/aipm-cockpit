@@ -9,13 +9,28 @@
 // the codecs run in the sample/fixture scripts.
 import { plainToHtml } from "./sanitize-html";
 
-const BLOCK_START = /^\s*<(p|ul|ol|h[1-6]|blockquote|div)\b/i;
+/** A stored narrative is already HTML when it OPENS with a tag we recognise.
+ *
+ *  ★ The INLINE members (strong/em/a/br) matter as much as the block ones: the
+ *  lean editor always emits a block wrapper, but an imported or hand-edited
+ *  workspace can perfectly well store `<strong>bold</strong> lead`, and treating
+ *  that as legacy plain text escaped it into literal `&lt;strong&gt;` markup on
+ *  screen. The set mirrors sanitize-html.ts's NOTE_ALLOWED_TAGS — the sink
+ *  sanitizer this value is rendered through — plus the h1-6/blockquote/div block
+ *  names that predate it, kept so a legacy value opening with one is treated
+ *  exactly as it is today.
+ *
+ *  ★ Anchored at the string start and each name is `\b`-terminated, so a plain
+ *  narrative containing a stray `<` ("5 < 10 items", "<3 open") still escapes:
+ *  the `<` is not leading, or what follows it is not a tag name. `\b` also keeps
+ *  `<abbr>`/`<embed>`/`<pre>` out — they are not `a`/`em`/`p`. */
+const HTML_START = /^\s*<(p|ul|ol|li|strong|em|a|br|h[1-6]|blockquote|div)\b/i;
 
 /** Stored narrative -> HTML. A legacy plain-text value is escaped and wrapped. */
 export function narrativeToHtml(stored: string | undefined): string {
   const s = (stored ?? "").trim();
   if (!s) return "";
-  return BLOCK_START.test(s) ? s : plainToHtml(s);
+  return HTML_START.test(s) ? s : plainToHtml(s);
 }
 
 /** Editor HTML -> the value to store. Newlines collapse to spaces: the markdown

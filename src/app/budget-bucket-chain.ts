@@ -57,7 +57,12 @@ export function resolveBucketChain(
   buckets: readonly BudgetBucket[],
   planRange?: { start: string; end: string },
 ): BucketChain {
-  if (buckets.length === 0) return { kind: "broken", reason: "unreachable", offenders: [] };
+  // No buckets is not a BREAK: there is nothing to repair and nobody declared a
+  // chain, so it is the same "nothing to trim, nothing to warn about" state as
+  // parallel workstream buckets. Reporting it as broken would also bypass the
+  // intent gate below and hand the warning banner an offender-less break to
+  // render ("these buckets are not reachable ()").
+  if (buckets.length === 0) return { kind: "unchained" };
 
   const outcome = analyseChain(buckets, planRange);
   // ★★ INTENT GATES THE WARNING, NOT THE TRIM.

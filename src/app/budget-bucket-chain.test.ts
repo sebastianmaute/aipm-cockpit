@@ -167,8 +167,10 @@ describe("resolveBucketChain", () => {
     expect((r as { offenders: readonly { id: number }[] }).offenders.map((o) => o.id)).toEqual([2, 3]);
   });
 
-  it("returns broken for an empty list", () => {
-    expect(resolveBucketChain([])).toEqual({ kind: "broken", reason: "unreachable", offenders: [] });
+  // An empty list is not a BROKEN chain — there is nothing to repair, and a
+  // break here would reach the warning banner with an empty offender list.
+  it("returns unchained for an empty list", () => {
+    expect(resolveBucketChain([])).toEqual({ kind: "unchained" });
   });
 });
 
