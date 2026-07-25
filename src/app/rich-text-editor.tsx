@@ -42,16 +42,33 @@ export interface RichTextEditorProps {
 }
 
 // ★★ The LEAN variant sanitizes with `sanitizeNoteHtml`, whose allow-list has no
-// h1-h6 / blockquote / pre AND which drops a disallowed block's TEXT with it
-// (KEEP_CONTENT: false). StarterKit's markdown input rules turn "# ", "> " and
-// "```" into exactly those nodes, so typing "# Q3 highlights" left the heading on
-// screen while the committed value collapsed to "" — no error, no toast, and (for
-// the dashboard narrative) Save disabled because "unchanged" was then true. The
-// text was simply never saved. Disabling the extensions removes their input rules
-// at the source, so "# " now stays literal text in a paragraph.
-// The FULL variant is untouched: it has heading toolbar buttons and its own
-// sanitizer allows h1/h2 (and unwraps the rest, keeping the text).
-const LEAN_EXTENSIONS = [StarterKit.configure({ heading: false, blockquote: false, codeBlock: false })];
+// h1-h6 / blockquote / pre / code / s / hr AND which drops a disallowed node's
+// TEXT with it (KEEP_CONTENT: false). StarterKit's markdown input rules produce
+// exactly those nodes from "# ", "> ", "```", "`x`", "~~x~~" and "--- ", so the
+// keystroke left the formatting on screen while the committed value silently lost
+// it: a whole block collapsed to "" for the block rules (typing "# Q3 highlights"
+// stored nothing at all — no error, no toast, and for the dashboard narrative
+// Save stayed disabled because `unchanged` was then true), and the marked WORD
+// vanished for the inline ones ("ship `staging` now" -> "ship  now").
+// Disabling the extensions removes the input rules at the source, so the markdown
+// punctuation now stays literal text. This is deliberately NOT a widening of
+// NOTE_ALLOWED_TAGS: that list is security-relevant and widening it would also
+// change how already-stored note HTML renders, whereas dropping an input rule
+// cannot touch stored data. It also matches the lean toolbar, which offers
+// Bold/Italic/lists/link and nothing else — a mark with no visible control should
+// not be creatable by an invisible keystroke either.
+// The FULL variant is untouched: it has heading toolbar buttons, its sanitizer
+// allows h1/h2, and it keeps the text of anything it unwraps (KEEP_CONTENT).
+const LEAN_EXTENSIONS = [
+  StarterKit.configure({
+    heading: false,
+    blockquote: false,
+    codeBlock: false,
+    code: false,
+    strike: false,
+    horizontalRule: false,
+  }),
+];
 const FULL_EXTENSIONS = [StarterKit];
 
 const BTN = "rounded-md border border-line px-2 py-1 text-xs hover:bg-surface-muted";
