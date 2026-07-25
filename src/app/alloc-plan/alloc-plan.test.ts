@@ -717,7 +717,7 @@ describe("buildAllocationsSnapshot", () => {
     ]);
   });
 
-  it("does not flag truncated when every non-zero cell fits under the cap", () => {
+  it("does not flag truncated (top-level or per-resource) when every non-zero cell fits under the cap", () => {
     const r = resource(1, { utilizationMode: "hours", utilization: { "2026-08": 10 } });
 
     const snap = buildAllocationsSnapshot({
@@ -729,6 +729,22 @@ describe("buildAllocationsSnapshot", () => {
     });
 
     expect(snap.truncated).toBe(false);
+    expect(snap.resources[0]?.truncated).toBe(false);
+  });
+
+  it("reports truncated: false with empty cells for a genuinely idle resource", () => {
+    const r = resource(1, { utilizationMode: "hours", utilization: {} });
+
+    const snap = buildAllocationsSnapshot({
+      resources: [r],
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    expect(snap.resources[0]?.cells).toEqual([]);
+    expect(snap.resources[0]?.truncated).toBe(false);
   });
 
   it("stops emitting cells once ALLOC_TOOL_MAX_CELLS is reached and flags truncated", () => {
@@ -750,5 +766,54 @@ describe("buildAllocationsSnapshot", () => {
     expect(snap.truncated).toBe(true);
     // every resource is still listed even though some of its cells were dropped
     expect(snap.resources).toHaveLength(resourceCount);
+  });
+
+  // Exact-boundary regression: sitting right AT the cap (nothing omitted) must
+  // not flip truncated — a `>` vs `>=` slip, or an increment-before-check
+  // slip, would only show up exactly here (the earlier tests sit either side
+  // of the boundary and would not catch it).
+  it("does not flag truncated when exactly ALLOC_TOOL_MAX_CELLS non-zero cells are emitted", () => {
+    const resources = Array.from({ length: ALLOC_TOOL_MAX_CELLS }, (_, i) =>
+      resource(i + 1, { utilizationMode: "hours", utilization: { "2026-08": 10 } }),
+    );
+
+    const snap = buildAllocationsSnapshot({
+      resources,
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    const totalCells = snap.resources.reduce((sum, r) => sum + r.cells.length, 0);
+    expect(totalCells).toBe(ALLOC_TOOL_MAX_CELLS);
+    expect(snap.truncated).toBe(false);
+    expect(snap.resources.every((r) => !r.truncated)).toBe(true);
+  });
+
+  it("flags truncated: true with empty cells for a resource whose entire load was omitted by the cap", () => {
+    // One resource beyond the exact boundary above: the cap fills exactly on
+    // the first ALLOC_TOOL_MAX_CELLS resources (one cell each), so the very
+    // next resource's real, non-zero load is entirely dropped.
+    const resources = Array.from({ length: ALLOC_TOOL_MAX_CELLS + 1 }, (_, i) =>
+      resource(i + 1, { utilizationMode: "hours", utilization: { "2026-08": 10 } }),
+    );
+
+    const snap = buildAllocationsSnapshot({
+      resources,
+      plan,
+      absences: [],
+      workdayHours: 8,
+      holidaySet: new Set<string>(),
+    });
+
+    const omitted = snap.resources[snap.resources.length - 1];
+    expect(omitted?.cells).toEqual([]);
+    expect(omitted?.truncated).toBe(true);
+    expect(snap.truncated).toBe(true);
+    // every earlier resource still kept its own real cell and is NOT flagged
+    expect(snap.resources.slice(0, ALLOC_TOOL_MAX_CELLS).every((r) => r.cells.length === 1 && !r.truncated)).toBe(
+      true,
+    );
   });
 });

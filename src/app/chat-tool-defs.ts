@@ -367,7 +367,7 @@ export const TOOL_DEFS = [
   {
     name: "list_allocations",
     description:
-      "Read the resource planning grid: the plan window, its granularity, the valid period keys, and each resource's planned load per period. Each cell reports the stored value with its unit (percent or hours), what that means in hours, and the capacity available in that period. Only non-zero cells are listed; `truncated` is true when some were omitted. Read-only — planning changes are made in the app's Plan-with-AI review, not from chat.",
+      "Read the resource planning grid: the plan window, its granularity, the valid period keys, and each resource's planned load per period. Each cell reports the stored value with its unit (percent or hours), what that means in hours, and the capacity available in that period. Only non-zero cells are listed. Each resource carries its own `truncated` flag: `truncated: false` with an empty `cells` array means that resource genuinely has no planned load; `truncated: true` means some or all of its load could not be read (the size cap was hit) — treat that resource's load as UNKNOWN, not zero, and say so rather than asserting it has none. Read-only — planning changes are made in the app's Plan-with-AI review, not from chat.",
     input_schema: { type: "object", properties: {} },
   },
   {

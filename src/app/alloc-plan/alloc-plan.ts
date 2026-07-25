@@ -499,8 +499,16 @@ export function applyAllocationCells(
   return { nextResources, editedBefore };
 }
 
-/** Bound on how many allocation cells the read tool will emit (token budget). */
-export const ALLOC_TOOL_MAX_CELLS = 500;
+/** Bound on how many allocation cells the read tool will emit. Kept LOW
+ *  (unlike the model-facing MAX_ALLOC_CELLS/ALLOC_CONTEXT_MAX_RESOURCES
+ *  above) because `chat-api.ts`'s `stringifyResult` pretty-prints tool
+ *  results (`JSON.stringify(value, null, 2)`) into the CONVERSATION
+ *  HISTORY, where — unlike a one-shot forced call — it is replayed on
+ *  every subsequent turn. At 120 resources on a weekly plan a 500-cell cap
+ *  measured ~50.9KB compact but ~96KB / ≈27.5k tokens once pretty-printed;
+ *  200 cuts that worst case to roughly a third while staying useful for
+ *  the questions this tool exists to answer. */
+export const ALLOC_TOOL_MAX_CELLS = 200;
 
 export interface AllocationsSnapshotCell {
   periodKey: string;
@@ -517,7 +525,19 @@ export interface AllocationsSnapshotResource {
   name: string;
   roleId: number | null;
   unit: Resource["utilizationMode"];
+  /** Only the NON-ZERO periods for this resource — see `buildAllocationsSnapshot`. */
   cells: AllocationsSnapshotCell[];
+  /**
+   * True when this resource had non-zero load that was NOT emitted into
+   * `cells` because the global `ALLOC_TOOL_MAX_CELLS` cap was already spent
+   * — true whether SOME or ALL of its load was dropped. This is what makes
+   * a truncated resource distinguishable from an idle one: `cells: []` with
+   * `truncated: false` means this resource genuinely has no planned load;
+   * `truncated: true` means its load is UNKNOWN (some or all of it is
+   * missing), NOT zero — the model must hedge ("I couldn't read all of
+   * their load") rather than assert "no planned load" for such a resource.
+   */
+  truncated: boolean;
 }
 
 export interface AllocationsSnapshot {
@@ -526,7 +546,9 @@ export interface AllocationsSnapshot {
   granularity: ResourcePlan["granularity"];
   periods: string[];
   resources: AllocationsSnapshotResource[];
-  /** True when the cell cap was hit and some cells were omitted. */
+  /** True when the cell cap was hit and some cells were omitted SOMEWHERE in
+   *  the snapshot — a summary flag. Check each resource's own `truncated`
+   *  to find out which one(s). */
   truncated: boolean;
 }
 
@@ -547,6 +569,13 @@ export interface AllocationsSnapshotArgs {
  * bounded instead is the CELL count (`ALLOC_TOOL_MAX_CELLS`), since a resource
  * with a fully populated grid can contribute many cells on its own.
  *
+ * `emitted` is a single counter spent in `resources` array order, so once the
+ * cap is hit every LATER resource's remaining non-zero periods are dropped —
+ * including ones with genuine load. That resource's OWN `truncated` flag (see
+ * `AllocationsSnapshotResource`) is what keeps it distinguishable from one
+ * that is genuinely idle; the top-level `truncated` is only a "something,
+ * somewhere was omitted" summary and cannot tell the two apart on its own.
+ *
  * Only NON-ZERO cells are emitted — a full resources × periods grid would
  * dominate the transcript with zeros. `hours`/`capacityHours` use
  * `availableCapacityHours` (see its doc comment) — NEVER `periodCapacityHours`,
@@ -563,11 +592,13 @@ export function buildAllocationsSnapshot(args: AllocationsSnapshotArgs): Allocat
   const snapshotResources: AllocationsSnapshotResource[] = resources.map((r) => {
     const resourceAbsences = absencesForResource(absences, r);
     const cells: AllocationsSnapshotCell[] = [];
+    let resourceTruncated = false;
     for (const period of periods) {
       const value = r.utilization[period.key] ?? 0;
       if (value === 0) continue;
       if (emitted >= ALLOC_TOOL_MAX_CELLS) {
         truncated = true;
+        resourceTruncated = true;
         continue;
       }
       const capacityHours = availableCapacityHours(r, period, resourceAbsences, workdayHours, holidaySet);
@@ -575,7 +606,14 @@ export function buildAllocationsSnapshot(args: AllocationsSnapshotArgs): Allocat
       cells.push({ periodKey: period.key, value, unit: r.utilizationMode, hours, capacityHours });
       emitted++;
     }
-    return { id: r.id, name: resourceLabel(r), roleId: r.roleId, unit: r.utilizationMode, cells };
+    return {
+      id: r.id,
+      name: resourceLabel(r),
+      roleId: r.roleId,
+      unit: r.utilizationMode,
+      cells,
+      truncated: resourceTruncated,
+    };
   });
 
   return {
