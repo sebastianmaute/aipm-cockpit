@@ -3,6 +3,7 @@ import {
   ALLOC_CONTEXT_MAX_RESOURCES,
   MAX_ALLOC_CELLS,
   PROPOSE_ALLOCATIONS_TOOL,
+  applyAllocationCells,
   availableCapacityHours,
   buildAllocContext,
   buildAllocSystemPrompt,
@@ -11,6 +12,7 @@ import {
   groundAllocationCells,
   parseAllocationProposal,
   resourceLabel,
+  type GroundedAllocCell,
 } from "./alloc-plan";
 import {
   type Absence,
@@ -503,5 +505,112 @@ describe("groundAllocationCells", () => {
 
     expect(r.cells).toHaveLength(MAX_ALLOC_CELLS);
     expect(r.skipped).toEqual([]);
+  });
+});
+
+function cell(over: Partial<GroundedAllocCell> = {}): GroundedAllocCell {
+  return {
+    resourceId: 1,
+    resourceName: "Last1",
+    periodKey: "2026-08",
+    mode: "hours",
+    currentValue: 10,
+    nextValue: 40,
+    hours: 40,
+    capacityHours: 168,
+    clamped: false,
+    ...over,
+  };
+}
+
+describe("applyAllocationCells", () => {
+  it("writes only the named cells and leaves the rest of the map alone", () => {
+    const before = [resource(1, { utilizationMode: "hours", utilization: { "2026-08": 10, "2026-09": 99 } })];
+
+    const { nextResources } = applyAllocationCells(before, [cell()], "2026-07-25T00:00:00.000Z");
+
+    expect(nextResources[0]?.utilization).toEqual({ "2026-08": 40, "2026-09": 99 });
+  });
+
+  it("leaves untouched resources byte-identical", () => {
+    const other = resource(2, { utilizationMode: "hours", utilization: { "2026-08": 5 } });
+    const before = [resource(1, { utilizationMode: "hours", utilization: {} }), other];
+
+    const { nextResources } = applyAllocationCells(before, [cell()], "2026-07-25T00:00:00.000Z");
+
+    expect(nextResources[1]).toBe(other); // same reference — dirty-table detection
+  });
+
+  it("returns the pre-edit images an undo entry needs", () => {
+    const original = resource(1, { utilizationMode: "hours", utilization: { "2026-08": 10 } });
+
+    const { editedBefore } = applyAllocationCells([original], [cell()], "2026-07-25T00:00:00.000Z");
+
+    expect(editedBefore).toEqual([original]);
+    expect(editedBefore[0]?.utilization["2026-08"]).toBe(10);
+  });
+
+  it("stamps localModifiedAt only on changed resources", () => {
+    const before = [resource(1, { utilizationMode: "hours", utilization: {} })];
+
+    const { nextResources } = applyAllocationCells(before, [cell()], "2026-07-25T00:00:00.000Z");
+
+    expect(nextResources[0]?.localModifiedAt).toBe("2026-07-25T00:00:00.000Z");
+  });
+
+  it("applies several cells for one resource in a single pass", () => {
+    const before = [resource(1, { utilizationMode: "hours", utilization: {} })];
+
+    const { nextResources, editedBefore } = applyAllocationCells(
+      before,
+      [cell(), cell({ periodKey: "2026-09", nextValue: 20 })],
+      "2026-07-25T00:00:00.000Z",
+    );
+
+    expect(nextResources[0]?.utilization).toEqual({ "2026-08": 40, "2026-09": 20 });
+    expect(editedBefore).toHaveLength(1); // one entry per resource, not per cell
+  });
+
+  it("does not mutate the input array or its resources", () => {
+    const original = resource(1, { utilizationMode: "hours", utilization: { "2026-08": 10 } });
+    const before = [original];
+
+    applyAllocationCells(before, [cell()], "2026-07-25T00:00:00.000Z");
+
+    expect(original.utilization).toEqual({ "2026-08": 10 });
+    expect(before).toHaveLength(1);
+  });
+
+  it("ignores a cell naming a resource that is not in the list", () => {
+    const before = [resource(1, { utilizationMode: "hours", utilization: { "2026-08": 10 } })];
+
+    const { nextResources, editedBefore } = applyAllocationCells(
+      before,
+      [cell({ resourceId: 99 })],
+      "2026-07-25T00:00:00.000Z",
+    );
+
+    expect(nextResources).toHaveLength(1);
+    expect(nextResources[0]).toBe(before[0]);
+    expect(editedBefore).toEqual([]);
+  });
+
+  it("returns a resource by reference when its only cell already matches the stored value", () => {
+    const original = resource(1, { utilizationMode: "hours", utilization: { "2026-08": 40 } });
+    const before = [original];
+
+    const { nextResources, editedBefore } = applyAllocationCells(before, [cell()], "2026-07-25T00:00:00.000Z");
+
+    expect(nextResources[0]).toBe(original);
+    expect(editedBefore).toEqual([]);
+  });
+
+  it("writes an explicit nextValue of 0 into the map instead of deleting the key", () => {
+    const before = [resource(1, { utilizationMode: "hours", utilization: { "2026-08": 40 } })];
+
+    const { nextResources } = applyAllocationCells(before, [cell({ nextValue: 0 })], "2026-07-25T00:00:00.000Z");
+
+    expect(nextResources[0]?.utilization).toEqual({ "2026-08": 0 });
+    expect(Object.prototype.hasOwnProperty.call(nextResources[0]?.utilization ?? {}, "2026-08")).toBe(true);
   });
 });

@@ -421,3 +421,79 @@ export function groundAllocationCells(
 export function formatAllocValue(cell: { mode: Resource["utilizationMode"]; value: number }): string {
   return cell.mode === "percent" ? `${cell.value}%` : `${cell.value}h`;
 }
+
+export interface AllocApplyResult {
+  /** The resource array after the write — some entries replaced, the rest
+   *  the SAME references as `resources`. */
+  nextResources: Resource[];
+  /** Pre-edit images of exactly the resources that changed — one entry per
+   *  resource (not per cell) — the undo entry's `edited` payload. */
+  editedBefore: Resource[];
+}
+
+/**
+ * Apply approved, grounded allocation cells to the resource list.
+ *
+ * SET, NAMED CELLS ONLY: writes exactly the `(resourceId, periodKey)` pairs
+ * present in `cells` into that resource's `utilization` map. Every other
+ * period on every resource — including a period NOT named on a resource
+ * that DOES have some cells applied — keeps its existing value. The
+ * rejected alternative — claiming the whole target window and zeroing
+ * whatever the proposal didn't mention — is a defect this codebase has
+ * already shipped once: `timelog-apply.ts` had period-ownership semantics
+ * that silently zeroed hand-entered `actualHours`, and needed an itemized
+ * confirm dialog to become safe again. `Resource.utilization` holds
+ * hand-entered planning figures too, so the same discipline applies here —
+ * never claim a period this call was not explicitly told to touch.
+ *
+ * A resource that ends up unchanged — no cells name it, or every cell that
+ * does already matches its stored value (an explicit `nextValue: 0` against
+ * an already-zero/absent period counts as "matches", nothing to write) — is
+ * returned BY REFERENCE, the exact same object as in `resources`, and is
+ * NOT added to `editedBefore`. Turso's dirty-table save detects a changed
+ * workspace section by REFERENCE EQUALITY (see the `Workspace` type's
+ * immutability contract in `workspace.ts`); handing back a freshly spread
+ * copy for a resource nothing actually changed would mark the resources
+ * table dirty for no reason on every apply.
+ *
+ * A cell naming a resourceId absent from `resources` is silently ignored —
+ * `groundAllocationCells` has already refused any id that doesn't name a
+ * live resource, so this is defense in depth, not a path expected to fire.
+ *
+ * `nowIso` is a parameter, not read from the clock — this module has no
+ * side effects — and is stamped onto `localModifiedAt` for every resource
+ * that DID change (never for one returned by reference).
+ */
+export function applyAllocationCells(
+  resources: readonly Resource[],
+  cells: readonly GroundedAllocCell[],
+  nowIso: string,
+): AllocApplyResult {
+  const cellsByResource = new Map<number, GroundedAllocCell[]>();
+  for (const c of cells) {
+    const existing = cellsByResource.get(c.resourceId);
+    if (existing) existing.push(c);
+    else cellsByResource.set(c.resourceId, [c]);
+  }
+
+  const editedBefore: Resource[] = [];
+  const nextResources = resources.map((r) => {
+    const own = cellsByResource.get(r.id);
+    if (!own) return r;
+
+    const utilization = { ...r.utilization };
+    let changed = false;
+    for (const c of own) {
+      if (utilization[c.periodKey] !== c.nextValue) {
+        utilization[c.periodKey] = c.nextValue;
+        changed = true;
+      }
+    }
+    if (!changed) return r;
+
+    editedBefore.push(r);
+    return { ...r, utilization, localModifiedAt: nowIso };
+  });
+
+  return { nextResources, editedBefore };
+}
