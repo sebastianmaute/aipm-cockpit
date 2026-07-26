@@ -7,7 +7,7 @@ import { reportSilentFailure } from "./guard-feedback";
 import { resourceDisplayName } from "./resource-foundation";
 import { buildRaidInquiryMailto, resolveRaidOwnerEmail } from "./raid-inquiry";
 import { mintId } from "./id-mint-session";
-import { sanitizeCalendarEvent, type CalendarEvent } from "./calendar-event";
+import { useCalendarEvents } from "./use-calendar-events";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
@@ -47,16 +47,6 @@ function emptyAbsenceDraft(id: number, today: string): Absence {
     endDate: today,
     type: "vacation",
     note: undefined,
-  };
-}
-
-function emptyCalendarEventDraft(id: number, today: string): CalendarEvent {
-  return {
-    id,
-    title: "",
-    startDate: today,
-    startTime: "09:00",
-    durationMinutes: 60,
   };
 }
 
@@ -122,8 +112,6 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     setRaid,
     absences,
     setAbsences,
-    calendarEvents,
-    setCalendarEvents,
     shifts,
     setShifts,
     resources,
@@ -400,66 +388,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [absences, setAbsences],
   );
 
-  // Recurring meetings (Resources → Calendar band + series editor). Mirrors
-  // the editingAbsence block above in SHAPE (editing state + open/edit/close/
-  // save/delete), but — unlike handleSaveAbsence's plain id-existence check —
-  // routes create-vs-update through resolveEntitySave (the pattern
-  // handleSaveRaidItem, right in this same file, already uses): the modal
-  // mints its id at open time, and a concurrent writer could take that id
-  // before Save; resolveEntitySave re-mints on a genuine create rather than
-  // letting the id-existence check misread it as an update and clobber the
-  // concurrent row. No undo-capture/activity-log wiring yet — no
-  // CALENDAR_EVENT_UNDO_GROUPS or ActivityKind entries exist for this entity,
-  // and adding either wasn't asked for; that's a deliberate follow-up, not an
-  // oversight.
-  const [editingCalendarEvent, setEditingCalendarEvent] = useState<{
-    event: CalendarEvent;
-    isNew: boolean;
-  } | null>(null);
-
-  const handleOpenAddCalendarEvent = useCallback(() => {
-    const nextId = mintId("calendarEvent", calendarEvents ?? []);
-    const draft = emptyCalendarEventDraft(nextId, today);
-    setEditingCalendarEvent({ event: draft, isNew: true });
-  }, [calendarEvents, today]);
-
-  const handleEditCalendarEvent = useCallback((event: CalendarEvent) => {
-    setEditingCalendarEvent({ event, isNew: false });
-  }, []);
-
-  const handleCloseCalendarEventModal = useCallback(() => {
-    setEditingCalendarEvent(null);
-  }, []);
-
-  const handleSaveCalendarEvent = useCallback(
-    (next: CalendarEvent, isNew?: boolean) => {
-      const events = calendarEvents ?? [];
-      const { create, id } = resolveEntitySave(events, next.id, isNew, () => mintId("calendarEvent", events));
-      const sanitized = sanitizeCalendarEvent({ ...next, id });
-      if (!sanitized) return;
-      // Functional updater so N saves in one tick (e.g. a drag-reschedule
-      // landing in the same tick as a modal save) compose instead of the
-      // second clobbering the first — the same landmine that already bit
-      // RAID/Changes/Stakeholders.
-      setCalendarEvents((prev) => {
-        const list = prev ?? [];
-        return create ? [...list, sanitized] : list.map((e) => (e.id === id ? sanitized : e));
-      });
-      setEditingCalendarEvent(null);
-    },
-    [calendarEvents, setCalendarEvents],
-  );
-
-  const handleDeleteCalendarEvent = useCallback(
-    (id: number) => {
-      // No captureRef undo here (unlike handleDeleteAbsence/handleDeleteRaidItem):
-      // capture()'s `kind` is typed ActivityKind, a closed union with no
-      // calendarEvent.* entry — see the block comment above.
-      setCalendarEvents((prev) => (prev ?? []).filter((e) => e.id !== id));
-      setEditingCalendarEvent(null);
-    },
-    [setCalendarEvents],
-  );
+  // CRUD extracted to use-calendar-events.ts (useChangeLog/useStakeholders convention).
+  const calendarEventsApi = useCalendarEvents({ today });
 
   const handleOpenShiftEditor = useCallback(
     (existing: Shift | null, seed: { display: string; email: string }) => {
@@ -1076,13 +1006,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleCloseAbsenceModal,
     handleSaveAbsence,
     handleDeleteAbsence,
-    calendarEvents,
-    editingCalendarEvent,
-    handleOpenAddCalendarEvent,
-    handleEditCalendarEvent,
-    handleCloseCalendarEventModal,
-    handleSaveCalendarEvent,
-    handleDeleteCalendarEvent,
+    ...calendarEventsApi,
     handleOpenShiftEditor,
     handleCloseShiftModal,
     handleSaveShift,
