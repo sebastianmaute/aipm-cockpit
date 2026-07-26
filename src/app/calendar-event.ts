@@ -151,6 +151,7 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
   const startTime = typeof raw.startTime === "string" && HHMM.test(raw.startTime)
     ? raw.startTime : DEFAULT_TIME;
 
+  const recurrence = sanitizeRecurrence(raw.recurrence, startDate);
   return {
     id,
     title,
@@ -159,8 +160,17 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
     durationMinutes: intInRange(raw.durationMinutes, 5, 1440, DEFAULT_DURATION),
     location: sanitizeText(raw.location, LOCATION_MAX) || undefined,
     notes: sanitizeMultiline(raw.notes, 2000) || undefined,
-    recurrence: sanitizeRecurrence(raw.recurrence, startDate),
-    exceptions: sanitizeExceptions(raw.exceptions),
+    recurrence,
+    // A per-occurrence exception has no meaning without a rule to except
+    // from — without a recurrence, `expandOccurrences` renders the single
+    // series-start date directly (see its `if (!rule) sink(seriesStart)`
+    // branch), and a lingering `skip`/`move` exception on that exact date
+    // would silently make the event render NOWHERE while it still appears
+    // in the series list. Dropping exceptions here (the single validator
+    // every load path — form submit, JSON/CSV/MD/Turso decode, AI tools —
+    // routes through) closes that for every source at once, not just the
+    // editor's own submit path.
+    exceptions: recurrence ? sanitizeExceptions(raw.exceptions) : undefined,
     attendeeResourceIds: sanitizeAttendees(raw.attendeeResourceIds),
     sendInvitations: raw.sendInvitations === true ? true : undefined,
     localModifiedAt: sanitizeText(raw.localModifiedAt, 1024) || undefined,
@@ -241,6 +251,13 @@ export function decodeAttendees(cell: string): number[] | undefined {
  *
  * Exceptions come out sorted ascending by date — the same invariant
  * `sanitizeExceptions` enforces — so re-sanitizing the result is a no-op.
+ *
+ * ★ A prior `move` exception on this `originalDate` may already carry a
+ * `toTime` (from a source this function has no `toTime` parameter to
+ * override yet, e.g. a future Outlook pull) — that time is CARRIED FORWARD
+ * into the replacement exception rather than dropped. Without this, a
+ * date-only re-drag of an occurrence that also carried a moved time would
+ * silently revert it to the event's own `startTime`.
  */
 export function applyOccurrenceMove(
   event: CalendarEvent,
@@ -253,7 +270,11 @@ export function applyOccurrenceMove(
     return { ...event, startDate: toDate };
   }
 
-  const moved: EventException = { date: originalDate, kind: "move", toDate };
+  const prior = (event.exceptions ?? []).find((e) => e.date === originalDate);
+  const priorToTime = prior?.kind === "move" ? prior.toTime : undefined;
+  const moved: EventException = {
+    date: originalDate, kind: "move", toDate, ...(priorToTime ? { toTime: priorToTime } : {}),
+  };
   const exceptions = [...(event.exceptions ?? []).filter((e) => e.date !== originalDate), moved]
     .sort((a, b) => a.date.localeCompare(b.date));
   return { ...event, exceptions };

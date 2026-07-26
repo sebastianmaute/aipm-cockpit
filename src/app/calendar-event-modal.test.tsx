@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import type { ReactNode } from "react";
@@ -136,6 +136,28 @@ describe("CalendarEventModal", () => {
       freq: "weekly",
       byDay: ["MO", "WE"],
     });
+  });
+
+  it("clears exceptions when the series is switched back to non-recurring (regression: it used to render nowhere while still listed)", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    setup({
+      event: {
+        ...base,
+        recurrence: { freq: "weekly", interval: 1 },
+        exceptions: [{ date: "2026-01-01", kind: "skip" }],
+      },
+      onSave,
+    });
+    // "Never" also names the recurrence-ends option, so scope to the Repeat
+    // radiogroup specifically rather than matching either one.
+    const repeatGroup = within(
+      screen.getByRole("radiogroup", { name: t("en-US", "calendarEventRepeat") }),
+    );
+    await user.click(repeatGroup.getByRole("radio", { name: t("en-US", "calendarEventRepeatNever") }));
+    submit();
+    expect(onSave.mock.calls[0][0].recurrence).toBeUndefined();
+    expect(onSave.mock.calls[0][0].exceptions).toBeUndefined();
   });
 
   it("round-trips a monthly nth-weekday rule through the form into the saved rule", () => {

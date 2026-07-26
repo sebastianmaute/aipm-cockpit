@@ -82,13 +82,15 @@ describe("sanitizeCalendarEvent", () => {
 
   it("degrades a move exception with an invalid target to a skip", () => {
     expect(sanitizeCalendarEvent({
-      ...base, exceptions: [{ date: "2026-08-03", kind: "move", toDate: "garbage" }],
+      ...base, recurrence: { freq: "daily", interval: 1 },
+      exceptions: [{ date: "2026-08-03", kind: "move", toDate: "garbage" }],
     })?.exceptions).toEqual([{ date: "2026-08-03", kind: "skip" }]);
   });
 
   it("dedupes exceptions by date, last wins, sorted ascending", () => {
     expect(sanitizeCalendarEvent({
       ...base,
+      recurrence: { freq: "daily", interval: 1 },
       exceptions: [
         { date: "2026-09-01", kind: "skip" },
         { date: "2026-08-03", kind: "skip" },
@@ -98,6 +100,25 @@ describe("sanitizeCalendarEvent", () => {
       { date: "2026-08-03", kind: "skip" },
       { date: "2026-09-01", kind: "move", toDate: "2026-09-02" },
     ]);
+  });
+
+  it("drops exceptions when there is no recurrence rule (a per-occurrence exception has no rule to except from)", () => {
+    // Regression: converting a recurring series back to non-recurring left
+    // its exceptions in place, and expandOccurrences with no rule renders
+    // the single series-start date directly — a lingering `skip` on that
+    // exact date then made the event render nowhere while it still appeared
+    // in the series list.
+    expect(sanitizeCalendarEvent({
+      ...base,
+      exceptions: [{ date: "2026-08-03", kind: "skip" }],
+    })?.exceptions).toBeUndefined();
+    // Also when recurrence is present but rejected by the sanitizer itself
+    // (an unrecognized freq), not just when it was never set.
+    expect(sanitizeCalendarEvent({
+      ...base,
+      recurrence: { freq: "yearly" },
+      exceptions: [{ date: "2026-08-03", kind: "skip" }],
+    })?.exceptions).toBeUndefined();
   });
 
   it("keeps dangling attendee ids rather than silently dropping them", () => {
@@ -220,6 +241,33 @@ describe("applyOccurrenceMove", () => {
     // "2026-08-05" here instead of the true originalDate "2026-08-03".
     const movedAgain = applyOccurrenceMove(oncemoved, "2026-08-03", "2026-08-09");
     expect(movedAgain.exceptions).toEqual([{ date: "2026-08-03", kind: "move", toDate: "2026-08-09" }]);
+  });
+
+  it("carries a prior exception's toTime forward into a re-move, instead of silently dropping it", () => {
+    // Regression: this function builds { date, kind: "move", toDate } with
+    // no toTime, so re-dragging an occurrence that also carried a moved
+    // time (settable today via a hand-edited file, and by S7's Outlook
+    // pull) reverted it to the event's own startTime.
+    const withTimedMove: CalendarEvent = {
+      ...recurring,
+      exceptions: [{ date: "2026-08-03", kind: "move", toDate: "2026-08-05", toTime: "14:30" }],
+    };
+    const redragged = applyOccurrenceMove(withTimedMove, "2026-08-03", "2026-08-06");
+    expect(redragged.exceptions).toEqual([
+      { date: "2026-08-03", kind: "move", toDate: "2026-08-06", toTime: "14:30" },
+    ]);
+  });
+
+  it("does not invent a toTime when the prior exception on that date had none (a plain skip, or no prior exception)", () => {
+    const withSkip: CalendarEvent = {
+      ...recurring,
+      exceptions: [{ date: "2026-08-03", kind: "skip" }],
+    };
+    const out = applyOccurrenceMove(withSkip, "2026-08-03", "2026-08-06");
+    expect(out.exceptions).toEqual([{ date: "2026-08-03", kind: "move", toDate: "2026-08-06" }]);
+
+    const first = applyOccurrenceMove(recurring, "2026-08-03", "2026-08-05");
+    expect(first.exceptions).toEqual([{ date: "2026-08-03", kind: "move", toDate: "2026-08-05" }]);
   });
 
   it("the result still satisfies sanitizeCalendarEvent unchanged (feeding it back through is a no-op)", () => {
