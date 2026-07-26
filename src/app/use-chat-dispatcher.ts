@@ -378,7 +378,43 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const list = tasksRef.current;
         const target = list.find((row) => row.id === id);
         if (!target) return null;
+        const prior = target.dependencies ?? [];
         const { applied, rejected } = resolveDependencyWrite(id, raw, list);
+
+        // Refuse a WHOLLY-DESTRUCTIVE write: nothing was applied, something
+        // was rejected (a genuine "clear all" call sends an empty array with
+        // nothing rejected, and that must keep working), and the task
+        // currently HAS links. Writing `applied` (= []) unconditionally here
+        // would delete every existing link on every refused proposal — e.g. a
+        // model asked to add ONE new link that happens to close a cycle would
+        // silently wipe the other links it never touched. Leave the task
+        // untouched and hand back its current links so the caller can still
+        // report `rejected` accurately without deleting anything.
+        if (applied.length === 0 && rejected.length > 0 && prior.length > 0) {
+          return { id, dependencies: prior, rejected, removed: [] };
+        }
+
+        // Every link REPLACE semantics dropped relative to what was stored
+        // before this call — the set-difference the tool result surfaces so
+        // a model that simply OMITTED some existing links (a routine LLM
+        // slip, not a refused write) still reports the deletion instead of
+        // it disappearing with no trace in the transcript.
+        const removed = prior.filter(
+          (d) => !applied.some((a) => a.taskId === d.taskId && a.type === d.type),
+        );
+        const added = applied.filter(
+          (a) => !prior.some((d) => d.taskId === a.taskId && d.type === a.type),
+        );
+
+        // True no-op (same link set, nothing removed and nothing added) —
+        // skip the write so an unchanged dependency list doesn't stamp a
+        // fresh localModifiedAt / arm an unnecessary Jira push. Nothing
+        // changed, so `removed` must stay empty too — this is not FIX A2's
+        // case, there is nothing to report.
+        if (removed.length === 0 && added.length === 0) {
+          return { id, dependencies: prior, rejected, removed: [] };
+        }
+
         const next = list.map((row) =>
           row.id === id
             ? { ...row, dependencies: applied, localModifiedAt: new Date().toISOString() }
@@ -386,7 +422,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         );
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
         setTasks(next);
-        return { id, dependencies: applied, rejected };
+        return { id, dependencies: applied, rejected, removed };
       },
       deleteTask: (id) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));

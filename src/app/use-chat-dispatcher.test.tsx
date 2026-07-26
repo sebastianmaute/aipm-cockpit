@@ -826,30 +826,70 @@ describe("useChatDispatcher – setTaskDependencies", () => {
     expect(result.current.getTask(1)?.dependencies).toEqual([{ taskId: 2, type: "FS" }]);
   });
 
-  it("does not write a link that would create a cycle, and reports it rejected", () => {
-    // Seed task 1 already depending on task 2 (1 -> 2). Proposing 2 -> 1 would
-    // close the loop, so it must be refused and task 2 must keep whatever
-    // links it had before the call (none, here).
+  it("refuses a wholly-rejected write and preserves the task's existing links (FIX A1)", () => {
+    // Task 1 already depends on task 2 (1 -> 2), so proposing 2 -> 1 on task 2
+    // would close the loop and must be refused. Task 2 ALSO carries an
+    // existing, UNRELATED link to task 3 — that link is the actual subject of
+    // this test: it must SURVIVE a write whose every proposed link is
+    // rejected, not be silently wiped by an unconditional
+    // `dependencies: applied` write. (A prior version of this test seeded
+    // task 2 with NO links at all, so `getTask(2)?.dependencies ?? []` passed
+    // whether the implementation preserved or erased — it never actually
+    // exercised the preserve-on-refusal behaviour.)
+    const seeded = seedTasks().map((t) => {
+      if (t.id === 1) return { ...t, dependencies: [{ taskId: 2, type: "FS" as const }] };
+      if (t.id === 2) return { ...t, dependencies: [{ taskId: 3, type: "FS" as const }] };
+      return t;
+    });
+    const { result } = renderDispatcher(seeded);
+
+    const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+    expect(res).toMatchObject({
+      id: 2,
+      dependencies: [{ taskId: 3, type: "FS" }],
+      rejected: [{ taskId: 1, type: "FS", reason: "cycle" }],
+    });
+    expect(result.current.getTask(2)?.dependencies).toEqual([{ taskId: 3, type: "FS" }]);
+  });
+
+  it("reports every omitted existing link in `removed` when a write only partially replaces the list (FIX A2)", () => {
+    // Task 2 already links to BOTH task 1 and task 3. The model's replacement
+    // list names only task 1 — replace semantics still apply (the omitted
+    // link to task 3 IS removed, "clear all" must keep working), but the
+    // removal must be visible in `removed` instead of vanishing with zero
+    // trace anywhere the transcript shows.
     const seeded = seedTasks().map((t) =>
-      t.id === 1 ? { ...t, dependencies: [{ taskId: 2, type: "FS" as const }] } : t,
+      t.id === 2
+        ? {
+            ...t,
+            dependencies: [
+              { taskId: 1, type: "FS" as const },
+              { taskId: 3, type: "SS" as const },
+            ],
+          }
+        : t,
     );
     const { result } = renderDispatcher(seeded);
 
     const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
     expect(res).toMatchObject({
       id: 2,
-      dependencies: [],
-      rejected: [{ taskId: 1, type: "FS", reason: "cycle" }],
+      dependencies: [{ taskId: 1, type: "FS" }],
+      rejected: [],
+      removed: [{ taskId: 3, type: "SS" }],
     });
-    expect(result.current.getTask(2)?.dependencies ?? []).toEqual([]);
+    expect(result.current.getTask(2)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
 
   it("throws in a popout (read-only) and writes nothing", () => {
-    const { result } = renderDispatcher(seedTasks(), true);
+    const seeded = seedTasks().map((t) =>
+      t.id === 1 ? { ...t, dependencies: [{ taskId: 2, type: "FS" as const }] } : t,
+    );
+    const { result } = renderDispatcher(seeded, true);
     expect(() =>
-      result.current.setTaskDependencies(1, [{ taskId: 2, type: "FS" }]),
+      result.current.setTaskDependencies(1, [{ taskId: 3, type: "FS" }]),
     ).toThrow();
-    expect(result.current.getTask(1)?.dependencies ?? []).toEqual([]);
+    expect(result.current.getTask(1)?.dependencies).toEqual([{ taskId: 2, type: "FS" }]);
   });
 });
 

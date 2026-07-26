@@ -192,11 +192,19 @@ export type ToolDispatcher = {
   updateTask(id: number, patch: Partial<Task>): Task | null;
   /** Replace task `id`'s predecessor-link list wholesale. `raw` is untrusted
    *  model output; `resolveDependencyWrite` sanitizes + cycle-checks it.
-   *  Returns null when the task doesn't exist. */
+   *  Returns null when the task doesn't exist. `removed` is every link that
+   *  existed before the call and is not in the returned `dependencies` — a
+   *  wholly-rejected write (nothing applied, something rejected, prior links
+   *  present) refuses to mutate at all and comes back with `removed: []`. */
   setTaskDependencies(
     id: number,
     raw: unknown,
-  ): { id: number; dependencies: TaskDependency[]; rejected: DepRejection[] } | null;
+  ): {
+    id: number;
+    dependencies: TaskDependency[];
+    rejected: DepRejection[];
+    removed: TaskDependency[];
+  } | null;
   deleteTask(id: number): boolean;
   deleteAllTasks(): number;
   sendInquiry(id: number): { sent: boolean; reason?: string };

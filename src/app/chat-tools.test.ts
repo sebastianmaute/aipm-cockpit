@@ -138,7 +138,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     ),
     deleteResource: vi.fn((id: number) => id === 7),
     setTaskDependencies: vi.fn((id: number, raw) =>
-      id === 1 ? { id, dependencies: (raw as TaskDependency[]) ?? [], rejected: [] } : null,
+      id === 1 ? { id, dependencies: (raw as TaskDependency[]) ?? [], rejected: [], removed: [] } : null,
     ),
     getSnapshot: vi.fn(() => ({
       today: "2026-06-02",
