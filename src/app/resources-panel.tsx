@@ -20,6 +20,9 @@ import { memo, useCallback, useMemo, useState, type Dispatch, type SetStateActio
 import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
+import { CalendarSeriesList } from "./calendar-series-list";
+import type { CalendarEvent } from "./calendar-event";
+import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
 import { generatePeriods, displayCapacityHours, absencesForResource, convertUtilization } from "./resource-capacity";
@@ -70,6 +73,12 @@ interface Props {
   raid: readonly RaidItem[];
   raidEnabled: boolean;
   resources: readonly Resource[];
+  /** Resource-calendar timed events, optionally recurring. Threaded straight
+   *  into the all-series list under the calendar grid — that list is the only
+   *  consumer of this prop; the grid's own occurrence rendering lands in a
+   *  later task. Optional (defaults to none) so the existing call site can
+   *  wire it up separately without this task's addition breaking the build. */
+  calendarEvents?: readonly CalendarEvent[];
   today: string;
   holidaySet: ReadonlySet<string>;
   onAddAbsence: (seed?: Partial<Absence>) => void;
@@ -106,6 +115,15 @@ interface Props {
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
+  /** Open the calendar-event editor for a series from the all-series list.
+   *  Omit in popouts — the panel itself gates it on `isPopout`, so a caller
+   *  need not double-guard (mirrors `onMoveAbsence`). */
+  onEditCalendarEvent?: (event: CalendarEvent) => void;
+  /** Commit a change to a calendar event. Added ahead of the series editor's
+   *  full save/create/delete wiring (Task 17 needs it for occurrence-drag
+   *  only) — mirrors `onMoveAbsence`'s own precedent of landing before its
+   *  caller-side handler did. Omit in popouts, same convention. */
+  onSaveEvent?: (event: CalendarEvent) => void;
   onImportOutlookCalendar?: () => void;
   /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
   m365Configured?: boolean;
@@ -149,6 +167,7 @@ function ResourcesPanelInner({
   raid,
   raidEnabled,
   resources,
+  calendarEvents = [],
   today,
   holidaySet,
   onAddAbsence,
@@ -171,6 +190,8 @@ function ResourcesPanelInner({
   onSetPlanWindow,
   onEditResource,
   onAddResource,
+  onEditCalendarEvent,
+  onSaveEvent,
   onImportOutlookCalendar,
   m365Configured,
   calendarEnabled,
@@ -622,6 +643,16 @@ function ResourcesPanelInner({
             onAddResource={onAddResource}
             startDate={calendarWin.startDate}
             endDate={calendarWin.endDate}
+            calendarEvents={calendarEvents}
+            onMoveOccurrence={
+              isPopout || !onSaveEvent ? undefined : buildMoveOccurrenceHandler(calendarEvents, onSaveEvent)
+            }
+          />
+          <CalendarSeriesList
+            lang={lang}
+            events={calendarEvents}
+            today={today}
+            onEdit={isPopout ? undefined : onEditCalendarEvent}
           />
         </>
       )}
