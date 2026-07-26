@@ -163,7 +163,7 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
     exceptions: sanitizeExceptions(raw.exceptions),
     attendeeResourceIds: sanitizeAttendees(raw.attendeeResourceIds),
     sendInvitations: raw.sendInvitations === true ? true : undefined,
-    localModifiedAt: typeof raw.localModifiedAt === "string" ? raw.localModifiedAt : undefined,
+    localModifiedAt: sanitizeText(raw.localModifiedAt, 1024) || undefined,
     outlookEventId: sanitizeText(raw.outlookEventId, 1024) || undefined,
   };
 }

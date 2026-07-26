@@ -585,21 +585,21 @@ export function calendarEventFieldToString(e: CalendarEvent, col: string): strin
  * Builds a CalendarEvent from a header→value object produced by the CSV / MD
  * parsers. Runs the three JSON-in-cell decoders on the matching columns, then
  * defers to `sanitizeCalendarEvent` for everything else — mirrors
- * `buildChangeFromObj`/`buildStakeholderFromObj`.
+ * `buildChangeFromObj`/`buildStakeholderFromObj`. Shared by both the CSV and
+ * Markdown decoders, so a fix here (or in the sanitizer it calls) covers both
+ * formats at once.
  *
- * `localModifiedAt` is normalized empty->undefined HERE (not left to
- * `sanitizeCalendarEvent`, which treats any string — including "" — as a
- * value): every CSV cell for an unset column round-trips as "", and without
- * this an event with no localModifiedAt would decode back with
- * `localModifiedAt: ""` instead of staying absent, breaking a plain event's
- * round-trip. `outlookEventId`/`location`/`notes` don't need the same
- * treatment — the sanitizer already runs them through `sanitizeText(...) ||
- * undefined`, which normalizes "" on its own.
+ * Every scalar column — including `localModifiedAt`/`outlookEventId`/
+ * `location`/`notes` — round-trips an unset value as a raw `""` cell, and
+ * `sanitizeCalendarEvent` normalizes each of those empty->undefined on its
+ * own (`sanitizeText(...) || undefined`), so nothing needs pre-normalizing
+ * here. (This function used to also strip `localModifiedAt` before handing
+ * it off, working around a since-fixed gap in the sanitizer's own arm for
+ * that field — removed once the fix landed there, to keep one mechanism.)
  */
 export function buildCalendarEventFromObj(obj: Record<string, string>): CalendarEvent | null {
   return sanitizeCalendarEvent({
     ...obj,
-    localModifiedAt: obj.localModifiedAt || undefined,
     recurrence: decodeRecurrence(obj.recurrence ?? ""),
     exceptions: decodeExceptions(obj.exceptions ?? ""),
     attendeeResourceIds: decodeAttendees(obj.attendeeResourceIds ?? ""),

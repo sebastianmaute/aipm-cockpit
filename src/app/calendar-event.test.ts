@@ -122,10 +122,14 @@ describe("sanitizeCalendarEvent", () => {
     expect(sanitizeCalendarEvent({ ...base, notes: "" })?.notes).toBeUndefined();
   });
 
-  it("passes through localModifiedAt only when it is a string", () => {
+  it("passes through localModifiedAt only when it is a non-empty string", () => {
     expect(sanitizeCalendarEvent({ ...base, localModifiedAt: "2026-07-26T10:00:00.000Z" })?.localModifiedAt)
       .toBe("2026-07-26T10:00:00.000Z");
     expect(sanitizeCalendarEvent({ ...base, localModifiedAt: 12345 })?.localModifiedAt).toBeUndefined();
+    // A raw "" (what every unset CSV/MD cell decodes to) must normalize to
+    // absent, not survive as a literal empty string — every caller that hands
+    // the sanitizer a raw row object relies on this, not just one codec.
+    expect(sanitizeCalendarEvent({ ...base, localModifiedAt: "" })?.localModifiedAt).toBeUndefined();
   });
 
   it("trims and caps outlookEventId, omitting it when blank", () => {
