@@ -10,7 +10,7 @@
 //
 // Phase 3 of the Resource Planner (see docs/RESOURCE-PLANNER-PLAN.md).
 
-import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
@@ -20,6 +20,18 @@ import { isoWeekParts } from "./resource-capacity";
 import { INTERACTIVE } from "./interaction-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { resolveCalendarDrag, type DragMode } from "./calendar-drag";
+import { iso, parseUtc } from "./calendar-window";
+import { DragHandle } from "./drag-handle";
+
+const DAY_MS = 86_400_000;
+
+/** Shift an ISO date by N days (negative = earlier). Falls back to the input
+ *  unchanged on an unparseable date — callers only ever feed it a stored
+ *  Absence date (sanitizer-validated) or another `iso()` result. */
+function addIsoDays(dateIso: string, days: number): string {
+  const d = parseUtc(dateIso);
+  return d ? iso(new Date(d.valueOf() + days * DAY_MS)) : dateIso;
+}
 
 interface CalendarAssignee {
   /** Case-folded join key used to look up matching absences. */
@@ -161,6 +173,17 @@ function ResourceCalendarInner({
   // ignored — otherwise every drag also opens the absence editor.
   const suppressClickRef = useRef(false);
 
+  // A keyboard move in progress (Alt+Arrow armed it). Committing only on
+  // Enter is deliberate: one undo entry per intent, not one per arrow press —
+  // mirrors the drag-drop path (Task 5b).
+  const [pendingMove, setPendingMove] = useState<
+    { absenceId: number; dayDelta: number; rowDelta: number } | null
+  >(null);
+  // Drives the aria-live announcement's "Move cancelled" flash after Escape;
+  // cleared as soon as a fresh move starts so a stale cancellation can't
+  // linger into the next one.
+  const [justCancelled, setJustCancelled] = useState(false);
+
   // Roving-tabindex focus target for the 2-D day-cell grid (#27). Exactly one
   // day cell is a tab stop; arrow keys move DOM focus + this marker. Clamped on
   // read so a window/row change that shrinks the grid can't strand the marker
@@ -180,6 +203,77 @@ function ResourceCalendarInner({
     // Only day cells rove — ignore keys unless a day cell holds focus, so the
     // assignee row-header button (outside the roving set) keeps its arrow keys.
     if (!(document.activeElement as HTMLElement | null)?.matches?.("[data-cell]")) return;
+
+    // A keyboard move is being previewed: Alt+Arrow adjusts the pending
+    // delta, Enter commits it as ONE resolveCalendarDrag call (one undo
+    // entry, not one per arrow press), Escape discards. Every other key is
+    // left alone here rather than falling into the roving switch below — a
+    // plain (non-Alt) arrow can't also walk the focus cursor while a move is
+    // in flight. "Left alone" (not preventDefault'd) so Tab still escapes the
+    // cell; there is nothing else on a grid cell for an unhandled key to do.
+    if (pendingMove) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPendingMove(null);
+        setJustCancelled(true);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const moving = absences.find((a) => a.id === pendingMove.absenceId);
+        const originRow = visibleRows[focusRow];
+        const targetIndex = Math.min(Math.max(focusRow + pendingMove.rowDelta, 0), Math.max(rowCount - 1, 0));
+        const targetRow = visibleRows[targetIndex];
+        if (moving && originRow && targetRow && onMoveAbsence) {
+          const result = resolveCalendarDrag({
+            absence: moving,
+            grabbedDate: moving.startDate,
+            dropDate: addIsoDays(moving.startDate, pendingMove.dayDelta),
+            mode: "move",
+            target: targetRow.key === originRow.key
+              ? { kind: "same-row" }
+              : {
+                  kind: "other-row",
+                  rowKey: targetRow.key,
+                  row: { display: targetRow.display, email: targetRow.email, resource: resourceFor(targetRow.key) },
+                },
+          });
+          if (result) onMoveAbsence(moving.id, result.patch, result.kind);
+        }
+        setPendingMove(null);
+        return;
+      }
+      if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        setPendingMove((p) => p && {
+          ...p,
+          dayDelta: p.dayDelta + (e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0),
+          rowDelta: p.rowDelta + (e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0),
+        });
+      }
+      return;
+    }
+
+    // No move pending: Alt+Arrow on a cell that HOLDS an absence enters move
+    // mode, seeded with that keypress's own delta (the same press both
+    // starts the mode and previews its first step). A cell with no absence
+    // falls through untouched to the existing roving behaviour below.
+    if (onMoveAbsence && e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      const originRow = visibleRows[focusRow];
+      const originDay = days[focusCol];
+      const hit = originRow && originDay ? hitFor(originRow.key, originDay.iso) : undefined;
+      if (hit) {
+        e.preventDefault();
+        setJustCancelled(false);
+        setPendingMove({
+          absenceId: hit.id,
+          dayDelta: e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0,
+          rowDelta: e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0,
+        });
+        return;
+      }
+    }
+
     let r = focusRow;
     let c = focusCol;
     switch (e.key) {
@@ -239,6 +333,25 @@ function ResourceCalendarInner({
     for (const r of resources) m.set(resourceDisplayName(r).trim().toLowerCase(), r);
     return m;
   }, [resources]);
+
+  // The absence (if any) covering a given row+date. Shared by the row
+  // renderer below and the keyboard move-mode entry check in onGridKeyDown,
+  // so both agree on exactly the same predicate.
+  const hitFor = useCallback(
+    (rowKey: string, dateIso: string): Absence | undefined =>
+      (absencesByKey.get(rowKey) ?? []).find((a) => dateIso >= a.startDate && dateIso <= a.endDate),
+    [absencesByKey],
+  );
+
+  // Read-through accessor for resourceByKey used from onGridKeyDown (a plain
+  // function, not JSX-inline) — kept as its own memoized callback because the
+  // React Compiler could not preserve resourceByKey's memoization when
+  // onGridKeyDown called `.get()` on it directly (verified: reverting this
+  // indirection reproduces `react-hooks/preserve-manual-memoization`).
+  const resourceFor = useCallback(
+    (key: string): Resource | undefined => resourceByKey.get(key),
+    [resourceByKey],
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
@@ -312,7 +425,6 @@ function ResourceCalendarInner({
           </thead>
           <tbody>
             {visibleRows.map((row, rowIndex) => {
-              const rowAbs = absencesByKey.get(row.key) ?? [];
               return (
                 <tr key={row.key} role="row">
                   <td
@@ -342,9 +454,7 @@ function ResourceCalendarInner({
                     })()}
                   </td>
                   {days.map((d, colIndex) => {
-                    const hit = rowAbs.find(
-                      (a) => d.iso >= a.startDate && d.iso <= a.endDate,
-                    );
+                    const hit = hitFor(row.key, d.iso);
                     const baseBg = hit
                       ? absenceBg(hit.type)
                       : d.isToday
@@ -374,7 +484,7 @@ function ResourceCalendarInner({
                       <td
                         key={d.iso}
                         role="gridcell"
-                        className="border-b border-r border-line p-0"
+                        className="relative border-b border-r border-line p-0"
                         style={{
                           minWidth: CELL_PX,
                           width: CELL_PX,
@@ -437,6 +547,42 @@ function ResourceCalendarInner({
                             </span>
                           ) : null}
                         </button>
+                        {hit && onMoveAbsence && d.iso === hit.startDate ? (
+                          <span
+                            title={t(lang, "calendarResizeStart")}
+                            onDragEnd={() => { dragRef.current = null; }}
+                            className="absolute inset-y-0 left-0 w-2"
+                          >
+                            <DragHandle
+                              draggable
+                              onDragStart={(e) => {
+                                dragRef.current = { absenceId: hit.id, grabbedDate: d.iso, rowKey: row.key, mode: "resize-start" };
+                                e.dataTransfer.effectAllowed = "move";
+                                e.dataTransfer.setData("text/plain", String(hit.id));
+                                e.stopPropagation();
+                              }}
+                              className="h-full w-full cursor-ew-resize"
+                            />
+                          </span>
+                        ) : null}
+                        {hit && onMoveAbsence && d.iso === hit.endDate ? (
+                          <span
+                            title={t(lang, "calendarResizeEnd")}
+                            onDragEnd={() => { dragRef.current = null; }}
+                            className="absolute inset-y-0 right-0 w-2"
+                          >
+                            <DragHandle
+                              draggable
+                              onDragStart={(e) => {
+                                dragRef.current = { absenceId: hit.id, grabbedDate: d.iso, rowKey: row.key, mode: "resize-end" };
+                                e.dataTransfer.effectAllowed = "move";
+                                e.dataTransfer.setData("text/plain", String(hit.id));
+                                e.stopPropagation();
+                              }}
+                              className="h-full w-full cursor-ew-resize"
+                            />
+                          </span>
+                        ) : null}
                       </td>
                     );
                   })}
@@ -445,6 +591,15 @@ function ResourceCalendarInner({
             })}
           </tbody>
         </table>
+      </div>
+      {/* The only feedback a screen-reader user gets that keyboard move mode
+          is active (or was just cancelled) — visually silent by design. */}
+      <div aria-live="polite" className="sr-only">
+        {pendingMove
+          ? t(lang, "calendarMoveModeOn")
+          : justCancelled
+            ? t(lang, "calendarMoveModeCancelled")
+            : ""}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-muted-foreground">
         <LegendChip

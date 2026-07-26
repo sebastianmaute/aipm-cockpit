@@ -343,6 +343,184 @@ it("calls onMoveAbsence with a reassign patch when dropped on a different assign
   );
 });
 
+it("offers a resize handle on the first and last cell of a span only (not every day)", () => {
+  // Spec called this "labelled" and originally proposed getAllByLabelText,
+  // but the shared DragHandle atom's DECORATIVE mode (mandated so it can't
+  // become a second tab stop) carries no aria-label — only a hover title.
+  // Query by title instead; that IS the hover-discoverability mechanism.
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-29", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  expect(screen.getAllByTitle(/change start date/i)).toHaveLength(1);
+  expect(screen.getAllByTitle(/change end date/i)).toHaveLength(1);
+});
+
+it("moves an absence by keyboard without committing on every arrow press", () => {
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  const first = screen.getAllByRole("gridcell")[0].querySelector("button")!;
+  first.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  // Load-bearing: nothing commits before Enter.
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).toHaveBeenCalledTimes(1);
+  expect(onMoveAbsence).toHaveBeenCalledWith(7, { startDate: "2026-07-29", endDate: "2026-07-29" }, "move");
+});
+
+it("discards a pending keyboard move on Escape", () => {
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  screen.getAllByRole("gridcell")[0].querySelector("button")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  fireEvent.keyDown(grid, { key: "Escape" });
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+});
+
+it("keeps exactly one tab-reachable day cell even with resize handles rendered", () => {
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-29", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  // The handles ARE rendered (found via their hover title — see the previous
+  // test's note on why this isn't a getByLabelText query)...
+  const handleWrappers = [...screen.getAllByTitle(/change start date/i), ...screen.getAllByTitle(/change end date/i)];
+  expect(handleWrappers).toHaveLength(2);
+  // ...but the roving-tabindex invariant (#27) still holds: exactly ONE
+  // element anywhere in the table BODY is tab-reachable. Scoped to the whole
+  // tbody (not just [data-cell]) so a handle wrongly rendered in DragHandle's
+  // ACCESSIBLE mode (tabIndex=0 lives on ITS OWN inner div, not the title
+  // wrapper) would be caught here, not hidden by a too-narrow selector.
+  const tabStops = Array.from(container.querySelectorAll('tbody [tabindex="0"]'));
+  expect(tabStops).toHaveLength(1);
+  // And each handle's actual grip element (DragHandle's rendered div, inside
+  // the title-carrying wrapper span) is the DECORATIVE variant: aria-hidden,
+  // no role, no tabindex — it can never become a second tab stop.
+  for (const wrapper of handleWrappers) {
+    const grip = wrapper.querySelector("div")!;
+    expect(grip).toHaveAttribute("aria-hidden", "true");
+    expect(grip).not.toHaveAttribute("role");
+    expect(grip).not.toHaveAttribute("tabindex");
+  }
+});
+
+it("Alt+Arrow on a cell without an absence does not enter move mode — it just roves like a plain arrow", () => {
+  const onMoveAbsence = vi.fn();
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  const cell = (c: number) => container.querySelector(`[data-cell="0-${c}"]`) as HTMLElement;
+  cell(0).focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  expect(document.activeElement).toBe(cell(1));
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+});
+
+it("announces move-mode start and cancellation via the aria-live region", () => {
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  screen.getAllByRole("gridcell")[0].querySelector("button")!.focus();
+  expect(screen.queryByText(/move mode/i)).toBeNull();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  expect(screen.getByText(/move mode/i)).toBeInTheDocument();
+  fireEvent.keyDown(grid, { key: "Escape" });
+  expect(screen.getByText(/move cancelled/i)).toBeInTheDocument();
+});
+
 it("scroll-centers today when the window includes it", () => {
   const { container } = render(
     <ResourceCalendar
