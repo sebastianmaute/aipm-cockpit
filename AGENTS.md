@@ -399,6 +399,17 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   a SEPARATE `RowLookupContext`/`useTaskLookup`, consumed ONLY by `DependencyChipsImpl` — a context consumer
   re-renders on value change REGARDLESS of an ancestor `memo` bailout, so an edit re-renders one dep-chip
   cell, not all 4×N row cells (context-bypasses-memo). Don't fold `tasksById` back into `RowContextValue`.
+- **★★ `ResourcesPanel` is the ONLY `memo()`'d panel `workspace-section` renders** — so it is the one place
+  where adding a `useWorkspace()` call silently defeats a real optimization. A direct context consumer
+  re-renders on ANY context-value change REGARDLESS of the parent's memo bailout (same rule as the
+  `RowLookupContext` split above), and `WorkspaceProvider`'s value is one `useMemo` over ~30 slices, so a
+  milestone/RAID/budget/insight edit — or a background Outlook-pull / insight-recommendation / scheduled-job
+  write — would re-render the whole planning table, workload rollups and absence calendar. Before this, the
+  memo genuinely bailed: workspace-section forwards only `tasks`/`raid`/`absences`/`resources`/`roles`/`plan`,
+  which an unrelated edit leaves reference-identical. THREAD PROPS instead — workspace-section already holds
+  `disciplines`/`grades`/`setResources` and passes them to sibling panels. (Every other panel it renders —
+  tasks, milestones, dashboard, insights, knowledge, timelog — is un-memoized, so consuming context there
+  costs nothing.)
 - **Gantt module map:** `GanttPanel` (`gantt.tsx`) is orchestrator only (data derivation + layout); heavy
   parts extracted. Pure i18n-free ENGINE `gantt-engine.ts` (date math, prefs load/save, critical-path,
   derive-bar). React pieces: hooks `use-gantt-bar-drag.ts` (bar move/resize — window pointer-listener drag
@@ -1549,6 +1560,49 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   call `setX` (ref keeps back-to-back tool calls consistent). `runTool` write cases use
   `requireId`/`patchWithoutId` (strips `id` from the update patch — a destructured `_id` would trip the
   no-unused-vars rule).
+  ★ R4 added THREE more: read-only `get_dashboard_snapshot` (live RAG + progress + EVM + budget rollup, via
+  `ai-dashboard-snapshot.ts`) and read-only `list_allocations` (planner grid) — both zero-arg, NO `isReadOnly`
+  guard (reads) — plus the write tool `set_task_dependencies`. Derived data reaches the dispatcher as
+  un-memoized GETTERS on `ChatDispatcherArgs` (`getDashboardModel`/`getBudgetRollup`/`getAllocationsSnapshot`),
+  each read through its own ref so the dispatcher `useMemo` dep array stays `[args.isReadOnly]` and an unused
+  read tool costs nothing per render. Build the getter in `task-manager.tsx` beside the others.
+  ★★ **REPLACE-SEMANTICS TOOLS: OMISSION MEANS DELETION.** `set_task_dependencies` replaces a task's whole
+  predecessor list, so it is the ONLY tool in `runTool` where what the model LEAVES OUT is destroyed
+  (`update_task` is a patch — a sloppy model can only overwrite what it names). Chat tool writes have **NO undo
+  capture**, so that loss is unrecoverable. Two guards are mandatory and any FUTURE replace-semantics tool needs
+  both: (1) a wholly-refused write (every proposed entry rejected, e.g. all cyclic) must leave the stored list
+  UNTOUCHED — writing the empty result deletes the existing graph while the model reports only "I couldn't add
+  that"; (2) every real write returns `removed[]` (prior minus applied) so a model that sends only the NEW entry
+  instead of the full list cannot delete the rest invisibly. Validate the array-ness at the TOOL boundary
+  (`chat-tools.ts` throws, mirroring `requireId`), not in the pure resolver — a non-array must never be treated
+  as "clear all". ★ TEST TRAP: `expect(getX(id)?.field ?? []).toEqual([])` against a fixture that never had the
+  field passes whether the code preserves or erases. Seed a real prior value and watch the test FAIL first.
+- **AI allocation planning ("Plan with AI", Resources → Planning toolbar):** plan-then-apply over the EXISTING
+  `Resource.utilization` map — ZERO new persisted fields, backend write paths or golden regen. Pure engine
+  `alloc-plan/alloc-plan.ts` (prompt digest · forced `propose_allocations` tool · parse · **ground** · apply ·
+  the `list_allocations` payload); one forced call in `alloc-plan-call.ts` (shared `runForcedToolCall`);
+  glue hook `use-alloc-plan.tsx`; presentational `alloc-plan-modal.tsx`. Mirrors `task-dedup/` throughout.
+  ★★ **`periodCapacityHours` (`resource-capacity.ts:145`) does NOT return available capacity** — despite the
+  name it MULTIPLIES by the resource's own stored utilization (`percent: (util/100) × max(0, possible −
+  absence)`, `hours: max(0, util − absence)`), i.e. hours ALREADY ALLOCATED. Used as "what fits" it reports
+  every unallocated resource as **zero capacity** and a 50%-allocated person as `42/84`. Use
+  **`availableCapacityHours`** (`alloc-plan.ts`) — workdays − holidays − absences, no utilization applied —
+  and mirror its absence-override precedence (`absenceOverride?.[key]` first, else computed absence days) or
+  the planner and the planning grid disagree about the same person. A contract-pin test holds the two
+  functions equal at 100% utilization across all three absence branches.
+  ★★ An allocation is a KEY in `Resource.utilization`, and its UNIT depends on that resource's own
+  `utilizationMode`. The model always speaks HOURS; conversion happens in `groundAllocationCells`, which is
+  also the anti-hallucination gate: unknown `resourceId` dropped, a `periodKey` outside the plan window OR at
+  the wrong granularity refused (`PERIOD_KEY_RE` would otherwise eat it silently on the next load), negative/
+  non-finite hours refused, values clamped to the SANITIZER's own bounds (percent ≤ 100, hours ≤
+  `HOURS_MAP_MAX`) with a `clamped` flag, and a percent cell with ZERO capacity skipped — never written as 0
+  or 100. ★ Writes are SET, NAMED CELLS ONLY (never window-ownership — that is the `timelog-apply` defect
+  class), applied in ONE functional `setResources` with ONE `bulk.edit` undo entry, and confirm drops any cell
+  whose live value moved since propose. ★ Every cap that can hide data reports it: `parseAllocationProposal`
+  returns `truncated` (the cap that actually fires — the ground-level one is defence in depth and cannot),
+  `buildAllocContext` caps periods (`ALLOC_CONTEXT_MAX_PERIODS`; 120 resources × 104 weekly periods was ~52k
+  input tokens per click), and `list_allocations` carries a PER-RESOURCE `truncated` so an omitted resource is
+  distinguishable from a genuinely idle one.
 - **Inline "Ask Claude" edit (SP1):** a per-item edit popover (✨ hover icon on the task table row + Kanban
   card, or the row menu) takes a natural-language instruction and INVERTS the chat loop: ONE bounded
   `callClaude` call proposes tool calls but nothing executes yet. Pure `inline-ai-edit/plan.ts`
