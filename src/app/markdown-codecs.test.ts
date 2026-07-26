@@ -2,6 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus } from "./markdown-codecs";
 import { emptyWorkspace } from "./workspace";
+import { defaultExportConfig } from "./settings-types";
 
 describe("markdown fieldVisibility section", () => {
   it("emits nothing when undefined", () => {
@@ -101,5 +102,18 @@ describe("calendar events markdown", () => {
 
   it("omits the section entirely when there are no events", () => {
     expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Calendar Events");
+  });
+
+  it("is EXPORTED when the export section is enabled, omitted when disabled", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      calendarEvents: [
+        { id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15 },
+      ],
+    };
+    const on = { ...defaultExportConfig, calendarEvents: true };
+    const off = { ...defaultExportConfig, calendarEvents: false };
+    expect(workspaceToMarkdown(ws, on)).toContain("## Calendar Events");
+    expect(workspaceToMarkdown(ws, off)).not.toContain("## Calendar Events");
   });
 });

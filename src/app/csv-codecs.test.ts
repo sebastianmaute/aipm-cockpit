@@ -6,6 +6,7 @@ import {
 } from "./csv-codecs";
 import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
 import { workspaceToJson, jsonToWorkspace, emptyWorkspace } from "./workspace";
+import { defaultExportConfig } from "./settings-types";
 import type { Task } from "./types";
 
 describe("csv fieldVisibility section", () => {
@@ -134,5 +135,18 @@ describe("calendar events CSV", () => {
       "recurrence", "exceptions", "attendeeResourceIds", "sendInvitations",
       "localModifiedAt", "outlookEventId",
     ]);
+  });
+
+  it("is EXPORTED when the export section is enabled, omitted when disabled", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      calendarEvents: [
+        { id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15 },
+      ],
+    };
+    const on = { ...defaultExportConfig, calendarEvents: true };
+    const off = { ...defaultExportConfig, calendarEvents: false };
+    expect(workspaceToCsv(ws, on)).toContain("# CALENDAR EVENTS");
+    expect(workspaceToCsv(ws, off)).not.toContain("# CALENDAR EVENTS");
   });
 });
