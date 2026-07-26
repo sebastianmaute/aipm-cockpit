@@ -93,6 +93,29 @@ describe("sanitizeCalendarEvent", () => {
     expect(sanitizeCalendarEvent({ ...base, sendInvitations: "yes" })?.sendInvitations).toBeUndefined();
     expect(sanitizeCalendarEvent({ ...base, sendInvitations: true })?.sendInvitations).toBe(true);
   });
+
+  it("trims location, caps it, and omits it when blank", () => {
+    expect(sanitizeCalendarEvent({ ...base, location: "  Room 4  " })?.location).toBe("Room 4");
+    expect(sanitizeCalendarEvent({ ...base, location: "   " })?.location).toBeUndefined();
+    expect(sanitizeCalendarEvent({ ...base, location: "x".repeat(300) })?.location).toHaveLength(200);
+  });
+
+  it("preserves notes whitespace (multiline) while capping length", () => {
+    expect(sanitizeCalendarEvent({ ...base, notes: "line one\nline two" })?.notes).toBe("line one\nline two");
+    expect(sanitizeCalendarEvent({ ...base, notes: "x".repeat(2500) })?.notes).toHaveLength(2000);
+    expect(sanitizeCalendarEvent({ ...base, notes: "" })?.notes).toBeUndefined();
+  });
+
+  it("passes through localModifiedAt only when it is a string", () => {
+    expect(sanitizeCalendarEvent({ ...base, localModifiedAt: "2026-07-26T10:00:00.000Z" })?.localModifiedAt)
+      .toBe("2026-07-26T10:00:00.000Z");
+    expect(sanitizeCalendarEvent({ ...base, localModifiedAt: 12345 })?.localModifiedAt).toBeUndefined();
+  });
+
+  it("trims and caps outlookEventId, omitting it when blank", () => {
+    expect(sanitizeCalendarEvent({ ...base, outlookEventId: "  AAMk...  " })?.outlookEventId).toBe("AAMk...");
+    expect(sanitizeCalendarEvent({ ...base, outlookEventId: "" })?.outlookEventId).toBeUndefined();
+  });
 });
 
 describe("JSON-in-cell codecs", () => {
