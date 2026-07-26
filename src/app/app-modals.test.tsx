@@ -33,6 +33,7 @@ import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import type { ConflictItem } from "./jira-api";
 import type { Absence } from "./types";
 import type { Shift } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 const mockUseTaskForm = useTaskForm as ReturnType<typeof vi.fn>;
 
 function stubTaskForm() {
@@ -125,6 +126,17 @@ describe("AppModals", () => {
     stubTaskForm();
     render(<AppModals {...makeProps()} editingAbsence={{ absence: {} as unknown as Absence, isNew: false }} />);
     expect(screen.getByTestId("absence-edit-modal")).toBeInTheDocument();
+  });
+
+  it("shows CalendarEventModal when editingCalendarEvent is non-null", () => {
+    stubTaskForm();
+    render(
+      <AppModals
+        {...makeProps()}
+        editingCalendarEvent={{ event: {} as unknown as CalendarEvent, isNew: false }}
+      />,
+    );
+    expect(screen.getByTestId("calendar-event-modal")).toBeInTheDocument();
   });
 
   it("shows ShiftEditModal when editingShift is non-null", () => {
