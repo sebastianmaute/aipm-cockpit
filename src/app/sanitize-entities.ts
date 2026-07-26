@@ -94,10 +94,10 @@ export function sanitizeAbsence(input: unknown): Absence | null {
     endDate: end,
     type: sanitizeAbsenceType(raw.type),
     note: sanitizeAbsenceNote(raw.note) || undefined,
-    localModifiedAt:
-      typeof raw.localModifiedAt === "string"
-        ? raw.localModifiedAt
-        : undefined,
+    // `|| undefined`, not a bare typeof check: every CSV/MD cell decodes to a
+    // real "" rather than undefined, so the typeof form kept the empty string
+    // as a value. Same form calendar-event.ts uses.
+    localModifiedAt: sanitizeText(raw.localModifiedAt, 1024) || undefined,
     resourceId: fkIdOrUndefined(raw.resourceId),
     outlookEventId: sanitizeText(raw.outlookEventId, 1024) || undefined,
   };
@@ -181,10 +181,8 @@ export function sanitizeShift(input: unknown): Shift | null {
     hoursPerWeekday,
     note: sanitizeNotes(raw.note) || undefined,
     resourceId: fkIdOrUndefined(raw.resourceId),
-    localModifiedAt:
-      typeof raw.localModifiedAt === "string"
-        ? raw.localModifiedAt
-        : undefined,
+    // See sanitizeAbsence above — an empty cell must not become a value.
+    localModifiedAt: sanitizeText(raw.localModifiedAt, 1024) || undefined,
   };
 }
 

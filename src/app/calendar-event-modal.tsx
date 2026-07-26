@@ -36,6 +36,7 @@ import { clampRangeEnd } from "./date-range";
 import { parseUtc } from "./calendar-window";
 import { weekdayIndex } from "./recurrence";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
+import { FieldHint } from "./field-hint";
 import { Checkbox, Input, Select } from "./form-controls";
 import { SegmentedControl } from "./segmented-control";
 import { useDraggable } from "./use-draggable";
@@ -165,6 +166,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
     : t(lang, "calendarEventEditItem", draft.id);
 
   const repeating = recurrence.freq !== "none";
+  const exceptionCount = draft.exceptions?.length ?? 0;
 
   return (
     <EditModalShell
@@ -261,6 +263,16 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
               }
             />
           </div>
+
+          {/* sanitizeCalendarEvent drops exceptions along with the rule, so
+              this save really does discard them. Undo restores it in one step
+              (CALENDAR_EVENT_UNDO_GROUPS), but silence is still wrong. A hint,
+              not ModalFieldError — the save is legal, merely lossy. Reads the
+              DRAFT because the repeat controls live in a separate recurrence
+              state, so draft.exceptions survives until submit. */}
+          {!repeating && exceptionCount > 0 && (
+            <FieldHint>{t(lang, "calendarEventExceptionsDiscarded", exceptionCount)}</FieldHint>
+          )}
 
           {repeating && (
             <>

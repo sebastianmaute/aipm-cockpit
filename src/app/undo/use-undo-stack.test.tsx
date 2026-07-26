@@ -1,7 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useState, type SetStateAction } from "react";
-import { useUndoStack, capturePart } from "./use-undo-stack";
+import { useUndoStack, capturePart, buildUndoLabel } from "./use-undo-stack";
+import { ACTIVITY_KIND_TO_KEY, type ActivityKind } from "../activity-log";
+import { t } from "../i18n";
 
 type Row = { id: number; name: string };
 type Ref = { id: number; roleId: number | null };
@@ -470,5 +472,52 @@ describe("useUndoStack", () => {
     expect(result.current.roles).toEqual([{ id: 8, name: "Dev/Sr" }, { id: 7, name: "NEW-ROLE" }]);
     // ★ Cascade FK follows the re-mint to 8 (would be a stale 7 without flushSync).
     expect(result.current.refs).toEqual([{ id: 1, roleId: 8 }]);
+  });
+});
+
+describe("buildUndoLabel — entity registration", () => {
+  // ★ Regression guard for a gap that shipped silently. buildUndoLabel resolves
+  // the entity from the kind's prefix via ENTITY_KEY_SET; an unregistered prefix
+  // yields `null` and the function returns its generic fallback BEFORE reading
+  // `opts.name`. So a capture site can correctly pass the entity's title and
+  // still get "Deleted 1 item(s)" — restore works, only the label is wrong,
+  // which no functional test can see. calendarEvent shipped exactly that way.
+  it("names a calendar event on delete instead of falling back to the generic label", () => {
+    const label = buildUndoLabel("en-US", "calendarEvent.deleted", 1, { name: "Sprint Planning" });
+    expect(label).toBe('Delete meeting "Sprint Planning"');
+    expect(label).not.toBe("Deleted 1 item(s)");
+  });
+
+  it("names a calendar event on edit", () => {
+    expect(buildUndoLabel("en-US", "calendarEvent.updated", 1, { name: "Standup" })).toBe(
+      'Edit meeting "Standup"',
+    );
+  });
+
+  // The real invariant, stated once rather than per-entity: every entity prefix
+  // that ACTIVITY_KIND_TO_KEY gives a log line must also resolve to a named undo
+  // label. This catches the NEXT entity added without its ENTITY_KEY_SET row.
+  it("resolves a named label for every row-entity prefix in ACTIVITY_KIND_TO_KEY", () => {
+    // `settings` is a singleton config write, not a row: there is no instance to
+    // name, and it has no per-row undo, so the generic fallback is correct for it
+    // rather than a gap. Every OTHER .created/.updated/.deleted prefix is a real
+    // entity and must resolve to a named label.
+    const NON_ROW_PREFIXES = new Set(["settings"]);
+    // ★ Derived from the translator, never hardcoded. A literal copy of these
+    // strings would stop matching the moment someone reworded either fallback,
+    // and the sweep would then report zero unnamed entities for EVERY future
+    // omission — passing vacuously at exactly the moment it should fail. That
+    // is the same silent-fallback class this whole test exists to catch.
+    const generic = [t("en-US", "undoToastDelete", 1), t("en-US", "undoToastEdit", 1)];
+    const prefixes = new Set(
+      (Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[])
+        .filter((k) => k.endsWith(".created") || k.endsWith(".updated") || k.endsWith(".deleted"))
+        .map((k) => k.split(".")[0])
+        .filter((p) => !NON_ROW_PREFIXES.has(p)),
+    );
+    const unnamed = [...prefixes].filter((p) =>
+      generic.includes(buildUndoLabel("en-US", `${p}.deleted` as ActivityKind, 1, { name: "X" })),
+    );
+    expect(unnamed).toEqual([]);
   });
 });

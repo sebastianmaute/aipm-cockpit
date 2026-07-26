@@ -93,9 +93,16 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   Moving/folding a control INTO an axe-scanned view re-scans it: gate scans `Settings`→General, so
   folding Storage/Appearance into General surfaced pre-existing unlabeled `<select>` (a visible
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
-  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is 13 named views and does NOT include chat/AI-Assistant,
-  Projects, or Knowledge — controls only on those surfaces aren't scanned, but anything in the
-  always-present top bar IS (scanned via every view). Verify IA/UI/contrast changes with
+  `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **16** named views — Dashboard · Open Points · Gantt ·
+  Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
+  Time bookings · AI Assistant · Next actions · Insights — so a passing run reports 5 schemes × 16
+  + 5 Kanban-board variants = **85** checks. It does NOT include Projects, Knowledge, or the
+  Resources → **Calendar** sub-tab (Resources defaults to the directory), so controls only on those
+  surfaces aren't scanned; anything in the always-present top bar IS (scanned via every view).
+  ★★ Calendar being unscanned has already cost real bugs: 0.202.0 shipped an AA contrast failure
+  there (`text-ui-pink` on `bg-surface-muted`, under the 4.5:1 AA threshold) that a full 85/85 axe pass said nothing
+  about. Check contrast BY HAND for anything styled on that surface.
+  Verify IA/UI/contrast changes with
   `npx playwright test e2e/a11y.spec.ts --project=chromium -g "<View>"` (~16s, webServer auto-starts)
   BEFORE pushing — unit suite (`test:run` = vitest) never runs playwright, so axe regressions slip
   local gate and fail ONLY in CI.
@@ -2085,6 +2092,27 @@ calendar actually shows; always derive it via `expandOccurrences`, never read th
   encoders — the two briefly diverged mid-release (one still on the storage-only gate other config blobs use)
   before being reconciled; a future edit to one MUST touch the other or a user's export checkbox stops
   meaning the same thing in both formats.
+- **Meeting CRUD logs + undoes like every other entity.** `use-calendar-events.ts` takes the same four
+  OPTIONAL callbacks `useChangeLog` does (`logActivity`/`logActivityChanges`/`capture`/`captureFieldEdit`),
+  threaded from `use-resource-planner.ts` in ONE line — that file sits at its size-ratchet baseline, so
+  keep it one line. Kinds: `calendarEvent.created`/`.updated`/`.deleted`.
+  ★★ `CALENDAR_EVENT_UNDO_GROUPS` binds **startDate + recurrence + exceptions as ONE unit** and must stay
+  that way: `sanitizeCalendarEvent` clears `exceptions` whenever `recurrence` is absent, and
+  `sanitizeRecurrence` cross-validates `until >= startDate`. Split into separate entries, an undo can
+  restore a rule whose exceptions are gone, or an `until` the very next load strips again — the undo looks
+  like it worked and then doesn't. The editor also warns (`calendarEventExceptionsDiscarded`, a `FieldHint`)
+  before a de-recurring save discards them.
+  ★★★ A NEW UNDOABLE ENTITY NEEDS **TWO** REGISTRATIONS, not one. Adding the `ActivityKind`s buys the
+  activity log; the undo LABEL needs the kind's prefix added to `UndoEntityKey` + `ENTITY_SINGULAR` +
+  `ENTITY_KEY_SET` (`undo/use-undo-stack.ts`) plus an `undoEntity*` EN/DE string. Miss it and
+  `entityKeyFromKind` returns `null`, so `buildUndoLabel` hits its generic `"Deleted N item(s)"` fallback
+  **without ever using `opts.name`** (it computes the trimmed name one line earlier, then returns without
+  it) — the capture site's carefully-passed title is silently dropped from
+  every undo/redo toast while restore itself still works perfectly. That is invisible to functional tests
+  (calendarEvent shipped exactly that way and EIGHT review passes missed it; a ninth caught it). The
+  lockstep is now pinned by a sweep test in `undo/use-undo-stack.test.tsx` that walks every row-entity
+  prefix in `ACTIVITY_KIND_TO_KEY` and fails on any that resolves to the generic label — `settings` is the
+  one legitimate exemption (a singleton config write, no row to name).
 
 **The calendar surface** (`resource-calendar.tsx` orchestrator + `resource-calendar-rows.tsx` assignee rows +
 `resource-calendar-band.tsx` meetings band — same orchestrator/presentational-pieces split as gantt's

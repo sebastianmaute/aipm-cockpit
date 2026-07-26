@@ -255,4 +255,38 @@ describe("CalendarEventModal", () => {
       expect(saved).toEqual({ freq: "weekly", interval: 1 });
     });
   });
+
+  it("warns that turning repeat off will discard the series' exceptions", async () => {
+    const user = userEvent.setup();
+    const series: CalendarEvent = {
+      ...base,
+      recurrence: { freq: "daily", interval: 1 },
+      exceptions: [
+        { date: "2026-01-03", kind: "skip" },
+        { date: "2026-01-05", kind: "move", toDate: "2026-01-06" },
+      ],
+    };
+    setup({ event: series });
+    // Nothing to warn about while the series is still recurring.
+    expect(screen.queryByText(/discards/i)).not.toBeInTheDocument();
+    const repeatGroup = within(
+      screen.getByRole("radiogroup", { name: t("en-US", "calendarEventRepeat") }),
+    );
+    await user.click(repeatGroup.getByRole("radio", { name: t("en-US", "calendarEventRepeatNever") }));
+    expect(screen.getByText(/discards 2 adjusted occurrence/i)).toBeInTheDocument();
+  });
+
+  it("does not warn when a de-recurred series has no exceptions", async () => {
+    const user = userEvent.setup();
+    const series: CalendarEvent = {
+      ...base,
+      recurrence: { freq: "daily", interval: 1 },
+    };
+    setup({ event: series });
+    const repeatGroup = within(
+      screen.getByRole("radiogroup", { name: t("en-US", "calendarEventRepeat") }),
+    );
+    await user.click(repeatGroup.getByRole("radio", { name: t("en-US", "calendarEventRepeatNever") }));
+    expect(screen.queryByText(/discards/i)).not.toBeInTheDocument();
+  });
 });

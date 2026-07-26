@@ -6,6 +6,7 @@
 // non-primitives, but undo must be able to revert labels/dependencies edits too.
 
 import type { Task, ChangeItem, RaidItem, Milestone, Stakeholder, Resource } from "../types";
+import type { CalendarEvent } from "../calendar-event";
 
 export type FieldGroup<T> = readonly (keyof T & string)[];
 
@@ -85,3 +86,13 @@ export const RAID_UNDO_GROUPS: readonly FieldGroup<RaidItem>[] = [];
 export const MILESTONE_UNDO_GROUPS: readonly FieldGroup<Milestone>[] = [];
 export const STAKEHOLDER_UNDO_GROUPS: readonly FieldGroup<Stakeholder>[] = [];
 export const RESOURCE_UNDO_GROUPS: readonly FieldGroup<Resource>[] = [];
+
+/** Two couplings, one group. sanitizeCalendarEvent clears `exceptions` whenever
+ *  `recurrence` is absent, so reverting the rule must restore the skips/moves in
+ *  the same step. And sanitizeRecurrence cross-validates `until >= startDate`, so
+ *  a split entry could restore an `until` the next load strips again — the undo
+ *  would appear to work and then not stick. Reverting a pure startDate move also
+ *  rewrites two identical values; harmless. */
+export const CALENDAR_EVENT_UNDO_GROUPS: readonly FieldGroup<CalendarEvent>[] = [
+  ["startDate", "recurrence", "exceptions"],
+];

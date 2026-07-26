@@ -29,6 +29,9 @@ export type ActivityKind =
   | "shift.created"
   | "shift.updated"
   | "shift.deleted"
+  | "calendarEvent.created"
+  | "calendarEvent.updated"
+  | "calendarEvent.deleted"
   | "milestone.created"
   | "milestone.updated"
   | "milestone.deleted"
@@ -178,6 +181,9 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "shift.created": "activityShiftCreated",
   "shift.updated": "activityShiftUpdated",
   "shift.deleted": "activityShiftDeleted",
+  "calendarEvent.created": "activityCalendarEventCreated",
+  "calendarEvent.updated": "activityCalendarEventUpdated",
+  "calendarEvent.deleted": "activityCalendarEventDeleted",
   "milestone.created": "activityMilestoneCreated",
   "milestone.updated": "activityMilestoneUpdated",
   "milestone.deleted": "activityMilestoneDeleted",

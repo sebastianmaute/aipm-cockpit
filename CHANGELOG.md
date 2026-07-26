@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.202.1] - 2026-07-26 "Beukes"
+
+Follow-ups from the 0.202.0 calendar overhaul.
+
+- **Meetings now appear in the activity log and support undo/redo.** Creating,
+  editing and deleting a meeting series records an activity entry, and edits are
+  undoable like every other register. Notably this makes de-recurring a series
+  reversible: turning repeat off discards the series' skipped and moved
+  occurrences, which previously could not be recovered.
+- The meeting editor now says so up front, showing how many adjusted occurrences
+  turning repeat off will discard.
+- Escape during a keyboard absence *resize* announced "Move cancelled"; it now
+  announces the resize.
+- The meetings band's "truncated" banner no longer appears when the visible
+  window was in fact complete, and its cell no longer claims to label its row.
+- Internal: an empty timestamp cell no longer decodes to an empty string for
+  absences and shifts, and Gantt stopped carrying its own copy of `addDays`.
+
 ## [0.202.0] - 2026-07-26 "Beukes"
 
 ### Added

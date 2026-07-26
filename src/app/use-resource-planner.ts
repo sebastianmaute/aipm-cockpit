@@ -389,7 +389,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   );
 
   // CRUD extracted to use-calendar-events.ts (useChangeLog/useStakeholders convention).
-  const calendarEventsApi = useCalendarEvents({ today });
+  const calendarEventsApi = useCalendarEvents({ today, logActivity: args.logActivity, logActivityChanges: args.logActivityChanges, capture: args.capture, captureFieldEdit: args.captureFieldEdit });
 
   const handleOpenShiftEditor = useCallback(
     (existing: Shift | null, seed: { display: string; email: string }) => {
