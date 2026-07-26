@@ -19,6 +19,10 @@ import { isoWeekParts } from "./resource-capacity";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { resolveCalendarDrag } from "./calendar-drag";
 import { iso, parseUtc } from "./calendar-window";
+import { expandOccurrences, type Occurrence } from "./recurrence";
+import { packOccurrenceLanes } from "./occurrence-lanes";
+import { CalendarBand } from "./resource-calendar-band";
+import type { CalendarEvent } from "./calendar-event";
 import {
   CalendarRows,
   CELL_PX,
@@ -56,6 +60,15 @@ interface Props {
   endDate: string;
   /** When false, rows backed by an external resource are hidden. Default true. */
   includeExternals?: boolean;
+  /** Recurring meetings rendered as a lane-packed band above the assignee
+   *  rows. Omit entirely (with onEditEvent) to leave the calendar
+   *  meetings-free — the band renders nothing when there are no lanes. */
+  calendarEvents?: readonly CalendarEvent[];
+  /** Open a meeting occurrence for edit. Also GATES the band: omit to hide
+   *  meetings entirely (mirrors onMoveAbsence's popout/read-only convention). */
+  onEditEvent?: (event: CalendarEvent) => void;
+  /** Drag-reschedule an occurrence. Omit to make the band read-only. */
+  onMoveOccurrence?: (occurrence: Occurrence, toDate: string) => void;
 }
 
 /** Rendered height of the ISO week-band header row (py-0.5 + text-[10px]).
@@ -78,6 +91,9 @@ function ResourceCalendarInner({
   startDate,
   endDate,
   includeExternals = true,
+  calendarEvents,
+  onEditEvent,
+  onMoveOccurrence,
 }: Props) {
   const days = useMemo<CalendarDay[]>(() => {
     const out: CalendarDay[] = [];
@@ -320,6 +336,23 @@ function ResourceCalendarInner({
     [resourceByKey],
   );
 
+  // Meetings band (Task 14). id -> CalendarEvent for the band's chip lookup.
+  const eventsById = useMemo<Map<number, CalendarEvent>>(
+    () => new Map((calendarEvents ?? []).map((e) => [e.id, e])),
+    [calendarEvents],
+  );
+  // Expand every event's occurrences over the window, drop anything outside
+  // it (a moved occurrence can land outside the window it was fetched for),
+  // sort by date then time, then lane-pack. The window bounds are already
+  // props — no clock read here, matching expandOccurrences' own purity rule.
+  const lanes = useMemo<Occurrence[][]>(() => {
+    const all = (calendarEvents ?? [])
+      .flatMap((e) => expandOccurrences(e, startDate, endDate).occurrences)
+      .filter((o) => o.date >= startDate && o.date <= endDate)
+      .sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : (a.date < b.date ? -1 : 1)));
+    return packOccurrenceLanes(all);
+  }, [calendarEvents, startDate, endDate]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
       <div ref={scrollRef} data-calendar-scroll className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
@@ -390,6 +423,16 @@ function ResourceCalendarInner({
               ))}
             </tr>
           </thead>
+          {onEditEvent ? (
+            <CalendarBand
+              lang={lang}
+              lanes={lanes}
+              days={days}
+              eventsById={eventsById}
+              onEditEvent={onEditEvent}
+              onMoveOccurrence={onMoveOccurrence}
+            />
+          ) : null}
           <CalendarRows
             lang={lang}
             visibleRows={visibleRows}

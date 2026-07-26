@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourceCalendar } from "./resource-calendar";
 import { isoWeekParts } from "./resource-capacity";
 import type { Resource } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 
 const Sample: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
 
@@ -519,6 +520,151 @@ it("announces move-mode start and cancellation via the aria-live region", () => 
   expect(screen.getByText(/move mode/i)).toBeInTheDocument();
   fireEvent.keyDown(grid, { key: "Escape" });
   expect(screen.getByText(/move cancelled/i)).toBeInTheDocument();
+});
+
+it("renders occurrences of a recurring series in the meetings band", () => {
+  const events: CalendarEvent[] = [
+    {
+      id: 1,
+      title: "Standup",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      recurrence: { freq: "daily", interval: 1 },
+    },
+  ];
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  expect(screen.getByText("Meetings")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: /Standup/ })).toHaveLength(3);
+});
+
+it("gives each occurrence a row-unique accessible name", () => {
+  const events: CalendarEvent[] = [
+    {
+      id: 1,
+      title: "Standup",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      recurrence: { freq: "daily", interval: 1 },
+    },
+  ];
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-28"
+    />,
+  );
+  const names = screen.getAllByRole("button", { name: /Standup/ }).map((b) => b.getAttribute("aria-label"));
+  expect(new Set(names).size).toBe(names.length);
+});
+
+it("stacks overlapping same-day meetings into separate lanes", () => {
+  const events: CalendarEvent[] = [
+    { id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15 },
+    { id: 2, title: "Retro", startDate: "2026-07-27", startTime: "11:00", durationMinutes: 30 },
+  ];
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-27"
+    />,
+  );
+  const bandRows = container.querySelectorAll("[data-calendar-band] tr");
+  expect(bandRows).toHaveLength(2);
+  expect(screen.getByRole("button", { name: /Standup/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Retro/ })).toBeInTheDocument();
+});
+
+it("keeps exactly one roving tab stop with the meetings band rendered — band chips carry data-band-cell, never data-cell", () => {
+  const events: CalendarEvent[] = [
+    {
+      id: 1,
+      title: "Standup",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      recurrence: { freq: "daily", interval: 1 },
+    },
+  ];
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[
+        { key: "anna", display: "Anna", email: "" },
+        { key: "ben", display: "Ben", email: "" },
+      ]}
+      absences={[]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  const chips = screen.getAllByRole("button", { name: /Standup/ });
+  expect(chips).toHaveLength(3);
+  // The class of regression Task 6's narrower [data-cell]-only test missed:
+  // a band cell must never carry data-cell (which the roving grid indexes
+  // by row/column) — only its own data-band-cell.
+  for (const chip of chips) {
+    expect(chip).not.toHaveAttribute("data-cell");
+    expect(chip).toHaveAttribute("data-band-cell");
+  }
+  // Scoped to the WHOLE table (both the band's <tbody> and the assignee
+  // rows' <tbody>), not just [data-cell] — exactly one element carries the
+  // explicit roving tabindex="0" marker, and it's a real day cell.
+  const table = container.querySelector('[role="grid"]') as HTMLElement;
+  const explicitTabStops = Array.from(table.querySelectorAll('[tabindex="0"]'));
+  expect(explicitTabStops).toHaveLength(1);
+  expect(explicitTabStops[0]).toHaveAttribute("data-cell");
 });
 
 it("scroll-centers today when the window includes it", () => {
