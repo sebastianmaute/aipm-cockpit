@@ -2023,6 +2023,7 @@ const enUS = {
   undoEntityResources: "resources",
   undoEntityAbsence: "absence",
   undoEntityShift: "shift",
+  undoEntityCalendarEvent: "meeting",
   undoEntityRole: "role",
   undoEntityDiscipline: "discipline",
   undoEntityGrade: "grade",

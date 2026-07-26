@@ -2102,6 +2102,17 @@ calendar actually shows; always derive it via `expandOccurrences`, never read th
   restore a rule whose exceptions are gone, or an `until` the very next load strips again — the undo looks
   like it worked and then doesn't. The editor also warns (`calendarEventExceptionsDiscarded`, a `FieldHint`)
   before a de-recurring save discards them.
+  ★★★ A NEW UNDOABLE ENTITY NEEDS **TWO** REGISTRATIONS, not one. Adding the `ActivityKind`s buys the
+  activity log; the undo LABEL needs the kind's prefix added to `UndoEntityKey` + `ENTITY_SINGULAR` +
+  `ENTITY_KEY_SET` (`undo/use-undo-stack.ts`) plus an `undoEntity*` EN/DE string. Miss it and
+  `entityKeyFromKind` returns `null`, so `buildUndoLabel` hits its generic `"Deleted N item(s)"` fallback
+  **without ever using `opts.name`** (it computes the trimmed name one line earlier, then returns without
+  it) — the capture site's carefully-passed title is silently dropped from
+  every undo/redo toast while restore itself still works perfectly. That is invisible to functional tests
+  (calendarEvent shipped exactly that way and EIGHT review passes missed it; a ninth caught it). The
+  lockstep is now pinned by a sweep test in `undo/use-undo-stack.test.tsx` that walks every row-entity
+  prefix in `ACTIVITY_KIND_TO_KEY` and fails on any that resolves to the generic label — `settings` is the
+  one legitimate exemption (a singleton config write, no row to name).
 
 **The calendar surface** (`resource-calendar.tsx` orchestrator + `resource-calendar-rows.tsx` assignee rows +
 `resource-calendar-band.tsx` meetings band — same orchestrator/presentational-pieces split as gantt's

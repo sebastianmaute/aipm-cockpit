@@ -27,7 +27,8 @@ const UNDO_CAP = 25;
  *  `entityKey`; every other kind derives the entity from its `entity.op` prefix. */
 export type UndoEntityKey =
   | "task" | "milestone" | "raid" | "change" | "stakeholder"
-  | "resource" | "absence" | "shift" | "role" | "discipline" | "grade";
+  | "resource" | "absence" | "shift" | "role" | "discipline" | "grade"
+  | "calendarEvent";
 
 type I18nKey = Parameters<typeof t>[1];
 
@@ -43,6 +44,7 @@ const ENTITY_SINGULAR: Record<UndoEntityKey, I18nKey> = {
   role: "undoEntityRole",
   discipline: "undoEntityDiscipline",
   grade: "undoEntityGrade",
+  calendarEvent: "undoEntityCalendarEvent",
 };
 // Plurals only for entities that appear with a count (bulk/multi-delete); the
 // rest fall back to the singular (they're only ever named, count 1).
@@ -55,9 +57,16 @@ const ENTITY_PLURAL: Partial<Record<UndoEntityKey, I18nKey>> = {
   resource: "undoEntityResources",
 };
 
+// ★ Must stay in lockstep with the entity prefixes in ACTIVITY_KIND_TO_KEY: a
+// kind whose prefix is missing here resolves to `null`, and buildUndoLabel then
+// returns its generic "Edited/Deleted N item(s)" fallback BEFORE it ever reads
+// `opts.name` — so the entity's name is silently dropped from every undo label
+// while restore itself still works. That failure is invisible to a functional
+// test (calendarEvent shipped that way and eight reviews missed it).
 const ENTITY_KEY_SET: ReadonlySet<string> = new Set<UndoEntityKey>([
   "task", "milestone", "raid", "change", "stakeholder",
   "resource", "absence", "shift", "role", "discipline", "grade",
+  "calendarEvent",
 ]);
 
 function entityKeyFromKind(kind: ActivityKind): UndoEntityKey | null {

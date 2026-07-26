@@ -2018,6 +2018,7 @@ export const de: Record<TranslationKey, string> = {
   undoEntityResources: "Ressourcen",
   undoEntityAbsence: "Abwesenheit",
   undoEntityShift: "Schicht",
+  undoEntityCalendarEvent: "Termin",
   undoEntityRole: "Rolle",
   undoEntityDiscipline: "Disziplin",
   undoEntityGrade: "Stufe",
