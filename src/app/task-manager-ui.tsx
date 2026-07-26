@@ -3,7 +3,6 @@ import {
   ArrowsPointingInIcon,
   ArrowTopRightOnSquareIcon,
   BackspaceIcon,
-  EllipsisVerticalIcon,
   PrinterIcon as PrinterHeroIcon,
   ViewColumnsIcon,
 } from "@heroicons/react/24/outline";
@@ -11,6 +10,7 @@ import type React from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { FOCUS_RING, INTERACTIVE } from "./interaction-styles";
 import { IconButton } from "./icon-button";
+import { DragHandle } from "./drag-handle";
 
 export function TabButton({
   active,
@@ -99,13 +99,10 @@ export function ColumnResizeHandle({
   onMouseDown: (col: string, e: React.MouseEvent) => void;
 }) {
   return (
-    <div
-      aria-hidden="true"
+    <DragHandle
       onMouseDown={(e) => onMouseDown(col, e)}
-      className="absolute right-0 top-0 flex h-full w-1.5 cursor-col-resize select-none items-center justify-center text-table-head-fg/40 transition-colors hover:bg-table-head-accent/10 hover:text-table-head-accent active:text-table-head-accent print:hidden"
-    >
-      <EllipsisVerticalIcon aria-hidden="true" className="h-4 w-4" />
-    </div>
+      className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize text-table-head-fg/40 hover:bg-table-head-accent/10 hover:text-table-head-accent active:text-table-head-accent"
+    />
   );
 }
 
