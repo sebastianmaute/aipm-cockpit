@@ -16,7 +16,11 @@ import { FOCUS_RING, TRANSITION } from "./interaction-styles";
  * perform the gesture) passes `ariaLabel` to get a real `role="button"`
  * with that accessible name instead — never both at once.
  */
-export interface DragHandleProps {
+// NOTE: named DragGripProps, not DragHandleProps — `use-draggable.ts` already
+// exports an unrelated DragHandleProps (window-repositioning drag, consumed by
+// edit-modal-chrome.tsx / modal-header.tsx) in this same flat `src/app/`
+// directory. Two different concepts must not share a name here.
+export interface DragGripProps {
   /** Accessible name. Pass it to make the handle a real, independently
    *  announced/keyboard-focusable control; omit it to keep the handle
    *  purely decorative (aria-hidden, mouse-only — the original
@@ -37,7 +41,7 @@ export function DragHandle({
   onDragStart,
   onMouseDown,
   className = "",
-}: DragHandleProps) {
+}: DragGripProps) {
   const isAccessible = ariaLabel !== undefined;
   return (
     <div
@@ -48,6 +52,10 @@ export function DragHandle({
       draggable={draggable}
       onDragStart={onDragStart}
       onMouseDown={onMouseDown}
+      // PRESS is omitted deliberately: a grip is held through the whole gesture, not
+      // clicked-and-released, so active:translate-y-px would visibly fight the pointer
+      // for the drag's duration. Gantt's grip and the old ColumnResizeHandle both
+      // reached the same conclusion independently.
       className={`flex select-none items-center justify-center print:hidden ${TRANSITION} ${isAccessible ? `${FOCUS_RING} ` : ""}${className}`}
     >
       <EllipsisVerticalIcon aria-hidden="true" className="h-4 w-4" />
