@@ -93,4 +93,18 @@ describe("resolveCalendarDrag", () => {
       currentRowKey: "anna", dropRowKey: "anna", mode: "move",
     })).toBeNull();
   });
+
+  it("returns null when an end-resize is dropped back on the same edge", () => {
+    expect(resolveCalendarDrag({
+      absence: abs, grabbedDate: "2026-07-08", dropDate: "2026-07-08",
+      currentRowKey: "anna", dropRowKey: "anna", mode: "resize-end",
+    })).toBeNull();
+  });
+
+  it("returns null when a start-resize is dropped back on the same edge", () => {
+    expect(resolveCalendarDrag({
+      absence: abs, grabbedDate: "2026-07-06", dropDate: "2026-07-06",
+      currentRowKey: "anna", dropRowKey: "anna", mode: "resize-start",
+    })).toBeNull();
+  });
 });
