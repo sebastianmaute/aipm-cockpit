@@ -188,6 +188,19 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     if (phase !== "preview") return;
     const chosen = cells.filter((c) => selected.has(cellKey(c)));
     if (chosen.length === 0) return;
+    // NOTE: this whole handler body runs SYNCHRONOUSLY to its final
+    // `reset()`/`setResources()` — there is no `await` between here and the
+    // end of the function — so React 19's automatic batching coalesces this
+    // `setPhase("applying")` with every state update that follows in the same
+    // tick and NEVER commits an intermediate "applying" render. `phase ===
+    // "applying"` therefore cannot currently be observed by the modal:
+    // `busy`/`canCancel` below never see it, and neither does the `stage`
+    // derivation. It is kept anyway as defence-in-depth for the day this body
+    // grows an `await` (e.g. a server round-trip on apply) — at that point the
+    // batching boundary breaks and "applying" becomes real without anyone
+    // having to remember to re-add it. Don't delete it as "dead code": the
+    // `AllocPlanModal`'s busy-disabling and the `handleClose` neutering in
+    // `alloc-plan-modal.tsx` are correct FOR that future, just unreachable now.
     setPhase("applying");
     const before = resources;
 
@@ -246,6 +259,10 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
   }, [phase, cells, selected, resources, setResources, capture, logActivity, showToast, lang, reset]);
 
   const stage: "input" | "preview" = phase === "preview" || phase === "applying" ? "preview" : "input";
+  // The `"applying"` phase never actually commits a render (see the NOTE in
+  // onConfirm above) — the `phase === "applying"` checks here, and the
+  // consequent `canCancel:false` / `busy:true` the modal receives, are
+  // defence-in-depth for a future async apply, not live behaviour today.
   const busy = phase === "thinking" || phase === "applying";
   const canCancel = phase !== "applying";
 

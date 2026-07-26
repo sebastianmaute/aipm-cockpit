@@ -91,7 +91,10 @@ export function AllocPlanModal({
   // nothing about canCancel — so during an apply (the one moment every other
   // control is disabled) they would be the ONLY remaining way to dismiss.
   // Neutering onClose itself, not just the visible button, is what actually
-  // gates it.
+  // gates it. NOTE: today's caller (use-alloc-plan.tsx) applies fully
+  // synchronously, so `canCancel` never actually goes false in practice — this
+  // is defence-in-depth for the day apply grows an await, not live behaviour
+  // right now. Keep it; see the NOTE in use-alloc-plan.tsx's onConfirm.
   const handleClose = canCancel ? onCancel : () => {};
 
   return (
@@ -151,12 +154,10 @@ export function AllocPlanModal({
                             {formatAllocValue({ mode: c.mode, value: c.currentValue })}
                             {" → "}
                             {formatAllocValue({ mode: c.mode, value: c.nextValue })}
-                            {c.mode === "percent" && (
-                              <span className="text-muted-foreground">
-                                {" "}
-                                ({t(lang, "allocPlanHoursOfCapacity", Math.round(c.hours), Math.round(c.capacityHours))})
-                              </span>
-                            )}
+                            <span className="text-muted-foreground">
+                              {" "}
+                              ({t(lang, "allocPlanHoursOfCapacity", Math.round(c.hours), Math.round(c.capacityHours))})
+                            </span>
                             {c.clamped && (
                               <span className="text-muted-foreground"> ({t(lang, "allocPlanClamped")})</span>
                             )}

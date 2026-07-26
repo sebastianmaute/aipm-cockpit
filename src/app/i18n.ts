@@ -3545,7 +3545,7 @@ const enUS = {
   allocPlanSkipNoCapacity: "no capacity in that period",
   allocPlanSkipBadHours: "invalid hours",
   allocPlanSkipDuplicate: "duplicate cell",
-  allocPlanSkipBelowResolution: "no change at this resolution",
+  allocPlanSkipBelowResolution: "no change to the stored value",
   allocPlanSkipAlreadySet: "already at that value",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
 } as const;

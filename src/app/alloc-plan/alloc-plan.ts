@@ -40,6 +40,21 @@ export interface RawAllocCell {
 export const MAX_ALLOC_CELLS = 200;
 /** Bound on how many resources are described to the model (token budget). */
 export const ALLOC_CONTEXT_MAX_RESOURCES = 120;
+/**
+ * Bound on how many plan periods are described to the model (token budget) —
+ * the OTHER axis of the digest. `ALLOC_CONTEXT_MAX_RESOURCES` alone does not
+ * bound the total: each shown resource emits one cell PER PLAN PERIOD, and
+ * `generatePeriods` is otherwise uncapped, so a long-horizon plan multiplies
+ * the resource cap unboundedly (120 resources × a 105-period 2-year weekly
+ * plan ≈ 12.6k cells). Measured via `buildAllocContext` at the resource cap
+ * (120): a 2-year weekly plan (105 periods) is ~178KB / ≈52k tokens; a
+ * 10-year monthly plan (120 periods) is ~203KB / ≈59k tokens — billed on
+ * EVERY "propose allocations" click, not a one-shot call cached in history
+ * like `ALLOC_TOOL_MAX_CELLS`. Capping at 26 periods (~half a year of weekly
+ * periods, or over two years of monthly ones) keeps the worst case to ~48KB
+ * / ≈13.9k tokens while covering the horizons this feature is actually used
+ * for (tokens estimated at ~3.5 chars/token). */
+export const ALLOC_CONTEXT_MAX_PERIODS = 26;
 
 export interface AllocContextArgs {
   resources: readonly Resource[];
@@ -108,7 +123,8 @@ export function availableCapacityHours(
  *  as the (volatile) user message — never in the cached system block. */
 export function buildAllocContext(args: AllocContextArgs): string {
   const { resources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet } = args;
-  const periods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+  const allPeriods = generatePeriods(plan.startDate, plan.endDate, plan.granularity);
+  const periods = allPeriods.slice(0, ALLOC_CONTEXT_MAX_PERIODS);
   const periodKeys = periods.map((p) => p.key);
 
   const lines: string[] = [];
@@ -134,6 +150,9 @@ export function buildAllocContext(args: AllocContextArgs): string {
   if (resources.length > ALLOC_CONTEXT_MAX_RESOURCES) {
     lines.push(`…(${resources.length - ALLOC_CONTEXT_MAX_RESOURCES} more resources truncated)`);
   }
+  if (allPeriods.length > ALLOC_CONTEXT_MAX_PERIODS) {
+    lines.push(`…(${allPeriods.length - ALLOC_CONTEXT_MAX_PERIODS} more periods truncated)`);
+  }
   return lines.join("\n");
 }
 
@@ -144,6 +163,7 @@ export function buildAllocSystemPrompt(): string {
     "You always plan in HOURS, regardless of how a resource stores its utilization internally.",
     "Each cell you return REPLACES that resource's value for that period — only the cells you return change; every other period on every other resource is left untouched.",
     "Use ONLY the period keys and resource ids listed in the digest — never invent a resource or a period key.",
+    "The digest may be truncated for a large resource count or a long plan window — a trailing '…(N more … truncated)' line means your view is partial, so say so rather than asserting something is unplanned when it may simply be out of view.",
     "Respect the shown per-period capacity unless the user explicitly asks to overload a resource.",
     "When asked to spread work across a role, split it across the resources holding that role, preferring whoever has spare capacity (current well below capacity).",
     "If you cannot honor the request without inventing a resource or period, return an empty `cells` array rather than guessing.",

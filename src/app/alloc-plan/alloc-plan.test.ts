@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALLOC_CONTEXT_MAX_PERIODS,
   ALLOC_CONTEXT_MAX_RESOURCES,
   ALLOC_TOOL_MAX_CELLS,
   MAX_ALLOC_CELLS,
@@ -24,7 +25,7 @@ import {
   type ResourcePlan,
   type Role,
 } from "../types";
-import { periodCapacityHours } from "../resource-capacity";
+import { generatePeriods, periodCapacityHours } from "../resource-capacity";
 
 const plan: ResourcePlan = {
   startDate: "2026-08-01",
@@ -104,6 +105,33 @@ describe("buildAllocContext", () => {
     });
 
     expect(text).toContain(`…(${extra} more resources truncated)`);
+  });
+
+  it("truncates past ALLOC_CONTEXT_MAX_PERIODS and reports how many were dropped", () => {
+    // A 2-year weekly plan carries far more periods than the cap.
+    const longPlan: ResourcePlan = {
+      startDate: "2026-01-01",
+      endDate: "2027-12-31",
+      granularity: "week",
+      currency: "EUR",
+    };
+    const allPeriods = generatePeriods(longPlan.startDate, longPlan.endDate, longPlan.granularity);
+    expect(allPeriods.length).toBeGreaterThan(ALLOC_CONTEXT_MAX_PERIODS);
+    const firstDroppedKey = allPeriods[ALLOC_CONTEXT_MAX_PERIODS]!.key;
+    const lastKeptKey = allPeriods[ALLOC_CONTEXT_MAX_PERIODS - 1]!.key;
+
+    const text = buildAllocContext({
+      resources: [resource(1)], roles: [], disciplines: [], grades: [], plan: longPlan,
+      absences: [], workdayHours: 8, holidaySet: new Set<string>(),
+    });
+
+    expect(text).toContain(
+      `…(${allPeriods.length - ALLOC_CONTEXT_MAX_PERIODS} more periods truncated)`,
+    );
+    // The PERIOD KEYS line and every resource's cell list stop at the cap —
+    // a period beyond it never appears anywhere in the digest.
+    expect(text).toContain(lastKeptKey);
+    expect(text).not.toContain(firstDroppedKey);
   });
 
   it("falls back to '-' for a dangling roleId that matches no role", () => {
