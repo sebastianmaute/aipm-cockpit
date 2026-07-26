@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { type Lang, t } from "./i18n";
+import { clampRangeEnd } from "./date-range";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Input, Textarea } from "./form-controls";
 import { AssigneeField } from "./modal-edit-fields";
@@ -147,7 +148,14 @@ export function AbsenceEditModal({
                   type="date"
                   required
                   value={draft.startDate}
-                  onChange={(e) => update("startDate", e.target.value)}
+                  onChange={(e) => {
+                    const nextStart = e.target.value;
+                    setDraft((prev) =>
+                      prev
+                        ? { ...prev, startDate: nextStart, endDate: clampRangeEnd(nextStart, prev.endDate) }
+                        : prev,
+                    );
+                  }}
                 />
               </label>
 

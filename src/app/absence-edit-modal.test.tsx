@@ -165,4 +165,12 @@ describe("AbsenceEditModal", () => {
       expect(screen.getByText(t("en-US", "absenceNote"))).toBeInTheDocument();
     });
   });
+
+  it("pulls the end date along when the start moves past it", () => {
+    setup();
+    const start = screen.getByLabelText(/start/i) as HTMLInputElement;
+    fireEvent.change(start, { target: { value: "2026-07-10" } });
+    const end = screen.getByLabelText(/end/i) as HTMLInputElement;
+    expect(end.value).toBe("2026-07-10");
+  });
 });
