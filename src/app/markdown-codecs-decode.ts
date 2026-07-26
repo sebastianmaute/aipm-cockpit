@@ -51,7 +51,6 @@ import {
   parseHealthOverride,
 } from "./csv-codecs";
 import {
-  EVENTS_MD_COLUMNS,
   decodeMdTable,
   markdownToChanges,
   markdownToFeatures,
@@ -68,6 +67,7 @@ import {
   mdUnescape,
   splitMdRow,
 } from "./markdown-codecs-core";
+import { EVENTS_MD_COLUMNS } from "./markdown-columns";
 
 /**
  * Splits a workspace markdown into its entity sections by heading.
