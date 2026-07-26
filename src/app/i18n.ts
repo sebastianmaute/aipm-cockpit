@@ -1543,6 +1543,7 @@ const enUS = {
   calendarEventDuration: "Duration (minutes)",
   calendarEventLocation: "Location",
   calendarEventRepeat: "Repeat",
+  calendarEventExceptionsDiscarded: "Turning repeat off discards {0} adjusted occurrence(s); undo restores them.",
   calendarEventRepeatNever: "Never",
   calendarEventRepeatDaily: "Daily",
   calendarEventRepeatWeekly: "Weekly",

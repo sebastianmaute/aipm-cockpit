@@ -1538,6 +1538,7 @@ export const de: Record<TranslationKey, string> = {
   calendarEventLocation: "Ort",
   calendarEventRepeat: "Wiederholung",
   calendarEventRepeatNever: "Nie",
+  calendarEventExceptionsDiscarded: "Das Ausschalten der Wiederholung verwirft {0} angepasste(n) Termin(e); mit Rückgängig lassen sie sich wiederherstellen.",
   calendarEventRepeatDaily: "Täglich",
   calendarEventRepeatWeekly: "Wöchentlich",
   calendarEventRepeatMonthly: "Monatlich",
