@@ -11,12 +11,15 @@
 // monthly) — editing it piecemeal through the flat CalendarEvent draft would
 // either fight the union's typing or silently drop a sub-form's values when
 // the user switches freq and back. So recurrence sub-fields live in a
-// SEPARATE local RecurrenceDraft (a flat superset bag carrying every
-// possible sub-field at once, regardless of which freq is active) and are
-// only assembled into the real RecurrenceRule | undefined at submit time —
-// the same "expand the single-field update() by hand for a field that can't
-// be a flat patch" pattern absence-edit-modal.tsx uses for its start/end
-// clamp, just at a larger scale.
+// SEPARATE RecurrenceDraft (a flat superset bag carrying every possible
+// sub-field at once, regardless of which freq is active) and are only
+// assembled into the real RecurrenceRule | undefined at submit time — the
+// same "expand the single-field update() by hand for a field that can't be
+// a flat patch" pattern absence-edit-modal.tsx uses for its start/end
+// clamp, just at a larger scale. The draft type + its two converters
+// (recurrenceDraftFrom/buildRecurrenceRule) live in recurrence-draft.ts —
+// pure, so they're exhaustively testable directly rather than only through
+// DOM simulation of this form.
 //
 // ★★ Submit routes the assembled draft through sanitizeCalendarEvent — the
 // single validator — and calls onSave ONLY with its result. A null result
@@ -41,9 +44,17 @@ import {
   WEEKDAYS,
   sanitizeCalendarEvent,
   type CalendarEvent,
-  type RecurrenceRule,
   type Weekday,
 } from "./calendar-event";
+import {
+  buildRecurrenceRule,
+  recurrenceDraftFrom,
+  type EndsMode,
+  type MonthlyMode,
+  type Ordinal,
+  type RecurrenceDraft,
+  type RepeatFreq,
+} from "./recurrence-draft";
 
 interface Props {
   lang: Lang;
@@ -61,103 +72,7 @@ interface Props {
   onClose: () => void;
 }
 
-type RepeatFreq = "none" | "daily" | "weekly" | "monthly";
-type MonthlyMode = "dom" | "nth";
-type EndsMode = "never" | "date" | "count";
-type Ordinal = 1 | 2 | 3 | 4 | -1;
 const ORDINALS: readonly Ordinal[] = [1, 2, 3, 4, -1];
-
-interface RecurrenceDraft {
-  freq: RepeatFreq;
-  interval: number;
-  weeklyByDay: Weekday[];
-  monthlyMode: MonthlyMode;
-  monthlyDom: number;
-  monthlyOrdinal: Ordinal;
-  monthlyWeekday: Weekday;
-  ends: EndsMode;
-  until: string;
-  count: number;
-}
-
-const EMPTY_RECURRENCE_DRAFT: RecurrenceDraft = {
-  freq: "none",
-  interval: 1,
-  weeklyByDay: [],
-  monthlyMode: "dom",
-  monthlyDom: 1,
-  monthlyOrdinal: 1,
-  monthlyWeekday: "MO",
-  ends: "never",
-  until: "",
-  count: 1,
-};
-
-/** Populate the flat form-local draft from a persisted rule (or none). */
-function recurrenceDraftFrom(rule: RecurrenceRule | undefined): RecurrenceDraft {
-  if (!rule) return EMPTY_RECURRENCE_DRAFT;
-  const ends: EndsMode = rule.until ? "date" : rule.count !== undefined ? "count" : "never";
-  const range = { ends, until: rule.until ?? "", count: rule.count ?? 1 };
-  if (rule.freq === "daily") {
-    return { ...EMPTY_RECURRENCE_DRAFT, freq: "daily", interval: rule.interval, ...range };
-  }
-  if (rule.freq === "weekly") {
-    return {
-      ...EMPTY_RECURRENCE_DRAFT,
-      freq: "weekly",
-      interval: rule.interval,
-      weeklyByDay: rule.byDay ? [...rule.byDay] : [],
-      ...range,
-    };
-  }
-  // monthly
-  if (rule.byDay) {
-    return {
-      ...EMPTY_RECURRENCE_DRAFT,
-      freq: "monthly",
-      interval: rule.interval,
-      monthlyMode: "nth",
-      monthlyOrdinal: rule.byDay.ordinal,
-      monthlyWeekday: rule.byDay.day,
-      ...range,
-    };
-  }
-  return {
-    ...EMPTY_RECURRENCE_DRAFT,
-    freq: "monthly",
-    interval: rule.interval,
-    monthlyMode: "dom",
-    monthlyDom: rule.byMonthDay ?? 1,
-    ...range,
-  };
-}
-
-/** Assemble the real discriminated-union rule from the flat form draft, or
- *  undefined for a non-recurring event. Only the fields the active freq
- *  actually uses are read — the rest of the bag is simply not consulted
- *  (nothing to strip; sanitizeCalendarEvent re-validates everything anyway). */
-function buildRecurrenceRule(d: RecurrenceDraft): RecurrenceRule | undefined {
-  if (d.freq === "none") return undefined;
-  const range = d.ends === "date" ? { until: d.until } : d.ends === "count" ? { count: d.count } : {};
-  if (d.freq === "daily") return { freq: "daily", interval: d.interval, ...range };
-  if (d.freq === "weekly") {
-    return {
-      freq: "weekly",
-      interval: d.interval,
-      ...(d.weeklyByDay.length ? { byDay: d.weeklyByDay } : {}),
-      ...range,
-    };
-  }
-  if (d.monthlyMode === "nth") {
-    return {
-      freq: "monthly",
-      interval: d.interval,
-      byDay: { ordinal: d.monthlyOrdinal, day: d.monthlyWeekday },
-      ...range,
-    };
-  }
-  return { freq: "monthly", interval: d.interval, byMonthDay: d.monthlyDom, ...range };
-}
 
 // Reuses the existing weekday-abbreviation keys (shift-edit-modal's own
 // weekday grid uses the same set) rather than minting a second copy.
