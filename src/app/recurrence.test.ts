@@ -268,3 +268,54 @@ describe("nearestOccurrence", () => {
     expect(truncated).toBe(true);
   });
 });
+
+describe("truncated does not fire for a fully-covered window", () => {
+  // A daily series starting ~54 years before the window: the rule walk passes
+  // windowEnd and then keeps stepping through the 366-day generation buffer,
+  // burning MAX_ITERATIONS out there. The window itself is completely covered,
+  // so nothing is hidden and the banner must not claim otherwise.
+  //
+  // ★ The landing zone is arithmetic, not luck: from 1972-01-01 the 20,000th
+  // daily candidate falls on 2026-10-04 — 125 days past windowEnd 2026-06-01
+  // and well inside the 366-day generation buffer (which ends 2027-06-02). That
+  // depends on MAX_ITERATIONS=20000 and GENERATION_BUFFER_DAYS=366 in
+  // recurrence.ts; if either changes, recompute these dates. Otherwise the walk
+  // may finish naturally via genEnd before hitting the cap, and test 1 keeps
+  // passing for the WRONG reason (natural completion, not the narrowing).
+  const oldDaily = (exceptions?: CalendarEvent["exceptions"]): CalendarEvent => ({
+    id: 1,
+    title: "Standup",
+    startDate: "1972-01-01",
+    startTime: "09:00",
+    durationMinutes: 15,
+    recurrence: { freq: "daily", interval: 1 },
+    exceptions,
+  });
+
+  it("reports truncated=false when the stop happens past windowEnd and there are no move exceptions", () => {
+    const { occurrences, truncated } = expandOccurrences(oldDaily(), "2026-06-01", "2026-06-01");
+    // The window IS covered — the single in-window occurrence is present.
+    expect(occurrences.map((o) => o.date)).toEqual(["2026-06-01"]);
+    expect(truncated).toBe(false);
+  });
+
+  it("still reports truncated=true past windowEnd when a move exception could have been hidden", () => {
+    // Regression guard: with a move exception on the books, a stop in the
+    // buffer walk really can hide an occurrence relocated INTO the window, so
+    // the flag is honest.
+    const { truncated } = expandOccurrences(
+      oldDaily([{ date: "2030-01-01", kind: "move", toDate: "2026-06-01" }]),
+      "2026-06-01",
+      "2026-06-01",
+    );
+    expect(truncated).toBe(true);
+  });
+
+  it("still reports truncated=true when the stop happens INSIDE the window", () => {
+    // Regression guard: window start is far enough past the series start that
+    // the budget runs out before the walk reaches windowEnd — real incomplete
+    // coverage.
+    const { truncated } = expandOccurrences(oldDaily(), "2026-06-01", "2036-06-01");
+    expect(truncated).toBe(true);
+  });
+});

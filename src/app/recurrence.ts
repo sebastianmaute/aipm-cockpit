@@ -244,7 +244,22 @@ export function expandOccurrences(event: CalendarEvent, windowStart: string, win
 
   const sink: Sink = (candidate) => {
     totalProcessed += 1;
-    if (totalProcessed > MAX_ITERATIONS) { truncated = true; return "stop"; }
+    if (totalProcessed > MAX_ITERATIONS) {
+      // A stop AFTER we walked past wEnd is inside the trailing buffer walk,
+      // whose only purpose is finding occurrences MOVED back into the window —
+      // an unmoved candidate out there is excluded by the window test below
+      // regardless. So it is real truncation only when this event actually
+      // carries a move exception; otherwise the window is fully covered and
+      // reporting truncation would make the band's banner state something
+      // false. Narrows the flag only — never newly sets it.
+      //
+      // Derived HERE rather than up-front: this branch needs tens of thousands
+      // of candidates to reach, so it is effectively never taken, and
+      // expandOccurrences runs per-event on every calendar render.
+      const hasMoveException = (event.exceptions ?? []).some((e) => e.kind === "move");
+      if (candidate.getTime() <= wEndMs || hasMoveException) truncated = true;
+      return "stop";
+    }
 
     // COUNT limits the RULE's own generation, evaluated before exceptions —
     // a skip/move exception does not free up another slot (mirrors iCalendar
