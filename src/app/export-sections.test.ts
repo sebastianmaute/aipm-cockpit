@@ -14,6 +14,7 @@ import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import { nearestOccurrence } from "./recurrence";
 
 // ---------------------------------------------------------------------------
 // Minimal fixture helpers
@@ -393,22 +394,27 @@ describe("calendarEvents section", () => {
     expect(sec.rows[0][1]).toBe("");
   });
 
-  it("resolves the confirmed date even for an ancient series — truncation is unreachable here by construction", () => {
-    // Proves the claim in firstOccurrenceLabel's own comment: because
-    // windowStart is always the event's OWN startDate for this caller, the
-    // search walk is bounded to ~11 years of steps from wherever that start
-    // is, regardless of which calendar year it falls in — nowhere near
-    // expandOccurrences' 20,000-iteration cap, even for a series begun in
-    // 1900. If this ever starts failing, the reachability claim in that
-    // comment is wrong and needs revisiting (along with the fallback logic).
-    const ws: Workspace = {
-      ...makeBaseWorkspace(),
-      calendarEvents: [makeCalendarEvent(1, {
-        startDate: "1900-01-01",
-        startTime: "09:00",
-        recurrence: { freq: "daily", interval: 1 },
-      })],
+  it("resolves the confirmed date even for an ancient series — 'occurrence' is always populated for this call shape, even though 'truncated' routinely fires", () => {
+    // Proves the NARROWER claim firstOccurrenceLabel's own comment actually
+    // makes: NOT that `truncated` is unreachable (it isn't — MAX_OCCURRENCES
+    // fires for practically any daily/weekly-ish series here, ancient or
+    // not, since the ~11-year lookahead alone produces >1000 candidates),
+    // but that `occurrence` (element 0 of an already-sorted list) is
+    // unaffected by that — it's always populated for THIS call shape
+    // (windowStart === the event's own startDate), regardless of which
+    // calendar year that start falls in. The genuinely unreachable state is
+    // `occurrence === undefined && truncated`, not `truncated` on its own.
+    const evt: CalendarEvent = {
+      id: 1, title: "Ancient standup", startDate: "1900-01-01", startTime: "09:00",
+      durationMinutes: 15, recurrence: { freq: "daily", interval: 1 },
     };
+    // Direct check on the underlying helper, not just the rendered string —
+    // a prior version of this test asserted only the date and never looked
+    // at `truncated` at all, so it passed while blind to what its old title
+    // claimed ("truncation is unreachable").
+    expect(nearestOccurrence(evt, evt.startDate).occurrence).toBeDefined();
+
+    const ws: Workspace = { ...makeBaseWorkspace(), calendarEvents: [evt] };
     const sections = buildExportSections(ws, defaultExportConfig, "en-US");
     const sec = sections.find((s) => s.key === "calendarEvents")!;
     expect(sec.rows[0][1]).toBe("1900-01-01 09:00");

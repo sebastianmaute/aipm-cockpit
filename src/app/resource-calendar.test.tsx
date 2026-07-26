@@ -949,7 +949,17 @@ it("surfaces a perceivable warning when the band's occurrence search is truncate
   expect(screen.queryByRole("button", { name: /Ancient standup/ })).not.toBeInTheDocument();
   // But the band is not silently absent: a warning is genuinely perceivable
   // (real text content, not merely a hover-only title or a colour swap).
-  expect(screen.getByText(t("en-US", "calendarBandTruncated"))).toBeInTheDocument();
+  const warning = screen.getByText(t("en-US", "calendarBandTruncated"));
+  expect(warning).toBeInTheDocument();
+  // WCAG AA: text-ui-pink on bg-surface-muted is 4.05:1 (fails); the
+  // -strong variant is 5.26:1. Calendar isn't in the axe-scanned view list,
+  // so this is the only guard against silently reverting to the plain token.
+  // Exact token match (not a substring/regex check) — "text-ui-pink-strong"
+  // itself contains "text-ui-pink" as a substring, so a naive check would
+  // pass either way and prove nothing.
+  const tdClasses = (warning.closest("td")?.className ?? "").split(/\s+/);
+  expect(tdClasses).toContain("text-ui-pink-strong");
+  expect(tdClasses).not.toContain("text-ui-pink");
 });
 
 it("scroll-centers today when the window includes it", () => {

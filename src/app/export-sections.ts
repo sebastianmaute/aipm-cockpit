@@ -316,18 +316,30 @@ function describeRecurrence(r: RecurrenceRule | undefined): string {
  *  "this is when it happens" — those must not be conflated.
  *
  *  ★ `nearestOccurrence`'s `truncated` flag is deliberately IGNORED here,
- *  not silently dropped: for THIS caller windowStart is always the event's
- *  own `startDate` (by construction — "first occurrence ever"), so the walk
- *  is bounded to at most ~`NEAREST_OCCURRENCE_LOOKAHEAD_DAYS` (~11 years
- *  with the generation buffer) of steps from its own start REGARDLESS of
- *  which calendar year that start falls in — a daily rule's absolute worst
- *  case is ~4,000 steps, nowhere near `expandOccurrences`' 20,000-iteration
- *  cap. Truncation is therefore unreachable for this specific call shape
- *  (verified: attempting to trigger it here returns the confirmed date, not
- *  a truncated empty result). Contrast the all-series list's
- *  `nextOccurrenceLabel`, which passes `today` — independent of the event's
- *  own startDate — so an old series genuinely CAN exhaust the cap there,
- *  and does surface it. */
+ *  not silently dropped — but NOT because truncation itself can't happen.
+ *  It routinely does: `truncated` is set whenever EITHER of
+ *  `expandOccurrences`' two caps fires, and `MAX_OCCURRENCES` (1000 pushed
+ *  results) trips for any ordinary daily/weekly-ish series once its walk
+ *  crosses ~11 years of candidates — which is the WHOLE lookahead here,
+ *  since windowStart is always the event's own `startDate` for this caller
+ *  (by construction — "first occurrence ever"). So `truncated === true` is
+ *  the COMMON case, not a rare one, and is uninformative for what this
+ *  function needs: `occurrence` is element 0 of an already-sorted list, so
+ *  it is correct regardless of whether the TAIL got cut off by
+ *  `MAX_OCCURRENCES`.
+ *
+ *  What genuinely can't happen for this call shape is `occurrence ===
+ *  undefined && truncated` — the "search gave up before confirming
+ *  anything" state `NearestOccurrenceResult.truncated`'s own doc warns
+ *  about. That requires exhausting `MAX_ITERATIONS` (20,000 candidates
+ *  evaluated) before ever reaching the window, which needs a real gap
+ *  between where generation starts and where the window begins — impossible
+ *  here since they're the same date. (Verified: `occurrence` resolves for
+ *  both an ordinary and a ~125-year-old daily series passed through this
+ *  exact call shape — see the pinning test below.) Contrast the all-series
+ *  list's `nextOccurrenceLabel`, which passes `today` — independent of the
+ *  event's own startDate — where that gap is real and `occurrence ===
+ *  undefined && truncated` DOES need its own message. */
 function firstOccurrenceLabel(event: CalendarEvent): string {
   const { occurrence } = nearestOccurrence(event, event.startDate);
   return occurrence ? `${occurrence.date} ${occurrence.time}` : "";

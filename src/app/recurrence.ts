@@ -307,16 +307,25 @@ export const NEAREST_OCCURRENCE_LOOKAHEAD_DAYS = 3660; // ~10 years
 
 export interface NearestOccurrenceResult {
   occurrence: Occurrence | undefined;
-  /** True when the search may have missed the true nearest occurrence
-   *  because `expandOccurrences`' own iteration cap (`MAX_ITERATIONS`) was
-   *  reached before the walk covered the full lookahead — the reachable
-   *  case is a series whose `startDate` is far in the past: generation
-   *  always starts there, so a daily/weekly walk begun in, say, the 1990s
-   *  can exhaust the cap before ever reaching a present-day window.
-   *  `occurrence === undefined && truncated` therefore means "couldn't
-   *  determine", NOT "confirmed no occurrence exists" — a caller that
-   *  collapses both into the same "none" message would misrepresent an
-   *  unknown as a fact. */
+  /** True when `expandOccurrences` gave up before covering the FULL
+   *  lookahead window — via EITHER of its two independent caps:
+   *  `MAX_OCCURRENCES` (1000 pushed results — the one that actually fires
+   *  in practice: any daily/weekly-ish series with `windowStart` at its own
+   *  `startDate` trivially produces >1000 occurrences across an ~11-year
+   *  lookahead, so `truncated` is routinely true for ORDINARY series, not
+   *  just old ones) or `MAX_ITERATIONS` (20,000 candidates evaluated —
+   *  reachable for a series whose `startDate` is far in the past, since
+   *  generation always starts there).
+   *
+   *  ★★ `truncated` alone does NOT mean "couldn't determine the nearest
+   *  occurrence" — when `MAX_OCCURRENCES` is what fired, `occurrence`
+   *  (element 0 of an already-sorted list) is untouched and fully correct;
+   *  only the TAIL of the list was dropped. The genuinely uncertain state is
+   *  `occurrence === undefined && truncated` — THAT combination means "the
+   *  search gave up before confirming there is truly none", not "confirmed
+   *  no occurrence exists". A caller must check for that combination
+   *  specifically; checking `truncated` in isolation will flag the common
+   *  case, not the rare one. */
   truncated: boolean;
 }
 

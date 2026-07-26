@@ -87,7 +87,7 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
           <td
             role="rowheader"
             colSpan={1 + days.length}
-            className="border-b border-r border-line bg-surface-muted px-2 py-1 text-xs font-medium text-ui-pink"
+            className="border-b border-r border-line bg-surface-muted px-2 py-1 text-xs font-medium text-ui-pink-strong"
           >
             <span className="inline-flex items-center gap-1">
               <ExclamationTriangleIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
