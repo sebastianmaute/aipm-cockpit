@@ -6,6 +6,7 @@
 // functions, unit-testable without jsdom. The only browser API touched is
 // localStorage in loadPrefs/savePrefs, guarded for SSR via `typeof window`.
 
+import { addDays } from "./calendar-window";
 import type { Lang } from "./i18n";
 import { isPlainObject } from "./sanitize";
 import { PRIORITIES, type AbsenceType, type DependencyType, type Milestone, type Priority, type Task } from "./types";
@@ -246,9 +247,10 @@ export function milestoneSlipDays(baselineISO: string, liveISO: string): number 
   return diffDays(base, live);
 }
 
-export function addDays(d: Date, n: number): Date {
-  return new Date(d.getTime() + n * DAY_MS);
-}
+// Re-exported, not redefined: calendar-window.ts owns the one implementation.
+// Kept exported from here so gantt.tsx / gantt-chrome.tsx keep importing it
+// from this module unchanged.
+export { addDays };
 
 export function fmtMonth(d: Date, lang: Lang): string {
   return d.toLocaleString(lang === "de" ? "de-DE" : "en-US", {

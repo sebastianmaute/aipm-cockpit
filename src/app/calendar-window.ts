@@ -24,11 +24,9 @@ export function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-// Exported: shared with recurrence.ts, which needs the same "date ± n days"
-// step for rule stepping. gantt-engine.ts carries a byte-identical copy
-// (DAY_MS instead of MS_PER_DAY) for the milestone ghost bars — left alone
-// here; folding that in too would widen this fix into Gantt's files, a
-// separate follow-up.
+// Exported: the single "date ± n days" step in the app. recurrence.ts uses it
+// for rule stepping, and gantt-engine.ts re-exports it (rather than carrying
+// the byte-identical copy it used to) so Gantt's own callers are unchanged.
 export function addDays(d: Date, n: number): Date {
   return new Date(d.getTime() + n * MS_PER_DAY);
 }
