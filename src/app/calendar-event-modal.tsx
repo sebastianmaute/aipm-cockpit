@@ -51,7 +51,12 @@ interface Props {
   event: CalendarEvent | null;
   /** True when creating; false when editing an existing record. */
   isNew: boolean;
-  onSave: (next: CalendarEvent) => void;
+  /** `isNew` is echoed back (mirrors the modal's own prop) so the save
+   *  handler can route create-vs-update through resolveEntitySave's explicit
+   *  intent rather than falling back to id-existence — closing the same
+   *  id-mint-race window entity-id-mint.ts documents for every other
+   *  modal-driven entity save. */
+  onSave: (next: CalendarEvent, isNew?: boolean) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
 }
@@ -206,7 +211,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
       setError(t(lang, "calendarEventErrorTitleRequired"));
       return;
     }
-    onSave(sanitized);
+    onSave(sanitized, isNew);
   }
 
   async function handleDeleteClick() {

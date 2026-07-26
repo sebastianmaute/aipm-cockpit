@@ -5,6 +5,7 @@ import { TaskFormModal } from "./task-form-modal";
 import { type TaskFieldErrors } from "./task-validation";
 import { JiraConflictsModal } from "./jira-conflicts-modal";
 import { AbsenceEditModal } from "./absence-edit-modal";
+import { CalendarEventModal } from "./calendar-event-modal";
 import { ShiftEditModal } from "./shift-edit-modal";
 import { ResourceEditModal } from "./resource-edit-modal";
 import type { listContacts } from "./contacts";
@@ -15,6 +16,7 @@ import { DEFAULT_FOOTER_SLOGAN } from "./settings-types";
 import type { ConflictItem } from "./jira-api";
 import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Absence, Resource, Shift, Task } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 import type { Toast } from "./use-toast";
 
 export interface AppModalsProps {
@@ -36,6 +38,12 @@ export interface AppModalsProps {
   handleSaveAbsence: (next: Absence) => void;
   handleDeleteAbsence: (id: number) => void;
   handleCloseAbsenceModal: () => void;
+
+  // Calendar event (recurring meeting) edit modal
+  editingCalendarEvent: { event: CalendarEvent; isNew: boolean } | null;
+  handleSaveCalendarEvent: (event: CalendarEvent, isNew?: boolean) => void;
+  handleDeleteCalendarEvent: (id: number) => void;
+  handleCloseCalendarEventModal: () => void;
 
   // Shift edit modal
   editingShift: { shift: Shift; isNew: boolean } | null;
@@ -106,6 +114,10 @@ export function AppModals({
   handleSaveAbsence,
   handleDeleteAbsence,
   handleCloseAbsenceModal,
+  editingCalendarEvent,
+  handleSaveCalendarEvent,
+  handleDeleteCalendarEvent,
+  handleCloseCalendarEventModal,
   editingShift,
   shiftExistingAssigneeKeys,
   handleSaveShift,
@@ -201,6 +213,17 @@ export function AppModals({
           onSave={handleSaveAbsence}
           onDelete={handleDeleteAbsence}
           onClose={handleCloseAbsenceModal}
+        />
+      )}
+
+      {editingCalendarEvent && (
+        <CalendarEventModal
+          lang={lang}
+          event={editingCalendarEvent.event}
+          isNew={editingCalendarEvent.isNew}
+          onSave={handleSaveCalendarEvent}
+          onDelete={handleDeleteCalendarEvent}
+          onClose={handleCloseCalendarEventModal}
         />
       )}
 

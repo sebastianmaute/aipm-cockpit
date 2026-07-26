@@ -62,6 +62,20 @@ describe("CalendarEventModal", () => {
     expect(onSave.mock.calls[0][0]).toMatchObject({ title: "Standup" });
   });
 
+  it("echoes isNew=true back to onSave for a new event, so the save handler can route create-vs-update by explicit intent", () => {
+    const onSave = vi.fn();
+    setup({ isNew: true, onSave });
+    submit();
+    expect(onSave.mock.calls[0][1]).toBe(true);
+  });
+
+  it("echoes isNew=false back to onSave for an existing event", () => {
+    const onSave = vi.fn();
+    setup({ isNew: false, onSave });
+    submit();
+    expect(onSave.mock.calls[0][1]).toBe(false);
+  });
+
   it("blocks save and shows an error when title is blank", () => {
     const onSave = vi.fn();
     setup({ event: { ...base, title: "" }, isNew: true, onSave });

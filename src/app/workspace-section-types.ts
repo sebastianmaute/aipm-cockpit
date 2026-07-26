@@ -16,6 +16,7 @@ import type {
   ActivityKind,
   FieldChange,
 } from "./activity-log";
+import type { CalendarEvent } from "./calendar-event";
 import type {
   Absence,
   BudgetBucket,
@@ -176,6 +177,21 @@ export interface WorkspaceSectionProps {
   /** Commit a drag/resize/reassign on the Resources → Calendar grid (R5 S2).
    *  Threaded straight into `<ResourcesPanel>`'s `onMoveAbsence`. */
   handleMoveAbsence?: (id: number, patch: Partial<Absence>, kind: "move" | "reassign" | "resize") => void;
+  /** Recurring meetings on the Resources → Calendar grid. `resources-panel.tsx`
+   *  is a pure passthrough for this entity (mirrors onAddAbsence/onEditAbsence
+   *  right above) — id-minting, save/delete and the `<CalendarEventModal>`
+   *  mount all live one layer up, in use-resource-planner.ts + app-modals.tsx.
+   *  All three optional (mirrors handleMoveAbsence) so existing prop-literal
+   *  test fixtures don't need updating. Threaded straight into
+   *  `<ResourcesPanel>`'s `calendarEvents`/`onAddCalendarEvent`/
+   *  `onEditCalendarEvent`. The DATA passes through unconditionally (a popout
+   *  mirror still shows the band); the two triggers are `guardEdit`-wrapped in
+   *  task-manager AND the panel itself gates the actual affordances (add
+   *  button, `onEditEvent`) on `isPopout` before they reach
+   *  `<ResourceCalendar>` — same two-layer pattern `onMoveAbsence` uses. */
+  calendarEvents?: readonly CalendarEvent[];
+  handleOpenAddCalendarEvent?: () => void;
+  handleEditCalendarEvent?: (event: CalendarEvent) => void;
   handleOpenShiftEditor: (
     existingShift: Shift | null,
     assignee: { display: string; email: string },

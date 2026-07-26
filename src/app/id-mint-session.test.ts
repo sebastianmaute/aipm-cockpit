@@ -107,6 +107,7 @@ describe("seedMintFromWorkspace", () => {
     absences: [{ id: 13 }],
     shifts: [{ id: 14 }],
     budgets: [{ id: 20 }, { id: 25 }],
+    calendarEvents: [{ id: 27 }],
   } as unknown as Parameters<typeof seedMintFromWorkspace>[0];
 
   it("seeds every kind so a subsequent mint exceeds the loaded max", () => {
@@ -124,6 +125,7 @@ describe("seedMintFromWorkspace", () => {
       absence: 14,
       shift: 15,
       budgetBucket: 26,
+      calendarEvent: 28,
     };
     for (const [kind, next] of Object.entries(expected) as [MintKind, number][]) {
       expect(mintId(kind, [])).toBe(next);

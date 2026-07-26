@@ -21,7 +21,8 @@ export type MintKind =
   | "grade"
   | "absence"
   | "shift"
-  | "budgetBucket";
+  | "budgetBucket"
+  | "calendarEvent";
 
 /** Minimal shape every mintable entity satisfies. */
 type HasId = { id: number };
@@ -129,6 +130,7 @@ export function seedMintFromWorkspace(
   seedMintKind("absence", ws.absences ?? [], mode);
   seedMintKind("shift", ws.shifts ?? [], mode);
   seedMintKind("budgetBucket", collectBudgetBuckets(ws.budgets), mode);
+  seedMintKind("calendarEvent", ws.calendarEvents ?? [], mode);
 }
 
 /**

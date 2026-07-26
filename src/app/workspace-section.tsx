@@ -129,6 +129,9 @@ export function WorkspaceSection({
   handleOpenAddAbsence,
   handleEditAbsence,
   handleMoveAbsence,
+  calendarEvents,
+  handleOpenAddCalendarEvent,
+  handleEditCalendarEvent,
   handleOpenShiftEditor,
   manageRolesView,
   onAssignRoleById,
@@ -518,6 +521,9 @@ export function WorkspaceSection({
               onAddAbsence={handleOpenAddAbsence}
               onEditAbsence={handleEditAbsence}
               onMoveAbsence={handleMoveAbsence}
+              calendarEvents={calendarEvents}
+              onAddCalendarEvent={handleOpenAddCalendarEvent}
+              onEditCalendarEvent={handleEditCalendarEvent}
               onEditShift={handleOpenShiftEditor}
               roles={roles}
               disciplines={disciplines}

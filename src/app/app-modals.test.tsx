@@ -15,6 +15,9 @@ vi.mock("./jira-conflicts-modal", () => ({
 vi.mock("./absence-edit-modal", () => ({
   AbsenceEditModal: () => <div data-testid="absence-edit-modal" />,
 }));
+vi.mock("./calendar-event-modal", () => ({
+  CalendarEventModal: () => <div data-testid="calendar-event-modal" />,
+}));
 vi.mock("./shift-edit-modal", () => ({
   ShiftEditModal: () => <div data-testid="shift-edit-modal" />,
 }));
@@ -54,6 +57,10 @@ function makeProps(): AppModalsProps {
     handleSaveAbsence: vi.fn(),
     handleDeleteAbsence: vi.fn(),
     handleCloseAbsenceModal: vi.fn(),
+    editingCalendarEvent: null,
+    handleSaveCalendarEvent: vi.fn(),
+    handleDeleteCalendarEvent: vi.fn(),
+    handleCloseCalendarEventModal: vi.fn(),
     editingShift: null,
     shiftExistingAssigneeKeys: new Set(),
     handleSaveShift: vi.fn(),

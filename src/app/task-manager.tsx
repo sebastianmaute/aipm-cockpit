@@ -626,6 +626,13 @@ function TaskManagerInner() {
     handleCloseAbsenceModal,
     handleSaveAbsence,
     handleDeleteAbsence,
+    calendarEvents,
+    editingCalendarEvent,
+    handleOpenAddCalendarEvent,
+    handleEditCalendarEvent,
+    handleCloseCalendarEventModal,
+    handleSaveCalendarEvent,
+    handleDeleteCalendarEvent,
     handleOpenShiftEditor,
     handleCloseShiftModal,
     handleSaveShift,
@@ -2176,6 +2183,13 @@ function TaskManagerInner() {
     // S2) — see absence-move-handler.ts for why undo capture lives there and
     // not inside handleSaveAbsence.
     handleMoveAbsence: guardEdit(buildMoveAbsenceHandler(absences, setAbsences, undoApi.captureFieldEdit, handleSaveAbsence, lang)),
+    // Recurring meetings (Resources → Calendar band + series editor). Data
+    // passes through unguarded (a popout mirror still shows the band); the
+    // two open/edit TRIGGERS are guardEdit-wrapped — the resources-panel is a
+    // pure passthrough for this entity, mirroring onAddAbsence/onEditAbsence.
+    calendarEvents,
+    handleOpenAddCalendarEvent: guardEdit(handleOpenAddCalendarEvent),
+    handleEditCalendarEvent: guardEdit(handleEditCalendarEvent),
     handleOpenShiftEditor: guardEdit(handleOpenShiftEditor),
     manageRolesView: (
       <RolesPanel
@@ -2684,6 +2698,10 @@ function TaskManagerInner() {
         handleSaveAbsence={handleSaveAbsence}
         handleDeleteAbsence={handleDeleteAbsence}
         handleCloseAbsenceModal={handleCloseAbsenceModal}
+        editingCalendarEvent={editingCalendarEvent}
+        handleSaveCalendarEvent={handleSaveCalendarEvent}
+        handleDeleteCalendarEvent={handleDeleteCalendarEvent}
+        handleCloseCalendarEventModal={handleCloseCalendarEventModal}
         editingShift={editingShift}
         shiftExistingAssigneeKeys={shiftExistingAssigneeKeys}
         handleSaveShift={handleSaveShift}
