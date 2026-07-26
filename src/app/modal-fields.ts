@@ -16,11 +16,11 @@ export interface ModalField {
 
 export type ModalId =
   | "task" | "raid" | "change" | "milestone"
-  | "stakeholder" | "resource" | "absence" | "budget";
+  | "stakeholder" | "resource" | "absence" | "budget" | "calendarEvent";
 
 export const MODAL_IDS: readonly ModalId[] = [
   "task", "raid", "change", "milestone",
-  "stakeholder", "resource", "absence", "budget",
+  "stakeholder", "resource", "absence", "budget", "calendarEvent",
 ] as const;
 
 // Tiers nest: a "simple" field shows in S/A/F; "advanced" in A/F; "full" in F only.
@@ -121,5 +121,16 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
     // "Apply to budget" needs a role/discipline line to hold actuals — so the
     // add-role/add-discipline controls must be visible at the default tier.
     { id: "planningDetail", labelKey: "budgetDetailedPlanning", tier: "advanced" },
+  ],
+  calendarEvent: [
+    { id: "title", labelKey: "calendarEventTitle", tier: "simple", required: true },
+    // Date + start time + duration, grouped as one field (mirrors absence's
+    // "dates" and budget's "period" — reuses the first sub-field's own label).
+    { id: "occurrence", labelKey: "calendarEventFirstOccurrence", tier: "simple", required: true },
+    // Simple, deliberately: recurrence is the entire point of this entity, not
+    // an advanced nicety — a Simple mode that hides it can only create
+    // one-off meetings.
+    { id: "repeat", labelKey: "calendarEventRepeat", tier: "simple" },
+    { id: "location", labelKey: "calendarEventLocation", tier: "advanced" },
   ],
 };

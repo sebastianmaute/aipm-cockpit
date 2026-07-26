@@ -5,10 +5,10 @@ import { MODAL_FIELDS, MODAL_IDS } from "./modal-fields";
 const TIER_RANK = { simple: 0, advanced: 1, full: 2 } as const;
 
 describe("MODAL_FIELDS registry", () => {
-  it("covers all 8 modals", () => {
+  it("covers all 9 modals", () => {
     expect(MODAL_IDS).toEqual([
       "task", "raid", "change", "milestone",
-      "stakeholder", "resource", "absence", "budget",
+      "stakeholder", "resource", "absence", "budget", "calendarEvent",
     ]);
   });
 
