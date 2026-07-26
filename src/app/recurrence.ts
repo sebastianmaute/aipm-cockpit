@@ -153,18 +153,51 @@ function weeklyByDayLoop(
 /** Monthly stepping: advance `interval` calendar months at a time from the
  *  series' own month, carrying year rollover. A month whose candidate is
  *  null (byMonthDay skip) or falls before the series start simply
- *  contributes nothing — the loop still advances. */
-function monthlyLoop(rule: MonthlyRule, seriesStart: Date, genEnd: Date, sink: Sink): void {
+ *  contributes nothing — the loop still advances.
+ *
+ *  ★★ `interval` MUST go through `positiveInterval` here, exactly like the
+ *  daily/weekly branches already do in `expandOccurrences` — with a raw
+ *  `interval: 0` (or `NaN`) the month index never advances, and if that
+ *  fixed month also never yields a candidate (e.g. `byMonthDay: 31` while
+ *  parked on February, or a NaN month index) `sink` is never reached — so
+ *  NEITHER `MAX_ITERATIONS` (which only counts sink calls) NOR the
+ *  `monthStart > genEnd` exit (which never becomes true for a month that
+ *  never changes) can stop it. That is a synchronous infinite loop: it
+ *  freezes the tab, and neither vitest's `testTimeout` nor any caller can
+ *  interrupt it. `sanitizeCalendarEvent` clamps interval to [1,52] today, so
+ *  this isn't reachable through the app yet — but this module's whole
+ *  contract is "a malformed event degrades to an empty result, never
+ *  throws/hangs", and a future non-sanitizer source (an Outlook-pulled
+ *  recurrence pattern) won't route through that clamp.
+ *
+ *  The `steps` counter below is a SEPARATE, defense-in-depth bound: once
+ *  `interval` is forced positive the month index strictly increases every
+ *  pass, so the `monthStart > genEnd` check alone is already enough to
+ *  terminate for any realistic input — but `genEnd` only bounds how far
+ *  PAST the window this walks, not how far BEFORE it `seriesStart` may sit
+ *  (nothing validates that field's year range), so a `byMonthDay` that is
+ *  only occasionally satisfied (e.g. 31) combined with a `seriesStart`
+ *  centuries in the past could in principle take more month-steps than a
+ *  sane cap allows to reach `genEnd`. `markTruncated` is called in that
+ *  case for the same reason `sink`'s own MAX_ITERATIONS check does — a
+ *  cut-off result must never look like one that genuinely ran to
+ *  completion (see the MAX_OCCURRENCES doc comment above). */
+function monthlyLoop(
+  rule: MonthlyRule, seriesStart: Date, genEnd: Date, sink: Sink, markTruncated: () => void,
+): void {
+  const interval = positiveInterval(rule.interval);
   let year = seriesStart.getUTCFullYear();
   let monthIndex0 = seriesStart.getUTCMonth();
+  let steps = 0;
   for (;;) {
+    if (steps++ > MAX_ITERATIONS) { markTruncated(); return; }
     const monthStart = new Date(Date.UTC(year, monthIndex0, 1));
     if (monthStart.getTime() > genEnd.getTime()) return;
     const candidate = monthlyCandidate(year, monthIndex0, rule);
     if (candidate && candidate.getTime() >= seriesStart.getTime() && candidate.getTime() <= genEnd.getTime()) {
       if (sink(candidate) === "stop") return;
     }
-    monthIndex0 += rule.interval;
+    monthIndex0 += interval;
     year += Math.floor(monthIndex0 / 12);
     monthIndex0 = ((monthIndex0 % 12) + 12) % 12;
   }
@@ -252,7 +285,7 @@ export function expandOccurrences(event: CalendarEvent, windowStart: string, win
         stepDaysLoop(seriesStart, interval * 7, genEnd, sink);
       }
     } else {
-      monthlyLoop(rule, seriesStart, genEnd, sink);
+      monthlyLoop(rule, seriesStart, genEnd, sink, () => { truncated = true; });
     }
   }
 
@@ -272,17 +305,35 @@ export function expandOccurrences(event: CalendarEvent, windowStart: string, win
  *  than searching indefinitely. */
 export const NEAREST_OCCURRENCE_LOOKAHEAD_DAYS = 3660; // ~10 years
 
+export interface NearestOccurrenceResult {
+  occurrence: Occurrence | undefined;
+  /** True when the search may have missed the true nearest occurrence
+   *  because `expandOccurrences`' own iteration cap (`MAX_ITERATIONS`) was
+   *  reached before the walk covered the full lookahead — the reachable
+   *  case is a series whose `startDate` is far in the past: generation
+   *  always starts there, so a daily/weekly walk begun in, say, the 1990s
+   *  can exhaust the cap before ever reaching a present-day window.
+   *  `occurrence === undefined && truncated` therefore means "couldn't
+   *  determine", NOT "confirmed no occurrence exists" — a caller that
+   *  collapses both into the same "none" message would misrepresent an
+   *  unknown as a fact. */
+  truncated: boolean;
+}
+
 /** The occurrence an event would show FIRST at-or-after `windowStart` (within
- *  the bounded lookahead above), or undefined when none resolves. A thin
- *  convenience wrapper over `expandOccurrences` for callers that only need
- *  "what's the nearest occurrence" and not the full expansion — the export
- *  builder passes the event's own `startDate` ("first occurrence ever"); the
- *  all-series list passes "today" ("next occurrence from now"). Both share
- *  these exact mechanics; only the window start and what to show when
- *  nothing resolves differ, so those stay the caller's job. */
-export function nearestOccurrence(event: CalendarEvent, windowStart: string): Occurrence | undefined {
+ *  the bounded lookahead above). A thin convenience wrapper over
+ *  `expandOccurrences` for callers that only need "what's the nearest
+ *  occurrence" and not the full expansion — the export builder passes the
+ *  event's own `startDate` ("first occurrence ever"); the all-series list
+ *  passes "today" ("next occurrence from now"). Both share these exact
+ *  mechanics; only the window start and what to show when nothing resolves
+ *  differ, so those stay the caller's job — including how (or whether) to
+ *  distinguish a truncated search from a genuinely empty one; see
+ *  `NearestOccurrenceResult.truncated`. */
+export function nearestOccurrence(event: CalendarEvent, windowStart: string): NearestOccurrenceResult {
   const start = parseUtc(windowStart);
-  if (!start) return undefined;
+  if (!start) return { occurrence: undefined, truncated: false };
   const windowEnd = iso(addDays(start, NEAREST_OCCURRENCE_LOOKAHEAD_DAYS));
-  return expandOccurrences(event, windowStart, windowEnd).occurrences[0];
+  const { occurrences, truncated } = expandOccurrences(event, windowStart, windowEnd);
+  return { occurrence: occurrences[0], truncated };
 }

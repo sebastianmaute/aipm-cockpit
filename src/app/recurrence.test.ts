@@ -165,6 +165,52 @@ describe("expandOccurrences", () => {
     expect(out.occurrences).toEqual([]);
   });
 
+  it("does not hang on a monthly interval of 0 parked on a month with no candidate (regression: this used to freeze the loop forever)", () => {
+    // Feb has no 31st, and interval:0 previously meant the month index never
+    // advanced past Feb — so `sink` was never reached and neither exit
+    // condition in monthlyLoop could fire. With the fix, a non-positive
+    // interval is treated as 1: the walk advances past Feb and picks up
+    // every month that DOES have a 31st.
+    const e = { ...base, startDate: "2026-02-01",
+      recurrence: { freq: "monthly" as const, interval: 0, byMonthDay: 31 } };
+    expect(dates(e, "2026-01-01", "2026-12-31")).toEqual([
+      "2026-03-31", "2026-05-31", "2026-07-31", "2026-08-31", "2026-10-31", "2026-12-31",
+    ]);
+  });
+
+  it("treats a NaN monthly interval the same as 1", () => {
+    const e = { ...base, startDate: "2026-01-01",
+      recurrence: { freq: "monthly" as const, interval: NaN, byMonthDay: 15 } };
+    expect(dates(e, "2026-01-01", "2026-04-30")).toEqual([
+      "2026-01-15", "2026-02-15", "2026-03-15", "2026-04-15",
+    ]);
+  });
+
+  it("returns empty and non-truncated (not hung, not falsely truncated) for a byMonthDay no month can ever satisfy", () => {
+    // 45 is outside 1-31 — monthlyCandidate returns null every month, forever.
+    // There is genuinely nothing this rule ever produces, so the natural
+    // monthStart > genEnd exit is reached quickly and truncated stays false —
+    // an out-of-range byMonthDay is not the same failure as a non-advancing
+    // month, and must not be reported as one.
+    const e = { ...base, startDate: "2026-01-01",
+      recurrence: { freq: "monthly" as const, interval: 1, byMonthDay: 45 } };
+    const out = expandOccurrences(e, "2026-01-01", "2026-12-31");
+    expect(out).toEqual({ occurrences: [], truncated: false });
+  });
+
+  it("truncates (and says so) via the outer month-step cap when seriesStart is centuries before a narrow, far-future window", () => {
+    // genEnd only bounds how far PAST the window generation goes, not how
+    // far BEFORE it seriesStart may sit — nothing validates that field's
+    // year range. byMonthDay:31 only has a candidate in 7 of 12 months, so
+    // walking from year 1 toward a 2026 window takes far more month-steps
+    // than the defense-in-depth cap allows before genEnd is ever reached.
+    // The result must say truncated, not just come back empty.
+    const e = { ...base, startDate: "0001-01-01",
+      recurrence: { freq: "monthly" as const, interval: 1, byMonthDay: 31 } };
+    const out = expandOccurrences(e, "2026-01-01", "2026-01-02");
+    expect(out.truncated).toBe(true);
+  });
+
   it("returns an empty, non-throwing result for a malformed window", () => {
     expect(expandOccurrences(base, "garbage", "2026-08-01")).toEqual({ occurrences: [], truncated: false });
     expect(expandOccurrences(base, "2026-08-01", "2026-07-01")).toEqual({ occurrences: [], truncated: false });
@@ -178,29 +224,47 @@ describe("expandOccurrences", () => {
 });
 
 describe("nearestOccurrence", () => {
-  it("returns the single date for a non-recurring event at-or-after windowStart", () => {
-    expect(nearestOccurrence(base, "2026-07-01")?.date).toBe("2026-07-27");
+  it("returns the single date for a non-recurring event at-or-after windowStart, not truncated", () => {
+    const { occurrence, truncated } = nearestOccurrence(base, "2026-07-01");
+    expect(occurrence?.date).toBe("2026-07-27");
+    expect(truncated).toBe(false);
   });
 
-  it("returns undefined for a non-recurring event whose date is before windowStart", () => {
-    expect(nearestOccurrence(base, "2026-08-01")).toBeUndefined();
+  it("returns no occurrence, and NOT truncated, for a non-recurring event whose date is before windowStart", () => {
+    // A confirmed "none" must read differently from a search that gave up —
+    // this case is a definite answer, not a truncation.
+    const { occurrence, truncated } = nearestOccurrence(base, "2026-08-01");
+    expect(occurrence).toBeUndefined();
+    expect(truncated).toBe(false);
   });
 
   it("advances past a skip on the nearest rule date to the true next occurrence", () => {
     const e = { ...base, recurrence: { freq: "weekly" as const, interval: 1 },
       exceptions: [{ date: "2026-07-27", kind: "skip" as const }] };
-    expect(nearestOccurrence(e, "2026-07-27")?.date).toBe("2026-08-03");
+    expect(nearestOccurrence(e, "2026-07-27").occurrence?.date).toBe("2026-08-03");
   });
 
   it("returns the moved date/time when the nearest rule date was rescheduled", () => {
     const e = { ...base, recurrence: { freq: "weekly" as const, interval: 1 },
       exceptions: [{ date: "2026-07-27", kind: "move" as const, toDate: "2026-07-29", toTime: "14:00" }] };
-    const occ = nearestOccurrence(e, "2026-07-27");
-    expect(occ?.date).toBe("2026-07-29");
-    expect(occ?.time).toBe("14:00");
+    const { occurrence } = nearestOccurrence(e, "2026-07-27");
+    expect(occurrence?.date).toBe("2026-07-29");
+    expect(occurrence?.time).toBe("14:00");
   });
 
-  it("returns undefined, never throwing, for a malformed windowStart", () => {
-    expect(nearestOccurrence(base, "garbage")).toBeUndefined();
+  it("returns no occurrence, and NOT truncated, for a malformed windowStart", () => {
+    const { occurrence, truncated } = nearestOccurrence(base, "garbage");
+    expect(occurrence).toBeUndefined();
+    expect(truncated).toBe(false);
+  });
+
+  it("reports truncated (not just an empty result) when a very-old series exhausts the iteration cap before reaching windowStart", () => {
+    // Mirrors expandOccurrences' own "old series, narrow far-future window"
+    // truncation test — nearestOccurrence must forward the SAME signal, not
+    // collapse it into an indistinguishable empty result.
+    const e = { ...base, startDate: "1970-01-01", recurrence: { freq: "daily" as const, interval: 1 } };
+    const { occurrence, truncated } = nearestOccurrence(e, "2026-01-01");
+    expect(occurrence).toBeUndefined();
+    expect(truncated).toBe(true);
   });
 });
