@@ -39,6 +39,11 @@ id,assignee,assigneeEmail,startDate,endDate,type,note,localModifiedAt,resourceId
 4,Morgan Standin,Invented.Riley@example.com,2026-06-17,2026-06-18,other,Offsite leadership summit,,4,
 5,Sam Placeholder,Fictional.Jordan@example.com,2026-07-07,2026-07-11,vacation,Summer holiday,,2,
 
+# CALENDAR EVENTS
+id,title,startDate,startTime,durationMinutes,location,notes,recurrence,exceptions,attendeeResourceIds,sendInvitations,localModifiedAt,outlookEventId
+1,Project standup,2026-01-05,09:00,15,,,"{""freq"":""weekly"",""interval"":1,""byDay"":[""MO"",""WE"",""FR""]}",,,,,
+2,Steering board,2026-01-13,14:00,60,,,"{""freq"":""monthly"",""interval"":1,""byDay"":{""ordinal"":2,""day"":""TU""}}","[{""date"":""2026-04-14"",""kind"":""skip""}]",,,,
+
 # SHIFTS
 id,assignee,assigneeEmail,resourceId,sunHours,monHours,tueHours,wedHours,thuHours,friHours,satHours,note,localModifiedAt
 1,Alex Example,Sample.Dummy@example.com,1,0,8,8,8,8,8,0,Standard 5-day week,

@@ -33,7 +33,9 @@ import {
   ABSENCES_CSV_COLUMNS,
   ROLES_CSV_COLUMNS,
   BUDGETS_CSV_COLUMNS,
+  EVENTS_CSV_COLUMNS,
 } from "./csv-codecs-core";
+import { EVENTS_MD_COLUMNS } from "./markdown-codecs-core";
 import type { Workspace } from "./workspace";
 
 const EVT = "evt-registry-123";
@@ -267,5 +269,41 @@ describe("entity persistence registry — bucket task links + manual completion 
     const b = markdownToWorkspace(workspaceToMarkdown(seedBudget())).budgets?.[0];
     expect(b?.taskIds).toEqual([3, 4]);
     expect(b?.percentComplete).toBe(40);
+  });
+});
+
+// Calendar events (Release 5): EVENTS_CSV_COLUMNS/EVENTS_MD_COLUMNS must cover
+// the SAME field set — unlike outlookEventId above (a single flagship column
+// to spot-check), this field set has no single column that would catch a CSV/MD
+// drift, so the two registries are compared directly. CSV also drives the
+// Turso single/tenant schemas (DDL/insert derive from EVENTS_CSV_COLUMNS).
+describe("entity persistence registry — calendar events survive every text backend", () => {
+  it("EVENTS_CSV_COLUMNS and EVENTS_MD_COLUMNS cover the same keys", () => {
+    const csvKeys = [...EVENTS_CSV_COLUMNS].sort();
+    const mdKeys = EVENTS_MD_COLUMNS.map((c) => c.key).sort();
+    expect(mdKeys).toEqual(csvKeys);
+  });
+
+  const seedEvent = (): Workspace => ({
+    ...emptyWorkspace(),
+    calendarEvents: [{
+      id: 1, title: "Standup", startDate: "2026-02-02", startTime: "09:00", durationMinutes: 15,
+      recurrence: { freq: "weekly", interval: 1, byDay: ["MO", "WE"] },
+      outlookEventId: EVT,
+    }],
+  });
+
+  it("calendar event fields survive the CSV round-trip", () => {
+    const e = csvToWorkspace(workspaceToCsv(seedEvent())).calendarEvents?.[0];
+    expect(e?.title).toBe("Standup");
+    expect(e?.recurrence).toEqual({ freq: "weekly", interval: 1, byDay: ["MO", "WE"] });
+    expect(e?.outlookEventId).toBe(EVT);
+  });
+
+  it("calendar event fields survive the Markdown round-trip", () => {
+    const e = markdownToWorkspace(workspaceToMarkdown(seedEvent())).calendarEvents?.[0];
+    expect(e?.title).toBe("Standup");
+    expect(e?.recurrence).toEqual({ freq: "weekly", interval: 1, byDay: ["MO", "WE"] });
+    expect(e?.outlookEventId).toBe(EVT);
   });
 });

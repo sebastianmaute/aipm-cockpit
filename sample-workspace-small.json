@@ -895,6 +895,15 @@
       "resourceId": 2
     }
   ],
+  "calendarEvents": [
+    { "id": 1, "title": "Project standup", "startDate": "2026-01-05", "startTime": "09:00",
+      "durationMinutes": 15,
+      "recurrence": { "freq": "weekly", "interval": 1, "byDay": ["MO", "WE", "FR"] } },
+    { "id": 2, "title": "Steering board", "startDate": "2026-01-13", "startTime": "14:00",
+      "durationMinutes": 60,
+      "recurrence": { "freq": "monthly", "interval": 1, "byDay": { "ordinal": 2, "day": "TU" } },
+      "exceptions": [{ "date": "2026-04-14", "kind": "skip" }] }
+  ],
   "shifts": [
     {
       "id": 1,

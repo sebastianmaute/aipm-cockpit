@@ -293,6 +293,7 @@ function TaskManagerInner() {
     setInsights,
     settingsOverrides,
     setSettingsOverrides,
+    setCalendarEvents,
     setFieldVisibility,
     fxRates,
     project,
@@ -1035,12 +1036,13 @@ function TaskManagerInner() {
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
     setInsights(w.insights);
     setSettingsOverrides(w.settingsOverrides);
+    setCalendarEvents(w.calendarEvents);
     // Version restore replaces the SAME project's data — RAISE the id-minter
     // high-water (never lower it) so an id freed by restoring an older (smaller)
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setSettingsOverrides]);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setSettingsOverrides, setCalendarEvents]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the
@@ -2173,7 +2175,7 @@ function TaskManagerInner() {
     // Absence drag-move/resize/reassign on the Resources → Calendar grid (R5
     // S2) — see absence-move-handler.ts for why undo capture lives there and
     // not inside handleSaveAbsence.
-    handleMoveAbsence: guardEdit(buildMoveAbsenceHandler(absences, setAbsences, undoApi.captureFieldEdit, handleSaveAbsence)),
+    handleMoveAbsence: guardEdit(buildMoveAbsenceHandler(absences, setAbsences, undoApi.captureFieldEdit, handleSaveAbsence, lang)),
     handleOpenShiftEditor: guardEdit(handleOpenShiftEditor),
     manageRolesView: (
       <RolesPanel
