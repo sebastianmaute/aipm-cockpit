@@ -118,7 +118,8 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + milestone), add `CHANGELOG.md` entry,
   append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE strings).
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
-  IndexedDB). Miss one and data silently drops on that backend.
+  IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
+  ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.
 - **New COLUMN on existing entity** (e.g. `Milestone.outlookEventId`): add to entity's
   `*_CSV_COLUMNS` (in `csv-codecs-core.ts` — covers CSV **and** Turso single+tenant, DDL/insert
   derive from it; also extend that entity's `*FieldToString`/`build*FromObj` THERE), plus the
@@ -2033,3 +2034,89 @@ CSP needs explicit `worker-src 'self'` in `src/proxy.ts`: `script-src 'strict-dy
 `'self'` for the SW load → without `worker-src` registration is blocked at RUNTIME (not caught by
 tests/build). Periodic Background Sync deliberately NOT built (Chromium+installed+device-seal only; baseline
 covers on open).
+
+### Resource calendar meetings
+
+Recurring meeting occurrences render on the Resource Calendar alongside the pre-existing absence grid. New
+entity `CalendarEvent` (`calendar-event.ts`) — one stored date + an optional `RecurrenceRule` + per-instance
+`EventException[]` overrides — is expanded at render time by pure, clock-free `recurrence.ts`
+`expandOccurrences(event, windowStart, windowEnd)` (the window is always a param, never `new Date()`).
+`Occurrence` carries BOTH `date` (rendered/possibly-moved) and `originalDate` (the date the RULE produced) —
+exceptions key off `originalDate`, and so must every caller that resolves one back to an occurrence; keying
+off the rendered date instead silently mints a duplicate. Expansion is hard-capped at `MAX_OCCURRENCES=1000`
+(a `truncated` flag, never a silently-incomplete list) and searches `GENERATION_BUFFER_DAYS=366` past the
+window so a MOVED occurrence whose rule-date falls outside it is still found. ★ A caller deriving "the first/
+nearest occurrence" from `event.startDate` directly (skipping expansion) reproduces a real, fixed bug — a skip
+or move exception on the very first rule-generated instance means `startDate` disagrees with what the
+calendar actually shows; always derive it via `expandOccurrences`, never read the raw field.
+
+- **`applyOccurrenceMove(event, originalDate, toDate)`** (`calendar-event.ts`) decides how a drag is recorded:
+  a RECURRING series gets a `move` `EventException` keyed by `originalDate`, REPLACING any existing exception
+  for that date rather than stacking a second one; a NON-RECURRING event has `startDate` rewritten directly
+  instead — an exception on a one-occurrence event would be a second, potentially-disagreeing source of truth
+  for the same date. A no-op (`originalDate === toDate`) returns the input BY REFERENCE. Does not itself
+  validate that the dates it's given are well-formed — both callers (the band's drag, the editor's date
+  input) can only ever produce valid ones.
+- **Six write paths, one `ENTITY_SPECS` line for three of them.** `spec<CalendarEvent>({table:
+  "calendar_events", wsKey:"calendarEvents", columns: EVENTS_CSV_COLUMNS, ...})` (`turso-schema.ts`) covers
+  CSV + BOTH Turso schemas at once — see "New persisted `Workspace` field → SIX write paths" above; the other
+  three are hand-wired: Markdown (`EVENTS_MD_COLUMNS` + `calendarEventsToMarkdown`, `markdown-codecs-core.ts`
+  — reuses `calendarEventFieldToString` from the CSV side rather than re-deriving cell values, so the two
+  formats can't drift on what a column contains), JSON (`workspaceToJson`/`jsonToWorkspace`, `workspace.ts` —
+  ★ the ENCODER side is easy to miss when a plan only specs the decoder, since the two live as separate
+  additive blocks), and IndexedDB (a `KV_CALENDAR_EVENTS_KEY` KV slot in `browser-backend.ts`, deliberately
+  NOT a new object store — a store needs an IDB version bump + upgrade path; events number in the tens).
+  `Workspace.calendarEvents?` also had to join `isWorkspaceEmpty` + `nonEmptyCollectionCount` +
+  `workspaceRecordCount` (`workspace.ts`) — skip even one and an events-only project either reads as EMPTY
+  (arming the data-loss guard against a legitimate save) or a mass-deletion of every event goes completely
+  undetected by the save-path guard, the more dangerous of the two failure directions.
+- `recurrence`/`exceptions`/`attendeeResourceIds` ride as JSON-in-cell (`encodeRecurrence`/`decodeRecurrence`
+  etc.). ★★ UNLIKE note-log's decoders, these do NOT self-validate — `sanitizeRecurrence` needs `startDate`
+  for the `until >= start` cross-field check, which a decoder alone has no access to. A decoded cell is
+  UNTRUSTED; any caller assembling a `CalendarEvent` from decoded cells MUST re-run the whole object through
+  `sanitizeCalendarEvent()` before using it.
+- ★ Every CSV/MD cell for an unset column decodes to a real `""`, never `undefined` —
+  `sanitizeCalendarEvent`'s `localModifiedAt` arm needed `sanitizeText(...) || undefined` for exactly this
+  reason (a bare `typeof === "string"` check keeps the empty string as a value). The SAME bug is still live in
+  `sanitizeAbsence` and `sanitizeShift` (`sanitize-entities.ts`) — known, tracked, deliberately left alone in
+  this release.
+- The `calendarEvents` export section is a first-class `ExportSectionKey`, default **ON**, gated by
+  `enabled("calendarEvents")` in BOTH the CSV (`csv-codecs-config.ts`) and Markdown (`markdown-codecs-core.ts`)
+  encoders — the two briefly diverged mid-release (one still on the storage-only gate other config blobs use)
+  before being reconciled; a future edit to one MUST touch the other or a user's export checkbox stops
+  meaning the same thing in both formats.
+
+**The calendar surface** (`resource-calendar.tsx` orchestrator + `resource-calendar-rows.tsx` assignee rows +
+`resource-calendar-band.tsx` meetings band — same orchestrator/presentational-pieces split as gantt's
+`gantt.tsx` + `gantt-rows.tsx` + `gantt-chrome.tsx`) grew a lane-packed meetings band: an extra `<tbody>`
+rendered ABOVE the assignee rows but INSIDE THE SAME `<table>`,
+so shared columns keep the band aligned with the day headers below it. Shared day/assignee vocabulary
+(`CELL_PX`/`ASSIGNEE_COL_PX`/`CalendarAssignee`/`CalendarDay`) lives in its own leaf
+`resource-calendar-shared.ts`, owned by neither sibling — mirrors the `gantt-engine.ts` precedent, and is
+necessary rather than stylistic: `CELL_PX`/`ASSIGNEE_COL_PX` are VALUE bindings (not type-only), so either
+sibling importing them from the other would be a genuine circular VALUE import (a real TDZ/evaluation-order
+risk). `packOccurrenceLanes` (`occurrence-lanes.ts`) is a pure greedy packer over the already date/time-sorted
+output of `expandOccurrences`: it checks EVERY occurrence already placed in a lane (not just the last one), so
+an out-of-order input still packs correctly.
+
+- ★★ Band cells carry `data-band-cell`, NOT `data-cell` — the grid's roving-tabindex model (`onGridKeyDown` in
+  `resource-calendar.tsx`) indexes `data-cell` by row/column and treats exactly ONE such element as the tab
+  stop. A test scoped to `[data-cell]` will NOT catch a band cell wrongly caught by that selector — it must
+  scan the whole `tbody`.
+- ★★ The absence resize grips reuse the shared `DragHandle` atom (`drag-handle.tsx`, extracted from the
+  gantt/table-manager `ColumnResizeHandle`) in its DECORATIVE mode — no `ariaLabel`, so it renders
+  `aria-hidden` with no role; the surrounding `<span title=...>` carries the accessible name instead. The
+  ACCESSIBLE mode (pass `ariaLabel`) adds `tabIndex={0}` + `role="button"`, which would make each grip its OWN
+  second tab stop and break the roving-tabindex invariant above — never pass `ariaLabel` to a grip that lives
+  inside this grid.
+- ★ React Compiler trap: `onGridKeyDown` is a hoisted, non-JSX function (not an inline handler) that reads a
+  `useMemo`'d `Map` (`resourceByKey`). Calling `resourceByKey.get(key)` directly from inside it broke
+  `preserve-manual-memoization` on that unrelated `useMemo` — fixed via a `useCallback` indirection
+  (`resourceFor`) wrapping the `.get()`. Verified: reverting the indirection reproduces the lint error. Don't
+  "simplify" it back to a direct `.get()` call from a hoisted function.
+- A new entity's edit modal needs an entry in BOTH the `ModalId` union AND `MODAL_FIELDS`
+  (`modal-fields.ts`, a `Record<ModalId, readonly ModalField[]>`) — tsc catches a forgotten `MODAL_FIELDS`
+  entry immediately for a normal edit (the Record type ties the two together), but a caller reaching
+  `EditModalShell` with an unregistered/type-asserted id loses that safety net: every consumer
+  (`field-visibility.ts`, `modal-field-controls.tsx`) calls `.map()`/`.filter()` on `MODAL_FIELDS[modalId]`
+  unconditionally, so an id that slipped past the union crashes on `undefined.map`.
