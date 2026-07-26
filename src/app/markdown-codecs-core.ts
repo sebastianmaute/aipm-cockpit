@@ -685,11 +685,10 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   if (!config || config.tasks) mdParts.push(tasksToMarkdown(ws.tasks));
   if (enabled("raid") && ws.raid.length > 0) mdParts.push(raidToMarkdown(ws.raid));
   if (enabled("absences") && ws.absences.length > 0) mdParts.push(absencesToMarkdown(ws.absences));
-  // Calendar events — storage-only gate, matching workspaceToCsv's choice
-  // (csv-codecs-config.ts): `calendarEvents` is deliberately NOT (yet) an
-  // `ExportSectionKey` member (see that file's comment for why), so this
-  // stays consistent with the CSV path rather than drifting to `enabled(...)`.
-  if (config === undefined && ws.calendarEvents && ws.calendarEvents.length > 0)
+  // Calendar events are a first-class ExportSectionKey (default ON) — same
+  // enabled()-gated pattern as raid/absences/shifts above, and matching the
+  // CSV codec's gate (csv-codecs-config.ts).
+  if (enabled("calendarEvents") && ws.calendarEvents && ws.calendarEvents.length > 0)
     mdParts.push(calendarEventsToMarkdown(ws.calendarEvents));
   if (enabled("shifts") && ws.shifts.length > 0) mdParts.push(shiftsToMarkdown(ws.shifts));
   if (config === undefined) {
