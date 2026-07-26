@@ -1527,6 +1527,8 @@ const enUS = {
   calendarUndoMoveLabel: "{0} — moved",
   calendarUndoReassignLabel: "{0} — reassigned",
   calendarUndoResizeLabel: "{0} — resized",
+  calendarMeetings: "Meetings",
+  calendarOccurrenceMoved: "Moved",
   resourcesToday: "Today",
   resourcesHoliday: "Holiday",
   resourcesEditShift: "Edit shift",

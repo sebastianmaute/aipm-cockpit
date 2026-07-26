@@ -1521,6 +1521,8 @@ export const de: Record<TranslationKey, string> = {
   calendarUndoMoveLabel: "{0} – verschoben",
   calendarUndoReassignLabel: "{0} – neu zugewiesen",
   calendarUndoResizeLabel: "{0} – Größe geändert",
+  calendarMeetings: "Termine",
+  calendarOccurrenceMoved: "Verschoben",
   resourcesHoliday: "Feiertag",
   resourcesEditShift: "Schicht bearbeiten",
   resourcesWeeklyHours: "Std./Woche",
