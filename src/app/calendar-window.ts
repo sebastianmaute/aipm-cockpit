@@ -13,12 +13,14 @@ export interface CalendarWindow {
 
 const MS_PER_DAY = 86_400_000;
 
-function parseUtc(iso: string): Date | null {
+// Exported: shared with calendar-drag.ts, which resolves grid drag/resize
+// gestures in the same UTC frame rather than re-deriving this parsing.
+export function parseUtc(iso: string): Date | null {
   const d = new Date(`${iso}T00:00:00Z`);
   return Number.isNaN(d.valueOf()) ? null : d;
 }
 
-function iso(d: Date): string {
+export function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 

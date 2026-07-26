@@ -6,6 +6,7 @@
 // caller never recomputes a date.
 
 import { clampRangeEnd } from "./date-range";
+import { iso, parseUtc } from "./calendar-window";
 import { resourceDisplayName } from "./resource-foundation";
 import type { Absence, Resource } from "./types";
 
@@ -20,17 +21,24 @@ export interface DragDropRow {
   resource: Resource | undefined;
 }
 
+/**
+ * Where a drag/resize gesture ended, keyed so an incomplete row change can't
+ * be expressed: a caller can say "this landed on a different row" only by
+ * also supplying which row — there is no state where `other-row` is missing
+ * its `row`, so the resolver never has to guess or silently degrade.
+ */
+export type DropTarget =
+  | { kind: "same-row" }
+  | { kind: "other-row"; rowKey: string; row: DragDropRow };
+
 export interface CalendarDragInput {
   absence: Absence;
   /** The date cell the gesture STARTED on. */
   grabbedDate: string;
   /** The date cell the gesture ENDED on. */
   dropDate: string;
-  currentRowKey: string;
-  dropRowKey: string;
   mode: DragMode;
-  /** Required only when dropRowKey differs from currentRowKey. */
-  dropRow?: DragDropRow;
+  target: DropTarget;
 }
 
 export interface CalendarDragResult {
@@ -38,18 +46,7 @@ export interface CalendarDragResult {
   patch: Partial<Absence>;
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 86_400_000;
-
-function toUtc(iso: string): number | null {
-  if (!ISO_DATE.test(iso)) return null;
-  const ms = Date.parse(`${iso}T00:00:00Z`);
-  return Number.isNaN(ms) ? null : ms;
-}
-
-function addDays(iso: string, days: number): string {
-  return new Date(Date.parse(`${iso}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
-}
 
 /**
  * Resolve a grid gesture into an Absence patch, or `null` when it is a no-op
@@ -60,16 +57,20 @@ function addDays(iso: string, days: number): string {
  * writes one coherent range and an undo entry restores one coherent range.
  */
 export function resolveCalendarDrag(input: CalendarDragInput): CalendarDragResult | null {
-  const { absence, grabbedDate, dropDate, currentRowKey, dropRowKey, mode, dropRow } = input;
+  const { absence, grabbedDate, dropDate, mode, target } = input;
 
-  // Validate every date up front — a malformed stored or dropped date must
-  // never fall through into NaN-driven arithmetic below.
-  if (toUtc(dropDate) === null) return null;
-  if (toUtc(grabbedDate) === null) return null;
-  if (toUtc(absence.startDate) === null) return null;
-  if (toUtc(absence.endDate) === null) return null;
+  // Validate every date up front via the shared UTC parser (calendar-window.ts) —
+  // it checks shape and range, not full calendar validity, but that's enough:
+  // grid dates come from real iterated Date objects and stored dates are
+  // sanitizer-validated, so a malformed value here only ever means "unusable
+  // input", and it must never fall through into date arithmetic below.
+  const dropUtc = parseUtc(dropDate);
+  const grabbedUtc = parseUtc(grabbedDate);
+  const startUtc = parseUtc(absence.startDate);
+  const endUtc = parseUtc(absence.endDate);
+  if (!dropUtc || !grabbedUtc || !startUtc || !endUtc) return null;
 
-  const rowChanged = dropRowKey !== currentRowKey;
+  const rowChanged = target.kind === "other-row";
 
   if (mode === "resize-start") {
     if (dropDate === absence.startDate) return null;
@@ -85,26 +86,28 @@ export function resolveCalendarDrag(input: CalendarDragInput): CalendarDragResul
     return { kind: "resize", patch: { startDate: absence.startDate, endDate: nextEnd } };
   }
 
-  const deltaDays = Math.round((toUtc(dropDate)! - toUtc(grabbedDate)!) / DAY_MS);
+  const deltaDays = Math.round((dropUtc.valueOf() - grabbedUtc.valueOf()) / DAY_MS);
   if (deltaDays === 0 && !rowChanged) return null;
 
   const patch: Partial<Absence> = {
-    startDate: addDays(absence.startDate, deltaDays),
-    endDate: addDays(absence.endDate, deltaDays),
+    startDate: iso(new Date(startUtc.valueOf() + deltaDays * DAY_MS)),
+    endDate: iso(new Date(endUtc.valueOf() + deltaDays * DAY_MS)),
   };
 
   if (!rowChanged) return { kind: "move", patch };
 
   // A reassign rewrites all three identity fields together. Writing the name
   // without the FK would leave the absence pointing at the previous person's
-  // resource record, which every downstream rollup reads.
-  const res = dropRow?.resource;
+  // resource record, which every downstream rollup reads. `target.row` is
+  // guaranteed present here by the DropTarget union, so there is no
+  // missing-row fallback left to trust.
+  const res = target.row.resource;
   return {
     kind: "reassign",
     patch: {
       ...patch,
-      assignee: res ? resourceDisplayName(res) : (dropRow?.display ?? absence.assignee),
-      assigneeEmail: (res?.email || dropRow?.email) || undefined,
+      assignee: res ? resourceDisplayName(res) : target.row.display,
+      assigneeEmail: (res?.email || target.row.email) || undefined,
       resourceId: res?.id,
     },
   };
