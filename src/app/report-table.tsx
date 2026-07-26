@@ -194,6 +194,12 @@ function SortHeaderButton({
  * (Open Points) omit it. `title` renders a native "Sort by …" tooltip on the
  * button; `hint` renders an InfoTooltip beside the label — panels use one or the
  * other.
+ *
+ * `onResize` is optional: omit it for a table that sorts but does not persist
+ * column widths (the calendar series list), and NO resize handle renders at all.
+ * A no-op handler would be worse than no handler — it draws a grip that looks
+ * draggable and does nothing, the false-affordance failure this component
+ * otherwise exists to avoid.
  */
 export function SortResizeTh<K extends string>({
   label,
@@ -218,7 +224,8 @@ export function SortResizeTh<K extends string>({
   sortKey: K;
   sortDir: SortDir;
   onSort: (col: K) => void;
-  onResize: (col: string, e: React.MouseEvent) => void;
+  /** Omit for a sortable but non-resizable column — no handle is rendered. */
+  onResize?: (col: string, e: React.MouseEvent) => void;
   align?: "left" | "right";
   hint?: string;
   title?: string;
@@ -240,7 +247,7 @@ export function SortResizeTh<K extends string>({
         hint={hint}
         title={title}
       />
-      <ColumnResizeHandle col={resizeCol ?? sortCol} onMouseDown={onResize} />
+      {onResize && <ColumnResizeHandle col={resizeCol ?? sortCol} onMouseDown={onResize} />}
     </th>
   );
 }

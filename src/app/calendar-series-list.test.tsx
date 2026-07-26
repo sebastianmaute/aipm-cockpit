@@ -86,4 +86,109 @@ describe("CalendarSeriesList", () => {
     render(<CalendarSeriesList lang="en-US" events={[makeEvent(1)]} today={today} />);
     expect(screen.queryByRole("button", { name: /edit/i })).not.toBeInTheDocument();
   });
+
+  describe("sorting", () => {
+    /** Titles in rendered row order — the only thing a sort can be observed by. */
+    function renderedTitles(): string[] {
+      return screen
+        .getAllByRole("row")
+        .slice(1) // drop the header row
+        .map((r) => r.querySelector("td")?.textContent ?? "");
+    }
+
+    it("leaves rows in workspace order until a header is clicked", () => {
+      const events = [makeEvent(1, { title: "Charlie" }), makeEvent(2, { title: "Alpha" })];
+      render(<CalendarSeriesList lang="en-US" events={events} today={today} />);
+      expect(renderedTitles()).toEqual(["Charlie", "Alpha"]);
+    });
+
+    it("cycles Title asc -> desc -> back to workspace order on repeated clicks", () => {
+      const events = [
+        makeEvent(1, { title: "Charlie" }),
+        makeEvent(2, { title: "Alpha" }),
+        makeEvent(3, { title: "Bravo" }),
+      ];
+      render(<CalendarSeriesList lang="en-US" events={events} today={today} />);
+      const header = screen.getByRole("button", { name: /^title/i });
+
+      fireEvent.click(header);
+      expect(renderedTitles()).toEqual(["Alpha", "Bravo", "Charlie"]);
+
+      fireEvent.click(header);
+      expect(renderedTitles()).toEqual(["Charlie", "Bravo", "Alpha"]);
+
+      // "off" is a real third state, not a no-op: the original order carries
+      // information (it is the workspace's own) and must be recoverable.
+      fireEvent.click(header);
+      expect(renderedTitles()).toEqual(["Charlie", "Alpha", "Bravo"]);
+    });
+
+    it("sorts Next by the occurrence date, not by its rendered label", () => {
+      // Label-order and date-order disagree here only if something sorts the
+      // formatted string of a DIFFERENT column; the real point of this test is
+      // that the comparable value is the resolved date, so a series whose next
+      // occurrence is later sorts later regardless of title or list position.
+      const events = [
+        makeEvent(1, { title: "Later", startDate: "2026-09-15" }),
+        makeEvent(2, { title: "Sooner", startDate: "2026-08-05" }),
+      ];
+      render(<CalendarSeriesList lang="en-US" events={events} today={today} />);
+      fireEvent.click(screen.getByRole("button", { name: /next/i }));
+      expect(renderedTitles()).toEqual(["Sooner", "Later"]);
+    });
+
+    it("keeps series with no resolvable next occurrence last in BOTH sort directions", () => {
+      // The sentinel trap: any placeholder value that sinks a row ascending
+      // floats it descending. A series with nothing coming up is UNKNOWN for
+      // this column, not "very early" or "very late", so it is held out of the
+      // comparison and appended — the same rule useSortableFilter's `isUnknown`
+      // encodes for the report tables.
+      const events = [
+        makeEvent(1, { title: "Nothing left", startDate: "2020-01-01" }),
+        makeEvent(2, { title: "Later", startDate: "2026-09-15" }),
+        makeEvent(3, { title: "Sooner", startDate: "2026-08-05" }),
+      ];
+      render(<CalendarSeriesList lang="en-US" events={events} today={today} />);
+      const header = screen.getByRole("button", { name: /next/i });
+
+      fireEvent.click(header);
+      expect(renderedTitles()).toEqual(["Sooner", "Later", "Nothing left"]);
+
+      fireEvent.click(header);
+      expect(renderedTitles()).toEqual(["Later", "Sooner", "Nothing left"]);
+    });
+
+    it("offers no sort affordance on columns that cannot sort meaningfully", () => {
+      const events = [makeEvent(1, { title: "Standup" })];
+      render(<CalendarSeriesList lang="en-US" events={events} today={today} onEdit={() => {}} />);
+      // Exactly two sortable columns, and WHICH two — a bare count of 2 would
+      // pass just as happily if Recurs became sortable and Next stopped being.
+      const headerRow = screen.getAllByRole("row")[0];
+      const sortButtons = Array.from(headerRow.querySelectorAll("button"));
+      expect(sortButtons.map((b) => b.textContent?.replace(/[↑↓]/g, "").trim()))
+        .toEqual(["Title", "Next occurrence"]);
+    });
+
+    it("renders no column-resize grip, since this list stores no widths", () => {
+      // The point of passing SortResizeTh no `onResize`. A grip cannot be
+      // caught by counting buttons: ColumnResizeHandle renders DragHandle in
+      // its decorative mode — an aria-hidden <div> with no role — so a
+      // button-count assertion is structurally blind to one reappearing.
+      const events = [makeEvent(1, { title: "Standup" })];
+      render(<CalendarSeriesList lang="en-US" events={events} today={today} onEdit={() => {}} />);
+      const headerRow = screen.getAllByRole("row")[0];
+      expect(headerRow.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
+    });
+
+    it("marks the active column with a direction indicator", () => {
+      const events = [makeEvent(1, { title: "Standup" }), makeEvent(2, { title: "Retro" })];
+      render(<CalendarSeriesList lang="en-US" events={events} today={today} />);
+      const header = screen.getByRole("button", { name: /^title/i });
+      expect(header.textContent).not.toMatch(/[↑↓]/);
+      fireEvent.click(header);
+      expect(header.textContent).toMatch(/↑/);
+      fireEvent.click(header);
+      expect(header.textContent).toMatch(/↓/);
+    });
+  });
 });
