@@ -107,4 +107,22 @@ describe("resolveCalendarDrag", () => {
       currentRowKey: "anna", dropRowKey: "anna", mode: "resize-start",
     })).toBeNull();
   });
+
+  it("shifts the dates AND reassigns when a drag crosses both axes", () => {
+    const ben: Resource = {
+      id: 9, firstName: "Ben", lastName: "Stone", email: "ben@example.com",
+    } as Resource;
+    const out = resolveCalendarDrag({
+      absence: abs, grabbedDate: "2026-07-06", dropDate: "2026-07-09",
+      currentRowKey: "anna", dropRowKey: "ben stone", mode: "move",
+      dropRow: { display: "Ben Stone", email: "ben@example.com", resource: ben },
+    });
+    expect(out).toEqual({
+      kind: "reassign",
+      patch: {
+        startDate: "2026-07-09", endDate: "2026-07-11",
+        assignee: "Ben Stone", assigneeEmail: "ben@example.com", resourceId: 9,
+      },
+    });
+  });
 });
