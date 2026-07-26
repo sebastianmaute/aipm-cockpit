@@ -49,6 +49,10 @@ interface Props {
 
 const CELL_PX = 40;
 const ASSIGNEE_COL_PX = 180;
+/** Rendered height of the ISO week-band header row (py-0.5 + text-[10px]).
+ *  The day-header row sticks BELOW the band by exactly this much, so the two
+ *  must move together — change the band row's padding/font and change this. */
+const WEEK_BAND_ROW_PX = 18;
 
 interface CalendarDay {
   iso: string;
@@ -237,8 +241,9 @@ function ResourceCalendarInner({
         >
           <thead className={TABLE_HEAD_CLASS}>
             <tr role="row">
+              {/* Corner spacer: holds the assignee column's position so the
+                  band <th>s above line up with the day columns below. */}
               <th
-                role="columnheader"
                 aria-hidden="true"
                 className="sticky left-0 top-0 z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-0.5"
                 style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
@@ -257,8 +262,8 @@ function ResourceCalendarInner({
             <tr role="row">
               <th
                 role="columnheader"
-                className="sticky left-0 top-[18px] z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
-                style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
+                className="sticky left-0 z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
+                style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX, top: WEEK_BAND_ROW_PX }}
               >
                 {t(lang, "assignee")}
               </th>
@@ -272,7 +277,7 @@ function ResourceCalendarInner({
                       : d.iso
                   }
                   className={[
-                    "sticky top-[18px] z-20 border-b border-r border-line px-0 py-1 text-center text-[10px] font-medium tracking-wide",
+                    "sticky z-20 border-b border-r border-line px-0 py-1 text-center text-[10px] font-medium tracking-wide",
                     d.isToday
                       ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/20 dark:text-ui-light-grey"
                       : d.isHoliday
@@ -281,7 +286,7 @@ function ResourceCalendarInner({
                           ? "bg-ui-dark-blue text-white"
                           : "bg-ui-dark-blue text-white",
                   ].join(" ")}
-                  style={{ minWidth: CELL_PX, width: CELL_PX }}
+                  style={{ minWidth: CELL_PX, width: CELL_PX, top: WEEK_BAND_ROW_PX }}
                 >
                   <div className="leading-tight">
                     <div className="h-3 text-[9px] font-semibold uppercase">
