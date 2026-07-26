@@ -256,3 +256,30 @@ export function expandOccurrences(event: CalendarEvent, windowStart: string, win
   occurrences.sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : (a.date < b.date ? -1 : 1)));
   return { occurrences, truncated };
 }
+
+/** How far past a search window's start to look for an occurrence, shared by
+ *  every "what's the nearest occurrence" caller (the document export's
+ *  first-occurrence column, the all-series list's next-occurrence column).
+ *  RecurrenceRule.interval clamps to [1,52] months (calendar-event.ts), so a
+ *  "yearly-ish" monthly rule combined with a handful of early skip exceptions
+ *  can genuinely push the nearest occurrence years out — this needs to be
+ *  years, not months, to resolve that realistic case rather than silently
+ *  falling back. Bounded (not unbounded) so a genuinely pathological series
+ *  (e.g. hundreds of skips on a multi-year interval) still falls back rather
+ *  than searching indefinitely. */
+export const NEAREST_OCCURRENCE_LOOKAHEAD_DAYS = 3660; // ~10 years
+
+/** The occurrence an event would show FIRST at-or-after `windowStart` (within
+ *  the bounded lookahead above), or undefined when none resolves. A thin
+ *  convenience wrapper over `expandOccurrences` for callers that only need
+ *  "what's the nearest occurrence" and not the full expansion — the export
+ *  builder passes the event's own `startDate` ("first occurrence ever"); the
+ *  all-series list passes "today" ("next occurrence from now"). Both share
+ *  these exact mechanics; only the window start and what to show when
+ *  nothing resolves differ, so those stay the caller's job. */
+export function nearestOccurrence(event: CalendarEvent, windowStart: string): Occurrence | undefined {
+  const start = parseUtc(windowStart);
+  if (!start) return undefined;
+  const windowEnd = iso(addDays(start, NEAREST_OCCURRENCE_LOOKAHEAD_DAYS));
+  return expandOccurrences(event, windowStart, windowEnd).occurrences[0];
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandOccurrences, MAX_OCCURRENCES } from "./recurrence";
+import { expandOccurrences, MAX_OCCURRENCES, nearestOccurrence } from "./recurrence";
 import type { CalendarEvent } from "./calendar-event";
 
 const base: CalendarEvent = {
@@ -174,5 +174,33 @@ describe("expandOccurrences", () => {
     const e = { ...base, recurrence: { freq: "weekly" as const, interval: 1 },
       exceptions: [{ date: "2026-08-03", kind: "move" as const, toDate: "2026-08-05" }] };
     expect(expandOccurrences(e, "2026-08-01", "2026-07-01")).toEqual({ occurrences: [], truncated: false });
+  });
+});
+
+describe("nearestOccurrence", () => {
+  it("returns the single date for a non-recurring event at-or-after windowStart", () => {
+    expect(nearestOccurrence(base, "2026-07-01")?.date).toBe("2026-07-27");
+  });
+
+  it("returns undefined for a non-recurring event whose date is before windowStart", () => {
+    expect(nearestOccurrence(base, "2026-08-01")).toBeUndefined();
+  });
+
+  it("advances past a skip on the nearest rule date to the true next occurrence", () => {
+    const e = { ...base, recurrence: { freq: "weekly" as const, interval: 1 },
+      exceptions: [{ date: "2026-07-27", kind: "skip" as const }] };
+    expect(nearestOccurrence(e, "2026-07-27")?.date).toBe("2026-08-03");
+  });
+
+  it("returns the moved date/time when the nearest rule date was rescheduled", () => {
+    const e = { ...base, recurrence: { freq: "weekly" as const, interval: 1 },
+      exceptions: [{ date: "2026-07-27", kind: "move" as const, toDate: "2026-07-29", toTime: "14:00" }] };
+    const occ = nearestOccurrence(e, "2026-07-27");
+    expect(occ?.date).toBe("2026-07-29");
+    expect(occ?.time).toBe("14:00");
+  });
+
+  it("returns undefined, never throwing, for a malformed windowStart", () => {
+    expect(nearestOccurrence(base, "garbage")).toBeUndefined();
   });
 });
