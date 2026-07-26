@@ -319,11 +319,11 @@ describe("useResourcePlanner", () => {
 
   describe("calendar band drag-reschedule (integration)", () => {
     // buildMoveOccurrenceHandler's own move-computation logic is unit-tested
-    // in calendar-event-move-handler.test.ts (a mocked onSaveEvent spy), and
+    // in calendar-event-move-handler.test.ts (a mocked save spy), and
     // handleSaveCalendarEvent's persistence is proven above. What neither of
     // those covers — and what was genuinely dead until onSaveCalendarEvent
-    // was threaded from workspace-section.tsx to the panel's onSaveEvent —
-    // is the TWO composed together: this is exactly what
+    // was threaded from workspace-section.tsx down to the panel — is the
+    // TWO composed together: this is exactly what
     // resources-panel.tsx wires as `<ResourceCalendar onMoveOccurrence={
     // buildMoveOccurrenceHandler(calendarEvents, onSaveCalendarEvent)}>`.
     it("composing buildMoveOccurrenceHandler with the REAL handleSaveCalendarEvent actually persists a dragged occurrence", () => {
