@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.202.0] - 2026-07-26 "Beukes"
+
+### Added
+
+- **Recurring meetings on the Resource Calendar.** A new calendar-event entity
+  supports daily, weekly and monthly recurrence (including "2nd Tuesday of the
+  month" style nth-weekday rules), with per-occurrence skip and move exceptions
+  so a single instance of a series can be cancelled or rescheduled without
+  touching the rest of it. Meetings render as a lane-packed band above the
+  assignee rows, open in a dedicated editor, and have their own all-series
+  list. Meetings persist across all six storage backends (JSON, CSV, Markdown,
+  Turso single- and multi-project, and IndexedDB) and are a first-class export
+  section, on by default. Outlook sync is **not** part of this release — the
+  entity already carries `attendeeResourceIds`, `sendInvitations` and
+  `outlookEventId` fields, but there is no invitation or Outlook push/pull UI
+  yet.
+- **Absences drag to reschedule, drag across rows to reassign, and edge-drag
+  to resize** on the Resource Calendar, with a keyboard equivalent
+  (`Alt+Arrow` to move, `Alt+Shift+Arrow` to resize, `Enter` commits,
+  `Escape` cancels) and single-entry undo for both.
+- Weekday labels and ISO week numbers on the resource-calendar header.
+
+### Fixed
+
+- Dragging an absence's start past its end date now pulls the end along with
+  it instead of erroring.
+
 ## [0.201.0] - 2026-07-26 "Powers"
 
 ### Added
