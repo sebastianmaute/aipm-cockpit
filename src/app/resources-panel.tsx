@@ -74,6 +74,11 @@ interface Props {
   holidaySet: ReadonlySet<string>;
   onAddAbsence: (seed?: Partial<Absence>) => void;
   onEditAbsence: (absence: Absence) => void;
+  /** Commit a drag/resize/reassign on the calendar grid. Threaded straight into
+   *  `<ResourceCalendar>`; the caller owns the actual absence save (mirrors
+   *  `onEditAbsence`). Omit in popouts — the panel itself gates it on
+   *  `isPopout`, so a caller need not double-guard. */
+  onMoveAbsence?: (id: number, patch: Partial<Absence>, kind: "move" | "reassign" | "resize") => void;
   /** Open the shift modal for a row. `existingShift` is the shift to edit,
    *  or null when the row has no shift yet (modal opens in create mode
    *  pre-filled with the row's assignee). */
@@ -148,6 +153,7 @@ function ResourcesPanelInner({
   holidaySet,
   onAddAbsence,
   onEditAbsence,
+  onMoveAbsence,
   onEditShift,
   roles,
   disciplines,
@@ -610,6 +616,7 @@ function ResourcesPanelInner({
             holidaySet={holidaySet}
             onAddAbsence={onAddAbsence}
             onEditAbsence={onEditAbsence}
+            onMoveAbsence={isPopout ? undefined : onMoveAbsence}
             resources={resources}
             onEditResource={onEditResource}
             onAddResource={onAddResource}

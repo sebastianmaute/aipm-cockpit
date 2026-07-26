@@ -235,6 +235,114 @@ it("groups day columns under an ISO week band", () => {
   expect(screen.getByText("W32").closest("th")).toHaveAttribute("colspan", "1");
 });
 
+it("calls onMoveAbsence with the resolved patch when a range is dragged", () => {
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const cells = screen.getAllByRole("gridcell");
+  const dt = { data: {} as Record<string, string>,
+    setData(k: string, v: string) { this.data[k] = v; },
+    getData(k: string) { return this.data[k] ?? ""; },
+    effectAllowed: "", dropEffect: "" };
+  fireEvent.dragStart(cells[0].querySelector("button")!, { dataTransfer: dt });
+  fireEvent.drop(cells[2].querySelector("button")!, { dataTransfer: dt });
+  expect(onMoveAbsence).toHaveBeenCalledWith(7, { startDate: "2026-07-29", endDate: "2026-07-30" }, "move");
+});
+
+it("does not open the absence editor when a drag ends on the same cell", () => {
+  const onEditAbsence = vi.fn();
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={onEditAbsence}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const btn = screen.getAllByRole("gridcell")[0].querySelector("button")!;
+  const dt = { data: {} as Record<string, string>,
+    setData(k: string, v: string) { this.data[k] = v; },
+    getData(k: string) { return this.data[k] ?? ""; },
+    effectAllowed: "", dropEffect: "" };
+  fireEvent.dragStart(btn, { dataTransfer: dt });
+  fireEvent.drop(btn, { dataTransfer: dt });
+  fireEvent.click(btn);
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+  expect(onEditAbsence).not.toHaveBeenCalled();
+});
+
+it("calls onMoveAbsence with a reassign patch when dropped on a different assignee row", () => {
+  const onMoveAbsence = vi.fn();
+  const bob: Resource = {
+    id: 5,
+    firstName: "Bob",
+    lastName: "",
+    roleId: null,
+    utilizationMode: "percent",
+    utilization: {},
+    email: "bob@x.io",
+  };
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[
+        { key: "anna", display: "Anna", email: "" },
+        { key: "bob", display: "Bob", email: "bob@x.io" },
+      ]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[bob]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const cells = screen.getAllByRole("gridcell");
+  const dt = { data: {} as Record<string, string>,
+    setData(k: string, v: string) { this.data[k] = v; },
+    getData(k: string) { return this.data[k] ?? ""; },
+    effectAllowed: "", dropEffect: "" };
+  // cells[0] = Anna's first day (2026-07-27, the absence's start); cells[5] =
+  // Bob's first day, same date — isolates a pure row change (no date delta).
+  fireEvent.dragStart(cells[0].querySelector("button")!, { dataTransfer: dt });
+  fireEvent.drop(cells[5].querySelector("button")!, { dataTransfer: dt });
+  expect(onMoveAbsence).toHaveBeenCalledWith(
+    7,
+    { startDate: "2026-07-27", endDate: "2026-07-27", assignee: "Bob", assigneeEmail: "bob@x.io", resourceId: 5 },
+    "reassign",
+  );
+});
+
 it("scroll-centers today when the window includes it", () => {
   const { container } = render(
     <ResourceCalendar

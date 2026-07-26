@@ -19,6 +19,7 @@ import { resourceDisplayName, splitName } from "./resource-foundation";
 import { isoWeekParts } from "./resource-capacity";
 import { INTERACTIVE } from "./interaction-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { resolveCalendarDrag, type DragMode } from "./calendar-drag";
 
 interface CalendarAssignee {
   /** Case-folded join key used to look up matching absences. */
@@ -37,6 +38,8 @@ interface Props {
   holidaySet: ReadonlySet<string>;
   onAddAbsence: (seed?: Partial<Absence>) => void;
   onEditAbsence: (absence: Absence) => void;
+  /** Commit a drag/resize/reassign. Omit to make the grid read-only (popout). */
+  onMoveAbsence?: (id: number, patch: Partial<Absence>, kind: "move" | "reassign" | "resize") => void;
   resources: readonly Resource[];
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed: Partial<Resource>) => void;
@@ -89,6 +92,7 @@ function ResourceCalendarInner({
   holidaySet,
   onAddAbsence,
   onEditAbsence,
+  onMoveAbsence,
   resources,
   onEditResource,
   onAddResource,
@@ -149,6 +153,13 @@ function ResourceCalendarInner({
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLTableElement | null>(null);
+
+  // The gesture currently in flight. A ref (not state) because the drop handler
+  // reads it synchronously and re-rendering mid-drag would tear the ghost.
+  const dragRef = useRef<{ absenceId: number; grabbedDate: string; rowKey: string; mode: DragMode } | null>(null);
+  // Set by a completed drag so the click browsers fire afterwards is
+  // ignored — otherwise every drag also opens the absence editor.
+  const suppressClickRef = useRef(false);
 
   // Roving-tabindex focus target for the 2-D day-cell grid (#27). Exactly one
   // day cell is a tab stop; arrow keys move DOM focus + this marker. Clamped on
@@ -373,8 +384,46 @@ function ResourceCalendarInner({
                         <button
                           type="button"
                           data-cell={`${rowIndex}-${colIndex}`}
+                          draggable={!!hit && !!onMoveAbsence}
+                          onDragStart={(e) => {
+                            if (!hit || !onMoveAbsence) return;
+                            dragRef.current = { absenceId: hit.id, grabbedDate: d.iso, rowKey: row.key, mode: "move" };
+                            e.dataTransfer.effectAllowed = "move";
+                            // Firefox requires data to be set or the drag never starts.
+                            e.dataTransfer.setData("text/plain", String(hit.id));
+                          }}
+                          onDragOver={(e) => {
+                            if (!dragRef.current || !onMoveAbsence) return;
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                          }}
+                          onDrop={(e) => {
+                            const drag = dragRef.current;
+                            dragRef.current = null;
+                            if (!drag || !onMoveAbsence) return;
+                            e.preventDefault();
+                            suppressClickRef.current = true;
+                            const moving = absences.find((a) => a.id === drag.absenceId);
+                            if (!moving) return;
+                            const result = resolveCalendarDrag({
+                              absence: moving,
+                              grabbedDate: drag.grabbedDate,
+                              dropDate: d.iso,
+                              mode: drag.mode,
+                              target: row.key === drag.rowKey
+                                ? { kind: "same-row" }
+                                : {
+                                    kind: "other-row",
+                                    rowKey: row.key,
+                                    row: { display: row.display, email: row.email, resource: resourceByKey.get(row.key) },
+                                  },
+                            });
+                            if (result) onMoveAbsence(moving.id, result.patch, result.kind);
+                          }}
+                          onDragEnd={() => { dragRef.current = null; }}
                           tabIndex={rowIndex === focusRow && colIndex === focusCol ? 0 : -1}
                           onClick={() => {
+                            if (suppressClickRef.current) { suppressClickRef.current = false; return; }
                             setFocusCell({ row: rowIndex, col: colIndex });
                             handleClick();
                           }}
