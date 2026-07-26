@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   sanitizeCalendarEvent, encodeRecurrence, decodeRecurrence,
-  encodeExceptions, decodeExceptions,
+  encodeExceptions, decodeExceptions, encodeAttendees, decodeAttendees,
 } from "./calendar-event";
 import type { RecurrenceRule } from "./calendar-event";
 
@@ -64,6 +64,21 @@ describe("sanitizeCalendarEvent", () => {
       .toEqual({ freq: "daily", interval: 1 });
   });
 
+  it("keeps count when supplied alone (no until)", () => {
+    expect(sanitizeCalendarEvent({
+      ...base, recurrence: { freq: "daily", interval: 1, count: 5 },
+    })?.recurrence).toEqual({ freq: "daily", interval: 1, count: 5 });
+  });
+
+  it("drops an out-of-range count, leaving no range terminator", () => {
+    expect(sanitizeCalendarEvent({
+      ...base, recurrence: { freq: "daily", interval: 1, count: 0 },
+    })?.recurrence).toEqual({ freq: "daily", interval: 1 });
+    expect(sanitizeCalendarEvent({
+      ...base, recurrence: { freq: "daily", interval: 1, count: 501 },
+    })?.recurrence).toEqual({ freq: "daily", interval: 1 });
+  });
+
   it("degrades a move exception with an invalid target to a skip", () => {
     expect(sanitizeCalendarEvent({
       ...base, exceptions: [{ date: "2026-08-03", kind: "move", toDate: "garbage" }],
@@ -100,8 +115,9 @@ describe("sanitizeCalendarEvent", () => {
     expect(sanitizeCalendarEvent({ ...base, location: "x".repeat(300) })?.location).toHaveLength(200);
   });
 
-  it("preserves notes whitespace (multiline) while capping length", () => {
+  it("preserves notes whitespace (multiline, leading/trailing) while capping length", () => {
     expect(sanitizeCalendarEvent({ ...base, notes: "line one\nline two" })?.notes).toBe("line one\nline two");
+    expect(sanitizeCalendarEvent({ ...base, notes: "  padded  " })?.notes).toBe("  padded  ");
     expect(sanitizeCalendarEvent({ ...base, notes: "x".repeat(2500) })?.notes).toHaveLength(2000);
     expect(sanitizeCalendarEvent({ ...base, notes: "" })?.notes).toBeUndefined();
   });
@@ -134,5 +150,18 @@ describe("JSON-in-cell codecs", () => {
   it("returns undefined for malformed JSON rather than throwing", () => {
     expect(decodeRecurrence("{not json")).toBeUndefined();
     expect(decodeExceptions("[[[")).toBeUndefined();
+  });
+
+  it("round-trips an attendee id list", () => {
+    expect(decodeAttendees(encodeAttendees([3, 9]))).toEqual([3, 9]);
+  });
+
+  it("encodes an absent attendee list to the empty string and back to undefined", () => {
+    expect(encodeAttendees(undefined)).toBe("");
+    expect(decodeAttendees("")).toBeUndefined();
+  });
+
+  it("filters a malformed attendee cell down to the valid positive integers", () => {
+    expect(decodeAttendees("abc|def|-1|0|5")).toEqual([5]);
   });
 });
