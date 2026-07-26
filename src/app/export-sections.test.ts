@@ -13,6 +13,7 @@ import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
 import type { Task, RaidItem, Milestone } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 
 // ---------------------------------------------------------------------------
 // Minimal fixture helpers
@@ -79,6 +80,17 @@ function makeMilestone(id: number): Milestone {
     achievedDate: undefined,
     linkedTaskIds: [],
     localModifiedAt: undefined,
+  };
+}
+
+function makeCalendarEvent(id: number, overrides: Partial<CalendarEvent> = {}): CalendarEvent {
+  return {
+    id,
+    title: `Event ${id}`,
+    startDate: "2025-03-10",
+    startTime: "09:00",
+    durationMinutes: 30,
+    ...overrides,
   };
 }
 
@@ -226,7 +238,8 @@ describe("buildExportSections", () => {
       project: false,
       tasks: false, raid: false, changes: false, milestones: false,
       stakeholders: false, budgets: false, resources: false, roles: false,
-      absences: false, shifts: false, status: false, knowledgeItems: false,
+      absences: false, shifts: false, calendarEvents: false, status: false,
+      knowledgeItems: false,
       insights: false,
     };
     const ws: Workspace = {
@@ -281,5 +294,58 @@ describe("buildExportSections", () => {
     expect(keys.indexOf("tasks")).toBeLessThan(keys.indexOf("raid"));
     expect(keys.indexOf("raid")).toBeLessThan(keys.indexOf("changes"));
     expect(keys.indexOf("changes")).toBeLessThan(keys.indexOf("milestones"));
+  });
+});
+
+describe("calendarEvents section", () => {
+  it("is omitted when there are no events, even though the key defaults ON", () => {
+    const ws: Workspace = { ...makeBaseWorkspace(), tasks: [makeTask(1)] };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    expect(sections.find((s) => s.key === "calendarEvents")).toBeUndefined();
+  });
+
+  it("renders title, first occurrence, recurs and location for a non-recurring event", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      calendarEvents: [makeCalendarEvent(1, { location: "Room 4" })],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const sec = sections.find((s) => s.key === "calendarEvents")!;
+    expect(sec.columns).toEqual(["title", "first occurrence", "recurs", "location"]);
+    expect(sec.rows).toEqual([["Event 1", "2025-03-10 09:00", "Does not repeat", "Room 4"]]);
+  });
+
+  it("omits location as an empty cell rather than dropping the column", () => {
+    const ws: Workspace = { ...makeBaseWorkspace(), calendarEvents: [makeCalendarEvent(1)] };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const sec = sections.find((s) => s.key === "calendarEvents")!;
+    expect(sec.rows[0]).toEqual(["Event 1", "2025-03-10 09:00", "Does not repeat", ""]);
+  });
+
+  it("describes weekly/monthly recurrence in plain language", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      calendarEvents: [
+        makeCalendarEvent(1, { recurrence: { freq: "daily", interval: 1 } }),
+        makeCalendarEvent(2, { recurrence: { freq: "weekly", interval: 2, byDay: ["MO", "WE"] } }),
+        makeCalendarEvent(3, { recurrence: { freq: "monthly", interval: 1, byDay: { ordinal: 2, day: "TU" } } }),
+        makeCalendarEvent(4, { recurrence: { freq: "monthly", interval: 1, byMonthDay: 15 } }),
+      ],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const sec = sections.find((s) => s.key === "calendarEvents")!;
+    expect(sec.rows.map((r) => r[2])).toEqual([
+      "Every day",
+      "Every 2 weeks on MO, WE",
+      "Every month on the 2nd TU",
+      "Every month on day 15",
+    ]);
+  });
+
+  it("is dropped entirely when disabled, even with events present", () => {
+    const cfg: ExportConfig = { ...defaultExportConfig, calendarEvents: false };
+    const ws: Workspace = { ...makeBaseWorkspace(), calendarEvents: [makeCalendarEvent(1)] };
+    const sections = buildExportSections(ws, cfg, "en-US");
+    expect(sections.find((s) => s.key === "calendarEvents")).toBeUndefined();
   });
 });

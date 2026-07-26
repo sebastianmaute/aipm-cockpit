@@ -291,7 +291,7 @@ export function sanitizeIntegrations(raw: unknown): IntegrationsSettings {
 export const EXPORT_SECTION_KEYS = [
   "project",
   "tasks", "raid", "changes", "milestones", "stakeholders",
-  "budgets", "resources", "roles", "absences", "shifts", "status",
+  "budgets", "resources", "roles", "absences", "shifts", "calendarEvents", "status",
   "knowledgeItems",
   "insights",
 ] as const;
@@ -303,6 +303,8 @@ export const defaultExportConfig: ExportConfig = {
   tasks: true,  raid: true,
   changes: false, milestones: false, stakeholders: false, budgets: false,
   resources: false, roles: false, absences: false, shifts: false, status: false,
+  // Calendar events are project data a user expects in an export, like tasks/RAID.
+  calendarEvents: true,
   knowledgeItems: false,
   insights: false,
 };

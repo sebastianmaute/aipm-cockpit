@@ -33,6 +33,7 @@ import {
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
+import type { CalendarEvent, RecurrenceRule } from "./calendar-event";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
@@ -275,6 +276,41 @@ function insightsSection(insights: readonly Insight[]): ExportSection {
   };
 }
 
+function ordinalLabel(n: 1 | 2 | 3 | 4 | -1): string {
+  return n === -1 ? "last" : n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : "4th";
+}
+
+/** English-only, i18n-free (consistent with budgets/roles/absences/shifts/
+ *  insights): a compact plain-language summary of a recurrence rule, derived
+ *  from the rule alone — no occurrence expansion needed, since an event's own
+ *  `startDate`/`startTime` already IS its first occurrence. */
+function describeRecurrence(r: RecurrenceRule | undefined): string {
+  if (!r) return "Does not repeat";
+  const unit = (word: string) => (r.interval > 1 ? `${r.interval} ${word}s` : word);
+  if (r.freq === "daily") return `Every ${unit("day")}`;
+  if (r.freq === "weekly") {
+    const days = r.byDay && r.byDay.length > 0 ? ` on ${r.byDay.join(", ")}` : "";
+    return `Every ${unit("week")}${days}`;
+  }
+  if (r.byDay) return `Every ${unit("month")} on the ${ordinalLabel(r.byDay.ordinal)} ${r.byDay.day}`;
+  return `Every ${unit("month")} on day ${r.byMonthDay ?? "?"}`;
+}
+
+function calendarEventsSection(events: readonly CalendarEvent[], lang: Lang): ExportSection {
+  const rows = events.map((e) => [
+    e.title,
+    `${e.startDate} ${e.startTime}`,
+    describeRecurrence(e.recurrence),
+    e.location ?? "",
+  ]);
+  return {
+    key: "calendarEvents",
+    title: t(lang, "exportLabelCalendarEvents"),
+    columns: ["title", "first occurrence", "recurs", "location"],
+    rows,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Builder map keyed by ExportSectionKey
 // ---------------------------------------------------------------------------
@@ -330,6 +366,10 @@ const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
   shifts: (ws) => {
     const items = ws.shifts;
     return items.length > 0 ? shiftsSection(items) : null;
+  },
+  calendarEvents: (ws, lang) => {
+    const items = ws.calendarEvents ?? [];
+    return items.length > 0 ? calendarEventsSection(items, lang) : null;
   },
   status: (ws) => {
     const s = ws.status;
