@@ -20,10 +20,11 @@ longer carries its own changelog comment.
   assignee rows, open in a dedicated editor, and have their own all-series
   list. Meetings persist across all six storage backends (JSON, CSV, Markdown,
   Turso single- and multi-project, and IndexedDB) and are a first-class export
-  section, on by default. Outlook sync is **not** part of this release — the
-  entity already carries `attendeeResourceIds`, `sendInvitations` and
-  `outlookEventId` fields, but there is no invitation or Outlook push/pull UI
-  yet.
+  section, on by default.
+- **Meetings do not sync to Outlook in this release.** The entity already
+  stores `attendeeResourceIds`, `sendInvitations` and `outlookEventId` fields
+  for a future release, but there is no UI yet to invite attendees or to push
+  or pull meetings to/from Outlook — planned for 0.203.0.
 - **Absences drag to reschedule, drag across rows to reassign, and edge-drag
   to resize** on the Resource Calendar, with a keyboard equivalent
   (`Alt+Arrow` to move, `Alt+Shift+Arrow` to resize, `Enter` commits,
