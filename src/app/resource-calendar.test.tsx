@@ -960,17 +960,23 @@ it("keeps exactly one roving DAY-CELL tab stop with the meetings band rendered �
   const dayCellTabStops = dayCells.filter((c) => c.tabIndex === 0);
   expect(dayCellTabStops).toHaveLength(1);
   expect(dayCellTabStops[0]).toHaveAttribute("data-cell");
+  // The band runs its own roving group, so all 3 chips contribute exactly ONE
+  // tab stop — the whole point of band-roving.ts. Same `.tabIndex` IDL check
+  // as above, and for the same reason: an attribute-only query cannot tell a
+  // roving `tabindex="-1"` chip from a natively-tabbable one.
+  const chipTabStops = chips.filter((c) => (c as HTMLElement).tabIndex === 0);
+  expect(chipTabStops).toHaveLength(1);
+
   // Full inventory of everything genuinely reachable by Tab in this table:
-  // the one roving day cell, both row-header edit buttons, and all 3 chips
-  // — chips and row headers are DELIBERATELY outside the roving set (see
-  // resource-calendar-band.tsx's header comment), not folded into it. This
-  // pins the real count so a future regression — a chip silently dropped
-  // from the tab order, or an extra stop sneaking in (e.g. a mis-wired
-  // ariaLabel'd grip) — shows up as a count change here, which the old
-  // attribute-only query could never have caught either way.
+  // the one roving day cell, both row-header edit buttons, and the one roving
+  // chip. Row headers are DELIBERATELY outside both roving sets (they were
+  // tab stops long before the band existed). This pins the real count so a
+  // future regression — the band silently reverting to one stop per chip, or
+  // an extra stop sneaking in (e.g. a mis-wired ariaLabel'd grip) — shows up
+  // as a count change here, which an attribute-only query could never catch.
   const allFocusable = Array.from(table.querySelectorAll<HTMLElement>("button, [tabindex]"))
     .filter((el) => el.tabIndex >= 0);
-  expect(allFocusable).toHaveLength(6); // 1 day cell + 2 row headers + 3 chips
+  expect(allFocusable).toHaveLength(4); // 1 day cell + 2 row headers + 1 roving chip
 });
 
 it("surfaces a perceivable warning when the band's occurrence search is truncated, even with an empty band", () => {

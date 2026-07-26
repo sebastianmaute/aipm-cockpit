@@ -8,8 +8,18 @@ import { type Lang, t } from "./i18n";
 import { InfoTooltip } from "./info-tooltip";
 import { type RaidItem, type Task } from "./types";
 import { INTERACTIVE } from "./interaction-styles";
-import { Input } from "./form-controls";
 import { TaskLinkPicker } from "./task-link-picker";
+import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
+
+/** RAID items are identified by category + id — the category is the single
+ *  letter `R`/`A`/`I`/`D`, so this reads "R#7", not "Risk#7". That composition
+ *  is also what makes each chip's remove button row-unique in the shared
+ *  picker, and `raid-edit-fields.test.tsx` pins the exact resulting name. */
+const raidEntry = (item: RaidItem): LinkPickerEntry => ({
+  id: item.id,
+  code: `${item.category}#${item.id}`,
+  label: item.title,
+});
 
 export function RaidLinkedTasksField({
   lang,
@@ -90,65 +100,21 @@ export function RaidCausedByField({
             <InfoTooltip text={t(lang, "raidFieldCausedByHint")} />
           </span>
         </div>
-        <div className="mb-2 flex flex-wrap items-center gap-1.5">
-          {parentItems.length === 0 && (
-            <span className="text-xs italic text-muted-foreground">—</span>
-          )}
-          {parentItems.map((p) => (
-            <span
-              key={p.id}
-              className="inline-flex items-center gap-1 rounded bg-surface-muted px-2 py-0.5 text-xs text-foreground"
-            >
-              <button
-                type="button"
-                onClick={() => onJumpToRaid(p.id)}
-                title={p.title}
-                className={`inline-flex items-center gap-1 hover:underline ${INTERACTIVE}`}
-              >
-                <span className="font-mono">
-                  ↩ {p.category}#{p.id}
-                </span>
-                <span className="max-w-[220px] truncate">{p.title}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => removeCausedBy(p.id)}
-                aria-label={t(lang, "raidCausedByClear")}
-                title={t(lang, "raidCausedByClear")}
-                className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="relative">
-          <Input
-            type="text"
-            value={causePickerQuery}
-            onChange={(e) => setCausePickerQuery(e.target.value)}
-            placeholder={t(lang, "raidCausedByPlaceholder")}
-            className="w-full"
-          />
-          {causePickerQuery.trim() !== "" && availableCauses.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
-              {availableCauses.map((r) => (
-                <li key={r.id}>
-                  <button
-                    type="button"
-                    onClick={() => addCausedBy(r.id)}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
-                  >
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {r.category}#{r.id}
-                    </span>
-                    <span className="truncate">{r.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <EntityLinkPicker
+          selected={parentItems.map(raidEntry)}
+          options={availableCauses.map(raidEntry)}
+          query={causePickerQuery}
+          onQueryChange={setCausePickerQuery}
+          onAdd={addCausedBy}
+          onRemove={removeCausedBy}
+          onOpen={onJumpToRaid}
+          // Was a placeholder alone — which is not an accessible name, so the
+          // search box had none. Named now.
+          searchLabel={t(lang, "raidCausedBy")}
+          placeholder={t(lang, "raidCausedByPlaceholder")}
+          removeLabel={t(lang, "raidCausedByClear")}
+          inputSize="md"
+        />
       </div>
 
       {/* Items caused by this — read-only. The user breaks the link by
@@ -165,7 +131,11 @@ export function RaidCausedByField({
                 type="button"
                 onClick={() => onJumpToRaid(c.id)}
                 title={c.title}
-                className={`inline-flex items-center gap-1 rounded bg-ui-purple/10 px-2 py-0.5 text-xs text-ui-purple hover:bg-ui-purple/20 dark:bg-ui-purple/15 dark:hover:bg-ui-purple/25 ${INTERACTIVE}`}
+                // Same label-bleed fix as the picker chips above: adjacent
+                // inline spans concatenate with no separator, so
+                // name-from-content computes "R#3Downstream slip".
+                aria-label={`${c.category}#${c.id} ${c.title}`}
+                className={`inline-flex items-center gap-1 rounded bg-ui-purple/10 px-2 py-0.5 text-xs text-ui-purple-strong hover:bg-ui-purple/20 dark:bg-ui-purple/15 dark:hover:bg-ui-purple/25 ${INTERACTIVE}`}
               >
                 <span className="font-mono">{c.category}#{c.id}</span>
                 <span className="max-w-[220px] truncate">{c.title}</span>

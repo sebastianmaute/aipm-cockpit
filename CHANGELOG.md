@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.202.2] - 2026-07-26 "Beukes"
+
+A second batch of follow-ups from the 0.202.0 calendar overhaul.
+
+- **The meetings band is now one keyboard stop instead of dozens.** Every
+  meeting chip used to be its own tab stop, so a wide window with a daily series
+  put around 65 of them ahead of the calendar grid. One chip is now in the tab
+  order and the arrow keys move between the rest: left and right walk the chips
+  in reading order, up and down cross to the nearest meeting at or after the
+  same date in the neighbouring lane, and Home and End jump to the ends.
+- **The all-series meeting list can be sorted** by title or by next occurrence.
+  Clicking a header cycles ascending, descending, and back to the project's own
+  order. Series with no next occurrence stay at the bottom in both directions
+  rather than jumping to the top when the sort is reversed.
+- The "caused by" picker in the RAID editor was rebuilt on the same component
+  the task-link picker uses, which fixed two accessibility gaps in it: its
+  search box had no name for screen readers, and every chip's remove button was
+  announced identically, so they could not be told apart.
+- Each lane of the meetings band is now named for screen readers, and meeting
+  chips no longer swallow browser shortcuts such as Alt+Left for Back.
+- Sorting the series list no longer recalculates every series' next occurrence
+  on each click.
+- Internal: the shared `EntityLinkPicker`, a pure `band-roving` keyboard model,
+  and the first test coverage for the RAID caused-by field's wiring.
+
 ## [0.202.1] - 2026-07-26 "Beukes"
 
 Follow-ups from the 0.202.0 calendar overhaul.

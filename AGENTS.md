@@ -449,6 +449,9 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). Used by raid-report (34) / resources-report
   (16) / change-report (6); `reports-tables`/`budget-report` use different local sort-var names and were left
   as-is. NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` + `ColumnResizeHandle`.
+  ★ `onResize` is OPTIONAL — omit it for a table that sorts but stores no column widths (the calendar series
+  list) and NO handle renders. Never pass a no-op instead: that draws a grip which looks draggable and does
+  nothing, the exact false affordance this component exists to avoid.
 - **★ `TableFilter` (`report-table.tsx`) has exactly ONE clear ✕, overlaid INSIDE the field.** The input is
   `type="search"`, so Chrome/Safari draw their own ✕ inside it; a sibling clear button therefore read as TWO
   clears on those browsers while Firefox — which draws none — showed only ours. The fix suppresses the native
@@ -1246,7 +1249,32 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `EmptyState`/`AddFirstItemButton`/`Skeleton`/`PanelSkeleton`, `DataTable` + `SortResizeTh`/
   `SortHeaderButton`/`ColumnResizeHandle`. Display: `RagDot`/`RagBadge`, `Badge`, `CountBadge`,
   `ProgressTrack`, `FieldError`/`ModalFieldError`/`FieldHint`, `InfoTooltip`, interaction atoms
-  `INTERACTIVE`/`FOCUS_RING`/`TRANSITION`/`PRESS` (`interaction-styles.ts`).
+  `INTERACTIVE`/`FOCUS_RING`/`TRANSITION`/`PRESS` (`interaction-styles.ts`). Link pickers:
+  `EntityLinkPicker` (`entity-link-picker.tsx`).
+  ★★ **THREE link/chip pickers, one per problem — pick by shape, don't merge them:**
+  `EntityLinkPicker` = chips + search dropdown over an UNBOUNDED set, entity-agnostic (caller maps its
+  entity to a flat `LinkPickerEntry {id, code, label}` and OWNS both the query state and the option
+  filtering — which is where its callers genuinely diverge: `TaskLinkPicker` filters by text alone,
+  the RAID cause picker must also exclude self and any pick that would close a cycle). `TaskLinkPicker`
+  is now a THIN task-flavoured wrapper around it, and `RaidCausedByField` renders it directly with
+  `onOpen` (the click-through chip variant; the ↩ glyph rides `onOpen`'s presence, not a prop).
+  `StakeholderChipPicker` stays SEPARATE — it renders EVERY item as a checkbox chip for a BOUNDED list,
+  no search, no add/remove asymmetry. ★ `EntityLinkPicker` takes no `lang` and calls no `t()` — every
+  string arrives translated. ★ the chip's remove button appends the entry's `code` to `removeLabel`, so
+  N chips get row-UNIQUE names (WCAG 2.4.6); RAID's shipped with N identical "Clear" names because a
+  single-chip fixture can never surface the collision. ★ the click-through chip pins `aria-label` explicitly
+  — adjacent inline spans concatenate with NO separator, so name-from-content yielded "R#3Vendor delay".
+  (Same fix applied to the read-only "caused this" children chips in `raid-edit-fields.tsx`, which had the
+  identical bleed plus `text-ui-purple` → now `text-ui-purple-strong`.)
+  ★★ That `-strong` swap is NOT a uniform win, and the same caveat applies anywhere you reach for it: it
+  repairs a real AA failure in all four DARK schemes (~2.9–3.1 → ~5.2) and in AIPM light/dark (4.49 → 7.52,
+  the PINNED value), but in Harbor/Meridian/Umber LIGHT it is a literal NO-OP — `nudgeToAa` exits at zero
+  iterations because the base purple already clears 4.5 against `--surface-muted`, so `--ui-purple-strong`
+  IS `--ui-purple` there. Don't assume `-strong` changes anything in a light scheme with no pinned value.
+  ★ The extraction unified three incidental sizings onto RAID's values, so the TASK flavour changed slightly:
+  chip row `mb-1`→`mb-2` + `items-center`, chip label `max-w-[160px]`→`max-w-[220px]`, dropdown
+  `max-h-48`→`max-h-60`. Deliberate (they were differences with no reason), and it lands in all four
+  `TaskLinkPicker` call sites — Knowledge cards, change modal, RAID linked tasks, budget bucket editor.
   ★★ LANDMINES: primitives concatenate `className` with NO tailwind-merge → a class that fights a
   variant/size PROP loses by CSS source-order (pick the right variant, don't override); ONLY
   `Button`/`IconButton`/`TextButton` forward `ref` — `Input`/`Select`/`Textarea` do NOT (a
@@ -2130,14 +2158,46 @@ an out-of-order input still packs correctly.
 - ★★ Band cells carry `data-band-cell`, NOT `data-cell` — the grid's roving-tabindex model (`onGridKeyDown` in
   `resource-calendar.tsx`) indexes `data-cell` by row/column and treats exactly ONE such element as the tab
   stop. ★ That invariant is scoped to the DAY-CELL MATRIX specifically, NOT a whole-table "exactly one
-  focusable element" property — row-header edit buttons and band chips are ordinary natively-focusable
-  `<button>`s that sit OUTSIDE the roving set by design (row headers always have; chips joined them, which is
-  consistent, not a regression). A band cell wrongly caught by the `[data-cell]` selector is still a real bug
+  focusable element" property. A band cell wrongly caught by the `[data-cell]` selector is still a real bug
   (it would get folded into the roving model's row/column indexing and desync arrow-key navigation), so keep
   guarding that — but verifying it needs the resolved `.tabIndex` IDL property, not a raw `tabindex="0"`
   ATTRIBUTE match: a native button with no explicit `tabindex` attribute still has `.tabIndex === 0` (it IS in
   the tab order), so an attribute-only query is blind to it and will silently pass regardless of whether the
   real invariant holds.
+- ★★ **The band runs its OWN roving group** over `[data-band-cell]` (pure `band-roving.ts` `moveBandFocus` +
+  local state in `resource-calendar-band.tsx`): ONE chip is a tab stop, Left/Right walk chips in reading order
+  (lane-major, then date — crossing lane boundaries, clamped not wrapping), Home/End jump to the ends, and
+  Up/Down cross to the nearest chip at-or-after the current date in the closest NON-EMPTY lane. So the table
+  has TWO roving groups (band + day-cell matrix) = 2 tab stops, plus the row-header edit buttons which sit
+  outside both by design (they were tab stops long before the band existed). Chips were natively tabbable
+  until the R5 batch-2 follow-up — ~65 tab stops ahead of the grid on a quarter-wide window with one daily
+  series.
+  ★ Left/Right walk READING ORDER, so they cross lane boundaries — a horizontal key changing rows is the
+  second (smaller) deviation from a strict `role="grid"` model, and it is deliberate: a sparse band reads as
+  one sequence, not as rows a user navigates independently.
+  ★ The band is deliberately NOT folded into the day-cell matrix: band cells are overwhelmingly EMPTY and, unlike
+  an empty day cell (which is clickable — it adds an absence), an empty band cell does nothing, so a unified
+  matrix would make arrows walk dozens of dead cells AND re-index every absence move/resize site in
+  `onGridKeyDown` against an offset row space. ★★ `onBandKeyDown` navigates from `document.activeElement`, NOT
+  from the `focusChip` marker — a click focuses a chip directly and the marker's own state update is not
+  necessarily committed by the next keypress, so a marker-driven handler jumps the user somewhere they never
+  were (caught by a test, not by review — and a mutation test confirms the ArrowDown lane-crossing case FAILS
+  if it is reverted to the marker, so don't "simplify" it back). The marker exists only to place the tab stop
+  and FOLLOWS focus via each chip's `onFocus`; it is clamped on read so a window change that shrinks the band
+  can't strand it.
+  ★★★ The chip-INDEX memo and the RENDERER must evaluate the SAME EXPRESSION — literally
+  `occ && eventsById.get(occ.eventId)`, NOT an equivalent one. (`has()` and a truthy `get()` agree for every
+  map the type permits, but they are two different questions; the code comment argues this, so don't
+  "simplify" the memo toward `has()`.)
+  `lanes` and `eventsById` arrive as INDEPENDENT props, so if the index counted a chip the renderer skips, the
+  marker could point at a phantom index and NO rendered chip would get `tabIndex={0}` — a band unreachable by
+  keyboard, strictly WORSE than the per-chip tab stops roving replaced. Enforced in the memo (with `eventsById`
+  in its deps) + a test rendering an occurrence whose event is absent.
+  ★ EVERY lane's `role="rowheader"` carries a name — lane 0 the visible "Meetings" label, lanes 2+ an `sr-only`
+  "Meetings N". Arrow keys now move BETWEEN lanes, so an empty header is a row a keyboard user can land in that
+  announces nothing (WCAG 1.3.1); it was only tolerable while the band was mouse-only.
+  ★ `moveBandFocus` returns `null` for any Alt/Ctrl/Meta chord — a roving group inside a page must not swallow
+  Alt+Left (browser Back). Shift is NOT excluded (it competes with nothing here).
 - ★★ The absence resize grips reuse the shared `DragHandle` atom (`drag-handle.tsx`, extracted from the
   gantt/table-manager `ColumnResizeHandle`) in its DECORATIVE mode — no `ariaLabel`, so it renders
   `aria-hidden` with no role; the surrounding `<span title=...>` carries the accessible name instead. The
@@ -2151,6 +2211,14 @@ an out-of-order input still packs correctly.
   `preserve-manual-memoization` on that unrelated `useMemo` — fixed via a `useCallback` indirection
   (`resourceFor`) wrapping the `.get()`. Verified: reverting the indirection reproduces the lint error. Don't
   "simplify" it back to a direct `.get()` call from a hoisted function.
+- **Series list sorting (`calendar-series-list.tsx`):** Title and Next are sortable via the shared
+  `SortResizeTh` with NO `onResize` (this list persists no column widths); Recurs and Edit stay bare `<th>`s
+  — a rendered recurrence phrase is not a scale, and the last column holds a control. ★ Default is
+  `dir:"off"` = WORKSPACE order, and the asc→desc→off cycle makes it recoverable: the user's own record order
+  is information no derived ordering can reconstruct. ★★ A series with no resolvable next occurrence sorts as
+  UNKNOWN (held out of the comparison, appended in BOTH directions), never via a sentinel date — a sentinel
+  that sinks such a row ascending FLOATS it to the top descending, the one place it must never be. Both
+  fallbacks ("no further occurrences" and the truncated-search "unknown") are unknown for this purpose.
 - A new entity's edit modal needs an entry in BOTH the `ModalId` union AND `MODAL_FIELDS`
   (`modal-fields.ts`, a `Record<ModalId, readonly ModalField[]>`) — tsc catches a forgotten `MODAL_FIELDS`
   entry immediately for a normal edit (the Record type ties the two together), but a caller reaching
