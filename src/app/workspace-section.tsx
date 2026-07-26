@@ -216,7 +216,7 @@ export function WorkspaceSection({
     () => setSettings((s) => ({ ...s, ai: { ...s.ai, consentAccepted: true } })),
     [setSettings],
   );
-  const { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights } = useWorkspace();
+  const { tasks, raid, absences, shifts, resources, setResources, roles, disciplines, grades, plan, budgets, fxRates, milestones, project, steeringCommittee, setSteeringCommittee, insights } = useWorkspace();
   // Per-project EFFECTIVE settings — device folded with this project's policy
   // overrides (nextActions/notifications/timezone) AND its per-device appearance
   // overrides (density/view-hints/tasks-view-mode). Reactive: an appearance change
@@ -518,6 +518,9 @@ export function WorkspaceSection({
               onEditAbsence={handleEditAbsence}
               onEditShift={handleOpenShiftEditor}
               roles={roles}
+              disciplines={disciplines}
+              grades={grades}
+              setResources={setResources}
               plan={plan}
               workdayHours={settings.resources.workdayHours}
               onSetUtilization={onSetUtilization}
@@ -541,6 +544,8 @@ export function WorkspaceSection({
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
+              onCaptureUndo={onCaptureUndo}
+              logActivity={logActivity}
             />
           </div>
         )}

@@ -8,12 +8,16 @@ import {
   type Milestone,
   type Stakeholder,
   type Resource,
+  type TaskDependency,
 } from "./types";
 import type { Lang } from "./i18n";
+import { type DepRejection } from "./task-dependency-write";
 
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
+import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
+import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
 type TaskInput = {
@@ -186,6 +190,21 @@ export type ToolDispatcher = {
   getTask(id: number): Task | null;
   createTask(input: TaskInput): Task;
   updateTask(id: number, patch: Partial<Task>): Task | null;
+  /** Replace task `id`'s predecessor-link list wholesale. `raw` is untrusted
+   *  model output; `resolveDependencyWrite` sanitizes + cycle-checks it.
+   *  Returns null when the task doesn't exist. `removed` is every link that
+   *  existed before the call and is not in the returned `dependencies` — a
+   *  wholly-rejected write (nothing applied, something rejected, prior links
+   *  present) refuses to mutate at all and comes back with `removed: []`. */
+  setTaskDependencies(
+    id: number,
+    raw: unknown,
+  ): {
+    id: number;
+    dependencies: TaskDependency[];
+    rejected: DepRejection[];
+    removed: TaskDependency[];
+  } | null;
   deleteTask(id: number): boolean;
   deleteAllTasks(): number;
   sendInquiry(id: number): { sent: boolean; reason?: string };
@@ -228,6 +247,8 @@ export type ToolDispatcher = {
     currentView: AppView;
     insights?: readonly Insight[];
   };
+  getDashboardSnapshot(): DashboardSnapshot;
+  listAllocations(): AllocationsSnapshot;
 };
 
 function asString(v: unknown): string | undefined {
@@ -399,6 +420,20 @@ export async function runTool(
       return updated;
     }
 
+    case "set_task_dependencies": {
+      const id = requireId(input);
+      // A non-array here is byte-identical to a legitimate "clear all links"
+      // once it reaches setTaskDependencies/resolveDependencyWrite (which
+      // treats non-array input as a clear for non-tool callers). Reject it
+      // AT THE TOOL BOUNDARY instead — malformed model output (a stray
+      // string, an omitted field) must never silently wipe a task's
+      // dependency graph with zero visible rejection.
+      if (!Array.isArray(input.dependencies)) throw new Error("dependencies must be an array");
+      const result = d.setTaskDependencies(id, input.dependencies);
+      if (!result) throw new Error(`Task #${id} not found`);
+      return result;
+    }
+
     case "delete_task": {
       const id = Number(input.id);
       if (!Number.isFinite(id)) throw new Error("id must be a number");
@@ -451,6 +486,9 @@ export async function runTool(
     case "get_app_state":
       return d.getSnapshot();
 
+    case "get_dashboard_snapshot":
+      return d.getDashboardSnapshot();
+
     case "list_raid":
       return d.listRaid();
 
@@ -465,6 +503,9 @@ export async function runTool(
 
     case "list_resources":
       return d.listResources();
+
+    case "list_allocations":
+      return d.listAllocations();
 
     case "create_raid_item":
       return d.createRaid(input as RaidInput);

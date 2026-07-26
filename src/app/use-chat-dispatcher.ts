@@ -21,9 +21,14 @@ import {
 } from "./chat-tools";
 import { deriveMode, sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
+import { type DashboardModel } from "./dashboard";
+import { type ProjectReport } from "./budget-report";
+import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
+import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
 import { effectivePersonEmail } from "./resource-foundation";
+import { resolveDependencyWrite } from "./task-dependency-write";
 import { useFilters } from "./filters-context";
 import { t } from "./i18n";
 import {
@@ -72,6 +77,16 @@ export interface ChatDispatcherArgs {
    *  can't be silently lost (popouts neither persist nor broadcast). */
   isReadOnly: boolean;
   currentView: AppView;
+  /** Live dashboard render model. A getter (not the value) so the dispatcher
+   *  identity stays stable — it is read through a ref at tool-call time. */
+  getDashboardModel: () => DashboardModel;
+  /** Live budget rollup, or null when the budget module is off. Deliberately
+   *  NOT memoized upstream: it runs only when a tool actually asks, so an
+   *  unused read tool costs nothing per render. */
+  getBudgetRollup: () => ProjectReport | null;
+  /** Live resource-planning grid snapshot for `list_allocations`. Deliberately
+   *  NOT memoized upstream — same reasoning as `getBudgetRollup`. */
+  getAllocationsSnapshot: () => AllocationsSnapshot;
 }
 
 export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
@@ -114,6 +129,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const stakeholdersRef = useRef(stakeholders);
   const resourcesRef = useRef(resources);
   const insightsRef = useRef(insights);
+  const getDashboardModelRef = useRef(args.getDashboardModel);
+  const getBudgetRollupRef = useRef(args.getBudgetRollup);
+  const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
@@ -147,6 +165,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     insightsRef.current = insights;
   }, [insights]);
+  useEffect(() => {
+    getDashboardModelRef.current = args.getDashboardModel;
+  }, [args.getDashboardModel]);
+  useEffect(() => {
+    getBudgetRollupRef.current = args.getBudgetRollup;
+  }, [args.getBudgetRollup]);
+  useEffect(() => {
+    getAllocationsSnapshotRef.current = args.getAllocationsSnapshot;
+  }, [args.getAllocationsSnapshot]);
 
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
@@ -345,6 +372,57 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         tasksRef.current = next;
         setTasks(next);
         return merged;
+      },
+      setTaskDependencies: (id, raw) => {
+        if (args.isReadOnly) throw readOnlyError();
+        const list = tasksRef.current;
+        const target = list.find((row) => row.id === id);
+        if (!target) return null;
+        const prior = target.dependencies ?? [];
+        const { applied, rejected } = resolveDependencyWrite(id, raw, list);
+
+        // Refuse a WHOLLY-DESTRUCTIVE write: nothing was applied, something
+        // was rejected (a genuine "clear all" call sends an empty array with
+        // nothing rejected, and that must keep working), and the task
+        // currently HAS links. Writing `applied` (= []) unconditionally here
+        // would delete every existing link on every refused proposal — e.g. a
+        // model asked to add ONE new link that happens to close a cycle would
+        // silently wipe the other links it never touched. Leave the task
+        // untouched and hand back its current links so the caller can still
+        // report `rejected` accurately without deleting anything.
+        if (applied.length === 0 && rejected.length > 0 && prior.length > 0) {
+          return { id, dependencies: prior, rejected, removed: [] };
+        }
+
+        // Every link REPLACE semantics dropped relative to what was stored
+        // before this call — the set-difference the tool result surfaces so
+        // a model that simply OMITTED some existing links (a routine LLM
+        // slip, not a refused write) still reports the deletion instead of
+        // it disappearing with no trace in the transcript.
+        const removed = prior.filter(
+          (d) => !applied.some((a) => a.taskId === d.taskId && a.type === d.type),
+        );
+        const added = applied.filter(
+          (a) => !prior.some((d) => d.taskId === a.taskId && d.type === a.type),
+        );
+
+        // True no-op (same link set, nothing removed and nothing added) —
+        // skip the write so an unchanged dependency list doesn't stamp a
+        // fresh localModifiedAt / arm an unnecessary Jira push. Nothing
+        // changed, so `removed` must stay empty too — this is not FIX A2's
+        // case, there is nothing to report.
+        if (removed.length === 0 && added.length === 0) {
+          return { id, dependencies: prior, rejected, removed: [] };
+        }
+
+        const next = list.map((row) =>
+          row.id === id
+            ? { ...row, dependencies: applied, localModifiedAt: new Date().toISOString() }
+            : row,
+        );
+        tasksRef.current = next; // keep ref in sync for back-to-back tool calls
+        setTasks(next);
+        return { id, dependencies: applied, rejected, removed };
       },
       deleteTask: (id) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
@@ -699,6 +777,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           insights: insightsRef.current ?? [],
         };
       },
+
+      getDashboardSnapshot: () =>
+        buildDashboardSnapshot(
+          getDashboardModelRef.current(),
+          getBudgetRollupRef.current(),
+          todayRef.current,
+        ),
+
+      listAllocations: () => getAllocationsSnapshotRef.current(),
     }),
     // Empty deps: every reactive value is read via a ref. Identity is stable.
     // Note: when Task 6 lands, audit whether any captured value still needs

@@ -191,7 +191,11 @@ export function sanitizeShift(input: unknown): Shift | null {
 // --- Resource Planner v2 sanitizers ----------------------------------------
 
 const PERIOD_KEY_RE = /^\d{4}-(0[1-9]|1[0-2]|W[0-4]\d|W5[0-3])$/;
-const HOURS_MAP_MAX = 1000; // sane upper bound for a single period's hours
+/** Per-period hours ceiling. Exported so the AI allocation planner clamps to the
+ *  SAME bound the load-path sanitizer enforces — otherwise a confirmed value
+ *  above it is silently trimmed on the next load and what the user approved is
+ *  not what persists. */
+export const HOURS_MAP_MAX = 1000;
 
 /** Encode a periodKey->number map to "k=v|k=v" (CSV/MD-safe). */
 export function encodePeriodMap(map: Record<string, number> | undefined): string {

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSettingsLogger, SETTINGS_LOG_DEBOUNCE_MS } from "./settings-log";
 import type { SettingsSectionId } from "./dashboard-coaching";
-import { getBucketReminders } from "./budget-report";
+import { computeBudgetReport, getBucketReminders, type ProjectReport } from "./budget-report";
+import { buildAllocationsSnapshot, type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import { PanelSkeleton } from "./skeleton";
 import { t } from "./i18n";
 import { useChatDispatcher } from "./use-chat-dispatcher";
@@ -1619,6 +1620,35 @@ function TaskManagerInner() {
     [shifts, editingShift],
   );
 
+  // Deliberately NOT memoized: this runs only when the assistant calls
+  // get_dashboard_snapshot, so an unused read tool costs nothing per render.
+  // Passes `tasks` (which the dashboard's own computeBudgetReport call omits),
+  // so earnedValue / costPerformanceIndex here are the real figures.
+  const getBudgetRollup = (): ProjectReport | null => {
+    if (!isModuleEnabled("budget", settings.features)) return null;
+    return computeBudgetReport(
+      budgets,
+      plan,
+      roles,
+      resources,
+      settings.resources.workdayHours,
+      holidaySet,
+      absences,
+      tasks,
+    ).project;
+  };
+
+  // Deliberately NOT memoized: this runs only when the assistant calls
+  // list_allocations, so an unused read tool costs nothing per render.
+  const getAllocationsSnapshot = (): AllocationsSnapshot =>
+    buildAllocationsSnapshot({
+      resources,
+      plan,
+      absences,
+      workdayHours: settings.resources.workdayHours,
+      holidaySet,
+    });
+
   const dispatcher = useChatDispatcher({
     settings,
     today,
@@ -1626,6 +1656,9 @@ function TaskManagerInner() {
     setSettings,
     isReadOnly: isPopout,
     currentView: activeTab,
+    getDashboardModel: () => dashboardModel,
+    getBudgetRollup,
+    getAllocationsSnapshot,
   });
 
   // --- Insights → Action Loop (#6B SP2) ---------------------------------

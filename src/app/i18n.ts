@@ -3454,6 +3454,7 @@ const enUS = {
   versionHighlightPolishR1: "Polish: chat prompt suggestions stay available for the whole session, new knowledge links default to the project library, the landing-page logo follows your theme, and the time-booking apply bar is a cleaner card.",
   versionHighlightKanbanSwimlanes: "Created date column, hide externals, and Kanban person swimlanes: tasks now record when they were created (a sortable, off-by-default column, backfilled for existing tasks); Open Points can hide externally-owned tasks and their filter options in one toggle; and the Kanban board gains a person-swimlane view — drag a card into someone's lane to reassign and re-status it in one move, or use the per-card person select as the keyboard equivalent.",
   versionHighlightDashboardR3: "Dashboard: the “overloaded with overdue work” action now opens Open Points filtered to that person instead of the workload view; the burn-down x-axis follows the budget buckets' successor chain, with a banner naming the offending buckets when they are not one chain (and staying silent when nobody chained anything); and the project status summary is a rich-text editor — bold, italic, lists and links — with an existing plain-text narrative upgraded on read and only rewritten when you save.",
+  versionHighlight0201: "AI planning: read project health, plan allocations, set task dependencies.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
@@ -3518,6 +3519,35 @@ const enUS = {
   insightRecommendationSuggests: "AI suggests: {0}",
   insightRecommendationRejected: "Recommendation dismissed.",
   activityAiInsightRecommendation: "AI applied an insight recommendation: {1}",
+
+  // AI resource-allocation planning
+  allocPlan: "Plan with AI",
+  allocPlanTitle: "Plan resource allocations with AI",
+  allocPlanIntro:
+    "Describe how the work should be distributed. Nothing is written until you confirm — every change is listed below first.",
+  allocPlanInstructionLabel: "What should be planned?",
+  allocPlanInstructionPlaceholder: "e.g. distribute 200 hours across the design role in August",
+  allocPlanThinking: "Planning…",
+  allocPlanPropose: "Propose",
+  allocPlanCancel: "Cancel",
+  allocPlanConfirm: "Apply selected",
+  allocPlanInclude: "Include this change",
+  allocPlanNoChanges: "No allocation changes were proposed.",
+  allocPlanError: "Could not plan allocations.",
+  allocPlanApplied: "Applied {0} allocation changes.",
+  allocPlanClamped: "trimmed to the maximum",
+  allocPlanHoursOfCapacity: "{0}h of {1}h",
+  allocPlanTruncated: "Some proposed changes were not shown — the plan was too large.",
+  allocPlanSkippedStale: "{0} change(s) were skipped because the plan changed.",
+  allocPlanSkippedTitle: "Not planned",
+  allocPlanSkipUnknownResource: "unknown resource",
+  allocPlanSkipOutOfWindow: "period outside the plan window",
+  allocPlanSkipNoCapacity: "no capacity in that period",
+  allocPlanSkipBadHours: "invalid hours",
+  allocPlanSkipDuplicate: "duplicate cell",
+  allocPlanSkipBelowResolution: "no change to the stored value",
+  allocPlanSkipAlreadySet: "already at that value",
+  activityAiAllocationPlan: "AI planned {0} allocation cells",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

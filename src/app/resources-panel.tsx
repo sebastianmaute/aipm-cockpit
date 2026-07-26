@@ -16,7 +16,7 @@
 // name so "Alex Example" and "Alex Example" land in the same row; display uses the
 // first observed original casing.
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
@@ -27,6 +27,8 @@ import { periodCost } from "./resource-cost";
 import {
   type Absence,
   DEFAULT_WEEK_HOURS,
+  type Discipline,
+  type Grade,
   type PlanGranularity,
   type RaidItem,
   type Resource,
@@ -38,6 +40,9 @@ import {
 } from "./types";
 import { effectivePersonEmail, effectivePersonName, resourceDisplayName } from "./resource-foundation";
 import { useSettings } from "./use-settings";
+import { useAllocPlan } from "./use-alloc-plan";
+import { type ActivityKind } from "./activity-log";
+import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useColumnResize } from "./use-column-resize";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { EmptyState } from "./empty-state";
@@ -77,6 +82,9 @@ interface Props {
     assignee: { display: string; email: string },
   ) => void;
   roles: readonly Role[];
+  disciplines: readonly Discipline[];
+  grades: readonly Grade[];
+  setResources: Dispatch<SetStateAction<readonly Resource[]>>;
   plan: ResourcePlan;
   workdayHours: number;
   onSetUtilization: (resourceId: number, periodKey: string, value: number) => void;
@@ -106,6 +114,8 @@ interface Props {
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  onCaptureUndo?: UndoStackApi["capture"];
+  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
 }
 
 type AssigneeRow = {
@@ -140,6 +150,9 @@ function ResourcesPanelInner({
   onEditAbsence,
   onEditShift,
   roles,
+  disciplines,
+  grades,
+  setResources,
   plan,
   workdayHours,
   onSetUtilization,
@@ -163,6 +176,8 @@ function ResourcesPanelInner({
   showHints,
   isPopout,
   onLearnMore,
+  onCaptureUndo,
+  logActivity,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
   const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
@@ -191,6 +206,29 @@ function ResourcesPanelInner({
   // Per-device: include external resources in the calendar (default include).
   const { settings, setSettings } = useSettings();
   const includeExternals = settings.calendarIncludeExternals !== false;
+
+  // AI-assisted allocation planning (Resources → Planning toolbar only). Called
+  // unconditionally — its rendered output (button/modal) is planning-only, but
+  // the hook itself must run every render regardless of `view`. `disciplines`/
+  // `grades`/`setResources` come in as PROPS (not useWorkspace()) — this panel
+  // is the only memo'd panel workspace-section renders, and a direct context
+  // consumer would defeat that memo bailout on every unrelated workspace edit.
+  const allocPlan = useAllocPlan({
+    settings,
+    isPopout: !!isPopout,
+    lang,
+    resources,
+    setResources,
+    roles,
+    disciplines,
+    grades,
+    plan,
+    absences,
+    workdayHours,
+    holidaySet,
+    capture: onCaptureUndo,
+    logActivity,
+  });
 
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");
   const [calendarAnchor, setCalendarAnchor] = useState<string>(today);
@@ -485,10 +523,12 @@ function ResourcesPanelInner({
             utilizationMode={utilizationMode}
             onSetAllUtilizationMode={onSetAllUtilizationMode}
             hideExternalToggle={hideExternalToggle}
+            aiPlanButton={allocPlan.button}
             headerActions={headerActions}
             planFilter={planFilter}
             onPlanFilter={setPlanFilter}
           />
+          {allocPlan.modal}
           <PlanningTable
             lang={lang}
             plan={plan}

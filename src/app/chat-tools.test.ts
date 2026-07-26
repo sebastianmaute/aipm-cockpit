@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { runTool, TOOL_DEFS, type ToolDispatcher, type Filters } from "./chat-tools";
-import { type Task, type RaidItem, type ChangeItem, type Milestone } from "./types";
+import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
 
 function makeTask(over: Partial<Task> = {}): Task {
   return {
@@ -137,6 +137,9 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       id === 7 ? { id: 7, firstName: "Ada", lastName: "Lovelace", ...(patch as object) } : null,
     ),
     deleteResource: vi.fn((id: number) => id === 7),
+    setTaskDependencies: vi.fn((id: number, raw) =>
+      id === 1 ? { id, dependencies: (raw as TaskDependency[]) ?? [], rejected: [], removed: [] } : null,
+    ),
     getSnapshot: vi.fn(() => ({
       today: "2026-06-02",
       language: "en-US" as const,
@@ -147,6 +150,19 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       enabledModules: [] as import("./feature-modules").FeatureModuleId[],
       currentView: "chat" as import("./nav-config").AppView,
     })),
+    getDashboardSnapshot: vi.fn(
+      () =>
+        ({
+          today: "2026-06-02",
+          budget: null,
+        }) as unknown as ReturnType<ToolDispatcher["getDashboardSnapshot"]>,
+    ),
+    // None of the tests using this fixture exercise list_allocations; throw a
+    // named error (rather than a fake object) so a future test that reuses
+    // this fixture and forgets to override it fails legibly.
+    listAllocations: vi.fn(() => {
+      throw new Error("listAllocations not stubbed");
+    }),
     ...over,
   };
 }
@@ -709,5 +725,97 @@ describe("runTool — change/milestone/stakeholder write tools", () => {
     await expect(runTool(d, "get_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
     await expect(runTool(d, "update_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
     await expect(runTool(d, "delete_resource", { id: 99 })).rejects.toThrow("resource #99 not found");
+  });
+});
+
+describe("set_task_dependencies", () => {
+  it("passes the id and the raw list to the dispatcher", async () => {
+    const calls: unknown[] = [];
+    const d = {
+      setTaskDependencies: (id: number, raw: unknown) => {
+        calls.push([id, raw]);
+        return { id, dependencies: [], rejected: [] };
+      },
+    } as unknown as ToolDispatcher;
+
+    await runTool(d, "set_task_dependencies", {
+      id: 7,
+      dependencies: [{ taskId: 3, type: "FS" }],
+    });
+
+    expect(calls).toEqual([[7, [{ taskId: 3, type: "FS" }]]]);
+  });
+
+  it("throws when the task is missing", async () => {
+    const d = { setTaskDependencies: () => null } as unknown as ToolDispatcher;
+
+    await expect(runTool(d, "set_task_dependencies", { id: 9, dependencies: [] })).rejects.toThrow(
+      "#9 not found",
+    );
+  });
+
+  it("throws when id is not a number", async () => {
+    const d = { setTaskDependencies: () => null } as unknown as ToolDispatcher;
+
+    await expect(
+      runTool(d, "set_task_dependencies", { dependencies: [] }),
+    ).rejects.toThrow("id must be a number");
+  });
+
+  it("rejects a non-array dependencies instead of silently clearing the graph", async () => {
+    // A non-array `dependencies` (missing field, a stray string, ...) is
+    // byte-identical to a legitimate "clear all links" once it reaches the
+    // dispatcher — malformed model output must never wipe a task's
+    // dependency graph with zero visible rejection. The dispatcher must
+    // never even be called.
+    const setTaskDependencies = vi.fn();
+    const d = { setTaskDependencies } as unknown as ToolDispatcher;
+
+    await expect(
+      runTool(d, "set_task_dependencies", { id: 7, dependencies: "FS on task 12" }),
+    ).rejects.toThrow("dependencies must be an array");
+    await expect(
+      runTool(d, "set_task_dependencies", { id: 7 }),
+    ).rejects.toThrow("dependencies must be an array");
+    expect(setTaskDependencies).not.toHaveBeenCalled();
+  });
+
+  it("still clears every link for a real empty array", async () => {
+    const d = {
+      setTaskDependencies: (id: number, raw: unknown) => ({ id, dependencies: raw, rejected: [] }),
+    } as unknown as ToolDispatcher;
+
+    await expect(runTool(d, "set_task_dependencies", { id: 7, dependencies: [] })).resolves.toEqual({
+      id: 7,
+      dependencies: [],
+      rejected: [],
+    });
+  });
+});
+
+describe("get_dashboard_snapshot", () => {
+  it("returns the dispatcher's snapshot verbatim", async () => {
+    const snapshot = { today: "2026-07-25", budget: null } as unknown as ReturnType<
+      ToolDispatcher["getDashboardSnapshot"]
+    >;
+    const d = { getDashboardSnapshot: () => snapshot } as unknown as ToolDispatcher;
+
+    await expect(runTool(d, "get_dashboard_snapshot", {})).resolves.toBe(snapshot);
+  });
+});
+
+describe("list_allocations", () => {
+  it("returns the dispatcher's allocations snapshot verbatim", async () => {
+    const snapshot = {
+      planStartDate: "2026-08-01",
+      planEndDate: "2026-09-30",
+      granularity: "month",
+      periods: ["2026-08", "2026-09"],
+      resources: [],
+      truncated: false,
+    } as unknown as ReturnType<ToolDispatcher["listAllocations"]>;
+    const d = { listAllocations: () => snapshot } as unknown as ToolDispatcher;
+
+    await expect(runTool(d, "list_allocations", {})).resolves.toBe(snapshot);
   });
 });

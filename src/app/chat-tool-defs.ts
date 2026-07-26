@@ -7,6 +7,7 @@ import {
   CHANGE_STATUSES,
   CHANGE_TYPES,
   DEPENDENCY_STATUSES,
+  DEPENDENCY_TYPES,
   INFLUENCE_INTEREST_LEVELS,
   ISSUE_STATUSES,
   PRIORITIES,
@@ -243,6 +244,30 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "set_task_dependencies",
+    description:
+      "REPLACE the entire predecessor-link list of one task — this is not a merge or an add. Any existing link you do not include in `dependencies` is REMOVED, even if you only meant to add one new link; call list_tasks (or re-send the task's current links plus your addition) first if you want to keep what is already there. A dependency lives on the DEPENDENT task and points at its PREDECESSOR: {taskId: 12, type: 'FS'} on task 40 means task 40 starts after task 12 finishes. Types: FS (finish-to-start), SS (start-to-start), FF (finish-to-finish), SF (start-to-finish). Pass an empty array to clear all links. Links that would create a cycle, point at a task that does not exist, or point at the task itself are refused and reported back in the result — read `rejected` and tell the user what could not be linked. The result also carries `removed`: every link that existed before this call and is gone afterward (whether because it was omitted from your list or because the whole write was refused to protect existing links — read `dependencies` for what is actually stored now). ALWAYS read `removed` and tell the user what was dropped, even when `rejected` is empty — a silently-dropped link is worse than a refused one. Use list_tasks first to see the current graph.",
+    input_schema: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "Id of the task whose links are being replaced." },
+        dependencies: {
+          type: "array",
+          description: "The complete new list of predecessor links. An empty array clears them.",
+          items: {
+            type: "object",
+            properties: {
+              taskId: { type: "number", description: "Id of the PREDECESSOR task." },
+              type: { type: "string", enum: DEPENDENCY_TYPES as unknown as string[] },
+            },
+            required: ["taskId", "type"],
+          },
+        },
+      },
+      required: ["id", "dependencies"],
+    },
+  },
+  {
     name: "delete_task",
     description:
       "Delete a single task by ID. Confirm with the user before calling this if they were not explicit.",
@@ -304,6 +329,12 @@ export const TOOL_DEFS = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "get_dashboard_snapshot",
+    description:
+      "Read the project's current health: RAG ratings (overall, schedule, budget, scope) with whether each was manually overridden, completion progress, earned-value metrics (PV/EV/AC/SPI/CPI), the budget rollup (hours, value, cost, margin, EV, CPI), and counts of overdue tasks, due-soon tasks, open RAID items, overdue and at-risk milestones, and changes by state. Read-only. When a money figure is null, `costUnknownReason` says why the cost basis is unsound — report it as unknown, never as zero. This applies even when `cost` is null but `earnedValue`/`costPerformanceIndex` are not — do NOT back-derive a cost from them (cost = earnedValue / costPerformanceIndex); report cost as unknown instead.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
     name: "list_raid",
     description:
       "List all RAID items (Risks, Assumptions, Issues, Dependencies) with id, category, title, status, severity, owner, and stakeholderIds. Read-only.",
@@ -331,6 +362,12 @@ export const TOOL_DEFS = [
     name: "list_resources",
     description:
       "List the people in the resource directory (id, firstName, lastName, email, title, department). Read-only. Call this before creating a resource to avoid duplicates.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_allocations",
+    description:
+      "Read the resource planning grid: the plan window, its granularity, the valid period keys, and each resource's planned load per period. Each cell reports the stored value with its unit (percent or hours), what that means in hours, and the capacity available in that period. Only non-zero cells are listed. Each resource carries its own `truncated` flag: `truncated: false` with an empty `cells` array means that resource genuinely has no planned load; `truncated: true` means some or all of its load could not be read (the size cap was hit) — treat that resource's load as UNKNOWN, not zero, and say so rather than asserting it has none. Read-only — planning changes are made in the app's Plan-with-AI review, not from chat.",
     input_schema: { type: "object", properties: {} },
   },
   {

@@ -11,6 +11,24 @@ import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
 import { type SettingsUpdateInput } from "./chat-tools";
+import { type DashboardModel } from "./dashboard";
+import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
+
+/** Minimal stub getters for the dashboard-snapshot deps: none of these tests
+ *  exercise get_dashboard_snapshot. `stubGetDashboardModel` throws a named
+ *  error rather than yielding a fake object, so a future test that reuses
+ *  these fixtures and forgets to override it fails legibly instead of
+ *  crashing deep inside buildDashboardSnapshot on an undefined property. */
+const stubGetDashboardModel = (): DashboardModel => {
+  throw new Error("getDashboardModel not stubbed for this test");
+};
+const stubGetBudgetRollup = () => null;
+/** Same "throw a named error" convention as `stubGetDashboardModel` — none of
+ *  these tests exercise list_allocations, and AllocationsSnapshot (unlike
+ *  ProjectReport) has no cheap null fallback. */
+const stubGetAllocationsSnapshot = (): AllocationsSnapshot => {
+  throw new Error("getAllocationsSnapshot not stubbed for this test");
+};
 
 function makeSettings(): Settings {
   const storageConfig: StorageConfig = { kind: "browser" };
@@ -126,6 +144,9 @@ function renderDispatcher(
         setSettings,
         isReadOnly,
         currentView,
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot,
       }),
     { wrapper },
   );
@@ -465,6 +486,9 @@ describe("useChatDispatcher", () => {
           setSettings,
           isReadOnly: false,
           currentView: "milestones",
+          getDashboardModel: stubGetDashboardModel,
+          getBudgetRollup: stubGetBudgetRollup,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot,
         }),
       { wrapper },
     );
@@ -485,6 +509,9 @@ describe("useChatDispatcher", () => {
         setSettings: vi.fn(),
         isReadOnly: false,
         currentView: "open-points",
+        getDashboardModel: stubGetDashboardModel,
+        getBudgetRollup: stubGetBudgetRollup,
+        getAllocationsSnapshot: stubGetAllocationsSnapshot,
       });
       const form = useTaskForm();
       return { dispatcher, form };
@@ -784,6 +811,85 @@ describe("useChatDispatcher – read-only guard for entity write methods", () =>
     expect(() => result.current.listMilestones()).not.toThrow();
     expect(() => result.current.listStakeholders()).not.toThrow();
     expect(() => result.current.listChanges()).not.toThrow();
+  });
+});
+
+describe("useChatDispatcher – setTaskDependencies", () => {
+  it("writes a valid link: the task's dependencies becomes the applied list", () => {
+    const { result } = renderDispatcher();
+    const res = result.current.setTaskDependencies(1, [{ taskId: 2, type: "FS" }]);
+    expect(res).toMatchObject({
+      id: 1,
+      dependencies: [{ taskId: 2, type: "FS" }],
+      rejected: [],
+    });
+    expect(result.current.getTask(1)?.dependencies).toEqual([{ taskId: 2, type: "FS" }]);
+  });
+
+  it("refuses a wholly-rejected write and preserves the task's existing links (FIX A1)", () => {
+    // Task 1 already depends on task 2 (1 -> 2), so proposing 2 -> 1 on task 2
+    // would close the loop and must be refused. Task 2 ALSO carries an
+    // existing, UNRELATED link to task 3 — that link is the actual subject of
+    // this test: it must SURVIVE a write whose every proposed link is
+    // rejected, not be silently wiped by an unconditional
+    // `dependencies: applied` write. (A prior version of this test seeded
+    // task 2 with NO links at all, so `getTask(2)?.dependencies ?? []` passed
+    // whether the implementation preserved or erased — it never actually
+    // exercised the preserve-on-refusal behaviour.)
+    const seeded = seedTasks().map((t) => {
+      if (t.id === 1) return { ...t, dependencies: [{ taskId: 2, type: "FS" as const }] };
+      if (t.id === 2) return { ...t, dependencies: [{ taskId: 3, type: "FS" as const }] };
+      return t;
+    });
+    const { result } = renderDispatcher(seeded);
+
+    const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+    expect(res).toMatchObject({
+      id: 2,
+      dependencies: [{ taskId: 3, type: "FS" }],
+      rejected: [{ taskId: 1, type: "FS", reason: "cycle" }],
+    });
+    expect(result.current.getTask(2)?.dependencies).toEqual([{ taskId: 3, type: "FS" }]);
+  });
+
+  it("reports every omitted existing link in `removed` when a write only partially replaces the list (FIX A2)", () => {
+    // Task 2 already links to BOTH task 1 and task 3. The model's replacement
+    // list names only task 1 — replace semantics still apply (the omitted
+    // link to task 3 IS removed, "clear all" must keep working), but the
+    // removal must be visible in `removed` instead of vanishing with zero
+    // trace anywhere the transcript shows.
+    const seeded = seedTasks().map((t) =>
+      t.id === 2
+        ? {
+            ...t,
+            dependencies: [
+              { taskId: 1, type: "FS" as const },
+              { taskId: 3, type: "SS" as const },
+            ],
+          }
+        : t,
+    );
+    const { result } = renderDispatcher(seeded);
+
+    const res = result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+    expect(res).toMatchObject({
+      id: 2,
+      dependencies: [{ taskId: 1, type: "FS" }],
+      rejected: [],
+      removed: [{ taskId: 3, type: "SS" }],
+    });
+    expect(result.current.getTask(2)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+  });
+
+  it("throws in a popout (read-only) and writes nothing", () => {
+    const seeded = seedTasks().map((t) =>
+      t.id === 1 ? { ...t, dependencies: [{ taskId: 2, type: "FS" as const }] } : t,
+    );
+    const { result } = renderDispatcher(seeded, true);
+    expect(() =>
+      result.current.setTaskDependencies(1, [{ taskId: 3, type: "FS" }]),
+    ).toThrow();
+    expect(result.current.getTask(1)?.dependencies).toEqual([{ taskId: 2, type: "FS" }]);
   });
 });
 

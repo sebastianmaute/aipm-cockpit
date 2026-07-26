@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.200.0";
-export const APP_BUILD_DATE = "2026-07-25"; // 0.200.0: The overload action opens Open Points filtered to that person, the burn-down x-axis follows the budget bucket chain (with a warning when it is broken), and the status narrative is rich text (Kadrey)
+export const APP_VERSION = "0.201.0";
+export const APP_BUILD_DATE = "2026-07-26"; // 0.201.0: a read-only dashboard-snapshot chat tool, AI-assisted allocation planning with per-cell approval, list_allocations, and set_task_dependencies with cycle protection (Powers)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.200.x line is "Kadrey" (Richard Kadrey, science-fiction author). */
-export const APP_MILESTONE = "Kadrey";
+ *  0.201.x line is "Powers" (Tim Powers, science-fiction/fantasy author). */
+export const APP_MILESTONE = "Powers";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -247,4 +247,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightPolishR1",
   "versionHighlightKanbanSwimlanes",
   "versionHighlightDashboardR3",
+  "versionHighlight0201",
 ] as const;
