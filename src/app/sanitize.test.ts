@@ -489,3 +489,47 @@ describe("sanitizeTimezone", () => {
     expect(sanitizeProjectMeta({ ...validBase, operatingTimezone: "X/Y" })?.operatingTimezone).toBeUndefined();
   });
 });
+
+describe("localModifiedAt from an empty cell", () => {
+  // Every CSV/MD cell decodes to a real "" — never undefined. The old form
+  // (`typeof raw.localModifiedAt === "string" ? raw.localModifiedAt : undefined`)
+  // therefore kept the empty string as a value.
+  //
+  // toBeUndefined() is discriminating here precisely BECAUSE the fixture passes
+  // an explicit "": the old code returns that "", which is not undefined, so
+  // this fails against it. (Note the key itself stays present either way — an
+  // object-literal `x: undefined` still creates the key, so an `in` check would
+  // NOT pass even with the fix. Absence of the key is not what we're asserting.)
+  it("sanitizeAbsence does not keep an empty localModifiedAt as a value", () => {
+    const result = sanitizeAbsence({
+      id: 1, assignee: "Anna", startDate: "2026-06-01", endDate: "2026-06-02",
+      type: "vacation", localModifiedAt: "",
+    });
+    expect(result).not.toBeNull();
+    expect(result!.localModifiedAt).toBeUndefined();
+  });
+
+  it("sanitizeAbsence keeps a real localModifiedAt", () => {
+    const result = sanitizeAbsence({
+      id: 1, assignee: "Anna", startDate: "2026-06-01", endDate: "2026-06-02",
+      type: "vacation", localModifiedAt: "2026-06-01T10:00:00.000Z",
+    });
+    expect(result!.localModifiedAt).toBe("2026-06-01T10:00:00.000Z");
+  });
+
+  it("sanitizeShift does not keep an empty localModifiedAt as a value", () => {
+    const result = sanitizeShift({
+      id: 1, assignee: "Anna", hoursPerWeekday: 8, localModifiedAt: "",
+    });
+    expect(result).not.toBeNull();
+    expect(result!.localModifiedAt).toBeUndefined();
+  });
+
+  it("sanitizeShift keeps a real localModifiedAt", () => {
+    const result = sanitizeShift({
+      id: 1, assignee: "Anna", hoursPerWeekday: 8,
+      localModifiedAt: "2026-06-01T10:00:00.000Z",
+    });
+    expect(result!.localModifiedAt).toBe("2026-06-01T10:00:00.000Z");
+  });
+});
