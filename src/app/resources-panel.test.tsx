@@ -594,6 +594,33 @@ test("calendar folds a stale-cache linked task under its live resource row, not 
   expect(screen.queryByRole("button", { name: "Old Name" })).toBeNull();
 });
 
+test("calendar cell becomes draggable only when onMoveAbsence is supplied and not popout — proves the drag caller chain reaches the grid", () => {
+  // R5 S2: task-manager.tsx builds the real handler and workspace-section.tsx
+  // forwards it as this panel's onMoveAbsence prop. Before that wiring landed,
+  // the prop was always undefined here and the grid was permanently
+  // non-draggable — this pins that the real chain now makes it live.
+  const absence = { id: 42, assignee: "Alex Example", assigneeEmail: "", startDate: "2026-06-15", endDate: "2026-06-15", type: "vacation" as const };
+  const onMoveAbsence = vi.fn();
+
+  const { rerender } = render(
+    <ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" absences={[absence]} />,
+  );
+  const absenceCell = () => screen.getByTitle(/vacation/i) as HTMLButtonElement;
+  // Baseline (no onMoveAbsence wired, e.g. before task-manager built it): not draggable.
+  expect(absenceCell().draggable).toBe(false);
+
+  rerender(
+    <ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" absences={[absence]} onMoveAbsence={onMoveAbsence} />,
+  );
+  expect(absenceCell().draggable).toBe(true);
+
+  rerender(
+    <ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" absences={[absence]} onMoveAbsence={onMoveAbsence} isPopout />,
+  );
+  // The panel's own isPopout gate wins even when a real handler is supplied.
+  expect(absenceCell().draggable).toBe(false);
+});
+
 test("resources-panel: no view SegmentedControl, no roles/report/add-absence buttons; resizable", () => {
   const src = readFileSync(join(__dirname, "resources-panel.tsx"), "utf8");
   expect(src).not.toMatch(/onManageRoles/);

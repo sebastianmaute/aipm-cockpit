@@ -128,6 +128,7 @@ export function WorkspaceSection({
   handleClearActivityLog,
   handleOpenAddAbsence,
   handleEditAbsence,
+  handleMoveAbsence,
   handleOpenShiftEditor,
   manageRolesView,
   onAssignRoleById,
@@ -516,6 +517,7 @@ export function WorkspaceSection({
               holidaySet={holidaySet}
               onAddAbsence={handleOpenAddAbsence}
               onEditAbsence={handleEditAbsence}
+              onMoveAbsence={handleMoveAbsence}
               onEditShift={handleOpenShiftEditor}
               roles={roles}
               disciplines={disciplines}

@@ -76,6 +76,7 @@ import { buildShellChrome } from "./shell-chrome";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { UndoControl, RedoControl } from "./undo/undo-control";
+import { buildMoveAbsenceHandler } from "./absence-move-handler";
 import { RolesPanel } from "./roles-panel";
 import { rematerializeDayBasisRoles } from "./role-rates";
 import { getUpcomingBirthdays } from "./birthdays";
@@ -2169,6 +2170,10 @@ function TaskManagerInner() {
     handleClearActivityLog: guardEdit(handleClearActivityLog),
     handleOpenAddAbsence: guardEdit(handleOpenAddAbsence),
     handleEditAbsence: guardEdit(handleEditAbsence),
+    // Absence drag-move/resize/reassign on the Resources → Calendar grid (R5
+    // S2) — see absence-move-handler.ts for why undo capture lives there and
+    // not inside handleSaveAbsence.
+    handleMoveAbsence: guardEdit(buildMoveAbsenceHandler(absences, setAbsences, undoApi.captureFieldEdit, handleSaveAbsence)),
     handleOpenShiftEditor: guardEdit(handleOpenShiftEditor),
     manageRolesView: (
       <RolesPanel

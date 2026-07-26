@@ -173,6 +173,9 @@ export interface WorkspaceSectionProps {
   handleClearActivityLog: () => void;
   handleOpenAddAbsence: (seed?: Partial<Absence>) => void;
   handleEditAbsence: (absence: Absence) => void;
+  /** Commit a drag/resize/reassign on the Resources → Calendar grid (R5 S2).
+   *  Threaded straight into `<ResourcesPanel>`'s `onMoveAbsence`. */
+  handleMoveAbsence?: (id: number, patch: Partial<Absence>, kind: "move" | "reassign" | "resize") => void;
   handleOpenShiftEditor: (
     existingShift: Shift | null,
     assignee: { display: string; email: string },
