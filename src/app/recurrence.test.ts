@@ -58,6 +58,24 @@ describe("expandOccurrences", () => {
     expect(dates(fourth, "2026-01-01", "2026-01-31")).toEqual(["2026-01-23"]);
   });
 
+  it("does not let a skipped byMonthDay month consume a count slot", () => {
+    // Feb and Apr have no 31st. With count:2, the two counted occurrences must
+    // be Jan31 and Mar31 — Feb/Apr contribute nothing and must not eat a slot
+    // that a later valid month would otherwise fill.
+    const e = { ...base, startDate: "2026-01-31",
+      recurrence: { freq: "monthly" as const, interval: 1, byMonthDay: 31, count: 2 } };
+    expect(dates(e, "2026-01-01", "2026-12-31")).toEqual(["2026-01-31", "2026-03-31"]);
+  });
+
+  it("expands monthly nth-weekday with interval > 1, skipping intermediate months", () => {
+    // 1st Monday of each month, every OTHER month, starting January 2026:
+    // Jan 5, Mar 2, May 4 — 2026-02-02 and 2026-04-06 are also 1st Mondays but
+    // must be skipped because the interval steps past those months entirely.
+    const e = { ...base, startDate: "2026-01-05",
+      recurrence: { freq: "monthly" as const, interval: 2, byDay: { ordinal: 1 as const, day: "MO" as const } } };
+    expect(dates(e, "2026-01-01", "2026-06-30")).toEqual(["2026-01-05", "2026-03-02", "2026-05-04"]);
+  });
+
   it("stops at until, inclusive", () => {
     const e = { ...base, recurrence: { freq: "weekly" as const, interval: 1, until: "2026-08-10" } };
     expect(dates(e, "2026-07-01", "2026-12-31")).toEqual(["2026-07-27", "2026-08-03", "2026-08-10"]);
