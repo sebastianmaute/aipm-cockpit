@@ -150,6 +150,21 @@ describe("expandOccurrences", () => {
     expect(out.occurrences).toHaveLength(MAX_OCCURRENCES);
   });
 
+  it("truncates via the iteration cap — not the output cap — when a series is old and the window is far away and narrow", () => {
+    // seriesStart 1970-01-01 to genEnd (windowEnd + the 366-day move buffer) is
+    // 20,821 days — past MAX_ITERATIONS (20,000) — while the window itself
+    // only opens at day 20,454. The daily walk exhausts its iteration budget
+    // roughly 454 days BEFORE it ever reaches the window, so `occurrences` is
+    // EMPTY even though `truncated` is true: proof the flag can't be inferred
+    // from an empty/short array, and that this cap (distinct from
+    // MAX_OCCURRENCES, which never engages here since nothing gets pushed) is
+    // real and reachable, not dead code.
+    const e = { ...base, startDate: "1970-01-01", recurrence: { freq: "daily" as const, interval: 1 } };
+    const out = expandOccurrences(e, "2026-01-01", "2026-01-02");
+    expect(out.truncated).toBe(true);
+    expect(out.occurrences).toEqual([]);
+  });
+
   it("returns an empty, non-throwing result for a malformed window", () => {
     expect(expandOccurrences(base, "garbage", "2026-08-01")).toEqual({ occurrences: [], truncated: false });
     expect(expandOccurrences(base, "2026-08-01", "2026-07-01")).toEqual({ occurrences: [], truncated: false });

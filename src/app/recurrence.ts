@@ -11,7 +11,7 @@
 
 import { WEEKDAYS } from "./calendar-event";
 import type { CalendarEvent, EventException, RecurrenceRule, Weekday } from "./calendar-event";
-import { iso, parseUtc } from "./calendar-window";
+import { addDays, iso, parseUtc } from "./calendar-window";
 
 export interface Occurrence {
   eventId: number;
@@ -55,12 +55,6 @@ const GENERATION_BUFFER_DAYS = 366;
  *  above is reached. */
 const MAX_ITERATIONS = 20_000;
 
-const MS_PER_DAY = 86_400_000;
-
-function addDays(d: Date, n: number): Date {
-  return new Date(d.getTime() + n * MS_PER_DAY);
-}
-
 /** Mon=0 .. Sun=6, matching WEEKDAYS' own order. */
 function weekdayIndex(d: Date): number {
   return (d.getUTCDay() + 6) % 7;
@@ -93,7 +87,16 @@ type MonthlyRule = Extract<RecurrenceRule, { freq: "monthly" }>;
 /** The candidate date for one calendar month under a monthly rule, or null
  *  when byMonthDay names a day that month doesn't have (e.g. the 31st in
  *  April) — SKIPPED, never clamped to the month's last day; clamping would
- *  invent an occurrence on a date the user never chose. */
+ *  invent an occurrence on a date the user never chose.
+ *
+ *  A null candidate never reaches `sink` (see its per-month call site below),
+ *  so — unlike a skip EXCEPTION (handled in `sink`, see its COUNT comment) —
+ *  it never consumes a COUNT slot either. The two are easy to read as
+ *  contradictory in isolation but model different RFC 5545 concepts: COUNT
+ *  bounds what the rule's own generation algorithm produces (a month with no
+ *  31st never produces a candidate, so nothing here to spend a slot on), while
+ *  EXDATE/skip removes an occurrence the rule DID validly generate (so by the
+ *  time a skip exception is checked, that slot is already spent). */
 function monthlyCandidate(year: number, monthIndex0: number, rule: MonthlyRule): Date | null {
   if (rule.byDay) return nthWeekdayOfMonth(year, monthIndex0, rule.byDay.day, rule.byDay.ordinal);
   const dom = rule.byMonthDay ?? 1;
@@ -114,9 +117,18 @@ function stepDaysLoop(seriesStart: Date, stepDays: number, genEnd: Date, sink: S
 }
 
 /** Weekly with an explicit byDay set: walk week by week (Monday-start, to
- *  match WEEKDAYS), only processing weeks whose offset from the series'
- *  own week is a multiple of `interval`, emitting each selected weekday in
- *  ascending (Mon..Sun) order within that week. */
+ *  match WEEKDAYS), processing only weeks whose offset from the series' own
+ *  week is a multiple of `interval` — reached by stepping the outer loop BY
+ *  `interval` weeks directly (mirroring monthlyLoop's own `+= rule.interval`
+ *  stepping), not by stepping by 1 and filtering. An interval-skipped week is
+ *  therefore never visited at all, rather than visited-but-ignored: every
+ *  outer pass reaches `sink` (for byDay's >=1 selected weekday), so this
+ *  loop is bounded the same way stepDaysLoop and monthlyLoop already are —
+ *  a step-by-1-and-filter design would let a large `interval` (clamped up to
+ *  52) run far more outer passes than MAX_ITERATIONS implies before an old
+ *  seriesStart + a narrow far-future window reaches genEnd, since a filtered
+ *  week never reaches `sink` to count against that cap. Emits each selected
+ *  weekday in ascending (Mon..Sun) order within a processed week. */
 function weeklyByDayLoop(
   seriesStart: Date, interval: number, byDay: readonly Weekday[], genEnd: Date, sink: Sink,
 ): void {
@@ -126,14 +138,12 @@ function weeklyByDayLoop(
   for (;;) {
     const weekStart = addDays(startWeekMonday, weekOffset * 7);
     if (weekStart.getTime() > genEnd.getTime()) return;
-    if (weekOffset % interval === 0) {
-      for (const d of sortedDays) {
-        const candidate = addDays(weekStart, WEEKDAYS.indexOf(d));
-        if (candidate.getTime() < seriesStart.getTime() || candidate.getTime() > genEnd.getTime()) continue;
-        if (sink(candidate) === "stop") return;
-      }
+    for (const d of sortedDays) {
+      const candidate = addDays(weekStart, WEEKDAYS.indexOf(d));
+      if (candidate.getTime() < seriesStart.getTime() || candidate.getTime() > genEnd.getTime()) continue;
+      if (sink(candidate) === "stop") return;
     }
-    weekOffset += 1;
+    weekOffset += interval;
   }
 }
 
@@ -202,7 +212,8 @@ export function expandOccurrences(event: CalendarEvent, windowStart: string, win
 
     // COUNT limits the RULE's own generation, evaluated before exceptions —
     // a skip/move exception does not free up another slot (mirrors iCalendar
-    // COUNT vs EXDATE semantics).
+    // COUNT vs EXDATE semantics; see monthlyCandidate's doc comment for how
+    // this relates to a byMonthDay month producing no candidate at all).
     if (rule?.count !== undefined && generatedCount >= rule.count) return "stop";
     generatedCount += 1;
 
