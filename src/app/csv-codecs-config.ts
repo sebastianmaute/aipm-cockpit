@@ -24,6 +24,7 @@ import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-vis
 import {
   CSV_SECTION_ABSENCES,
   CSV_SECTION_BUDGETS,
+  CSV_SECTION_CALENDAR_EVENTS,
   CSV_SECTION_CHANGES,
   CSV_SECTION_DISCIPLINES,
   CSV_SECTION_FIELD_VIS,
@@ -45,6 +46,7 @@ import {
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
+  calendarEventsToCsv,
   changesToCsv,
   csvCellEscape,
   fxRatesToCsvLine,
@@ -507,6 +509,17 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   if (!config || config.tasks) csvPush(CSV_SECTION_TASKS, tasksToCsv(ws.tasks, neutralize));
   if (enabled("raid") && ws.raid.length > 0) csvPush(CSV_SECTION_RAID, raidToCsv(ws.raid, neutralize));
   if (enabled("absences") && ws.absences.length > 0) csvPush(CSV_SECTION_ABSENCES, absencesToCsv(ws.absences, neutralize));
+  // Calendar events — storage-only gate (config === undefined), the same
+  // pattern steering/timelog/settingsOverrides use below: omitted from
+  // document exports, always present on the storage round-trip.
+  // `calendarEvents` is deliberately NOT (yet) an `ExportSectionKey` member —
+  // doing so cascades into the exhaustive `Record<ExportSectionKey, …>` maps
+  // in export-sections.ts (PDF builders) and settings-sections/export-section.tsx
+  // (checkbox labels, which need a new i18n key in both i18n.ts and
+  // i18n.de.ts). That's a real UI feature, not a mechanical column add, so it
+  // was left out of this CSV/Turso-scoped task rather than forced through.
+  if (config === undefined && ws.calendarEvents && ws.calendarEvents.length > 0)
+    csvPush(CSV_SECTION_CALENDAR_EVENTS, calendarEventsToCsv(ws.calendarEvents, neutralize));
   if (enabled("shifts") && ws.shifts.length > 0) csvPush(CSV_SECTION_SHIFTS, shiftsToCsv(ws.shifts, neutralize));
   if (config === undefined) {
     // Storage-only sections — omitted from document exports.

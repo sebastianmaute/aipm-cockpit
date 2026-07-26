@@ -40,6 +40,7 @@ import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import type { CalendarEvent } from "./calendar-event";
 import {
   type Absence,
   type BudgetBucket,
@@ -124,6 +125,12 @@ export type Workspace = {
    *  timezone) that travel WITH the project. Optional & additive: undefined
    *  serializes to nothing (byte-stable). Sanitized by sanitizeSettingsOverrides. */
   settingsOverrides?: Readonly<SettingsOverrides>;
+  /** Resource-calendar timed events (optionally recurring). Optional & additive:
+   *  undefined/empty serializes to nothing (byte-stable). Field declaration
+   *  only — load/save wiring (JSON/IndexedDB/app state) lands in a later task;
+   *  this task wires CSV + Turso persistence via ENTITY_SPECS. Sanitized by
+   *  sanitizeCalendarEvent. */
+  calendarEvents?: readonly CalendarEvent[];
 };
 
 const SCHEMA_VERSION = 11;
