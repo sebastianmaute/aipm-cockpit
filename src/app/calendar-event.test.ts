@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   sanitizeCalendarEvent, encodeRecurrence, decodeRecurrence,
   encodeExceptions, decodeExceptions, encodeAttendees, decodeAttendees,
+  applyOccurrenceMove,
 } from "./calendar-event";
-import type { RecurrenceRule } from "./calendar-event";
+import type { CalendarEvent, RecurrenceRule } from "./calendar-event";
 
 const base = { id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15 };
 
@@ -167,5 +168,70 @@ describe("JSON-in-cell codecs", () => {
 
   it("filters a malformed attendee cell down to the valid positive integers", () => {
     expect(decodeAttendees("abc|def|-1|0|5")).toEqual([5]);
+  });
+});
+
+describe("applyOccurrenceMove", () => {
+  const recurring: CalendarEvent = {
+    ...base,
+    recurrence: { freq: "weekly", interval: 1, byDay: ["MO"] },
+  };
+
+  it("records a move exception on a recurring series, leaving startDate and recurrence untouched", () => {
+    const out = applyOccurrenceMove(recurring, "2026-08-03", "2026-08-05");
+    expect(out.startDate).toBe(recurring.startDate);
+    expect(out.recurrence).toEqual(recurring.recurrence);
+    expect(out.exceptions).toEqual([{ date: "2026-08-03", kind: "move", toDate: "2026-08-05" }]);
+  });
+
+  it("moving the same occurrence twice replaces the exception rather than appending a second one", () => {
+    const oncemoved = applyOccurrenceMove(recurring, "2026-08-03", "2026-08-05");
+    const twicemoved = applyOccurrenceMove(oncemoved, "2026-08-03", "2026-08-07");
+    expect(twicemoved.exceptions).toEqual([{ date: "2026-08-03", kind: "move", toDate: "2026-08-07" }]);
+  });
+
+  it("a non-recurring event has startDate rewritten and gains NO exceptions", () => {
+    const nonRecurring: CalendarEvent = { ...base }; // no recurrence
+    const out = applyOccurrenceMove(nonRecurring, nonRecurring.startDate, "2026-08-05");
+    expect(out.startDate).toBe("2026-08-05");
+    expect(out.exceptions).toBeUndefined();
+  });
+
+  it("a no-op move (originalDate === toDate) returns the event unchanged, by reference", () => {
+    const out = applyOccurrenceMove(recurring, "2026-08-03", "2026-08-03");
+    expect(out).toBe(recurring);
+  });
+
+  it("keeps exceptions sorted ascending by date when the new one sorts before an existing one", () => {
+    const withLaterException: CalendarEvent = {
+      ...recurring,
+      exceptions: [{ date: "2026-08-10", kind: "skip" }],
+    };
+    const out = applyOccurrenceMove(withLaterException, "2026-08-01", "2026-08-02");
+    expect(out.exceptions).toEqual([
+      { date: "2026-08-01", kind: "move", toDate: "2026-08-02" },
+      { date: "2026-08-10", kind: "skip" },
+    ]);
+  });
+
+  it("keyed by originalDate (the date the RULE produced), not the moved-to date — moving the already-relocated occurrence again still targets the original slot", () => {
+    const oncemoved = applyOccurrenceMove(recurring, "2026-08-03", "2026-08-05");
+    // A caller that (incorrectly) keyed off the rendered date would pass
+    // "2026-08-05" here instead of the true originalDate "2026-08-03".
+    const movedAgain = applyOccurrenceMove(oncemoved, "2026-08-03", "2026-08-09");
+    expect(movedAgain.exceptions).toEqual([{ date: "2026-08-03", kind: "move", toDate: "2026-08-09" }]);
+  });
+
+  it("the result still satisfies sanitizeCalendarEvent unchanged (feeding it back through is a no-op)", () => {
+    const withLaterException: CalendarEvent = {
+      ...recurring,
+      exceptions: [{ date: "2026-08-10", kind: "skip" }],
+    };
+    const moved = applyOccurrenceMove(withLaterException, "2026-08-01", "2026-08-02");
+    expect(sanitizeCalendarEvent(moved)).toEqual(moved);
+
+    const nonRecurring: CalendarEvent = { ...base };
+    const movedNonRecurring = applyOccurrenceMove(nonRecurring, nonRecurring.startDate, "2026-08-05");
+    expect(sanitizeCalendarEvent(movedNonRecurring)).toEqual(movedNonRecurring);
   });
 });

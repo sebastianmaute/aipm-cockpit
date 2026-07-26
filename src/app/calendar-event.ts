@@ -216,3 +216,45 @@ export function decodeAttendees(cell: string): number[] | undefined {
   const out = cell.split("|").map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0);
   return out.length ? out : undefined;
 }
+
+// --- Occurrence drag (band) ---------------------------------------------
+
+/**
+ * Applies a user drag of ONE occurrence to a new date. A RECURRING series
+ * records a `move` exception, so the rule keeps producing every other
+ * occurrence unchanged and only this one relocates. A NON-RECURRING event
+ * has its `startDate` rewritten directly instead — an exception on a
+ * one-occurrence event would be a second source of truth for the same date
+ * (the exception and `startDate` could then disagree about when the meeting
+ * is), so recurrence-less events skip the exception path entirely.
+ *
+ * ★★ `originalDate` MUST be the date the recurrence RULE produced for this
+ * occurrence (`Occurrence.originalDate`), never whatever date is currently
+ * RENDERED for it. Moving an already-moved occurrence again passes the SAME
+ * `originalDate` both times, which is what lets this REPLACE the existing
+ * exception instead of minting a second, contradictory one for the same
+ * slot — key off the rendered date instead and the series quietly
+ * accumulates two exceptions that both claim to explain the same occurrence.
+ *
+ * A no-op move (`originalDate === toDate`) returns `event` BY REFERENCE
+ * unchanged, so a caller can cheaply detect "nothing happened" with `===`.
+ *
+ * Exceptions come out sorted ascending by date — the same invariant
+ * `sanitizeExceptions` enforces — so re-sanitizing the result is a no-op.
+ */
+export function applyOccurrenceMove(
+  event: CalendarEvent,
+  originalDate: string,
+  toDate: string,
+): CalendarEvent {
+  if (originalDate === toDate) return event;
+
+  if (!event.recurrence) {
+    return { ...event, startDate: toDate };
+  }
+
+  const moved: EventException = { date: originalDate, kind: "move", toDate };
+  const exceptions = [...(event.exceptions ?? []).filter((e) => e.date !== originalDate), moved]
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return { ...event, exceptions };
+}
