@@ -1524,6 +1524,7 @@ const enUS = {
   calendarResizeEnd: "Change end date",
   calendarMoveModeOn: "Move mode: arrows reschedule, Enter confirms, Escape cancels",
   calendarMoveModeCancelled: "Move cancelled",
+  calendarResizeModeOn: "Resize mode: Alt+Shift+arrows adjust the end date, Enter confirms, Escape cancels",
   calendarUndoMoveLabel: "{0} — moved",
   calendarUndoReassignLabel: "{0} — reassigned",
   calendarUndoResizeLabel: "{0} — resized",

@@ -1518,6 +1518,7 @@ export const de: Record<TranslationKey, string> = {
   calendarResizeEnd: "Enddatum ändern",
   calendarMoveModeOn: "Verschiebemodus: Pfeiltasten verschieben, Enter bestätigt, Escape bricht ab",
   calendarMoveModeCancelled: "Verschieben abgebrochen",
+  calendarResizeModeOn: "Größenänderungsmodus: Alt+Umschalt+Pfeiltasten ändern das Enddatum, Enter bestätigt, Escape bricht ab",
   calendarUndoMoveLabel: "{0} – verschoben",
   calendarUndoReassignLabel: "{0} – neu zugewiesen",
   calendarUndoResizeLabel: "{0} – Größe geändert",

@@ -194,7 +194,20 @@ export function CalendarRows({
                       });
                       if (result) onMoveAbsence(moving.id, result.patch, result.kind);
                     }}
-                    onDragEnd={() => { dragRef.current = null; }}
+                    onDragEnd={() => {
+                      dragRef.current = null;
+                      // Native HTML5 drag-and-drop never dispatches a click
+                      // after a drop (unlike the mouse-drag model gantt uses)
+                      // — so nothing else was ever going to clear this flag.
+                      // Left set, it silently swallowed the NEXT unrelated
+                      // click anywhere on the grid, not a spurious one from
+                      // this gesture. dragend reliably fires at the end of
+                      // every gesture (completed or abandoned), so clearing
+                      // it here closes that window without weakening
+                      // whatever protection this offers during the gesture
+                      // itself.
+                      suppressClickRef.current = false;
+                    }}
                     tabIndex={rowIndex === focusRow && colIndex === focusCol ? 0 : -1}
                     onClick={() => {
                       if (suppressClickRef.current) { suppressClickRef.current = false; return; }

@@ -104,9 +104,17 @@ function ResourceCalendarInner({
       out.push({
         iso,
         dayOfMonth: d.getUTCDate(),
-        weekdayLabel: d.toLocaleDateString(loc, { weekday: "short" }),
+        // Every sibling field here is UTC (getUTCDate/getUTCDay,
+        // isoWeekParts) — these two MUST be too, via an explicit
+        // timeZone:"UTC", or toLocaleDateString silently falls back to the
+        // browser/runtime's LOCAL zone. In any negative UTC offset (e.g.
+        // America/New_York) that renders the PREVIOUS calendar day's label
+        // while the day number and weekend/holiday shading beneath it stay
+        // correctly on the UTC date — a labelled Sunday sitting on top of an
+        // unshaded Monday.
+        weekdayLabel: d.toLocaleDateString(loc, { weekday: "short", timeZone: "UTC" }),
         isoWeek: isoWeekParts(d).week,
-        monthLabel: monthChange ? d.toLocaleDateString(loc, { month: "short" }) : "",
+        monthLabel: monthChange ? d.toLocaleDateString(loc, { month: "short", timeZone: "UTC" }) : "",
         isWeekend: dow === 0 || dow === 6,
         isHoliday: holidaySet.has(iso),
         isToday: iso === today,
@@ -150,11 +158,14 @@ function ResourceCalendarInner({
   // ignored — otherwise every drag also opens the absence editor.
   const suppressClickRef = useRef(false);
 
-  // A keyboard move in progress (Alt+Arrow armed it). Committing only on
-  // Enter is deliberate: one undo entry per intent, not one per arrow press —
-  // mirrors the drag-drop path (Task 5b).
+  // A keyboard move (or resize) in progress (Alt+Arrow / Alt+Shift+Arrow
+  // armed it). Committing only on Enter is deliberate: one undo entry per
+  // intent, not one per arrow press — mirrors the drag-drop path (Task 5b).
+  // `kind` distinguishes the two gestures so Enter can route to the right
+  // resolveCalendarDrag mode and the arrow handler can reject the axis the
+  // active gesture doesn't use (resize never changes row).
   const [pendingMove, setPendingMove] = useState<
-    { absenceId: number; dayDelta: number; rowDelta: number } | null
+    { absenceId: number; dayDelta: number; rowDelta: number; kind: "move" | "resize" } | null
   >(null);
   // Drives the aria-live announcement's "Move cancelled" flash after Escape;
   // cleared as soon as a fresh move starts so a stale cancellation can't
@@ -198,44 +209,90 @@ function ResourceCalendarInner({
       if (e.key === "Enter") {
         e.preventDefault();
         const moving = absences.find((a) => a.id === pendingMove.absenceId);
-        const originRow = visibleRows[focusRow];
-        const targetIndex = Math.min(Math.max(focusRow + pendingMove.rowDelta, 0), Math.max(rowCount - 1, 0));
-        const targetRow = visibleRows[targetIndex];
-        if (moving && originRow && targetRow && onMoveAbsence) {
-          const result = resolveCalendarDrag({
-            absence: moving,
-            grabbedDate: moving.startDate,
-            dropDate: addIsoDays(moving.startDate, pendingMove.dayDelta),
-            mode: "move",
-            target: targetRow.key === originRow.key
-              ? { kind: "same-row" }
-              : {
-                  kind: "other-row",
-                  rowKey: targetRow.key,
-                  row: { display: targetRow.display, email: targetRow.email, resource: resourceFor(targetRow.key) },
-                },
-          });
-          if (result) onMoveAbsence(moving.id, result.patch, result.kind);
+        if (moving && onMoveAbsence) {
+          if (pendingMove.kind === "resize") {
+            // Resize never changes row — `target` is unread by the
+            // resize-end branch of resolveCalendarDrag, so a same-row
+            // placeholder is correct, not a stand-in for a real target.
+            const result = resolveCalendarDrag({
+              absence: moving,
+              grabbedDate: moving.endDate,
+              dropDate: addIsoDays(moving.endDate, pendingMove.dayDelta),
+              mode: "resize-end",
+              target: { kind: "same-row" },
+            });
+            if (result) onMoveAbsence(moving.id, result.patch, result.kind);
+          } else {
+            const originRow = visibleRows[focusRow];
+            const targetIndex = Math.min(Math.max(focusRow + pendingMove.rowDelta, 0), Math.max(rowCount - 1, 0));
+            const targetRow = visibleRows[targetIndex];
+            if (originRow && targetRow) {
+              const result = resolveCalendarDrag({
+                absence: moving,
+                grabbedDate: moving.startDate,
+                dropDate: addIsoDays(moving.startDate, pendingMove.dayDelta),
+                mode: "move",
+                target: targetRow.key === originRow.key
+                  ? { kind: "same-row" }
+                  : {
+                      kind: "other-row",
+                      rowKey: targetRow.key,
+                      row: { display: targetRow.display, email: targetRow.email, resource: resourceFor(targetRow.key) },
+                    },
+              });
+              if (result) onMoveAbsence(moving.id, result.patch, result.kind);
+            }
+          }
         }
         setPendingMove(null);
         return;
       }
-      if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      if (pendingMove.kind === "resize") {
+        // Resize only ever adjusts the end date — no row axis, and only the
+        // left/right keys mean anything for it (up/down are silently
+        // ignored rather than falling through, same as move's unhandled keys).
+        if (e.altKey && e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+          e.preventDefault();
+          setPendingMove((p) => p && ({
+            ...p,
+            dayDelta: p.dayDelta + (e.key === "ArrowLeft" ? -1 : 1),
+          }));
+        }
+      } else if (e.altKey && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
         e.preventDefault();
-        setPendingMove((p) => p && {
+        setPendingMove((p) => p && ({
           ...p,
           dayDelta: p.dayDelta + (e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0),
           rowDelta: p.rowDelta + (e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0),
-        });
+        }));
       }
       return;
     }
 
-    // No move pending: Alt+Arrow on a cell that HOLDS an absence enters move
-    // mode, seeded with that keypress's own delta (the same press both
-    // starts the mode and previews its first step). A cell with no absence
-    // falls through untouched to the existing roving behaviour below.
-    if (onMoveAbsence && e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+    // No move/resize pending: Alt+Shift+Left/Right on a cell that HOLDS an
+    // absence enters RESIZE mode (checked first — Alt+Shift+Arrow must never
+    // fall into the plain Alt+Arrow move-entry below it). Plain Alt+Arrow (no
+    // Shift) on such a cell enters MOVE mode, seeded with that keypress's own
+    // delta (the same press both starts the mode and previews its first
+    // step). A cell with no absence falls through untouched to the existing
+    // roving behaviour below.
+    if (onMoveAbsence && e.altKey && e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      const originRow = visibleRows[focusRow];
+      const originDay = days[focusCol];
+      const hit = originRow && originDay ? hitFor(originRow.key, originDay.iso) : undefined;
+      if (hit) {
+        e.preventDefault();
+        setJustCancelled(false);
+        setPendingMove({
+          absenceId: hit.id,
+          dayDelta: e.key === "ArrowLeft" ? -1 : 1,
+          rowDelta: 0,
+          kind: "resize",
+        });
+        return;
+      }
+    }
+    if (onMoveAbsence && e.altKey && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
       const originRow = visibleRows[focusRow];
       const originDay = days[focusCol];
       const hit = originRow && originDay ? hitFor(originRow.key, originDay.iso) : undefined;
@@ -246,6 +303,7 @@ function ResourceCalendarInner({
           absenceId: hit.id,
           dayDelta: e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0,
           rowDelta: e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0,
+          kind: "move",
         });
         return;
       }
@@ -339,12 +397,24 @@ function ResourceCalendarInner({
   // it (a moved occurrence can land outside the window it was fetched for),
   // sort by date then time, then lane-pack. The window bounds are already
   // props — no clock read here, matching expandOccurrences' own purity rule.
-  const lanes = useMemo<Occurrence[][]>(() => {
+  // `bandTruncated`: true when ANY event's expansion hit its own iteration
+  // cap before covering the window — reachable for a series whose
+  // `startDate` is far in the past (generation always starts there). An
+  // empty band must not look identical to "no meetings": the truncated flag
+  // is threaded to <CalendarBand> so it can say so, rather than silently
+  // rendering nothing (a "renders nothing after March" bug that looks like
+  // an empty series, the exact failure this is meant to rule out).
+  const { lanes, bandTruncated } = useMemo(() => {
+    let truncated = false;
     const all = (calendarEvents ?? [])
-      .flatMap((e) => expandOccurrences(e, startDate, endDate).occurrences)
+      .flatMap((e) => {
+        const result = expandOccurrences(e, startDate, endDate);
+        if (result.truncated) truncated = true;
+        return result.occurrences;
+      })
       .filter((o) => o.date >= startDate && o.date <= endDate)
       .sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : (a.date < b.date ? -1 : 1)));
-    return packOccurrenceLanes(all);
+    return { lanes: packOccurrenceLanes(all), bandTruncated: truncated };
   }, [calendarEvents, startDate, endDate]);
 
   return (
@@ -425,6 +495,7 @@ function ResourceCalendarInner({
               eventsById={eventsById}
               onEditEvent={onEditEvent}
               onMoveOccurrence={onMoveOccurrence}
+              truncated={bandTruncated}
             />
           ) : null}
           <CalendarRows
@@ -451,7 +522,7 @@ function ResourceCalendarInner({
           is active (or was just cancelled) — visually silent by design. */}
       <div aria-live="polite" className="sr-only">
         {pendingMove
-          ? t(lang, "calendarMoveModeOn")
+          ? t(lang, pendingMove.kind === "resize" ? "calendarResizeModeOn" : "calendarMoveModeOn")
           : justCancelled
             ? t(lang, "calendarMoveModeCancelled")
             : ""}

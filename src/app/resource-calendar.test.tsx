@@ -2,6 +2,7 @@ import { describe, test, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourceCalendar } from "./resource-calendar";
 import { isoWeekParts } from "./resource-capacity";
+import { t } from "./i18n";
 import type { Resource } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 
@@ -194,6 +195,45 @@ it("renders a weekday label above each day number", () => {
   expect(screen.getByText("Tue")).toBeInTheDocument();
 });
 
+it("labels the weekday correctly under a negative UTC offset, matching the UTC day number beneath it", () => {
+  // Every sibling field on CalendarDay (dayOfMonth, isoWeek, isWeekend via
+  // getUTCDay) is UTC. Without an explicit timeZone, toLocaleDateString
+  // falls back to the process's LOCAL zone — invisible in a positive-offset
+  // or UTC dev/CI environment, but in a negative offset (e.g. America/New_
+  // York, UTC-4 in July) 2026-07-27T00:00:00Z's LOCAL calendar day is still
+  // 2026-07-26 — a day early. Pin the zone explicitly rather than relying on
+  // whatever the test runner's system zone happens to be, or this would
+  // keep passing regardless of whether the fix is present.
+  const originalTz = process.env.TZ;
+  process.env.TZ = "America/New_York";
+  try {
+    render(
+      <ResourceCalendar
+        lang="en-US"
+        rows={[{ key: "anna", display: "Anna", email: "" }]}
+        absences={[]}
+        today="2026-07-27"
+        holidaySet={new Set()}
+        onAddAbsence={() => {}}
+        onEditAbsence={() => {}}
+        resources={[]}
+        onEditResource={() => {}}
+        onAddResource={() => {}}
+        startDate="2026-07-27"
+        endDate="2026-07-27"
+      />,
+    );
+    // 2026-07-27 is a UTC Monday — the number "27" and (via isWeekend) the
+    // absence of weekend shading both already reflect that. The label must
+    // say "Mon" too, not "Sun" (America/New_York's local calendar day for
+    // this same UTC instant).
+    expect(screen.getByText("Mon")).toBeInTheDocument();
+    expect(screen.queryByText("Sun")).not.toBeInTheDocument();
+  } finally {
+    if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz;
+  }
+});
+
 it("does not hijack arrow keys from the assignee row-header button (#27)", () => {
   const { container } = render(
     <ResourceCalendar
@@ -295,6 +335,48 @@ it("does not open the absence editor when a drag ends on the same cell", () => {
   fireEvent.click(btn);
   expect(onMoveAbsence).not.toHaveBeenCalled();
   expect(onEditAbsence).not.toHaveBeenCalled();
+});
+
+it("does not swallow a later click on a DIFFERENT cell after a completed drag (the real browser sequence — no click ever follows a drop)", () => {
+  // The test above fires drop then click on the SAME element — a sequence
+  // that pins the intent but that native HTML5 drag-and-drop never actually
+  // produces (unlike the mouse-drag model gantt uses, DnD dispatches no
+  // click after a drop at all). This test models the REAL sequence —
+  // dragstart -> drop -> dragend, then a later, genuinely separate click on
+  // an UNRELATED cell — which is exactly how the leak manifested: every
+  // drag armed suppressClickRef and nothing ever cleared it, so the NEXT
+  // real interaction anywhere on the grid was silently swallowed.
+  const onAddAbsence = vi.fn();
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={onAddAbsence}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const cells = screen.getAllByRole("gridcell");
+  const dragged = cells[0].querySelector("button")!; // 07-27, holds the absence
+  const other = cells[1].querySelector("button")!; // 07-28, empty
+  const dt = { data: {} as Record<string, string>,
+    setData(k: string, v: string) { this.data[k] = v; },
+    getData(k: string) { return this.data[k] ?? ""; },
+    effectAllowed: "", dropEffect: "" };
+  fireEvent.dragStart(dragged, { dataTransfer: dt });
+  fireEvent.drop(dragged, { dataTransfer: dt });
+  fireEvent.dragEnd(dragged);
+  fireEvent.click(other);
+  expect(onAddAbsence).toHaveBeenCalledTimes(1);
 });
 
 it("calls onMoveAbsence with a reassign patch when dropped on a different assignee row", () => {
@@ -463,6 +545,116 @@ it("clamps a keyboard move's target row to the last visible row rather than an o
     { startDate: "2026-07-27", endDate: "2026-07-27", assignee: "Ben", assigneeEmail: undefined, resourceId: undefined },
     "reassign",
   );
+});
+
+it("resizes an absence's end date by keyboard (Alt+Shift+Arrow), not the start date", () => {
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  screen.getAllByRole("gridcell")[0].querySelector("button")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
+  // Load-bearing: nothing commits before Enter, same discipline as move.
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).toHaveBeenCalledTimes(1);
+  expect(onMoveAbsence).toHaveBeenCalledWith(7, { startDate: "2026-07-27", endDate: "2026-07-29" }, "resize");
+});
+
+it("does not reschedule the absence when Alt+Shift+Arrow is pressed (the Important-severity defect: it must resize, not move)", () => {
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  screen.getAllByRole("gridcell")[0].querySelector("button")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
+  fireEvent.keyDown(grid, { key: "Enter" });
+  // A move would have shifted BOTH dates by +1 day (07-28/07-29). The
+  // startDate must stay put — only the resize patch (asserted above) is
+  // a correct outcome of this key combination.
+  expect(onMoveAbsence).toHaveBeenCalledWith(7, expect.objectContaining({ startDate: "2026-07-27" }), "resize");
+});
+
+it("discards a pending keyboard resize on Escape without committing", () => {
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  screen.getAllByRole("gridcell")[0].querySelector("button")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
+  fireEvent.keyDown(grid, { key: "Escape" });
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+});
+
+it("announces resize mode (not move mode) via aria-live while a keyboard resize is pending", () => {
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  screen.getAllByRole("gridcell")[0].querySelector("button")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
+  expect(screen.getByText(/resize mode/i)).toBeInTheDocument();
+  expect(screen.queryByText(/^move mode/i)).not.toBeInTheDocument();
 });
 
 it("keeps exactly one tab-reachable day cell even with resize handles rendered", () => {
@@ -654,7 +846,7 @@ it("stacks overlapping same-day meetings into separate lanes", () => {
   expect(screen.getByRole("button", { name: /Retro/ })).toBeInTheDocument();
 });
 
-it("keeps exactly one roving tab stop with the meetings band rendered — band chips carry data-band-cell, never data-cell", () => {
+it("keeps exactly one roving DAY-CELL tab stop with the meetings band rendered — band chips and row headers stay natively focusable OUTSIDE that roving set, not a regression", () => {
   const events: CalendarEvent[] = [
     {
       id: 1,
@@ -695,13 +887,69 @@ it("keeps exactly one roving tab stop with the meetings band rendered — band c
     expect(chip).not.toHaveAttribute("data-cell");
     expect(chip).toHaveAttribute("data-band-cell");
   }
-  // Scoped to the WHOLE table (both the band's <tbody> and the assignee
-  // rows' <tbody>), not just [data-cell] — exactly one element carries the
-  // explicit roving tabindex="0" marker, and it's a real day cell.
   const table = container.querySelector('[role="grid"]') as HTMLElement;
-  const explicitTabStops = Array.from(table.querySelectorAll('[tabindex="0"]'));
-  expect(explicitTabStops).toHaveLength(1);
-  expect(explicitTabStops[0]).toHaveAttribute("data-cell");
+  // The real roving invariant is scoped to the DAY-CELL matrix only: exactly
+  // one [data-cell] element is ever in the tab order. Checked via the
+  // resolved `.tabIndex` IDL property (not a `[tabindex="0"]` ATTRIBUTE
+  // selector) — a native <button> with no explicit `tabindex` attribute
+  // still has `.tabIndex === 0` (it genuinely IS in the tab order), so an
+  // attribute-only query is blind to every natively-focusable element below
+  // and would pass unchanged even if this invariant broke.
+  const dayCells = Array.from(table.querySelectorAll<HTMLElement>("[data-cell]"));
+  const dayCellTabStops = dayCells.filter((c) => c.tabIndex === 0);
+  expect(dayCellTabStops).toHaveLength(1);
+  expect(dayCellTabStops[0]).toHaveAttribute("data-cell");
+  // Full inventory of everything genuinely reachable by Tab in this table:
+  // the one roving day cell, both row-header edit buttons, and all 3 chips
+  // — chips and row headers are DELIBERATELY outside the roving set (see
+  // resource-calendar-band.tsx's header comment), not folded into it. This
+  // pins the real count so a future regression — a chip silently dropped
+  // from the tab order, or an extra stop sneaking in (e.g. a mis-wired
+  // ariaLabel'd grip) — shows up as a count change here, which the old
+  // attribute-only query could never have caught either way.
+  const allFocusable = Array.from(table.querySelectorAll<HTMLElement>("button, [tabindex]"))
+    .filter((el) => el.tabIndex >= 0);
+  expect(allFocusable).toHaveLength(6); // 1 day cell + 2 row headers + 3 chips
+});
+
+it("surfaces a perceivable warning when the band's occurrence search is truncated, even with an empty band", () => {
+  // A daily series begun in 1900 exhausts expandOccurrences' MAX_ITERATIONS
+  // cap long before its walk ever reaches a 2026 window — the exact "renders
+  // nothing after March" failure mode: an empty band alone is indistinguishable
+  // from "no meetings", which isn't the truth here.
+  const events: CalendarEvent[] = [
+    {
+      id: 1,
+      title: "Ancient standup",
+      startDate: "1900-01-01",
+      startTime: "09:00",
+      durationMinutes: 15,
+      recurrence: { freq: "daily", interval: 1 },
+    },
+  ];
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-27"
+    />,
+  );
+  // No chip renders — the search never reached this window.
+  expect(screen.queryByRole("button", { name: /Ancient standup/ })).not.toBeInTheDocument();
+  // But the band is not silently absent: a warning is genuinely perceivable
+  // (real text content, not merely a hover-only title or a colour swap).
+  expect(screen.getByText(t("en-US", "calendarBandTruncated"))).toBeInTheDocument();
 });
 
 it("scroll-centers today when the window includes it", () => {
