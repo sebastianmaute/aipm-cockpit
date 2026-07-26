@@ -1534,6 +1534,7 @@ const enUS = {
   calendarEventSave: "Save",
   calendarEventConfirmDelete: "Delete this calendar event? This cannot be undone.",
   calendarEventErrorTitleRequired: "Title is required.",
+  calendarEventAddMeeting: "+ Add meeting",
   calendarEventTitle: "Title",
   calendarEventFirstOccurrence: "First occurrence",
   calendarEventStartTime: "Start time",

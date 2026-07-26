@@ -115,9 +115,13 @@ interface Props {
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
-  /** Open the calendar-event editor for a series from the all-series list.
-   *  Omit in popouts — the panel itself gates it on `isPopout`, so a caller
-   *  need not double-guard (mirrors `onMoveAbsence`). */
+  /** Open the calendar-event editor for a NEW meeting (the toolbar's
+   *  "+ Add meeting" button). Omit in popouts — the panel itself gates it on
+   *  `isPopout`, so a caller need not double-guard (mirrors `onAddAbsence`). */
+  onAddCalendarEvent?: () => void;
+  /** Open the calendar-event editor for a series from the band or the
+   *  all-series list. Omit in popouts — the panel itself gates it on
+   *  `isPopout`, so a caller need not double-guard (mirrors `onMoveAbsence`). */
   onEditCalendarEvent?: (event: CalendarEvent) => void;
   /** Commit a change to a calendar event. Added ahead of the series editor's
    *  full save/create/delete wiring (Task 17 needs it for occurrence-drag
@@ -196,6 +200,7 @@ function ResourcesPanelInner({
   onSetPlanWindow,
   onEditResource,
   onAddResource,
+  onAddCalendarEvent,
   onEditCalendarEvent,
   onSaveCalendarEvent,
   onImportOutlookCalendar,
@@ -470,6 +475,15 @@ function ResourcesPanelInner({
         onPullCalendar={onPullCalendar}
         calendarPullBusy={calendarPullBusy}
       />
+      {view === "calendar" && !isPopout && onAddCalendarEvent && (
+        <button
+          type="button"
+          onClick={onAddCalendarEvent}
+          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
+        >
+          {t(lang, "calendarEventAddMeeting")}
+        </button>
+      )}
       <PrintButton lang={lang} />
       {(view === "planning" || view === "workload") && (
         <ResetColWidthsButton
@@ -650,6 +664,7 @@ function ResourcesPanelInner({
             startDate={calendarWin.startDate}
             endDate={calendarWin.endDate}
             calendarEvents={calendarEvents}
+            onEditEvent={isPopout ? undefined : onEditCalendarEvent}
             onMoveOccurrence={
               isPopout || !onSaveCalendarEvent
                 ? undefined

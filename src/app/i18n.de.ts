@@ -1528,6 +1528,7 @@ export const de: Record<TranslationKey, string> = {
   calendarEventSave: "Speichern",
   calendarEventConfirmDelete: "Diesen Kalendertermin löschen? Dies kann nicht rückgängig gemacht werden.",
   calendarEventErrorTitleRequired: "Titel ist erforderlich.",
+  calendarEventAddMeeting: "+ Termin hinzufügen",
   calendarEventTitle: "Titel",
   calendarEventFirstOccurrence: "Erster Termin",
   calendarEventStartTime: "Startzeit",

@@ -621,6 +621,53 @@ test("calendar cell becomes draggable only when onMoveAbsence is supplied and no
   expect(absenceCell().draggable).toBe(false);
 });
 
+test("calendar toolbar '+ Add meeting' button calls onAddCalendarEvent, and is absent in popout", () => {
+  const onAddCalendarEvent = vi.fn();
+  const { rerender } = render(
+    <ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" onAddCalendarEvent={onAddCalendarEvent} />,
+  );
+  const button = screen.getByRole("button", { name: t("en-US", "calendarEventAddMeeting") });
+  fireEvent.click(button);
+  expect(onAddCalendarEvent).toHaveBeenCalledTimes(1);
+
+  rerender(
+    <ResourcesPanel {...baseProps} view="calendar" today="2026-06-15" onAddCalendarEvent={onAddCalendarEvent} isPopout />,
+  );
+  expect(screen.queryByRole("button", { name: t("en-US", "calendarEventAddMeeting") })).toBeNull();
+});
+
+test("calendar band chip click calls onEditCalendarEvent (passed through as ResourceCalendar's onEditEvent); band is absent in popout", () => {
+  // onEditEvent ALSO gates the whole band's rendering (resource-calendar.tsx),
+  // so a popout must not render the band at all, not just disable the click.
+  const event = { id: 1, title: "Standup", startDate: "2026-06-15", startTime: "09:00", durationMinutes: 15 };
+  const onEditCalendarEvent = vi.fn();
+
+  const { rerender } = render(
+    <ResourcesPanel
+      {...baseProps}
+      view="calendar"
+      today="2026-06-15"
+      calendarEvents={[event]}
+      onEditCalendarEvent={onEditCalendarEvent}
+    />,
+  );
+  const chip = screen.getByRole("button", { name: /Standup.*2026-06-15.*09:00/ });
+  fireEvent.click(chip);
+  expect(onEditCalendarEvent).toHaveBeenCalledWith(event);
+
+  rerender(
+    <ResourcesPanel
+      {...baseProps}
+      view="calendar"
+      today="2026-06-15"
+      calendarEvents={[event]}
+      onEditCalendarEvent={onEditCalendarEvent}
+      isPopout
+    />,
+  );
+  expect(screen.queryByRole("button", { name: /Standup/ })).toBeNull();
+});
+
 test("resources-panel: no view SegmentedControl, no roles/report/add-absence buttons; resizable", () => {
   const src = readFileSync(join(__dirname, "resources-panel.tsx"), "utf8");
   expect(src).not.toMatch(/onManageRoles/);
