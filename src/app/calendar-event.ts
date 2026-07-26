@@ -168,9 +168,15 @@ export function sanitizeCalendarEvent(input: unknown): CalendarEvent | null {
   };
 }
 
-// --- JSON-in-cell codecs (mirrors encodeNoteLog / decodeNoteLog) ------------
+// --- JSON-in-cell codecs -----------------------------------------------
 // An absent value encodes to "" and decodes back to undefined, so a plain
 // non-recurring event carries no JSON in its row.
+//
+// ★ UNLIKE note-log's decoders, these deliberately do NOT self-validate:
+// sanitizeRecurrence needs `startDate` for cross-field checks (until >= start)
+// that a decoder has no access to. A decoded cell is therefore UNTRUSTED —
+// whoever assembles a CalendarEvent from decoded cells MUST run the whole
+// object back through sanitizeCalendarEvent() before using it.
 
 export function encodeRecurrence(rule: RecurrenceRule | undefined): string {
   return rule ? JSON.stringify(rule) : "";
@@ -202,6 +208,11 @@ export function encodeAttendees(ids: readonly number[] | undefined): string {
 
 export function decodeAttendees(cell: string): number[] | undefined {
   if (!cell.trim()) return undefined;
+  // The `Number.isInteger(n) && n > 0` filter is incidental to PARSING a
+  // delimited string cell (a split token is unavoidably `unknown` numeric
+  // input), not a second validation layer — it does not contradict the
+  // decoded-output-is-untrusted note above. sanitizeAttendees still re-checks
+  // ids against the live workspace when the assembled event is sanitized.
   const out = cell.split("|").map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0);
   return out.length ? out : undefined;
 }
