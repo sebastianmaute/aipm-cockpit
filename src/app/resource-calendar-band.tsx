@@ -13,11 +13,26 @@
 // after being rewritten to scan the whole table body instead of a narrower
 // selector.
 
+import { useRef } from "react";
 import { type Lang, t } from "./i18n";
 import { CalendarChip } from "./calendar-chip";
 import type { CalendarEvent } from "./calendar-event";
 import type { Occurrence } from "./recurrence";
+import { resolveOccurrenceDrag } from "./occurrence-drag";
 import { CELL_PX, ASSIGNEE_COL_PX, type CalendarDay } from "./resource-calendar-shared";
+
+/** The gesture currently in flight — id AND the grabbed chip's RENDERED
+ *  date. A ref (not state) so the drop handler reads it synchronously,
+ *  mirroring resource-calendar-rows.tsx's dragRef for absences.
+ *
+ *  ★★ eventId ALONE cannot identify which occurrence was grabbed: every
+ *  occurrence of a recurring series shares the same eventId (a daily
+ *  standup viewed over a week is one id, seven Occurrence objects). This
+ *  shape exists so a drop can never be resolved from id alone — see
+ *  occurrence-drag.ts's own doc comment for the bug that shipped from
+ *  doing exactly that (dataTransfer carried only the id, so every drag
+ *  resolved to whichever occurrence happened to be first in the list). */
+type DraggedOccurrence = { eventId: number; originDate: string } | null;
 
 /** Band rows are shorter than the assignee rows (CELL_PX) — a chip needs
  *  less vertical room than an absence cell's centered glyph. */
@@ -40,6 +55,7 @@ interface Props {
  *  the CalendarRows / gantt-chrome split convention. Renders nothing when
  *  there are no lanes, so a calendar with no events adds no empty band row. */
 export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMoveOccurrence }: Props) {
+  const dragRef = useRef<DraggedOccurrence>(null);
   if (lanes.length === 0) return null;
   return (
     <tbody data-calendar-band>
@@ -73,20 +89,34 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
                   style={{ minWidth: CELL_PX, width: CELL_PX, height: BAND_ROW_PX }}
                   onDragOver={(e) => { if (onMoveOccurrence) e.preventDefault(); }}
                   onDrop={(e) => {
-                    if (!onMoveOccurrence) return;
+                    const drag = dragRef.current;
+                    dragRef.current = null;
+                    if (!drag || !onMoveOccurrence) return;
                     e.preventDefault();
-                    const draggedId = Number(e.dataTransfer.getData("text/plain"));
-                    // Search ALL lanes (not just this one) — the dragged chip
-                    // may have started in a different lane than it lands in.
-                    const dragged = lanes.flat().find((o) => o.eventId === draggedId && o.date !== d.iso);
-                    if (dragged) onMoveOccurrence(dragged, d.iso);
+                    // Resolve by id AND the grabbed chip's origin date — id
+                    // alone can't distinguish which occurrence of a
+                    // recurring series was dragged. Search ALL lanes (not
+                    // just this one) — the dragged chip may have started in
+                    // a different lane than it lands in.
+                    const result = resolveOccurrenceDrag({
+                      occurrences: lanes.flat(),
+                      eventId: drag.eventId,
+                      originDate: drag.originDate,
+                      dropDate: d.iso,
+                    });
+                    if (result) onMoveOccurrence(result.occurrence, result.toDate);
                   }}
+                  onDragEnd={() => { dragRef.current = null; }}
                 >
                   {occ && event ? (
                     <CalendarChip
                       data-band-cell={`${laneIndex}-${d.iso}`}
                       draggable={!!onMoveOccurrence}
-                      onDragStart={(e) => { e.dataTransfer.setData("text/plain", String(occ.eventId)); }}
+                      onDragStart={(e) => {
+                        dragRef.current = { eventId: occ.eventId, originDate: occ.date };
+                        // Firefox requires data to be set or the drag never starts.
+                        e.dataTransfer.setData("text/plain", String(occ.eventId));
+                      }}
                       onClick={() => onEditEvent(event)}
                       ariaLabel={label}
                       time={occ.time}

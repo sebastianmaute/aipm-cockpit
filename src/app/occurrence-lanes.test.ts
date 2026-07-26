@@ -44,4 +44,28 @@ describe("packOccurrenceLanes", () => {
     expect(lanes).toHaveLength(3);
     for (const lane of lanes) expect(lane).toHaveLength(1);
   });
+
+  it("keeps a series in a stable lane across the window even after an earlier-sorting same-date meeting displaces one occurrence", () => {
+    // Series A (id 1): daily standup, 09:00, three days. Series B (id 2): a
+    // one-off meeting on day one ONLY, sorting BEFORE A that day (08:00).
+    // Input is pre-sorted by date then time, mirroring what the orchestrator
+    // (resource-calendar.tsx) actually feeds this function.
+    const seriesA1 = occ(1, "2026-07-27", "09:00");
+    const seriesA2 = occ(1, "2026-07-28", "09:00");
+    const seriesA3 = occ(1, "2026-07-29", "09:00");
+    const seriesB = occ(2, "2026-07-27", "08:00");
+    const lanes = packOccurrenceLanes([seriesB, seriesA1, seriesA2, seriesA3]);
+
+    // B takes lane 0 on day one (it sorts first); A is bumped to lane 1 for
+    // that one day — that part is a genuine, unavoidable collision. But A's
+    // OTHER two occurrences (no collision on those dates) must stay with
+    // lane 1 too, not drift back to lane 0 just because it happens to be
+    // free on those dates.
+    const laneOfA = lanes.findIndex((lane) => lane.some((o) => o.eventId === 1));
+    expect(lanes[laneOfA].map((o) => o.date)).toEqual([
+      "2026-07-27", "2026-07-28", "2026-07-29",
+    ]);
+    const otherLanesWithA = lanes.filter((lane, i) => i !== laneOfA && lane.some((o) => o.eventId === 1));
+    expect(otherLanesWithA).toHaveLength(0);
+  });
 });
