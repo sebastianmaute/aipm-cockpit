@@ -179,19 +179,24 @@ export interface WorkspaceSectionProps {
   handleMoveAbsence?: (id: number, patch: Partial<Absence>, kind: "move" | "reassign" | "resize") => void;
   /** Recurring meetings on the Resources → Calendar grid. `resources-panel.tsx`
    *  is a pure passthrough for this entity (mirrors onAddAbsence/onEditAbsence
-   *  right above) — id-minting, save/delete and the `<CalendarEventModal>`
-   *  mount all live one layer up, in use-resource-planner.ts + app-modals.tsx.
-   *  All three optional (mirrors handleMoveAbsence) so existing prop-literal
-   *  test fixtures don't need updating. Threaded straight into
-   *  `<ResourcesPanel>`'s `calendarEvents`/`onAddCalendarEvent`/
-   *  `onEditCalendarEvent`. The DATA passes through unconditionally (a popout
-   *  mirror still shows the band); the two triggers are `guardEdit`-wrapped in
-   *  task-manager AND the panel itself gates the actual affordances (add
-   *  button, `onEditEvent`) on `isPopout` before they reach
-   *  `<ResourceCalendar>` — same two-layer pattern `onMoveAbsence` uses. */
+   *  right above) — id-minting and the `<CalendarEventModal>` mount live one
+   *  layer up, in use-resource-planner.ts + app-modals.tsx; the modal's own
+   *  save/delete never traverses the panel. `handleSaveCalendarEvent` DOES
+   *  reach the panel, though — it backs the band's own NON-modal drag-
+   *  reschedule write (`buildMoveOccurrenceHandler`, panel prop `onSaveEvent`),
+   *  a genuinely different call site than the modal's save. All optional
+   *  (mirrors handleMoveAbsence) so existing prop-literal test fixtures don't
+   *  need updating. Threaded straight into `<ResourcesPanel>`'s
+   *  `calendarEvents`/`onAddCalendarEvent`/`onEditCalendarEvent`/`onSaveEvent`.
+   *  The DATA passes through unconditionally (a popout mirror still shows the
+   *  band); the handlers are `guardEdit`-wrapped in task-manager AND the panel
+   *  itself gates the actual affordances (add button, `onEditEvent`,
+   *  `onMoveOccurrence`) on `isPopout` before they reach `<ResourceCalendar>`
+   *  — same two-layer pattern `onMoveAbsence` uses. */
   calendarEvents?: readonly CalendarEvent[];
   handleOpenAddCalendarEvent?: () => void;
   handleEditCalendarEvent?: (event: CalendarEvent) => void;
+  handleSaveCalendarEvent?: (event: CalendarEvent, isNew?: boolean) => void;
   handleOpenShiftEditor: (
     existingShift: Shift | null,
     assignee: { display: string; email: string },

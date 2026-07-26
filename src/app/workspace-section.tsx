@@ -132,6 +132,7 @@ export function WorkspaceSection({
   calendarEvents,
   handleOpenAddCalendarEvent,
   handleEditCalendarEvent,
+  handleSaveCalendarEvent,
   handleOpenShiftEditor,
   manageRolesView,
   onAssignRoleById,
@@ -524,6 +525,7 @@ export function WorkspaceSection({
               calendarEvents={calendarEvents}
               onAddCalendarEvent={handleOpenAddCalendarEvent}
               onEditCalendarEvent={handleEditCalendarEvent}
+              onSaveCalendarEvent={handleSaveCalendarEvent}
               onEditShift={handleOpenShiftEditor}
               roles={roles}
               disciplines={disciplines}

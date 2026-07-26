@@ -128,12 +128,6 @@ interface Props {
    *  only) — mirrors `onMoveAbsence`'s own precedent of landing before its
    *  caller-side handler did. Omit in popouts, same convention. */
   onSaveCalendarEvent?: (event: CalendarEvent) => void;
-  /** Delete a calendar event series. Declared here (unused by this task —
-   *  no delete control exists in the panel yet) purely so the type shape
-   *  matches what the in-flight caller-side wiring (task-manager.tsx /
-   *  workspace-section.tsx) already passes; the series editor modal is the
-   *  actual consumer. Omit in popouts, same convention as its siblings. */
-  onDeleteCalendarEvent?: (id: number) => void;
   onImportOutlookCalendar?: () => void;
   /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
   m365Configured?: boolean;

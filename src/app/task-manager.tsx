@@ -2185,11 +2185,15 @@ function TaskManagerInner() {
     handleMoveAbsence: guardEdit(buildMoveAbsenceHandler(absences, setAbsences, undoApi.captureFieldEdit, handleSaveAbsence, lang)),
     // Recurring meetings (Resources → Calendar band + series editor). Data
     // passes through unguarded (a popout mirror still shows the band); the
-    // two open/edit TRIGGERS are guardEdit-wrapped — the resources-panel is a
-    // pure passthrough for this entity, mirroring onAddAbsence/onEditAbsence.
+    // TRIGGERS/handlers are guardEdit-wrapped — the resources-panel is a pure
+    // passthrough for this entity, mirroring onAddAbsence/onEditAbsence.
+    // handleSaveCalendarEvent is threaded here too for the band's own
+    // drag-reschedule path (buildMoveOccurrenceHandler), a NON-modal write —
+    // distinct from the modal's save/delete, which never traverses the panel.
     calendarEvents,
     handleOpenAddCalendarEvent: guardEdit(handleOpenAddCalendarEvent),
     handleEditCalendarEvent: guardEdit(handleEditCalendarEvent),
+    handleSaveCalendarEvent: guardEdit(handleSaveCalendarEvent),
     handleOpenShiftEditor: guardEdit(handleOpenShiftEditor),
     manageRolesView: (
       <RolesPanel

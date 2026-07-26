@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 import type { Absence, RaidItem, Resource, Role, Shift } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
+import type { Occurrence } from "./recurrence";
 import type { Lang } from "./i18n";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
@@ -312,6 +314,40 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.planner.handleDeleteCalendarEvent(baseEvent.id); });
       expect(result.current.workspace.calendarEvents).toEqual([other]);
       expect(result.current.planner.editingCalendarEvent).toBeNull();
+    });
+  });
+
+  describe("calendar band drag-reschedule (integration)", () => {
+    // buildMoveOccurrenceHandler's own move-computation logic is unit-tested
+    // in calendar-event-move-handler.test.ts (a mocked onSaveEvent spy), and
+    // handleSaveCalendarEvent's persistence is proven above. What neither of
+    // those covers — and what was genuinely dead until onSaveCalendarEvent
+    // was threaded from workspace-section.tsx to the panel's onSaveEvent —
+    // is the TWO composed together: this is exactly what
+    // resources-panel.tsx wires as `<ResourceCalendar onMoveOccurrence={
+    // buildMoveOccurrenceHandler(calendarEvents, onSaveCalendarEvent)}>`.
+    it("composing buildMoveOccurrenceHandler with the REAL handleSaveCalendarEvent actually persists a dragged occurrence", () => {
+      const { result } = renderPlanner();
+      const recurring: CalendarEvent = {
+        id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00",
+        durationMinutes: 15, recurrence: { freq: "daily", interval: 1 },
+      };
+      act(() => { result.current.planner.handleSaveCalendarEvent(recurring, true); });
+
+      const occurrence: Occurrence = {
+        eventId: 1, date: "2026-08-03", time: "09:00", durationMinutes: 15,
+        originalDate: "2026-08-03", isMoved: false,
+      };
+      const handler = buildMoveOccurrenceHandler(
+        result.current.workspace.calendarEvents as CalendarEvent[],
+        result.current.planner.handleSaveCalendarEvent,
+      );
+      act(() => { handler(occurrence, "2026-08-05"); });
+
+      const saved = (result.current.workspace.calendarEvents as CalendarEvent[])[0];
+      expect(saved.exceptions).toEqual([{ date: "2026-08-03", kind: "move", toDate: "2026-08-05" }]);
+      // The rule itself is untouched — every other occurrence keeps rendering.
+      expect(saved.startDate).toBe("2026-07-27");
     });
   });
 
