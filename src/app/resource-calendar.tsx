@@ -16,6 +16,7 @@ import { type Lang, t } from "./i18n";
 import type { Absence, AbsenceType, Resource } from "./types";
 import { absenceBg, absenceGlyph } from "./absence-style";
 import { resourceDisplayName, splitName } from "./resource-foundation";
+import { isoWeekParts } from "./resource-capacity";
 import { INTERACTIVE } from "./interaction-styles";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 
@@ -52,6 +53,10 @@ const ASSIGNEE_COL_PX = 180;
 interface CalendarDay {
   iso: string;
   dayOfMonth: number;
+  /** Localised short weekday, e.g. "Mon" / "Mo". */
+  weekdayLabel: string;
+  /** ISO-8601 week number (1-53) of this date. */
+  isoWeek: number;
   /** Month label shown on the first day and at each month transition. */
   monthLabel: string;
   isWeekend: boolean;
@@ -102,6 +107,8 @@ function ResourceCalendarInner({
       out.push({
         iso,
         dayOfMonth: d.getUTCDate(),
+        weekdayLabel: d.toLocaleDateString(loc, { weekday: "short" }),
+        isoWeek: isoWeekParts(d).week,
         monthLabel: monthChange ? d.toLocaleDateString(loc, { month: "short" }) : "",
         isWeekend: dow === 0 || dow === 6,
         isHoliday: holidaySet.has(iso),
@@ -250,6 +257,7 @@ function ResourceCalendarInner({
                     <div className="h-3 text-[9px] font-semibold uppercase">
                       {d.monthLabel}
                     </div>
+                    <div className="text-[9px] uppercase opacity-80">{d.weekdayLabel}</div>
                     <div className="tabular-nums">{d.dayOfMonth}</div>
                   </div>
                 </th>

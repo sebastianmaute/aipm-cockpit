@@ -1,6 +1,7 @@
 import { describe, test, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourceCalendar } from "./resource-calendar";
+import { isoWeekParts } from "./resource-capacity";
 import type { Resource } from "./types";
 
 const Sample: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
@@ -156,6 +157,40 @@ it("keeps exactly one day-cell tab stop after the window shrinks (#27 clamp)", (
   // Exactly one cell remains a tab stop (clamped onto a real rendered cell).
   expect(tabStops).toHaveLength(1);
   expect(tabStops[0].getAttribute("data-cell")).toBe("1-2");
+});
+
+describe("isoWeekParts", () => {
+  it("is exported and gives the ISO week-numbering year and week", () => {
+    expect(isoWeekParts(new Date("2026-07-26T00:00:00Z"))).toEqual({ year: 2026, week: 30 });
+  });
+
+  it("keeps a January date in the previous ISO year when the week straddles", () => {
+    // 2026-12-28 is the Monday of 2026-W53; 2027-01-01 falls inside that same week.
+    expect(isoWeekParts(new Date("2026-12-28T00:00:00Z"))).toEqual({ year: 2026, week: 53 });
+    expect(isoWeekParts(new Date("2027-01-01T00:00:00Z"))).toEqual({ year: 2026, week: 53 });
+  });
+});
+
+it("renders a weekday label above each day number", () => {
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  // 2026-07-27 is a Monday.
+  expect(screen.getByText("Mon")).toBeInTheDocument();
+  expect(screen.getByText("Tue")).toBeInTheDocument();
 });
 
 it("does not hijack arrow keys from the assignee row-header button (#27)", () => {
