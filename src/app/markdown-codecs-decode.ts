@@ -41,9 +41,17 @@ import {
   type Shift,
   type Task,
 } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 import { type Workspace, migrateWorkspaceV10 } from "./workspace";
-import { type ImportDiag, buildRaidItemFromObj, decodeRatesMap, parseHealthOverride } from "./csv-codecs";
 import {
+  type ImportDiag,
+  buildCalendarEventFromObj,
+  buildRaidItemFromObj,
+  decodeRatesMap,
+  parseHealthOverride,
+} from "./csv-codecs";
+import {
+  EVENTS_MD_COLUMNS,
   decodeMdTable,
   markdownToChanges,
   markdownToFeatures,
@@ -69,6 +77,7 @@ function splitMarkdownSections(md: string): {
   tasksMd: string;
   raidMd: string;
   absencesMd: string;
+  calendarEventsMd: string;
   shiftsMd: string;
   resourcesMd: string;
   rolesMd: string;
@@ -87,6 +96,7 @@ function splitMarkdownSections(md: string): {
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
+  const calendarEventsLines: string[] = [];
   const shiftsLines: string[] = [];
   const resourcesLines: string[] = [];
   const rolesLines: string[] = [];
@@ -106,6 +116,7 @@ function splitMarkdownSections(md: string): {
     if (/^#\s+RAID\s+Log\b/i.test(trimmed)) { target = raidLines; target.push(line); continue; }
     if (/^#\s+AIPM\s+Tasks\b/i.test(trimmed)) { target = tasksLines; target.push(line); continue; }
     if (/^#\s+Absences\b/i.test(trimmed)) { target = absencesLines; target.push(line); continue; }
+    if (/^##\s+Calendar\s+Events\b/i.test(trimmed)) { target = calendarEventsLines; continue; }
     if (/^#\s+Shifts\b/i.test(trimmed)) { target = shiftsLines; target.push(line); continue; }
     if (/^#\s+Resources\b/i.test(trimmed)) { target = resourcesLines; target.push(line); continue; }
     if (/^#\s+Roles\b/i.test(trimmed)) { target = rolesLines; target.push(line); continue; }
@@ -125,6 +136,7 @@ function splitMarkdownSections(md: string): {
     tasksMd: tasksLines.join("\n"),
     raidMd: raidLines.join("\n"),
     absencesMd: absencesLines.join("\n"),
+    calendarEventsMd: calendarEventsLines.join("\n"),
     shiftsMd: shiftsLines.join("\n"),
     resourcesMd: resourcesLines.join("\n"),
     rolesMd: rolesLines.join("\n"),
@@ -151,6 +163,19 @@ const ABSENCE_ALIASES: Record<string, string> = {
 
 function markdownToAbsences(md: string, diag?: ImportDiag): Absence[] {
   return decodeMdTable(md, ABSENCE_ALIASES, sanitizeAbsence, diag);
+}
+
+/** Derived from EVENTS_MD_COLUMNS (markdown-codecs-core.ts), not hand-written —
+ *  a column added there without a matching alias would otherwise decode to
+ *  undefined SILENTLY (the exact bug this pattern exists to prevent). Keys
+ *  are normalized the same way decodeMdTable looks them up: lowercased, with
+ *  whitespace stripped. */
+const EVENTS_MD_ALIASES: Record<string, string> = Object.fromEntries(
+  EVENTS_MD_COLUMNS.map((c) => [c.label.toLowerCase().replace(/\s+/g, ""), c.key as string]),
+);
+
+function markdownToCalendarEvents(md: string, diag?: ImportDiag): CalendarEvent[] {
+  return decodeMdTable(md, EVENTS_MD_ALIASES, buildCalendarEventFromObj, diag);
 }
 
 const SHIFT_ALIASES: Record<string, string> = {
@@ -286,6 +311,7 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
     tasks: markdownToTasks(s.tasksMd || md, diag),
     raid: s.raidMd.trim() ? markdownToRaid(s.raidMd, diag) : [],
     absences: s.absencesMd.trim() ? markdownToAbsences(s.absencesMd, diag) : [],
+    calendarEvents: s.calendarEventsMd.trim() ? markdownToCalendarEvents(s.calendarEventsMd, diag) : undefined,
     shifts: s.shiftsMd.trim() ? markdownToShifts(s.shiftsMd, diag) : [],
     resources: s.resourcesMd.trim() ? markdownToResources(s.resourcesMd, diag) : [],
     roles: s.rolesMd.trim() ? markdownToRoles(s.rolesMd, diag) : [],

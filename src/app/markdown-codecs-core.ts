@@ -34,6 +34,7 @@ import {
   type SteeringCommittee,
   type Task,
 } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
@@ -47,6 +48,7 @@ import {
   buildMilestoneFromObj,
   buildProjectFromObj,
   buildStakeholderFromObj,
+  calendarEventFieldToString,
   changeFieldToString,
   encodeRatesMap,
   fieldToString,
@@ -95,6 +97,25 @@ const ABSENCES_MD_COLUMNS: Array<{ key: keyof Absence; label: string }> = [
   { key: "note", label: "Note" },
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "resourceId", label: "ResourceId" },
+  { key: "outlookEventId", label: "OutlookEventId" },
+];
+
+// Same 13 fields as EVENTS_CSV_COLUMNS (csv-codecs-core.ts), same order.
+// Exported so markdown-codecs-decode.ts can derive its alias map from this
+// list rather than hand-writing one (see markdownToCalendarEvents there).
+export const EVENTS_MD_COLUMNS: Array<{ key: keyof CalendarEvent; label: string }> = [
+  { key: "id", label: "ID" },
+  { key: "title", label: "Title" },
+  { key: "startDate", label: "Start" },
+  { key: "startTime", label: "StartTime" },
+  { key: "durationMinutes", label: "DurationMin" },
+  { key: "location", label: "Location" },
+  { key: "notes", label: "Notes" },
+  { key: "recurrence", label: "Recurrence" },
+  { key: "exceptions", label: "Exceptions" },
+  { key: "attendeeResourceIds", label: "Attendees" },
+  { key: "sendInvitations", label: "SendInvitations" },
+  { key: "localModifiedAt", label: "LocalModified" },
   { key: "outlookEventId", label: "OutlookEventId" },
 ];
 
@@ -432,6 +453,23 @@ function absencesToMarkdown(absences: readonly Absence[]): string {
   return lines.join("\n") + "\n";
 }
 
+// Reuses calendarEventFieldToString (csv-codecs-core.ts, re-exported via the
+// ./csv-codecs barrel like every other fieldToString helper this file
+// imports) rather than re-deriving cell values, so CSV and Markdown can't
+// drift on what a column contains.
+function calendarEventsToMarkdown(events: readonly CalendarEvent[]): string {
+  const header = `| ${EVENTS_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${EVENTS_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["## Calendar Events", "", header, sep];
+  for (const e of events) {
+    const row = EVENTS_MD_COLUMNS.map((c) =>
+      mdEscape(calendarEventFieldToString(e, c.key)),
+    ).join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
 function shiftsToMarkdown(shifts: readonly Shift[]): string {
   const header = `| ${SHIFTS_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
   const sep = `| ${SHIFTS_MD_COLUMNS.map(() => "---").join(" | ")} |`;
@@ -647,6 +685,12 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   if (!config || config.tasks) mdParts.push(tasksToMarkdown(ws.tasks));
   if (enabled("raid") && ws.raid.length > 0) mdParts.push(raidToMarkdown(ws.raid));
   if (enabled("absences") && ws.absences.length > 0) mdParts.push(absencesToMarkdown(ws.absences));
+  // Calendar events — storage-only gate, matching workspaceToCsv's choice
+  // (csv-codecs-config.ts): `calendarEvents` is deliberately NOT (yet) an
+  // `ExportSectionKey` member (see that file's comment for why), so this
+  // stays consistent with the CSV path rather than drifting to `enabled(...)`.
+  if (config === undefined && ws.calendarEvents && ws.calendarEvents.length > 0)
+    mdParts.push(calendarEventsToMarkdown(ws.calendarEvents));
   if (enabled("shifts") && ws.shifts.length > 0) mdParts.push(shiftsToMarkdown(ws.shifts));
   if (config === undefined) {
     // Storage-only sections — omitted from document exports.

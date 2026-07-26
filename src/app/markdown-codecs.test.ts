@@ -82,3 +82,24 @@ describe("markdown features section", () => {
     expect(markdownToWorkspace(workspaceToMarkdown(simple)).features).toEqual([]);
   });
 });
+
+describe("calendar events markdown", () => {
+  it("round-trips a recurring event with exceptions", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      calendarEvents: [{
+        id: 1, title: "Standup | with a pipe", startDate: "2026-07-27", startTime: "09:00",
+        durationMinutes: 15,
+        recurrence: { freq: "weekly" as const, interval: 1 },
+        exceptions: [{ date: "2026-08-03", kind: "skip" as const }],
+      }],
+    };
+    const md = workspaceToMarkdown(ws);
+    expect(md).toContain("## Calendar Events");
+    expect(markdownToWorkspace(md).calendarEvents).toEqual(ws.calendarEvents);
+  });
+
+  it("omits the section entirely when there are no events", () => {
+    expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Calendar Events");
+  });
+});
