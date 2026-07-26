@@ -185,4 +185,52 @@ describe("CalendarEventModal", () => {
     await user.click(screen.getByRole("button", { name: /delete/i }));
     expect(onDelete).not.toHaveBeenCalled();
   });
+
+  describe("weekly recurrence pre-selects the start weekday when nothing is checked", () => {
+    // base.startDate = "2026-01-01", a Thursday.
+    it("checks the start weekday on switching to weekly with no prior selection", async () => {
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+      setup({ event: { ...base, recurrence: undefined }, onSave });
+      await user.click(screen.getByRole("radio", { name: t("en-US", "calendarEventRepeatWeekly") }));
+      expect(screen.getByLabelText(t("en-US", "shiftDayThu"))).toBeChecked();
+      expect(screen.getByLabelText(t("en-US", "shiftDayMon"))).not.toBeChecked();
+      submit();
+      expect(onSave.mock.calls[0][0].recurrence).toMatchObject({ freq: "weekly", byDay: ["TH"] });
+    });
+
+    it("pre-checks the start weekday for an existing weekly event whose byDay is empty", () => {
+      setup({
+        event: { ...base, startDate: "2026-01-05", recurrence: { freq: "weekly", interval: 1 } },
+      });
+      // 2026-01-05 is a Monday.
+      expect(screen.getByLabelText(t("en-US", "shiftDayMon"))).toBeChecked();
+    });
+
+    it("does not override an existing selection when switching away and back to weekly", async () => {
+      const user = userEvent.setup();
+      setup({
+        event: { ...base, recurrence: { freq: "weekly", interval: 1, byDay: ["TU"] } },
+      });
+      expect(screen.getByLabelText(t("en-US", "shiftDayTue"))).toBeChecked();
+      await user.click(screen.getByRole("radio", { name: t("en-US", "calendarEventRepeatDaily") }));
+      await user.click(screen.getByRole("radio", { name: t("en-US", "calendarEventRepeatWeekly") }));
+      expect(screen.getByLabelText(t("en-US", "shiftDayTue"))).toBeChecked();
+      expect(screen.getByLabelText(t("en-US", "shiftDayThu"))).not.toBeChecked();
+    });
+
+    it("still saves an empty byDay (the implicit default) when the user unchecks it and saves without re-touching freq", async () => {
+      const user = userEvent.setup();
+      const onSave = vi.fn();
+      setup({ event: { ...base, recurrence: undefined }, onSave });
+      await user.click(screen.getByRole("radio", { name: t("en-US", "calendarEventRepeatWeekly") }));
+      const thuBox = screen.getByLabelText(t("en-US", "shiftDayThu"));
+      expect(thuBox).toBeChecked();
+      await user.click(thuBox);
+      expect(thuBox).not.toBeChecked();
+      submit();
+      const saved = onSave.mock.calls[0][0].recurrence;
+      expect(saved).toEqual({ freq: "weekly", interval: 1 });
+    });
+  });
 });

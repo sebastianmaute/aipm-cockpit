@@ -55,8 +55,11 @@ const GENERATION_BUFFER_DAYS = 366;
  *  above is reached. */
 const MAX_ITERATIONS = 20_000;
 
-/** Mon=0 .. Sun=6, matching WEEKDAYS' own order. */
-function weekdayIndex(d: Date): number {
+/** Mon=0 .. Sun=6, matching WEEKDAYS' own order. Exported so the meeting
+ *  series editor (calendar-event-modal.tsx) can pre-select an event's own
+ *  start weekday in the weekly checkbox row without duplicating this
+ *  arithmetic — see the "implicit weekly default" note there. */
+export function weekdayIndex(d: Date): number {
   return (d.getUTCDay() + 6) % 7;
 }
 

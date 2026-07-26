@@ -33,6 +33,8 @@
 import { useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { clampRangeEnd } from "./date-range";
+import { parseUtc } from "./calendar-window";
+import { weekdayIndex } from "./recurrence";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Checkbox, Input, Select } from "./form-controls";
 import { SegmentedControl } from "./segmented-control";
@@ -55,6 +57,21 @@ import {
   type RecurrenceDraft,
   type RepeatFreq,
 } from "./recurrence-draft";
+
+// Weekly's `byDay` is OPTIONAL, and when empty the recurrence engine
+// (recurrence.ts) already recurs on the event's OWN start weekday — but an
+// empty checkbox row then looks like "nothing is selected", which reads as
+// broken rather than as "recurs on the day you picked above". Pre-checking
+// that one day makes the default VISIBLE without changing what the rule
+// produces (a single weekday matching the start date IS that same implicit
+// default, just spelled out) — it only fires when nothing is checked yet, so
+// a deliberate clear-back-to-implicit by the user is never undone.
+function withVisibleStartWeekday(d: RecurrenceDraft, startDate: string): RecurrenceDraft {
+  if (d.freq !== "weekly" || d.weeklyByDay.length > 0) return d;
+  const start = parseUtc(startDate);
+  if (!start) return d;
+  return { ...d, weeklyByDay: [WEEKDAYS[weekdayIndex(start)]] };
+}
 
 interface Props {
   lang: Lang;
@@ -104,7 +121,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
   const [prevEvent, setPrevEvent] = useState(event);
   const { draft, setDraft, update, error, setError } = useDraftState<CalendarEvent>(event);
   const [recurrence, setRecurrence] = useState<RecurrenceDraft>(() =>
-    recurrenceDraftFrom(event?.recurrence),
+    withVisibleStartWeekday(recurrenceDraftFrom(event?.recurrence), event?.startDate ?? ""),
   );
 
   const { isVisible } = useModalVisibility("calendarEvent");
@@ -113,7 +130,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
   if (prevEvent !== event) {
     setPrevEvent(event);
     setDraft(event);
-    setRecurrence(recurrenceDraftFrom(event?.recurrence));
+    setRecurrence(withVisibleStartWeekday(recurrenceDraftFrom(event?.recurrence), event?.startDate ?? ""));
     setError(null);
   }
 
@@ -239,7 +256,9 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
                 { value: "weekly", label: t(lang, "calendarEventRepeatWeekly") },
                 { value: "monthly", label: t(lang, "calendarEventRepeatMonthly") },
               ]}
-              onChange={(freq) => setRecurrence((prev) => ({ ...prev, freq }))}
+              onChange={(freq) =>
+                setRecurrence((prev) => withVisibleStartWeekday({ ...prev, freq }, draft.startDate))
+              }
             />
           </div>
 
