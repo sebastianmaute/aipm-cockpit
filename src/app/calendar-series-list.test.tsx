@@ -41,6 +41,21 @@ describe("CalendarSeriesList", () => {
     expect(screen.getByText(/no further occurrences/i)).toBeInTheDocument();
   });
 
+  it("shows a distinct 'unknown' fallback (not the plain no-further-occurrences text) when the search is genuinely truncated", () => {
+    // Unlike export-sections.ts's firstOccurrenceLabel (windowStart always
+    // equals the event's own startDate, so truncation there is provably
+    // unreachable — see that file's comment), THIS caller passes `today`,
+    // independent of the event's own startDate: a daily series begun in
+    // 1900, viewed on 2026-08-01, genuinely exhausts expandOccurrences'
+    // iteration cap before the walk ever reaches "today".
+    const events = [
+      makeEvent(1, { title: "Ancient standup", startDate: "1900-01-01", recurrence: { freq: "daily", interval: 1 } }),
+    ];
+    render(<CalendarSeriesList lang="en-US" events={events} today={today} onEdit={() => {}} />);
+    expect(screen.queryByText(/no further occurrences/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/unknown/i)).toBeInTheDocument();
+  });
+
   it("calls the edit handler with the right series when its edit button is clicked", () => {
     const events = [makeEvent(1, { title: "Alpha" }), makeEvent(2, { title: "Beta" })];
     const onEdit = vi.fn();

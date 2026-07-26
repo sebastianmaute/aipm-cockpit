@@ -45,18 +45,23 @@ describe("CalendarChip", () => {
       <CalendarChip ariaLabel="Standup – row 2" time="09:00" title="Standup" moved />,
     );
     expect(movedContainer.querySelector("[data-moved-marker]")).toBeTruthy();
-    // The distinguishing cue is a border-STYLE change (dashed), not merely a
-    // colour swap — asserting the marker's presence alone wouldn't catch a
-    // colour-only regression, so this also checks the non-colour treatment.
+    // The distinguishing cue is a real border-STYLE change (dashed), not
+    // merely a colour swap. This must NOT be a class-STRING assertion:
+    // Tailwind v4 has no per-side border-*style* utility, so a class like
+    // `border-l-dashed` compiles to nothing — checking for the class name's
+    // presence would pass even if the cue never actually renders (exactly
+    // the defect this replaced). Asserted via the element's own inline style
+    // declaration instead, which jsdom resolves correctly with no stylesheet
+    // needed, unlike a Tailwind utility class.
     const movedButton = screen.getByRole("button", { name: "Standup – row 2" });
-    expect(movedButton.className).toContain("border-l-dashed");
+    expect(movedButton.style.borderLeftStyle).toBe("dashed");
 
     const { container: plainContainer } = render(
       <CalendarChip ariaLabel="Retro – row 3" time="14:00" title="Retro" />,
     );
     expect(plainContainer.querySelector("[data-moved-marker]")).toBeNull();
     const plainButton = screen.getByRole("button", { name: "Retro – row 3" });
-    expect(plainButton.className).not.toContain("border-l-dashed");
+    expect(plainButton.style.borderLeftStyle).not.toBe("dashed");
   });
 
   it("truncates a long title rather than wrapping it", () => {

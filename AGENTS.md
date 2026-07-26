@@ -2101,14 +2101,23 @@ an out-of-order input still packs correctly.
 
 - ★★ Band cells carry `data-band-cell`, NOT `data-cell` — the grid's roving-tabindex model (`onGridKeyDown` in
   `resource-calendar.tsx`) indexes `data-cell` by row/column and treats exactly ONE such element as the tab
-  stop. A test scoped to `[data-cell]` will NOT catch a band cell wrongly caught by that selector — it must
-  scan the whole `tbody`.
+  stop. ★ That invariant is scoped to the DAY-CELL MATRIX specifically, NOT a whole-table "exactly one
+  focusable element" property — row-header edit buttons and band chips are ordinary natively-focusable
+  `<button>`s that sit OUTSIDE the roving set by design (row headers always have; chips joined them, which is
+  consistent, not a regression). A band cell wrongly caught by the `[data-cell]` selector is still a real bug
+  (it would get folded into the roving model's row/column indexing and desync arrow-key navigation), so keep
+  guarding that — but verifying it needs the resolved `.tabIndex` IDL property, not a raw `tabindex="0"`
+  ATTRIBUTE match: a native button with no explicit `tabindex` attribute still has `.tabIndex === 0` (it IS in
+  the tab order), so an attribute-only query is blind to it and will silently pass regardless of whether the
+  real invariant holds.
 - ★★ The absence resize grips reuse the shared `DragHandle` atom (`drag-handle.tsx`, extracted from the
   gantt/table-manager `ColumnResizeHandle`) in its DECORATIVE mode — no `ariaLabel`, so it renders
   `aria-hidden` with no role; the surrounding `<span title=...>` carries the accessible name instead. The
-  ACCESSIBLE mode (pass `ariaLabel`) adds `tabIndex={0}` + `role="button"`, which would make each grip its OWN
-  second tab stop and break the roving-tabindex invariant above — never pass `ariaLabel` to a grip that lives
-  inside this grid.
+  ACCESSIBLE mode (pass `ariaLabel`) adds `tabIndex={0}` + `role="button"`, which would add TWO extra tab
+  stops (start+end grip) to every rendered absence cell — the reason to keep grips decorative is that
+  multiplying cost, not a strict "exactly one focusable element in the whole table" invariant (row headers and
+  band chips already sit outside the day-cell roving set, deliberately, per the bullet above) — never pass
+  `ariaLabel` to a grip that lives inside this grid.
 - ★ React Compiler trap: `onGridKeyDown` is a hoisted, non-JSX function (not an inline handler) that reads a
   `useMemo`'d `Map` (`resourceByKey`). Calling `resourceByKey.get(key)` directly from inside it broke
   `preserve-manual-memoization` on that unrelated `useMemo` — fixed via a `useCallback` indirection

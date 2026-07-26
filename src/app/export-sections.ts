@@ -313,10 +313,24 @@ function describeRecurrence(r: RecurrenceRule | undefined): string {
  *  small `count` was entirely consumed by skips). Printing startDate there
  *  would repeat the exact bug this fixes: claiming a date the calendar never
  *  actually renders. An empty cell says "unknown/none found"; a date says
- *  "this is when it happens" — those must not be conflated. */
+ *  "this is when it happens" — those must not be conflated.
+ *
+ *  ★ `nearestOccurrence`'s `truncated` flag is deliberately IGNORED here,
+ *  not silently dropped: for THIS caller windowStart is always the event's
+ *  own `startDate` (by construction — "first occurrence ever"), so the walk
+ *  is bounded to at most ~`NEAREST_OCCURRENCE_LOOKAHEAD_DAYS` (~11 years
+ *  with the generation buffer) of steps from its own start REGARDLESS of
+ *  which calendar year that start falls in — a daily rule's absolute worst
+ *  case is ~4,000 steps, nowhere near `expandOccurrences`' 20,000-iteration
+ *  cap. Truncation is therefore unreachable for this specific call shape
+ *  (verified: attempting to trigger it here returns the confirmed date, not
+ *  a truncated empty result). Contrast the all-series list's
+ *  `nextOccurrenceLabel`, which passes `today` — independent of the event's
+ *  own startDate — so an old series genuinely CAN exhaust the cap there,
+ *  and does surface it. */
 function firstOccurrenceLabel(event: CalendarEvent): string {
-  const occ = nearestOccurrence(event, event.startDate);
-  return occ ? `${occ.date} ${occ.time}` : "";
+  const { occurrence } = nearestOccurrence(event, event.startDate);
+  return occurrence ? `${occurrence.date} ${occurrence.time}` : "";
 }
 
 function calendarEventsSection(events: readonly CalendarEvent[], lang: Lang): ExportSection {

@@ -392,4 +392,25 @@ describe("calendarEvents section", () => {
     const sec = sections.find((s) => s.key === "calendarEvents")!;
     expect(sec.rows[0][1]).toBe("");
   });
+
+  it("resolves the confirmed date even for an ancient series — truncation is unreachable here by construction", () => {
+    // Proves the claim in firstOccurrenceLabel's own comment: because
+    // windowStart is always the event's OWN startDate for this caller, the
+    // search walk is bounded to ~11 years of steps from wherever that start
+    // is, regardless of which calendar year it falls in — nowhere near
+    // expandOccurrences' 20,000-iteration cap, even for a series begun in
+    // 1900. If this ever starts failing, the reachability claim in that
+    // comment is wrong and needs revisiting (along with the fallback logic).
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      calendarEvents: [makeCalendarEvent(1, {
+        startDate: "1900-01-01",
+        startTime: "09:00",
+        recurrence: { freq: "daily", interval: 1 },
+      })],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const sec = sections.find((s) => s.key === "calendarEvents")!;
+    expect(sec.rows[0][1]).toBe("1900-01-01 09:00");
+  });
 });

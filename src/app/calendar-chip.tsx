@@ -25,14 +25,21 @@ export interface CalendarChipProps extends React.ButtonHTMLAttributes<HTMLButton
 const BASE_CLASS =
   "flex w-full min-w-0 items-center gap-1 overflow-hidden rounded-sm border border-line bg-surface py-0.5 pl-1.5 pr-1 text-left border-l-2";
 
+/** Left-stripe colour is the same for both states — the class carries only
+ *  colour, never the moved/plain distinction (that would be colour-only,
+ *  WCAG 1.4.1). */
+const STRIPE_CLASS = "border-l-ui-dark-blue";
+
 /** A moved occurrence must NOT be signalled by colour alone (WCAG 1.4.1) —
  *  the border STYLE switches solid → dashed (a shape/pattern cue, not a
  *  colour) and an aria-hidden glyph is added, matching the resource-picker's
- *  `data-dangling-marker` precedent for the same class of requirement. */
-const STRIPE_CLASS = {
-  plain: "border-l-ui-dark-blue",
-  moved: "border-l-ui-dark-blue border-l-dashed",
-};
+ *  `data-dangling-marker` precedent for the same class of requirement.
+ *  ★★ This MUST be an inline style, not a Tailwind class: Tailwind v4 has no
+ *  per-side border-*style* utility (`border-l-dashed` is a v3ism that
+ *  compiles to nothing under v4 — it silently never renders, which is
+ *  exactly the bug this replaced). `border-l-2` already gives the left edge
+ *  a solid style via Tailwind's preflight reset, so only the MOVED case
+ *  needs an explicit override. */
 
 export function CalendarChip({
   ariaLabel,
@@ -53,7 +60,8 @@ export function CalendarChip({
       // reachable here.
       {...rest}
       aria-label={ariaLabel}
-      className={`${BASE_CLASS} ${moved ? STRIPE_CLASS.moved : STRIPE_CLASS.plain} ${INTERACTIVE} ${className}`}
+      style={moved ? { ...rest.style, borderLeftStyle: "dashed" } : rest.style}
+      className={`${BASE_CLASS} ${STRIPE_CLASS} ${INTERACTIVE} ${className}`}
     >
       {moved && (
         <span data-moved-marker aria-hidden="true" className="shrink-0 text-ui-dark-blue">

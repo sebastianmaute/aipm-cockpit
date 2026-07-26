@@ -8,12 +8,17 @@
 // ★★ Band cells deliberately carry `data-band-cell`, NOT `data-cell`: the
 // grid's roving-tabindex model (resource-calendar.tsx onGridKeyDown) indexes
 // `data-cell` by row/column and treats exactly one such element as the tab
-// stop. A band cell caught in that selector would silently add a second tab
-// stop — precisely the class of regression Task 6's own test only caught
-// after being rewritten to scan the whole table body instead of a narrower
-// selector.
+// stop. That invariant is scoped to the DAY-CELL MATRIX, not the whole
+// table — row-header edit buttons and (now) band chips are ordinary
+// natively-focusable buttons that sit OUTSIDE the roving set on purpose, the
+// same way row headers always have. A band cell wrongly caught by the
+// `[data-cell]` selector would still be a real bug (it would get folded into
+// the roving model's row/column indexing and desync arrow-key navigation),
+// which is why the separation matters — but that is not the same claim as
+// "exactly one focusable element in the table" (see resource-calendar.test.tsx).
 
 import { useRef } from "react";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { CalendarChip } from "./calendar-chip";
 import type { CalendarEvent } from "./calendar-event";
@@ -53,16 +58,44 @@ interface Props {
   /** Drag-reschedule an occurrence to a different date. Omit to make the
    *  band read-only (mirrors onMoveAbsence's popout convention). */
   onMoveOccurrence?: (occurrence: Occurrence, toDate: string) => void;
+  /** True when the orchestrator's expansion hit its own iteration cap before
+   *  covering the window (recurrence.ts's `ExpansionResult.truncated`,
+   *  propagated by the caller) — reachable for a series whose `startDate` is
+   *  far in the past. Must be surfaced: an empty band with no signal reads
+   *  exactly like "no meetings", which may not be true — the search may
+   *  simply have given up before reaching this window. */
+  truncated?: boolean;
 }
 
 /** Pure presentational — all data and handlers come in as props, matching
  *  the CalendarRows / gantt-chrome split convention. Renders nothing when
- *  there are no lanes, so a calendar with no events adds no empty band row. */
-export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMoveOccurrence }: Props) {
+ *  there are no lanes AND nothing was truncated, so a calendar with no
+ *  events adds no empty band row — but a truncated search still renders a
+ *  warning row even with zero lanes, precisely so "empty" and "truncated"
+ *  never look identical. */
+export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMoveOccurrence, truncated }: Props) {
   const dragRef = useRef<DraggedOccurrence>(null);
-  if (lanes.length === 0) return null;
+  if (lanes.length === 0 && !truncated) return null;
   return (
     <tbody data-calendar-band>
+      {truncated && (
+        <tr role="row">
+          {/* A perceivable, non-colour-only note (icon + real text, not a
+              hover-only title) — see the Props doc comment above for why an
+              empty band alone isn't enough signal. Spans the whole table so
+              it reads as one banner rather than a mysterious first column. */}
+          <td
+            role="rowheader"
+            colSpan={1 + days.length}
+            className="border-b border-r border-line bg-surface-muted px-2 py-1 text-xs font-medium text-ui-pink"
+          >
+            <span className="inline-flex items-center gap-1">
+              <ExclamationTriangleIcon aria-hidden="true" className="h-3 w-3 shrink-0" />
+              {t(lang, "calendarBandTruncated")}
+            </span>
+          </td>
+        </tr>
+      )}
       {lanes.map((lane, laneIndex) => {
         // One lookup per lane per render — lanes are small (a handful of
         // concurrent meetings at most), so a Map here is not worth memoizing.

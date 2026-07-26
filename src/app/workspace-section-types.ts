@@ -183,16 +183,23 @@ export interface WorkspaceSectionProps {
    *  layer up, in use-resource-planner.ts + app-modals.tsx; the modal's own
    *  save/delete never traverses the panel. `handleSaveCalendarEvent` DOES
    *  reach the panel, though — it backs the band's own NON-modal drag-
-   *  reschedule write (`buildMoveOccurrenceHandler`, panel prop `onSaveEvent`),
-   *  a genuinely different call site than the modal's save. All optional
-   *  (mirrors handleMoveAbsence) so existing prop-literal test fixtures don't
-   *  need updating. Threaded straight into `<ResourcesPanel>`'s
-   *  `calendarEvents`/`onAddCalendarEvent`/`onEditCalendarEvent`/`onSaveEvent`.
-   *  The DATA passes through unconditionally (a popout mirror still shows the
-   *  band); the handlers are `guardEdit`-wrapped in task-manager AND the panel
-   *  itself gates the actual affordances (add button, `onEditEvent`,
-   *  `onMoveOccurrence`) on `isPopout` before they reach `<ResourceCalendar>`
-   *  — same two-layer pattern `onMoveAbsence` uses. */
+   *  reschedule write (`buildMoveOccurrenceHandler`, panel prop
+   *  `onSaveCalendarEvent`), a genuinely different call site than the modal's
+   *  save. All optional (mirrors handleMoveAbsence) so existing prop-literal
+   *  test fixtures don't need updating. Threaded straight into
+   *  `<ResourcesPanel>`'s `calendarEvents`/`onAddCalendarEvent`/
+   *  `onEditCalendarEvent`/`onSaveCalendarEvent`.
+   *  ★★ NOT symmetric with `onMoveAbsence`: `onEditCalendarEvent` gates the
+   *  WHOLE band's rendering inside `<ResourceCalendar>` (resource-calendar.tsx
+   *  mounts `<CalendarBand>` only when `onEditEvent` is set), so a popout
+   *  renders NO band at all — not merely a disabled click, unlike the
+   *  grid/rows below it, which stay visible read-only
+   *  (resources-panel.test.tsx pins exactly this: the band's chip disappears
+   *  entirely under `isPopout`). The all-series list is the one piece that
+   *  DOES stay visible-but-read-only in a popout — only ITS edit affordance
+   *  is gated on `isPopout`; the list itself always renders, so a popout
+   *  viewer can still see (not touch) every series regardless of the current
+   *  window. */
   calendarEvents?: readonly CalendarEvent[];
   handleOpenAddCalendarEvent?: () => void;
   handleEditCalendarEvent?: (event: CalendarEvent) => void;

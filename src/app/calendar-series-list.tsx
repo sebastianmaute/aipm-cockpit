@@ -37,17 +37,22 @@ function describeRecurs(rule: RecurrenceRule | undefined, lang: Lang): string {
   return `${t(lang, "calendarEventInterval")} ${rule.interval} ${t(lang, unitKey)}`;
 }
 
-/** Next occurrence at-or-after `today`, formatted, or the localized "no
- *  further occurrences" fallback. Shares its window-search mechanics with
- *  export-sections.ts's `firstOccurrenceLabel` via recurrence.ts's
- *  `nearestOccurrence` — the two genuinely differ only in WHERE the search
- *  starts (an event's own startDate vs "today") and what to show when
- *  nothing resolves (an empty export cell vs a translated UI string), so
- *  only those two things stay separate; the shared mechanics live once, in
- *  recurrence.ts. */
+/** Next occurrence at-or-after `today`, formatted, or a localized fallback.
+ *  Shares its window-search mechanics with export-sections.ts's
+ *  `firstOccurrenceLabel` via recurrence.ts's `nearestOccurrence` — the two
+ *  genuinely differ only in WHERE the search starts (an event's own
+ *  startDate vs "today") and what to show when nothing resolves, so only
+ *  that stays separate; the shared mechanics live once, in recurrence.ts.
+ *
+ *  Two DIFFERENT fallbacks, not one: a confirmed-empty search ("no further
+ *  occurrences") is a fact; `truncated` means the search gave up (its
+ *  iteration cap was reached, reachable for a series whose `startDate` is
+ *  far in the past) before it could confirm that — collapsing both into one
+ *  message would misrepresent "couldn't tell" as "definitely none". */
 function nextOccurrenceLabel(event: CalendarEvent, today: string, lang: Lang): string {
-  const occ = nearestOccurrence(event, today);
-  return occ ? `${occ.date} ${occ.time}` : t(lang, "calendarSeriesNoNext");
+  const { occurrence, truncated } = nearestOccurrence(event, today);
+  if (occurrence) return `${occurrence.date} ${occurrence.time}`;
+  return t(lang, truncated ? "calendarSeriesUnknownNext" : "calendarSeriesNoNext");
 }
 
 interface CalendarSeriesListProps {

@@ -405,13 +405,13 @@ function ResourceCalendarInner({
   // rendering nothing (a "renders nothing after March" bug that looks like
   // an empty series, the exact failure this is meant to rule out).
   const { lanes, bandTruncated } = useMemo(() => {
-    let truncated = false;
-    const all = (calendarEvents ?? [])
-      .flatMap((e) => {
-        const result = expandOccurrences(e, startDate, endDate);
-        if (result.truncated) truncated = true;
-        return result.occurrences;
-      })
+    // Two passes over the SAME per-event results, no captured-variable
+    // mutation inside the flatMap callback (the React Compiler's purity
+    // rule rejects reassigning an outer `let` from inside one).
+    const perEvent = (calendarEvents ?? []).map((e) => expandOccurrences(e, startDate, endDate));
+    const truncated = perEvent.some((r) => r.truncated);
+    const all = perEvent
+      .flatMap((r) => r.occurrences)
       .filter((o) => o.date >= startDate && o.date <= endDate)
       .sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : (a.date < b.date ? -1 : 1)));
     return { lanes: packOccurrenceLanes(all), bandTruncated: truncated };
