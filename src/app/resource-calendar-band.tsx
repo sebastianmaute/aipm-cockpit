@@ -21,18 +21,22 @@ import type { Occurrence } from "./recurrence";
 import { resolveOccurrenceDrag } from "./occurrence-drag";
 import { CELL_PX, ASSIGNEE_COL_PX, type CalendarDay } from "./resource-calendar-shared";
 
-/** The gesture currently in flight — id AND the grabbed chip's RENDERED
- *  date. A ref (not state) so the drop handler reads it synchronously,
- *  mirroring resource-calendar-rows.tsx's dragRef for absences.
+/** The gesture currently in flight — id, the grabbed chip's RENDERED date,
+ *  AND its `originalDate` (rule-produced date). A ref (not state) so the
+ *  drop handler reads it synchronously, mirroring resource-calendar-rows.tsx's
+ *  dragRef for absences.
  *
- *  ★★ eventId ALONE cannot identify which occurrence was grabbed: every
- *  occurrence of a recurring series shares the same eventId (a daily
- *  standup viewed over a week is one id, seven Occurrence objects). This
- *  shape exists so a drop can never be resolved from id alone — see
- *  occurrence-drag.ts's own doc comment for the bug that shipped from
- *  doing exactly that (dataTransfer carried only the id, so every drag
- *  resolved to whichever occurrence happened to be first in the list). */
-type DraggedOccurrence = { eventId: number; originDate: string } | null;
+ *  ★★ Neither eventId alone NOR (eventId, rendered date) can identify which
+ *  occurrence was grabbed. Every occurrence of a recurring series shares the
+ *  same eventId (a daily standup viewed over a week is one id, seven
+ *  Occurrence objects) — that was the first bug. And a MOVED occurrence can
+ *  render on a date a sibling occurrence of the SAME series already
+ *  naturally occupies, so two occurrences can share both eventId and
+ *  rendered date too — that was the narrower, second bug. `originalDate`
+ *  (the rule-produced date) is unique per occurrence within a series by
+ *  construction, so `(eventId, originalDate)` is what actually disambiguates
+ *  — see occurrence-drag.ts's own doc comment for both bugs in detail. */
+type DraggedOccurrence = { eventId: number; originDate: string; originalDate: string } | null;
 
 /** Band rows are shorter than the assignee rows (CELL_PX) — a chip needs
  *  less vertical room than an absence cell's centered glyph. */
@@ -93,15 +97,16 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
                     dragRef.current = null;
                     if (!drag || !onMoveOccurrence) return;
                     e.preventDefault();
-                    // Resolve by id AND the grabbed chip's origin date — id
-                    // alone can't distinguish which occurrence of a
-                    // recurring series was dragged. Search ALL lanes (not
-                    // just this one) — the dragged chip may have started in
-                    // a different lane than it lands in.
+                    // Resolve by id + originalDate (the true per-occurrence
+                    // identity — see occurrence-drag.ts); originDate carries
+                    // only the no-op check. Search ALL lanes (not just this
+                    // one) — the dragged chip may have started in a
+                    // different lane than it lands in.
                     const result = resolveOccurrenceDrag({
                       occurrences: lanes.flat(),
                       eventId: drag.eventId,
                       originDate: drag.originDate,
+                      originalDate: drag.originalDate,
                       dropDate: d.iso,
                     });
                     if (result) onMoveOccurrence(result.occurrence, result.toDate);
@@ -113,7 +118,7 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
                       data-band-cell={`${laneIndex}-${d.iso}`}
                       draggable={!!onMoveOccurrence}
                       onDragStart={(e) => {
-                        dragRef.current = { eventId: occ.eventId, originDate: occ.date };
+                        dragRef.current = { eventId: occ.eventId, originDate: occ.date, originalDate: occ.originalDate };
                         // Firefox requires data to be set or the drag never starts.
                         e.dataTransfer.setData("text/plain", String(occ.eventId));
                       }}
