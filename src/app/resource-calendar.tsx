@@ -119,6 +119,18 @@ function ResourceCalendarInner({
     return out;
   }, [startDate, endDate, today, holidaySet, lang]);
 
+  // Contiguous runs of same-ISO-week columns, for the header band's colSpans.
+  // Derived from `days` alone so it can never disagree with the day row.
+  const weekRuns = useMemo<{ week: number; span: number }[]>(() => {
+    const runs: { week: number; span: number }[] = [];
+    for (const d of days) {
+      const last = runs[runs.length - 1];
+      if (last && last.week === d.isoWeek) last.span += 1;
+      else runs.push({ week: d.isoWeek, span: 1 });
+    }
+    return runs;
+  }, [days]);
+
   // Optionally hide external-resource rows (calendar-scoped preference). Rows
   // with no backing resource are never external, so they always show. Keyed the
   // same way as resourceByKey / CalendarAssignee.key (case-folded display name).
@@ -227,7 +239,25 @@ function ResourceCalendarInner({
             <tr role="row">
               <th
                 role="columnheader"
-                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
+                aria-hidden="true"
+                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-0.5"
+                style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
+              />
+              {weekRuns.map((run, i) => (
+                <th
+                  key={`${run.week}-${i}`}
+                  role="columnheader"
+                  colSpan={run.span}
+                  className="sticky top-0 z-20 border-b border-r border-line bg-ui-dark-blue px-1 py-0.5 text-center text-[10px] font-semibold tracking-wide text-white"
+                >
+                  {`${t(lang, "calendarWeekAbbrev")}${run.week}`}
+                </th>
+              ))}
+            </tr>
+            <tr role="row">
+              <th
+                role="columnheader"
+                className="sticky left-0 top-[18px] z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
                 style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
               >
                 {t(lang, "assignee")}
@@ -242,7 +272,7 @@ function ResourceCalendarInner({
                       : d.iso
                   }
                   className={[
-                    "sticky top-0 z-20 border-b border-r border-line px-0 py-1 text-center text-[10px] font-medium tracking-wide",
+                    "sticky top-[18px] z-20 border-b border-r border-line px-0 py-1 text-center text-[10px] font-medium tracking-wide",
                     d.isToday
                       ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/20 dark:text-ui-light-grey"
                       : d.isHoliday

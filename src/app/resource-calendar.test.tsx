@@ -211,6 +211,30 @@ it("does not hijack arrow keys from the assignee row-header button (#27)", () =>
   expect(document.activeElement).toBe(assignee);
 });
 
+it("groups day columns under an ISO week band", () => {
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-08-03"
+    />,
+  );
+  // Mon 2026-07-27 .. Sun 2026-08-02 is W31; Mon 2026-08-03 starts W32.
+  const w31 = screen.getByText("W31");
+  expect(w31).toBeInTheDocument();
+  expect(w31.closest("th")).toHaveAttribute("colspan", "7");
+  expect(screen.getByText("W32").closest("th")).toHaveAttribute("colspan", "1");
+});
+
 it("scroll-centers today when the window includes it", () => {
   const { container } = render(
     <ResourceCalendar

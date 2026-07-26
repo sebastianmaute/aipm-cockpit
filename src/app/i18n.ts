@@ -1519,6 +1519,7 @@ const enUS = {
   calendarIncludeExternals: "Include externals",
   calendarFrom: "From",
   calendarTo: "To",
+  calendarWeekAbbrev: "W",
   resourcesToday: "Today",
   resourcesHoliday: "Holiday",
   resourcesEditShift: "Edit shift",

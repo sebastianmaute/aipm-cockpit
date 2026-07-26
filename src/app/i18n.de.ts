@@ -1513,6 +1513,7 @@ export const de: Record<TranslationKey, string> = {
   calendarFrom: "Von",
   calendarTo: "Bis",
   resourcesToday: "Heute",
+  calendarWeekAbbrev: "KW",
   resourcesHoliday: "Feiertag",
   resourcesEditShift: "Schicht bearbeiten",
   resourcesWeeklyHours: "Std./Woche",
