@@ -101,6 +101,41 @@ describe("calendar events markdown", () => {
     expect(markdownToWorkspace(md).calendarEvents).toEqual(ws.calendarEvents);
   });
 
+  it("round-trips all 13 fields, including a title with both a pipe and a literal backslash", () => {
+    const event = {
+      id: 1,
+      title: "Planning sync | budget \\v2\\ review",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      location: "Room 4 | Floor 2",
+      notes: "Agenda:\nBudget | review \\draft\\",
+      recurrence: { freq: "weekly" as const, interval: 1, byDay: ["MO" as const, "WE" as const] },
+      exceptions: [
+        { date: "2026-08-03", kind: "skip" as const },
+        { date: "2026-08-10", kind: "move" as const, toDate: "2026-08-11", toTime: "10:00" },
+      ],
+      attendeeResourceIds: [3, 9, 42],
+      sendInvitations: true,
+      localModifiedAt: "2026-07-26T10:00:00.000Z",
+      outlookEventId: "AAMk-some-id",
+    };
+
+    // Verify the fixture itself before trusting the round-trip assertion — a
+    // heredoc-authored version of a fixture like this one silently collapsed
+    // its backslashes earlier in this release, producing a test that passed
+    // while exercising nothing.
+    expect(event.title).toContain("\\");
+    expect(event.title.split("\\").length - 1).toBe(2);
+    expect(event.title).toContain("|");
+    expect(event.notes).toContain("\\");
+    expect(Object.keys(event)).toHaveLength(13);
+
+    const ws = { ...emptyWorkspace(), calendarEvents: [event] };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.calendarEvents).toEqual(ws.calendarEvents);
+  });
+
   it("omits the section entirely when there are no events", () => {
     expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Calendar Events");
   });

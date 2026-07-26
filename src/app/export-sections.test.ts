@@ -348,4 +348,48 @@ describe("calendarEvents section", () => {
     const sections = buildExportSections(ws, cfg, "en-US");
     expect(sections.find((s) => s.key === "calendarEvents")).toBeUndefined();
   });
+
+  it("advances past a skip on the event's own startDate to the true first occurrence", () => {
+    // 2025-03-10 is a Monday; a weekly-with-no-byDay rule steps 7 days at a
+    // time, so skipping the very first instance should surface 2025-03-17.
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      calendarEvents: [makeCalendarEvent(1, {
+        recurrence: { freq: "weekly", interval: 1 },
+        exceptions: [{ date: "2025-03-10", kind: "skip" }],
+      })],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const sec = sections.find((s) => s.key === "calendarEvents")!;
+    expect(sec.rows[0][1]).toBe("2025-03-17 09:00");
+  });
+
+  it("shows the moved date/time when the event's own startDate was rescheduled", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      calendarEvents: [makeCalendarEvent(1, {
+        recurrence: { freq: "weekly", interval: 1 },
+        exceptions: [{ date: "2025-03-10", kind: "move", toDate: "2025-03-12", toTime: "14:00" }],
+      })],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const sec = sections.find((s) => s.key === "calendarEvents")!;
+    expect(sec.rows[0][1]).toBe("2025-03-12 14:00");
+  });
+
+  it("falls back to an empty cell (not the raw startDate) when a small count is entirely skipped", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      calendarEvents: [makeCalendarEvent(1, {
+        recurrence: { freq: "daily", interval: 1, count: 2 },
+        exceptions: [
+          { date: "2025-03-10", kind: "skip" },
+          { date: "2025-03-11", kind: "skip" },
+        ],
+      })],
+    };
+    const sections = buildExportSections(ws, defaultExportConfig, "en-US");
+    const sec = sections.find((s) => s.key === "calendarEvents")!;
+    expect(sec.rows[0][1]).toBe("");
+  });
 });

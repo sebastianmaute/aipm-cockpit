@@ -34,6 +34,8 @@ import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
 import type { CalendarEvent, RecurrenceRule } from "./calendar-event";
+import { expandOccurrences } from "./recurrence";
+import { addDays, iso, parseUtc } from "./calendar-window";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
@@ -296,10 +298,41 @@ function describeRecurrence(r: RecurrenceRule | undefined): string {
   return `Every ${unit("month")} on day ${r.byMonthDay ?? "?"}`;
 }
 
+// How far past the event's own start we search for its actual first
+// occurrence. RecurrenceRule.interval is clamped to [1,52] (calendar-event.ts),
+// so a near-worst-case "yearly-ish" monthly rule (~52-month interval) combined
+// with a handful of early skip exceptions can still push the true first
+// occurrence YEARS out — this needs to be years, not months, to reliably
+// resolve that realistic case rather than silently falling back. Bounded (not
+// unbounded) so a genuinely pathological series (e.g. hundreds of skips on a
+// multi-year interval) still falls back rather than searching indefinitely.
+const FIRST_OCCURRENCE_LOOKAHEAD_DAYS = 3660; // ~10 years
+
+/** The date+time the calendar actually renders FIRST for this event — which
+ *  can differ from event.startDate/startTime whenever an exception touches
+ *  the very first rule-generated instance: a `skip` on startDate pushes the
+ *  true first occurrence to the next rule date, and a `move` on startDate
+ *  makes the calendar show it at the moved date/time instead.
+ *
+ *  Falls back to "" — deliberately NOT the raw startDate — when nothing
+ *  resolves within the lookahead (every candidate in range was skipped, or a
+ *  small `count` was entirely consumed by skips). Printing startDate there
+ *  would repeat the exact bug this fixes: claiming a date the calendar never
+ *  actually renders. An empty cell says "unknown/none found"; a date says
+ *  "this is when it happens" — those must not be conflated. */
+function firstOccurrenceLabel(event: CalendarEvent): string {
+  const start = parseUtc(event.startDate);
+  if (!start) return "";
+  const windowEnd = iso(addDays(start, FIRST_OCCURRENCE_LOOKAHEAD_DAYS));
+  const { occurrences } = expandOccurrences(event, event.startDate, windowEnd);
+  const first = occurrences[0];
+  return first ? `${first.date} ${first.time}` : "";
+}
+
 function calendarEventsSection(events: readonly CalendarEvent[], lang: Lang): ExportSection {
   const rows = events.map((e) => [
     e.title,
-    `${e.startDate} ${e.startTime}`,
+    firstOccurrenceLabel(e),
     describeRecurrence(e.recurrence),
     e.location ?? "",
   ]);
