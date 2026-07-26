@@ -234,6 +234,37 @@ it("labels the weekday correctly under a negative UTC offset, matching the UTC d
   }
 });
 
+it("renders the UTC month label, not the runtime zone's", () => {
+  // monthLabel got the same timeZone:"UTC" fix as weekdayLabel but no test.
+  // 2026-07-01T00:00Z is still 2026-06-30 in America/New_York, so a label
+  // derived in the local zone reads "Jun" while the day number says 1.
+  // Verified non-vacuous: deleting timeZone:"UTC" from monthLabel makes this fail.
+  const originalTz = process.env.TZ;
+  process.env.TZ = "America/New_York";
+  try {
+    render(
+      <ResourceCalendar
+        lang="en-US"
+        rows={[{ key: "anna", display: "Anna", email: "" }]}
+        absences={[]}
+        today="2026-07-01"
+        holidaySet={new Set()}
+        onAddAbsence={() => {}}
+        onEditAbsence={() => {}}
+        resources={[]}
+        onEditResource={() => {}}
+        onAddResource={() => {}}
+        startDate="2026-07-01"
+        endDate="2026-07-01"
+      />,
+    );
+    expect(screen.getByText("Jul")).toBeInTheDocument();
+    expect(screen.queryByText("Jun")).not.toBeInTheDocument();
+  } finally {
+    if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz;
+  }
+});
+
 it("does not hijack arrow keys from the assignee row-header button (#27)", () => {
   const { container } = render(
     <ResourceCalendar
@@ -749,6 +780,36 @@ it("announces move-mode start and cancellation via the aria-live region", () => 
   expect(screen.getByText(/move mode/i)).toBeInTheDocument();
   fireEvent.keyDown(grid, { key: "Escape" });
   expect(screen.getByText(/move cancelled/i)).toBeInTheDocument();
+});
+
+it("Escape from a keyboard RESIZE announces the resize cancellation, not the move one", () => {
+  // justCancelled used to be a bare boolean, so the live region could only
+  // ever emit "Move cancelled" — even for an abandoned RESIZE, whose
+  // mode-ON announcement already correctly says "Resize mode".
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-28", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  screen.getAllByRole("gridcell")[0].querySelector("button")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
+  expect(screen.getByText(/resize mode/i)).toBeInTheDocument();
+  fireEvent.keyDown(grid, { key: "Escape" });
+  expect(screen.getByText(/resize cancelled/i)).toBeInTheDocument();
+  expect(screen.queryByText(/^move cancelled/i)).not.toBeInTheDocument();
 });
 
 it("renders occurrences of a recurring series in the meetings band", () => {

@@ -85,7 +85,7 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
               empty band alone isn't enough signal. Spans the whole table so
               it reads as one banner rather than a mysterious first column. */}
           <td
-            role="rowheader"
+            role="gridcell"
             colSpan={1 + days.length}
             className="border-b border-r border-line bg-surface-muted px-2 py-1 text-xs font-medium text-ui-pink-strong"
           >

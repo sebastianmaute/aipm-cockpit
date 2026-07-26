@@ -12,7 +12,7 @@
 
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { localeFor } from "./date-format";
-import { type Lang, t } from "./i18n";
+import { type Lang, type TranslationKey, t } from "./i18n";
 import type { Absence, Resource } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 import { isoWeekParts } from "./resource-capacity";
@@ -35,6 +35,19 @@ function addIsoDays(dateIso: string, days: number): string {
   const d = parseUtc(dateIso);
   return d ? iso(new Date(d.valueOf() + days * DAY_MS)) : dateIso;
 }
+
+/** The two keyboard drag gestures the aria-live region announces. Narrower
+ *  than onMoveAbsence's 3-member kind ("reassign" has no keyboard entry
+ *  point) — shared by pendingMove's `kind` and `justCancelled` so a future
+ *  keyboard gesture can't drift the two apart. */
+type CalendarDragKind = "move" | "resize";
+
+/** Exhaustive by construction: adding a drag kind fails to compile here rather
+ *  than silently announcing the wrong one (the bug 4c fixed). */
+const DRAG_MODE_KEYS: Record<CalendarDragKind, { on: TranslationKey; cancelled: TranslationKey }> = {
+  move: { on: "calendarMoveModeOn", cancelled: "calendarMoveModeCancelled" },
+  resize: { on: "calendarResizeModeOn", cancelled: "calendarResizeModeCancelled" },
+};
 
 interface Props {
   lang: Lang;
@@ -165,12 +178,13 @@ function ResourceCalendarInner({
   // resolveCalendarDrag mode and the arrow handler can reject the axis the
   // active gesture doesn't use (resize never changes row).
   const [pendingMove, setPendingMove] = useState<
-    { absenceId: number; dayDelta: number; rowDelta: number; kind: "move" | "resize" } | null
+    { absenceId: number; dayDelta: number; rowDelta: number; kind: CalendarDragKind } | null
   >(null);
-  // Drives the aria-live announcement's "Move cancelled" flash after Escape;
+  // Drives the aria-live announcement's cancellation flash after Escape;
   // cleared as soon as a fresh move starts so a stale cancellation can't
-  // linger into the next one.
-  const [justCancelled, setJustCancelled] = useState(false);
+  // linger into the next one. Carries WHICH mode was abandoned so the
+  // announcement can't tell a resizing user their move was cancelled.
+  const [justCancelled, setJustCancelled] = useState<CalendarDragKind | null>(null);
 
   // Roving-tabindex focus target for the 2-D day-cell grid (#27). Exactly one
   // day cell is a tab stop; arrow keys move DOM focus + this marker. Clamped on
@@ -203,7 +217,7 @@ function ResourceCalendarInner({
       if (e.key === "Escape") {
         e.preventDefault();
         setPendingMove(null);
-        setJustCancelled(true);
+        setJustCancelled(pendingMove.kind);
         return;
       }
       if (e.key === "Enter") {
@@ -282,7 +296,7 @@ function ResourceCalendarInner({
       const hit = originRow && originDay ? hitFor(originRow.key, originDay.iso) : undefined;
       if (hit) {
         e.preventDefault();
-        setJustCancelled(false);
+        setJustCancelled(null);
         setPendingMove({
           absenceId: hit.id,
           dayDelta: e.key === "ArrowLeft" ? -1 : 1,
@@ -298,7 +312,7 @@ function ResourceCalendarInner({
       const hit = originRow && originDay ? hitFor(originRow.key, originDay.iso) : undefined;
       if (hit) {
         e.preventDefault();
-        setJustCancelled(false);
+        setJustCancelled(null);
         setPendingMove({
           absenceId: hit.id,
           dayDelta: e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0,
@@ -522,9 +536,9 @@ function ResourceCalendarInner({
           is active (or was just cancelled) — visually silent by design. */}
       <div aria-live="polite" className="sr-only">
         {pendingMove
-          ? t(lang, pendingMove.kind === "resize" ? "calendarResizeModeOn" : "calendarMoveModeOn")
+          ? t(lang, DRAG_MODE_KEYS[pendingMove.kind].on)
           : justCancelled
-            ? t(lang, "calendarMoveModeCancelled")
+            ? t(lang, DRAG_MODE_KEYS[justCancelled].cancelled)
             : ""}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-muted-foreground">
