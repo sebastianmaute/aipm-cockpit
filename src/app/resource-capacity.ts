@@ -22,8 +22,10 @@ function monthPeriods(startDate: string, endDate: string): Period[] {
   return out;
 }
 
-/** ISO-8601 week-numbering year + week for a UTC date. */
-function isoWeekParts(d: Date): { year: number; week: number } {
+/** ISO-8601 week-numbering year + week for a UTC date. Exported for the
+ *  calendar's week band — do NOT write a second implementation, the
+ *  periodKeyForDate contract below depends on this being the only one. */
+export function isoWeekParts(d: Date): { year: number; week: number } {
   const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const day = (t.getUTCDay() + 6) % 7; // Mon=0..Sun=6
   t.setUTCDate(t.getUTCDate() - day + 3); // nearest Thursday

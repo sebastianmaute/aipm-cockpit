@@ -33,6 +33,8 @@ import {
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
 import { linkKindOf, type KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
+import type { CalendarEvent, RecurrenceRule } from "./calendar-event";
+import { nearestOccurrence } from "./recurrence";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
@@ -275,6 +277,89 @@ function insightsSection(insights: readonly Insight[]): ExportSection {
   };
 }
 
+function ordinalLabel(n: 1 | 2 | 3 | 4 | -1): string {
+  return n === -1 ? "last" : n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : "4th";
+}
+
+/** English-only, i18n-free (consistent with budgets/roles/absences/shifts/
+ *  insights): a compact plain-language summary of a recurrence rule, derived
+ *  from the rule alone — no occurrence expansion needed, since an event's own
+ *  `startDate`/`startTime` already IS its first occurrence. */
+function describeRecurrence(r: RecurrenceRule | undefined): string {
+  if (!r) return "Does not repeat";
+  const unit = (word: string) => (r.interval > 1 ? `${r.interval} ${word}s` : word);
+  if (r.freq === "daily") return `Every ${unit("day")}`;
+  if (r.freq === "weekly") {
+    const days = r.byDay && r.byDay.length > 0 ? ` on ${r.byDay.join(", ")}` : "";
+    return `Every ${unit("week")}${days}`;
+  }
+  if (r.byDay) return `Every ${unit("month")} on the ${ordinalLabel(r.byDay.ordinal)} ${r.byDay.day}`;
+  return `Every ${unit("month")} on day ${r.byMonthDay ?? "?"}`;
+}
+
+/** The date+time the calendar actually renders FIRST for this event — which
+ *  can differ from event.startDate/startTime whenever an exception touches
+ *  the very first rule-generated instance: a `skip` on startDate pushes the
+ *  true first occurrence to the next rule date, and a `move` on startDate
+ *  makes the calendar show it at the moved date/time instead. Thin wrapper
+ *  over recurrence.ts's `nearestOccurrence` (windowStart = the event's own
+ *  startDate — "first occurrence ever"; the all-series list's analogous
+ *  next-occurrence-from-today reuses the SAME helper with `today` as the
+ *  start, since the search mechanics and lookahead bound are identical —
+ *  only the window start and the empty-result fallback differ per caller).
+ *
+ *  Falls back to "" — deliberately NOT the raw startDate — when nothing
+ *  resolves within the lookahead (every candidate in range was skipped, or a
+ *  small `count` was entirely consumed by skips). Printing startDate there
+ *  would repeat the exact bug this fixes: claiming a date the calendar never
+ *  actually renders. An empty cell says "unknown/none found"; a date says
+ *  "this is when it happens" — those must not be conflated.
+ *
+ *  ★ `nearestOccurrence`'s `truncated` flag is deliberately IGNORED here,
+ *  not silently dropped — but NOT because truncation itself can't happen.
+ *  It routinely does: `truncated` is set whenever EITHER of
+ *  `expandOccurrences`' two caps fires, and `MAX_OCCURRENCES` (1000 pushed
+ *  results) trips for any ordinary daily/weekly-ish series once its walk
+ *  crosses ~11 years of candidates — which is the WHOLE lookahead here,
+ *  since windowStart is always the event's own `startDate` for this caller
+ *  (by construction — "first occurrence ever"). So `truncated === true` is
+ *  the COMMON case, not a rare one, and is uninformative for what this
+ *  function needs: `occurrence` is element 0 of an already-sorted list, so
+ *  it is correct regardless of whether the TAIL got cut off by
+ *  `MAX_OCCURRENCES`.
+ *
+ *  What genuinely can't happen for this call shape is `occurrence ===
+ *  undefined && truncated` — the "search gave up before confirming
+ *  anything" state `NearestOccurrenceResult.truncated`'s own doc warns
+ *  about. That requires exhausting `MAX_ITERATIONS` (20,000 candidates
+ *  evaluated) before ever reaching the window, which needs a real gap
+ *  between where generation starts and where the window begins — impossible
+ *  here since they're the same date. (Verified: `occurrence` resolves for
+ *  both an ordinary and a ~125-year-old daily series passed through this
+ *  exact call shape — see the pinning test below.) Contrast the all-series
+ *  list's `nextOccurrenceLabel`, which passes `today` — independent of the
+ *  event's own startDate — where that gap is real and `occurrence ===
+ *  undefined && truncated` DOES need its own message. */
+function firstOccurrenceLabel(event: CalendarEvent): string {
+  const { occurrence } = nearestOccurrence(event, event.startDate);
+  return occurrence ? `${occurrence.date} ${occurrence.time}` : "";
+}
+
+function calendarEventsSection(events: readonly CalendarEvent[], lang: Lang): ExportSection {
+  const rows = events.map((e) => [
+    e.title,
+    firstOccurrenceLabel(e),
+    describeRecurrence(e.recurrence),
+    e.location ?? "",
+  ]);
+  return {
+    key: "calendarEvents",
+    title: t(lang, "exportLabelCalendarEvents"),
+    columns: ["title", "first occurrence", "recurs", "location"],
+    rows,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Builder map keyed by ExportSectionKey
 // ---------------------------------------------------------------------------
@@ -330,6 +415,10 @@ const BUILDERS: Record<ExportSectionKey, SectionBuilder> = {
   shifts: (ws) => {
     const items = ws.shifts;
     return items.length > 0 ? shiftsSection(items) : null;
+  },
+  calendarEvents: (ws, lang) => {
+    const items = ws.calendarEvents ?? [];
+    return items.length > 0 ? calendarEventsSection(items, lang) : null;
   },
   status: (ws) => {
     const s = ws.status;

@@ -11,6 +11,16 @@ import { riskSeverityFromMatrix } from "./raid";
 import { encodeKnowledgeLinks, decodeKnowledgeLinks } from "./document-link";
 import { encodeNoteLog, decodeNoteLog } from "./note-log";
 import {
+  type CalendarEvent,
+  sanitizeCalendarEvent,
+  encodeRecurrence,
+  decodeRecurrence,
+  encodeExceptions,
+  decodeExceptions,
+  encodeAttendees,
+  decodeAttendees,
+} from "./calendar-event";
+import {
   encodeAllocations,
   encodeDisciplineAllocations,
   encodePeriodMap,
@@ -122,6 +132,26 @@ export const ABSENCES_CSV_COLUMNS: Array<keyof Absence> = [
   "note",
   "localModifiedAt",
   "resourceId",
+  "outlookEventId",
+];
+
+// Columns persisted for CalendarEvent items in CSV and Turso (single + tenant).
+// Order matches the header row emitted by the encoder; the decoder reads by
+// column name so reordering files by hand still works. `recurrence` /
+// `exceptions` / `attendeeResourceIds` are JSON-in-cell (see calendar-event.ts).
+export const EVENTS_CSV_COLUMNS: Array<keyof CalendarEvent> = [
+  "id",
+  "title",
+  "startDate",
+  "startTime",
+  "durationMinutes",
+  "location",
+  "notes",
+  "recurrence",
+  "exceptions",
+  "attendeeResourceIds",
+  "sendInvitations",
+  "localModifiedAt",
   "outlookEventId",
 ];
 
@@ -534,6 +564,61 @@ export function absencesToCsv(absences: readonly Absence[], neutralize = false):
   return lines.join("\r\n");
 }
 
+export function calendarEventFieldToString(e: CalendarEvent, col: string): string {
+  switch (col) {
+    case "recurrence":
+      return encodeRecurrence(e.recurrence);
+    case "exceptions":
+      return encodeExceptions(e.exceptions);
+    case "attendeeResourceIds":
+      return encodeAttendees(e.attendeeResourceIds);
+    case "sendInvitations":
+      return e.sendInvitations ? "true" : "";
+    default: {
+      const v = (e as unknown as Record<string, unknown>)[col];
+      return v == null ? "" : String(v);
+    }
+  }
+}
+
+/**
+ * Builds a CalendarEvent from a header→value object produced by the CSV / MD
+ * parsers. Runs the three JSON-in-cell decoders on the matching columns, then
+ * defers to `sanitizeCalendarEvent` for everything else — mirrors
+ * `buildChangeFromObj`/`buildStakeholderFromObj`. Shared by both the CSV and
+ * Markdown decoders, so a fix here (or in the sanitizer it calls) covers both
+ * formats at once.
+ *
+ * Every scalar column — including `localModifiedAt`/`outlookEventId`/
+ * `location`/`notes` — round-trips an unset value as a raw `""` cell, and
+ * `sanitizeCalendarEvent` normalizes each of those empty->undefined on its
+ * own (`sanitizeText(...) || undefined`), so nothing needs pre-normalizing
+ * here. (This function used to also strip `localModifiedAt` before handing
+ * it off, working around a since-fixed gap in the sanitizer's own arm for
+ * that field — removed once the fix landed there, to keep one mechanism.)
+ */
+export function buildCalendarEventFromObj(obj: Record<string, string>): CalendarEvent | null {
+  return sanitizeCalendarEvent({
+    ...obj,
+    recurrence: decodeRecurrence(obj.recurrence ?? ""),
+    exceptions: decodeExceptions(obj.exceptions ?? ""),
+    attendeeResourceIds: decodeAttendees(obj.attendeeResourceIds ?? ""),
+    sendInvitations: obj.sendInvitations === "true",
+  });
+}
+
+export function calendarEventsToCsv(events: readonly CalendarEvent[], neutralize = false): string {
+  const lines: string[] = [EVENTS_CSV_COLUMNS.join(",")];
+  for (const e of events) {
+    lines.push(
+      EVENTS_CSV_COLUMNS.map((c) =>
+        csvCellEscape(calendarEventFieldToString(e, c), neutralize),
+      ).join(","),
+    );
+  }
+  return lines.join("\r\n");
+}
+
 export function shiftsToCsv(shifts: readonly Shift[], neutralize = false): string {
   const lines: string[] = [SHIFTS_CSV_COLUMNS.join(",")];
   for (const s of shifts) {
@@ -649,6 +734,7 @@ export const CSV_SECTION_TASKS = "# TASKS";
 export const CSV_SECTION_RAID = "# RAID";
 export const CSV_SECTION_ABSENCES = "# ABSENCES";
 export const CSV_SECTION_SHIFTS = "# SHIFTS";
+export const CSV_SECTION_CALENDAR_EVENTS = "# CALENDAR EVENTS";
 
 
 

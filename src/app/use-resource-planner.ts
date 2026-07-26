@@ -7,6 +7,7 @@ import { reportSilentFailure } from "./guard-feedback";
 import { resourceDisplayName } from "./resource-foundation";
 import { buildRaidInquiryMailto, resolveRaidOwnerEmail } from "./raid-inquiry";
 import { mintId } from "./id-mint-session";
+import { useCalendarEvents } from "./use-calendar-events";
 import { generatePeriods, convertUtilization } from "./resource-capacity";
 import { DEFAULT_WEEK_HOURS, type Absence, type AbsenceType, type RaidItem, type Resource, type Role, type Shift, type Task } from "./types";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
@@ -386,6 +387,9 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     },
     [absences, setAbsences],
   );
+
+  // CRUD extracted to use-calendar-events.ts (useChangeLog/useStakeholders convention).
+  const calendarEventsApi = useCalendarEvents({ today });
 
   const handleOpenShiftEditor = useCallback(
     (existing: Shift | null, seed: { display: string; email: string }) => {
@@ -1002,6 +1006,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     handleCloseAbsenceModal,
     handleSaveAbsence,
     handleDeleteAbsence,
+    ...calendarEventsApi,
     handleOpenShiftEditor,
     handleCloseShiftModal,
     handleSaveShift,

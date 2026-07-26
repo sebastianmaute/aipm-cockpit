@@ -45,6 +45,13 @@
 | 4 | Morgan Standin | Invented.Riley@example.com | 2026-06-17 | 2026-06-18 | other | Offsite leadership summit |  | 4 |  |
 | 5 | Sam Placeholder | Fictional.Jordan@example.com | 2026-07-07 | 2026-07-11 | vacation | Summer holiday |  | 2 |  |
 
+## Calendar Events
+
+| ID | Title | Start | StartTime | DurationMin | Location | Notes | Recurrence | Exceptions | Attendees | SendInvitations | LocalModified | OutlookEventId |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Project standup | 2026-01-05 | 09:00 | 15 |  |  | {"freq":"weekly","interval":1,"byDay":["MO","WE","FR"]} |  |  |  |  |  |
+| 2 | Steering board | 2026-01-13 | 14:00 | 60 |  |  | {"freq":"monthly","interval":1,"byDay":{"ordinal":2,"day":"TU"}} | [{"date":"2026-04-14","kind":"skip"}] |  |  |  |  |
+
 # Shifts
 
 | ID | Assignee | Email | ResourceId | Sun | Mon | Tue | Wed | Thu | Fri | Sat | Note | LocalModified |

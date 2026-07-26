@@ -20,6 +20,9 @@ import { memo, useCallback, useMemo, useState, type Dispatch, type SetStateActio
 import { type CalendarMode, monthWindow, resolveWindow, stepAnchor } from "./calendar-window";
 import { type Lang, t } from "./i18n";
 import { ResourceCalendar } from "./resource-calendar";
+import { CalendarSeriesList } from "./calendar-series-list";
+import type { CalendarEvent } from "./calendar-event";
+import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { ResourceWorkload, WORKLOAD_COL_WIDTHS, type WorkloadCol } from "./resource-workload";
 import { generatePeriods, displayCapacityHours, absencesForResource, convertUtilization } from "./resource-capacity";
@@ -70,10 +73,21 @@ interface Props {
   raid: readonly RaidItem[];
   raidEnabled: boolean;
   resources: readonly Resource[];
+  /** Resource-calendar timed events, optionally recurring. Threaded straight
+   *  into the all-series list under the calendar grid — that list is the only
+   *  consumer of this prop; the grid's own occurrence rendering lands in a
+   *  later task. Optional (defaults to none) so the existing call site can
+   *  wire it up separately without this task's addition breaking the build. */
+  calendarEvents?: readonly CalendarEvent[];
   today: string;
   holidaySet: ReadonlySet<string>;
   onAddAbsence: (seed?: Partial<Absence>) => void;
   onEditAbsence: (absence: Absence) => void;
+  /** Commit a drag/resize/reassign on the calendar grid. Threaded straight into
+   *  `<ResourceCalendar>`; the caller owns the actual absence save (mirrors
+   *  `onEditAbsence`). Omit in popouts — the panel itself gates it on
+   *  `isPopout`, so a caller need not double-guard. */
+  onMoveAbsence?: (id: number, patch: Partial<Absence>, kind: "move" | "reassign" | "resize") => void;
   /** Open the shift modal for a row. `existingShift` is the shift to edit,
    *  or null when the row has no shift yet (modal opens in create mode
    *  pre-filled with the row's assignee). */
@@ -101,6 +115,19 @@ interface Props {
   onSetPlanWindow: (startDate: string, endDate: string) => void;
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed?: Partial<Resource>) => void;
+  /** Open the calendar-event editor for a NEW meeting (the toolbar's
+   *  "+ Add meeting" button). Omit in popouts — the panel itself gates it on
+   *  `isPopout`, so a caller need not double-guard (mirrors `onAddAbsence`). */
+  onAddCalendarEvent?: () => void;
+  /** Open the calendar-event editor for a series from the band or the
+   *  all-series list. Omit in popouts — the panel itself gates it on
+   *  `isPopout`, so a caller need not double-guard (mirrors `onMoveAbsence`). */
+  onEditCalendarEvent?: (event: CalendarEvent) => void;
+  /** Commit a change to a calendar event. Added ahead of the series editor's
+   *  full save/create/delete wiring (Task 17 needs it for occurrence-drag
+   *  only) — mirrors `onMoveAbsence`'s own precedent of landing before its
+   *  caller-side handler did. Omit in popouts, same convention. */
+  onSaveCalendarEvent?: (event: CalendarEvent) => void;
   onImportOutlookCalendar?: () => void;
   /** M365 configured — gates the calendar toggle/button (hidden otherwise). */
   m365Configured?: boolean;
@@ -144,10 +171,12 @@ function ResourcesPanelInner({
   raid,
   raidEnabled,
   resources,
+  calendarEvents = [],
   today,
   holidaySet,
   onAddAbsence,
   onEditAbsence,
+  onMoveAbsence,
   onEditShift,
   roles,
   disciplines,
@@ -165,6 +194,9 @@ function ResourcesPanelInner({
   onSetPlanWindow,
   onEditResource,
   onAddResource,
+  onAddCalendarEvent,
+  onEditCalendarEvent,
+  onSaveCalendarEvent,
   onImportOutlookCalendar,
   m365Configured,
   calendarEnabled,
@@ -437,6 +469,15 @@ function ResourcesPanelInner({
         onPullCalendar={onPullCalendar}
         calendarPullBusy={calendarPullBusy}
       />
+      {view === "calendar" && !isPopout && onAddCalendarEvent && (
+        <button
+          type="button"
+          onClick={onAddCalendarEvent}
+          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted dark:text-ui-light-grey ${INTERACTIVE}`}
+        >
+          {t(lang, "calendarEventAddMeeting")}
+        </button>
+      )}
       <PrintButton lang={lang} />
       {(view === "planning" || view === "workload") && (
         <ResetColWidthsButton
@@ -610,11 +651,25 @@ function ResourcesPanelInner({
             holidaySet={holidaySet}
             onAddAbsence={onAddAbsence}
             onEditAbsence={onEditAbsence}
+            onMoveAbsence={isPopout ? undefined : onMoveAbsence}
             resources={resources}
             onEditResource={onEditResource}
             onAddResource={onAddResource}
             startDate={calendarWin.startDate}
             endDate={calendarWin.endDate}
+            calendarEvents={calendarEvents}
+            onEditEvent={isPopout ? undefined : onEditCalendarEvent}
+            onMoveOccurrence={
+              isPopout || !onSaveCalendarEvent
+                ? undefined
+                : buildMoveOccurrenceHandler(calendarEvents, onSaveCalendarEvent)
+            }
+          />
+          <CalendarSeriesList
+            lang={lang}
+            events={calendarEvents}
+            today={today}
+            onEdit={isPopout ? undefined : onEditCalendarEvent}
           />
         </>
       )}

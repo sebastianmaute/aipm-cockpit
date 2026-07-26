@@ -25,6 +25,7 @@ const LABEL_KEYS: Record<ExportSectionKey, TranslationKey> = {
   roles: "exportLabelRoles",
   absences: "exportLabelAbsences",
   shifts: "exportLabelShifts",
+  calendarEvents: "exportLabelCalendarEvents",
   status: "exportLabelStatus",
   knowledgeItems: "exportLabelKnowledgeItems",
   insights: "exportLabelInsights",

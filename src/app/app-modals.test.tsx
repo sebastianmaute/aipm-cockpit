@@ -15,6 +15,9 @@ vi.mock("./jira-conflicts-modal", () => ({
 vi.mock("./absence-edit-modal", () => ({
   AbsenceEditModal: () => <div data-testid="absence-edit-modal" />,
 }));
+vi.mock("./calendar-event-modal", () => ({
+  CalendarEventModal: () => <div data-testid="calendar-event-modal" />,
+}));
 vi.mock("./shift-edit-modal", () => ({
   ShiftEditModal: () => <div data-testid="shift-edit-modal" />,
 }));
@@ -30,6 +33,7 @@ import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import type { ConflictItem } from "./jira-api";
 import type { Absence } from "./types";
 import type { Shift } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 const mockUseTaskForm = useTaskForm as ReturnType<typeof vi.fn>;
 
 function stubTaskForm() {
@@ -54,6 +58,10 @@ function makeProps(): AppModalsProps {
     handleSaveAbsence: vi.fn(),
     handleDeleteAbsence: vi.fn(),
     handleCloseAbsenceModal: vi.fn(),
+    editingCalendarEvent: null,
+    handleSaveCalendarEvent: vi.fn(),
+    handleDeleteCalendarEvent: vi.fn(),
+    handleCloseCalendarEventModal: vi.fn(),
     editingShift: null,
     shiftExistingAssigneeKeys: new Set(),
     handleSaveShift: vi.fn(),
@@ -118,6 +126,17 @@ describe("AppModals", () => {
     stubTaskForm();
     render(<AppModals {...makeProps()} editingAbsence={{ absence: {} as unknown as Absence, isNew: false }} />);
     expect(screen.getByTestId("absence-edit-modal")).toBeInTheDocument();
+  });
+
+  it("shows CalendarEventModal when editingCalendarEvent is non-null", () => {
+    stubTaskForm();
+    render(
+      <AppModals
+        {...makeProps()}
+        editingCalendarEvent={{ event: {} as unknown as CalendarEvent, isNew: false }}
+      />,
+    );
+    expect(screen.getByTestId("calendar-event-modal")).toBeInTheDocument();
   });
 
   it("shows ShiftEditModal when editingShift is non-null", () => {

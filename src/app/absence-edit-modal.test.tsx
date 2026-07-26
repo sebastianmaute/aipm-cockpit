@@ -165,4 +165,28 @@ describe("AbsenceEditModal", () => {
       expect(screen.getByText(t("en-US", "absenceNote"))).toBeInTheDocument();
     });
   });
+
+  it("pulls the end date along when the start moves past it", () => {
+    setup();
+    const start = screen.getByLabelText(/start/i) as HTMLInputElement;
+    fireEvent.change(start, { target: { value: "2026-07-10" } });
+    const end = screen.getByLabelText(/end/i) as HTMLInputElement;
+    expect(end.value).toBe("2026-07-10");
+  });
+
+  it("clears the end-before-start error once the start date is corrected", () => {
+    setup();
+    // End is deliberately unclamped — edit it directly to trigger the
+    // submit-time "end before start" guard.
+    const end = screen.getByLabelText(/end/i) as HTMLInputElement;
+    fireEvent.change(end, { target: { value: "2026-05-01" } });
+    fireEvent.submit(
+      screen.getByRole("button", { name: /save/i }).closest("form")!,
+    );
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    const start = screen.getByLabelText(/start/i) as HTMLInputElement;
+    fireEvent.change(start, { target: { value: "2026-04-01" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

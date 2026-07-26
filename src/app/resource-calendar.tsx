@@ -10,22 +10,30 @@
 //
 // Phase 3 of the Resource Planner (see docs/RESOURCE-PLANNER-PLAN.md).
 
-import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
-import type { Absence, AbsenceType, Resource } from "./types";
-import { absenceBg, absenceGlyph } from "./absence-style";
-import { resourceDisplayName, splitName } from "./resource-foundation";
-import { INTERACTIVE } from "./interaction-styles";
+import type { Absence, Resource } from "./types";
+import { resourceDisplayName } from "./resource-foundation";
+import { isoWeekParts } from "./resource-capacity";
 import { TABLE_HEAD_CLASS } from "./table-styles";
+import { resolveCalendarDrag } from "./calendar-drag";
+import { iso, parseUtc } from "./calendar-window";
+import { expandOccurrences, type Occurrence } from "./recurrence";
+import { packOccurrenceLanes } from "./occurrence-lanes";
+import { CalendarBand } from "./resource-calendar-band";
+import type { CalendarEvent } from "./calendar-event";
+import { CalendarRows, type CalendarDragState } from "./resource-calendar-rows";
+import { CELL_PX, ASSIGNEE_COL_PX, type CalendarAssignee, type CalendarDay } from "./resource-calendar-shared";
 
-interface CalendarAssignee {
-  /** Case-folded join key used to look up matching absences. */
-  key: string;
-  /** Original-case display name for the row label. */
-  display: string;
-  /** First non-empty email observed for this assignee (may be ""). */
-  email: string;
+const DAY_MS = 86_400_000;
+
+/** Shift an ISO date by N days (negative = earlier). Falls back to the input
+ *  unchanged on an unparseable date — callers only ever feed it a stored
+ *  Absence date (sanitizer-validated) or another `iso()` result. */
+function addIsoDays(dateIso: string, days: number): string {
+  const d = parseUtc(dateIso);
+  return d ? iso(new Date(d.valueOf() + days * DAY_MS)) : dateIso;
 }
 
 interface Props {
@@ -36,6 +44,8 @@ interface Props {
   holidaySet: ReadonlySet<string>;
   onAddAbsence: (seed?: Partial<Absence>) => void;
   onEditAbsence: (absence: Absence) => void;
+  /** Commit a drag/resize/reassign. Omit to make the grid read-only (popout). */
+  onMoveAbsence?: (id: number, patch: Partial<Absence>, kind: "move" | "reassign" | "resize") => void;
   resources: readonly Resource[];
   onEditResource: (resource: Resource) => void;
   onAddResource: (seed: Partial<Resource>) => void;
@@ -44,33 +54,21 @@ interface Props {
   endDate: string;
   /** When false, rows backed by an external resource are hidden. Default true. */
   includeExternals?: boolean;
+  /** Recurring meetings rendered as a lane-packed band above the assignee
+   *  rows. Omit entirely (with onEditEvent) to leave the calendar
+   *  meetings-free — the band renders nothing when there are no lanes. */
+  calendarEvents?: readonly CalendarEvent[];
+  /** Open a meeting occurrence for edit. Also GATES the band: omit to hide
+   *  meetings entirely (mirrors onMoveAbsence's popout/read-only convention). */
+  onEditEvent?: (event: CalendarEvent) => void;
+  /** Drag-reschedule an occurrence. Omit to make the band read-only. */
+  onMoveOccurrence?: (occurrence: Occurrence, toDate: string) => void;
 }
 
-const CELL_PX = 40;
-const ASSIGNEE_COL_PX = 180;
-
-interface CalendarDay {
-  iso: string;
-  dayOfMonth: number;
-  /** Month label shown on the first day and at each month transition. */
-  monthLabel: string;
-  isWeekend: boolean;
-  isHoliday: boolean;
-  isToday: boolean;
-}
-
-function localTypeLabel(type: AbsenceType, lang: Lang): string {
-  switch (type) {
-    case "vacation":
-      return t(lang, "absenceTypeVacation");
-    case "sick":
-      return t(lang, "absenceTypeSick");
-    case "training":
-      return t(lang, "absenceTypeTraining");
-    default:
-      return t(lang, "absenceTypeOther");
-  }
-}
+/** Rendered height of the ISO week-band header row (py-0.5 + text-[10px]).
+ *  The day-header row sticks BELOW the band by exactly this much, so the two
+ *  must move together — change the band row's padding/font and change this. */
+const WEEK_BAND_ROW_PX = 18;
 
 function ResourceCalendarInner({
   lang,
@@ -80,12 +78,16 @@ function ResourceCalendarInner({
   holidaySet,
   onAddAbsence,
   onEditAbsence,
+  onMoveAbsence,
   resources,
   onEditResource,
   onAddResource,
   startDate,
   endDate,
   includeExternals = true,
+  calendarEvents,
+  onEditEvent,
+  onMoveOccurrence,
 }: Props) {
   const days = useMemo<CalendarDay[]>(() => {
     const out: CalendarDay[] = [];
@@ -102,7 +104,17 @@ function ResourceCalendarInner({
       out.push({
         iso,
         dayOfMonth: d.getUTCDate(),
-        monthLabel: monthChange ? d.toLocaleDateString(loc, { month: "short" }) : "",
+        // Every sibling field here is UTC (getUTCDate/getUTCDay,
+        // isoWeekParts) — these two MUST be too, via an explicit
+        // timeZone:"UTC", or toLocaleDateString silently falls back to the
+        // browser/runtime's LOCAL zone. In any negative UTC offset (e.g.
+        // America/New_York) that renders the PREVIOUS calendar day's label
+        // while the day number and weekend/holiday shading beneath it stay
+        // correctly on the UTC date — a labelled Sunday sitting on top of an
+        // unshaded Monday.
+        weekdayLabel: d.toLocaleDateString(loc, { weekday: "short", timeZone: "UTC" }),
+        isoWeek: isoWeekParts(d).week,
+        monthLabel: monthChange ? d.toLocaleDateString(loc, { month: "short", timeZone: "UTC" }) : "",
         isWeekend: dow === 0 || dow === 6,
         isHoliday: holidaySet.has(iso),
         isToday: iso === today,
@@ -111,6 +123,18 @@ function ResourceCalendarInner({
     }
     return out;
   }, [startDate, endDate, today, holidaySet, lang]);
+
+  // Contiguous runs of same-ISO-week columns, for the header band's colSpans.
+  // Derived from `days` alone so it can never disagree with the day row.
+  const weekRuns = useMemo<{ week: number; span: number }[]>(() => {
+    const runs: { week: number; span: number }[] = [];
+    for (const d of days) {
+      const last = runs[runs.length - 1];
+      if (last && last.week === d.isoWeek) last.span += 1;
+      else runs.push({ week: d.isoWeek, span: 1 });
+    }
+    return runs;
+  }, [days]);
 
   // Optionally hide external-resource rows (calendar-scoped preference). Rows
   // with no backing resource are never external, so they always show. Keyed the
@@ -126,6 +150,27 @@ function ResourceCalendarInner({
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLTableElement | null>(null);
+
+  // The gesture currently in flight. A ref (not state) because the drop handler
+  // reads it synchronously and re-rendering mid-drag would tear the ghost.
+  const dragRef = useRef<CalendarDragState>(null);
+  // Set by a completed drag so the click browsers fire afterwards is
+  // ignored — otherwise every drag also opens the absence editor.
+  const suppressClickRef = useRef(false);
+
+  // A keyboard move (or resize) in progress (Alt+Arrow / Alt+Shift+Arrow
+  // armed it). Committing only on Enter is deliberate: one undo entry per
+  // intent, not one per arrow press — mirrors the drag-drop path (Task 5b).
+  // `kind` distinguishes the two gestures so Enter can route to the right
+  // resolveCalendarDrag mode and the arrow handler can reject the axis the
+  // active gesture doesn't use (resize never changes row).
+  const [pendingMove, setPendingMove] = useState<
+    { absenceId: number; dayDelta: number; rowDelta: number; kind: "move" | "resize" } | null
+  >(null);
+  // Drives the aria-live announcement's "Move cancelled" flash after Escape;
+  // cleared as soon as a fresh move starts so a stale cancellation can't
+  // linger into the next one.
+  const [justCancelled, setJustCancelled] = useState(false);
 
   // Roving-tabindex focus target for the 2-D day-cell grid (#27). Exactly one
   // day cell is a tab stop; arrow keys move DOM focus + this marker. Clamped on
@@ -146,6 +191,124 @@ function ResourceCalendarInner({
     // Only day cells rove — ignore keys unless a day cell holds focus, so the
     // assignee row-header button (outside the roving set) keeps its arrow keys.
     if (!(document.activeElement as HTMLElement | null)?.matches?.("[data-cell]")) return;
+
+    // A keyboard move is being previewed: Alt+Arrow adjusts the pending
+    // delta, Enter commits it as ONE resolveCalendarDrag call (one undo
+    // entry, not one per arrow press), Escape discards. Every other key is
+    // left alone here rather than falling into the roving switch below — a
+    // plain (non-Alt) arrow can't also walk the focus cursor while a move is
+    // in flight. "Left alone" (not preventDefault'd) so Tab still escapes the
+    // cell; there is nothing else on a grid cell for an unhandled key to do.
+    if (pendingMove) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPendingMove(null);
+        setJustCancelled(true);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const moving = absences.find((a) => a.id === pendingMove.absenceId);
+        if (moving && onMoveAbsence) {
+          if (pendingMove.kind === "resize") {
+            // Resize never changes row — `target` is unread by the
+            // resize-end branch of resolveCalendarDrag, so a same-row
+            // placeholder is correct, not a stand-in for a real target.
+            const result = resolveCalendarDrag({
+              absence: moving,
+              grabbedDate: moving.endDate,
+              dropDate: addIsoDays(moving.endDate, pendingMove.dayDelta),
+              mode: "resize-end",
+              target: { kind: "same-row" },
+            });
+            if (result) onMoveAbsence(moving.id, result.patch, result.kind);
+          } else {
+            const originRow = visibleRows[focusRow];
+            const targetIndex = Math.min(Math.max(focusRow + pendingMove.rowDelta, 0), Math.max(rowCount - 1, 0));
+            const targetRow = visibleRows[targetIndex];
+            if (originRow && targetRow) {
+              const result = resolveCalendarDrag({
+                absence: moving,
+                grabbedDate: moving.startDate,
+                dropDate: addIsoDays(moving.startDate, pendingMove.dayDelta),
+                mode: "move",
+                target: targetRow.key === originRow.key
+                  ? { kind: "same-row" }
+                  : {
+                      kind: "other-row",
+                      rowKey: targetRow.key,
+                      row: { display: targetRow.display, email: targetRow.email, resource: resourceFor(targetRow.key) },
+                    },
+              });
+              if (result) onMoveAbsence(moving.id, result.patch, result.kind);
+            }
+          }
+        }
+        setPendingMove(null);
+        return;
+      }
+      if (pendingMove.kind === "resize") {
+        // Resize only ever adjusts the end date — no row axis, and only the
+        // left/right keys mean anything for it (up/down are silently
+        // ignored rather than falling through, same as move's unhandled keys).
+        if (e.altKey && e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+          e.preventDefault();
+          setPendingMove((p) => p && ({
+            ...p,
+            dayDelta: p.dayDelta + (e.key === "ArrowLeft" ? -1 : 1),
+          }));
+        }
+      } else if (e.altKey && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        setPendingMove((p) => p && ({
+          ...p,
+          dayDelta: p.dayDelta + (e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0),
+          rowDelta: p.rowDelta + (e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0),
+        }));
+      }
+      return;
+    }
+
+    // No move/resize pending: Alt+Shift+Left/Right on a cell that HOLDS an
+    // absence enters RESIZE mode (checked first — Alt+Shift+Arrow must never
+    // fall into the plain Alt+Arrow move-entry below it). Plain Alt+Arrow (no
+    // Shift) on such a cell enters MOVE mode, seeded with that keypress's own
+    // delta (the same press both starts the mode and previews its first
+    // step). A cell with no absence falls through untouched to the existing
+    // roving behaviour below.
+    if (onMoveAbsence && e.altKey && e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      const originRow = visibleRows[focusRow];
+      const originDay = days[focusCol];
+      const hit = originRow && originDay ? hitFor(originRow.key, originDay.iso) : undefined;
+      if (hit) {
+        e.preventDefault();
+        setJustCancelled(false);
+        setPendingMove({
+          absenceId: hit.id,
+          dayDelta: e.key === "ArrowLeft" ? -1 : 1,
+          rowDelta: 0,
+          kind: "resize",
+        });
+        return;
+      }
+    }
+    if (onMoveAbsence && e.altKey && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      const originRow = visibleRows[focusRow];
+      const originDay = days[focusCol];
+      const hit = originRow && originDay ? hitFor(originRow.key, originDay.iso) : undefined;
+      if (hit) {
+        e.preventDefault();
+        setJustCancelled(false);
+        setPendingMove({
+          absenceId: hit.id,
+          dayDelta: e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0,
+          rowDelta: e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0,
+          kind: "move",
+        });
+        return;
+      }
+    }
+
     let r = focusRow;
     let c = focusCol;
     switch (e.key) {
@@ -206,6 +369,54 @@ function ResourceCalendarInner({
     return m;
   }, [resources]);
 
+  // The absence (if any) covering a given row+date. Shared by the row
+  // renderer below and the keyboard move-mode entry check in onGridKeyDown,
+  // so both agree on exactly the same predicate.
+  const hitFor = useCallback(
+    (rowKey: string, dateIso: string): Absence | undefined =>
+      (absencesByKey.get(rowKey) ?? []).find((a) => dateIso >= a.startDate && dateIso <= a.endDate),
+    [absencesByKey],
+  );
+
+  // Read-through accessor for resourceByKey used from onGridKeyDown (a plain
+  // function, not JSX-inline) — kept as its own memoized callback because the
+  // React Compiler could not preserve resourceByKey's memoization when
+  // onGridKeyDown called `.get()` on it directly (verified: reverting this
+  // indirection reproduces `react-hooks/preserve-manual-memoization`).
+  const resourceFor = useCallback(
+    (key: string): Resource | undefined => resourceByKey.get(key),
+    [resourceByKey],
+  );
+
+  // Meetings band (Task 14). id -> CalendarEvent for the band's chip lookup.
+  const eventsById = useMemo<Map<number, CalendarEvent>>(
+    () => new Map((calendarEvents ?? []).map((e) => [e.id, e])),
+    [calendarEvents],
+  );
+  // Expand every event's occurrences over the window, drop anything outside
+  // it (a moved occurrence can land outside the window it was fetched for),
+  // sort by date then time, then lane-pack. The window bounds are already
+  // props — no clock read here, matching expandOccurrences' own purity rule.
+  // `bandTruncated`: true when ANY event's expansion hit its own iteration
+  // cap before covering the window — reachable for a series whose
+  // `startDate` is far in the past (generation always starts there). An
+  // empty band must not look identical to "no meetings": the truncated flag
+  // is threaded to <CalendarBand> so it can say so, rather than silently
+  // rendering nothing (a "renders nothing after March" bug that looks like
+  // an empty series, the exact failure this is meant to rule out).
+  const { lanes, bandTruncated } = useMemo(() => {
+    // Two passes over the SAME per-event results, no captured-variable
+    // mutation inside the flatMap callback (the React Compiler's purity
+    // rule rejects reassigning an outer `let` from inside one).
+    const perEvent = (calendarEvents ?? []).map((e) => expandOccurrences(e, startDate, endDate));
+    const truncated = perEvent.some((r) => r.truncated);
+    const all = perEvent
+      .flatMap((r) => r.occurrences)
+      .filter((o) => o.date >= startDate && o.date <= endDate)
+      .sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : (a.date < b.date ? -1 : 1)));
+    return { lanes: packOccurrenceLanes(all), bandTruncated: truncated };
+  }, [calendarEvents, startDate, endDate]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
       <div ref={scrollRef} data-calendar-scroll className="min-h-0 flex-1 overflow-auto rounded-md border border-line pr-2">
@@ -218,10 +429,29 @@ function ResourceCalendarInner({
         >
           <thead className={TABLE_HEAD_CLASS}>
             <tr role="row">
+              {/* Corner spacer: holds the assignee column's position so the
+                  band <th>s above line up with the day columns below. */}
+              <th
+                aria-hidden="true"
+                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-0.5"
+                style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
+              />
+              {weekRuns.map((run, i) => (
+                <th
+                  key={`${run.week}-${i}`}
+                  role="columnheader"
+                  colSpan={run.span}
+                  className="sticky top-0 z-20 border-b border-r border-line bg-ui-dark-blue px-1 py-0.5 text-center text-[10px] font-semibold tracking-wide text-white"
+                >
+                  {`${t(lang, "calendarWeekAbbrev")}${run.week}`}
+                </th>
+              ))}
+            </tr>
+            <tr role="row">
               <th
                 role="columnheader"
-                className="sticky left-0 top-0 z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
-                style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX }}
+                className="sticky left-0 z-30 border-b border-r border-line bg-ui-dark-blue px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white"
+                style={{ minWidth: ASSIGNEE_COL_PX, width: ASSIGNEE_COL_PX, top: WEEK_BAND_ROW_PX }}
               >
                 {t(lang, "assignee")}
               </th>
@@ -235,7 +465,7 @@ function ResourceCalendarInner({
                       : d.iso
                   }
                   className={[
-                    "sticky top-0 z-20 border-b border-r border-line px-0 py-1 text-center text-[10px] font-medium tracking-wide",
+                    "sticky z-20 border-b border-r border-line px-0 py-1 text-center text-[10px] font-medium tracking-wide",
                     d.isToday
                       ? "bg-ui-green/20 text-ui-dark-blue dark:bg-ui-green/20 dark:text-ui-light-grey"
                       : d.isHoliday
@@ -244,115 +474,58 @@ function ResourceCalendarInner({
                           ? "bg-ui-dark-blue text-white"
                           : "bg-ui-dark-blue text-white",
                   ].join(" ")}
-                  style={{ minWidth: CELL_PX, width: CELL_PX }}
+                  style={{ minWidth: CELL_PX, width: CELL_PX, top: WEEK_BAND_ROW_PX }}
                 >
                   <div className="leading-tight">
                     <div className="h-3 text-[9px] font-semibold uppercase">
                       {d.monthLabel}
                     </div>
+                    <div className="text-[9px] uppercase opacity-80">{d.weekdayLabel}</div>
                     <div className="tabular-nums">{d.dayOfMonth}</div>
                   </div>
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody>
-            {visibleRows.map((row, rowIndex) => {
-              const rowAbs = absencesByKey.get(row.key) ?? [];
-              return (
-                <tr key={row.key} role="row">
-                  <td
-                    role="rowheader"
-                    className="sticky left-0 z-10 border-b border-r border-line bg-surface px-2 py-1"
-                    style={{
-                      minWidth: ASSIGNEE_COL_PX,
-                      width: ASSIGNEE_COL_PX,
-                    }}
-                  >
-                    {(() => {
-                      const res = resourceByKey.get(row.key);
-                      return (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            res
-                              ? onEditResource(res)
-                              : onAddResource({ ...splitName(row.display), email: row.email || undefined })
-                          }
-                          title={row.display}
-                          className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
-                        >
-                          {row.display}
-                        </button>
-                      );
-                    })()}
-                  </td>
-                  {days.map((d, colIndex) => {
-                    const hit = rowAbs.find(
-                      (a) => d.iso >= a.startDate && d.iso <= a.endDate,
-                    );
-                    const baseBg = hit
-                      ? absenceBg(hit.type)
-                      : d.isToday
-                        ? "bg-ui-green/15 hover:bg-ui-green/25 dark:bg-ui-green/15 dark:hover:bg-ui-green/25"
-                        : d.isHoliday
-                          ? "bg-ui-purple/10 hover:bg-ui-purple/20 dark:bg-ui-purple/15 dark:hover:bg-ui-purple/25"
-                          : d.isWeekend
-                            ? "bg-surface-muted hover:bg-ui-medium-grey/20 dark:hover:bg-ui-medium-grey/20"
-                            : "bg-surface hover:bg-surface-muted";
-                    const handleClick = hit
-                      ? () => onEditAbsence(hit)
-                      : () =>
-                          onAddAbsence({
-                            assignee: row.display,
-                            assigneeEmail: row.email || undefined,
-                            startDate: d.iso,
-                            endDate: d.iso,
-                          });
-                    const tip = hit
-                      ? `${localTypeLabel(hit.type, lang)} — ${hit.startDate}${
-                          hit.startDate === hit.endDate
-                            ? ""
-                            : `–${hit.endDate}`
-                        }${hit.note ? `: ${hit.note}` : ""}`
-                      : `${row.display} — ${d.iso}`;
-                    return (
-                      <td
-                        key={d.iso}
-                        role="gridcell"
-                        className="border-b border-r border-line p-0"
-                        style={{
-                          minWidth: CELL_PX,
-                          width: CELL_PX,
-                          height: CELL_PX,
-                        }}
-                      >
-                        <button
-                          type="button"
-                          data-cell={`${rowIndex}-${colIndex}`}
-                          tabIndex={rowIndex === focusRow && colIndex === focusCol ? 0 : -1}
-                          onClick={() => {
-                            setFocusCell({ row: rowIndex, col: colIndex });
-                            handleClick();
-                          }}
-                          title={tip}
-                          aria-label={tip}
-                          className={`flex h-full w-full items-center justify-center text-[11px] font-semibold tabular-nums focus:ring-inset ${INTERACTIVE} ${baseBg}`}
-                        >
-                          {hit ? (
-                            <span className="text-foreground">
-                              {absenceGlyph(hit.type)}
-                            </span>
-                          ) : null}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
+          {onEditEvent ? (
+            <CalendarBand
+              lang={lang}
+              lanes={lanes}
+              days={days}
+              eventsById={eventsById}
+              onEditEvent={onEditEvent}
+              onMoveOccurrence={onMoveOccurrence}
+              truncated={bandTruncated}
+            />
+          ) : null}
+          <CalendarRows
+            lang={lang}
+            visibleRows={visibleRows}
+            days={days}
+            resourceByKey={resourceByKey}
+            absences={absences}
+            hitFor={hitFor}
+            focusRow={focusRow}
+            focusCol={focusCol}
+            setFocusCell={setFocusCell}
+            dragRef={dragRef}
+            suppressClickRef={suppressClickRef}
+            onAddAbsence={onAddAbsence}
+            onEditAbsence={onEditAbsence}
+            onMoveAbsence={onMoveAbsence}
+            onEditResource={onEditResource}
+            onAddResource={onAddResource}
+          />
         </table>
+      </div>
+      {/* The only feedback a screen-reader user gets that keyboard move mode
+          is active (or was just cancelled) — visually silent by design. */}
+      <div aria-live="polite" className="sr-only">
+        {pendingMove
+          ? t(lang, pendingMove.kind === "resize" ? "calendarResizeModeOn" : "calendarMoveModeOn")
+          : justCancelled
+            ? t(lang, "calendarMoveModeCancelled")
+            : ""}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-muted-foreground">
         <LegendChip

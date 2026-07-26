@@ -1,8 +1,12 @@
 // src/app/csv-codecs.test.ts
 import { describe, it, expect } from "vitest";
-import { workspaceToCsv, csvToWorkspace, statusToCsv, csvToStatus } from "./csv-codecs";
+import {
+  workspaceToCsv, csvToWorkspace, statusToCsv, csvToStatus,
+  calendarEventsToCsv, csvToCalendarEvents, EVENTS_CSV_COLUMNS,
+} from "./csv-codecs";
 import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
 import { workspaceToJson, jsonToWorkspace, emptyWorkspace } from "./workspace";
+import { defaultExportConfig } from "./settings-types";
 import type { Task } from "./types";
 
 describe("csv fieldVisibility section", () => {
@@ -104,5 +108,45 @@ describe("csv features section", () => {
     const simple = { ...emptyWorkspace(), features: [] as const };
     expect(workspaceToCsv(simple)).toContain("# FUNCTIONS"); // empty STILL emits
     expect(csvToWorkspace(workspaceToCsv(simple)).features).toEqual([]);
+  });
+});
+
+describe("calendar events CSV", () => {
+  it("round-trips a recurring event with exceptions", () => {
+    const events = [{
+      id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15,
+      recurrence: { freq: "weekly" as const, interval: 1, byDay: ["MO" as const, "WE" as const] },
+      exceptions: [{ date: "2026-08-03", kind: "skip" as const }],
+      attendeeResourceIds: [3, 9],
+    }];
+    expect(csvToCalendarEvents(calendarEventsToCsv(events))).toEqual(events);
+  });
+
+  it("round-trips a plain event with no JSON cells", () => {
+    const events = [{ id: 2, title: "Kickoff", startDate: "2026-08-01", startTime: "14:30", durationMinutes: 90 }];
+    const csv = calendarEventsToCsv(events);
+    expect(csv.split("\r\n")[1]).toBe("2,Kickoff,2026-08-01,14:30,90,,,,,,,,");
+    expect(csvToCalendarEvents(csv)).toEqual(events);
+  });
+
+  it("declares the expected column order", () => {
+    expect(EVENTS_CSV_COLUMNS).toEqual([
+      "id", "title", "startDate", "startTime", "durationMinutes", "location", "notes",
+      "recurrence", "exceptions", "attendeeResourceIds", "sendInvitations",
+      "localModifiedAt", "outlookEventId",
+    ]);
+  });
+
+  it("is EXPORTED when the export section is enabled, omitted when disabled", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      calendarEvents: [
+        { id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15 },
+      ],
+    };
+    const on = { ...defaultExportConfig, calendarEvents: true };
+    const off = { ...defaultExportConfig, calendarEvents: false };
+    expect(workspaceToCsv(ws, on)).toContain("# CALENDAR EVENTS");
+    expect(workspaceToCsv(ws, off)).not.toContain("# CALENDAR EVENTS");
   });
 });

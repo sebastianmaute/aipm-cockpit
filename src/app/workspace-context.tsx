@@ -42,6 +42,7 @@ import type { TimelogLinks } from "./timelog-types";
 import type { KnowledgeItem } from "./document-link";
 import type { Insight } from "./insights/insight";
 import type { SettingsOverrides } from "./settings-types";
+import type { CalendarEvent } from "./calendar-event";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
  *  the `Workspace` sections handed to storage, and the Turso dirty-table save
@@ -118,6 +119,9 @@ interface WorkspaceValue {
 
   settingsOverrides: Readonly<SettingsOverrides> | undefined;
   setSettingsOverrides: Dispatch<SetStateAction<Readonly<SettingsOverrides> | undefined>>;
+
+  calendarEvents: readonly CalendarEvent[] | undefined;
+  setCalendarEvents: Dispatch<SetStateAction<readonly CalendarEvent[] | undefined>>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | undefined>(undefined);
@@ -146,6 +150,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [knowledgeItems, setKnowledgeItems] = useState<readonly KnowledgeItem[] | undefined>(undefined);
   const [insights, setInsights] = useState<readonly Insight[] | undefined>(undefined);
   const [settingsOverrides, setSettingsOverrides] = useState<Readonly<SettingsOverrides> | undefined>(undefined);
+  const [calendarEvents, setCalendarEvents] = useState<readonly CalendarEvent[] | undefined>(undefined);
   const {
     searchDebounced,
     priorityFilter,
@@ -365,6 +370,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       knowledgeItems, setKnowledgeItems,
       insights, setInsights,
       settingsOverrides, setSettingsOverrides,
+      calendarEvents, setCalendarEvents,
     }),
     [
       tasks,
@@ -397,6 +403,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       knowledgeItems,
       insights,
       settingsOverrides,
+      calendarEvents,
     ],
   );
 

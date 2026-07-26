@@ -114,6 +114,20 @@ describe("BrowserBackend parallel IDB save/load", () => {
     expect(loaded.milestones?.[0]).toMatchObject({ id: 2, name: "Go live" });
   });
 
+  it("save → fresh load round-trips calendar events", async () => {
+    const ws = {
+      ...emptyWorkspace(),
+      calendarEvents: [{
+        id: 3, title: "Standup", startDate: "2026-01-05", startTime: "09:00", durationMinutes: 15,
+      }],
+    };
+    await new BrowserBackend().save(ws);
+
+    const loaded = await new BrowserBackend().load();
+    expect(loaded.calendarEvents).toHaveLength(1);
+    expect(loaded.calendarEvents?.[0]).toMatchObject({ id: 3, title: "Standup" });
+  });
+
   it("save → fresh load round-trips fieldVisibility and features", async () => {
     const ws = {
       ...emptyWorkspace(),

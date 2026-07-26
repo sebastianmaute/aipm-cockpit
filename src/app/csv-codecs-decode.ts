@@ -43,11 +43,13 @@ import {
   type Stakeholder,
   type Task,
 } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 import { type Workspace, migrateWorkspaceV10 } from "./workspace";
 import { migrateTask } from "./task-status";
 import {
   CSV_SECTION_ABSENCES,
   CSV_SECTION_BUDGETS,
+  CSV_SECTION_CALENDAR_EVENTS,
   CSV_SECTION_CHANGES,
   CSV_SECTION_DISCIPLINES,
   CSV_SECTION_FIELD_VIS,
@@ -69,6 +71,7 @@ import {
   CSV_SECTION_KNOWLEDGE_ITEMS,
   CSV_SECTION_INSIGHTS,
   CSV_SECTION_SETTINGS_OVERRIDES,
+  buildCalendarEventFromObj,
   buildChangeFromObj,
   buildMilestoneFromObj,
   buildRaidItemFromObj,
@@ -108,6 +111,7 @@ function splitCsvSections(csv: string): {
   tasksText: string;
   raidText: string;
   absencesText: string;
+  calendarEventsText: string;
   shiftsText: string;
   resourcesText: string;
   rolesText: string;
@@ -130,10 +134,11 @@ function splitCsvSections(csv: string): {
   settingsOverridesText: string;
 } {
   const lines = csv.split(/\r?\n/);
-  let mode: "tasks" | "raid" | "absences" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
+  const calendarEventsLines: string[] = [];
   const shiftsLines: string[] = [];
   const resourcesLines: string[] = [];
   const rolesLines: string[] = [];
@@ -166,6 +171,7 @@ function splitCsvSections(csv: string): {
     if (trimmed.startsWith(CSV_SECTION_TASKS)) { mode = "tasks"; continue; }
     if (trimmed.startsWith(CSV_SECTION_RAID)) { mode = "raid"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ABSENCES)) { mode = "absences"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_CALENDAR_EVENTS)) { mode = "calendarEvents"; continue; }
     if (trimmed.startsWith(CSV_SECTION_SHIFTS)) { mode = "shifts"; continue; }
     if (trimmed.startsWith(CSV_SECTION_FIELD_VIS)) { mode = "fieldVis"; continue; }
     if (trimmed.startsWith(CSV_SECTION_FUNCTIONS)) { mode = "functions"; continue; }
@@ -186,6 +192,7 @@ function splitCsvSections(csv: string): {
     else if (mode === "plan") planLines.push(line);
     else if (mode === "shifts") shiftsLines.push(line);
     else if (mode === "absences") absencesLines.push(line);
+    else if (mode === "calendarEvents") calendarEventsLines.push(line);
     else if (mode === "raid") raidLines.push(line);
     else if (mode === "tasks") tasksLines.push(line);
     else if (mode === "budgets") budgetsLines.push(line);
@@ -208,6 +215,7 @@ function splitCsvSections(csv: string): {
     tasksText: tasksLines.join("\r\n"),
     raidText: raidLines.join("\r\n"),
     absencesText: absencesLines.join("\r\n"),
+    calendarEventsText: calendarEventsLines.join("\r\n"),
     shiftsText: shiftsLines.join("\r\n"),
     resourcesText: resourcesLines.join("\r\n"),
     rolesText: rolesLines.join("\r\n"),
@@ -362,6 +370,15 @@ function csvToAbsences(csv: string, diag?: ImportDiag): Absence[] {
   return decodeCsvSection(csv, sanitizeAbsence, diag);
 }
 
+/** Decodes a `# CALENDAR EVENTS` section into CalendarEvent[]. Mirrors
+ *  `csvToStakeholders`'s shape: reuses the shared `decodeCsvSection` header-row
+ *  reader rather than a second parser, and — like every other section decoder
+ *  here — drops just the rows `buildCalendarEventFromObj` rejects (a malformed
+ *  row never takes the rest of the section down with it). */
+export function csvToCalendarEvents(csv: string, diag?: ImportDiag): CalendarEvent[] {
+  return decodeCsvSection(csv, buildCalendarEventFromObj, diag);
+}
+
 function csvToShifts(csv: string, diag?: ImportDiag): Shift[] {
   return decodeCsvSection(csv, sanitizeShift, diag);
 }
@@ -390,6 +407,7 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
     tasks: csvToTasks(s.tasksText, diag),
     raid: s.raidText.trim() ? csvToRaid(s.raidText, diag) : [],
     absences: s.absencesText.trim() ? csvToAbsences(s.absencesText, diag) : [],
+    calendarEvents: s.calendarEventsText.trim() ? csvToCalendarEvents(s.calendarEventsText, diag) : undefined,
     shifts: s.shiftsText.trim() ? csvToShifts(s.shiftsText, diag) : [],
     resources: s.resourcesText.trim() ? csvToResources(s.resourcesText, diag) : [],
     roles: s.rolesText.trim() ? csvToRoles(s.rolesText, diag) : [],

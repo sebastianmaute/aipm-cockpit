@@ -1,7 +1,9 @@
 // src/app/markdown-codecs.test.ts
 import { describe, it, expect } from "vitest";
-import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus } from "./markdown-codecs";
+import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus, EVENTS_MD_COLUMNS } from "./markdown-codecs";
+import { EVENTS_CSV_COLUMNS } from "./csv-codecs-core";
 import { emptyWorkspace } from "./workspace";
+import { defaultExportConfig } from "./settings-types";
 
 describe("markdown fieldVisibility section", () => {
   it("emits nothing when undefined", () => {
@@ -80,5 +82,85 @@ describe("markdown features section", () => {
     const simple = { ...emptyWorkspace(), features: [] as const };
     expect(workspaceToMarkdown(simple)).toContain("## Functions"); // empty STILL emits
     expect(markdownToWorkspace(workspaceToMarkdown(simple)).features).toEqual([]);
+  });
+});
+
+describe("calendar events markdown", () => {
+  it("round-trips a recurring event with exceptions", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      calendarEvents: [{
+        id: 1, title: "Standup | with a pipe", startDate: "2026-07-27", startTime: "09:00",
+        durationMinutes: 15,
+        recurrence: { freq: "weekly" as const, interval: 1 },
+        exceptions: [{ date: "2026-08-03", kind: "skip" as const }],
+      }],
+    };
+    const md = workspaceToMarkdown(ws);
+    expect(md).toContain("## Calendar Events");
+    expect(markdownToWorkspace(md).calendarEvents).toEqual(ws.calendarEvents);
+  });
+
+  it("round-trips all 13 fields, including a title with both a pipe and a literal backslash", () => {
+    const event = {
+      id: 1,
+      title: "Planning sync | budget \\v2\\ review",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      location: "Room 4 | Floor 2",
+      notes: "Agenda:\nBudget | review \\draft\\",
+      recurrence: { freq: "weekly" as const, interval: 1, byDay: ["MO" as const, "WE" as const] },
+      exceptions: [
+        { date: "2026-08-03", kind: "skip" as const },
+        { date: "2026-08-10", kind: "move" as const, toDate: "2026-08-11", toTime: "10:00" },
+      ],
+      attendeeResourceIds: [3, 9, 42],
+      sendInvitations: true,
+      localModifiedAt: "2026-07-26T10:00:00.000Z",
+      outlookEventId: "AAMk-some-id",
+    };
+
+    // Verify the fixture itself before trusting the round-trip assertion — a
+    // heredoc-authored version of a fixture like this one silently collapsed
+    // its backslashes earlier in this release, producing a test that passed
+    // while exercising nothing.
+    expect(event.title).toContain("\\");
+    expect(event.title.split("\\").length - 1).toBe(2);
+    expect(event.title).toContain("|");
+    expect(event.notes).toContain("\\");
+    expect(Object.keys(event)).toHaveLength(13);
+
+    const ws = { ...emptyWorkspace(), calendarEvents: [event] };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.calendarEvents).toEqual(ws.calendarEvents);
+  });
+
+  it("omits the section entirely when there are no events", () => {
+    expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Calendar Events");
+  });
+
+  it("is EXPORTED when the export section is enabled, omitted when disabled", () => {
+    const ws = {
+      ...emptyWorkspace(),
+      calendarEvents: [
+        { id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00", durationMinutes: 15 },
+      ],
+    };
+    const on = { ...defaultExportConfig, calendarEvents: true };
+    const off = { ...defaultExportConfig, calendarEvents: false };
+    expect(workspaceToMarkdown(ws, on)).toContain("## Calendar Events");
+    expect(workspaceToMarkdown(ws, off)).not.toContain("## Calendar Events");
+  });
+
+  // EVENTS_MD_COLUMNS is documented (markdown-codecs-core.ts) as "same 13
+  // fields as EVENTS_CSV_COLUMNS, same order" — assert that invariant directly
+  // so an edit to one list that forgets the other fails here instead of
+  // silently dropping a field from one format only. Lives beside the MD side
+  // of the pairing since EVENTS_CSV_COLUMNS is documented as the canonical
+  // order MD mirrors; entity-persistence-registry.test.ts guards a narrower,
+  // different thing (outlookEventId survives the round-trip), not column parity.
+  it("EVENTS_MD_COLUMNS covers the same keys, in the same order, as EVENTS_CSV_COLUMNS", () => {
+    expect(EVENTS_MD_COLUMNS.map((c) => c.key)).toEqual([...EVENTS_CSV_COLUMNS]);
   });
 });

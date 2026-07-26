@@ -76,6 +76,7 @@ import { buildShellChrome } from "./shell-chrome";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { useUndoHotkey } from "./use-undo-hotkey";
 import { UndoControl, RedoControl } from "./undo/undo-control";
+import { buildMoveAbsenceHandler } from "./absence-move-handler";
 import { RolesPanel } from "./roles-panel";
 import { rematerializeDayBasisRoles } from "./role-rates";
 import { getUpcomingBirthdays } from "./birthdays";
@@ -292,6 +293,7 @@ function TaskManagerInner() {
     setInsights,
     settingsOverrides,
     setSettingsOverrides,
+    setCalendarEvents,
     setFieldVisibility,
     fxRates,
     project,
@@ -624,6 +626,13 @@ function TaskManagerInner() {
     handleCloseAbsenceModal,
     handleSaveAbsence,
     handleDeleteAbsence,
+    calendarEvents,
+    editingCalendarEvent,
+    handleOpenAddCalendarEvent,
+    handleEditCalendarEvent,
+    handleCloseCalendarEventModal,
+    handleSaveCalendarEvent,
+    handleDeleteCalendarEvent,
     handleOpenShiftEditor,
     handleCloseShiftModal,
     handleSaveShift,
@@ -1034,12 +1043,13 @@ function TaskManagerInner() {
     setSteeringCommittee(w.steeringCommittee); setTimelogLinks(w.timelogLinks); setKnowledgeItems(w.knowledgeItems);
     setInsights(w.insights);
     setSettingsOverrides(w.settingsOverrides);
+    setCalendarEvents(w.calendarEvents);
     // Version restore replaces the SAME project's data — RAISE the id-minter
     // high-water (never lower it) so an id freed by restoring an older (smaller)
     // snapshot can't be reused this session. Side-effecting; runs on restore
     // (callback), not during render.
     seedMintFromWorkspace(w, "raise");
-  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setSettingsOverrides]);
+  }, [setTasks, setRaid, setAbsences, setShifts, setResources, setRoles, setDisciplines, setGrades, setPlan, setBudgets, setFxRates, setStatus, setProject, setMilestones, setChanges, setStakeholders, setSteeringCommittee, setTimelogLinks, setKnowledgeItems, setInsights, setSettingsOverrides, setCalendarEvents]);
 
   // Guided tour (SP-F): modern-shell, non-popout only. Auto-launches once for a
   // first-run user; re-launchable from the Help panel. State lives above the
@@ -2169,6 +2179,21 @@ function TaskManagerInner() {
     handleClearActivityLog: guardEdit(handleClearActivityLog),
     handleOpenAddAbsence: guardEdit(handleOpenAddAbsence),
     handleEditAbsence: guardEdit(handleEditAbsence),
+    // Absence drag-move/resize/reassign on the Resources → Calendar grid (R5
+    // S2) — see absence-move-handler.ts for why undo capture lives there and
+    // not inside handleSaveAbsence.
+    handleMoveAbsence: guardEdit(buildMoveAbsenceHandler(absences, setAbsences, undoApi.captureFieldEdit, handleSaveAbsence, lang)),
+    // Recurring meetings (Resources → Calendar band + series editor). Data
+    // passes through unguarded (a popout mirror still shows the band); the
+    // TRIGGERS/handlers are guardEdit-wrapped — the resources-panel is a pure
+    // passthrough for this entity, mirroring onAddAbsence/onEditAbsence.
+    // handleSaveCalendarEvent is threaded here too for the band's own
+    // drag-reschedule path (buildMoveOccurrenceHandler), a NON-modal write —
+    // distinct from the modal's save/delete, which never traverses the panel.
+    calendarEvents,
+    handleOpenAddCalendarEvent: guardEdit(handleOpenAddCalendarEvent),
+    handleEditCalendarEvent: guardEdit(handleEditCalendarEvent),
+    handleSaveCalendarEvent: guardEdit(handleSaveCalendarEvent),
     handleOpenShiftEditor: guardEdit(handleOpenShiftEditor),
     manageRolesView: (
       <RolesPanel
@@ -2677,6 +2702,10 @@ function TaskManagerInner() {
         handleSaveAbsence={handleSaveAbsence}
         handleDeleteAbsence={handleDeleteAbsence}
         handleCloseAbsenceModal={handleCloseAbsenceModal}
+        editingCalendarEvent={editingCalendarEvent}
+        handleSaveCalendarEvent={handleSaveCalendarEvent}
+        handleDeleteCalendarEvent={handleDeleteCalendarEvent}
+        handleCloseCalendarEventModal={handleCloseCalendarEventModal}
         editingShift={editingShift}
         shiftExistingAssigneeKeys={shiftExistingAssigneeKeys}
         handleSaveShift={handleSaveShift}

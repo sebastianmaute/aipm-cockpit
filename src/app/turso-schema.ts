@@ -8,11 +8,12 @@
 import {
   CSV_COLUMNS, RAID_CSV_COLUMNS, ABSENCES_CSV_COLUMNS, SHIFTS_CSV_COLUMNS,
   RESOURCES_CSV_COLUMNS, ROLES_CSV_COLUMNS, REF_CSV_COLUMNS, BUDGETS_CSV_COLUMNS,
-  MILESTONES_CSV_COLUMNS, CHANGES_CSV_COLUMNS, STAKEHOLDERS_CSV_COLUMNS,
+  MILESTONES_CSV_COLUMNS, CHANGES_CSV_COLUMNS, STAKEHOLDERS_CSV_COLUMNS, EVENTS_CSV_COLUMNS,
   fieldToString, raidFieldToString, absenceFieldToString, shiftFieldToString,
   resourceFieldToString, budgetFieldToString, milestoneFieldToString, buildTaskFromObj, buildRaidItemFromObj,
   buildMilestoneFromObj, changeFieldToString, buildChangeFromObj,
   stakeholderFieldToString, buildStakeholderFromObj,
+  calendarEventFieldToString, buildCalendarEventFromObj,
   decodeRatesMap,
 } from "./csv-codecs";
 import {
@@ -32,6 +33,7 @@ import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides"
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
+import type { CalendarEvent } from "./calendar-event";
 
 interface SqlArg { type: "text" | "integer" | "null"; value?: string }
 export interface SqlStmt { sql: string; args?: SqlArg[] }
@@ -69,6 +71,7 @@ export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<Milestone>({ table: "milestones", wsKey: "milestones", columns: MILESTONES_CSV_COLUMNS, get: (w) => w.milestones ?? [], toRow: milestoneFieldToString as unknown as (e: Milestone, col: string) => string, fromObj: buildMilestoneFromObj }),
   spec<ChangeItem>({ table: "changes", wsKey: "changes", columns: CHANGES_CSV_COLUMNS, get: (w) => w.changes ?? [], toRow: changeFieldToString as unknown as (e: ChangeItem, col: string) => string, fromObj: buildChangeFromObj }),
   spec<Stakeholder>({ table: "stakeholders", wsKey: "stakeholders", columns: STAKEHOLDERS_CSV_COLUMNS, get: (w) => w.stakeholders ?? [], toRow: stakeholderFieldToString as unknown as (e: Stakeholder, col: string) => string, fromObj: buildStakeholderFromObj }),
+  spec<CalendarEvent>({ table: "calendar_events", wsKey: "calendarEvents", columns: EVENTS_CSV_COLUMNS, get: (w) => w.calendarEvents ?? [], toRow: calendarEventFieldToString as unknown as (e: CalendarEvent, col: string) => string, fromObj: buildCalendarEventFromObj }),
 ] as unknown as EntitySpec<unknown>[];
 
 export const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency", "budgetFollowsPlan"] as const;

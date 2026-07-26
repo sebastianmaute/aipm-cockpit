@@ -40,6 +40,7 @@ import { sanitizeInsights } from "./insights/sanitize-insights";
 import type { Insight } from "./insights/insight";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
 import {
   type Absence,
   type BudgetBucket,
@@ -124,6 +125,12 @@ export type Workspace = {
    *  timezone) that travel WITH the project. Optional & additive: undefined
    *  serializes to nothing (byte-stable). Sanitized by sanitizeSettingsOverrides. */
   settingsOverrides?: Readonly<SettingsOverrides>;
+  /** Resource-calendar timed events (optionally recurring). Optional & additive:
+   *  undefined/empty serializes to nothing (byte-stable). Field declaration
+   *  only — load/save wiring (JSON/IndexedDB/app state) lands in a later task;
+   *  this task wires CSV + Turso persistence via ENTITY_SPECS. Sanitized by
+   *  sanitizeCalendarEvent. */
+  calendarEvents?: readonly CalendarEvent[];
 };
 
 const SCHEMA_VERSION = 11;
@@ -143,7 +150,8 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     && (ws.budgets?.length ?? 0) === 0
     && (ws.milestones?.length ?? 0) === 0
     && (ws.changes?.length ?? 0) === 0
-    && (ws.stakeholders?.length ?? 0) === 0;
+    && (ws.stakeholders?.length ?? 0) === 0
+    && (ws.calendarEvents?.length ?? 0) === 0;
 }
 
 /** Number of user collections that hold at least one record. Used by the
@@ -164,6 +172,7 @@ export function nonEmptyCollectionCount(ws: Workspace): number {
   if (ws.milestones?.length) n++;
   if (ws.changes?.length) n++;
   if (ws.stakeholders?.length) n++;
+  if (ws.calendarEvents?.length) n++;
   return n;
 }
 
@@ -181,7 +190,8 @@ export function workspaceRecordCount(ws: Workspace): number {
     + (ws.budgets?.length ?? 0)
     + (ws.milestones?.length ?? 0)
     + (ws.changes?.length ?? 0)
-    + (ws.stakeholders?.length ?? 0);
+    + (ws.stakeholders?.length ?? 0)
+    + (ws.calendarEvents?.length ?? 0);
 }
 
 /** Layer-B invariant: is this save an unexplained MASS deletion? True when it
@@ -450,6 +460,12 @@ export function workspaceToJson(ws: Workspace): string {
       // Additive: only present when the project carries policy overrides, so
       // override-less files stay free of a `settingsOverrides` key.
       ...(hasAnyOverride(ws.settingsOverrides) ? { settingsOverrides: ws.settingsOverrides } : {}),
+      // Additive: only present when calendar events exist, so legacy/event-less
+      // files stay free of a `calendarEvents` key. JSON is the complete
+      // round-trip, so this is always emitted (storage AND export) when present.
+      ...(ws.calendarEvents && ws.calendarEvents.length
+        ? { calendarEvents: ws.calendarEvents }
+        : {}),
     },
     null,
     2,
@@ -578,6 +594,15 @@ export function jsonToWorkspace(text: string, opts?: { strict?: boolean }): Work
     if (p.settingsOverrides !== undefined) {
       const overrides = sanitizeSettingsOverrides(p.settingsOverrides);
       if (hasAnyOverride(overrides)) raw.settingsOverrides = overrides;
+    }
+    // Additive: sanitize incoming calendar events when present; garbage rows
+    // are dropped individually (sanitizeCalendarEvent never throws), and an
+    // all-garbage/empty list stays off the key rather than emitting [].
+    if (p.calendarEvents !== undefined) {
+      const events = ((p.calendarEvents as unknown[]) ?? [])
+        .map((e) => sanitizeCalendarEvent(e))
+        .filter((e): e is CalendarEvent => e !== null);
+      if (events.length) raw.calendarEvents = events;
     }
     return migrateWorkspaceV10(raw);
   } catch (err) {

@@ -4,8 +4,8 @@
 // every write path (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB) — miss one
 // and data silently drops on that backend. This suite turns the two
 // user-editable text backends (CSV + Markdown) into a red test for the
-// calendar-sync `outlookEventId` field across ALL FIVE calendar-synced entities
-// (milestone · task · raid · change · absence). CSV also drives the Turso single
+// calendar-sync `outlookEventId` field across ALL SIX calendar-synced entities
+// (milestone · task · raid · change · absence · calendarEvent). CSV also drives the Turso single
 // + tenant schemas (their DDL/insert derive from *_CSV_COLUMNS), so a CSV-column
 // assertion covers three backends at once. JSON/IndexedDB pass the whole object
 // through, so they cannot selectively drop one field.
@@ -33,6 +33,7 @@ import {
   ABSENCES_CSV_COLUMNS,
   ROLES_CSV_COLUMNS,
   BUDGETS_CSV_COLUMNS,
+  EVENTS_CSV_COLUMNS,
 } from "./csv-codecs-core";
 import type { Workspace } from "./workspace";
 
@@ -103,6 +104,18 @@ const REGISTRY: ReadonlyArray<{
       absences: [{ id: 1, assignee: "Jane Doe", startDate: "2026-01-05", endDate: "2026-01-09", type: "vacation", outlookEventId: EVT }],
     }),
     read: (ws) => ws.absences?.[0]?.outlookEventId,
+  },
+  {
+    entity: "calendarEvent",
+    csvColumns: EVENTS_CSV_COLUMNS as readonly string[],
+    seed: () => ({
+      ...emptyWorkspace(),
+      calendarEvents: [{
+        id: 1, title: "Standup", startDate: "2026-01-05", startTime: "09:00", durationMinutes: 15,
+        outlookEventId: EVT,
+      }],
+    }),
+    read: (ws) => ws.calendarEvents?.[0]?.outlookEventId,
   },
 ];
 

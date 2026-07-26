@@ -16,6 +16,7 @@ import type {
   ActivityKind,
   FieldChange,
 } from "./activity-log";
+import type { CalendarEvent } from "./calendar-event";
 import type {
   Absence,
   BudgetBucket,
@@ -173,6 +174,36 @@ export interface WorkspaceSectionProps {
   handleClearActivityLog: () => void;
   handleOpenAddAbsence: (seed?: Partial<Absence>) => void;
   handleEditAbsence: (absence: Absence) => void;
+  /** Commit a drag/resize/reassign on the Resources → Calendar grid (R5 S2).
+   *  Threaded straight into `<ResourcesPanel>`'s `onMoveAbsence`. */
+  handleMoveAbsence?: (id: number, patch: Partial<Absence>, kind: "move" | "reassign" | "resize") => void;
+  /** Recurring meetings on the Resources → Calendar grid. `resources-panel.tsx`
+   *  is a pure passthrough for this entity (mirrors onAddAbsence/onEditAbsence
+   *  right above) — id-minting and the `<CalendarEventModal>` mount live one
+   *  layer up, in use-resource-planner.ts + app-modals.tsx; the modal's own
+   *  save/delete never traverses the panel. `handleSaveCalendarEvent` DOES
+   *  reach the panel, though — it backs the band's own NON-modal drag-
+   *  reschedule write (`buildMoveOccurrenceHandler`, panel prop
+   *  `onSaveCalendarEvent`), a genuinely different call site than the modal's
+   *  save. All optional (mirrors handleMoveAbsence) so existing prop-literal
+   *  test fixtures don't need updating. Threaded straight into
+   *  `<ResourcesPanel>`'s `calendarEvents`/`onAddCalendarEvent`/
+   *  `onEditCalendarEvent`/`onSaveCalendarEvent`.
+   *  ★★ NOT symmetric with `onMoveAbsence`: `onEditCalendarEvent` gates the
+   *  WHOLE band's rendering inside `<ResourceCalendar>` (resource-calendar.tsx
+   *  mounts `<CalendarBand>` only when `onEditEvent` is set), so a popout
+   *  renders NO band at all — not merely a disabled click, unlike the
+   *  grid/rows below it, which stay visible read-only
+   *  (resources-panel.test.tsx pins exactly this: the band's chip disappears
+   *  entirely under `isPopout`). The all-series list is the one piece that
+   *  DOES stay visible-but-read-only in a popout — only ITS edit affordance
+   *  is gated on `isPopout`; the list itself always renders, so a popout
+   *  viewer can still see (not touch) every series regardless of the current
+   *  window. */
+  calendarEvents?: readonly CalendarEvent[];
+  handleOpenAddCalendarEvent?: () => void;
+  handleEditCalendarEvent?: (event: CalendarEvent) => void;
+  handleSaveCalendarEvent?: (event: CalendarEvent, isNew?: boolean) => void;
   handleOpenShiftEditor: (
     existingShift: Shift | null,
     assignee: { display: string; email: string },

@@ -13,13 +13,24 @@ export interface CalendarWindow {
 
 const MS_PER_DAY = 86_400_000;
 
-function parseUtc(iso: string): Date | null {
+// Exported: shared with calendar-drag.ts, which resolves grid drag/resize
+// gestures in the same UTC frame rather than re-deriving this parsing.
+export function parseUtc(iso: string): Date | null {
   const d = new Date(`${iso}T00:00:00Z`);
   return Number.isNaN(d.valueOf()) ? null : d;
 }
 
-function iso(d: Date): string {
+export function iso(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+// Exported: shared with recurrence.ts, which needs the same "date ± n days"
+// step for rule stepping. gantt-engine.ts carries a byte-identical copy
+// (DAY_MS instead of MS_PER_DAY) for the milestone ghost bars — left alone
+// here; folding that in too would widen this fix into Gantt's files, a
+// separate follow-up.
+export function addDays(d: Date, n: number): Date {
+  return new Date(d.getTime() + n * MS_PER_DAY);
 }
 
 /** First … last day of the anchor's month. */
@@ -56,7 +67,7 @@ export function customWindow(fromIso: string, toIso: string): CalendarWindow {
   if (start.valueOf() > end.valueOf()) [start, end] = [end, start];
   const span = Math.round((end.valueOf() - start.valueOf()) / MS_PER_DAY);
   if (span > MAX_CALENDAR_SPAN_DAYS) {
-    end = new Date(start.valueOf() + MAX_CALENDAR_SPAN_DAYS * MS_PER_DAY);
+    end = addDays(start, MAX_CALENDAR_SPAN_DAYS);
   }
   return { startDate: iso(start), endDate: iso(end) };
 }

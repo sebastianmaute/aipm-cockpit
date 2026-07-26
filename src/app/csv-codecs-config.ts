@@ -24,6 +24,7 @@ import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-vis
 import {
   CSV_SECTION_ABSENCES,
   CSV_SECTION_BUDGETS,
+  CSV_SECTION_CALENDAR_EVENTS,
   CSV_SECTION_CHANGES,
   CSV_SECTION_DISCIPLINES,
   CSV_SECTION_FIELD_VIS,
@@ -45,6 +46,7 @@ import {
   CSV_SECTION_TASKS,
   absencesToCsv,
   budgetsToCsv,
+  calendarEventsToCsv,
   changesToCsv,
   csvCellEscape,
   fxRatesToCsvLine,
@@ -507,6 +509,10 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   if (!config || config.tasks) csvPush(CSV_SECTION_TASKS, tasksToCsv(ws.tasks, neutralize));
   if (enabled("raid") && ws.raid.length > 0) csvPush(CSV_SECTION_RAID, raidToCsv(ws.raid, neutralize));
   if (enabled("absences") && ws.absences.length > 0) csvPush(CSV_SECTION_ABSENCES, absencesToCsv(ws.absences, neutralize));
+  // Calendar events are a first-class ExportSectionKey (default ON) — same
+  // enabled()-gated pattern as raid/absences/shifts above.
+  if (enabled("calendarEvents") && ws.calendarEvents && ws.calendarEvents.length > 0)
+    csvPush(CSV_SECTION_CALENDAR_EVENTS, calendarEventsToCsv(ws.calendarEvents, neutralize));
   if (enabled("shifts") && ws.shifts.length > 0) csvPush(CSV_SECTION_SHIFTS, shiftsToCsv(ws.shifts, neutralize));
   if (config === undefined) {
     // Storage-only sections — omitted from document exports.

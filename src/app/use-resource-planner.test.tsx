@@ -3,6 +3,9 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 import type { Absence, RaidItem, Resource, Role, Shift } from "./types";
+import type { CalendarEvent } from "./calendar-event";
+import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
+import type { Occurrence } from "./recurrence";
 import type { Lang } from "./i18n";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
@@ -217,6 +220,134 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.planner.handleDeleteAbsence(1); });
       expect(result.current.workspace.absences).toHaveLength(0);
       expect(logActivity).toHaveBeenCalledWith("absence.deleted", 1, "Alice");
+    });
+  });
+
+  describe("calendar event modal", () => {
+    const baseEvent: CalendarEvent = {
+      id: 1, title: "Standup", startDate: "2026-06-01", startTime: "09:00", durationMinutes: 15,
+    };
+
+    it("editingCalendarEvent is null initially", () => {
+      const { result } = renderPlanner();
+      expect(result.current.planner.editingCalendarEvent).toBeNull();
+    });
+
+    it("handleOpenAddCalendarEvent mints a fresh id and opens the modal as isNew", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.workspace.setCalendarEvents([{ ...baseEvent, id: 7 }]); });
+      act(() => { result.current.planner.handleOpenAddCalendarEvent(); });
+      expect(result.current.planner.editingCalendarEvent).not.toBeNull();
+      expect(result.current.planner.editingCalendarEvent!.isNew).toBe(true);
+      expect(result.current.planner.editingCalendarEvent!.event.id).toBeGreaterThan(7);
+    });
+
+    it("handleEditCalendarEvent sets editingCalendarEvent with isNew=false", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleEditCalendarEvent(baseEvent); });
+      expect(result.current.planner.editingCalendarEvent!.isNew).toBe(false);
+      expect(result.current.planner.editingCalendarEvent!.event).toBe(baseEvent);
+    });
+
+    it("handleCloseCalendarEventModal clears editingCalendarEvent", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleOpenAddCalendarEvent(); });
+      act(() => { result.current.planner.handleCloseCalendarEventModal(); });
+      expect(result.current.planner.editingCalendarEvent).toBeNull();
+    });
+
+    it("handleSaveCalendarEvent creates a new event and closes the modal", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleEditCalendarEvent(baseEvent); }); // opens the modal
+      act(() => { result.current.planner.handleSaveCalendarEvent(baseEvent, true); });
+      expect(result.current.workspace.calendarEvents).toHaveLength(1);
+      expect(result.current.workspace.calendarEvents?.[0].title).toBe("Standup");
+      expect(result.current.planner.editingCalendarEvent).toBeNull();
+    });
+
+    it("handleSaveCalendarEvent updates an existing event in place", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleSaveCalendarEvent(baseEvent, true); });
+      act(() => {
+        result.current.planner.handleSaveCalendarEvent({ ...baseEvent, title: "Renamed" }, false);
+      });
+      expect(result.current.workspace.calendarEvents).toHaveLength(1);
+      expect(result.current.workspace.calendarEvents?.[0].title).toBe("Renamed");
+    });
+
+    it("handleSaveCalendarEvent runs the draft through sanitizeCalendarEvent (title is trimmed)", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleSaveCalendarEvent({ ...baseEvent, title: "  Padded  " }, true); });
+      expect(result.current.workspace.calendarEvents?.[0].title).toBe("Padded");
+    });
+
+    it("handleSaveCalendarEvent rejects an invalid save (blank title) and leaves the modal open", () => {
+      const { result } = renderPlanner();
+      act(() => { result.current.planner.handleEditCalendarEvent(baseEvent); });
+      act(() => { result.current.planner.handleSaveCalendarEvent({ ...baseEvent, title: "" }, true); });
+      expect(result.current.workspace.calendarEvents ?? []).toHaveLength(0);
+      expect(result.current.planner.editingCalendarEvent).not.toBeNull();
+    });
+
+    // The functional-setter landmine: a plain `setCalendarEvents([...events, x])`
+    // reading the stale outer closure would let the second call in this tick
+    // clobber the first, dropping event A — the same bug class that already bit
+    // RAID/Changes/Stakeholders (see the RAID "N saves in one tick" test below).
+    it("persists both of two saves in a single tick — proves a functional setter, not a stale closure read", () => {
+      const { result } = renderPlanner();
+      act(() => {
+        result.current.planner.handleSaveCalendarEvent({ ...baseEvent, id: 101, title: "A" }, true);
+        result.current.planner.handleSaveCalendarEvent({ ...baseEvent, id: 102, title: "B" }, true);
+      });
+      const titles = (result.current.workspace.calendarEvents ?? []).map((e) => e.title).sort();
+      expect(titles).toEqual(["A", "B"]);
+    });
+
+    it("handleDeleteCalendarEvent removes the event by id and closes the modal", () => {
+      const { result } = renderPlanner();
+      const other: CalendarEvent = { ...baseEvent, id: 2, title: "Other" };
+      act(() => {
+        result.current.planner.handleSaveCalendarEvent(baseEvent, true);
+        result.current.planner.handleSaveCalendarEvent(other, true);
+      });
+      act(() => { result.current.planner.handleEditCalendarEvent(baseEvent); });
+      act(() => { result.current.planner.handleDeleteCalendarEvent(baseEvent.id); });
+      expect(result.current.workspace.calendarEvents).toEqual([other]);
+      expect(result.current.planner.editingCalendarEvent).toBeNull();
+    });
+  });
+
+  describe("calendar band drag-reschedule (integration)", () => {
+    // buildMoveOccurrenceHandler's own move-computation logic is unit-tested
+    // in calendar-event-move-handler.test.ts (a mocked save spy), and
+    // handleSaveCalendarEvent's persistence is proven above. What neither of
+    // those covers — and what was genuinely dead until onSaveCalendarEvent
+    // was threaded from workspace-section.tsx down to the panel — is the
+    // TWO composed together: this is exactly what
+    // resources-panel.tsx wires as `<ResourceCalendar onMoveOccurrence={
+    // buildMoveOccurrenceHandler(calendarEvents, onSaveCalendarEvent)}>`.
+    it("composing buildMoveOccurrenceHandler with the REAL handleSaveCalendarEvent actually persists a dragged occurrence", () => {
+      const { result } = renderPlanner();
+      const recurring: CalendarEvent = {
+        id: 1, title: "Standup", startDate: "2026-07-27", startTime: "09:00",
+        durationMinutes: 15, recurrence: { freq: "daily", interval: 1 },
+      };
+      act(() => { result.current.planner.handleSaveCalendarEvent(recurring, true); });
+
+      const occurrence: Occurrence = {
+        eventId: 1, date: "2026-08-03", time: "09:00", durationMinutes: 15,
+        originalDate: "2026-08-03", isMoved: false,
+      };
+      const handler = buildMoveOccurrenceHandler(
+        result.current.workspace.calendarEvents as CalendarEvent[],
+        result.current.planner.handleSaveCalendarEvent,
+      );
+      act(() => { handler(occurrence, "2026-08-05"); });
+
+      const saved = (result.current.workspace.calendarEvents as CalendarEvent[])[0];
+      expect(saved.exceptions).toEqual([{ date: "2026-08-03", kind: "move", toDate: "2026-08-05" }]);
+      // The rule itself is untouched — every other occurrence keeps rendering.
+      expect(saved.startDate).toBe("2026-07-27");
     });
   });
 
