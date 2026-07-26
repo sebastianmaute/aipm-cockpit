@@ -5,11 +5,14 @@
 // as the panel approaches the 800-line size ratchet. Pure — all data and
 // handlers come in as props; CalendarRows owns no state.
 //
-// Shared with the orchestrator: the CalendarDay/CalendarAssignee types and
-// the CELL_PX/ASSIGNEE_COL_PX layout constants live HERE (both the header row
-// in resource-calendar.tsx and this file's cells need them) and are imported
-// back by resource-calendar.tsx. This file imports nothing from
-// resource-calendar.tsx, so that's a one-way dependency — no cycle.
+// The CalendarDay/CalendarAssignee types and the CELL_PX/ASSIGNEE_COL_PX
+// layout constants live in resource-calendar-shared.ts, a dedicated leaf
+// this file, resource-calendar-band.tsx and resource-calendar.tsx all import
+// from — NOT re-exported from here (see that file for why: CELL_PX/
+// ASSIGNEE_COL_PX are value bindings, so a sibling importing them from
+// another sibling would be a circular value import once the band needed
+// them too). This file still imports nothing from resource-calendar.tsx, so
+// the dependency graph stays one-way — no cycle.
 
 import type { RefObject } from "react";
 import { type Lang, t } from "./i18n";
@@ -19,32 +22,7 @@ import { splitName } from "./resource-foundation";
 import { INTERACTIVE } from "./interaction-styles";
 import { resolveCalendarDrag, type DragMode } from "./calendar-drag";
 import { DragHandle } from "./drag-handle";
-
-export const CELL_PX = 40;
-export const ASSIGNEE_COL_PX = 180;
-
-export interface CalendarAssignee {
-  /** Case-folded join key used to look up matching absences. */
-  key: string;
-  /** Original-case display name for the row label. */
-  display: string;
-  /** First non-empty email observed for this assignee (may be ""). */
-  email: string;
-}
-
-export interface CalendarDay {
-  iso: string;
-  dayOfMonth: number;
-  /** Localised short weekday, e.g. "Mon" / "Mo". */
-  weekdayLabel: string;
-  /** ISO-8601 week number (1-53) of this date. */
-  isoWeek: number;
-  /** Month label shown on the first day and at each month transition. */
-  monthLabel: string;
-  isWeekend: boolean;
-  isHoliday: boolean;
-  isToday: boolean;
-}
+import { CELL_PX, ASSIGNEE_COL_PX, type CalendarAssignee, type CalendarDay } from "./resource-calendar-shared";
 
 /** The gesture currently in flight, tracked in a ref (not state) so the drop
  *  handler reads it synchronously without tearing the ghost mid-drag. */

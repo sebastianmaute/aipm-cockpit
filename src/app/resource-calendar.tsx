@@ -23,14 +23,8 @@ import { expandOccurrences, type Occurrence } from "./recurrence";
 import { packOccurrenceLanes } from "./occurrence-lanes";
 import { CalendarBand } from "./resource-calendar-band";
 import type { CalendarEvent } from "./calendar-event";
-import {
-  CalendarRows,
-  CELL_PX,
-  ASSIGNEE_COL_PX,
-  type CalendarAssignee,
-  type CalendarDay,
-  type CalendarDragState,
-} from "./resource-calendar-rows";
+import { CalendarRows, type CalendarDragState } from "./resource-calendar-rows";
+import { CELL_PX, ASSIGNEE_COL_PX, type CalendarAssignee, type CalendarDay } from "./resource-calendar-shared";
 
 const DAY_MS = 86_400_000;
 

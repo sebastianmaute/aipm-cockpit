@@ -17,7 +17,7 @@ import { type Lang, t } from "./i18n";
 import { CalendarChip } from "./calendar-chip";
 import type { CalendarEvent } from "./calendar-event";
 import type { Occurrence } from "./recurrence";
-import { CELL_PX, ASSIGNEE_COL_PX, type CalendarDay } from "./resource-calendar-rows";
+import { CELL_PX, ASSIGNEE_COL_PX, type CalendarDay } from "./resource-calendar-shared";
 
 /** Band rows are shorter than the assignee rows (CELL_PX) — a chip needs
  *  less vertical room than an absence cell's centered glyph. */

@@ -428,6 +428,43 @@ it("discards a pending keyboard move on Escape", () => {
   expect(onMoveAbsence).not.toHaveBeenCalled();
 });
 
+it("clamps a keyboard move's target row to the last visible row rather than an out-of-range one", () => {
+  // Only 2 rows, but 5 Alt+ArrowDown presses ask for row index 5 — the
+  // commit must clamp to row 1 (Ben), not silently drop the gesture or
+  // target a row that doesn't exist.
+  const onMoveAbsence = vi.fn();
+  render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[
+        { key: "anna", display: "Anna", email: "" },
+        { key: "ben", display: "Ben", email: "" },
+      ]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  screen.getAllByRole("gridcell")[0].querySelector("button")!.focus();
+  for (let i = 0; i < 5; i++) fireEvent.keyDown(grid, { key: "ArrowDown", altKey: true });
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).toHaveBeenCalledTimes(1);
+  expect(onMoveAbsence).toHaveBeenCalledWith(
+    7,
+    { startDate: "2026-07-27", endDate: "2026-07-27", assignee: "Ben", assigneeEmail: undefined, resourceId: undefined },
+    "reassign",
+  );
+});
+
 it("keeps exactly one tab-reachable day cell even with resize handles rendered", () => {
   const { container } = render(
     <ResourceCalendar
