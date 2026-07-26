@@ -4,8 +4,8 @@
 // every write path (JSON/CSV/MD/Turso-single/Turso-tenant/IndexedDB) — miss one
 // and data silently drops on that backend. This suite turns the two
 // user-editable text backends (CSV + Markdown) into a red test for the
-// calendar-sync `outlookEventId` field across ALL FIVE calendar-synced entities
-// (milestone · task · raid · change · absence). CSV also drives the Turso single
+// calendar-sync `outlookEventId` field across ALL SIX calendar-synced entities
+// (milestone · task · raid · change · absence · calendarEvent). CSV also drives the Turso single
 // + tenant schemas (their DDL/insert derive from *_CSV_COLUMNS), so a CSV-column
 // assertion covers three backends at once. JSON/IndexedDB pass the whole object
 // through, so they cannot selectively drop one field.
@@ -35,7 +35,6 @@ import {
   BUDGETS_CSV_COLUMNS,
   EVENTS_CSV_COLUMNS,
 } from "./csv-codecs-core";
-import { EVENTS_MD_COLUMNS } from "./markdown-codecs-core";
 import type { Workspace } from "./workspace";
 
 const EVT = "evt-registry-123";
@@ -105,6 +104,18 @@ const REGISTRY: ReadonlyArray<{
       absences: [{ id: 1, assignee: "Jane Doe", startDate: "2026-01-05", endDate: "2026-01-09", type: "vacation", outlookEventId: EVT }],
     }),
     read: (ws) => ws.absences?.[0]?.outlookEventId,
+  },
+  {
+    entity: "calendarEvent",
+    csvColumns: EVENTS_CSV_COLUMNS as readonly string[],
+    seed: () => ({
+      ...emptyWorkspace(),
+      calendarEvents: [{
+        id: 1, title: "Standup", startDate: "2026-01-05", startTime: "09:00", durationMinutes: 15,
+        outlookEventId: EVT,
+      }],
+    }),
+    read: (ws) => ws.calendarEvents?.[0]?.outlookEventId,
   },
 ];
 
@@ -269,41 +280,5 @@ describe("entity persistence registry — bucket task links + manual completion 
     const b = markdownToWorkspace(workspaceToMarkdown(seedBudget())).budgets?.[0];
     expect(b?.taskIds).toEqual([3, 4]);
     expect(b?.percentComplete).toBe(40);
-  });
-});
-
-// Calendar events (Release 5): EVENTS_CSV_COLUMNS/EVENTS_MD_COLUMNS must cover
-// the SAME field set — unlike outlookEventId above (a single flagship column
-// to spot-check), this field set has no single column that would catch a CSV/MD
-// drift, so the two registries are compared directly. CSV also drives the
-// Turso single/tenant schemas (DDL/insert derive from EVENTS_CSV_COLUMNS).
-describe("entity persistence registry — calendar events survive every text backend", () => {
-  it("EVENTS_CSV_COLUMNS and EVENTS_MD_COLUMNS cover the same keys", () => {
-    const csvKeys = [...EVENTS_CSV_COLUMNS].sort();
-    const mdKeys = EVENTS_MD_COLUMNS.map((c) => c.key).sort();
-    expect(mdKeys).toEqual(csvKeys);
-  });
-
-  const seedEvent = (): Workspace => ({
-    ...emptyWorkspace(),
-    calendarEvents: [{
-      id: 1, title: "Standup", startDate: "2026-02-02", startTime: "09:00", durationMinutes: 15,
-      recurrence: { freq: "weekly", interval: 1, byDay: ["MO", "WE"] },
-      outlookEventId: EVT,
-    }],
-  });
-
-  it("calendar event fields survive the CSV round-trip", () => {
-    const e = csvToWorkspace(workspaceToCsv(seedEvent())).calendarEvents?.[0];
-    expect(e?.title).toBe("Standup");
-    expect(e?.recurrence).toEqual({ freq: "weekly", interval: 1, byDay: ["MO", "WE"] });
-    expect(e?.outlookEventId).toBe(EVT);
-  });
-
-  it("calendar event fields survive the Markdown round-trip", () => {
-    const e = markdownToWorkspace(workspaceToMarkdown(seedEvent())).calendarEvents?.[0];
-    expect(e?.title).toBe("Standup");
-    expect(e?.recurrence).toEqual({ freq: "weekly", interval: 1, byDay: ["MO", "WE"] });
-    expect(e?.outlookEventId).toBe(EVT);
   });
 });

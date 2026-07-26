@@ -1,6 +1,7 @@
 // src/app/markdown-codecs.test.ts
 import { describe, it, expect } from "vitest";
-import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus } from "./markdown-codecs";
+import { workspaceToMarkdown, markdownToWorkspace, statusToMarkdown, markdownToStatus, EVENTS_MD_COLUMNS } from "./markdown-codecs";
+import { EVENTS_CSV_COLUMNS } from "./csv-codecs-core";
 import { emptyWorkspace } from "./workspace";
 import { defaultExportConfig } from "./settings-types";
 
@@ -115,5 +116,16 @@ describe("calendar events markdown", () => {
     const off = { ...defaultExportConfig, calendarEvents: false };
     expect(workspaceToMarkdown(ws, on)).toContain("## Calendar Events");
     expect(workspaceToMarkdown(ws, off)).not.toContain("## Calendar Events");
+  });
+
+  // EVENTS_MD_COLUMNS is documented (markdown-codecs-core.ts) as "same 13
+  // fields as EVENTS_CSV_COLUMNS, same order" — assert that invariant directly
+  // so an edit to one list that forgets the other fails here instead of
+  // silently dropping a field from one format only. Lives beside the MD side
+  // of the pairing since EVENTS_CSV_COLUMNS is documented as the canonical
+  // order MD mirrors; entity-persistence-registry.test.ts guards a narrower,
+  // different thing (outlookEventId survives the round-trip), not column parity.
+  it("EVENTS_MD_COLUMNS covers the same keys, in the same order, as EVENTS_CSV_COLUMNS", () => {
+    expect(EVENTS_MD_COLUMNS.map((c) => c.key)).toEqual([...EVENTS_CSV_COLUMNS]);
   });
 });
