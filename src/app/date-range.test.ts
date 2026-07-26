@@ -15,4 +15,9 @@ describe("clampRangeEnd", () => {
     expect(clampRangeEnd("2026-07-10", "")).toBe("");
     expect(clampRangeEnd("", "2026-07-05")).toBe("2026-07-05");
   });
+
+  it("leaves a half-typed end alone rather than rewriting it under the cursor", () => {
+    expect(clampRangeEnd("2026-07-10", "2026-07")).toBe("2026-07");
+    expect(clampRangeEnd("2026-07-10", "2026-07-1")).toBe("2026-07-1");
+  });
 });

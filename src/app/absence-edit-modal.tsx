@@ -148,6 +148,10 @@ export function AbsenceEditModal({
                   type="date"
                   required
                   value={draft.startDate}
+                  // This field writes TWO fields from one event (start, plus
+                  // the clamped end) — `update()` can only patch one — so it
+                  // expands `update()`'s behavior by hand, including the
+                  // `setError(null)` it would otherwise give us for free.
                   onChange={(e) => {
                     const nextStart = e.target.value;
                     setDraft((prev) =>
