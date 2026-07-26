@@ -155,6 +155,7 @@ export function AbsenceEditModal({
                         ? { ...prev, startDate: nextStart, endDate: clampRangeEnd(nextStart, prev.endDate) }
                         : prev,
                     );
+                    setError(null);
                   }}
                 />
               </label>
