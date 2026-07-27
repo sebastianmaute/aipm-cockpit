@@ -14,7 +14,7 @@ import { reportSilentFailure } from "./guard-feedback";
 import { useTimelogSync } from "./use-timelog-sync";
 import { autoMatchUsers, autoMatchProjects, type TimelogProjectRef } from "./timelog-match";
 import { loadPickerScope, savePickerScope } from "./timelog-picker-store";
-import { resolveInitialScope, type InitialScopeSource } from "./timelog-initial-scope";
+import { resolveInitialScope, scopeMismatch, type InitialScopeSource } from "./timelog-initial-scope";
 import { TimelogProjectScope } from "./timelog-project-scope";
 import { useRowSelection } from "./use-row-selection";
 import { Modal } from "./modal";
@@ -604,6 +604,23 @@ export function TimelogPanel({
       {projectCustomerId !== "" && (
         <p className="mb-2 text-xs text-muted-foreground print:hidden">
           {t(lang, "timelogFetchScopedNote", scopedCustomerName)}
+        </p>
+      )}
+
+      {/* The picker can legitimately show a different customer than the loaded
+          bookings came from (the device picker outranks the last-fetched scope
+          when seeding), so say so rather than letting the picker misrepresent
+          what is on screen. */}
+      {!isPopout && scopeMismatch(projectCustomerId, links.customerId) && (
+        <p className="mb-2 text-xs text-muted-foreground print:hidden">
+          {/* ★ 0-based positional placeholders: {0} is the customer the loaded
+              bookings came from, {1} is the one currently picked. */}
+          {t(
+            lang,
+            "timelogScopeMismatchNote",
+            syncCustomers.find((c) => c.id === links.customerId)?.name ?? String(links.customerId),
+            scopedCustomerName,
+          )}
         </p>
       )}
 

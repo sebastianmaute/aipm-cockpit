@@ -781,6 +781,31 @@ describe("TimelogPanel", () => {
       );
       const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
       await waitFor(() => expect(select.value).toBe("999"));
+      // The picker now disagrees with the customer the loaded bookings came
+      // from, so it must say so rather than misrepresent what is on screen.
+      expect(
+        screen.getByText(t("en-US", "timelogScopeMismatchNote", "Acme", "Other")),
+      ).toBeInTheDocument();
+    });
+
+    it("shows no scope-mismatch note when the picker and the last fetch agree", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={LINKS_WITH_CUSTOMER} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      await waitFor(() => expect(select.value).toBe("667"));
+      expect(
+        screen.queryByText(t("en-US", "timelogScopeMismatchNote", "Acme", "Acme")),
+      ).toBeNull();
     });
 
     it("Fetch is disabled until a customer AND ≥1 project are picked, then routes to fetchBookingsForProjects and persists the scope", async () => {
