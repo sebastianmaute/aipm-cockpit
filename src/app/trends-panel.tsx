@@ -200,7 +200,17 @@ export function TrendsPanel(props: TrendsPanelProps) {
                   void deleteSnapshots([...selected]);
                   setSelected(new Set());
                 }}
-                className={`rounded border border-ui-pink-strong px-2 py-0.5 text-xs text-ui-pink-strong hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 ${INTERACTIVE}`}
+                // hover:opacity-80 faded a -strong token to ~4.0-4.3:1 (the same
+                // trap as a tint deepening on hover, applied to the whole
+                // element). Tint the BACKGROUND instead — the text stays opaque.
+                // This is the shared Button `destructive` variant's own hover
+                // (`hover:bg-ui-pink/10`), so the subtlety is a system-wide
+                // choice rather than one button drifting; migrating this bespoke
+                // button onto that primitive is the real follow-up.
+                // ★ disabled:hover:bg-transparent — otherwise a disabled button
+                // still lights up under the cursor, advertising an action it
+                // will not perform.
+                className={`rounded border border-ui-pink-strong px-2 py-0.5 text-xs text-ui-pink-strong hover:bg-ui-pink/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${INTERACTIVE}`}
               >
                 {t(lang, "snapshotDeleteSelected", selected.size)}
               </button>

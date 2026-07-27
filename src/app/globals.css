@@ -38,8 +38,12 @@
   --ui-pink-strong: #a53f64;
   /* AA-compliant darker purple for purple TEXT on a light purple tint
      (bg-ui-purple/10 ≈ 3.6:1 with bright ui-purple — fails AA). Bright
-     ui-purple stays for fills/borders and text on dark surfaces. */
-  --ui-purple-strong: #5f57a8;
+     ui-purple stays for fills/borders and text on dark surfaces.
+     Kept in step with what deriveAaVariants now produces for Harbor light: the
+     reference is the DEEPEST purple tint this text sits on (the RAID chips'
+     hover state), not --surface-muted, because no site puts it on a plain
+     surface. The old #5f57a8 cleared the card but not that hover state. */
+  --ui-purple-strong: #514a8f;
 
   /* ---- CI-style role tokens. These AIPM-light values are the static no-JS /
      pre-boot FALLBACK; at runtime the active scheme (AIPM / Mockup / Harbor /
