@@ -16,6 +16,7 @@ import { ResetSizeButton } from "./task-manager-ui";
 import { RichTextEditor } from "./rich-text-editor";
 import { canEditNote } from "./note-log";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
+import { usePanelInitialFocus } from "./use-panel-focus";
 import { htmlToText } from "./sanitize-html";
 // A note body renders stored HTML through the shared sanitized sink, which
 // re-sanitizes at render as defense in depth (see rich-text-view.tsx).
@@ -172,6 +173,13 @@ export function NotesWindow(props: NotesWindowProps) {
   // layer beneath it, because each of those asks "am I topmost?" and gets
   // `false`. Escape would become a no-op. The stack walks past a decliner
   // instead, so the editor underneath gets the key.
+  // ★★ Move focus INTO the window on open. Without this the trigger that
+  // opened it — the "Notes (N)" button INSIDE the task/RAID editor `Modal` —
+  // keeps focus, `claimsFocusWithin` reads false, this window declines, and the
+  // editor beneath takes the Escape and closes with the user's draft. Opening
+  // this window must not arm a keypress that destroys work.
+  usePanelInitialFocus(panelRef, open);
+
   const claimsFocusWithin = useClaimsWhenFocusWithin(panelRef);
   useDismissable({
     open,
@@ -213,6 +221,9 @@ export function NotesWindow(props: NotesWindowProps) {
     <div
       ref={panelRef}
       role="dialog"
+      // Focus target for `usePanelInitialFocus` — carries no focus ring, and is
+      // deliberately not in the tab order.
+      tabIndex={-1}
       aria-label={`${t(lang, "noteLogTitle")} — ${entityLabel}`}
       style={{ left: pos?.x ?? DEFAULT_X, top: pos?.y ?? DEFAULT_Y, maxWidth: "100vw", maxHeight: "calc(100vh - 32px)" }}
       className="fixed z-40 flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)]"

@@ -25,6 +25,12 @@ than by which listener happened to register first.
   notes window already behaved this way; the help panel now does too. Opening
   help, then a task editor, then pressing Escape while typing no longer closes
   help and leaves the editor up.
+- **Opening the notes window or the help panel now moves your cursor into it.**
+  Previously focus stayed on the button you clicked. If that button was inside
+  a dialog — as the "Notes" button in the task editor is — the panel treated
+  the next Escape as not its own and the editor closed instead, taking your
+  unsaved edits. Opening notes and pressing Escape now closes notes. Screen
+  readers are also told the panel opened, which they were not before.
 - Fixes a case introduced by 0.202.4: a picker inside a menu lost both its
   dropdown and the menu to a single keypress.
 

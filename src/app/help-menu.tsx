@@ -9,6 +9,7 @@ import { useResizable } from "./use-resizable";
 import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
 import { ResetSizeButton } from "./task-manager-ui";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
+import { usePanelInitialFocus } from "./use-panel-focus";
 import { APP_LICENSE_URL } from "./version";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
@@ -61,6 +62,12 @@ export function HelpMenu({ lang }: { lang: Lang }) {
   // Same shape as `notes-window`: a persistent draggable panel that stays open
   // while the user works elsewhere must not answer an Escape aimed at the
   // dialog they are actually typing in.
+  // ★★ Move focus INTO the panel on open — see `usePanelInitialFocus`. The
+  // trigger keeps focus otherwise, so `claimsFocusWithin` reads false and this
+  // panel declines an Escape aimed at it, handing the key to whatever is
+  // beneath. It also means a screen reader is finally told the dialog opened.
+  usePanelInitialFocus(panelRef, open);
+
   const claimsFocusWithin = useClaimsWhenFocusWithin(panelRef);
   useDismissable({
     open,
@@ -86,6 +93,9 @@ export function HelpMenu({ lang }: { lang: Lang }) {
         <div
           ref={panelRef}
           role="dialog"
+          // Focus target for `usePanelInitialFocus` — no focus ring, not in the
+          // tab order.
+          tabIndex={-1}
           aria-label={t(lang, "help")}
           style={{
             left: pos.x,

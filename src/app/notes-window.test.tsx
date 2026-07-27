@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { Modal } from "./modal";
 import { NotesWindow } from "./notes-window";
 import { t } from "./i18n";
 import type { NoteLogEntry, Resource } from "./types";
@@ -191,5 +193,75 @@ describe("NotesWindow", () => {
     expect(container.querySelector("script")).toBeNull();
     expect(container.innerHTML).not.toContain("onerror");
     expect(screen.getByText("Safe body")).toBeTruthy();
+  });
+
+  it("closes itself, not the editor, when opened from a trigger inside a modal", async () => {
+    // ★★★ REGRESSION GUARD for the whole point of this window's focus gate.
+    // The "Notes (N)" trigger lives INSIDE the task/RAID editor `Modal`, and
+    // clicking a <button> focuses it. So without focus-on-open, focus sat on
+    // the trigger — outside this panel — `useClaimsWhenFocusWithin` read false,
+    // this window DECLINED the Escape, and the dismissal stack handed it to the
+    // editor beneath: the editor closed and took the user's unsaved draft with
+    // it, while the window they had just opened stayed. Open a thing, press
+    // Escape, lose your work.
+    //
+    // Press Escape IMMEDIATELY — no typing, no click into the panel. That is
+    // the steady state after every single click on that trigger, not a race.
+    const { resetDismissalStack } = await import("./dismissal-stack");
+    resetDismissalStack();
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const closeEditor = vi.fn();
+    const closeNotes = vi.fn();
+    function Harness() {
+      const [notesOpen, setNotesOpen] = useState(false);
+      return (
+        <Modal open onClose={closeEditor} ariaLabel="Task editor">
+          <button type="button" onClick={() => setNotesOpen(true)}>
+            Notes (0)
+          </button>
+          <NotesWindow
+            open={notesOpen}
+            onClose={() => {
+              setNotesOpen(false);
+              closeNotes();
+            }}
+            entries={[]}
+            onAdd={vi.fn()}
+            onEdit={vi.fn()}
+            onDelete={vi.fn()}
+            self={1}
+            resources={RESOURCES}
+            lang="en-US"
+            entityLabel="Task ABC"
+          />
+        </Modal>
+      );
+    }
+    render(<Harness />);
+
+    const trigger = screen.getByRole("button", { name: "Notes (0)" });
+    await act(async () => {
+      trigger.focus();
+      fireEvent.click(trigger);
+    });
+
+    const escape = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    await act(async () => {
+      (document.activeElement ?? document.body).dispatchEvent(escape);
+    });
+
+    expect(closeNotes).toHaveBeenCalledTimes(1);
+    expect(closeEditor).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
   });
 });
