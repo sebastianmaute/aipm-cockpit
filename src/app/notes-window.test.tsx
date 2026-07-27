@@ -137,11 +137,13 @@ describe("NotesWindow", () => {
 
   // ★★ This window is NON-modal and mounts at the top level, so it stays open
   // while the user works anywhere else — including inside a modal it is not part
-  // of. Its Escape listener is document-CAPTURE, which runs before React's
-  // delegation, so an unconditional consume swallows EVERY Escape in the app:
-  // open notes, open the task editor, press Escape to dismiss the editor, and
-  // the notes window closes while the editor stays. It may only claim the key
-  // when it is the thing being interacted with.
+  // of. It registers on the dismissal stack as a `layer` and is therefore
+  // TOPMOST while open, so without a focus gate it would claim every Escape in
+  // the app: open notes, open the task editor, press Escape to dismiss the
+  // editor, and the notes window closes while the editor stays. It may only
+  // claim the key when it is the thing being interacted with — which is what
+  // `useClaimsWhenFocusWithin` decides, and why a decliner is walked PAST
+  // rather than blocking the layers beneath it.
   it("leaves Escape alone when focus is somewhere else entirely", () => {
     const { onClose } = setup();
     const elsewhere = document.createElement("input");

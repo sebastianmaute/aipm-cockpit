@@ -79,15 +79,22 @@ describe("PopoverPanel", () => {
     fireEvent.click(screen.getByText("trigger"));
 
     const above = Symbol("layer above");
-    pushDismissal(above, "layer");
-    const shielded = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
-    document.dispatchEvent(shielded);
-    expect(onClose).not.toHaveBeenCalled();
+    // ★ try/finally: a mid-test throw would otherwise leave this token on the
+    // module-level stack, where it silently outranks every later test in this
+    // file. Same leak class as an unrestored global stub.
+    try {
+      pushDismissal(above, "layer");
+      const shielded = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      document.dispatchEvent(shielded);
+      expect(onClose).not.toHaveBeenCalled();
 
-    popDismissal(above);
-    const own = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
-    document.dispatchEvent(own);
-    expect(onClose).toHaveBeenCalledTimes(1);
+      popDismissal(above);
+      const own = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      document.dispatchEvent(own);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      popDismissal(above);
+    }
   });
 
   it("declines an Escape a descendant already consumed", () => {

@@ -30,7 +30,9 @@ than by which listener happened to register first.
   a dialog — as the "Notes" button in the task editor is — the panel treated
   the next Escape as not its own and the editor closed instead, taking your
   unsaved edits. Opening notes and pressing Escape now closes notes. Screen
-  readers are also told the panel opened, which they were not before.
+  readers are also told the panel opened, which they were not before, and
+  opening either panel from the keyboard shows a focus ring on it, so you can
+  see where the next keypress will land. Opening by mouse does not.
 - Fixes a case introduced by 0.202.4: a picker inside a menu lost both its
   dropdown and the menu to a single keypress.
 
