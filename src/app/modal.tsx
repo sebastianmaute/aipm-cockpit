@@ -32,12 +32,12 @@ import {
   type RefObject,
 } from "react";
 import { type Lang } from "./i18n";
-
-// Stack of currently-open modal tokens (mount order). Only the TOPMOST modal
-// responds to Escape / Tab so a nested modal (e.g. the setup wizard opened from
-// inside the create-project modal) doesn't double-fire — one Escape would
-// otherwise close BOTH and discard the underlying draft.
-const modalStack: symbol[] = [];
+import {
+  claimsEscape,
+  isTopmostOfKind,
+  popDismissal,
+  pushDismissal,
+} from "./dismissal-stack";
 
 /** Canonical modal backdrop tint — the AIPM dark-blue scrim every modal shares.
  *  `Modal` defaults to it; hand-rolled overlays (popovers that can't use `Modal`)
@@ -103,7 +103,7 @@ export function Modal({
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const pressStartedOnBackdrop = useRef(false);
-  // Stable per-instance token for the open-modal stack (topmost-only handling).
+  // Stable per-instance token for the shared dismissal stack.
   const tokenRef = useRef<symbol>(Symbol("modal"));
   // Mirror onClose into a ref so the keydown effect can depend on [open] ALONE.
   // If it depended on [open, onClose], an unstable parent onClose identity would
@@ -114,17 +114,15 @@ export function Modal({
     onCloseRef.current = onClose;
   });
 
-  // Open-modal stack membership — keyed on [open] ONLY, so push/pop happens
-  // exactly on mount-open / unmount-close. Stack order == mount order, so the
-  // last-opened (nested) modal is always topmost.
+  // Dismissal-stack membership — keyed on [open] ONLY, so push/pop happens
+  // exactly on mount-open / unmount-close. Stack order == open order, so the
+  // last-opened layer (a nested modal, or a popover inside this one) is
+  // always topmost.
   useEffect(() => {
     if (!open) return;
     const token = tokenRef.current;
-    modalStack.push(token);
-    return () => {
-      const i = modalStack.lastIndexOf(token);
-      if (i !== -1) modalStack.splice(i, 1);
-    };
+    pushDismissal(token, "modal");
+    return () => popDismissal(token);
   }, [open]);
 
   // Focus management: save the previously-focused element, move focus into
@@ -177,33 +175,27 @@ export function Modal({
     const token = tokenRef.current;
 
     function onKeyDown(e: KeyboardEvent) {
-      // Only the topmost open modal handles keyboard — nested modals stack.
-      if (modalStack[modalStack.length - 1] !== token) return;
       if (e.key === "Escape") {
-        // ★★ A descendant that already consumed this Escape keeps it. This is
-        // the ONLY reliable way for an inner widget (a combobox dropdown, a
-        // resource picker) to swallow Escape: React 19 delegates events on
-        // `document` (Next passes `document` to hydrateRoot), the very node this
-        // listener is on, and `stopPropagation` does not suppress a listener
-        // co-registered on the SAME node. So an inner `e.stopPropagation()`
-        // cannot stop this handler in production, however convincing it looks in
-        // a test — React Testing Library renders into a div under body, putting
-        // React's listener on a DESCENDANT, a topology the real app never has.
-        // Without this, dismissing a dropdown also closes the surrounding edit
-        // modal and discards the user's draft.
-        // ★ Scoped to ESCAPE deliberately. Escape is a DISMISSAL — exactly one
-        // thing should act on it, so deferring to whoever claimed it first is
-        // right. Tab is CONTAINMENT: the trap's job is to keep focus inside the
-        // dialog no matter what, so it must not be waived by a descendant
-        // marking the event handled. Deferring there would let any future
-        // component that preventDefaults Tab and moves focus itself walk focus
-        // out of the modal — a WCAG 2.4.3 break no test would catch.
-        if (e.defaultPrevented) return;
+        // ★★ The dismissal stack decides. A popover opened inside this modal
+        // is above it and owns the key; a non-modal panel that declines passes
+        // it down to us. `claimsEscape` also honours `defaultPrevented`, which
+        // is how element-scoped combobox handlers keep their own Escape:
+        // React 19 delegates on `document` (Next passes `document` to
+        // hydrateRoot), the very node this listener is on, so their
+        // `stopPropagation` could never suppress this handler however
+        // convincing it looks under React Testing Library.
+        if (!claimsEscape(e, token)) return;
         e.preventDefault();
         onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
+      // ★ Tab asks a DIFFERENT question. Escape is a dismissal — deferring to
+      // whoever is on top is right. Tab is CONTAINMENT: the trap must keep
+      // focus inside the dialog no matter what is layered above it, so it
+      // gates on the topmost MODAL and is never waivable by a popover
+      // (WCAG 2.4.3).
+      if (!isTopmostOfKind(token, "modal")) return;
       const container = dialogRef.current;
       if (!container) return;
       // No visibility filter on purpose. A naive `offsetParent / getClientRects`

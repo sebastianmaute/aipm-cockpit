@@ -266,4 +266,45 @@ describe("Modal — nested stacking", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(outerClose).toHaveBeenCalledTimes(1);
   });
+
+  test("keeps Tab containment when a popover layers above it", async () => {
+    const { pushDismissal, popDismissal, resetDismissalStack } = await import(
+      "./dismissal-stack"
+    );
+    resetDismissalStack();
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} ariaLabel="Editor">
+        <button type="button">first</button>
+        <button type="button">last</button>
+      </Modal>,
+    );
+    // A popover opens on top of the modal. It owns Escape...
+    const popover = Symbol("popover");
+    pushDismissal(popover, "layer");
+
+    const first = screen.getByRole("button", { name: "first" });
+    first.focus();
+    const escape = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    first.dispatchEvent(escape);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // ...but Tab containment is NOT waivable by a layer above (WCAG 2.4.3).
+    const last = screen.getByRole("button", { name: "last" });
+    last.focus();
+    const tab = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    last.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+
+    popDismissal(popover);
+  });
 });
