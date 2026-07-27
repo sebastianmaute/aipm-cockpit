@@ -8,6 +8,7 @@ import { t, type Lang } from "./i18n";
 import type { TimelogProjectRef } from "./timelog-match";
 import { INTERACTIVE, FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Input } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 
 interface TimelogProjectScopeProps {
   lang: Lang;
@@ -59,17 +60,28 @@ export function TimelogProjectScope({
         )}
       </div>
       {hasCustomer && (
-        <Input
-          type="text"
-          role="searchbox"
-          size="xs"
+        <ClearableSearchInput
           value={filter}
-          onChange={(e) => onFilterChange(e.target.value)}
-          placeholder={t(lang, "timelogProjectFilter")}
-          aria-label={t(lang, "timelogProjectFilter")}
-          disabled={disabled}
-          className="w-full"
-        />
+          onClear={() => onFilterChange("")}
+          clearLabel={t(lang, "clear")}
+        >
+          {/* type="text" + role="searchbox" is deliberate and stays: switching to
+              type="search" would reintroduce the native browser control the
+              overlay exists to replace (drawn by Chrome/Safari, absent in
+              Firefox, unreachable by keyboard in both). A text input draws no
+              native ✕, so no appearance-none is needed here. */}
+          <Input
+            type="text"
+            role="searchbox"
+            size="xs"
+            value={filter}
+            onChange={(e) => onFilterChange(e.target.value)}
+            placeholder={t(lang, "timelogProjectFilter")}
+            aria-label={t(lang, "timelogProjectFilter")}
+            disabled={disabled}
+            className={`w-full ${filter ? "pr-8" : ""}`}
+          />
+        </ClearableSearchInput>
       )}
       {!hasCustomer ? (
         <p className="rounded-md border border-dashed border-line px-3 py-2 text-xs text-muted-foreground">
