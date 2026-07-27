@@ -52,15 +52,24 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
     return () => cancelAnimationFrame(raf);
   }, [step]);
 
-  // The overlay is a role=dialog aria-modal surface, so it registers as a
-  // modal. Gated on a real step: it renders null without one, and an entry
-  // that claims Escape while showing nothing would swallow the key.
+  // Gated on a real step: it renders null without one, and an entry that
+  // claims Escape while showing nothing would swallow the key.
+  //
+  // ★★ `kind: "layer"` DESPITE this being a role=dialog aria-modal surface.
+  // The kind means exactly one thing to the stack — "modal" traps Tab, "layer"
+  // does not — and this overlay implements NO Tab trap. Tagging it "modal"
+  // made `isTopmostOfKind(token,"modal")` resolve to the tour for any real
+  // `Modal` open at the same time, so that Modal stopped trapping Tab and
+  // nothing took over: focus walked out of both into the page behind (WCAG
+  // 2.4.3). Before the dismissal stack this could not happen, because the tour
+  // never joined `Modal`'s private stack at all. If this overlay ever grows a
+  // real focus trap, change this to "modal" in the SAME commit.
   //
   // ★ This file is the proof that marking the event was never enough on its
   // own — the old handler already called `preventDefault()` and still could
   // not stop `Modal` closing behind it, because `Modal` had registered first
   // and had already acted by the time this ran. Only an arbiter fixes that.
-  useDismissable({ open: step !== undefined, kind: "modal", onDismiss: onSkip });
+  useDismissable({ open: step !== undefined, kind: "layer", onDismiss: onSkip });
 
   useEffect(() => {
     cardRef.current?.focus();

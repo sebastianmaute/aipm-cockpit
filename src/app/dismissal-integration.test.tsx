@@ -1,8 +1,10 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TOUR_STEPS } from "./app-tour";
 import { resetDismissalStack } from "./dismissal-stack";
 import { Modal } from "./modal";
+import { TourOverlay } from "./tour-overlay";
 import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 
 /** ★★ Dispatch from a FOCUSED ELEMENT, never `document.dispatchEvent`. The
@@ -181,5 +183,49 @@ describe("Escape dismissal across surfaces", () => {
     pressEscape(screen.getByRole("button", { name: "inner field" }));
     expect(closeInner).toHaveBeenCalledTimes(1);
     expect(closeOuter).not.toHaveBeenCalled();
+  });
+
+  it("keeps a modal's Tab trap while the tour overlay is open", () => {
+    // ★★ REGRESSION GUARD. `TourOverlay` is a role=dialog aria-modal surface
+    // but implements NO Tab trap, so it registers as `layer`. Tagged `modal` it
+    // won `isTopmostOfKind(token,"modal")` away from a real `Modal` open at the
+    // same time — that Modal stopped trapping Tab and nothing took over, so
+    // focus walked out of both into the page behind (WCAG 2.4.3). This could
+    // not happen before the dismissal stack, because the tour never joined
+    // `Modal`'s private stack at all. Tab containment must never be waivable by
+    // a layer that contains nothing.
+    const first = "modal first";
+    const last = "modal last";
+    render(
+      <>
+        <Modal open onClose={vi.fn()} ariaLabel="Editor">
+          <button type="button">{first}</button>
+          <button type="button">{last}</button>
+        </Modal>
+        <TourOverlay
+          lang="en-US"
+          steps={TOUR_STEPS}
+          index={0}
+          onBack={vi.fn()}
+          onNext={vi.fn()}
+          onSkip={vi.fn()}
+          onDone={vi.fn()}
+          onShowMe={vi.fn()}
+        />
+      </>,
+    );
+
+    const lastBtn = screen.getByRole("button", { name: last });
+    lastBtn.focus();
+    const tab = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      lastBtn.dispatchEvent(tab);
+    });
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: first }));
   });
 });

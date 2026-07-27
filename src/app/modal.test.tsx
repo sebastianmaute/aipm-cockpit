@@ -203,7 +203,8 @@ describe("Modal", () => {
 
 // Nested modals (e.g. the backend setup wizard opened from inside the
 // create-project modal). Only the TOPMOST open modal may respond to Escape /
-// Tab — guards the modalStack regression that re-shipped twice.
+// Tab — guards the topmost-only regression that re-shipped twice. (Ownership
+// moved from Modal's own private stack to the shared `dismissal-stack`.)
 describe("Modal — nested stacking", () => {
   test("Escape closes only the topmost (last-opened) modal", () => {
     const outerClose = vi.fn();

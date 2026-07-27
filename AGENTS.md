@@ -1050,7 +1050,18 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   did exactly this and the failure read like an implementation bug. Open the
   popover via a click on a trigger, as production does. Nothing enforces this —
   a future surface that mounts a layer in its parent's commit gets inverted
-  Escape with NO test failure anywhere to warn it.
+  Escape with NO test failure anywhere to warn it. ★ The ONE push site in the app
+  that is NOT a user gesture is `use-tour.ts`'s render-time auto-launch — re-check
+  the precondition there specifically whenever tour launch conditions change (it
+  is safe today only because the empty-state modal and the tour are mutually
+  exclusive `if/else` branches in `task-manager.tsx`).
+  ★★ `kind` MEANS "traps Tab", NOT "looks like a dialog". Tag a surface `modal`
+  ONLY if it actually contains Tab; otherwise `layer`, however `aria-modal` it is.
+  `tour-overlay` is `role=dialog aria-modal` with NO focus trap, and tagging it
+  `modal` took `isTopmostOfKind(…,"modal")` away from any real `Modal` open at the
+  same time — that Modal stopped trapping Tab and nothing took over, so focus
+  walked out of both (WCAG 2.4.3). Caught in review, not by a gate. If such a
+  surface gains a real trap, flip its `kind` in the SAME commit.
   ★★ THREE LOAD-BEARING RULES: (1) the push/pop effect's deps are `[open]` (or
   `[open, kind]`) ALONE and handlers ride refs — re-running it moves the token to
   the TOP and makes the wrong layer topmost, the bug `modal.tsx` hit twice via an

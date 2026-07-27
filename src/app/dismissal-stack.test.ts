@@ -8,7 +8,7 @@ import {
   resetDismissalStack,
 } from "./dismissal-stack";
 
-/** A KeyboardEvent stand-in. The module reads five fields and nothing else, so
+/** A KeyboardEvent stand-in. The module reads four fields and nothing else, so
  *  a cast object is honest here and keeps these tests DOM-free. */
 function esc(over: Partial<KeyboardEvent> = {}): KeyboardEvent {
   return {
