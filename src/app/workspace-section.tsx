@@ -918,7 +918,7 @@ export function WorkspaceSection({
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>
-            <TimelogPanel lang={lang} isPopout={isPopout} />
+            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} />
           </div>
         )}
 

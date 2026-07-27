@@ -138,6 +138,17 @@ function SeedWorkspace({
   return null;
 }
 
+/** Seed a project carrying a free-text customer NAME, so the weakest seed source
+ *  (resolve-the-name-against-the-directory) has something to resolve. */
+function SeedProjectCustomer({ customer }: { customer: string }) {
+  const ws = useWorkspace();
+  useEffect(() => {
+    ws.setProject({ code: "proj-a", customer } as unknown as Parameters<typeof ws.setProject>[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 /** Read-only probe for asserting timelogLinks mutations. */
 function LinksProbe({ testId }: { testId: string }) {
   const { timelogLinks } = useWorkspace();
@@ -715,6 +726,61 @@ describe("TimelogPanel", () => {
       // Switch project in place → new project has no customerId scope → picker resets.
       await act(async () => { fireEvent.click(screen.getByTestId("switch-project-b-empty")); });
       await waitFor(() => expect(select.value).toBe(""));
+    });
+
+    // The seeding ladder is RANK-based, not a one-shot boolean, precisely so a
+    // higher-precedence source arriving late still wins. `timelogLinks` is
+    // workspace data and can hydrate well after the customer directory has
+    // already driven a name auto-resolve; a boolean would latch on the weaker
+    // seed and drop the links scope silently.
+    it("late-hydrating links override an earlier customer-name auto-resolve", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          {/* No customerId on links yet — only the project's free-text customer
+              name, which resolves against the directory. */}
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <SeedProjectCustomer customer="Acme" />
+          <Controls />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      // (1) Name auto-resolve seeds the weakest source.
+      await waitFor(() => expect(select.value).toBe("667"));
+      // (2) Links hydrate LATE with a different customer. They outrank the name
+      //     auto-resolve, so the picker must move — no manual pick intervened.
+      await act(async () => { fireEvent.click(screen.getByTestId("hydrate-links-999")); });
+      await waitFor(() => expect(select.value).toBe("999"));
+    });
+
+    it("restores a per-device picker scope in preference to the last-fetched scope", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      // Simulates a prior session in which the user SELECTED 999 and never
+      // pressed Fetch, so only the device store knows about it.
+      window.localStorage.setItem(
+        "aipm-cockpit:timelog-picker",
+        JSON.stringify({ "proj-key": { customerId: 999, projectIds: [], seq: 1 } }),
+      );
+      render(
+        <>
+          {/* Last FETCH was against 667 — the picker must still win. */}
+          <SeedWorkspace links={LINKS_WITH_CUSTOMER} />
+          <TimelogPanel lang="en-US" projectKey="proj-key" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      await waitFor(() => expect(select.value).toBe("999"));
     });
 
     it("Fetch is disabled until a customer AND ≥1 project are picked, then routes to fetchBookingsForProjects and persists the scope", async () => {
