@@ -8,6 +8,28 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.202.4] - 2026-07-27 "Beukes"
+
+Finishes the Escape fix 0.202.3 started, for the menus and panels it left out.
+
+- **Escape closes a menu or the notes window without closing the dialog behind
+  it.** 0.202.3 fixed this for dropdowns; the field-visibility menu (the ⚙
+  button in every edit dialog) and the notes window still took the dialog down
+  with them, discarding unsaved changes. The notes window is the worse of the
+  two, because it opens from inside the task and RAID editors — dismissing it
+  threw away whatever was being edited underneath.
+- The notes window now only responds to Escape when you are actually working in
+  it. It floats above the app and stays open while you work elsewhere, so it
+  previously answered Escape from anywhere: with notes open, pressing Escape to
+  dismiss a task editor closed the notes window and left the editor up.
+- A popover that is given no way to handle Escape no longer swallows the key. It
+  could previously leave a dialog beneath it unclosable.
+
+Still outstanding, and unchanged by this release: the help menu, the RACI chip
+picker and the global search dropdown continue to close an enclosing dialog
+along with themselves, and two nested popovers still resolve in the wrong order.
+Both need a shared dismissal stack rather than another per-component fix.
+
 ## [0.202.3] - 2026-07-27 "Beukes"
 
 An accessibility batch: the findings an a11y review of the 0.202.2 work turned
