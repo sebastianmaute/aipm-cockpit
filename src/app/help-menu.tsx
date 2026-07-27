@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { QuestionMarkCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
@@ -8,6 +8,7 @@ import { HelpContentPane } from "./help-content-pane";
 import { useResizable } from "./use-resizable";
 import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
 import { ResetSizeButton } from "./task-manager-ui";
+import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
 import { APP_LICENSE_URL } from "./version";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
@@ -56,15 +57,17 @@ export function HelpMenu({ lang }: { lang: Lang }) {
     fallbackHeight: 640,
   });
 
-  // Escape closes the panel.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  // Escape closes the panel — but only while focus is inside it, or nowhere.
+  // Same shape as `notes-window`: a persistent draggable panel that stays open
+  // while the user works elsewhere must not answer an Escape aimed at the
+  // dialog they are actually typing in.
+  const claimsFocusWithin = useClaimsWhenFocusWithin(panelRef);
+  useDismissable({
+    open,
+    kind: "layer",
+    onDismiss: () => setOpen(false),
+    claims: claimsFocusWithin,
+  });
 
   return (
     <div>

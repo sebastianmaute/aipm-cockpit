@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { type Lang, t } from "./i18n";
 import { RACI_ROLES, type RaciRole } from "./types";
+import { useDismissable } from "./use-dismissable";
 
 interface RaciChipPickerProps {
   value: RaciRole | "";
@@ -36,9 +37,14 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLSpanElement>(null);
 
+  // Escape goes through the dismissal stack. No `claims` gate: this is a
+  // transient anchored popover that already closes on scroll, never a
+  // persistent floating surface left open while the user works elsewhere.
+  useDismissable({ open, kind: "layer", onDismiss: () => setOpen(false) });
+
   // Position the popover via a body portal so it is never clipped by the RACI
-  // matrix's overflow-auto scroll container. Close on outside pointerdown,
-  // Escape, or scroll/resize (a fixed popover must not drift from its trigger).
+  // matrix's overflow-auto scroll container. Close on outside pointerdown or
+  // scroll/resize (a fixed popover must not drift from its trigger).
   useEffect(() => {
     if (!open) return;
     const r = triggerRef.current?.getBoundingClientRect();
@@ -47,17 +53,12 @@ export function RaciChipPicker({ value, onChange, ariaPrefix, lang }: RaciChipPi
       const tgt = e.target as Node;
       if (!triggerRef.current?.contains(tgt) && !popRef.current?.contains(tgt)) setOpen(false);
     };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     const onScroll = () => setOpen(false);
     document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };

@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { clampStep, type TourStep } from "./app-tour";
 import { Button } from "./button";
+import { useDismissable } from "./use-dismissable";
 
 export interface TourOverlayProps {
   lang: Lang;
@@ -51,14 +52,19 @@ export function TourOverlay({ lang, tourTitleKey, steps, index, onBack, onNext, 
     return () => cancelAnimationFrame(raf);
   }, [step]);
 
+  // The overlay is a role=dialog aria-modal surface, so it registers as a
+  // modal. Gated on a real step: it renders null without one, and an entry
+  // that claims Escape while showing nothing would swallow the key.
+  //
+  // ★ This file is the proof that marking the event was never enough on its
+  // own — the old handler already called `preventDefault()` and still could
+  // not stop `Modal` closing behind it, because `Modal` had registered first
+  // and had already acted by the time this ran. Only an arbiter fixes that.
+  useDismissable({ open: step !== undefined, kind: "modal", onDismiss: onSkip });
+
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") { e.preventDefault(); onSkip(); }
-    }
-    document.addEventListener("keydown", onKey);
     cardRef.current?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onSkip, i]);
+  }, [i]);
 
   if (!step) return null;
   const spotlight = step.kind === "spotlight" && anchorRect !== null;
