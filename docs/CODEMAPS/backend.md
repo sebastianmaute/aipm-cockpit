@@ -1,204 +1,67 @@
-<!-- Generated: 2026-06-11 | Files scanned: src/proxy.ts + 10 (src/app/api/jira) + api/confluence + client storage backends | Token estimate: ~600 | Updated for 0.29.0–0.60.0: still no server-side app backend; client-side Turso multi-tenant backend + portfolio-mode (0.58.0–0.59.0); SharePoint Graph pure core + picker scope (0.60.0 "Stephenson"); data version history (`version-store.ts` + `version-schema.ts`: append-only `project_versions` over the same `/v2/pipeline` transport, pruned by retention, Turso-only) [0.66.0–0.69.0]; Confluence page proxy route reusing the hardened Jira helpers (0.110.0); AI scheduled-jobs global store (`scheduled-jobs-store.ts`, out of TABLE_NAMES, Turso-or-localStorage) [SP5]; Timelog read proxy (`api/timelog/route.ts` + `_helpers.ts`) + paged/429-retrying browser wire layer (`timelog-api.ts`) [0.144.0]; codebase-audit campaign [0.167.0]: NO new server surface — activity-log per-field diffs + wider global-search index are client-side/localStorage only (see data.md) -->
+<!-- Generated: 2026-07-27 | App 0.203.0 "Czerneda" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
 
 # Backend
 
-No application backend in the traditional sense — no DB, no auth middleware,
-no business logic on the server. Three thin server-side concerns only:
+No application backend in the traditional sense — no database, no auth middleware, no business logic
+on the server. Three server-side concerns only:
 
-1. `src/proxy.ts` — Next.js 16 middleware that attaches a per-request CSP nonce.
-2. `src/app/api/jira/*` — CORS proxy routes that forward to Atlassian Cloud.
-3. `src/app/api/confluence/page/route.ts` — Confluence-page fetch proxy (same Atlassian host as Jira; 0.110.0).
-4. `src/app/api/timelog/route.ts` — Timelog time-booking read proxy (forwards to `*.timelog.com`; 0.144.0).
+1. **CSP nonce middleware** (`src/proxy.ts`) — per-request nonce; owns the `connect-src`/`frame-src`
+   allowlist. ★ Host allowlisting lives HERE, not in `next.config`. A missing host fails only at
+   runtime (unit tests mock `fetch`, `next build` passes), so it slips CI silently.
+2. **12 proxy routes** — CORS/SSRF/auth shims for calls the browser cannot make directly.
+3. **Static asset serving.**
 
-## Middleware (`src/proxy.ts`)
+Persistence is entirely client-side (see `data.md`).
 
-Per-request `nonce-{uuid}` injected into `Content-Security-Policy: default-src
-'self'; script-src 'self' 'nonce-X' 'strict-dynamic' [+'unsafe-eval' in dev];
-style-src-elem 'self' 'nonce-X' [dev: 'self' 'unsafe-inline', nonce omitted];
-style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self';
-connect-src 'self' https://api.anthropic.com https://*.turso.io
-https://graph.microsoft.com https://login.microsoftonline.com
-http://localhost:* http://127.0.0.1:*; frame-src
-https://login.microsoftonline.com; frame-ancestors 'none'; object-src 'none';
-base-uri 'self'; form-action 'self'`.
+## Routes — `src/app/api/**/route.ts`
 
-`connect-src` allowlists every host the browser calls directly: Anthropic (chat
-panel), `*.turso.io` (Turso storage + snapshot pipeline), `graph.microsoft.com`
-(SharePoint backend + Outlook calendar/contacts), `login.microsoftonline.com`
-(MSAL PKCE token exchange), and loopback (self-hosted tursodb over plaintext
-http). `frame-src` permits `login.microsoftonline.com` for MSAL
-`acquireTokenSilent`'s hidden renewal iframe (sign-in/out use popups, which
-are not governed by frame-src). Jira still goes through `/api/jira/*` (self).
+| Route | Upstream | Auth | Guard notes |
+|---|---|---|---|
+| `jira/test` `search` `projects` `issue-types` `users` `create-issue` `update-issue` `transition-issue` | `*.atlassian.net` | Basic (email + apiToken) | full-URL normalize via `new URL`, origin-only |
+| `confluence/page` | same Atlassian host | Basic | `pageId` validated `^\d+$` server-side before path build |
+| `timelog` | `*.timelog.com` | Bearer | host+tenant normalize; `/v1/`+`/v2/` path allowlist; own rate-limit scope |
+| `stt` | **user-supplied BYO host** | Bearer | no vendor apex to pin — see below |
+| `ecb` | ECB FX endpoint | none | no secret involved |
 
-Nonce is forwarded as `x-nonce` request header so Next reuses it for SSR
-script + style attribution. `style-src-attr 'unsafe-inline'` stays because
-React renders `style={{...}}` props as HTML attributes (Gantt/table dynamic
-px math) — the app renders no untrusted HTML (`dangerouslySetInnerHTML` is
-not used anywhere).
+### Shared guard core — `api/_shared/proxy-ssrf.ts`
 
-Matcher skips `/api/*`, `/_next/static`, `/_next/image`, favicon, and router
-prefetches (no HTML, no need for CSP).
+`isPrivateHost` (fail-closed: RFC1918, loopback, 169.254/16 metadata, IPv6 ULA/link-local, NAT64,
+mapped-IPv4) + `mappedIpv4ToDotted` + `isAllowedHostSuffix(host, apex)` (leading-dot suffix match, so
+`evil-atlassian.net` cannot pass). Imported by jira and timelog helpers; **provider-specific
+normalize/auth/URL stays per-route by design** — do not parameterize divergent security guards into
+one factory.
 
-## Jira routes
+Also enforced per route: HTTPS only, `..`/CRLF/`#` rejected in path, `@`/`:` rejected in host, 10s
+`AbortSignal.timeout`, 60/min/IP sliding window scoped per route (`jira/_rate-limit.ts`), and
+`console.error` that logs status/error only — never a token or body.
 
-All POST. Credentials (`siteUrl`, `email`, `apiToken`) arrive in the request
-body, are forwarded to Atlassian via Basic auth, and discarded after the
-response.
+★ **`/api/stt` is the weakest by design.** The base URL is user-configured (BYO OpenAI-compatible
+endpoint), so there is no fixed apex to allowlist. It compensates with `isPrivateHost` + https-only +
+`redirect: "manual"` (a followed 3xx would escape the host check, so 3xx → 502) + a 25 MB cap. It has
+never been security-audited — see `open-followups.md` §13.
 
-| Route | Purpose |
-|---|---|
-| `POST /api/jira/test` | Verify credentials (`GET /rest/api/3/myself`) |
-| `POST /api/jira/projects` | List accessible projects |
-| `POST /api/jira/issue-types` | List issue types for a project |
-| `POST /api/jira/users` | Search assignable users (`/rest/api/3/user/search`) |
-| `POST /api/jira/search` | JQL query (paginated) for sync pulls |
-| `POST /api/jira/create-issue` | Create a new Jira issue from a local task |
-| `POST /api/jira/update-issue` | Push local task edits back to Jira |
-| `POST /api/jira/transition-issue` | Change workflow status (e.g. Done) |
+★ `jira/_helpers.ts` `sanitizeIssueFields` is an allowlist — the write-path field-injection guard.
+`parseIssueFields` is shared by create/update; the SSRF/auth/URL chain is not.
 
-## Confluence route (0.110.0+)
+## Client storage backends — `storage.ts` facade
 
-| Route | Purpose |
-|---|---|
-| `POST /api/confluence/page` | Fetch a Confluence page body for AI project import (`/wiki/rest/api/content/{id}?expand=body.view`) |
+| Backend | Medium | Notes |
+|---|---|---|
+| `local-file-backend` | File System Access API | JSON · CSV · Markdown; byte-stable serializers |
+| `browser-backend` | IndexedDB `aipm-cockpit` | object stores + KV slots |
+| `sharepoint-backend` | Graph-hosted file | reuses the local codecs |
+| `turso-backend` | libSQL HTTP `/v2/pipeline` | single-DB and multi-tenant (composite `(id, project_id)` PK) |
 
-Confluence is the **same Atlassian host** as Jira, so the route **reuses the
-hardened Jira `_helpers`** (`parseJiraRequest` / `callJira` /
-`forwardJsonResponse`) — never a raw `fetch` — inheriting the SSRF allowlist
-(`*.atlassian.net`), HTTPS-only Basic auth, rate-limit, and timeout. The `pageId`
-is validated server-side with `/^\d+$/` before the path is built (path-injection
-guard). The browser-side helper is the pure `confluence-api.ts`
-(`fetchConfluencePage(url, creds)`); the import UI lives in `step0-import-panel.tsx`.
-Gated on full Jira config (`enabled && siteUrl && apiToken && email`).
+★ `turso-backend` is the only backend holding a cross-tab **Web Locks** save lock
+(`turso-backend.ts:177`). File/IDB have none — the two-tab clobber gap (`open-followups.md` §4).
+★ Its `load()` embeds `CREATE TABLE IF NOT EXISTS` DDL *outside* the write lock, so parallel loads
+contend (`SQLITE_BUSY`) — portfolio rollup must load sequentially.
+★ `turso-migrate.ts` self-heals an older DB (PRAGMA-diff → `ALTER ADD COLUMN`) inside the write lock
+before save, because save INSERTs named columns.
 
-## Timelog route (0.144.0+)
+## Turso stores outside the workspace schema
 
-| Route | Purpose |
-|---|---|
-| `POST /api/timelog` | Single GET-proxy for every Timelog Web API v1 read. Body = `{ host, tenant, token, path, query }`; the route GET-fetches `https://<host>/<tenant>/api<path>?<query>` with `Bearer` auth and forwards the JSON + upstream status |
-
-Browser → proxy only (Timelog blocks CORS). The route mirrors the hardened Jira
-helpers in `src/app/api/timelog/_helpers.ts` (its own clone, NOT a shared import):
-`parseTimelogRequest` runs a `"timelog"`-scoped rate limit, parses the body,
-validates credentials, rejects path traversal (`..`), CRLF, `#`, and anything
-outside the `/v1/` namespace; `callTimelog` runs `normalizeHost` — host allowlist
-(`timelog.com` / `*.timelog.com`), `isPrivateHost` SSRF block (loopback /
-RFC-1918 / link-local / IPv6 ULA+link-local / NAT64 / IPv4-mapped, fail-closed),
-and rejects userinfo (`@`) / port (`:`) — then fetches with a 10s
-`AbortSignal.timeout`; `forwardJsonResponse` relays JSON + status. Credentials
-arrive per-request and are never persisted server-side. Same-origin (`/api/*`),
-so **no CSP `connect-src` host is needed** (like Jira/Confluence).
-
-### Timelog browser wire layer (`src/app/timelog-api.ts`, i18n-free)
-
-Pure client wire layer over the `/api/timelog` proxy — all Timelog reads funnel
-through it:
-
-- **Paged reads:** every list call goes through `callPaged`, walking all pages via
-  the OData-style `$page` / `$pagesize` (500/page) options and the envelope's
-  `Properties.TotalPage`, capped at `MAX_PAGES = 100` (50 000 rows) so a malformed
-  `TotalPage` can't loop unbounded. Without paging the app ingested only the first
-  10 rows of any list (Timelog's default page size).
-- **429 handling:** `callRaw` transparently retries a 429 up to `MAX_429_RETRIES`
-  (4), honouring the `Retry-After` header (seconds) else exponential backoff
-  (`BASE_BACKOFF_MS` 500 → `MAX_BACKOFF_MS` 60s). The backoff `sleep` is abortable
-  via the passed `AbortSignal` (Cancel returns promptly instead of blocking).
-- `unwrapTaf` normalises the TimeLog API Format envelope (`{Entities:[{Properties}]}`
-  / `{Properties}`) to a flat row array.
-
-**Endpoints used (all GET via the proxy):** `/v1/user/me`, `/v1/user`,
-`/v1/user-setting`, `/v1/project/get-all` (params `isActive`, `customerID`,
-`$page`/`$pagesize`), `/v1/customer`, `/v1/time-tracking-item/get-by-date`,
-`/v1/approval/timesheets/get-status-by-period-with-rejected-time-tracking-items`,
-`/v1/time-registration-financial-data/get-by-date-range`.
-
-**Functions:** `getMe` (token owner), `listManagedProjects` (projects where the
-caller is Project Manager; `includeClosed` merges `isActive=false`),
-`listProjectsForCustomer` (server-side `customerID` filter, not PM-scoped),
-`listCustomers`, `listUsers`, `getPrivileges` (`RegistrationAllTasks` → scope
-mode), `listTimeItemsSelf`, `listEmployeeTimeItems` (org scope, per employee),
-`getFinancialDataSelf`.
-
-- `src/app/api/jira/_helpers.ts` — credential validation, Basic-auth header builder, common error translation, and `parseJiraRequest(request)`: the shared route entry point that runs the rate-limit check, parses the JSON body, and extracts credentials, returning either a ready-to-send error `Response` or `{ creds, body }`. Every route calls it instead of repeating that boilerplate. Outbound site URLs are normalised by `normalizeSiteUrl`: **HTTPS only** — plaintext `http://` is rejected so Basic credentials are never sent in the clear — and `isPrivateHost` rejects loopback / RFC-1918 / link-local plus IPv6 unique-local (`fc00::/7`), IPv6 link-local (`fe80::/10`), and IPv4-mapped (`::ffff:`) addresses (SSRF guard). ADF (Atlassian Document Format) ↔ plain-text conversion now lives in `src/app/adf.ts` (shared with client-side import/export paths).
-- `src/app/api/jira/_rate-limit.ts` — per-IP / per-credentials rate-limit using an in-memory token bucket. Resets on server restart (acceptable for current scale).
-
-## Per-route flow
-
-```
-request → parseJiraRequest (rate-limit check → parse JSON body → validate creds)
-       → callJira (normalize + SSRF-check site URL → fetch atlassian REST)
-       → translate errors → response JSON
-```
-
-Each `route.ts` runs independently — no shared middleware chain at the
-project root other than `src/proxy.ts`, and that middleware excludes
-`/api/*` via its matcher.
-
-## Dependencies
-
-- Native `fetch` for outbound calls (no axios / got).
-- No `cookie-parser`, no session store, no database client.
-- Pure-Node only; runs equally on Node 20+ or edge runtimes.
-
-## Storage backends (client-side)
-
-The browser chooses a storage backend via Settings → Integrations. All backends live in the client (next/dynamic, `ssr: false`). New in 0.21.0–0.25.0, extended with multi-tenant Turso in 0.59.0:
-
-| Backend | File(s) | How |
-|---------|---------|-----|
-| Browser (IndexedDB) | `storage.ts` (BrowserBackend) | Default; record-level IDB writes |
-| Local JSON/CSV/Markdown | `storage.ts` (LocalFileBackend) | File System Access API; round-trips via `migrateWorkspaceV5/V6` |
-| **SharePoint JSON/CSV** (0.22.0) | `sharepoint-backend.ts` (SharePointBackend) | Stores workspace blob to SharePoint Sites library via `graph.microsoft.com /me/drive/items/...`; requires MSAL token (M365 toggle in Settings) |
-| **Turso (single-project)** (0.25.0) | `turso-backend.ts` (TursoBackend) | Stores one workspace as relational rows via Turso HTTP `/v2/pipeline` API; no `@libsql/client` dep, raw fetch; configured in Settings → Integrations or `NEXT_PUBLIC_TURSO_*` env vars |
-| **Turso multi-tenant** (0.59.0) | `turso-backend.ts` (`TursoBackend(config, projectId)` — tenant mode) | Stores MANY projects in ONE shared Turso DB: every entity table carries a `project_id` column, a `projects` table is the project list. Same `/v2/pipeline` transport as single-tenant mode; `load`/`save` read/write only the `WHERE project_id = ?` slice. Used in portfolio "turso" mode |
-
-Both Turso modes live in ONE class: `createBackend` (storage.ts) passes `projectId` only when `kind === "turso"` AND a non-empty `tursoProjectId` dep is supplied; without it `TursoBackend` runs in single-tenant mode.
-
-All backends implement the `StorageBackend` interface (`load(): Promise<Workspace>`, `save(workspace): Promise<void>`, `isReady(): Promise<boolean>`): BrowserBackend, LocalFileBackend, SharePointBackend, and TursoBackend.
-
-### Version history (Turso-only, 0.66.0+)
-
-- `version-schema.ts` — DDL + SQL builders for the append-only `project_versions` table (full workspace JSON payload per version). Kept out of the workspace `TABLE_NAMES` (like the snapshot tables), so a workspace save's clear-all never wipes it.
-- `version-store.ts` — async CRUD (list / get / insert / prune) over the same Turso `/v2/pipeline` transport as the main backend; prunes auto-versions to `Settings.versionHistoryRetention`, leaving named checkpoints. Only active in Turso mode with the History feature module enabled.
-
-### AI scheduled-jobs store (Turso-or-localStorage, SP5)
-
-- `scheduled-jobs-store.ts` — persistence for opt-in AI scheduled jobs (`ai.scheduledJobs`). `tursoConfig === null` → the `aipm-cockpit:scheduled-jobs` localStorage key; `tursoConfig !== null` → a **global** `scheduled_jobs` Turso table (cross-device, JSON-blob row). Kept **out of** the workspace `TABLE_NAMES` (guard test) so a workspace save's clear-all never wipes it. The pure schedule engine is `scheduled-jobs/` (`isDue` / `nextRunAt` / `dueJobs` / `appendRun`; `now` always passed in). The runner is the client hook `use-scheduled-job-runner.ts`; the billed analysis call is the non-hook `scheduled-job-analysis.ts`.
-
-### Portfolio mode (multi-project, client-side, 0.58.0–0.59.0)
-
-- `portfolio-mode.ts` — global `"file" | "turso"` storage-mode switch (localStorage) plus the last-selected Turso project id. File mode uses the Phase 1 localStorage registry; Turso mode treats the shared DB's `projects` table as the source of truth.
-- `turso-portfolio.ts` — project-list CRUD over the shared pipeline: list / list-archived / create / update-meta / archive / restore / hard-delete. Every call prepends `tenantSchemaDdl()` (CREATE IF NOT EXISTS) so a fresh DB self-initializes.
-- `turso-tenant-schema.ts` — project-scoped DDL + statement builders, reusing the single-tenant column registries. Workspace tables gain a `project_id` column with a composite `PRIMARY KEY (id, project_id)`; a separate `projects` table holds one `ProjectMeta` row per project. Carries its own `SCHEMA_VERSION` ("10"), distinct from single-tenant turso-schema ("9").
-
-## Configuration resolution (client-side, 0.21.0+)
-
-`msal-config.ts` — resolves Microsoft Entra credentials from `NEXT_PUBLIC_MSAL_CLIENT_ID` / `NEXT_PUBLIC_MSAL_TENANT_ID` env vars or Settings → Integrations inputs (fallback order: env → Settings → undefined).
-
-`turso-config.ts` — resolves Turso database URL + auth token from `NEXT_PUBLIC_TURSO_DATABASE_URL` / `NEXT_PUBLIC_TURSO_AUTH_TOKEN` env vars or Settings → Integrations inputs.
-
-Both are client-side only; no server-side validation.
-
-## What this layer does *not* do
-
-- Does not store any user data.
-- Does not authenticate end users (the browser is the trust boundary).
-- Does not transform Jira responses beyond JSON parsing + ADF conversion.
-- Does not handle WebSocket / SSE traffic.
-- Does not proxy Microsoft Graph or Turso calls — browser makes them directly with MSAL tokens / Turso auth tokens.
-
-## SharePoint Graph pure core (0.60.0+)
-
-`sharepoint-graph.ts` — pure client-side Graph helper (no Next.js server involvement):
-
-- Site search (`/sites?search=`) and drive/item enumeration (`/drives`, `/items/{id}/children`) for the picker browser.
-- `parseSharePointSiteUrl(url)` — sibling utility that extracts the SharePoint site hostname + site path from a pasted storage URL, used by both the storage-config "Browse…" button and the picker modal.
-
-**Scopes used by the SharePoint integration (0.60.0+):**
-
-| Scope | Purpose |
-|-------|---------|
-| `Files.ReadWrite.All` | Storage backend: read and write the workspace JSON/CSV blob in a document library |
-| `Sites.Read.All` | Picker: search SharePoint sites via `/sites?search=` |
-
-The picker scope (`Sites.Read.All`) is requested incrementally only when the user opens the picker; the storage backend continues to work with `Files.ReadWrite.All` alone.
+`TABLE_NAMES` = the 13 `ENTITY_SPECS` tables + `plan` + `fx_rates` + `meta`. Workspace save issues a
+per-table DELETE, so **any non-workspace table must stay out of that list** (guard test enforces):
+snapshots, version history, comm templates, committee/comm report versions, learning, operating
+guides, scheduled jobs, color schemes.

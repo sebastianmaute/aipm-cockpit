@@ -1,8 +1,11 @@
 # AIPM Design Tokens & Color Rules
 
 The single source of truth for color in aipm-cockpit. Every component uses ONLY the
-semantic tokens and `--AIPM-*` brand utilities below — never raw `zinc-*` or hex.
+semantic tokens and `--ui-*` brand utilities below — never raw `zinc-*` or hex.
 Defined in `src/app/globals.css`.
+
+> The brand tokens were renamed `--AIPM-*` → `--ui-*` in 0.190.23 (Release B). `AIPM` survives as the
+> company/theme *name* and in asset classes (`AIPM-logo`), but no token carries that prefix.
 
 ## Brand palette (fixed in light & dark)
 

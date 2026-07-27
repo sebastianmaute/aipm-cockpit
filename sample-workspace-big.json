@@ -2518,7 +2518,6 @@
       "endDate": "2026-06-14",
       "type": "vacation",
       "note": "Family trip",
-      "localModifiedAt": "",
       "resourceId": 1
     },
     {
@@ -2528,7 +2527,6 @@
       "startDate": "2026-05-28",
       "endDate": "2026-05-28",
       "type": "sick",
-      "localModifiedAt": "",
       "resourceId": 2
     },
     {
@@ -2539,7 +2537,6 @@
       "endDate": "2026-06-25",
       "type": "training",
       "note": "Kubernetes cert",
-      "localModifiedAt": "",
       "resourceId": 3
     },
     {
@@ -2550,7 +2547,6 @@
       "endDate": "2026-06-18",
       "type": "other",
       "note": "Offsite leadership summit",
-      "localModifiedAt": "",
       "resourceId": 4
     },
     {
@@ -2561,7 +2557,6 @@
       "endDate": "2026-07-11",
       "type": "vacation",
       "note": "Summer holiday",
-      "localModifiedAt": "",
       "resourceId": 2
     },
     {
@@ -2572,7 +2567,6 @@
       "endDate": "2026-06-14",
       "type": "vacation",
       "note": "Family trip",
-      "localModifiedAt": "",
       "resourceId": 1
     },
     {
@@ -2582,7 +2576,6 @@
       "startDate": "2026-05-28",
       "endDate": "2026-05-28",
       "type": "sick",
-      "localModifiedAt": "",
       "resourceId": 2
     },
     {
@@ -2593,7 +2586,6 @@
       "endDate": "2026-06-25",
       "type": "training",
       "note": "Kubernetes cert",
-      "localModifiedAt": "",
       "resourceId": 3
     },
     {
@@ -2604,7 +2596,6 @@
       "endDate": "2026-06-18",
       "type": "other",
       "note": "Offsite leadership summit",
-      "localModifiedAt": "",
       "resourceId": 4
     },
     {
@@ -2615,7 +2606,6 @@
       "endDate": "2026-07-11",
       "type": "vacation",
       "note": "Summer holiday",
-      "localModifiedAt": "",
       "resourceId": 2
     },
     {
@@ -2626,7 +2616,6 @@
       "endDate": "2026-06-14",
       "type": "vacation",
       "note": "Family trip",
-      "localModifiedAt": "",
       "resourceId": 1
     },
     {
@@ -2636,7 +2625,6 @@
       "startDate": "2026-05-28",
       "endDate": "2026-05-28",
       "type": "sick",
-      "localModifiedAt": "",
       "resourceId": 2
     },
     {
@@ -2647,7 +2635,6 @@
       "endDate": "2026-06-25",
       "type": "training",
       "note": "Kubernetes cert",
-      "localModifiedAt": "",
       "resourceId": 3
     },
     {
@@ -2658,7 +2645,6 @@
       "endDate": "2026-06-18",
       "type": "other",
       "note": "Offsite leadership summit",
-      "localModifiedAt": "",
       "resourceId": 4
     },
     {
@@ -2669,7 +2655,6 @@
       "endDate": "2026-07-11",
       "type": "vacation",
       "note": "Summer holiday",
-      "localModifiedAt": "",
       "resourceId": 2
     }
   ],
@@ -2688,8 +2673,7 @@
         0
       ],
       "note": "Standard 5-day week",
-      "resourceId": 1,
-      "localModifiedAt": ""
+      "resourceId": 1
     },
     {
       "id": 2,
@@ -2705,8 +2689,7 @@
         0
       ],
       "note": "Compressed 4-day week",
-      "resourceId": 2,
-      "localModifiedAt": ""
+      "resourceId": 2
     },
     {
       "id": 3,
@@ -2722,8 +2705,7 @@
         0
       ],
       "note": "Short Friday",
-      "resourceId": 3,
-      "localModifiedAt": ""
+      "resourceId": 3
     },
     {
       "id": 4,
@@ -2739,8 +2721,7 @@
         0
       ],
       "note": "30h part-time",
-      "resourceId": 4,
-      "localModifiedAt": ""
+      "resourceId": 4
     },
     {
       "id": 100001,
@@ -2756,8 +2737,7 @@
         0
       ],
       "note": "Standard 5-day week",
-      "resourceId": 1,
-      "localModifiedAt": ""
+      "resourceId": 1
     },
     {
       "id": 100002,
@@ -2773,8 +2753,7 @@
         0
       ],
       "note": "Compressed 4-day week",
-      "resourceId": 2,
-      "localModifiedAt": ""
+      "resourceId": 2
     },
     {
       "id": 100003,
@@ -2790,8 +2769,7 @@
         0
       ],
       "note": "Short Friday",
-      "resourceId": 3,
-      "localModifiedAt": ""
+      "resourceId": 3
     },
     {
       "id": 100004,
@@ -2807,8 +2785,7 @@
         0
       ],
       "note": "30h part-time",
-      "resourceId": 4,
-      "localModifiedAt": ""
+      "resourceId": 4
     },
     {
       "id": 200001,
@@ -2824,8 +2801,7 @@
         0
       ],
       "note": "Standard 5-day week",
-      "resourceId": 1,
-      "localModifiedAt": ""
+      "resourceId": 1
     },
     {
       "id": 200002,
@@ -2841,8 +2817,7 @@
         0
       ],
       "note": "Compressed 4-day week",
-      "resourceId": 2,
-      "localModifiedAt": ""
+      "resourceId": 2
     },
     {
       "id": 200003,
@@ -2858,8 +2833,7 @@
         0
       ],
       "note": "Short Friday",
-      "resourceId": 3,
-      "localModifiedAt": ""
+      "resourceId": 3
     },
     {
       "id": 200004,
@@ -2875,8 +2849,7 @@
         0
       ],
       "note": "30h part-time",
-      "resourceId": 4,
-      "localModifiedAt": ""
+      "resourceId": 4
     }
   ],
   "resources": [

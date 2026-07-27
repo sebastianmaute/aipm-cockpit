@@ -229,6 +229,25 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
      handler is a FUNCTIONAL setter (`setX(prev => …)`) — the bulk-edit "N saves in one tick" landmine.
      (A generic `makeEntityCrudHandlers` factory was evaluated and deliberately NOT built — the per-entity
      hooks already encapsulate divergent behavior; a uniform factory adds risk without cohesion.)
+     ★★★ **ID-MINT RACE — a save handler MUST decide create-vs-update by the modal's INTENT, never by
+     id-EXISTENCE.** Entity "Add" modals precompute the new id at modal-OPEN. If a concurrent writer
+     commits that id before Save — an AI `create_*` tool, a second tab, a bulk op — then a handler asking
+     `find(id) === undefined` misclassifies the create as an UPDATE and **map-replace silently clobbers
+     the concurrent row** (real data loss, fixed in 0.170.2 "Doctorow"). Route it through pure
+     `entity-id-mint.ts` `resolveEntitySave(existing, itemId, isNew, mintId)`, which takes the intent and
+     **re-mints** the id when the open-time one was taken: RAID (`use-resource-planner`), changes
+     (`use-change-log`), stakeholders (`use-stakeholders`), milestones (`milestones-panel`), calendar
+     events (`use-calendar-events`). Modals forward `isNew`; the pane contract types are
+     `(item, isNew?) => void` (`workspace-section-types.ts`). ★ `isNew` is OPTIONAL and the fallback is
+     `isNew ?? !taken` — bulk edit and other non-modal callers deliberately omit it and keep the old
+     id-existence behaviour, which is correct because they never precompute an id.
+     ★ **Two entities are outside that helper, both correctly:** RESOURCES hand-rolls the identical
+     semantics inline (`use-resource-planner.ts:485`) *plus* an extra guard the others lack — editing a
+     row a concurrent writer already deleted would make the map-replace a silent no-op, so it calls
+     `reportSilentFailure` instead of dropping the edit; TASKS are immune by construction, deciding on
+     `editingId !== null` (`use-task-submit.ts:126`) and never on id-existence.
+     ★ TEST TRAP: the race only reproduces when the id is taken BETWEEN open and save. A test that saves
+     against an untouched list passes whichever way the handler decides — seed the collision explicitly.
   4. **Shared SSRF core, per-route normalize.** A new external-API proxy REUSES `api/_shared/proxy-ssrf.ts`
      for the IP-classification + host-allowlist checks and hand-rolls only its route-specific
      normalize/auth/URL. Do NOT parameterize the divergent guard chains into one `createProxyHelpers`
@@ -2317,11 +2336,15 @@ calendar actually shows; always derive it via `expandOccurrences`, never read th
   for the `until >= start` cross-field check, which a decoder alone has no access to. A decoded cell is
   UNTRUSTED; any caller assembling a `CalendarEvent` from decoded cells MUST re-run the whole object through
   `sanitizeCalendarEvent()` before using it.
-- ★ Every CSV/MD cell for an unset column decodes to a real `""`, never `undefined` —
-  `sanitizeCalendarEvent`'s `localModifiedAt` arm needed `sanitizeText(...) || undefined` for exactly this
-  reason (a bare `typeof === "string"` check keeps the empty string as a value). The SAME bug is still live in
-  `sanitizeAbsence` and `sanitizeShift` (`sanitize-entities.ts`) — known, tracked, deliberately left alone in
-  this release.
+- ★★ Every CSV/MD cell for an unset column decodes to a real `""`, never `undefined`, so
+  `sanitizeText(...) || undefined` is the RULE for any optional string arm — a bare
+  `typeof === "string"` check keeps the empty string as a value and it round-trips as one.
+  `sanitizeCalendarEvent` needed it for `localModifiedAt`; `sanitizeAbsence` (`sanitize-entities.ts:100`)
+  and `sanitizeShift` (`:185`) had the bare-check bug and were FIXED the same way in 0.202.1 — both now read
+  `sanitizeText(raw.localModifiedAt, 1024) || undefined`. (Earlier revisions of this bullet said the bug was
+  "still live" in those two; that text outlived the fix.) The `sanitizeResource`/`sanitizeRole`/
+  `sanitizeNamedRef`/budget-bucket arms use the different `if (typeof x === "string" && x)` shape, which is
+  truthiness-guarded and therefore already correct — don't "fix" those to match.
 - The `calendarEvents` export section is a first-class `ExportSectionKey`, default **ON**, gated by
   `enabled("calendarEvents")` in BOTH the CSV (`csv-codecs-config.ts`) and Markdown (`markdown-codecs-core.ts`)
   encoders — the two briefly diverged mid-release (one still on the storage-only gate other config blobs use)

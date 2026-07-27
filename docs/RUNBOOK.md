@@ -123,8 +123,9 @@ that no longer matches the per-request CSP header.
 2. Open Settings → Storage. The page should not 500.
 3. Add a task; refresh; confirm it persists.
 4. Open the Version popover (info icon in header). `APP_VERSION` and
-   `APP_BUILD_DATE` should match the build you just shipped (current release:
-   **v0.177.0 "Aldiss"**).
+   `APP_BUILD_DATE` should match the build you just shipped — compare against
+   `src/app/version.ts` and the top entry of `CHANGELOG.md` rather than a version
+   named here, which only goes stale.
 5. If Jira is in use: open Settings → Jira, enter test creds, hit Test —
    the route handler at `/api/jira/test` should respond.
 

@@ -175,15 +175,38 @@ On a noteworthy change, update `src/app/version.ts`:
 - `APP_HIGHLIGHT_KEYS` if a new highlight should appear in the Version popover
 
 The Version popover, README banner, and CODEMAPS regen-date are the three
-places that drift from each other most often — keep them aligned.
+places that drift from each other most often — keep them aligned. This is not
+hypothetical: on 2026-07-27 all three had drifted at once (README badge stuck 9
+releases back at v0.194.0, CODEMAPS ~50 releases back at the 0.145 era) while
+`version.ts`, `package.json` and `CHANGELOG.md` were all correctly in sync. The
+three that drift are the ones **no gate checks** — nothing in CI compares them.
+Check them by eye at release time.
+
+Two more that no gate checks: `docs/DESIGN-TOKENS.md` (it survived the
+`--AIPM-*` → `--ui-*` rename with a stale prefix in its opening line) and the
+generated `sample-workspace-{big,huge}.json` — regenerate those with
+`npx vite-node scripts/generate-sample-workspace.ts` whenever a sanitizer changes
+what a field serializes to, not only when the master changes.
 
 ## Testing
 
-Two layers are scaffolded (as of v0.7.1):
+Four layers, all gating in CI:
+
+| layer | runner | entry |
+|---|---|---|
+| unit + component | Vitest (jsdom) | `src/**/*.test.{ts,tsx}`, co-located |
+| property | Vitest + fast-check | 22 `*.property.test.ts` files |
+| e2e + a11y | Playwright | `e2e/{app,smoke,a11y,visual,print}.spec.ts` |
+| gates | scripts | file-size ratchet · jscpd duplication · palette guards · Semgrep |
 
 ### Unit + component tests — Vitest
 
-- Config: `vitest.config.ts` (jsdom env, `@` path alias, v8 coverage at 80%).
+- Config: `vitest.config.ts` (jsdom env, `@` path alias, v8 coverage).
+- **Coverage floors are BLOCKING and are not 80%**: global lines 92 / functions 91 /
+  branches 80 / statements 89, plus stricter per-engine globs (e.g. `next-actions/**`
+  lines 97, `sanitize*.ts` branches 94). `npm run test:run` does **not** enforce them —
+  only `npm run test:coverage` does, so a new coverage-gated file can be green locally
+  and fail the CI unit job.
 - Setup: `vitest.setup.ts` registers `@testing-library/jest-dom` matchers
   and RTL cleanup.
 - Location: co-located with source as `src/**/*.test.{ts,tsx}`.
