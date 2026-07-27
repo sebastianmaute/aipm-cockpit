@@ -203,7 +203,8 @@ describe("Modal", () => {
 
 // Nested modals (e.g. the backend setup wizard opened from inside the
 // create-project modal). Only the TOPMOST open modal may respond to Escape /
-// Tab — guards the modalStack regression that re-shipped twice.
+// Tab — guards the topmost-only regression that re-shipped twice. (Ownership
+// moved from Modal's own private stack to the shared `dismissal-stack`.)
 describe("Modal — nested stacking", () => {
   test("Escape closes only the topmost (last-opened) modal", () => {
     const outerClose = vi.fn();
@@ -265,5 +266,46 @@ describe("Modal — nested stacking", () => {
     rerender(<Harness innerOpen={false} />); // inner unmounts → pops the stack
     fireEvent.keyDown(document, { key: "Escape" });
     expect(outerClose).toHaveBeenCalledTimes(1);
+  });
+
+  test("keeps Tab containment when a popover layers above it", async () => {
+    const { pushDismissal, popDismissal, resetDismissalStack } = await import(
+      "./dismissal-stack"
+    );
+    resetDismissalStack();
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} ariaLabel="Editor">
+        <button type="button">first</button>
+        <button type="button">last</button>
+      </Modal>,
+    );
+    // A popover opens on top of the modal. It owns Escape...
+    const popover = Symbol("popover");
+    pushDismissal(popover, "layer");
+
+    const first = screen.getByRole("button", { name: "first" });
+    first.focus();
+    const escape = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    first.dispatchEvent(escape);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // ...but Tab containment is NOT waivable by a layer above (WCAG 2.4.3).
+    const last = screen.getByRole("button", { name: "last" });
+    last.focus();
+    const tab = new KeyboardEvent("keydown", {
+      key: "Tab",
+      bubbles: true,
+      cancelable: true,
+    });
+    last.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+
+    popDismissal(popover);
   });
 });

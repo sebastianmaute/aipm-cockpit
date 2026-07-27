@@ -2,6 +2,12 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { createRef } from "react";
 import { useFocusTrap } from "./use-focus-trap";
+import {
+  escapeOwner,
+  popDismissal,
+  pushDismissal,
+  resetDismissalStack,
+} from "./dismissal-stack";
 
 function buildContainer(): { container: HTMLDivElement; buttons: HTMLButtonElement[] } {
   const container = document.createElement("div");
@@ -71,12 +77,10 @@ describe("useFocusTrap", () => {
     expect(document.activeElement).toBe(outside);
   });
 
-  // ★★ This listener is CAPTURE-phase, so it runs before the shared Modal's —
-  // and Modal now declines an Escape a descendant already consumed
-  // (`defaultPrevented`). Consuming Escape with no `onEscape` to hand it to
-  // would therefore swallow the key entirely and leave a modal beneath
-  // unclosable. `inline-ai-edit-popover` passes no `onEscape`, so that
-  // composition is one step away.
+  // ★★ Escape goes to whichever layer the dismissal stack says owns it.
+  // Consuming it with no `onEscape` to hand it to would swallow the key
+  // entirely and leave a modal beneath unclosable. `inline-ai-edit-popover`
+  // passes no `onEscape`, so that composition is one step away.
   it("consumes Escape only when there is a handler for it", () => {
     const { container } = buildContainer();
     const ref = createRef<HTMLDivElement>();
@@ -95,9 +99,32 @@ describe("useFocusTrap", () => {
     document.dispatchEvent(unhandled);
     // Left for whoever else can act on it — a modal beneath, typically.
     expect(unhandled.defaultPrevented).toBe(false);
-    // Unmount: this hook registers a document-CAPTURE listener, so leaving it
+    // Unmount: this hook registers a document keydown listener, so leaving it
     // mounted leaks it into every later test in this file.
     withoutHandler.unmount();
+  });
+
+  it("does not claim Escape when it has no handler to give it to", () => {
+    resetDismissalStack();
+    const beneath = Symbol("modal beneath");
+    pushDismissal(beneath, "modal");
+
+    const container = document.createElement("div");
+    const button = document.createElement("button");
+    container.appendChild(button);
+    document.body.appendChild(container);
+    const ref = { current: container };
+
+    // No onEscape — `inline-ai-edit-popover`'s shape.
+    const trap = renderHook(() => useFocusTrap(ref, true));
+
+    // ★ An always-claiming entry that does nothing would swallow the key and
+    // leave the modal beneath permanently unclosable.
+    expect(escapeOwner()).toBe(beneath);
+
+    trap.unmount();
+    popDismissal(beneath);
+    document.body.removeChild(container);
   });
 
   it("does nothing while inactive", () => {

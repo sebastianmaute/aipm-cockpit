@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { HelpMenu } from "./help-menu";
 import { loadI18n, t } from "./i18n";
 
@@ -72,5 +72,49 @@ describe("HelpMenu floating panel", () => {
     openPanel();
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "zzzznomatchxyz" } });
     expect(screen.getByText("No help topics match your search.")).toBeInTheDocument();
+  });
+
+  it("takes focus on open, so Escape closes it and not the layer beneath", async () => {
+    // ★★ This panel gates its own render on `{open && pos && …}`, and `pos`
+    // arrives a tick AFTER open — so it is the awkward shape for focus-on-open,
+    // and the one the hook's first version got wrong (it captured a null root
+    // and never focused). Without focus moving in, `useClaimsWhenFocusWithin`
+    // reads false, this panel declines its own Escape, and the dismissal stack
+    // hands the key to whatever is beneath.
+    const { resetDismissalStack } = await import("./dismissal-stack");
+    resetDismissalStack();
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    try {
+      const beneath = vi.fn();
+      const token = Symbol("layer beneath");
+      const { pushDismissal, popDismissal, escapeOwner } = await import("./dismissal-stack");
+      pushDismissal(token, "layer", () => {
+        beneath();
+        return true;
+      });
+
+      render(<HelpMenu lang="en-US" />);
+      const toggle = screen.getByRole("button", { name: "Help" });
+      await act(async () => {
+        toggle.focus();
+        fireEvent.click(toggle);
+      });
+
+      const panel = screen.getByRole("dialog", { name: "Help" });
+      // Equality, not `.contains()` — a superset check would also pass if some
+      // future child self-focused, which is not what this guards.
+      expect(document.activeElement).toBe(panel);
+      // Focus is inside, so this panel — not the layer beneath — owns Escape.
+      expect(escapeOwner()).not.toBe(token);
+
+      popDismissal(token);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

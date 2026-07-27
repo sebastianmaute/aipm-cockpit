@@ -6,7 +6,7 @@
 // focus, so the app stays interactive underneath. Drag/resize mechanics clone
 // `help-menu.tsx`; the composer + inline edit reuse `NoteEditor`.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
@@ -15,6 +15,8 @@ import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-wind
 import { ResetSizeButton } from "./task-manager-ui";
 import { RichTextEditor } from "./rich-text-editor";
 import { canEditNote } from "./note-log";
+import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
+import { usePanelInitialFocus } from "./use-panel-focus";
 import { htmlToText } from "./sanitize-html";
 // A note body renders stored HTML through the shared sanitized sink, which
 // re-sanitizes at render as defense in depth (see rich-text-view.tsx).
@@ -158,43 +160,33 @@ export function NotesWindow(props: NotesWindowProps) {
   });
   const tz = browserTimeZone();
 
-  // Escape closes (only while open).
+  // Escape closes — but ONLY while focus is inside this window, or nowhere.
   //
-  // ★★★ Both halves of the app's Escape protocol, and CAPTURE phase — this
-  // window opens from the "Notes (N)" button INSIDE the task and RAID editors,
-  // which are `Modal`s. Native listeners on one node fire in REGISTRATION
-  // order, so in the bubble phase the editor (opened first) ran first and
-  // closed — discarding the user's unsaved edit — before this handler ever saw
-  // the key. Capture runs on the way down, and marking the event stops the
-  // editor acting on it. See the Escape-protocol note in AGENTS.md.
+  // ★★ This window is NON-MODAL and mounts at the top level: it stays open
+  // while the user works anywhere else, including inside a modal it is not
+  // part of. An unconditional claim swallowed every Escape in the app — open
+  // notes from a row badge, open the task editor, press Escape to dismiss the
+  // editor, and the notes window closed while the editor stayed.
   //
-  // ★★★ ONLY claims Escape when focus is INSIDE the window (or nowhere). This
-  // window is NON-modal and mounts at the top level — it stays open while the
-  // user works anywhere else, including inside a modal it is not part of. At
-  // capture phase an unconditional consume therefore SWALLOWS EVERY Escape in
-  // the app: open notes from a row badge, open the task editor, press Escape to
-  // dismiss the editor, and instead the notes window closes while the editor
-  // stays. Capture runs before React's delegation, so the focused control never
-  // sees the key. (Before capture, both closed — also wrong, but at least the
-  // thing the user was looking at responded.) A floating panel may only claim
-  // the key when it is the thing being interacted with.
-  // ★ `activeElement === body` also counts: nothing else can claim it then, so
-  // Escape right after opening the window still closes it.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
-      const panel = panelRef.current;
-      const focused = document.activeElement;
-      const focusIsElsewhere =
-        focused !== null && focused !== document.body && !panel?.contains(focused);
-      if (focusIsElsewhere) return;
-      e.preventDefault();
-      onClose();
-    }
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
-  }, [open, onClose, panelRef]);
+  // ★★ The gate lives in `claims` rather than in a handler, and that is
+  // load-bearing: a declining entry that stayed topmost would block every
+  // layer beneath it, because each of those asks "am I topmost?" and gets
+  // `false`. Escape would become a no-op. The stack walks past a decliner
+  // instead, so the editor underneath gets the key.
+  // ★★ Move focus INTO the window on open. Without this the trigger that
+  // opened it — the "Notes (N)" button INSIDE the task/RAID editor `Modal` —
+  // keeps focus, `claimsFocusWithin` reads false, this window declines, and the
+  // editor beneath takes the Escape and closes with the user's draft. Opening
+  // this window must not arm a keypress that destroys work.
+  usePanelInitialFocus(panelRef, open);
+
+  const claimsFocusWithin = useClaimsWhenFocusWithin(panelRef);
+  useDismissable({
+    open,
+    kind: "layer",
+    onDismiss: onClose,
+    claims: claimsFocusWithin,
+  });
 
   const handleAdd = useCallback(() => {
     const text = htmlToText(composerHtml);
@@ -229,9 +221,12 @@ export function NotesWindow(props: NotesWindowProps) {
     <div
       ref={panelRef}
       role="dialog"
+      // Focus target for `usePanelInitialFocus` — carries no focus ring, and is
+      // deliberately not in the tab order.
+      tabIndex={-1}
       aria-label={`${t(lang, "noteLogTitle")} — ${entityLabel}`}
       style={{ left: pos?.x ?? DEFAULT_X, top: pos?.y ?? DEFAULT_Y, maxWidth: "100vw", maxHeight: "calc(100vh - 32px)" }}
-      className="fixed z-40 flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)]"
+      className="fixed z-40 flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
     >
       <div
         onMouseDown={onTitleBarMouseDown}

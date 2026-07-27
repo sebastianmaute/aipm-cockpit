@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { QuestionMarkCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
@@ -8,6 +8,8 @@ import { HelpContentPane } from "./help-content-pane";
 import { useResizable } from "./use-resizable";
 import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
 import { ResetSizeButton } from "./task-manager-ui";
+import { useClaimsWhenFocusWithin, useDismissable } from "./use-dismissable";
+import { usePanelInitialFocus } from "./use-panel-focus";
 import { APP_LICENSE_URL } from "./version";
 
 const STORAGE_KEY_POS = "aipm-cockpit:help-pos";
@@ -56,15 +58,27 @@ export function HelpMenu({ lang }: { lang: Lang }) {
     fallbackHeight: 640,
   });
 
-  // Escape closes the panel.
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  // Escape closes the panel — but only while focus is inside it, or nowhere.
+  // Same shape as `notes-window`: a persistent draggable panel that stays open
+  // while the user works elsewhere must not answer an Escape aimed at the
+  // dialog they are actually typing in.
+  // ★★ Move focus INTO the panel on open — see `usePanelInitialFocus`. The
+  // trigger keeps focus otherwise, so `claimsFocusWithin` reads false and this
+  // panel declines an Escape aimed at it, handing the key to whatever is
+  // beneath. It also means a screen reader is finally told the dialog opened.
+  // ★ `open && pos !== null` — the SECOND gate matters. This panel renders on
+  // `{open && pos && …}` and `pos` lands a tick after open, so passing raw
+  // `open` focuses nothing (the node does not exist yet when the deferred frame
+  // fires) and the panel goes on declining its own Escape.
+  usePanelInitialFocus(panelRef, open && pos !== null);
+
+  const claimsFocusWithin = useClaimsWhenFocusWithin(panelRef);
+  useDismissable({
+    open,
+    kind: "layer",
+    onDismiss: () => setOpen(false),
+    claims: claimsFocusWithin,
+  });
 
   return (
     <div>
@@ -83,6 +97,9 @@ export function HelpMenu({ lang }: { lang: Lang }) {
         <div
           ref={panelRef}
           role="dialog"
+          // Focus target for `usePanelInitialFocus` — no focus ring, not in the
+          // tab order.
+          tabIndex={-1}
           aria-label={t(lang, "help")}
           style={{
             left: pos.x,
@@ -90,7 +107,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             maxWidth: "100vw",
             maxHeight: `calc(100vh - ${2 * VIEWPORT_PADDING}px)`,
           }}
-          className="fixed z-50 flex h-[640px] min-h-72 w-[820px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface"
+          className="fixed z-50 flex h-[640px] min-h-72 w-[820px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
         >
           <div
             onMouseDown={onTitleBarMouseDown}
