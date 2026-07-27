@@ -106,7 +106,9 @@ describe("HelpMenu floating panel", () => {
       });
 
       const panel = screen.getByRole("dialog", { name: "Help" });
-      expect(panel.contains(document.activeElement)).toBe(true);
+      // Equality, not `.contains()` — a superset check would also pass if some
+      // future child self-focused, which is not what this guards.
+      expect(document.activeElement).toBe(panel);
       // Focus is inside, so this panel — not the layer beneath — owns Escape.
       expect(escapeOwner()).not.toBe(token);
 

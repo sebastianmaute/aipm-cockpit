@@ -55,6 +55,25 @@ function DeferredPanel({ open }: { open: boolean }) {
   );
 }
 
+/** A panel whose root NEVER unmounts — only the `rendered` flag flips. No real
+ *  consumer is shaped this way today (both fully unmount), but the hook's
+ *  `stillInside` branch is unreachable without it: removing a focused node
+ *  drops `activeElement` to `body`, which routes every unmounting panel through
+ *  `focusLost` instead. Kept so the branch has real coverage and so a future
+ *  panel that hides rather than unmounts is already specified. */
+function StickyHarness({ rendered }: { rendered: boolean }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  usePanelInitialFocus(ref, rendered);
+  return (
+    <>
+      <button type="button">trigger</button>
+      <div ref={ref} role="dialog" aria-label="Sticky" tabIndex={-1} data-testid="sticky">
+        <button type="button">sticky chrome</button>
+      </div>
+    </>
+  );
+}
+
 function Harness({
   open,
   deferred = false,
@@ -93,21 +112,28 @@ describe("usePanelInitialFocus", () => {
     expect(document.activeElement).toBe(screen.getByTestId("deferred"));
   });
 
-  it("restores focus for a deferred-mount panel that still owns focus", async () => {
-    // ★★ The regression this guards: capturing the root at effect SETUP read
-    // null for this shape and kept that null for the whole open session, so the
-    // "panel still owns focus" branch could never fire. It only looked right
-    // because unmounting also drops focus to `body` and takes the other branch.
-    // Here focus is moved to a CHILD, so on close `activeElement` is the removed
-    // child's former self — the panel must still be recognised as the owner.
-    const { rerender } = render(<Harness open={false} deferred />);
+  it("restores focus when the panel still owns it and did not unmount", async () => {
+    // ★★★ This is the ONLY test that reaches the `stillInside` branch, and it
+    // needs a root that STAYS MOUNTED to do it. Removing a focused node — root
+    // or child — resets `document.activeElement` to `body` in jsdom (and in
+    // browsers), so for a panel that unmounts on close the `focusLost` branch
+    // is unconditionally true and `stillInside` is never consulted. Both real
+    // consumers (`notes-window`, `help-menu`) unmount, so an earlier version of
+    // this test used one of them and passed with `stillInside` hard-coded to
+    // `false` — it asserted the branch it never exercised.
+    // Verified: forcing `stillInside = false` fails THIS test and no other.
+    const { rerender } = render(<StickyHarness rendered={false} />);
     const trigger = screen.getByRole("button", { name: "trigger" });
     trigger.focus();
-    rerender(<Harness open deferred />);
+    rerender(<StickyHarness rendered />);
     await act(async () => {});
-    screen.getByRole("button", { name: "chrome" }).focus();
+    expect(document.activeElement).toBe(screen.getByTestId("sticky"));
 
-    rerender(<Harness open={false} deferred />);
+    // Move focus to a child, still inside the panel, then flip the flag off
+    // WITHOUT unmounting. `activeElement` is a live node inside the root, so
+    // only `stillInside` can authorise the restore.
+    screen.getByRole("button", { name: "sticky chrome" }).focus();
+    rerender(<StickyHarness rendered={false} />);
     await act(async () => {});
     expect(document.activeElement).toBe(trigger);
   });

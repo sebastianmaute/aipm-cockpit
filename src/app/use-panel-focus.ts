@@ -21,17 +21,24 @@ import { useEffect, type RefObject } from "react";
  * `role="dialog"` surfaces that previously appeared with NO focus movement at
  * all, so assistive tech was never told anything had opened.
  *
- * ★ Focus lands on the panel ROOT, which must carry `tabIndex={-1}` AND
- * `focus:outline-none` (the root is not tab-reachable, and a default ring drawn
- * around a 480x560 floating box every time it opens is not a focus indicator
- * anyone designed — `tour-overlay.tsx` suppresses its own for the same reason).
- * This deliberately differs from `modal.tsx`, which prefers the first focusable
- * CHILD: the notes window's first focusable is its reset-size button, and arming
- * a control the user did not ask for is worse than a neutral landing on a
- * surface they just opened. A modal's first child is its content; a floating
- * panel's is chrome. `modal.tsx` does NOT suppress its root ring, which is fine
- * there — that root is a last-resort fallback it rarely focuses, not the
- * every-time target it is here.
+ * ★ Focus lands on the panel ROOT, which must carry `tabIndex={-1}` plus
+ * `focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green` — the
+ * app's established idiom (7 other call sites). NOT a bare `focus:outline-none`:
+ * Tailwind's `focus:` matches ANY focus, so suppressing there also hides the
+ * ring when the panel was opened from the KEYBOARD, leaving a sighted
+ * keyboard-only user no signal that focus moved — and therefore no way to know
+ * whether their next Escape hits this panel or the editor behind it, which is
+ * the exact ambiguity this hook exists to resolve. `:focus-visible` keeps the
+ * ring for keyboard opens and drops it for mouse opens, which is all the
+ * "undesigned ring on a 480x560 box" complaint was ever really about.
+ * ★★ `modal.tsx:141-144` reaches the OPPOSITE conclusion for the same DOM shape
+ * and is worth reading before changing this: it prefers the first focusable
+ * CHILD and keeps its root's default ring as a deliberate WCAG 2.4.7
+ * compensating control, treating root-focus as a rare fallback. This hook makes
+ * root-focus the every-time target on purpose — the notes window's first
+ * focusable is its reset-size button, and arming a control the user did not ask
+ * for is worse than a neutral landing — so the ring modal.tsx relies on has to
+ * be reinstated here explicitly rather than assumed unnecessary.
  */
 export function usePanelInitialFocus(
   ref: RefObject<HTMLElement | null>,

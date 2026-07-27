@@ -226,7 +226,7 @@ export function NotesWindow(props: NotesWindowProps) {
       tabIndex={-1}
       aria-label={`${t(lang, "noteLogTitle")} — ${entityLabel}`}
       style={{ left: pos?.x ?? DEFAULT_X, top: pos?.y ?? DEFAULT_Y, maxWidth: "100vw", maxHeight: "calc(100vh - 32px)" }}
-      className="fixed z-40 flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)] focus:outline-none"
+      className="fixed z-40 flex h-[560px] min-h-72 w-[480px] min-w-[320px] resize flex-col overflow-hidden rounded-lg border border-line bg-surface shadow-[var(--shadow-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
     >
       <div
         onMouseDown={onTitleBarMouseDown}

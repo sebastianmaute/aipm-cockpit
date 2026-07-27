@@ -107,7 +107,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             maxWidth: "100vw",
             maxHeight: `calc(100vh - ${2 * VIEWPORT_PADDING}px)`,
           }}
-          className="fixed z-50 flex h-[640px] min-h-72 w-[820px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface focus:outline-none"
+          className="fixed z-50 flex h-[640px] min-h-72 w-[820px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
         >
           <div
             onMouseDown={onTitleBarMouseDown}
