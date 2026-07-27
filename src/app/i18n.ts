@@ -1530,6 +1530,8 @@ const enUS = {
   calendarUndoReassignLabel: "{0} — reassigned",
   calendarUndoResizeLabel: "{0} — resized",
   calendarMeetings: "Meetings",
+  calendarMeetingMoveModeOn: "Move meeting: Alt+arrows reschedule, Enter confirms, Escape cancels",
+  calendarMeetingMoveModeCancelled: "Meeting move cancelled",
   calendarOccurrenceMoved: "Moved",
   calendarEventNewItem: "New calendar event",
   calendarEventEditItem: "Editing calendar event #{0}",
@@ -3516,6 +3518,7 @@ const enUS = {
   versionHighlightKanbanSwimlanes: "Created date column, hide externals, and Kanban person swimlanes: tasks now record when they were created (a sortable, off-by-default column, backfilled for existing tasks); Open Points can hide externally-owned tasks and their filter options in one toggle; and the Kanban board gains a person-swimlane view — drag a card into someone's lane to reassign and re-status it in one move, or use the per-card person select as the keyboard equivalent.",
   versionHighlightDashboardR3: "Dashboard: the “overloaded with overdue work” action now opens Open Points filtered to that person instead of the workload view; the burn-down x-axis follows the budget buckets' successor chain, with a banner naming the offending buckets when they are not one chain (and staying silent when nobody chained anything); and the project status summary is a rich-text editor — bold, italic, lists and links — with an existing plain-text narrative upgraded on read and only rewritten when you save.",
   versionHighlight0201: "AI planning: read project health, plan allocations, set task dependencies.",
+  versionHighlight02023: "Accessibility: link pickers are proper comboboxes (arrow keys, Enter to add, Escape to dismiss), sortable table headers announce their sort direction, calendar meetings can be rescheduled from the keyboard (Alt+Arrow to move, Enter to confirm), and purple text now clears AA contrast on hover in every theme.",
   versionHighlight0202: "Calendar: absences drag to reschedule, drag across rows to reassign, and edge-drag to resize — with a keyboard equivalent (Alt+Arrow to move, Alt+Shift+Arrow to resize) and single-entry undo; and a new recurring-meetings entity brings daily/weekly/monthly recurrence, per-occurrence skip and move exceptions, a meetings band, an editor, and an all-series list, persisted across every storage backend and exported by default.",
 
   // Dashboard Insights card (#6B SP1)

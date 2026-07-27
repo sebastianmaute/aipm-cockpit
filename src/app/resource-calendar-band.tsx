@@ -22,13 +22,14 @@
 // into the matrix is worse. Row-header edit buttons remain ordinary tab stops,
 // as they were long before the band existed.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { CalendarChip } from "./calendar-chip";
 import type { CalendarEvent } from "./calendar-event";
 import type { Occurrence } from "./recurrence";
 import { resolveOccurrenceDrag } from "./occurrence-drag";
+import { addIsoDays } from "./calendar-window";
 import { moveBandFocus } from "./band-roving";
 import { CELL_PX, ASSIGNEE_COL_PX, type CalendarDay } from "./resource-calendar-shared";
 
@@ -47,7 +48,15 @@ import { CELL_PX, ASSIGNEE_COL_PX, type CalendarDay } from "./resource-calendar-
  *  (the rule-produced date) is unique per occurrence within a series by
  *  construction, so `(eventId, originalDate)` is what actually disambiguates
  *  — see occurrence-drag.ts's own doc comment for both bugs in detail. */
-type DraggedOccurrence = { eventId: number; originDate: string; originalDate: string } | null;
+type DraggedOccurrence = {
+  eventId: number;
+  originDate: string;
+  originalDate: string;
+  /** The source chip's `lane-iso` key — the chip that will unmount on a
+   *  committing drop, which is the only one whose focus restore should be
+   *  suppressed. */
+  originKey: string;
+} | null;
 
 /** Band rows are shorter than the assignee rows (CELL_PX) — a chip needs
  *  less vertical room than an absence cell's centered glyph. */
@@ -61,9 +70,16 @@ interface Props {
   days: readonly CalendarDay[];
   eventsById: ReadonlyMap<number, CalendarEvent>;
   onEditEvent: (event: CalendarEvent) => void;
-  /** Drag-reschedule an occurrence to a different date. Omit to make the
-   *  band read-only (mirrors onMoveAbsence's popout convention). */
+  /** Reschedule an occurrence to a different date, by drag OR by the keyboard
+   *  gesture below. Omit to make the band read-only (mirrors onMoveAbsence's
+   *  popout convention) — with no handler, Alt+Arrow is left to the browser. */
   onMoveOccurrence?: (occurrence: Occurrence, toDate: string) => void;
+  /** Reports the keyboard move gesture's state so the PARENT can announce it.
+   *  The announcement cannot live here: this component renders a `<tbody>`,
+   *  and a live region has to be an element the grid's row/cell structure does
+   *  not have to accommodate — resource-calendar.tsx already owns one for the
+   *  day grid's identical gesture, so this folds into it. */
+  onMoveModeChange?: (mode: "armed" | "cancelled" | null) => void;
   /** True when the orchestrator's expansion hit its own iteration cap before
    *  covering the window (recurrence.ts's `ExpansionResult.truncated`,
    *  propagated by the caller) — reachable for a series whose `startDate` is
@@ -79,10 +95,22 @@ interface Props {
  *  events adds no empty band row — but a truncated search still renders a
  *  warning row even with zero lanes, precisely so "empty" and "truncated"
  *  never look identical. */
-export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMoveOccurrence, truncated }: Props) {
+export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMoveOccurrence, onMoveModeChange, truncated }: Props) {
   const dragRef = useRef<DraggedOccurrence>(null);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
   const [focusChip, setFocusChip] = useState(0);
+
+  /** A keyboard move in flight: which occurrence, and how many days the
+   *  preview has walked. Identified by `(eventId, originalDate)` — the same
+   *  identity the drag path uses, and for the same reason (occurrence-drag.ts):
+   *  every occurrence of a series shares an eventId, and a moved one can land
+   *  on a date a sibling already occupies, so neither key alone is unique.
+   *
+   *  Committing only on Enter is deliberate, mirroring the day grid: ONE undo
+   *  entry per intent, not one per arrow press. */
+  const [pendingMove, setPendingMove] = useState<
+    { eventId: number; originalDate: string; originDate: string; dayDelta: number } | null
+  >(null);
 
   // Chips in RENDER order (lane-major, then ascending date, because `days` is
   // ascending) — the order band-roving.ts's arithmetic assumes. Keyed by
@@ -96,9 +124,15 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
   // replaced. `lanes` and `eventsById` happen to derive from the same
   // `calendarEvents` today, but they arrive as INDEPENDENT props, so the
   // coupling has to be enforced here rather than assumed.
-  const { chips, indexByKey } = useMemo(() => {
+  const { chips, indexByKey, labelByKey } = useMemo(() => {
     const refs: { lane: number; iso: string }[] = [];
     const map = new Map<string, number>();
+    // Base names, plus how many chips share each one. Title + date + time is
+    // unique for almost every band, but two series with the same title at the
+    // same slot — or one series landing twice on a date via a move exception —
+    // announce identically without a discriminator (WCAG 2.4.6).
+    const bases: { key: string; base: string; occ: Occurrence }[] = [];
+    const baseCount = new Map<string, number>();
     lanes.forEach((lane, laneIndex) => {
       const byDate = new Map(lane.map((o) => [o.date, o] as const));
       days.forEach((d) => {
@@ -109,23 +143,227 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
         const occ = byDate.get(d.iso);
         const event = occ ? eventsById.get(occ.eventId) : undefined;
         if (!occ || !event) return;
-        map.set(`${laneIndex}-${d.iso}`, refs.length);
+        const key = `${laneIndex}-${d.iso}`;
+        map.set(key, refs.length);
         refs.push({ lane: laneIndex, iso: d.iso });
+        const base = `${event.title} – ${occ.date} ${occ.time}${occ.isMoved ? ` (${t(lang, "calendarOccurrenceMoved")})` : ""}`;
+        bases.push({ key, base, occ });
+        baseCount.set(base, (baseCount.get(base) ?? 0) + 1);
       });
     });
-    return { chips: refs, indexByKey: map };
-  }, [lanes, days, eventsById]);
+
+    // Two-stage, so the common case stays clean: only a colliding name earns a
+    // discriminator, and only a name still colliding after the event id earns
+    // the second one. The pair (eventId, originalDate) IS an occurrence's
+    // identity — see occurrence-drag.ts — so stage two always separates them.
+    const withId = bases.map((b) => ({
+      ...b,
+      name: (baseCount.get(b.base) ?? 0) > 1 ? `${b.base} (#${b.occ.eventId})` : b.base,
+    }));
+    const idCount = new Map<string, number>();
+    for (const b of withId) idCount.set(b.name, (idCount.get(b.name) ?? 0) + 1);
+    const labels = new Map<string, string>();
+    for (const b of withId) {
+      labels.set(b.key, (idCount.get(b.name) ?? 0) > 1 ? `${b.name} ${b.occ.originalDate}` : b.name);
+    }
+    return { chips: refs, indexByKey: map, labelByKey: labels };
+  }, [lanes, days, eventsById, lang]);
 
   // Clamped on READ, exactly like the day grid's focusRow/focusCol: navigating
   // to a window with fewer chips must not strand the marker past the end,
   // which would leave NO chip tab-reachable.
   const focusIndex = chips.length > 0 ? Math.min(focusChip, chips.length - 1) : 0;
 
+  // The chip that last held focus, by its `lane-iso` key. Never cleared — the
+  // restore below is gated on that chip having DISAPPEARED, which is a
+  // narrower and more reliable signal than trying to track focus leaving the
+  // band (removing a focused node does not reliably fire blur, and a click on
+  // dead space blurs with no relatedTarget to test).
+  const lastFocusedKeyRef = useRef<string | null>(null);
+
+  /** The `lane-iso` key of the chip a committing DROP just moved, so the
+   *  focus-restore effect can tell a MOUSE drag apart from a keyboard
+   *  reschedule — see that effect.
+   *
+   *  ★★ A KEY, not a boolean. A boolean says "a drag happened", which is not
+   *  the question: the effect suppresses on behalf of the chip that VANISHED,
+   *  and a drag re-packs lanes, so an unrelated chip can vanish in the same
+   *  render. Dragging a one-off meeting out of a two-lane band collapses it to
+   *  one lane and renames a keyboard user's focused chip from `1-<date>` to
+   *  `0-<date>` — with a boolean the effect saw "dragged" and dropped THEM to
+   *  `<body>`, which is the bug it exists to prevent, in its third distinct
+   *  form. Comparing keys suppresses only the chip the mouse actually moved. */
+  const justDraggedKeyRef = useRef<string | null>(null);
+
+  // A reschedule or an edit that relocates an occurrence unmounts the focused
+  // chip, and focus falls to <body> — a keyboard user is dropped out of the
+  // band with no cue where they were. Put them back on the nearest surviving
+  // chip.
+  //
+  // ★ Side effect only (a .focus() call), never setState — `set-state-in-effect`
+  // is fatal here. ★ Both guards matter: `activeElement === body` means nothing
+  // else has claimed focus (so this can never yank a user out of a control they
+  // moved to), and the vanished-key check means a band re-render for any other
+  // reason does not reach in and take focus.
+  // ★ Restoring is for the KEYBOARD. A mouse drag also focuses the chip on
+  // mousedown and unmounts it on drop, which looks identical to this effect —
+  // but a mouse user did not ask for focus and gets an unexplained ring on a
+  // neighbouring meeting. `justDraggedRef` is set by the drop handler and
+  // consumed here, so the drag path skips the restore entirely.
+  useEffect(() => {
+    // ★★ CONSUME THE FLAG FIRST, before any early return. The set-site keys on
+    // the DRAGGED chip but this effect keys on the LAST-FOCUSED one, and they
+    // are frequently not the same chip — a mouse-only user has never focused
+    // one at all (`lastFocusedKeyRef` is null), and Safari does not focus a
+    // <button> on mousedown, so a drag never records one there either. With the
+    // check below the early return, those cases left the flag set FOREVER, and
+    // the user's first keyboard reschedule then had its focus restore silently
+    // eaten — the very bug this effect exists to prevent, reintroduced by the
+    // thing meant to refine it. Reading it unconditionally makes the flag mean
+    // "the render I am reacting to came from a drag", which is all it ever
+    // should have meant.
+    const draggedKey = justDraggedKeyRef.current;
+    justDraggedKeyRef.current = null;
+
+    const key = lastFocusedKeyRef.current;
+    if (key === null || indexByKey.has(key)) return;
+    // Suppress ONLY when the chip that vanished is the one the mouse moved.
+    // A drag re-packs lanes, so somebody else's chip can vanish in the same
+    // render — and they still deserve their focus back.
+    if (draggedKey === key) {
+      lastFocusedKeyRef.current = null;
+      return;
+    }
+    if (document.activeElement !== document.body) return;
+    const target = chips[focusIndex];
+    if (!target) return;
+    bodyRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-band-cell="${target.lane}-${target.iso}"]`)
+      // ★ preventScroll: the table sits in an `overflow-auto` scroller, so
+      // focusing without it can yank the viewport sideways after a drop.
+      ?.focus({ preventScroll: true });
+  }, [chips, indexByKey, focusIndex]);
+
+  /** The occurrence a chip key refers to, or undefined if it is gone. */
+  function occurrenceAt(key: string): Occurrence | undefined {
+    const idx = indexByKey.get(key);
+    if (idx === undefined) return undefined;
+    const ref = chips[idx];
+    return lanes[ref.lane]?.find((o) => o.date === ref.iso);
+  }
+
   function onBandKeyDown(e: React.KeyboardEvent<HTMLTableSectionElement>) {
+    // ★★ Any keyboard interaction disarms the drag marker. The focus-restore
+    // effect consumes it, but the effect only runs when `chips` changes — and a
+    // committing drop the PARENT ignores (a rejected or no-op move upstream)
+    // changes nothing, so the flag would sit armed until some later render
+    // consumed it and wrongly suppressed a KEYBOARD restore. That is the third
+    // distinct way this flag has leaked, so close it by construction: whatever
+    // a drag left behind cannot outlive the user touching the keyboard, which
+    // is the only thing it is allowed to affect.
+    justDraggedKeyRef.current = null;
+
     // Only chips rove. Without this guard the handler would also swallow keys
     // aimed at anything else that ever lands inside the band.
     const active = document.activeElement as HTMLElement | null;
     if (!active?.matches?.("[data-band-cell]")) return;
+
+    // A keyboard move is being previewed. Enter commits it, Escape discards,
+    // Alt+Left/Right walk the preview. Every other key is left ALONE (not
+    // preventDefault'd) rather than falling through to the roving switch
+    // below — a plain arrow must not walk the focus cursor out from under an
+    // armed move, or the preview and the cursor describe different chips.
+    if (pendingMove) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPendingMove(null);
+        onMoveModeChange?.("cancelled");
+        return;
+      }
+      if (e.key === "Enter") {
+        // ★★ An armed move belongs to ONE chip in ONE place. Focus can move
+        // within the band without leaving it (arrow keys, a click), and the
+        // occurrence itself can be rescheduled underneath the gesture by another
+        // path — the drag handler, the editor, an undo. So revalidate BOTH:
+        //   identity — else Enter on a different chip commits the armed one's
+        //     move (user presses Enter expecting the editor, another meeting
+        //     silently jumps);
+        //   position — `originDate` is captured at arm time and is what the
+        //     delta is applied to, but identity is INVARIANT under a move, so an
+        //     occurrence rescheduled while armed would still match on identity
+        //     and then commit from where it USED to be. A +1 gesture on a chip
+        //     the user is looking at on the 5th would land it on the 2nd.
+        // Anything that fails abandons the gesture and SAYS so — a silent drop
+        // leaves the user not knowing the move is gone.
+        const focused = occurrenceAt(active.getAttribute("data-band-cell") ?? "");
+        if (
+          !focused ||
+          focused.eventId !== pendingMove.eventId ||
+          focused.originalDate !== pendingMove.originalDate ||
+          focused.date !== pendingMove.originDate
+        ) {
+          setPendingMove(null);
+          onMoveModeChange?.("cancelled");
+          // NOT preventDefault'd: the user pressed Enter on a chip, and with no
+          // gesture of ours left to commit, that should do what Enter on a chip
+          // always does — open the editor.
+          return;
+        }
+        e.preventDefault();
+        // Resolve through the SAME function the drop handler uses, so the two
+        // paths cannot disagree about which occurrence moved or about what
+        // counts as a no-op (dropped back on the date it started from).
+        const result = resolveOccurrenceDrag({
+          occurrences: lanes.flat(),
+          eventId: pendingMove.eventId,
+          originDate: pendingMove.originDate,
+          originalDate: pendingMove.originalDate,
+          dropDate: addIsoDays(pendingMove.originDate, pendingMove.dayDelta),
+        });
+        if (result && onMoveOccurrence) onMoveOccurrence(result.occurrence, result.toDate);
+        setPendingMove(null);
+        onMoveModeChange?.(null);
+        return;
+      }
+      if (e.altKey && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+        setPendingMove((p) => p && { ...p, dayDelta: p.dayDelta + (e.key === "ArrowLeft" ? -1 : 1) });
+      }
+      // ★ Space is CLAIMED while armed, unlike every other unhandled key. It is
+      // the chip's other native activation key, so leaving it alone would open
+      // the editor in the middle of a gesture the user is still composing —
+      // Enter is guarded against exactly that, and Space is the same door.
+      if (e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        return;
+      }
+      // Occurrences are single-day and sit in packing lanes with no meaning of
+      // their own, so there is no row axis and no resize gesture — Alt+Up/Down
+      // are ignored rather than swallowed, matching how the grid treats an axis
+      // its active gesture does not use.
+      return;
+    }
+
+    // Alt+Left/Right on a chip ARMS a move, seeded with that press's own delta
+    // (one press both starts the gesture and previews its first step).
+    // ★ Gated on onMoveOccurrence: with no handler there is nothing to commit,
+    // so Alt+Left must stay browser Back — which is what band-roving.ts's
+    // modifier guard preserves for the read-only case.
+    if (onMoveOccurrence && e.altKey && !e.shiftKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      const key = active.getAttribute("data-band-cell") ?? "";
+      const occ = occurrenceAt(key);
+      if (occ) {
+        e.preventDefault();
+        setPendingMove({
+          eventId: occ.eventId,
+          originalDate: occ.originalDate,
+          originDate: occ.date,
+          dayDelta: e.key === "ArrowLeft" ? -1 : 1,
+        });
+        onMoveModeChange?.("armed");
+        return;
+      }
+    }
     // Navigate from the chip that ACTUALLY has focus, not from the `focusChip`
     // marker: the two can disagree (a click focuses a chip directly, and the
     // marker's own state update has not necessarily been committed by the time
@@ -143,9 +381,31 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
       ?.focus();
   }
 
+  /** Abandon an armed move when focus leaves the band entirely.
+   *
+   *  ★★ This is the ROOT fix for "the gesture outlives its context": an armed
+   *  move that survives the user walking away is what makes every later
+   *  revalidation necessary, and it also means the day grid's own gesture can
+   *  overwrite the shared live region while a band move is still committable —
+   *  so Enter back on that chip would reschedule with no cue that anything was
+   *  armed. Cancelling here means only ONE gesture is ever live.
+   *
+   *  ★ `relatedTarget === null` (focus went to the document body, a window
+   *  blur, or the focused chip was removed) deliberately also cancels: none of
+   *  those is a state the user can still steer the gesture from. The in-band
+   *  checks in the Enter branch stay as defence for focus moving BETWEEN chips,
+   *  which does not blur out of the band at all. */
+  function onBandBlur(e: React.FocusEvent<HTMLTableSectionElement>) {
+    if (!pendingMove) return;
+    const next = e.relatedTarget as Node | null;
+    if (next && bodyRef.current?.contains(next)) return;
+    setPendingMove(null);
+    onMoveModeChange?.("cancelled");
+  }
+
   if (lanes.length === 0 && !truncated) return null;
   return (
-    <tbody data-calendar-band ref={bodyRef} onKeyDown={onBandKeyDown}>
+    <tbody data-calendar-band ref={bodyRef} onKeyDown={onBandKeyDown} onBlur={onBandBlur}>
       {truncated && (
         <tr role="row">
           {/* A perceivable, non-colour-only note (icon + real text, not a
@@ -192,12 +452,10 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
             {days.map((d) => {
               const occ = byDate.get(d.iso);
               const event = occ ? eventsById.get(occ.eventId) : undefined;
-              // Title + date + time makes every chip's name row-unique even
-              // when the same series repeats daily — a bare title would
-              // collide across every occurrence (WCAG 2.4.6).
-              const label = occ && event
-                ? `${event.title} – ${occ.date} ${occ.time}${occ.isMoved ? ` (${t(lang, "calendarOccurrenceMoved")})` : ""}`
-                : "";
+              // Built in the chips memo above, which is the only place that
+              // sees every rendered chip at once and can therefore tell a
+              // colliding name from a unique one.
+              const label = labelByKey.get(`${laneIndex}-${d.iso}`) ?? "";
               return (
                 <td
                   key={d.iso}
@@ -222,7 +480,16 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
                       originalDate: drag.originalDate,
                       dropDate: d.iso,
                     });
-                    if (result) onMoveOccurrence(result.occurrence, result.toDate);
+                    // ★ Marked ONLY on a committing drop — the one case that
+                    // actually unmounts the dragged chip. Setting it for every
+                    // drop would arm it on an early return or a no-op
+                    // (dropped-back-where-it-started) drop, where nothing
+                    // unmounts and so nothing consumes it; the stale flag would
+                    // then suppress the NEXT genuine keyboard focus-restore.
+                    if (result) {
+                      justDraggedKeyRef.current = drag.originKey;
+                      onMoveOccurrence(result.occurrence, result.toDate);
+                    }
                   }}
                   onDragEnd={() => { dragRef.current = null; }}
                 >
@@ -238,12 +505,23 @@ export function CalendarBand({ lang, lanes, days, eventsById, onEditEvent, onMov
                       // press would navigate from wherever the marker was last
                       // left, not from the chip the user is actually on.
                       onFocus={() => {
-                        const idx = indexByKey.get(`${laneIndex}-${d.iso}`);
+                        const key = `${laneIndex}-${d.iso}`;
+                        lastFocusedKeyRef.current = key;
+                        const idx = indexByKey.get(key);
                         if (idx !== undefined) setFocusChip(idx);
                       }}
                       draggable={!!onMoveOccurrence}
                       onDragStart={(e) => {
-                        dragRef.current = { eventId: occ.eventId, originDate: occ.date, originalDate: occ.originalDate };
+                        // `originKey` is the SOURCE chip's `lane-iso`, captured
+                        // here because only the drag start knows which lane the
+                        // grab came from — the drop handler runs on the TARGET
+                        // cell and its `laneIndex` is a different lane.
+                        dragRef.current = {
+                          eventId: occ.eventId,
+                          originDate: occ.date,
+                          originalDate: occ.originalDate,
+                          originKey: `${laneIndex}-${d.iso}`,
+                        };
                         // Firefox requires data to be set or the drag never starts.
                         e.dataTransfer.setData("text/plain", String(occ.eventId));
                       }}
