@@ -40,7 +40,14 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
-npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
+npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts are BLOCKING in CI
+                            # (global lines 92/funcs 91/branch 80/stmts 89 + per-engine globs), and
+                            # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
+                            # pure engine, or an extracted `use*` hook that wasn't added to
+                            # coverage.exclude) can be green locally and fail the unit job.
+npm run e2e                 # playwright (incl. the 16-view axe a11y gate)
+npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
+                            # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
 npm run dup:check           # jscpd duplication GATE (--threshold set in package.json dup:check, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
@@ -412,9 +419,15 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   re-renders on ANY context-value change REGARDLESS of the parent's memo bailout (same rule as the
   `RowLookupContext` split above), and `WorkspaceProvider`'s value is one `useMemo` over ~30 slices, so a
   milestone/RAID/budget/insight edit — or a background Outlook-pull / insight-recommendation / scheduled-job
-  write — would re-render the whole planning table, workload rollups and absence calendar. Before this, the
-  memo genuinely bailed: workspace-section forwards only `tasks`/`raid`/`absences`/`resources`/`roles`/`plan`,
-  which an unrelated edit leaves reference-identical. THREAD PROPS instead — workspace-section already holds
+  write — would re-render the whole planning table, workload rollups and absence calendar.
+  ★★ HONEST STATE: the memo does NOT currently bail, so the optimization this bullet defends is aspirational,
+  not in effect. `workspace-section` passes it ~47 props and several are a FRESH IDENTITY every render —
+  every `guardEdit(handler)` (`guardEdit` is `makeEditGuard(...)` called unmemoized during render in
+  `task-manager.tsx`) plus the `absenceCalendar` bag. Verified twice in review. Do NOT cite this memo as the
+  reason anything is fast, and note that "memoize `guardEdit`" is NOT the fix — it is one unstable family of
+  several. Either stabilise every handler prop (measure first) or delete the memo and this bullet; tracked in
+  the R5 follow-ups doc. The guidance below still stands regardless, because it is what would make a bail
+  possible at all. THREAD PROPS instead — workspace-section already holds
   `disciplines`/`grades`/`setResources` and passes them to sibling panels. (Every other panel it renders —
   tasks, milestones, dashboard, insights, knowledge, timelog — is un-memoized, so consuming context there
   costs nothing.)
