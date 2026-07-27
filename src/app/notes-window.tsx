@@ -159,14 +159,42 @@ export function NotesWindow(props: NotesWindowProps) {
   const tz = browserTimeZone();
 
   // Escape closes (only while open).
+  //
+  // ★★★ Both halves of the app's Escape protocol, and CAPTURE phase — this
+  // window opens from the "Notes (N)" button INSIDE the task and RAID editors,
+  // which are `Modal`s. Native listeners on one node fire in REGISTRATION
+  // order, so in the bubble phase the editor (opened first) ran first and
+  // closed — discarding the user's unsaved edit — before this handler ever saw
+  // the key. Capture runs on the way down, and marking the event stops the
+  // editor acting on it. See the Escape-protocol note in AGENTS.md.
+  //
+  // ★★★ ONLY claims Escape when focus is INSIDE the window (or nowhere). This
+  // window is NON-modal and mounts at the top level — it stays open while the
+  // user works anywhere else, including inside a modal it is not part of. At
+  // capture phase an unconditional consume therefore SWALLOWS EVERY Escape in
+  // the app: open notes from a row badge, open the task editor, press Escape to
+  // dismiss the editor, and instead the notes window closes while the editor
+  // stays. Capture runs before React's delegation, so the focused control never
+  // sees the key. (Before capture, both closed — also wrong, but at least the
+  // thing the user was looking at responded.) A floating panel may only claim
+  // the key when it is the thing being interacted with.
+  // ★ `activeElement === body` also counts: nothing else can claim it then, so
+  // Escape right after opening the window still closes it.
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const panel = panelRef.current;
+      const focused = document.activeElement;
+      const focusIsElsewhere =
+        focused !== null && focused !== document.body && !panel?.contains(focused);
+      if (focusIsElsewhere) return;
+      e.preventDefault();
+      onClose();
     }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [open, onClose, panelRef]);
 
   const handleAdd = useCallback(() => {
     const text = htmlToText(composerHtml);

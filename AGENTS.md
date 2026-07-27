@@ -1028,21 +1028,30 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★★ NEVER stack a second Escape listener on a component already inside a `Modal` — that is what the
   deleted `use-escape-key` did (a `window` listener ignoring `defaultPrevented`), and it both defeated
   the protocol and fired `onClose` twice per keypress.
-  ★★ INCOMPLETE BY DESIGN, for now: only the React-level dropdowns above participate as producers.
-  The document-level closers — `popover-panel` / `use-popover-dismiss` (the ⚙ field-visibility menu in
-  EVERY edit modal), `notes-window` (opened from inside the task/RAID editors), `help-menu`,
-  `raci-chip-picker`, `global-search-box` — still close the modal along with themselves. They call
-  `onClose()` bare, register natively on `document` in the BUBBLE phase, and native listeners on one
-  node fire in REGISTRATION order, so the modal (opened first) always wins; adding `preventDefault`
-  alone would NOT fix them (it lands too late) — they need capture phase or a stack.
-  ★ Two are NOT bare and prove that point: `tour-overlay` already calls `preventDefault` and still
-  cannot stop the modal (registration order, not the mark, is what decides), and `use-focus-trap`
-  consumes Escape UNCONDITIONALLY at CAPTURE even when given no `onEscape` — making it an
-  unintentional producer that can suppress the modal and hand the key to nobody. Not reachable today
-  (`inline-ai-edit-popover`, its only handler-less caller, opens from a table row rather than inside a
-  dialog). The durable answer is a module-level **dismissal stack** mirroring `modal.tsx`'s
-  `modalStack` (open order == nesting order in every composition here); that work, plus the
-  `use-focus-trap` fix, lives on `feature/escape-dismissal-protocol`.
+  ★★ A DOCUMENT-level closer must register at **CAPTURE**, not bubble. Native listeners on one node
+  fire in REGISTRATION order and a modal opens BEFORE a popover inside it, so a bubble-phase
+  `preventDefault` lands after the modal has already closed — the mark is not enough on its own.
+  Capture runs on the way down, so a real keystroke (which targets the focused element, not
+  `document`) reaches the popover first. `popover-panel` / `use-popover-dismiss` (the ⚙
+  field-visibility menu in EVERY edit modal) and `notes-window` (opened from inside the task/RAID
+  editors) participate this way.
+  ★★ A NON-MODAL floating panel may claim Escape ONLY while focus is inside it (or nowhere) —
+  `notes-window` mounts at the top level and stays open while the user works elsewhere, so at capture
+  phase an unconditional consume swallowed EVERY Escape in the app (open notes, open the task editor,
+  press Escape: the notes window closed and the editor stayed).
+  ★★ STILL NOT PARTICIPATING: `help-menu`, `raci-chip-picker`, `global-search-box` call `onClose()`
+  bare from a BUBBLE-phase `document` listener, so they still close the modal along with themselves;
+  adding `preventDefault` alone would NOT fix them. `tour-overlay` proves the point from the other
+  side — it already calls `preventDefault` and still cannot stop the modal, because registration
+  order, not the mark, is what decides.
+  ★ `use-focus-trap` consumes Escape only when it HAS an `onEscape` to hand it to; consuming
+  unconditionally at capture would suppress the modal and give the key to nobody
+  (`inline-ai-edit-popover` is its handler-less caller).
+  ★★ Capture buys precedence over `Modal` but NOT over peers — capture listeners are also
+  registration-ordered (outermost-first), so two nested popovers still resolve outer-wins. The durable
+  answer remains a module-level **dismissal stack** mirroring `modal.tsx`'s `modalStack` (open order
+  == nesting order in every composition here), which would also let every listener return to bubble
+  and remove the capture/IME hazard.
   ★★★ **TEST-TOPOLOGY TRAP — three separate bugs hid here in one release; assume a passing keyboard
   test is lying until its DOM shape matches production.** (1) React Testing Library renders into a div
   under `body`, so React's listener sits on a DESCENDANT and `stopPropagation` appears to work — it

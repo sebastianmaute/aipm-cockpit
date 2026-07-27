@@ -33,8 +33,16 @@ export function useFocusTrap(
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
+        // ★★ Only CONSUME Escape when there is something to do with it. This
+        // listener is CAPTURE-phase, so it runs before `Modal`'s — and `Modal`
+        // now (correctly) declines an Escape a descendant already consumed
+        // (`e.defaultPrevented`). Calling preventDefault with no `onEscape`
+        // would therefore swallow the key and hand it to nobody, leaving a
+        // modal beneath permanently unclosable. `inline-ai-edit-popover` passes
+        // no `onEscape` today, so that shape is one composition away.
+        if (!onEscape) return;
         e.preventDefault();
-        onEscape?.();
+        onEscape();
         return;
       }
       if (e.key !== "Tab") return;

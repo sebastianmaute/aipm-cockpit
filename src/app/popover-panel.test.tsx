@@ -51,6 +51,54 @@ describe("PopoverPanel", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  // ★★ Popovers render INSIDE edit modals — ModalFieldControls puts one behind
+  // the ⚙ button of every one — and the shared Modal closes on a document-level
+  // Escape unless a descendant marked the event handled. Both halves of that
+  // protocol are pinned here: without the preventDefault, Escape closed the
+  // popover AND the modal and the user's draft went with it.
+  it("marks the Escape it consumes, so an enclosing modal does not also close", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByText("trigger"));
+    const esc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    document.dispatchEvent(esc);
+    expect(esc.defaultPrevented).toBe(true);
+  });
+
+  // ★★ Pins the PHASE, structurally. Every other Escape test here dispatches on
+  // `document`, which is an AT-TARGET dispatch where capture and bubble both
+  // fire in plain registration order — so none of them can tell the two apart,
+  // and flipping this flag passed the entire repo. The flag is load-bearing:
+  // `Modal` listens on the same node and, having opened first, wins the bubble
+  // phase and closes the edit modal before this panel can mark the event. The
+  // behavioural proof for the shared hook is popover-in-modal.test.tsx; this
+  // panel cannot be rendered in jsdom (it needs anchor rects), so its half is
+  // pinned on registration instead.
+  it("registers its Escape listener in the capture phase", () => {
+    const add = vi.spyOn(document, "addEventListener");
+    try {
+      render(<Harness />);
+      fireEvent.click(screen.getByText("trigger"));
+      const keydownCalls = add.mock.calls.filter(([type]) => type === "keydown");
+      expect(keydownCalls.length).toBeGreaterThan(0);
+      expect(keydownCalls.some(([, , opts]) => opts === true)).toBe(true);
+    } finally {
+      add.mockRestore();
+    }
+  });
+
+  it("declines an Escape a descendant already consumed", () => {
+    // Something nearer the user claimed it first (a combobox dismissing its own
+    // dropdown). Closing on top of that dismisses two layers with one keypress.
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.click(screen.getByText("trigger"));
+    const consumed = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    consumed.preventDefault();
+    document.dispatchEvent(consumed);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("renders nothing while closed", () => {
     render(<Harness />);
     expect(screen.queryByRole("dialog")).toBeNull();
