@@ -51,7 +51,6 @@ next-env.d.ts
 /.reports
 
 # skills
-/docs/superpowers/*
 /.superpowers/
 
 # local sample / pattern artifacts (not part of the repo)
@@ -70,13 +69,15 @@ next-env.d.ts
 # Local UI-demo recorder artifacts (not part of the repo)
 /demo/
 
-# Brainstorm/plan/spec working docs — kept LOCAL only, not part of the repo
+# Brainstorm/plan/spec working docs + their archive — kept LOCAL only, never in the repo.
+# Directory form (not `/docs/superpowers/*`) so git does not descend: nothing under here can be
+# force-added back by accident. The durable cross-release register lives at docs/open-followups.md,
+# which is tracked precisely because this tree is not.
 /docs/superpowers/
 
 # Agent-skill tooling artifacts (installed skills + lockfile — not part of the app)
 /.agents/
 /skills-lock.json
-.superpowers/
 
 # OpenSpec working directory (not part of the app)
 /openspec/
