@@ -399,7 +399,8 @@ describe("BudgetBucketModal", () => {
     const { onSave } = setup({ tasks });
     const search = screen.getByLabelText(t("en-US", "budgetLinkedTasks"));
     fireEvent.change(search, { target: { value: "Kickoff" } });
-    fireEvent.click(screen.getByRole("button", { name: /kickoff workshop/i }));
+    // The dropdown row IS the option now (no nested button inside role=option).
+    fireEvent.click(screen.getByRole("option", { name: /kickoff workshop/i }));
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     expect(onSave).toHaveBeenCalledTimes(1);
     expect((onSave.mock.calls[0][0] as BudgetBucket).taskIds).toEqual([21]);
@@ -407,7 +408,12 @@ describe("BudgetBucketModal", () => {
 
   test("removing a linked task drops it from taskIds", () => {
     const { onSave } = setup({ tasks, bucket: { ...baseBucket, taskIds: [21, 22] } });
-    fireEvent.click(screen.getByRole("button", { name: `${t("en-US", "taskUnlink")} #21` }));
+    // Prefix match: these chips are not click-through, so the unlink button now
+    // carries the task's title after its code — otherwise it is the only
+    // focusable thing in the chip and names no entity at all.
+    fireEvent.click(
+      screen.getByRole("button", { name: new RegExp(`^${t("en-US", "taskUnlink")} #21\\b`) }),
+    );
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     expect((onSave.mock.calls[0][0] as BudgetBucket).taskIds).toEqual([22]);
   });

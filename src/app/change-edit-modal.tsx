@@ -8,7 +8,6 @@
 // like resource-edit-modal.tsx / absence-edit-modal.tsx.
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import {
   CHANGE_STATUSES,
@@ -131,7 +130,11 @@ export function ChangeEditModal({
 
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:change-edit");
 
-  useEscapeKey(onCancel);
+  // ★★ No Escape handling here — `Modal` owns it. See stakeholder-edit-modal
+  // for the full reason. This modal had the same now-deleted `window`-level
+  // listener, and only avoided losing drafts because the linked-tasks picker
+  // ALSO calls stopPropagation, cutting propagation to `window` — an accident,
+  // not a design.
 
 
   const availableRaid = useMemo(

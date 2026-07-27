@@ -7,7 +7,6 @@
 // Modal + ModalHeader + useDraggable, like change-edit-modal.tsx.
 
 import { useEffect, useRef, useState } from "react";
-import { useEscapeKey } from "./use-escape-key";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import {
   RACI_ROLES,
@@ -128,7 +127,13 @@ export function StakeholderEditModal({
 
   const { offset, reset: dragReset, handleProps } = useDraggable(true, "aipm-cockpit:modal-pos:stakeholder-edit");
 
-  useEscapeKey(onCancel);
+  // ★★ This modal owns NO Escape handling of its own — deliberately.
+  // `EditModalShell` → `Modal` already closes on Escape via `onClose={onCancel}`
+  // and declines an Escape a descendant already consumed. A second,
+  // `window`-level listener used to sit here (the now-deleted `useEscapeKey`);
+  // it ignored `defaultPrevented`, so the ResourcePicker below dismissing its
+  // dropdown ALSO closed the modal and discarded the draft — and it fired
+  // `onCancel` twice per Escape besides. Do not add one back.
 
   function update<K extends keyof Stakeholder>(key: K, value: Stakeholder[K]) {
     setError(null);

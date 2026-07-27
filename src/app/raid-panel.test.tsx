@@ -287,9 +287,11 @@ describe("RaidPanel — owner ResourcePicker", () => {
 
     // The owner field is now a ResourcePicker combobox. Focus + type to surface
     // the "Alex Example" registry suggestion, then pick it.
+    // ★ Named, not "the only combobox in the dialog": the linked-tasks link
+    // picker is a combobox too now, so an unnamed query is ambiguous.
     const owner = within(
       screen.getByRole("dialog", { name: t("en-US", "raidEditItem", 1) }),
-    ).getByRole("combobox");
+    ).getByRole("combobox", { name: new RegExp(t("en-US", "raidOwner"), "i") });
     fireEvent.focus(owner);
     fireEvent.change(owner, { target: { value: "Sample" } });
     fireEvent.mouseDown(screen.getByText("Alex Example"));

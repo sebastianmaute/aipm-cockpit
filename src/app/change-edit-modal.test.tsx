@@ -68,6 +68,27 @@ function renderModalFull(over: Partial<React.ComponentProps<typeof ChangeEditMod
 }
 
 describe("ChangeEditModal", () => {
+  // ★★ Same as the stakeholder modal: this one stacked a window-level
+  // `useEscapeKey(onCancel)` on top of Modal's own Escape handling. It ignored
+  // `defaultPrevented`, and only avoided discarding drafts because the linked-
+  // tasks picker ALSO calls stopPropagation — an accident, not a design.
+  // Removing it left nothing asserting Escape still closes this modal.
+  it("closes on Escape", () => {
+    const onCancel = vi.fn();
+    renderModal({ onCancel });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not close on an Escape a descendant already consumed", () => {
+    const onCancel = vi.fn();
+    renderModal({ onCancel });
+    const consumed = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    consumed.preventDefault();
+    document.dispatchEvent(consumed);
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
   it("renders the title field, a type select, and a status select", () => {
     const { getByDisplayValue } = renderModal();
     expect(getByDisplayValue("Widen scope")).toBeTruthy();

@@ -163,7 +163,15 @@ function SortHeaderButton({
       className={`inline-flex items-center gap-1 ${active ? "text-[var(--table-head-accent)]" : ""} hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}
     >
       {label}
-      {indicator}
+      {/* aria-hidden because the <th>'s aria-sort now carries this state
+          properly; leaving the glyph in the name would announce the same thing
+          twice, in two vocabularies. It stays in the DOM (and so in
+          textContent) — it is the only VISIBLE sort cue.
+          ★ Rendered CONDITIONALLY: the button is `inline-flex … gap-1`, so an
+          empty <span> is still a flex item and would add the gap to every
+          INACTIVE header — ~4px of drift across seven tables that the opt-in
+          visual baselines do not cover. */}
+      {indicator && <span aria-hidden="true">{indicator}</span>}
     </button>
   );
   if (!hint) return button;
@@ -230,8 +238,18 @@ export function SortResizeTh<K extends string>({
   hint?: string;
   title?: string;
 }) {
+  // "off" is a real SortDir (the asc→desc→off cycle), so naming this column in
+  // `sortKey` is not enough to call it sorted — both halves gate `active`, and
+  // aria-sort is derived from the SAME value the arrow is, so the announced
+  // state and the drawn state cannot drift.
+  const active = sortKey === sortCol && sortDir !== "off";
   return (
     <th
+      // The sort state reaches assistive tech HERE. Before this it existed only
+      // as a "↑"/"↓" inside the button's accessible name — a glyph read aloud,
+      // not a state a screen reader can present as one. axe has no rule for a
+      // missing aria-sort, so the gate never flagged it.
+      aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
       className={
         align === "right"
           ? "relative px-3 py-2 text-right font-medium"
@@ -241,7 +259,7 @@ export function SortResizeTh<K extends string>({
     >
       <SortHeaderButton
         label={label}
-        active={sortKey === sortCol && sortDir !== "off"}
+        active={active}
         dir={sortDir}
         onClick={() => onSort(sortCol)}
         hint={hint}

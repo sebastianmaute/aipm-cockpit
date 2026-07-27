@@ -174,10 +174,17 @@ describe("CalendarSeriesList", () => {
       // caught by counting buttons: ColumnResizeHandle renders DragHandle in
       // its decorative mode — an aria-hidden <div> with no role — so a
       // button-count assertion is structurally blind to one reappearing.
+      //
+      // ★ Nor can it be caught by counting aria-hidden nodes, which is what
+      // this asserted first: the header legitimately contains other decorative
+      // markup (the sort arrow is aria-hidden now that the <th>'s aria-sort
+      // carries that state), so the count was only ever incidentally zero.
+      // Target the grip's own `cursor-col-resize` — the class that makes it
+      // LOOK draggable, i.e. the false affordance this test exists to prevent.
       const events = [makeEvent(1, { title: "Standup" })];
       render(<CalendarSeriesList lang="en-US" events={events} today={today} onEdit={() => {}} />);
       const headerRow = screen.getAllByRole("row")[0];
-      expect(headerRow.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
+      expect(headerRow.querySelectorAll(".cursor-col-resize")).toHaveLength(0);
     });
 
     it("marks the active column with a direction indicator", () => {
