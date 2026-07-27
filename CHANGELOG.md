@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.203.0] - 2026-07-27 "Czerneda"
+
+Escape now closes exactly one thing, decided by what you opened last rather
+than by which listener happened to register first.
+
+- **Whatever you opened last is what Escape closes.** 0.202.3 and 0.202.4 fixed
+  this case by case; the rule is now explicit and applies everywhere. A
+  dropdown inside a dialog closes the dropdown. A menu inside a dialog closes
+  the menu. The dialog — and whatever you had typed into it — stays.
+- **The help panel, the RACI picker and the guided tour join in.** All three
+  still took the dialog behind them down. The tour overlay had even been
+  marking the key as handled, which achieved nothing, because the dialog had
+  already closed by the time it did.
+- **A floating panel only answers Escape when you are working in it.** The
+  notes window already behaved this way; the help panel now does too. Opening
+  help, then a task editor, then pressing Escape while typing no longer closes
+  help and leaves the editor up.
+- Fixes a case introduced by 0.202.4: a picker inside a menu lost both its
+  dropdown and the menu to a single keypress.
+
+Internally this replaces listener-phase ordering with an explicit stack of open
+layers. Escape goes to the topmost layer that claims it; keyboard focus
+containment in dialogs asks a separate question, so a menu floating above a
+dialog can never let Tab escape it.
+
 ## [0.202.4] - 2026-07-27 "Beukes"
 
 Finishes the Escape fix 0.202.3 started, for the menus and panels it left out.

@@ -1007,51 +1007,87 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `isPopout`-gated (never shown in pop-outs). `SettingsView` gained an `isPopout` prop threaded from
   task-manager. `onMigrateToTurso` is threaded ONLY on the Settings launch (no existing workspace to
   migrate in create-project / empty-state).
-  • ★★ **Shared `Modal` (`modal.tsx`) STACKS — topmost-only Escape/Tab.** A module-level `modalStack` of
-  per-instance Symbol tokens; only the last-opened modal handles Escape/Tab, so a nested modal (wizard
+  • ★★ **Shared `Modal` (`modal.tsx`) STACKS — topmost-only Escape/Tab.** Per-instance Symbol tokens in
+  the SHARED `dismissal-stack.ts` (the local `modalStack` it once owned is GONE — see the ESCAPE PROTOCOL
+  bullet below); only the layer that owns the key handles Escape (`claimsEscape`) and only the topmost
+  MODAL contains Tab (`isTopmostOfKind(token,"modal")`), so a nested modal (wizard
   opened from inside the create-project modal) no longer double-fires Escape and dismisses the parent.
   LANDMINE (bit twice): the keydown effect must depend on `[open]` ALONE and read `onClose` via a ref —
   if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)
   re-runs the effect and re-pushes that modal's token to the top → wrong modal becomes topmost. Push/pop
   lives in a SEPARATE `[open]`-only effect (order = mount order). Regression-tested in `modal.test.tsx`.
-  • ★★★ **ESCAPE PROTOCOL — `preventDefault` marks it consumed.** A widget that dismisses on Escape
-  (a combobox dropdown: `entity-link-picker`, `resource-picker`, `combo-input`, `labels-input`,
-  `stakeholder-recipient-input`) calls `e.preventDefault()`; `Modal` bails on `e.defaultPrevented`
-  before acting. Without both halves one keypress dismisses two layers — the dropdown AND the edit
-  modal around it, discarding the user's draft.
-  ★★ `stopPropagation` CANNOT do this job: React 19 delegates on `document` (Next passes `document` to
-  `hydrateRoot`), the same node `Modal` listens on, and stopPropagation does not suppress a listener
-  co-registered on the SAME node. The dropdowns work because their React handler runs in React's
-  boot-registered delegation, which precedes `Modal`'s own (later-registered) listener.
-  ★ Scope the Modal's bail to the ESCAPE branch: Escape is a dismissal (defer to whoever claimed it),
-  Tab is containment (the focus trap must never be waivable by a descendant, WCAG 2.4.3).
-  ★★ NEVER stack a second Escape listener on a component already inside a `Modal` — that is what the
-  deleted `use-escape-key` did (a `window` listener ignoring `defaultPrevented`), and it both defeated
-  the protocol and fired `onClose` twice per keypress.
-  ★★ A DOCUMENT-level closer must register at **CAPTURE**, not bubble. Native listeners on one node
-  fire in REGISTRATION order and a modal opens BEFORE a popover inside it, so a bubble-phase
-  `preventDefault` lands after the modal has already closed — the mark is not enough on its own.
-  Capture runs on the way down, so a real keystroke (which targets the focused element, not
-  `document`) reaches the popover first. `popover-panel` / `use-popover-dismiss` (the ⚙
-  field-visibility menu in EVERY edit modal) and `notes-window` (opened from inside the task/RAID
-  editors) participate this way.
-  ★★ A NON-MODAL floating panel may claim Escape ONLY while focus is inside it (or nowhere) —
-  `notes-window` mounts at the top level and stays open while the user works elsewhere, so at capture
-  phase an unconditional consume swallowed EVERY Escape in the app (open notes, open the task editor,
-  press Escape: the notes window closed and the editor stayed).
-  ★★ STILL NOT PARTICIPATING: `help-menu`, `raci-chip-picker`, `global-search-box` call `onClose()`
-  bare from a BUBBLE-phase `document` listener, so they still close the modal along with themselves;
-  adding `preventDefault` alone would NOT fix them. `tour-overlay` proves the point from the other
-  side — it already calls `preventDefault` and still cannot stop the modal, because registration
-  order, not the mark, is what decides.
-  ★ `use-focus-trap` consumes Escape only when it HAS an `onEscape` to hand it to; consuming
-  unconditionally at capture would suppress the modal and give the key to nobody
-  (`inline-ai-edit-popover` is its handler-less caller).
-  ★★ Capture buys precedence over `Modal` but NOT over peers — capture listeners are also
-  registration-ordered (outermost-first), so two nested popovers still resolve outer-wins. The durable
-  answer remains a module-level **dismissal stack** mirroring `modal.tsx`'s `modalStack` (open order
-  == nesting order in every composition here), which would also let every listener return to bubble
-  and remove the capture/IME hazard.
+  • ★★★ **ESCAPE PROTOCOL — the dismissal stack decides, not listener phase.**
+  `dismissal-stack.ts` holds a module-level stack of open layers in OPEN order,
+  each tagged `modal` or `layer` and carrying an optional `claims()` predicate.
+  `escapeOwner()` walks top-down to the first entry that CLAIMS the key and is
+  the ESCAPE question; `isTopmostOfKind(token,"modal")` is the separate TAB
+  question. `claimsEscape(e, token)` is the single guard every handler calls.
+  React surface is `use-dismissable.ts` — `useDismissable({open, kind, onDismiss,
+  claims?})` — which every document-level closer now uses on BUBBLE phase.
+  ★★ WHY A STACK: phase ordering cannot work. Native listeners on one node fire
+  in REGISTRATION order and a modal opens BEFORE a popover inside it, so a
+  bubble-phase `preventDefault` lands after the modal already closed. 0.202.4
+  moved closers to CAPTURE to beat that, which fixed Modal-vs-popover but broke
+  the combobox pickers: React 19 delegates `onKeyDown` at BUBBLE, so a
+  capture-phase closer ran BEFORE the picker's own handler and one keypress took
+  BOTH layers down. Capture also never helped against PEERS — capture listeners
+  are registration-ordered too. Nesting is knowable directly, so the stack knows
+  it and phase stopped mattering.
+  ★★ `preventDefault`/`defaultPrevented` REMAINS the boundary with
+  ELEMENT-scoped handlers: `claimsEscape` declines an already-marked event, and
+  `useDismissable` marks the one it consumes. `stopPropagation` CANNOT do this
+  job — React 19 delegates on `document` (Next passes `document` to
+  `hydrateRoot`), the same node the closers listen on, and stopPropagation does
+  not suppress a listener co-registered on the SAME node.
+  ★★★ PRECONDITION — stack order is OPEN order, and open order must equal
+  NESTING order. Holds in production because a layer opens in response to a user
+  action, never in the same commit as its parent. It is ASSERTED, NOT DETECTED:
+  the obvious detection is DOM containment and `PopoverPanel` is a portal, which
+  defeats it. ★★ A TEST HARNESS THAT RENDERS A POPOVER AS A CHILD OF AN
+  ALREADY-OPEN `<Modal>` IN ONE COMMIT VIOLATES IT — React runs child effects
+  BEFORE parent effects, so the modal ends up topmost over its own popover and
+  Escape INVERTS. The plan's own first draft of `dismissal-integration.test.tsx`
+  did exactly this and the failure read like an implementation bug. Open the
+  popover via a click on a trigger, as production does. Nothing enforces this —
+  a future surface that mounts a layer in its parent's commit gets inverted
+  Escape with NO test failure anywhere to warn it.
+  ★★ THREE LOAD-BEARING RULES: (1) the push/pop effect's deps are `[open]` (or
+  `[open, kind]`) ALONE and handlers ride refs — re-running it moves the token to
+  the TOP and makes the wrong layer topmost, the bug `modal.tsx` hit twice via an
+  unstable `onClose`. (2) `claims()` is read at EVENT time and must be a live DOM
+  read, never a captured state value. (3) Register ONLY when you can act —
+  `use-focus-trap` gates on a `hasEscape` BOOLEAN because an always-claiming
+  entry with no handler swallows the key and leaves every layer beneath
+  unclosable (`inline-ai-edit-popover` passes no `onEscape`).
+  ★★ A NON-MODAL floating panel claims Escape ONLY while focus is inside it (or
+  nowhere) via `useClaimsWhenFocusWithin(ref)` — `notes-window` and `help-menu`.
+  The gate MUST live in `claims`, not in the handler: a decliner that stayed
+  topmost would block every layer beneath (each asks "am I topmost?" and gets
+  false) and Escape would become a dead key. The stack walks PAST a decliner.
+  ★★ `useClaimsWhenFocusWithin` is a HOOK, not a plain factory: `react-hooks/refs`
+  rejects passing a ref object into an ordinary function call during render
+  ("Cannot access refs during render"), and a `useMemo` wrapper does NOT satisfy
+  it — both lint-verified. Call it unconditionally, pass the result (or
+  `undefined`) as `claims`.
+  ★ DELIBERATELY OUT of the stack: the five combobox pickers (`entity-link-picker`,
+  `resource-picker`, `combo-input`, `labels-input`, `stakeholder-recipient-input`),
+  `global-search-box`, and `chat-panel`'s abort. Focus location is a stronger signal
+  than open order for a widget that only exists while its own field has focus, and
+  React's boot-registered delegation runs an element-scoped handler before any effect
+  listener. ★ Only the five pickers participate via `preventDefault` — they are the
+  ones that CLOSE something. `global-search-box`'s Escape is element-scoped and merely
+  clears + blurs its own field (it marks nothing), and `chat-panel`'s abort is a
+  `document` listener that self-gates on an open `[aria-modal]` and on focus being
+  inside the chat panel. Don't cite either as an example of the `preventDefault`
+  boundary.
+  ★ CORRECTION to long-standing text here: `global-search-box` does NOT close from
+  a document listener. Its Escape is element-scoped on the input; its `document`
+  listener is the ⌘K / "/" focus shortcut.
+  ★ `use-focus-trap`'s Tab containment moved to BUBBLE with its Escape. That makes
+  it consistent with `modal.tsx`, whose keydown listener has ALWAYS been bubble —
+  so a descendant `stopPropagation` on keydown could defeat Tab containment in
+  either. No consumer does this today (checked across the trapped subtrees); it is
+  a constraint on future content placed inside a trap, not a current defect.
   ★★★ **TEST-TOPOLOGY TRAP — three separate bugs hid here in one release; assume a passing keyboard
   test is lying until its DOM shape matches production.** (1) React Testing Library renders into a div
   under `body`, so React's listener sits on a DESCENDANT and `stopPropagation` appears to work — it
