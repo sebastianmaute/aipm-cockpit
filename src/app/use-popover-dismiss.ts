@@ -19,13 +19,41 @@ export function usePopoverDismiss(
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // ★★ Both halves of the app's Escape protocol, and both matter here.
+      //
+      // CONSUMER (`defaultPrevented`): something nearer the user may already
+      // have claimed this Escape — a combobox dismissing its own dropdown, say.
+      // Closing on top of that dismisses two layers with one keypress.
+      //
+      // PRODUCER (`preventDefault`): the shared `Modal` closes on a
+      // document-level Escape unless a descendant marked it handled. Popovers
+      // render INSIDE edit modals — `ModalFieldControls` puts one behind the ⚙
+      // button of every one — so without this, Escape closed the popover AND
+      // the modal, discarding the user's draft.
+      //
+      // ★ stopPropagation is NOT the tool: React 19 delegates on `document`
+      // (Next hydrates the root there), the same node `Modal` listens on, and
+      // stopPropagation cannot suppress a listener co-registered on it.
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
     };
     document.addEventListener("mousedown", onMouseDown);
-    document.addEventListener("keydown", onKey);
+    // ★★★ CAPTURE phase, and it is load-bearing. `Modal` also listens on
+    // `document`, and listeners on one node fire in REGISTRATION order — the
+    // modal opens first, so in the bubble phase its handler runs BEFORE this
+    // one and has already closed by the time we mark the event. Capture runs on
+    // the way DOWN, so this sees a real keystroke (which targets the focused
+    // element, not `document`) first and can claim it. Same reason
+    // `use-focus-trap` captures.
+    // ★ A test that dispatches on `document` cannot detect this: that is an
+    // AT-TARGET dispatch where capture and bubble both fire in registration
+    // order. See popover-in-modal.test.tsx for the shape that can.
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("mousedown", onMouseDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [open, wrapperRef, onClose]);
 }

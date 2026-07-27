@@ -124,13 +124,22 @@ export function PopoverPanel({
       onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // Same Escape protocol as `use-popover-dismiss` — see that file for the
+      // full reasoning. Short version: decline an Escape a descendant already
+      // consumed, and MARK the one we consume, or the enclosing edit modal
+      // closes along with this panel and the user's draft is gone.
+      if (e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
     };
     document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
+    // CAPTURE — see use-popover-dismiss for why this is load-bearing: `Modal`
+    // listens on the same node and, having opened first, wins the bubble phase.
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [open, anchorRef, onClose]);
 

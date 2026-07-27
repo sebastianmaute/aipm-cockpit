@@ -71,6 +71,35 @@ describe("useFocusTrap", () => {
     expect(document.activeElement).toBe(outside);
   });
 
+  // ★★ This listener is CAPTURE-phase, so it runs before the shared Modal's —
+  // and Modal now declines an Escape a descendant already consumed
+  // (`defaultPrevented`). Consuming Escape with no `onEscape` to hand it to
+  // would therefore swallow the key entirely and leave a modal beneath
+  // unclosable. `inline-ai-edit-popover` passes no `onEscape`, so that
+  // composition is one step away.
+  it("consumes Escape only when there is a handler for it", () => {
+    const { container } = buildContainer();
+    const ref = createRef<HTMLDivElement>();
+    (ref as { current: HTMLDivElement }).current = container;
+    const onEscape = vi.fn();
+
+    const withHandler = renderHook(() => useFocusTrap(ref, true, onEscape));
+    const handled = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    document.dispatchEvent(handled);
+    expect(onEscape).toHaveBeenCalledTimes(1);
+    expect(handled.defaultPrevented).toBe(true);
+    withHandler.unmount();
+
+    const withoutHandler = renderHook(() => useFocusTrap(ref, true));
+    const unhandled = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    document.dispatchEvent(unhandled);
+    // Left for whoever else can act on it — a modal beneath, typically.
+    expect(unhandled.defaultPrevented).toBe(false);
+    // Unmount: this hook registers a document-CAPTURE listener, so leaving it
+    // mounted leaks it into every later test in this file.
+    withoutHandler.unmount();
+  });
+
   it("does nothing while inactive", () => {
     const { container, buttons } = buildContainer();
     const ref = createRef<HTMLDivElement>();

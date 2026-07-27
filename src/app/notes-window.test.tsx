@@ -133,6 +133,37 @@ describe("NotesWindow", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  // ★★ This window is NON-modal and mounts at the top level, so it stays open
+  // while the user works anywhere else — including inside a modal it is not part
+  // of. Its Escape listener is document-CAPTURE, which runs before React's
+  // delegation, so an unconditional consume swallows EVERY Escape in the app:
+  // open notes, open the task editor, press Escape to dismiss the editor, and
+  // the notes window closes while the editor stays. It may only claim the key
+  // when it is the thing being interacted with.
+  it("leaves Escape alone when focus is somewhere else entirely", () => {
+    const { onClose } = setup();
+    const elsewhere = document.createElement("input");
+    document.body.appendChild(elsewhere);
+    elsewhere.focus();
+    try {
+      const esc = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+      document.dispatchEvent(esc);
+      expect(onClose).not.toHaveBeenCalled();
+      // And critically: not consumed, so whatever IS focused still gets it.
+      expect(esc.defaultPrevented).toBe(false);
+    } finally {
+      elsewhere.remove();
+    }
+  });
+
+  it("still closes on Escape when focus is inside the window", () => {
+    const { onClose } = setup();
+    const inside = screen.getByRole("button", { name: t(EN, "close") });
+    inside.focus();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("re-sanitizes a malicious entry html at the render sink (defense in depth)", () => {
     const evil: NoteLogEntry[] = [
       {
