@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
+import { claimsEscape, popDismissal, pushDismissal } from "./dismissal-stack";
 
 const FOCUSABLE_SELECTOR =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -21,6 +22,21 @@ export function useFocusTrap(
   onEscape?: () => void,
   initialFocusRef?: RefObject<HTMLElement | null>,
 ): void {
+  const tokenRef = useRef<symbol>(Symbol("focus-trap"));
+  // ★★ Register ONLY when there is an `onEscape` to hand the key to. An
+  // always-claiming entry that does nothing swallows Escape and blocks every
+  // layer beneath — `inline-ai-edit-popover` passes no handler, so that shape
+  // is one composition away. Gate on a BOOLEAN, not on `onEscape` itself: an
+  // unstable handler identity in the deps would re-push the token to the top
+  // of the stack on every parent render.
+  const hasEscape = onEscape !== undefined;
+  useEffect(() => {
+    if (!active || !hasEscape) return;
+    const token = tokenRef.current;
+    pushDismissal(token, "modal");
+    return () => popDismissal(token);
+  }, [active, hasEscape]);
+
   useEffect(() => {
     if (!active) return;
     const container = ref.current;
@@ -33,14 +49,14 @@ export function useFocusTrap(
 
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        // ★★ Only CONSUME Escape when there is something to do with it. This
-        // listener is CAPTURE-phase, so it runs before `Modal`'s — and `Modal`
-        // now (correctly) declines an Escape a descendant already consumed
-        // (`e.defaultPrevented`). Calling preventDefault with no `onEscape`
-        // would therefore swallow the key and hand it to nobody, leaving a
-        // modal beneath permanently unclosable. `inline-ai-edit-popover` passes
-        // no `onEscape` today, so that shape is one composition away.
+        // ★★ Escape is arbitrated by the dismissal stack, not by listener
+        // phase: act only when this trap is the layer that owns the key. The
+        // handler check comes first because a trap with no `onEscape` never
+        // joined the stack at all — see the gate above.
+        // ★★ Tab is UNCHANGED: containment is WCAG 2.4.3 and must never be
+        // waivable by another layer, so it never consults the stack.
         if (!onEscape) return;
+        if (!claimsEscape(e, tokenRef.current)) return;
         e.preventDefault();
         onEscape();
         return;
@@ -60,9 +76,9 @@ export function useFocusTrap(
       }
     }
 
-    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("keydown", onKeyDown);
       prevFocus?.focus?.();
     };
   }, [active, ref, onEscape, initialFocusRef]);
