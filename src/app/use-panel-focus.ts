@@ -2,11 +2,6 @@
 
 import { useEffect, type RefObject } from "react";
 
-/** Opt-in initial-focus target inside a panel. Absent on every panel today, so
- *  focus lands on the panel root — see `usePanelInitialFocus` for why that is
- *  the right default HERE and not in `modal.tsx`. */
-const PREFERRED_SELECTOR = "[data-panel-initial-focus]";
-
 /**
  * Move focus INTO a non-modal floating panel when it opens, and hand focus back
  * when it closes.
@@ -26,33 +21,50 @@ const PREFERRED_SELECTOR = "[data-panel-initial-focus]";
  * `role="dialog"` surfaces that previously appeared with NO focus movement at
  * all, so assistive tech was never told anything had opened.
  *
- * ★ Focus lands on the panel ROOT (which must carry `tabIndex={-1}`) unless the
- * panel marks a better target with `data-panel-initial-focus`. This deliberately
- * differs from `modal.tsx`, which prefers the first focusable CHILD: the notes
- * window's first focusable is its reset-size button, and arming a control the
- * user did not ask for is worse than a neutral landing on a surface they just
- * opened. A modal's first child is its content; a floating panel's is chrome.
+ * ★ Focus lands on the panel ROOT, which must carry `tabIndex={-1}` AND
+ * `focus:outline-none` (the root is not tab-reachable, and a default ring drawn
+ * around a 480x560 floating box every time it opens is not a focus indicator
+ * anyone designed — `tour-overlay.tsx` suppresses its own for the same reason).
+ * This deliberately differs from `modal.tsx`, which prefers the first focusable
+ * CHILD: the notes window's first focusable is its reset-size button, and arming
+ * a control the user did not ask for is worse than a neutral landing on a
+ * surface they just opened. A modal's first child is its content; a floating
+ * panel's is chrome. `modal.tsx` does NOT suppress its root ring, which is fine
+ * there — that root is a last-resort fallback it rarely focuses, not the
+ * every-time target it is here.
  */
 export function usePanelInitialFocus(
   ref: RefObject<HTMLElement | null>,
-  open: boolean,
+  /** ★★ "The panel is RENDERED", not "the panel was requested". A surface with
+   *  a secondary mount gate must pass that gate too — `help-menu` renders on
+   *  `{open && pos && …}` where `pos` arrives a tick later, so it passes
+   *  `open && pos !== null`. Pass raw `open` there and the node does not exist
+   *  when the deferred frame fires, so focus never moves, the panel keeps
+   *  declining its own Escape, and the bug this hook exists to fix comes back
+   *  silently. */
+  rendered: boolean,
 ): void {
   useEffect(() => {
-    if (!open) return;
+    if (!rendered) return;
     const previouslyFocused =
       typeof document !== "undefined"
         ? (document.activeElement as HTMLElement | null)
         : null;
-    // Captured at setup, while the node is certainly mounted — by cleanup time
-    // the panel may already be detached and `ref.current` nulled.
+    // Captured at setup for use in cleanup, where `ref.current` is already
+    // nulled (React detaches host refs in the mutation phase, before passive
+    // cleanups) — and where reading a ref would trip
+    // `react-hooks/exhaustive-deps`, fatal under `--max-warnings=0`.
+    // ★★ Safe ONLY because `rendered` means the node committed in this render.
+    // Pass a flag that is true before the panel mounts and this reads `null`,
+    // which then persists for the whole open session (the deps do not change
+    // while it stays open), so `stillInside` below can never be true. See the
+    // note on the parameter.
     const root = ref.current;
 
     // Defer a frame so children have committed before we look for a target,
     // mirroring `modal.tsx`.
     const raf = requestAnimationFrame(() => {
-      const node = ref.current;
-      const preferred = node?.querySelector<HTMLElement>(PREFERRED_SELECTOR) ?? null;
-      (preferred ?? node)?.focus();
+      ref.current?.focus();
     });
 
     return () => {
@@ -74,5 +86,5 @@ export function usePanelInitialFocus(
         previouslyFocused.focus();
       }
     };
-  }, [open, ref]);
+  }, [rendered, ref]);
 }

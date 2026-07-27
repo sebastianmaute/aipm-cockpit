@@ -215,53 +215,64 @@ describe("NotesWindow", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
-    const closeEditor = vi.fn();
-    const closeNotes = vi.fn();
-    function Harness() {
-      const [notesOpen, setNotesOpen] = useState(false);
-      return (
-        <Modal open onClose={closeEditor} ariaLabel="Task editor">
-          <button type="button" onClick={() => setNotesOpen(true)}>
-            Notes (0)
-          </button>
-          <NotesWindow
-            open={notesOpen}
-            onClose={() => {
-              setNotesOpen(false);
-              closeNotes();
-            }}
-            entries={[]}
-            onAdd={vi.fn()}
-            onEdit={vi.fn()}
-            onDelete={vi.fn()}
-            self={1}
-            resources={RESOURCES}
-            lang="en-US"
-            entityLabel="Task ABC"
-          />
-        </Modal>
-      );
+    try {
+      const closeEditor = vi.fn();
+      const closeNotes = vi.fn();
+      // ★ Topology matches production: `task-manager.tsx` renders <NotesWindow>
+      // as a top-level SIBLING of the editor, not as its child. Only the
+      // TRIGGER lives inside the Modal — which is the whole point, since it is
+      // the trigger keeping focus that used to make the panel decline.
+      function Harness() {
+        const [notesOpen, setNotesOpen] = useState(false);
+        return (
+          <>
+            <Modal open onClose={closeEditor} ariaLabel="Task editor">
+              <button type="button" onClick={() => setNotesOpen(true)}>
+                Notes (0)
+              </button>
+            </Modal>
+            <NotesWindow
+              open={notesOpen}
+              onClose={() => {
+                setNotesOpen(false);
+                closeNotes();
+              }}
+              entries={[]}
+              onAdd={vi.fn()}
+              onEdit={vi.fn()}
+              onDelete={vi.fn()}
+              self={1}
+              resources={RESOURCES}
+              lang="en-US"
+              entityLabel="Task ABC"
+            />
+          </>
+        );
+      }
+      render(<Harness />);
+
+      const trigger = screen.getByRole("button", { name: "Notes (0)" });
+      await act(async () => {
+        trigger.focus();
+        fireEvent.click(trigger);
+      });
+
+      const escape = new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      });
+      await act(async () => {
+        (document.activeElement ?? document.body).dispatchEvent(escape);
+      });
+
+      expect(closeNotes).toHaveBeenCalledTimes(1);
+      expect(closeEditor).not.toHaveBeenCalled();
+    } finally {
+      // ★ try/finally, not a trailing call: vitest.config sets neither
+      // `unstubGlobals` nor `restoreMocks`, so a mid-test throw would leak this
+      // synchronous rAF into every test appended after it in this file.
+      vi.unstubAllGlobals();
     }
-    render(<Harness />);
-
-    const trigger = screen.getByRole("button", { name: "Notes (0)" });
-    await act(async () => {
-      trigger.focus();
-      fireEvent.click(trigger);
-    });
-
-    const escape = new KeyboardEvent("keydown", {
-      key: "Escape",
-      bubbles: true,
-      cancelable: true,
-    });
-    await act(async () => {
-      (document.activeElement ?? document.body).dispatchEvent(escape);
-    });
-
-    expect(closeNotes).toHaveBeenCalledTimes(1);
-    expect(closeEditor).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
   });
 });

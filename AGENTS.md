@@ -1062,6 +1062,19 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   same time — that Modal stopped trapping Tab and nothing took over, so focus
   walked out of both (WCAG 2.4.3). Caught in review, not by a gate. If such a
   surface gains a real trap, flip its `kind` in the SAME commit.
+  ★★ STANDING GAP, not closed by that fix: `tour-overlay` has NO Tab trap at all
+  and never has, so Shift+Tab from its first button walks into the app behind the
+  dimmed backdrop, and its `aria-modal="true"` tells AT a containment story the
+  keyboard does not honour. `kind:"layer"` only stops it breaking OTHER modals.
+  Tracked separately — do not read the bullet above as "the tour is a11y-clean".
+  ★★ **Focus-on-open (`use-panel-focus.ts`).** A floating panel that gates Escape
+  on `useClaimsWhenFocusWithin` MUST call `usePanelInitialFocus`, or the trigger
+  that opened it keeps focus, the panel declines its own Escape, and the layer
+  beneath eats the key — for `notes-window` that is the task editor, and the
+  user's draft goes with it. ★★★ Its flag means "the panel is RENDERED", not
+  "open": `help-menu` renders on `{open && pos && …}` with `pos` arriving a tick
+  later, so it passes `open && pos !== null`. Shipped once with raw `open` and
+  the focus silently never moved — the panel looked fixed and was not.
   ★★ THREE LOAD-BEARING RULES: (1) the push/pop effect's deps are `[open]` (or
   `[open, kind]`) ALONE and handlers ride refs — re-running it moves the token to
   the TOP and makes the wrong layer topmost, the bug `modal.tsx` hit twice via an

@@ -66,7 +66,11 @@ export function HelpMenu({ lang }: { lang: Lang }) {
   // trigger keeps focus otherwise, so `claimsFocusWithin` reads false and this
   // panel declines an Escape aimed at it, handing the key to whatever is
   // beneath. It also means a screen reader is finally told the dialog opened.
-  usePanelInitialFocus(panelRef, open);
+  // ★ `open && pos !== null` — the SECOND gate matters. This panel renders on
+  // `{open && pos && …}` and `pos` lands a tick after open, so passing raw
+  // `open` focuses nothing (the node does not exist yet when the deferred frame
+  // fires) and the panel goes on declining its own Escape.
+  usePanelInitialFocus(panelRef, open && pos !== null);
 
   const claimsFocusWithin = useClaimsWhenFocusWithin(panelRef);
   useDismissable({
@@ -103,7 +107,7 @@ export function HelpMenu({ lang }: { lang: Lang }) {
             maxWidth: "100vw",
             maxHeight: `calc(100vh - ${2 * VIEWPORT_PADDING}px)`,
           }}
-          className="fixed z-50 flex h-[640px] min-h-72 w-[820px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface"
+          className="fixed z-50 flex h-[640px] min-h-72 w-[820px] min-w-[420px] flex-col overflow-auto resize rounded-lg border border-line bg-surface focus:outline-none"
         >
           <div
             onMouseDown={onTitleBarMouseDown}

@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { usePanelInitialFocus } from "./use-panel-focus";
 
@@ -14,38 +14,59 @@ beforeEach(() => {
   vi.stubGlobal("cancelAnimationFrame", () => {});
 });
 
-function Panel({
-  open,
-  withPreferred = false,
-}: {
-  open: boolean;
-  withPreferred?: boolean;
-}) {
+function Panel({ open }: { open: boolean }) {
   const ref = useRef<HTMLDivElement | null>(null);
   usePanelInitialFocus(ref, open);
   if (!open) return null;
   return (
     <div ref={ref} role="dialog" aria-label="Panel" tabIndex={-1} data-testid="panel">
       <button type="button">chrome</button>
-      {withPreferred && (
-        <input aria-label="composer" data-panel-initial-focus />
-      )}
+    </div>
+  );
+}
+
+/** ★★ `help-menu`'s shape: the panel is gated on a `pos` that a SIBLING effect
+ *  sets a tick after open, so the node does not exist when this hook's effect
+ *  runs — only by the time its deferred frame fires. A harness that mounts the
+ *  node synchronously on `open` cannot reproduce it, which is exactly why the
+ *  first version of this hook captured a permanently-null root here and nothing
+ *  caught it. */
+function DeferredPanel({ open }: { open: boolean }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<number | null>(null);
+  usePanelInitialFocus(ref, open && pos !== null);
+  useEffect(() => {
+    // ★ Resolved in an async callback, never a synchronous effect-body
+    // setState — `react-hooks/set-state-in-effect` is BANNED here and CI
+    // rejects it. Same reason `tour-overlay` measures its anchor inside a rAF.
+    let live = true;
+    if (!open) {
+      Promise.resolve().then(() => { if (live) setPos(null); });
+      return () => { live = false; };
+    }
+    Promise.resolve().then(() => { if (live) setPos(0); });
+    return () => { live = false; };
+  }, [open]);
+  if (!open || pos === null) return null;
+  return (
+    <div ref={ref} role="dialog" aria-label="Deferred" tabIndex={-1} data-testid="deferred">
+      <button type="button">chrome</button>
     </div>
   );
 }
 
 function Harness({
   open,
-  withPreferred = false,
+  deferred = false,
 }: {
   open: boolean;
-  withPreferred?: boolean;
+  deferred?: boolean;
 }) {
   return (
     <>
       <button type="button">trigger</button>
       <button type="button">elsewhere</button>
-      <Panel open={open} withPreferred={withPreferred} />
+      {deferred ? <DeferredPanel open={open} /> : <Panel open={open} />}
     </>
   );
 }
@@ -65,11 +86,30 @@ describe("usePanelInitialFocus", () => {
     expect(document.activeElement).toBe(screen.getByTestId("panel"));
   });
 
-  it("prefers a marked target over the root", async () => {
-    const { rerender } = render(<Harness open={false} withPreferred />);
-    rerender(<Harness open withPreferred />);
+  it("focuses a panel that mounts a tick after open", async () => {
+    const { rerender } = render(<Harness open={false} deferred />);
+    rerender(<Harness open deferred />);
     await act(async () => {});
-    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "composer" }));
+    expect(document.activeElement).toBe(screen.getByTestId("deferred"));
+  });
+
+  it("restores focus for a deferred-mount panel that still owns focus", async () => {
+    // ★★ The regression this guards: capturing the root at effect SETUP read
+    // null for this shape and kept that null for the whole open session, so the
+    // "panel still owns focus" branch could never fire. It only looked right
+    // because unmounting also drops focus to `body` and takes the other branch.
+    // Here focus is moved to a CHILD, so on close `activeElement` is the removed
+    // child's former self — the panel must still be recognised as the owner.
+    const { rerender } = render(<Harness open={false} deferred />);
+    const trigger = screen.getByRole("button", { name: "trigger" });
+    trigger.focus();
+    rerender(<Harness open deferred />);
+    await act(async () => {});
+    screen.getByRole("button", { name: "chrome" }).focus();
+
+    rerender(<Harness open={false} deferred />);
+    await act(async () => {});
+    expect(document.activeElement).toBe(trigger);
   });
 
   it("hands focus back to the opener when the panel closes while focused", async () => {
