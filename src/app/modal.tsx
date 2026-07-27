@@ -180,6 +180,25 @@ export function Modal({
       // Only the topmost open modal handles keyboard — nested modals stack.
       if (modalStack[modalStack.length - 1] !== token) return;
       if (e.key === "Escape") {
+        // ★★ A descendant that already consumed this Escape keeps it. This is
+        // the ONLY reliable way for an inner widget (a combobox dropdown, a
+        // resource picker) to swallow Escape: React 19 delegates events on
+        // `document` (Next passes `document` to hydrateRoot), the very node this
+        // listener is on, and `stopPropagation` does not suppress a listener
+        // co-registered on the SAME node. So an inner `e.stopPropagation()`
+        // cannot stop this handler in production, however convincing it looks in
+        // a test — React Testing Library renders into a div under body, putting
+        // React's listener on a DESCENDANT, a topology the real app never has.
+        // Without this, dismissing a dropdown also closes the surrounding edit
+        // modal and discards the user's draft.
+        // ★ Scoped to ESCAPE deliberately. Escape is a DISMISSAL — exactly one
+        // thing should act on it, so deferring to whoever claimed it first is
+        // right. Tab is CONTAINMENT: the trap's job is to keep focus inside the
+        // dialog no matter what, so it must not be waived by a descendant
+        // marking the event handled. Deferring there would let any future
+        // component that preventDefaults Tab and moves focus itself walk focus
+        // out of the modal — a WCAG 2.4.3 break no test would catch.
+        if (e.defaultPrevented) return;
         e.preventDefault();
         onCloseRef.current();
         return;

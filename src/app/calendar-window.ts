@@ -31,6 +31,19 @@ export function addDays(d: Date, n: number): Date {
   return new Date(d.getTime() + n * MS_PER_DAY);
 }
 
+/** Shift an ISO date string by N days (negative = earlier), returning the
+ *  input unchanged when it cannot be parsed. Callers only ever feed it a
+ *  sanitizer-validated stored date or another `iso()` result, so the fallback
+ *  is a guard, not a path.
+ *
+ *  Exported so the day grid (resource-calendar.tsx) and the meetings band
+ *  (resource-calendar-band.tsx) step dates the same way for their keyboard
+ *  move gestures, instead of each carrying its own copy. */
+export function addIsoDays(dateIso: string, days: number): string {
+  const d = parseUtc(dateIso);
+  return d ? iso(addDays(d, days)) : dateIso;
+}
+
 /** First … last day of the anchor's month. */
 export function monthWindow(anchorIso: string): CalendarWindow {
   const d = parseUtc(anchorIso);

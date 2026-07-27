@@ -903,7 +903,7 @@ function ConsentScreen({
           href={POLICY_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-ui-purple-strong underline underline-offset-2 hover:text-ui-purple-strong/80"
+          className="font-medium text-ui-purple-strong underline underline-offset-2 hover:decoration-2"
         >
           {t(lang, "aiConsentPolicyLink")} ↗
         </a>

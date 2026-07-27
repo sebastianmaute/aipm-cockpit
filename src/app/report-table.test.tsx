@@ -38,6 +38,70 @@ describe("SortResizeTh", () => {
     expect(th.textContent).not.toContain("↑");
     expect(th.textContent).not.toContain("↓");
   });
+
+  // The complement of calendar-series-list's "renders no column-resize grip":
+  // that test proves a grip is ABSENT by looking for `.cursor-col-resize`, which
+  // is only meaningful if a grip actually carries that class. Without this, both
+  // assertions could pass while the selector matched nothing anywhere.
+  it("renders a resize grip carrying cursor-col-resize when onResize is passed", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh label="Due" sortCol="dueDate" sortKey="dueDate" sortDir="asc" onSort={() => {}} onResize={() => {}} />
+      </tr></thead></table>,
+    );
+    expect(screen.getByRole("columnheader").querySelectorAll(".cursor-col-resize")).toHaveLength(1);
+  });
+
+  // Sort state used to reach assistive tech ONLY as a bare "↑"/"↓" glued into
+  // the button's accessible name — a glyph, not a state. axe has no rule for a
+  // missing aria-sort, so the gate stayed silent even on the scanned views.
+  // change-panel and raid-panel-rows already do this on their raw <th>s; these
+  // pin it for the shared component every other table composes.
+  describe("aria-sort", () => {
+    function renderTh(sortKey: string, sortDir: "asc" | "desc" | "off") {
+      render(
+        <table><thead><tr>
+          <SortResizeTh label="Due" sortCol="dueDate" sortKey={sortKey} sortDir={sortDir} onSort={() => {}} onResize={() => {}} />
+        </tr></thead></table>,
+      );
+      return screen.getByRole("columnheader");
+    }
+
+    it("is 'ascending' on the active column sorted ascending", () => {
+      expect(renderTh("dueDate", "asc")).toHaveAttribute("aria-sort", "ascending");
+    });
+
+    it("is 'descending' on the active column sorted descending", () => {
+      expect(renderTh("dueDate", "desc")).toHaveAttribute("aria-sort", "descending");
+    });
+
+    it("is 'none' on a column that is not the active one", () => {
+      expect(renderTh("title", "asc")).toHaveAttribute("aria-sort", "none");
+    });
+
+    // "off" is a real member of SortDir (the asc→desc→off cycle), and it means
+    // UNSORTED even though sortKey still names this column. Reading only
+    // sortKey would announce a sort that is not applied.
+    it("is 'none' when this column is named but the direction is off", () => {
+      expect(renderTh("dueDate", "off")).toHaveAttribute("aria-sort", "none");
+    });
+  });
+
+  // With aria-sort carrying the state, the glyph in the name is a second,
+  // redundant announcement in a different vocabulary. It stays VISIBLE (and
+  // therefore in textContent, which is what the existing glyph assertions here
+  // and in calendar-series-list.test.tsx read) but leaves the accessible name.
+  it("keeps the sort arrow visible but out of the button's accessible name", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh label="Due" sortCol="dueDate" sortKey="dueDate" sortDir="asc" onSort={() => {}} onResize={() => {}} />
+      </tr></thead></table>,
+    );
+    // A string `name` is an EXACT match, so this fails if the arrow is still
+    // part of the computed name.
+    const btn = screen.getByRole("button", { name: "Due" });
+    expect(btn.textContent).toContain("↑");
+  });
 });
 
 describe("ReportCard", () => {

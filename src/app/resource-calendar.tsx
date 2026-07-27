@@ -18,23 +18,13 @@ import { resourceDisplayName } from "./resource-foundation";
 import { isoWeekParts } from "./resource-capacity";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { resolveCalendarDrag } from "./calendar-drag";
-import { iso, parseUtc } from "./calendar-window";
+import { addIsoDays } from "./calendar-window";
 import { expandOccurrences, type Occurrence } from "./recurrence";
 import { packOccurrenceLanes } from "./occurrence-lanes";
 import { CalendarBand } from "./resource-calendar-band";
 import type { CalendarEvent } from "./calendar-event";
 import { CalendarRows, type CalendarDragState } from "./resource-calendar-rows";
 import { CELL_PX, ASSIGNEE_COL_PX, type CalendarAssignee, type CalendarDay } from "./resource-calendar-shared";
-
-const DAY_MS = 86_400_000;
-
-/** Shift an ISO date by N days (negative = earlier). Falls back to the input
- *  unchanged on an unparseable date — callers only ever feed it a stored
- *  Absence date (sanitizer-validated) or another `iso()` result. */
-function addIsoDays(dateIso: string, days: number): string {
-  const d = parseUtc(dateIso);
-  return d ? iso(new Date(d.valueOf() + days * DAY_MS)) : dateIso;
-}
 
 /** The two keyboard drag gestures the aria-live region announces. Narrower
  *  than onMoveAbsence's 3-member kind ("reassign" has no keyboard entry
@@ -178,13 +168,20 @@ function ResourceCalendarInner({
   // resolveCalendarDrag mode and the arrow handler can reject the axis the
   // active gesture doesn't use (resize never changes row).
   const [pendingMove, setPendingMove] = useState<
-    { absenceId: number; dayDelta: number; rowDelta: number; kind: CalendarDragKind } | null
+    { absenceId: number; dayDelta: number; rowDelta: number; kind: CalendarDragKind; originDate: string; originAssignee: string } | null
   >(null);
   // Drives the aria-live announcement's cancellation flash after Escape;
   // cleared as soon as a fresh move starts so a stale cancellation can't
   // linger into the next one. Carries WHICH mode was abandoned so the
   // announcement can't tell a resizing user their move was cancelled.
   const [justCancelled, setJustCancelled] = useState<CalendarDragKind | null>(null);
+
+  // The meetings band runs the same arm/commit/cancel gesture over occurrences,
+  // but it renders a <tbody> and so cannot host a live region of its own. It
+  // reports its mode up and this component announces it, reusing the one region
+  // below — the two gestures are mutually exclusive in practice (focus is
+  // either in the day grid or in the band, never both).
+  const [bandMoveMode, setBandMoveMode] = useState<"armed" | "cancelled" | null>(null);
 
   // Roving-tabindex focus target for the 2-D day-cell grid (#27). Exactly one
   // day cell is a tab stop; arrow keys move DOM focus + this marker. Clamped on
@@ -195,6 +192,29 @@ function ResourceCalendarInner({
   const colCount = days.length;
   const focusRow = rowCount > 0 ? Math.min(focusCell.row, rowCount - 1) : 0;
   const focusCol = colCount > 0 ? Math.min(focusCell.col, colCount - 1) : 0;
+
+  /** Abandon an armed grid gesture when focus leaves the DAY-CELL matrix.
+   *
+   *  ★★ The mirror of the band's `onBandBlur`, and needed for the same reason
+   *  in the other direction: the meetings band lives INSIDE this same table, so
+   *  Shift+Tab from a day cell lands on a chip without leaving the table at all.
+   *  Without this, the grid's `pendingMove` survives, the shared live region
+   *  keeps announcing "Move absence…" while the user composes a MEETING move
+   *  (the ternary checks `pendingMove` first), and tabbing back and pressing
+   *  Enter commits an absence move armed several interactions ago.
+   *
+   *  ★ Tested against `[data-cell]` rather than "inside the table": a gesture is
+   *  only steerable from a day cell — `onGridKeyDown` returns early otherwise —
+   *  so a band chip, a row-header button and anything outside are all equally
+   *  places the gesture cannot continue from. `relatedTarget === null` cancels
+   *  too, for the same reason as the band. */
+  function onGridBlur(e: React.FocusEvent<HTMLTableElement>) {
+    if (!pendingMove) return;
+    const next = e.relatedTarget as HTMLElement | null;
+    if (next?.matches?.("[data-cell]")) return;
+    setJustCancelled(pendingMove.kind);
+    setPendingMove(null);
+  }
 
   // APG grid keyboard model. Rows = assignees, columns = dates: Arrow moves one
   // cell on either axis, Home/End = row ends, Ctrl+Home/End = grid corners,
@@ -221,8 +241,44 @@ function ResourceCalendarInner({
         return;
       }
       if (e.key === "Enter") {
-        e.preventDefault();
         const moving = absences.find((a) => a.id === pendingMove.absenceId);
+        // ★★ Revalidate that the absence is still where it was when the gesture
+        // was armed, exactly as the meetings band does before ITS commit. The
+        // delta is relative to the armed position, and a day cell is DRAGGABLE:
+        // an HTML5 drag fires no click and no focus change, so `onGridBlur`
+        // never sees it and `pendingMove` survives a mouse drag that has already
+        // relocated the absence. A later Enter would then apply the delta to the
+        // DROPPED date — the absence silently jumps one more day — and, because
+        // the branch preventDefault'd, the editor the user pressed Enter for
+        // would not open either. Bail BEFORE preventDefault so that Enter does
+        // what Enter on a cell normally does.
+        // ★ The ROW matters too, not just the date. A drag can REASSIGN an
+        // absence to another person on the same date — which changes neither
+        // startDate nor endDate, so a date-only guard passes and Enter then
+        // re-applies the armed `rowDelta`, silently undoing the drag. Same
+        // "stale gesture outlived its world" class, one axis over.
+        // ★ The ROW CURSOR is revalidated too. `rowDelta` is applied to the LIVE
+        // `focusRow`, but `visibleRows` can reorder or shrink under an armed
+        // gesture from a background write (Turso/broadcast sync, an undo, an AI
+        // tool call) — none of which moves focus, so `onGridBlur` never fires.
+        // The clamped-but-stale index would then point at a different person and
+        // reassign the absence to someone the user never selected, while the
+        // date and assignee checks both pass. Normalised the same way
+        // `CalendarAssignee.key` is built.
+        const originStart = pendingMove.kind === "resize" ? moving?.endDate : moving?.startDate;
+        const rowStillUnderCursor =
+          visibleRows[focusRow]?.key === pendingMove.originAssignee.trim().toLowerCase();
+        if (
+          !moving ||
+          originStart !== pendingMove.originDate ||
+          moving.assignee !== pendingMove.originAssignee ||
+          !rowStillUnderCursor
+        ) {
+          setPendingMove(null);
+          setJustCancelled(pendingMove.kind);
+          return;
+        }
+        e.preventDefault();
         if (moving && onMoveAbsence) {
           if (pendingMove.kind === "resize") {
             // Resize never changes row — `target` is unread by the
@@ -297,11 +353,27 @@ function ResourceCalendarInner({
       if (hit) {
         e.preventDefault();
         setJustCancelled(null);
+        // Mirror of the band wiring below: a grid gesture arming drops ANY
+        // leftover band state, or the ternary falls through and describes the
+        // wrong gesture — "Meeting move cancelled" about an absence the user
+        // just moved, or (if a chip was removed without firing blur, which the
+        // band's own comment concedes can happen) "Meeting move mode on" right
+        // after a successful absence move.
+        // ★ Unconditional ON PURPOSE. Narrowing this to only clear "cancelled"
+        // looks safer — it avoids erasing a LIVE armed band gesture — but
+        // `onBandBlur` already cancels the band the moment focus crosses into
+        // the grid, so by the time a grid gesture can arm there is no live band
+        // state left to protect. What the narrow version preserved was only the
+        // stale kind.
+        setBandMoveMode(null);
         setPendingMove({
           absenceId: hit.id,
           dayDelta: e.key === "ArrowLeft" ? -1 : 1,
           rowDelta: 0,
           kind: "resize",
+          // Captured so the commit can prove the absence has not moved since.
+          originDate: hit.endDate,
+          originAssignee: hit.assignee,
         });
         return;
       }
@@ -313,11 +385,26 @@ function ResourceCalendarInner({
       if (hit) {
         e.preventDefault();
         setJustCancelled(null);
+        // Mirror of the band wiring below: a grid gesture arming drops ANY
+        // leftover band state, or the ternary falls through and describes the
+        // wrong gesture — "Meeting move cancelled" about an absence the user
+        // just moved, or (if a chip was removed without firing blur, which the
+        // band's own comment concedes can happen) "Meeting move mode on" right
+        // after a successful absence move.
+        // ★ Unconditional ON PURPOSE. Narrowing this to only clear "cancelled"
+        // looks safer — it avoids erasing a LIVE armed band gesture — but
+        // `onBandBlur` already cancels the band the moment focus crosses into
+        // the grid, so by the time a grid gesture can arm there is no live band
+        // state left to protect. What the narrow version preserved was only the
+        // stale kind.
+        setBandMoveMode(null);
         setPendingMove({
           absenceId: hit.id,
           dayDelta: e.key === "ArrowLeft" ? -1 : e.key === "ArrowRight" ? 1 : 0,
           rowDelta: e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0,
           kind: "move",
+          originDate: hit.startDate,
+          originAssignee: hit.assignee,
         });
         return;
       }
@@ -439,6 +526,7 @@ function ResourceCalendarInner({
           role="grid"
           aria-label={t(lang, "resourcesViewCalendar")}
           onKeyDown={onGridKeyDown}
+          onBlur={onGridBlur}
           className="border-separate border-spacing-0 text-sm"
         >
           <thead className={TABLE_HEAD_CLASS}>
@@ -509,6 +597,19 @@ function ResourceCalendarInner({
               eventsById={eventsById}
               onEditEvent={onEditEvent}
               onMoveOccurrence={onMoveOccurrence}
+              // ★★ Arming a band move must clear the GRID's stale cancellation,
+              // or the ternary below (grid first) keeps announcing "Absence move
+              // cancelled" and the band gesture's only feedback never arrives.
+              // The mirror — clearing bandMoveMode when a grid gesture arms —
+              // lives beside each setJustCancelled(null) above.
+              // ★ Clear the grid's stale cancellation UNCONDITIONALLY, not only
+              // when a mode arrives: the commit path reports `null`, and leaving
+              // justCancelled set there makes the region read "Absence move
+              // cancelled" immediately after a SUCCESSFUL meeting reschedule.
+              onMoveModeChange={(mode) => {
+                setJustCancelled(null);
+                setBandMoveMode(mode);
+              }}
               truncated={bandTruncated}
             />
           ) : null}
@@ -539,7 +640,11 @@ function ResourceCalendarInner({
           ? t(lang, DRAG_MODE_KEYS[pendingMove.kind].on)
           : justCancelled
             ? t(lang, DRAG_MODE_KEYS[justCancelled].cancelled)
-            : ""}
+            : bandMoveMode === "armed"
+              ? t(lang, "calendarMeetingMoveModeOn")
+              : bandMoveMode === "cancelled"
+                ? t(lang, "calendarMeetingMoveModeCancelled")
+                : ""}
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-muted-foreground">
         <LegendChip

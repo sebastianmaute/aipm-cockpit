@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.202.2";
-export const APP_BUILD_DATE = "2026-07-26"; // 0.202.2: series-list sorting, shared link picker, calendar band keyboard roving (Beukes)
+export const APP_VERSION = "0.202.3";
+export const APP_BUILD_DATE = "2026-07-27"; // 0.202.3: link-picker combobox a11y, sortable-header aria-sort, band keyboard reschedule, purple AA (Beukes)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.202.x line is "Beukes" (Lauren Beukes, science-fiction author). */
 export const APP_MILESTONE = "Beukes";
@@ -249,4 +249,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightDashboardR3",
   "versionHighlight0201",
   "versionHighlight0202",
+  "versionHighlight02023",
 ] as const;

@@ -273,10 +273,17 @@ export function GlobalSearchBox({
                 aria-label={`${t(lang, typeLabelKey(r.type))} – ${r.title}`}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => select(r)}
-                className={`flex cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left ${
+                // Same fix as entity-link-picker (which copied this pattern from
+                // here): `text-ui-dark-blue` on a dark `--surface-muted` is
+                // ~1.0-1.2:1, so in dark schemes the highlighted result was
+                // marked by its own text disappearing. Weight + an inset
+                // `--foreground` ring instead — see that file for why the ring
+                // must not be a brand accent (accents are tuned for one mode;
+                // green is 1.7-2.1:1 on the light row fills, under 1.4.11's 3:1).
+                className={`flex cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left text-foreground ${
                   i === highlight
-                    ? "bg-surface-muted text-ui-dark-blue"
-                    : "text-foreground hover:bg-surface-muted"
+                    ? "bg-surface-muted font-medium ring-1 ring-inset ring-foreground"
+                    : "hover:bg-surface-muted"
                 }`}
               >
                 <span className="flex w-full items-center gap-2">

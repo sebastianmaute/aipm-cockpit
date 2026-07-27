@@ -80,7 +80,8 @@ describe("RaidCausedByField", () => {
     // cycle-forming picks), so a dropped onQueryChange silently kills search.
     const setCausePickerQuery = vi.fn();
     renderField({ setCausePickerQuery });
-    const input = screen.getByRole("textbox", { name: /caused by/i });
+    // role=combobox since the picker gained proper dropdown semantics.
+    const input = screen.getByRole("combobox", { name: /caused by/i });
     fireEvent.change(input, { target: { value: "vend" } });
     expect(setCausePickerQuery).toHaveBeenCalledWith("vend");
   });
@@ -92,7 +93,8 @@ describe("RaidCausedByField", () => {
       availableCauses: [raid(9, { category: "I", title: "Budget freeze" })],
       addCausedBy,
     });
-    fireEvent.click(screen.getByRole("button", { name: /budget freeze/i }));
+    // The dropdown row IS the option now — no nested button inside role=option.
+    fireEvent.click(screen.getByRole("option", { name: /budget freeze/i }));
     expect(addCausedBy).toHaveBeenCalledWith(9);
   });
 

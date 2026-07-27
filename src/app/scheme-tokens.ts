@@ -63,8 +63,18 @@ function ratio(a: string, b: string): number {
 // Nudge the base toward AA (ratio >= 4.5) against bg. Direction is mode-aware:
 // a DARK surface (relLuminance < 0.5) LIGHTENS the base toward white; a LIGHT
 // surface DARKENS toward black. Dark-on-dark can never reach AA by darkening.
-function nudgeToAa(base: string, bg: string): string {
-  const lighten = relLuminance(hexToRgb(bg)) < 0.5;
+//
+// ★★ `lighten` is an explicit OVERRIDE, not a convenience. It defaults to
+// `bg`'s own luminance, which is right whenever `bg` IS the surface — but the
+// purple variant measures against a TINT composited over the surface, and a 20%
+// composite moves luminance far more than 20%. With the direction read off the
+// tint while the mode is decided by the surface, the two can disagree: a light
+// scheme whose card is mid-grey composites to a tint under 0.5, the loop starts
+// LIGHTENING against a light background, runs to its iteration cap and returns
+// #ffffff — white text on a light card, ~1.7:1. Both inputs are user-editable
+// (ADVANCED_TOKENS), so that is reachable for a custom scheme even though every
+// built-in is clear. Whoever decides the mode must also decide the direction.
+function nudgeToAa(base: string, bg: string, lighten = relLuminance(hexToRgb(bg)) < 0.5): string {
   const factor = lighten ? 1 / 0.85 : 0.85;
   let [r, g, b] = hexToRgb(base);
   for (let i = 0; i < 20 && ratio(rgbToHex(r, g, b), bg) < 4.5; i++) {
@@ -73,6 +83,29 @@ function nudgeToAa(base: string, bg: string): string {
     b = Math.min(255, b * factor);
   }
   return rgbToHex(r, g, b);
+}
+
+/** Alpha of the deepest purple tint any `--ui-purple-strong` text sits on: the
+ *  RAID "caused this" chips' hover state, which is `hover:bg-ui-purple/20` and
+ *  `dark:hover:bg-ui-purple/25`. Mode-aware to MATCH that CSS rather than
+ *  applying the stricter dark value to both — over-darkening a light scheme's
+ *  purple past what it actually needs is a visible cost for no benefit. Keep in
+ *  lockstep with raid-edit-fields.tsx BY HAND: scheme-purple-hover.test.ts
+ *  hardcodes its own copy of these alphas and never reads that component, so
+ *  changing the chip to hover:bg-ui-purple/30 leaves every test green. */
+const PURPLE_TINT_ALPHA_LIGHT = 0.2;
+const PURPLE_TINT_ALPHA_DARK = 0.25;
+
+/** Composite a translucent tint over its backdrop — what the browser actually
+ *  paints for `bg-ui-purple/25`. */
+function compositeOver(fg: string, bg: string, alpha: number): string {
+  const F = hexToRgb(fg);
+  const B = hexToRgb(bg);
+  return rgbToHex(
+    F[0] * alpha + B[0] * (1 - alpha),
+    F[1] * alpha + B[1] * (1 - alpha),
+    F[2] * alpha + B[2] * (1 - alpha),
+  );
 }
 
 export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
@@ -84,7 +117,29 @@ export function deriveAaVariants(colors: SchemeColorMap): SchemeColorMap {
   const out: SchemeColorMap = {};
   if (colors["--ui-green"]) out["--ui-green-strong"] = nudgeToAa(colors["--ui-green"], surface);
   if (colors["--ui-pink"]) out["--ui-pink-strong"] = nudgeToAa(colors["--ui-pink"], surface);
-  if (colors["--ui-purple"]) out["--ui-purple-strong"] = nudgeToAa(colors["--ui-purple"], surface);
+  // ★★ --ui-purple-strong is the ONE variant whose reference is NOT the card.
+  // Every site that uses it puts it on a PURPLE TINT, not on a plain surface —
+  // the RAID "caused this" chips, the chat AI-consent block and the read-only
+  // mirror banner are all `bg-ui-purple/10` (the chips deepening to /20 on
+  // hover). A tint composited over the card is darker than the card in a light
+  // scheme (lighter in a dark one), so deriving against --surface-muted aimed
+  // at a background this text never actually sits on, and cleared 4.5 there
+  // while landing at 4.22:1 (Meridian light) and 4.35:1 (Umber light) on the
+  // hover state. Deriving against the composited tint is not a special case
+  // bolted on for one component — it is simply the correct reference for a
+  // token with no non-tinted consumers. Held by scheme-purple-hover.test.ts.
+  if (colors["--ui-purple"]) {
+    // ONE mode decision, from the surface, driving BOTH the alpha and the nudge
+    // direction. Letting nudgeToAa re-derive direction from the composited tint
+    // is what opens the white-on-light-card path described on that function.
+    const isDark = relLuminance(hexToRgb(surface)) < 0.5;
+    const alpha = isDark ? PURPLE_TINT_ALPHA_DARK : PURPLE_TINT_ALPHA_LIGHT;
+    out["--ui-purple-strong"] = nudgeToAa(
+      colors["--ui-purple"],
+      compositeOver(colors["--ui-purple"], surface, alpha),
+      isDark,
+    );
+  }
   if (colors["--rag-red"]) out["--rag-red-text"] = nudgeToAa(colors["--rag-red"], surface);
   if (colors["--rag-amber"]) out["--rag-amber-text"] = nudgeToAa(colors["--rag-amber"], surface);
   if (colors["--rag-green"]) out["--rag-green-text"] = nudgeToAa(colors["--rag-green"], surface);

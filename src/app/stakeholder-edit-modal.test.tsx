@@ -69,6 +69,26 @@ function setupFull(over: Partial<React.ComponentProps<typeof StakeholderEditModa
 }
 
 describe("StakeholderEditModal", () => {
+  // ★★ This modal used to stack its own window-level `useEscapeKey(onCancel)`
+  // ON TOP of the Modal's Escape handling. That hook ignored `defaultPrevented`,
+  // so an Escape aimed at a descendant (the ResourcePicker dropdown) closed the
+  // modal too and discarded the draft. Removing it left NOTHING asserting that
+  // Escape still closes this modal at all — the whole handler was deletable
+  // with every suite green. These two pin both halves.
+  it("closes on Escape", () => {
+    const props = setup();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(props.onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not close on an Escape a descendant already consumed", () => {
+    const props = setup();
+    const consumed = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    consumed.preventDefault();
+    document.dispatchEvent(consumed);
+    expect(props.onCancel).not.toHaveBeenCalled();
+  });
+
   it("requires a name to save", () => {
     const p = setup({ draft: { ...draft, name: "" } });
     fireEvent.submit(screen.getByRole("button", { name: /save/i }).closest("form")!);

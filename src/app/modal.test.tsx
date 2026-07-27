@@ -50,6 +50,31 @@ describe("Modal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  test("leaves an Escape a descendant already consumed", () => {
+    // ★★ The ONLY way an inner widget (a combobox dropdown, a popover) can
+    // swallow Escape without closing the modal and discarding the user's draft.
+    // stopPropagation cannot do it: React 19 delegates events on `document` —
+    // the same node this handler is registered on — and stopPropagation does
+    // not suppress a listener co-registered on the same node. So the protocol
+    // is preventDefault + this bail. Dropping it silently re-breaks every
+    // dropdown inside every edit modal, and no RTL test would notice, because
+    // RTL renders into a div under body where propagation genuinely does stop.
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} ariaLabel="Test dialog">
+        <p>panel</p>
+      </Modal>,
+    );
+    const consumed = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    consumed.preventDefault();
+    document.dispatchEvent(consumed);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // An unconsumed Escape still closes it.
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   test("calls onClose on backdrop click but not on inside-panel click", async () => {
     const onClose = vi.fn();
     render(

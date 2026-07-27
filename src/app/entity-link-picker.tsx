@@ -16,6 +16,7 @@
 // (which is where the two callers genuinely diverge — the task picker filters
 // by text alone, the RAID cause picker must also exclude self and any pick
 // that would close a cycle). Nothing here knows what a task or a RAID item is.
+import { useId, useRef, useState } from "react";
 import { Input } from "./form-controls";
 import { INTERACTIVE } from "./interaction-styles";
 
@@ -71,6 +72,110 @@ export function EntityLinkPicker({
   onOpen,
   inputSize = "xs",
 }: EntityLinkPickerProps) {
+  const listId = useId();
+  const listRef = useRef<HTMLUListElement>(null);
+  // Active option index for the combobox. VIEW state, so it lives here even
+  // though `query` stays controlled by the caller — the caller owns which
+  // entities are linkable, not which one the keyboard is currently on.
+  const [highlight, setHighlight] = useState(-1);
+  // Escape closes the dropdown without touching the query. Reset whenever the
+  // query changes, so typing on reopens the list.
+  const [dismissed, setDismissed] = useState(false);
+  const [prevQuery, setPrevQuery] = useState(query);
+
+  // Render-time reconcile, NOT an effect (`set-state-in-effect` is fatal here).
+  // Keyed on the QUERY, not on the `options` identity: callers re-filter and
+  // hand us a fresh array every render, so reconciling on identity would reset
+  // the highlight on every keystroke-free re-render and the arrow keys would
+  // never stick.
+  if (prevQuery !== query) {
+    setPrevQuery(query);
+    setHighlight(-1);
+    setDismissed(false);
+  }
+
+  const hasQuery = query.trim() !== "";
+  const open = hasQuery && options.length > 0 && !dismissed;
+  // Clamped on READ (the band's focusChip precedent): the caller's filtering
+  // can shrink `options` under a stored index, so this drops an index that is
+  // now out of RANGE. It cannot detect an index that is still in range but now
+  // names a DIFFERENT entity — the reconcile above covers that, because every
+  // caller re-filters in response to the query changing. A caller that swapped
+  // `options` WITHOUT changing `query` would defeat both; no caller does today
+  // (both clear the query on add), so this rests on that contract rather than
+  // enforcing it.
+  const active = highlight >= 0 && highlight < options.length ? highlight : -1;
+
+  function move(delta: 1 | -1) {
+    // ★ `next` is computed OUTSIDE the updater and the scroll scheduled beside
+    // it: a setState updater must be PURE, and React StrictMode double-invokes
+    // it, which would schedule the rAF twice. Safe to read `active` here rather
+    // than the updater's `h` — `move` is only ever called from onKeyDown, where
+    // the clamped `active` is already current for this render.
+    const cur = active;
+    const next = delta === 1
+      ? cur + 1 >= options.length ? 0 : cur + 1
+      : cur <= 0 ? options.length - 1 : cur - 1;
+    setHighlight(next);
+    // ★ The list is `max-h-60 overflow-auto` (~8 rows) and the keyboard path is
+    // aria-activedescendant, which browsers do NOT auto-scroll — focus never
+    // moves, so nothing brings the row into view. Past row 8 the ring, the
+    // weight and the fill all move below the fold, which would defeat the very
+    // contrast work this component just gained. Deferred a frame so the row
+    // carrying the new index has rendered.
+    requestAnimationFrame(() => {
+      listRef.current
+        ?.querySelector(`#${CSS.escape(`${listId}-opt-${next}`)}`)
+        ?.scrollIntoView({ block: "nearest" });
+    });
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!hasQuery || options.length === 0) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setDismissed(false);
+      move(e.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    if (e.key === "Enter") {
+      // ★ Only an ARMED option claims Enter. These pickers sit inside <form>
+      // edit modals where a bare Enter submits, so swallowing it merely because
+      // a dropdown happens to be open would silently break submitting from this
+      // field.
+      if (!open || active < 0) return;
+      e.preventDefault();
+      onAdd(options[active].id);
+      return;
+    }
+    if (e.key === "Escape") {
+      // Only ours while the dropdown is actually open — otherwise Escape
+      // belongs to the enclosing modal.
+      if (!open) return;
+      // ★★ preventDefault is what actually contains this: the shared Modal's
+      // document-level Escape handler bails on `e.defaultPrevented`, which is
+      // the ONLY mechanism available. stopPropagation cannot do it — React 19
+      // delegates on `document` (Next hydrates the root there), the same node
+      // Modal listens on, and stopPropagation does not suppress a listener
+      // co-registered on the SAME node. It reads as though it works only
+      // because React Testing Library renders into a div under body, putting
+      // React's listener on a descendant — a topology the real app never has.
+      e.preventDefault();
+      // ★ Kept as defence-in-depth for a host listening on an ANCESTOR or on
+      // `window` rather than on `document` — propagation to those genuinely is
+      // cut by this, and `defaultPrevented` only helps a host that checks it.
+      // It has been load-bearing before: while the change edit modal still
+      // stacked a window-level Escape listener over `Modal`, this line was the
+      // only thing keeping Escape from discarding that draft. That listener has
+      // since been deleted, so today `preventDefault` above is the real
+      // mechanism — but "no host needs this right now" is not the same as
+      // "no host can", which is why it stays.
+      e.stopPropagation();
+      setDismissed(true);
+      setHighlight(-1);
+    }
+  }
+
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
@@ -113,7 +218,14 @@ export function EntityLinkPicker({
             <button
               type="button"
               onClick={() => onRemove(entry.id)}
-              aria-label={`${removeLabel} ${entry.code}`}
+              // ★ In the INERT branch (no onOpen) this × is the chip's only
+              // focusable element, so a name of just "Unlink Risk#3" leaves a
+              // screen-reader user with a code and no idea what it refers to —
+              // the chip's own label is unreachable. The click-through branch
+              // already names the entity on the chip body, so it only needs the
+              // code here (row-uniqueness) and stays terse.
+              aria-label={onOpen ? `${removeLabel} ${entry.code}` : `${removeLabel} ${entry.code} ${entry.label}`}
+              // Visible tooltip stays short in both branches.
               title={removeLabel}
               className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
             >
@@ -125,25 +237,73 @@ export function EntityLinkPicker({
       <div className="relative">
         <Input
           type="text"
+          role="combobox"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
+          // ★ onCLICK, deliberately not onFocus. Escape must STICK: with an
+          // onFocus reopen, tabbing away to fix something and Shift+Tabbing back
+          // reopens the list over the rest of the form, and the only way to shut
+          // it again is deleting the query — the dead end this release exists to
+          // remove. A click is a deliberate return to the field; a focus event
+          // is not. ArrowDown/Up also reopen (the APG affordance), so a keyboard
+          // user is never stuck either.
+          onClick={() => setDismissed(false)}
+          onKeyDown={onKeyDown}
           aria-label={searchLabel}
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
+          aria-activedescendant={open && active >= 0 ? `${listId}-opt-${active}` : undefined}
+          aria-autocomplete="list"
           placeholder={placeholder}
           size={inputSize}
           className="w-full"
         />
-        {query.trim() !== "" && options.length > 0 && (
-          <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface">
-            {options.map((entry) => (
-              <li key={entry.id}>
-                <button
-                  type="button"
-                  onClick={() => onAdd(entry.id)}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-surface-muted ${INTERACTIVE}`}
-                >
-                  <span className="font-mono text-xs text-muted-foreground">{entry.code}</span>
-                  <span className="truncate">{entry.label}</span>
-                </button>
+        {open && (
+          <ul
+            id={listId}
+            ref={listRef}
+            role="listbox"
+            className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-line bg-surface"
+          >
+            {options.map((entry, i) => (
+              // ★ The row itself is the option — NOT a <button> inside one. An
+              // interactive child of role="option" is an axe nested-interactive
+              // violation, and the keyboard path is aria-activedescendant, so
+              // the button bought nothing. Mirrors global-search-box.
+              <li
+                key={entry.id}
+                id={`${listId}-opt-${i}`}
+                role="option"
+                aria-selected={i === active}
+                // Keeps focus in the input so commit-on-blur callers don't close
+                // the editor out from under the add (ResourcePicker precedent).
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onAdd(entry.id)}
+                // ★★ The active row keeps `text-foreground`. `text-ui-dark-blue`
+                // is the brand NAVY, which in every dark scheme sits on a dark
+                // `--surface-muted` at ~1.0-1.2:1 — the arrowed-to option would
+                // be marked by its text becoming INVISIBLE. The row background
+                // cannot carry the state alone either: `bg-surface-muted` is
+                // ~1.1:1 against the dropdown's own `bg-surface` AND is what
+                // inactive rows use on hover.
+                // ★★ The ring is `--foreground`, NOT an accent. Any brand accent
+                // is tuned for one mode: `ring-ui-green` measures 6.0-7.9:1 on
+                // the dark row fills but only 1.7-2.1:1 on the light ones, under
+                // the 3:1 WCAG 1.4.11 asks of a non-text state indicator — which
+                // would have left light schemes leaning on `font-medium` alone.
+                // `--foreground` clears 3:1 against that fill in every shipped
+                // scheme because it is the text colour FOR that surface — 12-15:1
+                // in the six built-ins, and 4.79:1 in AIPM/Mockup light, whose
+                // foreground is a mid grey rather than near-black. State cues
+                // here must be scheme-independent; pinned by scheme-contrast-cues.test.ts.
+                className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm text-foreground ${
+                  i === active
+                    ? "bg-surface-muted font-medium ring-1 ring-inset ring-foreground"
+                    : "hover:bg-surface-muted"
+                }`}
+              >
+                <span className="font-mono text-xs text-muted-foreground">{entry.code}</span>
+                <span className="truncate">{entry.label}</span>
               </li>
             ))}
           </ul>

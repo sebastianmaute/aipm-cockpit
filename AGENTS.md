@@ -40,7 +40,14 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
-npm run e2e                 # playwright (incl. the 13-view axe a11y gate)
+npm run test:coverage       # vitest + coverage. The floors in vitest.config.ts are BLOCKING in CI
+                            # (global lines 92/funcs 91/branch 80/stmts 89 + per-engine globs), and
+                            # `test:run` does NOT enforce them — a new coverage-gated `.ts` file (a
+                            # pure engine, or an extracted `use*` hook that wasn't added to
+                            # coverage.exclude) can be green locally and fail the unit job.
+npm run e2e                 # playwright (incl. the 16-view axe a11y gate)
+npm run e2e:smoke           # fast subset. e2e:visual / e2e:visual:update drive the visual-regression
+                            # specs; e2e:ui opens the Playwright UI; e2e:install fetches browsers.
 npm run dup:check           # jscpd duplication GATE (--threshold set in package.json dup:check, per-format; BLOCKING in CI). baseline docs/baselines/jscpd-2026-07.json
 npm run size:check          # file-size ratchet — fails on a NEW >800-line file or a baselined file that grew
 npm run stop                # kill ONLY the dev server bound to the app port (default 3000; PORT-overridable)
@@ -412,9 +419,15 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   re-renders on ANY context-value change REGARDLESS of the parent's memo bailout (same rule as the
   `RowLookupContext` split above), and `WorkspaceProvider`'s value is one `useMemo` over ~30 slices, so a
   milestone/RAID/budget/insight edit — or a background Outlook-pull / insight-recommendation / scheduled-job
-  write — would re-render the whole planning table, workload rollups and absence calendar. Before this, the
-  memo genuinely bailed: workspace-section forwards only `tasks`/`raid`/`absences`/`resources`/`roles`/`plan`,
-  which an unrelated edit leaves reference-identical. THREAD PROPS instead — workspace-section already holds
+  write — would re-render the whole planning table, workload rollups and absence calendar.
+  ★★ HONEST STATE: the memo does NOT currently bail, so the optimization this bullet defends is aspirational,
+  not in effect. `workspace-section` passes it ~47 props and several are a FRESH IDENTITY every render —
+  every `guardEdit(handler)` (`guardEdit` is `makeEditGuard(...)` called unmemoized during render in
+  `task-manager.tsx`) plus the `absenceCalendar` bag. Verified twice in review. Do NOT cite this memo as the
+  reason anything is fast, and note that "memoize `guardEdit`" is NOT the fix — it is one unstable family of
+  several. Either stabilise every handler prop (measure first) or delete the memo and this bullet; tracked in
+  the R5 follow-ups doc. The guidance below still stands regardless, because it is what would make a bail
+  possible at all. THREAD PROPS instead — workspace-section already holds
   `disciplines`/`grades`/`setResources` and passes them to sibling panels. (Every other panel it renders —
   tasks, milestones, dashboard, insights, knowledge, timelog — is un-memoized, so consuming context there
   costs nothing.)
@@ -446,12 +459,32 @@ npm run stop                # kill ONLY the dev server bound to the app port (de
   so `sortCol` must be a valid key and `onSort={click}` typechecks with no cast. ★ `resizeCol` (defaults to
   `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
   width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
-  `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). Used by raid-report (34) / resources-report
-  (16) / change-report (6); `reports-tables`/`budget-report` use different local sort-var names and were left
-  as-is. NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` + `ColumnResizeHandle`.
+  `InfoTooltip`. Byte-equivalent DOM (Reports is axe-scanned). ★ Consumers are now raid-report (34) /
+  resources-panel-rows (6) / change-report (6) / calendar-series-list (2) / milestones (2) /
+  tasks-section (11) / reports-tables (4) / budget-panel (1) / budget-report-panel (1) — `reports-tables`
+  and `budget-report` were once "left as-is" over local sort-var naming and have since adopted it, so
+  every sortable header in the app now flows through here (which is why the `aria-sort` below lifts them
+  all at once). NON-sortable text-only header cells (no `SortHeaderButton`) keep their raw `<th>` +
+  `ColumnResizeHandle`.
   ★ `onResize` is OPTIONAL — omit it for a table that sorts but stores no column widths (the calendar series
   list) and NO handle renders. Never pass a no-op instead: that draws a grip which looks draggable and does
   nothing, the exact false affordance this component exists to avoid.
+  ★★ The `<th>` carries **`aria-sort`** (`ascending`/`descending`/`none`), derived from the SAME `active` value
+  the arrow is, so the announced and drawn states cannot drift; `active` gates on BOTH `sortKey === sortCol`
+  AND `sortDir !== "off"` ("off" is a real member of the asc→desc→off cycle, so naming the column is not
+  enough). The `↑`/`↓` is `aria-hidden` — it stays VISIBLE and in `textContent` (existing glyph assertions in
+  `report-table.test.tsx` + `calendar-series-list.test.tsx` read textContent, so they are unaffected) but out
+  of the accessible NAME, since aria-sort already says it. axe has NO rule for a missing aria-sort, so the
+  gate is silent on regressions here — the unit tests are the only coverage.
+  ★ The raw-`<th>` tables are NOT in step and knowing which way matters: `change-panel.tsx` +
+  `raid-panel-rows.tsx` + `stakeholders-panel.tsx` set aria-sort AND keep a ▲/▼ inside the button's
+  name (the double announcement this removed from the shared component), and `activity-log-panel.tsx`
+  has the glyph with NO aria-sort at all. Folding them in is a follow-up, not a claim about today.
+  ★ `SortHeaderButton` is used ONLY by `SortResizeTh`, so hiding the glyph cannot strand a raw `<th>`
+  that lacks aria-sort.
+  ★★ KNOWN LOSS: VoiceOver/Safari does not announce `aria-sort`, so a VO user goes from hearing
+  "Title ↑" to "Title". Standard-correct (the glyph was never a state) but a real regression for that
+  one AT — do not re-litigate it as a pure win.
 - **★ `TableFilter` (`report-table.tsx`) has exactly ONE clear ✕, overlaid INSIDE the field.** The input is
   `type="search"`, so Chrome/Safari draw their own ✕ inside it; a sibling clear button therefore read as TWO
   clears on those browsers while Firefox — which draws none — showed only ours. The fix suppresses the native
@@ -981,6 +1014,44 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   if it deps `[open, onClose]`, an unstable parent `onClose` identity (re-created each render/keystroke)
   re-runs the effect and re-pushes that modal's token to the top → wrong modal becomes topmost. Push/pop
   lives in a SEPARATE `[open]`-only effect (order = mount order). Regression-tested in `modal.test.tsx`.
+  • ★★★ **ESCAPE PROTOCOL — `preventDefault` marks it consumed.** A widget that dismisses on Escape
+  (a combobox dropdown: `entity-link-picker`, `resource-picker`, `combo-input`, `labels-input`,
+  `stakeholder-recipient-input`) calls `e.preventDefault()`; `Modal` bails on `e.defaultPrevented`
+  before acting. Without both halves one keypress dismisses two layers — the dropdown AND the edit
+  modal around it, discarding the user's draft.
+  ★★ `stopPropagation` CANNOT do this job: React 19 delegates on `document` (Next passes `document` to
+  `hydrateRoot`), the same node `Modal` listens on, and stopPropagation does not suppress a listener
+  co-registered on the SAME node. The dropdowns work because their React handler runs in React's
+  boot-registered delegation, which precedes `Modal`'s own (later-registered) listener.
+  ★ Scope the Modal's bail to the ESCAPE branch: Escape is a dismissal (defer to whoever claimed it),
+  Tab is containment (the focus trap must never be waivable by a descendant, WCAG 2.4.3).
+  ★★ NEVER stack a second Escape listener on a component already inside a `Modal` — that is what the
+  deleted `use-escape-key` did (a `window` listener ignoring `defaultPrevented`), and it both defeated
+  the protocol and fired `onClose` twice per keypress.
+  ★★ INCOMPLETE BY DESIGN, for now: only the React-level dropdowns above participate as producers.
+  The document-level closers — `popover-panel` / `use-popover-dismiss` (the ⚙ field-visibility menu in
+  EVERY edit modal), `notes-window` (opened from inside the task/RAID editors), `help-menu`,
+  `raci-chip-picker`, `global-search-box` — still close the modal along with themselves. They call
+  `onClose()` bare, register natively on `document` in the BUBBLE phase, and native listeners on one
+  node fire in REGISTRATION order, so the modal (opened first) always wins; adding `preventDefault`
+  alone would NOT fix them (it lands too late) — they need capture phase or a stack.
+  ★ Two are NOT bare and prove that point: `tour-overlay` already calls `preventDefault` and still
+  cannot stop the modal (registration order, not the mark, is what decides), and `use-focus-trap`
+  consumes Escape UNCONDITIONALLY at CAPTURE even when given no `onEscape` — making it an
+  unintentional producer that can suppress the modal and hand the key to nobody. Not reachable today
+  (`inline-ai-edit-popover`, its only handler-less caller, opens from a table row rather than inside a
+  dialog). The durable answer is a module-level **dismissal stack** mirroring `modal.tsx`'s
+  `modalStack` (open order == nesting order in every composition here); that work, plus the
+  `use-focus-trap` fix, lives on `feature/escape-dismissal-protocol`.
+  ★★★ **TEST-TOPOLOGY TRAP — three separate bugs hid here in one release; assume a passing keyboard
+  test is lying until its DOM shape matches production.** (1) React Testing Library renders into a div
+  under `body`, so React's listener sits on a DESCENDANT and `stopPropagation` appears to work — it
+  cannot in the real app, where the root IS `document`. (2) `document.dispatchEvent(...)` is an
+  AT-TARGET dispatch, where capture and bubble listeners both fire in plain registration order — so it
+  cannot distinguish a capture-phase fix from a bubble-phase one; fire from a focused ELEMENT instead.
+  (3) jsdom reports every rect as zero, so a positioned popover never renders and its tests must be
+  hosted on the hook. Assert `defaultPrevented` (a property of the event) rather than "some other
+  listener did not fire" (a property of the topology).
   • **Info-flows diagram** (`settings-sections/information-flows-section.tsx`) has **9 nodes** in two
   colour-coded zones (AIPM tokens): *Your data* (green) = Local/IndexedDB, **File storage** (JSON/CSV/MD),
   Turso; central Browser-app hub; *Connected services* (dark-blue) = Jira, Timelog, **SharePoint**, **Outlook**,
@@ -1085,6 +1156,48 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   key). ★★ `globals.css`: `:root` is KEPT as the STATIC no-JS / pre-boot AIPM-LIGHT fallback (colors +
   structural); the old `.dark` TOKEN block AND the `:root[data-style="mockup"]` block were REMOVED — AIPM-dark +
   Mockup now ride their SCHEME maps. `.dark` REMAINS a class toggle (Tailwind `dark:` utilities). ★★
+  ★★ **`deriveAaVariants` targets `--surface-muted` for every AA variant EXCEPT `--ui-purple-strong`**, which
+  is derived against the purple tint COMPOSITED over that surface (`PURPLE_TINT_ALPHA_LIGHT` 0.20 /
+  `..._DARK` 0.25 — the RAID "caused this" chips' HOVER state, mode-picked via the surface's own luminance).
+  Reason: every consumer of that token — those chips, the chat AI-consent block, the read-only mirror banner
+  — puts it on `bg-ui-purple/10`, and NONE on a plain surface, so the card was never the background this text
+  actually sits on. Deriving against the card cleared 4.5 there while landing at 4.22:1 (Meridian light) and
+  4.35:1 (Umber light) once hover deepened the tint. This is the documented translucent-tint-on-hover trap,
+  and the axe gate CANNOT see it (it scans the resting state, and those chips live in an edit modal it never
+  opens) — `scheme-purple-hover.test.ts` is the only coverage, and it checks the built-ins AND the shipped
+  `public/themes/*.json`. ★★ The GUARD must composite over the same `--surface-muted` the DERIVATION
+  does: composited over the lighter `--surface` it is looser than the code it guards, and a revert
+  slips through in 4 of the 6 built-in combos. ★★ SIDE EFFECT, accepted deliberately: because the
+  reference is the harder surface, this also LIGHTENED the value DERIVED FOR the three built-in DARK
+  maps (harbor `#a990ff`→`#c7a9ff`, meridian `#ad83ff`→`#cc9bff`, umber `#b786db`→`#d79eff` — the token is
+  not IN those maps, which hold exactly the 21 editable tokens; it is computed from them) — visible
+  on the AI-consent block, read-only banner and RAID chips in dark mode, none of which was FAILING.
+  Kept because it matches this module's existing "derive against the harder surface" rule and keeps the
+  token safe if a purple chip is ever placed on a muted card. ★★ The same trap bites text ALPHA, not
+  just a background tint: `hover:text-ui-purple-strong/80` on the consent link measured 3.40–3.58:1 in
+  the light schemes as shipped (4.04–4.25:1 once 0.202.3's darker token is applied — still under AA
+  either way). A `-strong` token is tuned to sit AT AA, so ANY alpha on it lands under — use a
+  non-colour hover cue (that link now thickens its underline). A grep for `-strong` + `hover:bg-`
+  structurally cannot find this shape — the same fade shipped on `trends-panel.tsx`'s delete button as
+  a whole-element `hover:opacity-80` (~4.0–4.3:1), fixed alongside; sweep for `opacity`/`/NN` on a
+  `-strong` element, not just for a background class. ★★★ `nudgeToAa` takes an explicit `lighten` OVERRIDE and the purple
+  arm MUST pass it. The function defaults the direction to `bg`'s own luminance, which is right while `bg`
+  IS the surface — but purple measures against a TINT, and a 20% composite moves luminance far more than
+  20%, so the direction (read off the tint) and the alpha (read off the surface) can disagree. A light
+  scheme with a mid-grey `--surface-muted` (e.g. `#c8c8c8`) then LIGHTENS on a light background, runs the
+  loop to its 20-iteration cap and returns `#ffffff` — white text on a light card, ~1.7:1. Both inputs are
+  user-editable (`ADVANCED_TOKENS`) and user schemes are light-only this phase, so it is reachable even
+  though every built-in is clear — which also means the built-in sweep can never see it. ★ The custom-scheme
+  cases in `scheme-purple-hover.test.ts` pin the direction for a card ABOVE `nudgeToAa`'s 0.5-luminance
+  threshold; they do NOT close the hole generally — a `--surface-muted` BELOW 0.5 (e.g. `#a0a0a0`) still
+  returns `#ffffff`, and that limitation is module-wide, hitting the green/pink/rag derivations too. Whoever
+  decides the mode decides the direction.
+  ★ Keep the alphas in lockstep with `raid-edit-fields.tsx`. ★ A pin was tried first
+  and rejected: `builtin-schemes.test.ts` requires built-in maps to hold EXACTLY the 21 editable
+  tokens, so a pinned AA variant is a test failure by construction. ★ Do NOT
+  add "and `cleanColors` would drop the pin on save-as-new" to that argument — it is FALSE and was
+  briefly written here: `--ui-purple-strong` is in `DERIVED_TOKENS`, which `VALID_TOKENS` includes, so
+  `cleanColors` KEEPS it (that is exactly how an imported AIPM/Mockup scheme survives a save).
   `resolveSchemeColors` is now BASE-WINS (`{...deriveAaVariants(colors), ...colors}`): derivation only FILLS
   missing AA variants; an explicitly PINNED `-strong`/`-text`/`muted-foreground` SURVIVES — that is why
   AIPM/Mockup reproduce the shipping look exactly (landmine 1). ★★ `effectiveDark(themeDark, schemeSupportsDark)`
@@ -1266,11 +1379,36 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   — adjacent inline spans concatenate with NO separator, so name-from-content yielded "R#3Vendor delay".
   (Same fix applied to the read-only "caused this" children chips in `raid-edit-fields.tsx`, which had the
   identical bleed plus `text-ui-purple` → now `text-ui-purple-strong`.)
-  ★★ That `-strong` swap is NOT a uniform win, and the same caveat applies anywhere you reach for it: it
-  repairs a real AA failure in all four DARK schemes (~2.9–3.1 → ~5.2) and in AIPM light/dark (4.49 → 7.52,
-  the PINNED value), but in Harbor/Meridian/Umber LIGHT it is a literal NO-OP — `nudgeToAa` exits at zero
-  iterations because the base purple already clears 4.5 against `--surface-muted`, so `--ui-purple-strong`
-  IS `--ui-purple` there. Don't assume `-strong` changes anything in a light scheme with no pinned value.
+  ★★ That `-strong` swap was NOT a uniform win when it landed, and the caveat still applies to any OTHER
+  `-strong` token: it repaired a real AA failure in the DARK schemes and in AIPM light/dark (the PINNED value)
+  but was a literal NO-OP in Harbor/Meridian/Umber LIGHT, where `nudgeToAa` exited at zero iterations because
+  the base already cleared 4.5 against `--surface-muted`. Don't assume `-strong` changes anything in a light
+  scheme with no pinned value. (For PURPLE specifically this was then fixed at the source — see the
+  `--ui-purple-strong` derivation note in the scheme section: its reference is no longer `--surface-muted`.)
+  ★★ **The dropdown is a COMBOBOX and its rows ARE the options.** Input: `role="combobox"` +
+  `aria-expanded`/`aria-controls`/`aria-activedescendant`/`aria-autocomplete="list"`; list: `role="listbox"`
+  with `role="option"` `<li>`s carrying the click handler DIRECTLY. Do NOT put a `<button>` inside a
+  `role="option"` — that is an axe **nested-interactive** violation, and the keyboard path is
+  activedescendant, so the button buys nothing (mirrors `global-search-box.tsx`). ★ Highlight state is
+  internal (view state) while `query` stays a CONTROLLED prop; it resets via a render-time reconcile keyed on
+  the QUERY, never on the `options` identity — callers re-filter and hand a fresh array every render, so an
+  identity-keyed reset would clear the highlight constantly and the arrow keys would never stick. It is also
+  CLAMPED ON READ, which drops an OUT-OF-RANGE index only — an in-range index that now names a DIFFERENT
+  entity is covered by the query-keyed reconcile above, not by the clamp (a caller that swapped `options`
+  WITHOUT changing `query` would defeat both; none does today). ★★★ Escape calls `preventDefault()`, and THAT
+  is what contains it: the shared `Modal`'s document-level handler bails on `e.defaultPrevented`.
+  `stopPropagation` CANNOT contain it — React 19 delegates on `document` (Next passes `document` to
+  `hydrateRoot`), the very node `Modal` listens on, and stopPropagation does not suppress a listener
+  co-registered on the SAME node. ★ A test asserting "no document listener fired" PASSES anyway, because
+  React Testing Library renders into a div under `body`, which puts React's listener on a DESCENDANT — a
+  topology the real app never has. Assert `defaultPrevented` instead. Without the Modal-side bail, dismissing
+  a dropdown ALSO closes the edit modal and discards the draft. ★★ Enter is claimed ONLY when an option is
+  actually armed — these pickers live inside `<form>` edit modals where a bare Enter submits, so swallowing it
+  whenever the list happens to be open silently breaks submitting from that field.
+  ★ The remove button's name DIVERGES by branch: with `onOpen` it is `"<removeLabel> <code>"` (the chip body
+  already announces the entity), without it, it is `"<removeLabel> <code> <label>"` — in the inert branch the ×
+  is the chip's ONLY focusable element, so a code-only name tells a screen-reader user nothing about what they
+  are unlinking. `title` stays the short `removeLabel` in both.
   ★ The extraction unified three incidental sizings onto RAID's values, so the TASK flavour changed slightly:
   chip row `mb-1`→`mb-2` + `items-center`, chip label `max-w-[160px]`→`max-w-[220px]`, dropdown
   `max-h-48`→`max-h-60`. Deliberate (they were differences with no reason), and it lands in all four
@@ -2164,6 +2302,36 @@ an out-of-order input still packs correctly.
   ATTRIBUTE match: a native button with no explicit `tabindex` attribute still has `.tabIndex === 0` (it IS in
   the tab order), so an attribute-only query is blind to it and will silently pass regardless of whether the
   real invariant holds.
+- ★★ **Band chips reschedule from the keyboard**, mirroring the day grid one row below: Alt+Left/Right ARMS a
+  move and accumulates a day delta IN STATE, Enter commits it as ONE `onMoveOccurrence` call (one undo entry
+  per intent, not one per keypress), Escape cancels. ★★ There is NO preview: `pendingMove` is read only in the
+  handlers, never during render, and the live region emits a CONSTANT string that does not report the
+  accumulated delta — so three Alt+Rights give no visual and no announced feedback before Enter commits. The
+  day grid has the identical gap. Do not describe either as "previewing"; building a real preview (a ghost
+  chip + a delta in the announcement) is the open follow-up. ★ Gated on `onMoveOccurrence` — with no handler (read-only popout)
+  Alt+Left stays browser Back, which is what `band-roving.ts`'s modifier guard preserves. ★ While armed the
+  handler returns EARLY, so a plain arrow cannot walk the roving cursor out from under the preview; Alt+Up/Down
+  are ignored (occurrences are single-day and lanes are packing artefacts — no row axis, no resize gesture).
+  ★★ Commit routes through the SAME `resolveOccurrenceDrag` the drop handler uses, keyed on
+  `(eventId, originalDate)` — read `occurrence-drag.ts` before touching it; both of its documented identity
+  bugs are reachable from the keyboard path too, and its no-op result must write nothing.
+  ★★ The announcement lives in the PARENT: this component renders a `<tbody>`, which cannot host a live region,
+  so it reports up via `onMoveModeChange` and `resource-calendar.tsx` folds it into the ONE `aria-live` region
+  it already owns for the grid's identical gesture (the two are mutually exclusive — focus is in one or the
+  other). A new band-level announcement goes through that prop, not a new region.
+- ★★ **Focus survives a chip unmounting** (a reschedule, or an edit that relocates the occurrence): a
+  `lastFocusedKeyRef` records the last focused `lane-iso`, and an effect re-focuses the clamped `focusIndex`
+  chip when that key has VANISHED **and** `document.activeElement === document.body`. Both guards are
+  load-bearing — the vanished-key check stops an unrelated re-render from grabbing focus, and the body check
+  stops it yanking focus out of a control the user moved to. Side effect ONLY (a `.focus()` call), never
+  setState; `set-state-in-effect` is fatal here. Deliberately NOT driven by tracking focus leaving the band:
+  removing a focused node does not reliably fire blur, and a click on dead space blurs with no `relatedTarget`.
+- ★ **Chip accessible names are de-duplicated in the `chips` memo** (the only place that sees every rendered
+  chip at once). Base is `title – date time`; a COLLIDING name earns ` (#eventId)`, and one still colliding
+  after that earns the `originalDate` — the same-series-twice-on-one-date case a move exception can create,
+  where the event id cannot separate them. Unconditional suffixing was rejected: it makes every announcement
+  noisier for a rare case. ★ A collision test needs a fixture with two genuinely same-title/date/time series
+  or it proves nothing.
 - ★★ **The band runs its OWN roving group** over `[data-band-cell]` (pure `band-roving.ts` `moveBandFocus` +
   local state in `resource-calendar-band.tsx`): ONE chip is a tab stop, Left/Right walk chips in reading order
   (lane-major, then date — crossing lane boundaries, clamped not wrapping), Home/End jump to the ends, and

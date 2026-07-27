@@ -845,6 +845,433 @@ it("renders occurrences of a recurring series in the meetings band", () => {
   expect(screen.getAllByRole("button", { name: /Standup/ })).toHaveLength(3);
 });
 
+it("announces the band's keyboard move through the shared aria-live region", () => {
+  // ★ CHAIN test, deliberately at this level. The band owns the gesture but
+  // renders a <tbody> and so cannot host a live region; it reports up via
+  // onMoveModeChange and THIS component folds it into the one region it
+  // already owns for the grid's identical gesture. Both halves are unit-tested
+  // in isolation — the band's prop plumbing in resource-calendar-band.test.tsx,
+  // the grid's region above — and the wiring between them was covered by
+  // neither: deleting both new arms of that ternary left every suite green.
+  // Per-hop coverage passing while the chain is dead is a failure mode this
+  // repo has already shipped once.
+  const events: CalendarEvent[] = [
+    {
+      id: 1,
+      title: "Standup",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      recurrence: { freq: "daily", interval: 1 },
+    },
+  ];
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      onMoveOccurrence={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  const chip = container.querySelector<HTMLElement>("[data-band-cell]")!;
+  chip.focus();
+  expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeNull();
+
+  fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
+  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeInTheDocument();
+  // The band's gesture must not borrow the GRID's wording — they are different
+  // objects and an exhaustive-map slip would silently announce the wrong one.
+  expect(screen.queryByText(t("en-US", "calendarMoveModeOn"))).toBeNull();
+
+  fireEvent.keyDown(chip, { key: "Escape" });
+  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeInTheDocument();
+});
+
+it("does not let one gesture's stale announcement mask or misdescribe the other's", () => {
+  // ★ The band and the day grid share ONE polite region, and both cancellation
+  // states are sticky past the gesture that set them. Untested, that gave two
+  // real failures: arming a band move after cancelling a grid one announced
+  // nothing at all (the grid branch has priority), and committing a grid move
+  // after cancelling a band one announced "Meeting move cancelled" — a false
+  // report of lost work immediately after a SUCCESSFUL edit.
+  const events: CalendarEvent[] = [
+    {
+      id: 1,
+      title: "Standup",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      recurrence: { freq: "daily", interval: 1 },
+    },
+  ];
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      onMoveOccurrence={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  const chip = container.querySelector<HTMLElement>("[data-band-cell]")!;
+  const dayCell = container.querySelector<HTMLElement>("[data-cell]")!;
+
+  // Cancel a GRID move, then arm a BAND one: the band must be heard.
+  dayCell.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  fireEvent.keyDown(grid, { key: "Escape" });
+  expect(screen.getByText(t("en-US", "calendarMoveModeCancelled"))).toBeInTheDocument();
+
+  chip.focus();
+  fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
+  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeInTheDocument();
+  expect(screen.queryByText(t("en-US", "calendarMoveModeCancelled"))).toBeNull();
+
+  // Now the mirror: abandon the band gesture, then run a GRID one to
+  // completion. The stale "Meeting move cancelled" must not resurface.
+  fireEvent.keyDown(chip, { key: "Escape" });
+  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeInTheDocument();
+
+  dayCell.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+  expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeNull();
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeNull();
+
+  // ★ And again through the RESIZE arm site. There are TWO grid arm sites and
+  // they each carry their own mirror; covering only the move one leaves a
+  // deletable line — band cancel → grid RESIZE arm → resize commits, and the
+  // region still reads "Meeting move cancelled".
+  chip.focus();
+  fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
+  fireEvent.keyDown(chip, { key: "Escape" });
+  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeInTheDocument();
+
+  dayCell.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
+  expect(screen.getByText(t("en-US", "calendarResizeModeOn"))).toBeInTheDocument();
+  // ★ Assert AFTER the resize completes, not while it is armed. With a gesture
+  // in flight the ternary's first branch masks whatever is stale behind it, so
+  // an assertion here passes even with the mirror deleted — the stale string
+  // only surfaces once pendingMove clears.
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeCancelled"))).toBeNull();
+});
+
+it("abandons an armed GRID gesture when focus moves to the meetings band", () => {
+  // ★ The mirror of the band's own blur cancel, and the reason it cannot be a
+  // plain "focus left the table" check: the band is a <tbody> INSIDE this same
+  // table, so Shift+Tab from a day cell to a chip never leaves it. Without this,
+  // the grid's pendingMove survives, the shared region keeps announcing "Move
+  // absence…" while the user composes a MEETING move (the ternary reads
+  // pendingMove first), and tabbing back and pressing Enter commits an absence
+  // move armed several interactions earlier.
+  const events: CalendarEvent[] = [
+    {
+      id: 1,
+      title: "Standup",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      recurrence: { freq: "daily", interval: 1 },
+    },
+  ];
+  const onMoveAbsence = vi.fn();
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      onMoveOccurrence={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  const dayCell = container.querySelector<HTMLElement>("[data-cell]")!;
+  const chip = container.querySelector<HTMLElement>("[data-band-cell]")!;
+
+  dayCell.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+
+  // Focus crosses into the band — still inside the same <table>.
+  fireEvent.blur(grid, { relatedTarget: chip });
+  expect(screen.getByText(t("en-US", "calendarMoveModeCancelled"))).toBeInTheDocument();
+
+  // And the abandoned gesture is not committable on return.
+  dayCell.focus();
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+});
+
+it("abandons an armed grid gesture if the absence moved underneath it", () => {
+  // ★ A day cell is DRAGGABLE. An HTML5 drag fires no click and no focus
+  // change, so onGridBlur never sees it and the armed gesture survives a MOUSE
+  // drag that has already relocated the absence. Enter then applied the delta to
+  // the DROPPED date — the absence silently jumps one further day — and the
+  // editor the user pressed Enter for did not open either, because the branch
+  // had already preventDefault'd. The meetings band revalidates before its
+  // commit for exactly this reason; the grid did not.
+  // ★ MULTI-DAY, and only the START moves. A single-day fixture whose two ends
+  // shift together cannot tell `moving.startDate` from `moving.endDate`, so the
+  // move/resize field pairing was mutation-survivable: collapsing the guard to
+  // either field, or arming the wrong one, passed.
+  const onMoveAbsence = vi.fn();
+  function Harness({ start }: { start: string }) {
+    return (
+      <ResourceCalendar
+        lang="en-US"
+        rows={[{ key: "anna", display: "Anna", email: "" }]}
+        absences={[{ id: 7, assignee: "Anna", startDate: start, endDate: "2026-07-31", type: "vacation" }]}
+        today="2026-07-27"
+        holidaySet={new Set()}
+        onAddAbsence={() => {}}
+        onEditAbsence={() => {}}
+        onMoveAbsence={onMoveAbsence}
+        resources={[]}
+        onEditResource={() => {}}
+        onAddResource={() => {}}
+        startDate="2026-07-27"
+        endDate="2026-07-31"
+      />
+    );
+  }
+  const { container, rerender } = render(<Harness start="2026-07-27" />);
+  const grid = screen.getByRole("grid");
+  container.querySelector<HTMLElement>("[data-cell]")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+
+  // A drag relocates the same absence while the gesture is still armed.
+  rerender(<Harness start="2026-07-29" />);
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+  expect(screen.getByText(t("en-US", "calendarMoveModeCancelled"))).toBeInTheDocument();
+});
+
+it("commits a keyboard move on a MULTI-DAY absence", () => {
+  // ★ The happy path that distinguishes the two guard fields. The bail tests
+  // cannot: the move gesture arms on startDate, so a guard mutated to read
+  // endDate differs from the armed value immediately and bails for the WRONG
+  // reason — passing the bail test while silently making every multi-day move
+  // impossible. Only a successful commit exposes that.
+  const onMoveAbsence = vi.fn();
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-30", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-31"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  container.querySelector<HTMLElement>("[data-cell]")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).toHaveBeenCalledTimes(1);
+});
+
+it("abandons an armed grid RESIZE if the absence's end moved underneath it", () => {
+  // The resize arm/commit pair keys on endDate, the move pair on startDate. No
+  // test rerendered during a pending RESIZE at all, so nothing distinguished
+  // them — this drives the other half of the pairing.
+  const onMoveAbsence = vi.fn();
+  function Harness({ end }: { end: string }) {
+    return (
+      <ResourceCalendar
+        lang="en-US"
+        rows={[{ key: "anna", display: "Anna", email: "" }]}
+        absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: end, type: "vacation" }]}
+        today="2026-07-27"
+        holidaySet={new Set()}
+        onAddAbsence={() => {}}
+        onEditAbsence={() => {}}
+        onMoveAbsence={onMoveAbsence}
+        resources={[]}
+        onEditResource={() => {}}
+        onAddResource={() => {}}
+        startDate="2026-07-27"
+        endDate="2026-07-31"
+      />
+    );
+  }
+  const { container, rerender } = render(<Harness end="2026-07-28" />);
+  const grid = screen.getByRole("grid");
+  container.querySelector<HTMLElement>("[data-cell]")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true, shiftKey: true });
+  expect(screen.getByText(t("en-US", "calendarResizeModeOn"))).toBeInTheDocument();
+
+  // Only the END moves — startDate is untouched, so a start-only guard passes.
+  rerender(<Harness end="2026-07-30" />);
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+  expect(screen.getByText(t("en-US", "calendarResizeModeCancelled"))).toBeInTheDocument();
+});
+
+it("abandons an armed grid move if the absence was reassigned underneath it", () => {
+  // A drag can reassign to another person on the SAME date, changing neither
+  // startDate nor endDate — so a date-only guard passes and Enter re-applies the
+  // armed rowDelta, silently undoing the drag.
+  const onMoveAbsence = vi.fn();
+  function Harness({ who }: { who: string }) {
+    return (
+      <ResourceCalendar
+        lang="en-US"
+        rows={[
+          { key: "anna", display: "Anna", email: "" },
+          { key: "bo", display: "Bo", email: "" },
+        ]}
+        absences={[{ id: 7, assignee: who, startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+        today="2026-07-27"
+        holidaySet={new Set()}
+        onAddAbsence={() => {}}
+        onEditAbsence={() => {}}
+        onMoveAbsence={onMoveAbsence}
+        resources={[]}
+        onEditResource={() => {}}
+        onAddResource={() => {}}
+        startDate="2026-07-27"
+        endDate="2026-07-29"
+      />
+    );
+  }
+  const { container, rerender } = render(<Harness who="Anna" />);
+  const grid = screen.getByRole("grid");
+  container.querySelector<HTMLElement>("[data-cell]")!.focus();
+  fireEvent.keyDown(grid, { key: "ArrowDown", altKey: true });
+  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+
+  rerender(<Harness who="Bo" />);
+  fireEvent.keyDown(grid, { key: "Enter" });
+  expect(onMoveAbsence).not.toHaveBeenCalled();
+});
+
+it("clears a leftover band mode when a grid gesture arms, whatever its value", () => {
+  // ★ The mirror must be UNCONDITIONAL. A chip removed without firing blur (the
+  // band's own comment concedes that happens) leaves bandMoveMode stuck on
+  // "armed"; narrowing the mirror to only clear "cancelled" then lets the
+  // ternary fall through after a SUCCESSFUL absence move and announce "Move
+  // meeting…" about it. Driving only the cancelled path cannot tell the two
+  // shapes apart, which is why this drives the armed one.
+  const events: CalendarEvent[] = [
+    {
+      id: 1,
+      title: "Standup",
+      startDate: "2026-07-27",
+      startTime: "09:00",
+      durationMinutes: 15,
+      recurrence: { freq: "daily", interval: 1 },
+    },
+  ];
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      calendarEvents={events}
+      onEditEvent={() => {}}
+      onMoveOccurrence={() => {}}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={() => {}}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  const chip = container.querySelector<HTMLElement>("[data-band-cell]")!;
+  const dayCell = container.querySelector<HTMLElement>("[data-cell]")!;
+
+  // Band left ARMED (not cancelled), then a grid gesture arms and commits.
+  chip.focus();
+  fireEvent.keyDown(chip, { key: "ArrowRight", altKey: true });
+  expect(screen.getByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeInTheDocument();
+
+  dayCell.focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  fireEvent.keyDown(grid, { key: "Enter" });
+  // After a successful absence move the region must not describe a meeting.
+  expect(screen.queryByText(t("en-US", "calendarMeetingMoveModeOn"))).toBeNull();
+});
+
+it("keeps an armed grid gesture alive while focus stays on day cells", () => {
+  // The blur guard must not fire for movement WITHIN the day-cell matrix, or
+  // the gesture would die the moment the user did anything.
+  const onMoveAbsence = vi.fn();
+  const { container } = render(
+    <ResourceCalendar
+      lang="en-US"
+      rows={[{ key: "anna", display: "Anna", email: "" }]}
+      absences={[{ id: 7, assignee: "Anna", startDate: "2026-07-27", endDate: "2026-07-27", type: "vacation" }]}
+      today="2026-07-27"
+      holidaySet={new Set()}
+      onAddAbsence={() => {}}
+      onEditAbsence={() => {}}
+      onMoveAbsence={onMoveAbsence}
+      resources={[]}
+      onEditResource={() => {}}
+      onAddResource={() => {}}
+      startDate="2026-07-27"
+      endDate="2026-07-29"
+    />,
+  );
+  const grid = screen.getByRole("grid");
+  const cells = container.querySelectorAll<HTMLElement>("[data-cell]");
+  cells[0].focus();
+  fireEvent.keyDown(grid, { key: "ArrowRight", altKey: true });
+  fireEvent.blur(grid, { relatedTarget: cells[1] });
+  expect(screen.getByText(t("en-US", "calendarMoveModeOn"))).toBeInTheDocument();
+});
+
 it("gives each occurrence a row-unique accessible name", () => {
   const events: CalendarEvent[] = [
     {

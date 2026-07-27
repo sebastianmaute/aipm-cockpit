@@ -6,7 +6,33 @@ import {
   customWindow,
   stepAnchor,
   resolveWindow,
+  addIsoDays,
 } from "./calendar-window";
+
+describe("addIsoDays", () => {
+  // Hoisted here from resource-calendar.tsx so the day grid's keyboard move and
+  // the meetings band's step dates identically. Two callers now, so its
+  // contract — including the fallback — is worth pinning directly.
+  it("steps forward and backward across month and year boundaries", () => {
+    expect(addIsoDays("2026-06-01", 1)).toBe("2026-06-02");
+    expect(addIsoDays("2026-06-01", -1)).toBe("2026-05-31");
+    expect(addIsoDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addIsoDays("2026-02-28", 1)).toBe("2026-03-01");
+    expect(addIsoDays("2028-02-28", 1)).toBe("2028-02-29"); // leap year
+  });
+
+  it("is a no-op for a zero step", () => {
+    expect(addIsoDays("2026-06-15", 0)).toBe("2026-06-15");
+  });
+
+  it("returns the input unchanged when it cannot be parsed", () => {
+    // The documented guard. Callers only ever pass a sanitizer-validated date,
+    // but a silent Invalid Date would otherwise surface as "NaN-NaN-NaN" in a
+    // stored field rather than failing loudly.
+    expect(addIsoDays("nope", 3)).toBe("nope");
+    expect(addIsoDays("", 1)).toBe("");
+  });
+});
 
 describe("monthWindow", () => {
   it("returns first..last day of the anchor's month", () => {

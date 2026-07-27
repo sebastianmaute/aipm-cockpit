@@ -8,6 +8,53 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.202.3] - 2026-07-27 "Beukes"
+
+An accessibility batch: the findings an a11y review of the 0.202.2 work turned
+up, which were left out of that release as pre-existing or wider than the change.
+
+- **Link pickers are proper comboboxes.** The chip-and-search field used for
+  linked tasks, RAID causes, change links, budget-bucket tasks and knowledge
+  links gave no indication that results had appeared, offered no way in from the
+  keyboard except tabbing through every result, and no way out but deleting what
+  you had typed. Arrow keys now move through the results, Enter adds the
+  highlighted one, and Escape closes the list without disturbing the enclosing
+  editor or what you typed.
+- **Sortable table headers say which way they are sorted.** The direction was
+  conveyed only by an arrow glyph read aloud as part of the button's name;
+  screen readers are now told the column's sort state directly. This covers
+  every table built on the shared sortable header — reports, budget, milestones,
+  resources, Open Points and the meeting series list. The Changes, RAID and
+  Stakeholders registers already announced their sort state; the Activity log
+  still does not.
+- **Calendar meetings can be rescheduled from the keyboard.** Dragging a meeting
+  chip was previously the only way to move it. Alt+Left/Right now stages a
+  day-by-day move, Enter confirms it as a single undoable change, and Escape
+  cancels — matching how absences already work in the grid below.
+- Focus no longer falls to the top of the page when the meeting you had selected
+  moves or is edited; it stays in the meetings band, on whichever meeting now
+  occupies that position.
+- Two meetings with the same title at the same date and time are no longer
+  announced identically.
+- **Escape closes an open dropdown without closing the dialog behind it.**
+  Dismissing a search or person-picker dropdown inside an edit dialog used to
+  close the dialog too, discarding unsaved changes. A second Escape closes the
+  dialog, as before. (Menus and the notes window still close the dialog with
+  them — that is being addressed separately.)
+- In pickers where the chip is not click-through, the remove button now names
+  the item it will unlink, instead of only its reference number.
+- **Purple text meets AA contrast on hover in every theme.** Two separate
+  failures: the RAID "caused this" chips dipped below the minimum when their
+  background darkened on hover, in the Meridian and Umber light themes; and the
+  AI consent notice's policy link dropped below it because its hover faded the
+  text itself. Purple contrast is now calculated against the background this
+  text actually sits on, and the link's hover thickens its underline rather than
+  fading it. A related fade on the Trends delete button was fixed with it.
+- The highlighted row in the global search dropdown is legible in the dark
+  themes. It was marked by tinting the text brand-navy, which on a dark
+  background is all but invisible; the row is now marked by weight and an
+  outline instead — the same cue the new link-picker dropdown uses.
+
 ## [0.202.2] - 2026-07-26 "Beukes"
 
 A second batch of follow-ups from the 0.202.0 calendar overhaul.
