@@ -64,26 +64,30 @@ describe("PopoverPanel", () => {
     expect(esc.defaultPrevented).toBe(true);
   });
 
-  // ★★ Pins the PHASE, structurally. Every other Escape test here dispatches on
-  // `document`, which is an AT-TARGET dispatch where capture and bubble both
-  // fire in plain registration order — so none of them can tell the two apart,
-  // and flipping this flag passed the entire repo. The flag is load-bearing:
-  // `Modal` listens on the same node and, having opened first, wins the bubble
-  // phase and closes the edit modal before this panel can mark the event. The
-  // behavioural proof for the shared hook is popover-in-modal.test.tsx; this
-  // panel cannot be rendered in jsdom (it needs anchor rects), so its half is
-  // pinned on registration instead.
-  it("registers its Escape listener in the capture phase", () => {
-    const add = vi.spyOn(document, "addEventListener");
-    try {
-      render(<Harness />);
-      fireEvent.click(screen.getByText("trigger"));
-      const keydownCalls = add.mock.calls.filter(([type]) => type === "keydown");
-      expect(keydownCalls.length).toBeGreaterThan(0);
-      expect(keydownCalls.some(([, , opts]) => opts === true)).toBe(true);
-    } finally {
-      add.mockRestore();
-    }
+  // ★★ Pins OWNERSHIP, which replaced the phase assertion this test used to
+  // make. The old version asserted `addEventListener("keydown", fn, true)`
+  // because capture was load-bearing: `Modal` listens on the same node and,
+  // having opened first, won the bubble phase. The dismissal stack removed that
+  // premise — ownership is decided by open order now, so the meaningful
+  // invariant is that this panel stands down for a layer opened above it and
+  // takes the key back when that layer closes. Phase is no longer part of the
+  // contract and must not be re-pinned.
+  it("yields Escape to a layer opened above it, and takes it back", async () => {
+    const { pushDismissal, popDismissal } = await import("./dismissal-stack");
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+    fireEvent.click(screen.getByText("trigger"));
+
+    const above = Symbol("layer above");
+    pushDismissal(above, "layer");
+    const shielded = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    document.dispatchEvent(shielded);
+    expect(onClose).not.toHaveBeenCalled();
+
+    popDismissal(above);
+    const own = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    document.dispatchEvent(own);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("declines an Escape a descendant already consumed", () => {
