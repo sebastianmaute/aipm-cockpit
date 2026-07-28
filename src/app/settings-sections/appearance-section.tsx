@@ -17,7 +17,8 @@ import { ColorSchemeEditor } from "../color-scheme-editor";
 import { ThemeGallery } from "../theme-gallery";
 import { BrandingImageInput } from "../branding-image-input";
 import { applySchemeColors, writeActiveSchemeColors } from "../scheme-apply";
-import { mergeAppliedBranding } from "../color-schemes";
+import { mergeAppliedBranding, removeScheme } from "../color-schemes";
+import { deleteSchemeAsync } from "../color-schemes-store";
 import { getTursoConfig } from "../turso-config";
 
 interface AppearanceSectionProps {
@@ -100,7 +101,20 @@ export function AppearanceSection({ lang, settings, onChange, resources = [] }: 
         {config ? (
           <p className="mt-2 text-sm text-muted-foreground">{t(lang, "schemeStoredInDb")}</p>
         ) : null}
-        <ThemeGallery lang={lang} config={config} onImported={(id) => selectScheme(id)} />
+        <ThemeGallery
+          lang={lang}
+          config={config}
+          schemes={store.schemes}
+          activeId={store.activeId}
+          onImported={(id) => { refresh(); selectScheme(id); }}
+          onApply={(id) => selectScheme(id)}
+          onRemove={(id) => {
+            removeScheme(id);
+            void deleteSchemeAsync(config, id);
+            refresh();
+            window.dispatchEvent(new Event("aipm-cockpit-scheme-change"));
+          }}
+        />
       </div>
 
       <div className="mb-4">

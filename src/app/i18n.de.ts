@@ -359,7 +359,6 @@ export const de: Record<TranslationKey, string> = {
   schemeStoredInDb: "Eigene Farbschemata werden in der Projektdatenbank gespeichert und geräteübergreifend geteilt.",
   themeGalleryHeading: "Design-Galerie",
   themeGalleryHint: "Designdatei laden, um sie zur Bibliothek hinzuzufügen, anzuwenden oder anzupassen.",
-  themeGalleryImport: "{0} importieren",
   themeGalleryImportError: "Dieses Design konnte nicht importiert werden.",
   themeGalleryLoadFile: "Designdatei laden…",
   themeGalleryEmpty: "Noch keine Designs in der Bibliothek.",

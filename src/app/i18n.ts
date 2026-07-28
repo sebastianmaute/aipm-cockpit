@@ -355,7 +355,6 @@ const enUS = {
   schemeStoredInDb: "Custom schemes are stored in the project database and shared across your devices.",
   themeGalleryHeading: "Theme gallery",
   themeGalleryHint: "Load a theme file to add it to your library, then apply or customise it.",
-  themeGalleryImport: "Import {0}",
   themeGalleryImportError: "Could not import that theme.",
   themeGalleryLoadFile: "Load theme file…",
   themeGalleryEmpty: "No themes in your library yet.",
