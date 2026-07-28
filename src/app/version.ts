@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.205.0";
-export const APP_BUILD_DATE = "2026-07-28"; // 0.205.0: Field affordances — clear ✕ audit, * wildcard (Griffith)
+export const APP_VERSION = "0.206.0";
+export const APP_BUILD_DATE = "2026-07-28"; // 0.206.0: AI dedup trigger in the Gantt toolbar (Shawl)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.205.x line is "Griffith" (Nicola Griffith, science-fiction author). */
-export const APP_MILESTONE = "Griffith";
+ *  0.206.x line is "Shawl" (Nisi Shawl, science-fiction author). */
+export const APP_MILESTONE = "Shawl";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
