@@ -3,7 +3,7 @@
 // User-facing Timelog integration view: people/project matching tables, KPI
 // tiles, and the apply-to-budget flow. Consumes only pure engines + context —
 // no direct API calls in render; all network happens inside event handlers.
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { t, type Lang } from "./i18n";
 import { useWorkspace } from "./workspace-context";
@@ -13,8 +13,8 @@ import { logDiag } from "./diagnostics";
 import { reportSilentFailure } from "./guard-feedback";
 import { useTimelogSync } from "./use-timelog-sync";
 import { autoMatchUsers, autoMatchProjects, type TimelogProjectRef } from "./timelog-match";
-import { loadPickerScope, savePickerScope } from "./timelog-picker-store";
-import { resolveInitialScope, scopeMismatch, type InitialScopeSource } from "./timelog-initial-scope";
+import { scopeMismatch } from "./timelog-initial-scope";
+import { useTimelogPickerScope } from "./use-timelog-picker-scope";
 import { TimelogProjectScope } from "./timelog-project-scope";
 import { useRowSelection } from "./use-row-selection";
 import { Modal } from "./modal";
@@ -45,26 +45,6 @@ const PEOPLE_COL_WIDTHS = {
   remove: 64,
 } as const;
 type PeopleCol = keyof typeof PEOPLE_COL_WIDTHS;
-
-/** Precedence of each picker-seed source. Higher wins, and the panel only
- *  re-seeds on a STRICTLY higher rank — so a source that arrives late (workspace
- *  `timelogLinks` hydrating after the customer directory) can still override a
- *  weaker earlier seed, while the same source never fires twice. */
-const SCOPE_SOURCE_RANK: Record<InitialScopeSource, number> = {
-  none: 0,
-  auto: 1,
-  links: 2,
-  picker: 3,
-};
-
-/** Wildcard customer-name match: `*` is a wildcard, everything else literal. */
-function customerMatcher(query: string): (name: string) => boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return () => true;
-  const escaped = q.split("*").map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*");
-  const re = new RegExp(escaped, "i");
-  return (name: string) => re.test(name);
-}
 
 export function TimelogPanel({
   lang,
@@ -358,149 +338,35 @@ export function TimelogPanel({
   }
 
   const [includeClosedProjects, setIncludeClosedProjects] = useState(false);
-  const [projectCustomerId, setProjectCustomerId] = useState<number | "">("");
-  // Step 2 of the fetch flow: the customer's projects the user picked. Fetch is
-  // gated on a customer + ≥1 project; the People table is then derived from who
-  // booked on these projects (the directory auto-loads on Fetch to resolve names).
-  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<number>>(new Set());
-  // Wildcard filter (`*`) over the customer's projects — matches name OR number.
-  const [projectFilter, setProjectFilter] = useState("");
-  const filteredProjects = useMemo(() => {
-    const m = customerMatcher(projectFilter);
-    return sync.customerProjects.filter((p) => m(p.name) || (!!p.no && m(p.no)));
-  }, [sync.customerProjects, projectFilter]);
-  // Persist the CURRENT picker selection per device. Distinct from the workspace
-  // `timelogLinks` write in handleFetchBookings, which records the LAST-FETCHED
-  // scope and must not move when the user merely changes the picker.
-  const persistPicker = (customerId: number | "", projectIds: ReadonlySet<number>) => {
-    if (isPopout) return;
-    savePickerScope(projectKey, {
-      customerId: customerId === "" ? undefined : customerId,
-      projectIds: [...projectIds],
-    });
-  };
-  // ★★ These two deliberately compute `next` in the handler body rather than in a
-  // functional updater. `persistPicker` writes localStorage, React 19 StrictMode
-  // double-invokes state updaters, and the react-hooks purity rule the lint
-  // config enforces as fatal bans a side effect inside one.
-  // ★ Reading live `selectedProjectIds` is safe here: these are single user
-  // gestures, not the "N saves in one tick" bulk-edit pattern that makes
-  // functional setters mandatory elsewhere in this codebase.
-  const toggleProject = (id: number) => {
-    const next = new Set(selectedProjectIds);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    setSelectedProjectIds(next);
-    persistPicker(projectCustomerId, next);
-  };
-  // Select-all toggles the CURRENTLY-VISIBLE (filtered) projects, preserving any
-  // selection hidden by the active filter.
-  const toggleAllProjects = () => {
-    const allVisible =
-      filteredProjects.length > 0 && filteredProjects.every((p) => selectedProjectIds.has(p.id));
-    const next = new Set(selectedProjectIds);
-    for (const p of filteredProjects) { if (allVisible) next.delete(p.id); else next.add(p.id); }
-    setSelectedProjectIds(next);
-    persistPicker(projectCustomerId, next);
-  };
-  // A customer change invalidates the project selection (projects belong to a
-  // customer), so clear it in the same beat and persist the cleared pair.
-  const handleCustomerSelect = (next: number | "") => {
-    setUserPicked(true);
-    setProjectCustomerId(next);
-    setSelectedProjectIds(new Set());
-    setProjectFilter("");
-    persistPicker(next, new Set());
-  };
-  // Load the chosen customer's projects into the picker when the customer changes
-  // (pick OR persisted-scope seed). An await-then-setState data load, not a
-  // synchronous state-sync — the set-state-in-effect ban targets the latter.
-  useEffect(() => {
-    if (isPopout || projectCustomerId === "") return;
-    void sync
-      .loadCustomerProjects(Number(projectCustomerId))
-      .catch((e) => reportSilentFailure(showToast, lang, "timelog.customerProjectsFailed", e, "guardTimelogCustomerProjectsFailed"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync fns are re-created each render; key on the customer id only
-  }, [projectCustomerId, isPopout]);
-  const [customerFilter, setCustomerFilter] = useState("");
-  // Wildcard-filtered customer options; keep the current selection present even
-  // when filtered out OR when the customer list isn't loaded yet (persisted
-  // scope) so the <select> value always resolves to a real option.
-  const customerOptions = useMemo(() => {
-    const match = customerMatcher(customerFilter);
-    const list = sync.customers.filter((c) => match(c.name));
-    if (projectCustomerId !== "" && !list.some((c) => c.id === projectCustomerId)) {
-      const selCust = sync.customers.find((c) => c.id === projectCustomerId);
-      return [selCust ?? { id: projectCustomerId, name: String(projectCustomerId) }, ...list];
-    }
-    return list;
-  }, [sync.customers, customerFilter, projectCustomerId]);
-
-  // Seed the customer scope via a render-time reconcile (state-guarded — the
-  // codebase's nonce/last-seen pattern, NOT a ref accessed in render, NOT
-  // set-state-in-effect). `userPicked` distinguishes an explicit pick from an
-  // auto value, so a seed can never override a manual pick.
-  const [userPicked, setUserPicked] = useState(false);
-  // Precedence of the source the picker was last seeded FROM (0 = unseeded).
-  // ★★ A rank rather than a one-shot boolean, because the sources do not all
-  // arrive at once: `links` comes from workspace data and can hydrate AFTER the
-  // customer directory has already driven a name auto-resolve. A boolean would
-  // latch on the auto-resolve and silently drop the higher-precedence links
-  // scope. Monotonic — the same source never re-fires, so this cannot loop.
-  const [seededRank, setSeededRank] = useState(0);
-  // Last-seen projectId: reset the one-shots when the project changes IN PLACE
-  // (no remount) so the picker re-seeds for the new project.
-  const [seenProjectId, setSeenProjectId] = useState(projectId);
-  const projectCustomerName = ws.project?.customer;
+  // The whole customer→project picker (selection, both wildcard filters, the
+  // per-device persistence and the precedence ladder that seeds it) lives in one
+  // deps-object hook; the panel only consumes the resulting values + handlers.
   const syncCustomers = sync.customers;
-  // Read the device picker ONCE per project rather than on every render: the
-  // seeding ladder below can stay armed indefinitely (a project whose customer
-  // name matches nothing never reaches a seedable source), and this read is a
-  // localStorage hit plus a JSON parse plus a whole-map validation. Our own
-  // persistPicker writes are already reflected in state, so re-reading buys
-  // nothing.
-  const pickerScope = useMemo(() => loadPickerScope(projectKey), [projectKey]);
-  // On an in-place project switch, reset and DON'T seed this render: the reset
-  // setStates are queued (not yet visible in this render's `linksSeeded`/
-  // `projectCustomerId` locals), so seeding now would read the OLD project's
-  // stale flags/links. The seed blocks below are gated on `!projectChanged` and
-  // fire on the next render with fresh state.
-  const projectChanged = seenProjectId !== projectId;
-  if (projectChanged) {
-    setSeenProjectId(projectId);
-    setUserPicked(false);
-    setSeededRank(0);
-    setProjectCustomerId("");
-    setCustomerFilter("");
-    setSelectedProjectIds(new Set());
-    setProjectFilter("");
-  }
-  // Seed in precedence order: the per-device picker scope (what was last
-  // SELECTED) beats the workspace links scope (what was last FETCHED), which
-  // beats resolving the project's free-text customer name. An explicit user pick
-  // outranks all three via `userPicked`.
-  //
-  // Re-seeding is allowed only when a STRICTLY higher-precedence source appears
-  // than the one already used, which is what lets late-hydrating links override
-  // an earlier name auto-resolve without ever re-firing on the same source.
-  if (!projectChanged && !userPicked) {
-    const seed = resolveInitialScope({
-      picker: pickerScope,
-      links: { customerId: links.customerId, projectIds: links.projectIds },
-      customers: syncCustomers,
-      customerName: projectCustomerName,
-    });
-    const rank = SCOPE_SOURCE_RANK[seed.source];
-    if (rank > seededRank) {
-      setSeededRank(rank);
-      setProjectCustomerId(seed.customerId);
-      if (seed.projectIds.length > 0) setSelectedProjectIds(new Set(seed.projectIds));
-    }
-  }
-  // Display name of the active scope (for the header note); falls back to the id.
-  const scopedCustomerName =
-    projectCustomerId === ""
-      ? ""
-      : syncCustomers.find((c) => c.id === projectCustomerId)?.name ?? String(projectCustomerId);
+  const {
+    projectCustomerId,
+    selectedProjectIds,
+    projectFilter,
+    setProjectFilter,
+    customerFilter,
+    setCustomerFilter,
+    filteredProjects,
+    customerOptions,
+    toggleProject,
+    toggleAllProjects,
+    handleCustomerSelect,
+    scopedCustomerName,
+  } = useTimelogPickerScope({
+    lang,
+    isPopout,
+    projectKey,
+    projectId,
+    projectCustomerName: ws.project?.customer,
+    links,
+    customers: syncCustomers,
+    customerProjects: sync.customerProjects,
+    loadCustomerProjects: sync.loadCustomerProjects,
+    showToast,
+  });
   async function handleLoadManagedProjects() {
     if (isPopout || sync.busy) return;
     await sync.loadManagedProjects(
