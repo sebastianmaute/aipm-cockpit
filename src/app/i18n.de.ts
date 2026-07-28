@@ -3102,7 +3102,7 @@ export const de: Record<TranslationKey, string> = {
   knowledgeLibraryHeading: "Wissensbibliothek",
   knowledgeLinkedTasks: "Verknüpfte Aufgaben",
   taskUnlink: "Entfernen",
-  taskLinkSearchPlaceholder: "Aufgaben zum Verknüpfen suchen…",
+  taskLinkSearchPlaceholder: "Aufgaben zum Verknüpfen suchen (* Platzhalter)…",
 
   settingsSectionInformationFlows: "Informationsflüsse",
   settingsExpertMode: "Expertenmodus",

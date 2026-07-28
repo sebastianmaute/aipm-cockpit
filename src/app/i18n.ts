@@ -3121,7 +3121,7 @@ const enUS = {
   knowledgeLibraryHeading: "Knowledge library",
   knowledgeLinkedTasks: "Linked tasks",
   taskUnlink: "Unlink",
-  taskLinkSearchPlaceholder: "Search tasks to link…",
+  taskLinkSearchPlaceholder: "Search tasks to link (* wildcard)…",
 
   settingsSectionInformationFlows: "Information flows",
   settingsExpertMode: "Expert mode",

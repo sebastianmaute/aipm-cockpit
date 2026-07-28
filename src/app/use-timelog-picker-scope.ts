@@ -15,6 +15,7 @@ import { type Lang } from "./i18n";
 import { reportSilentFailure } from "./guard-feedback";
 import { loadPickerScope, savePickerScope } from "./timelog-picker-store";
 import { resolveInitialScope, type InitialScopeSource } from "./timelog-initial-scope";
+import { wildcardMatcher } from "./wildcard-match";
 import type { TimelogProjectRef } from "./timelog-match";
 
 /** Precedence of each picker-seed source. Higher wins, and the hook only
@@ -28,13 +29,11 @@ const SCOPE_SOURCE_RANK: Record<InitialScopeSource, number> = {
   picker: 3,
 };
 
-/** Wildcard customer-name match: `*` is a wildcard, everything else literal. */
+/** Wildcard customer-name match: `*` is a wildcard, everything else literal.
+ *  Thin alias kept for its call sites; the logic lives in the shared matcher so
+ *  the chip pickers and this filter cannot drift. */
 export function customerMatcher(query: string): (name: string) => boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return () => true;
-  const escaped = q.split("*").map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*");
-  const re = new RegExp(escaped, "i");
-  return (name: string) => re.test(name);
+  return wildcardMatcher(query);
 }
 
 export interface TimelogCustomerRef {
