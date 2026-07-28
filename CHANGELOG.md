@@ -8,6 +8,33 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.205.0] - 2026-07-28 "Griffith"
+
+Every search and filter field in the app now clears the same way, and linked-task
+search understands a wildcard.
+
+- **One click clears any search or filter field.** The clear ✕ that shipped for
+  the report tables and the Time-bookings scope filters reaches 15 more fields:
+  Open Points, changes, milestones, RAID, stakeholders, activity log,
+  diagnostics, Gantt, global search, Help (both the window and the page), the
+  Jira user search, Knowledge documents, RACI, the resource directory, the
+  SharePoint picker, the linked-entity pickers and the Time-bookings people
+  filter. Clearing now returns the cursor to the field it cleared, on every one
+  of them — previously the button vanished under your own click and left the
+  keyboard with nowhere to go.
+- **Linked-task search accepts a `*` wildcard**, matching the Time-bookings
+  scope filters: `api*docs` finds "Review the API docs". Applies to linked tasks
+  in changes, RAID, Knowledge and budget buckets, and to RAID "caused by". A
+  query without a `*` behaves exactly as before.
+- **Fixed:** the Knowledge linked-tasks picker collapsed to a few characters
+  wide in the add-link row, and its library cards packed three-up too early for
+  their chips to be readable.
+- **Accessibility:** the Jira user search and the SharePoint site search had no
+  accessible name at all (a placeholder is not one), and the floating Help
+  window's search shared its name with the Help page's — so a screen reader
+  announced two different fields identically when both were open. All three now
+  announce distinctly.
+
 ## [0.204.0] - 2026-07-28 "Benford"
 
 Time bookings remembers what you picked, and both of its filters can now be

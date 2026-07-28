@@ -79,7 +79,7 @@ const mockUseTaskForm = useTaskForm as ReturnType<typeof vi.fn>;
 const mockUseSettings = useSettings as ReturnType<typeof vi.fn>;
 const mockUseHolidaySet = useHolidaySet as ReturnType<typeof vi.fn>;
 
-function stubFilters() {
+function stubFilters(over: Record<string, unknown> = {}) {
   mockUseFilters.mockReturnValue({
     search: "", setSearch: vi.fn(),
     searchDebounced: "",
@@ -93,6 +93,7 @@ function stubFilters() {
     setSortKey: vi.fn(), setSortDir: vi.fn(),
     raidFilterTaskId: null, setRaidFilterTaskId: vi.fn(),
     resetFilters: vi.fn(),
+    ...over,
   });
 }
 
@@ -832,6 +833,28 @@ describe("TasksSection", () => {
       "title",
       t("en-US", "tasksSearchHint")
     );
+  });
+
+  // ★ `search` is stubbed NON-empty on purpose: the field is controlled, so a
+  //   test that types into it and asserts the value is back to "" passes
+  //   whether or not anything clears — and with the default `search: ""` stub
+  //   the ✕ never renders at all. The spy call is the only real assertion.
+  it("clears the task search from a labelled button", () => {
+    const setSearch = vi.fn();
+    stubFilters({ search: "spec", setSearch });
+    const task = { id: 1, taskName: "T1" };
+    stubWorkspace([task], [task]);
+    render(<TasksSection {...makeProps()} />);
+    const field = screen.getByLabelText(
+      t("en-US", "searchPlaceholder"),
+    ) as HTMLInputElement;
+    expect(field.value).toBe("spec");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "clear")} – ${t("en-US", "searchPlaceholder")}`,
+      }),
+    );
+    expect(setSearch).toHaveBeenCalledWith("");
   });
 
   it("shows the Push-to-Outlook button when M365 is configured and task calendar sync is enabled", () => {

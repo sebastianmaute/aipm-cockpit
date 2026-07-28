@@ -35,6 +35,7 @@ import { DataTable } from "./data-table";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 import { Input } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { useConfirm } from "./confirm-dialog";
 
 const ACTIVITY_LOG_COL_WIDTHS = {
@@ -194,18 +195,27 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       </header>
 
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
+        {/* The sizing + `relative` stay on THIS div, which also anchors the
+            absolute invalid-regex hint below the field; the ClearableSearchInput
+            wrapper nests inside and takes no className of its own. */}
         <div className="relative min-w-[14rem] flex-1">
-          <Input
-            type="search"
-            size="xs"
-            invalid={!!matcher?.invalid}
+          <ClearableSearchInput
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t(lang, "activitySearchPlaceholder")}
-            aria-label={t(lang, "activitySearchPlaceholder")}
-            title={t(lang, "activitySearchHint")}
-            className="w-full"
-          />
+            onClear={() => setSearchQuery("")}
+            clearLabel={`${t(lang, "clear")} – ${t(lang, "activitySearchPlaceholder")}`}
+          >
+            <Input
+              type="search"
+              size="xs"
+              invalid={!!matcher?.invalid}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t(lang, "activitySearchPlaceholder")}
+              aria-label={t(lang, "activitySearchPlaceholder")}
+              title={t(lang, "activitySearchHint")}
+              className={`w-full [&::-webkit-search-cancel-button]:appearance-none${searchQuery ? " pr-8" : ""}`}
+            />
+          </ClearableSearchInput>
           {matcher?.invalid && (
             <span className="absolute -bottom-4 left-1 text-[10px] text-ui-pink-strong">
               {t(lang, "activitySearchInvalidRegex")}

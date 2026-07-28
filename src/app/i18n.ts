@@ -2997,6 +2997,7 @@ const enUS = {
   versionHighlightStakeholderReport: "Stakeholder report + a click-matrix for influence/interest",
 
   helpSearchPlaceholder: "Search help",
+  helpSearchPanelLabel: "Search help (window)",
   helpNoResults: "No help topics match your search.",
   helpGroupConcepts: "Concepts",
   helpGroupWorkflows: "Workflows",
@@ -3121,7 +3122,7 @@ const enUS = {
   knowledgeLibraryHeading: "Knowledge library",
   knowledgeLinkedTasks: "Linked tasks",
   taskUnlink: "Unlink",
-  taskLinkSearchPlaceholder: "Search tasks to link…",
+  taskLinkSearchPlaceholder: "Search tasks to link (* wildcard)…",
 
   settingsSectionInformationFlows: "Information flows",
   settingsExpertMode: "Expert mode",

@@ -9,6 +9,7 @@ import { EmptyState } from "./empty-state";
 import { DataTable } from "./data-table";
 import { reportSilentFailure } from "./guard-feedback";
 import { Input } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { INTERACTIVE } from "./interaction-styles";
 import { useToastContext } from "./toast-context";
 
@@ -107,15 +108,23 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
                 {labelFor(lv)}
               </label>
             ))}
-            <Input
-              type="text"
-              size="xs"
+            <ClearableSearchInput
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t(lang, "diagnosticsSearchCode")}
-              aria-label={t(lang, "diagnosticsSearchCode")}
+              onClear={() => setQuery("")}
+              clearLabel={`${t(lang, "clear")} – ${t(lang, "diagnosticsSearchCode")}`}
               className="min-w-0 flex-1"
-            />
+            >
+              {/* type="text" draws no native ✕, so no appearance-none needed. */}
+              <Input
+                type="text"
+                size="xs"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t(lang, "diagnosticsSearchCode")}
+                aria-label={t(lang, "diagnosticsSearchCode")}
+                className={`w-full${query ? " pr-8" : ""}`}
+              />
+            </ClearableSearchInput>
           </div>
           {shown.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t(lang, "diagnosticsNoMatch")}</p>

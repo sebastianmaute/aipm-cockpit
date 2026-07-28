@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { RaciPanel } from "./raci-panel";
 import type { Stakeholder, Milestone } from "./types";
 
@@ -57,6 +58,20 @@ describe("RaciPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /clear filter/i }));
     expect(screen.getByRole("columnheader", { name: "Sam" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Lee" })).toBeInTheDocument();
+  });
+
+  // The add field auto-adds on an exact-label onChange match, so the ✕ must go
+  // through the state setter and NOT re-enter that handler.
+  it("clears the add field without adding anyone", async () => {
+    render(<RaciPanel lang="en-US" stakeholders={stakeholders} milestones={milestones} onSave={vi.fn()} />);
+    const field = screen.getByLabelText("Filter people…") as HTMLInputElement;
+    await userEvent.type(field, "Ann");
+    await userEvent.click(screen.getByRole("button", { name: "Clear – Filter people…" }));
+    // ★ Headline claim FIRST: a weaker assertion placed ahead of it becomes the
+    //   reported failure and the real claim never runs. One chip = one added
+    //   person, so zero remove-buttons means nobody was added.
+    expect(screen.queryAllByRole("button", { name: /from filter/i })).toHaveLength(0);
+    expect(field.value).toBe("");
   });
 
   it("disambiguates duplicate stakeholder names with (#id) so the second is selectable", () => {

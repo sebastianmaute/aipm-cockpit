@@ -8,6 +8,7 @@
 import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Button } from "./button";
+import { ClearableSearchInput } from "./clearable-search-input";
 
 /** The wrapping toolbar row: a wrapping flex line above a pane's data area.
  *  `print:hidden` by default (toolbars don't print); pass `className` to tweak
@@ -29,6 +30,11 @@ export interface PaneSearchInputProps
   onChange: (value: string) => void;
   /** Accessible name (also used as placeholder unless `placeholder` given). */
   ariaLabel: string;
+  /** Already-translated accessible name for the clear button. REQUIRED and
+   *  qualified by the caller (`${t(lang,"clear")} – ${ariaLabel}`): four panels
+   *  render this atom and a bare "Clear" would announce identically on any
+   *  view showing two of them. axe cannot see duplicate names. */
+  clearLabel: string;
   placeholder?: string;
   /** Minimum-width utility (panels vary: `min-w-[12rem]` default, `min-w-[10rem]`, …). */
   minW?: string;
@@ -39,21 +45,36 @@ export function PaneSearchInput({
   value,
   onChange,
   ariaLabel,
+  clearLabel,
   placeholder,
   minW = "min-w-[12rem]",
   className,
   ...props
 }: PaneSearchInputProps) {
   return (
-    <input
-      type="search"
+    // ★ The flex sizing moves to the wrapper because the wrapper is now the
+    //   flex child of the toolbar row; the input fills it.
+    <ClearableSearchInput
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder ?? ariaLabel}
-      aria-label={ariaLabel}
-      className={`${minW} flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION}${className ? ` ${className}` : ""}`}
-      {...props}
-    />
+      onClear={() => onChange("")}
+      clearLabel={clearLabel}
+      className={`${minW} flex-1`}
+    >
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder ?? ariaLabel}
+        aria-label={ariaLabel}
+        // pr-8 ONLY while the ✕ is rendered (the TableFilter precedent): it
+        // reserves room for the overlaid button, so applying it unconditionally
+        // would shave ~2rem off the visible placeholder in the (common) empty
+        // state — worst on the `min-w-[10rem]` milestones field. Empty-state
+        // padding therefore stays exactly the pre-clear `px-2.5 py-1.5`.
+        className={`w-full rounded-md border border-line bg-surface py-1.5 pl-2.5 ${value ? "pr-8" : "pr-2.5"} text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none [&::-webkit-search-cancel-button]:appearance-none ${FOCUS_RING} ${TRANSITION}${className ? ` ${className}` : ""}`}
+        {...props}
+      />
+    </ClearableSearchInput>
   );
 }
 

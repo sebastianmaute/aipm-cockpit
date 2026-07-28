@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { Input } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { DataTable } from "./data-table";
 import { RaciAccountableWarning } from "./raci-accountable-warning";
 import { VIEW_PANE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -140,31 +141,40 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, showHints, i
           Print/Reset stay top-right. */}
       <div className="mb-2 flex shrink-0 flex-wrap items-start gap-2 print:hidden">
         <div className="flex flex-1 flex-wrap items-center gap-2">
-          <Input
-            type="text"
-            size="xs"
+          {/* ★ onClear hits the setter DIRECTLY, never the onChange above —
+              routing it through onChange would re-run the auto-add match. */}
+          <ClearableSearchInput
             value={filterInput}
-            onChange={(e) => {
-              const v = e.target.value;
-              setFilterInput(v);
-              // Picking a datalist option fires change with the full (possibly
-              // disambiguated) label → add it.
-              const needle = v.trim().toLowerCase();
-              if (stakeholders.some((s) => labelFor(s).toLowerCase() === needle || s.name.trim().toLowerCase() === needle)) {
-                addPerson(v);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addPerson(filterInput);
-              }
-            }}
-            list="raci-filter-people"
-            aria-label={t(lang, "raciFilterAdd")}
-            placeholder={t(lang, "raciFilterAdd")}
+            onClear={() => setFilterInput("")}
+            clearLabel={`${t(lang, "clear")} – ${t(lang, "raciFilterAdd")}`}
             className="w-48"
-          />
+          >
+            <Input
+              type="text"
+              size="xs"
+              value={filterInput}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFilterInput(v);
+                // Picking a datalist option fires change with the full (possibly
+                // disambiguated) label → add it.
+                const needle = v.trim().toLowerCase();
+                if (stakeholders.some((s) => labelFor(s).toLowerCase() === needle || s.name.trim().toLowerCase() === needle)) {
+                  addPerson(v);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addPerson(filterInput);
+                }
+              }}
+              list="raci-filter-people"
+              aria-label={t(lang, "raciFilterAdd")}
+              placeholder={t(lang, "raciFilterAdd")}
+              className={`w-full${filterInput ? " pr-8" : ""}`}
+            />
+          </ClearableSearchInput>
           <datalist id="raci-filter-people">
             {stakeholders
               .filter((s) => !filtered.has(s.id))

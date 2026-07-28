@@ -111,6 +111,7 @@ export function RaidCausedByField({
           // Was a placeholder alone — which is not an accessible name, so the
           // search box had none. Named now.
           searchLabel={t(lang, "raidCausedBy")}
+          clearLabel={`${t(lang, "clear")} – ${t(lang, "raidCausedBy")}`}
           placeholder={t(lang, "raidCausedByPlaceholder")}
           removeLabel={t(lang, "raidCausedByClear")}
           inputSize="md"

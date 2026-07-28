@@ -32,6 +32,7 @@ import { Tile } from "./report-table";
 import { useResizable } from "./use-resizable";
 import { useColumnResize } from "./use-column-resize";
 import { Input } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
 
@@ -590,16 +591,25 @@ export function TimelogPanel({
           <p className="text-sm text-muted-foreground">{t(lang, "timelogMatchNone")}</p>
         ) : (
           <>
-            {/* Narrow the loaded directory before ticking who to fetch bookings for. */}
-            <Input
-              type="search"
-              size="xs"
+            {/* Narrow the loaded directory before ticking who to fetch bookings for.
+                The wrapper is the element in the flow now, so the layout +
+                print classes ride it, not the field. */}
+            <ClearableSearchInput
               value={peopleFilter}
-              onChange={(e) => setPeopleFilter(e.target.value)}
-              placeholder={t(lang, "timelogPeopleFilter")}
-              aria-label={t(lang, "timelogPeopleFilter")}
-              className="mb-2 w-full print:hidden"
-            />
+              onClear={() => setPeopleFilter("")}
+              clearLabel={`${t(lang, "clear")} – ${t(lang, "timelogPeopleFilter")}`}
+              className="mb-2 print:hidden"
+            >
+              <Input
+                type="search"
+                size="xs"
+                value={peopleFilter}
+                onChange={(e) => setPeopleFilter(e.target.value)}
+                placeholder={t(lang, "timelogPeopleFilter")}
+                aria-label={t(lang, "timelogPeopleFilter")}
+                className={`w-full [&::-webkit-search-cancel-button]:appearance-none${peopleFilter ? " pr-8" : ""}`}
+              />
+            </ClearableSearchInput>
             {/* Bulk-remove bar — self-hides at zero selection */}
             {sel.count > 0 && !isPopout && (
               <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface-muted px-3 py-1.5 print:hidden">

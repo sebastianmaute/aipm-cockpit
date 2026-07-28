@@ -6,6 +6,7 @@ import { BoltIcon, EllipsisVerticalIcon, FlagIcon, MapPinIcon } from "@heroicons
 import { type Lang, t } from "./i18n";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
 import { Input, Select } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { INTERACTIVE } from "./interaction-styles";
 import { AddButton } from "./pane-toolbar";
 import { PrintButton, ResetColWidthsIcon, ResetSizeButton } from "./task-manager-ui";
@@ -97,16 +98,25 @@ export function GanttToolbar({
           + {t(lang, "ganttAddMilestone")}
         </AddButton>
       )}
-      <Input
-        type="search"
-        size="xs"
+      {/* Stays AFTER the add buttons: a source-order test in gantt.test.tsx
+          pins `onClick={onAddTask}` ahead of this file's `type="search"`. */}
+      <ClearableSearchInput
         value={prefs.search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder={t(lang, "searchPlaceholder")}
-        aria-label={t(lang, "searchPlaceholder")}
-        title={t(lang, "ganttSearchHint")}
+        onClear={() => setSearch("")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "searchPlaceholder")}`}
         className="min-w-[12rem] flex-1"
-      />
+      >
+        <Input
+          type="search"
+          size="xs"
+          value={prefs.search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t(lang, "searchPlaceholder")}
+          aria-label={t(lang, "searchPlaceholder")}
+          title={t(lang, "ganttSearchHint")}
+          className={`w-full [&::-webkit-search-cancel-button]:appearance-none${prefs.search ? " pr-8" : ""}`}
+        />
+      </ClearableSearchInput>
       <FilterMultiSelect
         lang={lang}
         label={t(lang, "ganttFilterStatus")}

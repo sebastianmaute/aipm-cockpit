@@ -78,3 +78,14 @@ describe("HelpView (grouped)", () => {
     expect(screen.getByRole("button", { name: /managing risks/i })).toBeInTheDocument();
   });
 });
+
+describe("HelpView search clear", () => {
+  it("clears the in-pane search field from the overlaid X", () => {
+    render(<HelpView lang="en-US" />);
+    const field = screen.getByLabelText("Search help") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "milestone" } });
+    expect(field.value).toBe("milestone");
+    fireEvent.click(screen.getByRole("button", { name: "Clear – Search help" }));
+    expect(field.value).toBe("");
+  });
+});

@@ -1,8 +1,11 @@
 // Pure i18n-free helper for the edit-modal chip pickers (linked tasks / linked
 // RAID / caused-by). Every picker filtered its option list the same way:
-// drop already-selected ids, then match a query against the id OR a text field,
-// then cap the list. Single-sourced here so the four useMemo blocks in
-// change-edit-modal / raid-edit-modal can't drift.
+// drop already-selected ids, then match a query against the id OR a text field
+// (`*` accepted as a wildcard — see `wildcard-match.ts`), then cap the list.
+// Single-sourced here so the four useMemo blocks in change-edit-modal /
+// raid-edit-modal can't drift.
+
+import { wildcardMatcher } from "./wildcard-match";
 
 export interface PickerFilterOptions<T> {
   /** Raw search box text (trimmed + lowercased internally). */
@@ -23,13 +26,16 @@ export function filterPickerOptions<T>(
 ): T[] {
   const { query, excludeIds, getId, getText, extraFilter, limit = 20 } = opts;
   const q = query.trim().toLowerCase();
+  // Built once per call — a matcher per item would recompile the RegExp for
+  // every row on every keystroke.
+  const matches = wildcardMatcher(q);
   return items
     .filter((item) => !excludeIds.has(getId(item)))
     .filter((item) => (extraFilter ? extraFilter(item) : true))
     .filter((item) => {
       if (!q) return true;
       if (String(getId(item)) === q) return true;
-      return getText(item).toLowerCase().includes(q);
+      return matches(getText(item));
     })
     .slice(0, limit);
 }

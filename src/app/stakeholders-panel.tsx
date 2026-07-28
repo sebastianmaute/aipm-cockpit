@@ -277,17 +277,12 @@ function StakeholdersPanelBody({
         value={search}
         onChange={pf.setSearch}
         ariaLabel={t(lang, "stakeholderFieldName")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "stakeholderFieldName")}`}
       />
-      {search && (
-        <button
-          type="button"
-          onClick={() => pf.setSearch("")}
-          aria-label={t(lang, "clear")}
-          className={`rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-        >
-          ×
-        </button>
-      )}
+      {/* ★ The atom now overlays its own ✕, so the former sibling clear button
+          was removed: two clears for one field is exactly what the shared
+          ClearableSearchInput exists to avoid, and its bare "Clear" name would
+          also collide with the qualified one. */}
       <ColumnConfigPopover lang={lang} cols={STAKEHOLDER_CONFIG_COLS} hidden={hiddenSet} onToggle={pf.toggleColumn} />
       <PanelViewsControl lang={lang} view="stakeholders" />
       <PrintButton lang={lang} />

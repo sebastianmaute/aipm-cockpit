@@ -6,6 +6,7 @@ import { HELP_ENTRIES } from "./help-content";
 import { type AppView } from "./nav-config";
 import { buildRelationsGraph } from "./relations-graph";
 import { HelpContentPane, helpSectionId } from "./help-content-pane";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { RelationsMap } from "./relations-map";
 import { TourCatalog } from "./tour-catalog";
 import { InformationFlowsSection } from "./settings-sections/information-flows-section";
@@ -124,14 +125,21 @@ export function HelpView({
           })}
         </div>
         {activeTab === "help" && (
-          <input
-            type="search"
+          <ClearableSearchInput
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t(lang, "helpSearchPlaceholder")}
-            aria-label={t(lang, "helpSearchPlaceholder")}
-            className={`min-w-[12rem] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground print:hidden ${FOCUS_RING} ${TRANSITION}`}
-          />
+            onClear={() => setQuery("")}
+            clearLabel={`${t(lang, "clear")} – ${t(lang, "helpSearchPlaceholder")}`}
+            className="min-w-[12rem] flex-1 print:hidden"
+          >
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t(lang, "helpSearchPlaceholder")}
+              aria-label={t(lang, "helpSearchPlaceholder")}
+              className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none ${FOCUS_RING} ${TRANSITION}${query ? " pr-8" : ""}`}
+            />
+          </ClearableSearchInput>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-2 print:hidden">
           <PrintButton lang={lang} />

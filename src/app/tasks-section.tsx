@@ -44,8 +44,8 @@ import { ActionChips, chipsForView } from "./action-chips";
 import { ViewCallout } from "./view-callout";
 import { SavedViewsControl } from "./saved-views-control";
 import { INTERACTIVE } from "./interaction-styles";
-import { Input, Select } from "./form-controls";
-import { AddButton } from "./pane-toolbar";
+import { Select } from "./form-controls";
+import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import type { SuggestedAction } from "./next-actions/types";
 import {
@@ -626,15 +626,12 @@ export function TasksSection({
             onAddLane={addLane}
           />
         )}
-        <Input
-          type="search"
-          size="xs"
+        <PaneSearchInput
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t(lang, "searchPlaceholder")}
-          aria-label={t(lang, "searchPlaceholder")}
+          onChange={setSearch}
+          ariaLabel={t(lang, "searchPlaceholder")}
+          clearLabel={`${t(lang, "clear")} – ${t(lang, "searchPlaceholder")}`}
           title={t(lang, "tasksSearchHint")}
-          className="min-w-[12rem] flex-1"
         />
         <Select
           size="xs"

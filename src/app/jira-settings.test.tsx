@@ -244,3 +244,37 @@ describe("JiraSettingsSection — extra projects block", () => {
     );
   });
 });
+
+describe("JiraSettingsSection — user-search field", () => {
+  // The field only renders for assigneeMode "specific" WITH a projectKey set.
+  const specificConfig: JiraConfig = {
+    ...defaultJiraConfig,
+    enabled: true,
+    siteUrl: "https://acme.atlassian.net",
+    email: "pm@acme.com",
+    apiToken: "ATATT-token",
+    projectKey: "LOP",
+    projectName: "LOP",
+    assigneeMode: "specific",
+  };
+
+  it("gives the user-search field an accessible name and a clear button", () => {
+    render(
+      <JiraSettingsSection
+        lang="en-US"
+        config={specificConfig}
+        onChange={vi.fn()}
+        alwaysOpen
+      />,
+    );
+    // The placeholder was this field's ONLY text, and a placeholder is not an
+    // accessible name — the missing name is the headline claim here.
+    const field = screen.getByLabelText("Type to search users…") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "ada" } });
+    expect(field.value).toBe("ada");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear – Type to search users…" }),
+    );
+    expect(field.value).toBe("");
+  });
+});

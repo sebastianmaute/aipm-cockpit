@@ -14,24 +14,63 @@ describe("PaneToolbar", () => {
 });
 
 describe("PaneSearchInput", () => {
-  test("is a search input named by ariaLabel with a flex-1 default width", () => {
-    render(<PaneSearchInput value="" onChange={() => {}} ariaLabel="Search changes" />);
+  test("is a search input named by ariaLabel, with the flex width on its wrapper", () => {
+    const { container } = render(
+      <PaneSearchInput value="" onChange={() => {}} ariaLabel="Search changes" clearLabel="Clear – Search changes" />,
+    );
     const input = screen.getByRole("searchbox", { name: "Search changes" });
     expect(input).toHaveAttribute("placeholder", "Search changes");
-    expect(input.className).toContain("flex-1");
-    expect(input.className).toContain("min-w-[12rem]");
+    expect(input.className).toContain("w-full");
+    // Empty: no ✕ is rendered, so no room is reserved for one and the padding
+    // stays what it was before the clear existed.
+    expect(input.className).toContain("pr-2.5");
+    expect(input.className).not.toContain("pr-8");
+    // The clear button is overlaid, so the flex sizing lives on the wrapper.
+    const wrapper = container.firstChild as HTMLElement;
+    expect(wrapper.className).toContain("flex-1");
+    expect(wrapper.className).toContain("min-w-[12rem]");
   });
 
   test("emits the raw value on change and honours minW/placeholder overrides", async () => {
     const onChange = vi.fn();
-    render(
-      <PaneSearchInput value="" onChange={onChange} ariaLabel="Find" placeholder="Type…" minW="min-w-[10rem]" />,
+    const { container } = render(
+      <PaneSearchInput
+        value=""
+        onChange={onChange}
+        ariaLabel="Find"
+        clearLabel="Clear – Find"
+        placeholder="Type…"
+        minW="min-w-[10rem]"
+      />,
     );
     const input = screen.getByRole("searchbox", { name: "Find" });
     expect(input).toHaveAttribute("placeholder", "Type…");
-    expect(input.className).toContain("min-w-[10rem]");
+    expect((container.firstChild as HTMLElement).className).toContain("min-w-[10rem]");
     await userEvent.type(input, "ab");
     expect(onChange).toHaveBeenLastCalledWith("b");
+  });
+
+  test("forwards native input props (title)", () => {
+    render(
+      <PaneSearchInput value="" onChange={() => {}} ariaLabel="Find" clearLabel="Clear – Find" title="Search hint" />,
+    );
+    expect(screen.getByRole("searchbox", { name: "Find" })).toHaveAttribute("title", "Search hint");
+  });
+
+  test("clears the value from a labelled button once non-empty", async () => {
+    const onChange = vi.fn();
+    render(
+      <PaneSearchInput value="risk" onChange={onChange} ariaLabel="Find" clearLabel="Clear – Find" />,
+    );
+    // Non-empty: the field reserves room so its text can't run under the ✕.
+    expect(screen.getByRole("searchbox", { name: "Find" }).className).toContain("pr-8");
+    await userEvent.click(screen.getByRole("button", { name: "Clear – Find" }));
+    expect(onChange).toHaveBeenCalledWith("");
+  });
+
+  test("renders no clear button while empty", () => {
+    render(<PaneSearchInput value="" onChange={() => {}} ariaLabel="Find" clearLabel="Clear – Find" />);
+    expect(screen.queryByRole("button", { name: "Clear – Find" })).toBeNull();
   });
 });
 

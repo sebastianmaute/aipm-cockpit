@@ -6,6 +6,7 @@ import { FieldNotice } from "./field-feedback";
 import { fieldClass } from "./form-controls";
 import { TextButton } from "./text-button";
 import { InfoTooltip } from "./info-tooltip";
+import { ClearableSearchInput } from "./clearable-search-input";
 import {
   type JiraIssueType,
   type JiraProject,
@@ -568,13 +569,23 @@ export function JiraSettingsSection({
 
               {config.assigneeMode === "specific" && config.projectKey && (
                 <div className="mt-2 space-y-2">
-                  <input
-                    type="text"
+                  <ClearableSearchInput
                     value={userQuery}
-                    onChange={(e) => setUserQuery(e.target.value)}
-                    placeholder={t(lang, "jiraUserSearch")}
-                    className={inputClass}
-                  />
+                    onClear={() => setUserQuery("")}
+                    clearLabel={`${t(lang, "clear")} – ${t(lang, "jiraUserSearch")}`}
+                  >
+                    <input
+                      type="text"
+                      value={userQuery}
+                      onChange={(e) => setUserQuery(e.target.value)}
+                      placeholder={t(lang, "jiraUserSearch")}
+                      // ★ A placeholder is NOT an accessible name; this field
+                      //   had nothing else, and Jira settings sit outside the
+                      //   axe gate's scanned views, so nothing caught it.
+                      aria-label={t(lang, "jiraUserSearch")}
+                      className={`${inputClass}${userQuery ? " pr-8" : ""}`}
+                    />
+                  </ClearableSearchInput>
                   {config.assigneeDisplayName && (
                     <p className="text-xs text-foreground">
                       ✓{" "}

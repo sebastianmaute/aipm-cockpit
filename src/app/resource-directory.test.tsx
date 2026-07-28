@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -216,5 +217,21 @@ describe("ResourceDirectory", () => {
     expect(toggle).toHaveAttribute("aria-pressed", "true");
     expect(localStorage.getItem("aipm-cockpit:directory-hide-external")).toBe("true");
     localStorage.removeItem("aipm-cockpit:directory-hide-external");
+  });
+
+  it("clears the search box from a labelled button", async () => {
+    const user = userEvent.setup();
+    render(<ResourceDirectory {...common} resources={rs} />);
+    const field = screen.getByRole("searchbox", {
+      name: t("en-US", "directorySearchPlaceholder"),
+    }) as HTMLInputElement;
+    await user.type(field, "jira");
+    expect(field.value).toBe("jira");
+    await user.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "clear")} – ${t("en-US", "directorySearchPlaceholder")}`,
+      }),
+    );
+    expect(field.value).toBe("");
   });
 });

@@ -18,6 +18,7 @@
 // that would close a cycle). Nothing here knows what a task or a RAID item is.
 import { useId, useRef, useState } from "react";
 import { Input } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { INTERACTIVE } from "./interaction-styles";
 
 /** One selectable/selected entity, flattened to what the picker renders. */
@@ -52,6 +53,12 @@ interface EntityLinkPickerProps {
    *  N remove buttons in a list get row-UNIQUE names (WCAG 2.4.6) instead of N
    *  identical ones. `title` keeps the short unsuffixed wording. */
   removeLabel: string;
+  /** Already-translated accessible name for the query box's clear button.
+   *  Callers QUALIFY it (e.g. "Clear – Linked tasks – <card name>") because
+   *  several pickers can render on one surface, and N identical "Clear" names
+   *  is a WCAG 2.4.6 failure — the same reason `removeLabel` gets the chip's
+   *  `code` appended. */
+  clearLabel: string;
   /** Makes each chip's body a button that navigates to that entity. Omit and
    *  the chip body is inert text — there is nowhere to go. */
   onOpen?: (id: number) => void;
@@ -69,6 +76,7 @@ export function EntityLinkPicker({
   searchLabel,
   placeholder,
   removeLabel,
+  clearLabel,
   onOpen,
   inputSize = "xs",
 }: EntityLinkPickerProps) {
@@ -113,9 +121,14 @@ export function EntityLinkPicker({
     // than the updater's `h` — `move` is only ever called from onKeyDown, where
     // the clamped `active` is already current for this render.
     const cur = active;
-    const next = delta === 1
-      ? cur + 1 >= options.length ? 0 : cur + 1
-      : cur <= 0 ? options.length - 1 : cur - 1;
+    const next =
+      delta === 1
+        ? cur + 1 >= options.length
+          ? 0
+          : cur + 1
+        : cur <= 0
+          ? options.length - 1
+          : cur - 1;
     setHighlight(next);
     // ★ The list is `max-h-60 overflow-auto` (~8 rows) and the keyboard path is
     // aria-activedescendant, which browsers do NOT auto-scroll — focus never
@@ -205,14 +218,16 @@ export function EntityLinkPicker({
                     of its own: it means "jump to this", which is exactly the
                     affordance onOpen adds. aria-hidden — the chip's own text
                     already names the target. */}
-                <span aria-hidden="true" className="font-mono">↩</span>
+                <span aria-hidden="true" className="font-mono">
+                  ↩
+                </span>
                 <span className="font-mono">{entry.code}</span>
-                <span className="max-w-[220px] truncate">{entry.label}</span>
+                <span className="max-w-full truncate">{entry.label}</span>
               </button>
             ) : (
               <>
                 <span className="font-mono">{entry.code}</span>
-                <span className="max-w-[220px] truncate">{entry.label}</span>
+                <span className="max-w-full truncate">{entry.label}</span>
               </>
             )}
             <button
@@ -224,7 +239,11 @@ export function EntityLinkPicker({
               // the chip's own label is unreachable. The click-through branch
               // already names the entity on the chip body, so it only needs the
               // code here (row-uniqueness) and stays terse.
-              aria-label={onOpen ? `${removeLabel} ${entry.code}` : `${removeLabel} ${entry.code} ${entry.label}`}
+              aria-label={
+                onOpen
+                  ? `${removeLabel} ${entry.code}`
+                  : `${removeLabel} ${entry.code} ${entry.label}`
+              }
               // Visible tooltip stays short in both branches.
               title={removeLabel}
               className={`text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
@@ -235,29 +254,44 @@ export function EntityLinkPicker({
         ))}
       </div>
       <div className="relative">
-        <Input
-          type="text"
-          role="combobox"
+        {/* Wrapped INSIDE this `relative` div, not around it: the listbox below
+            is positioned against this same box, so wrapping outside would put
+            the ✕ over the option list instead of over the field. */}
+        <ClearableSearchInput
           value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          // ★ onCLICK, deliberately not onFocus. Escape must STICK: with an
-          // onFocus reopen, tabbing away to fix something and Shift+Tabbing back
-          // reopens the list over the rest of the form, and the only way to shut
-          // it again is deleting the query — the dead end this release exists to
-          // remove. A click is a deliberate return to the field; a focus event
-          // is not. ArrowDown/Up also reopen (the APG affordance), so a keyboard
-          // user is never stuck either.
-          onClick={() => setDismissed(false)}
-          onKeyDown={onKeyDown}
-          aria-label={searchLabel}
-          aria-expanded={open}
-          aria-controls={open ? listId : undefined}
-          aria-activedescendant={open && active >= 0 ? `${listId}-opt-${active}` : undefined}
-          aria-autocomplete="list"
-          placeholder={placeholder}
-          size={inputSize}
-          className="w-full"
-        />
+          onClear={() => onQueryChange("")}
+          clearLabel={clearLabel}
+        >
+          <Input
+            type="text"
+            role="combobox"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            // ★ onCLICK, deliberately not onFocus. Escape must STICK: with an
+            // onFocus reopen, tabbing away to fix something and Shift+Tabbing back
+            // reopens the list over the rest of the form, and the only way to shut
+            // it again is deleting the query — the dead end this release exists to
+            // remove. A click is a deliberate return to the field; a focus event
+            // is not. ArrowDown/Up also reopen (the APG affordance), so a keyboard
+            // user is never stuck either.
+            onClick={() => setDismissed(false)}
+            onKeyDown={onKeyDown}
+            aria-label={searchLabel}
+            aria-expanded={open}
+            aria-controls={open ? listId : undefined}
+            aria-activedescendant={
+              open && active >= 0 ? `${listId}-opt-${active}` : undefined
+            }
+            aria-autocomplete="list"
+            placeholder={placeholder}
+            size={inputSize}
+            // ★ pr-8 reserves room for the overlaid ✕ and therefore rides the
+            //   same condition the ✕ does — unconditionally it would shave ~2rem
+            //   off the visible placeholder in the (common) empty state. Same
+            //   rule as TableFilter and PaneSearchInput.
+            className={`w-full${query ? " pr-8" : ""}`}
+          />
+        </ClearableSearchInput>
         {open && (
           <ul
             id={listId}
@@ -302,7 +336,9 @@ export function EntityLinkPicker({
                     : "hover:bg-surface-muted"
                 }`}
               >
-                <span className="font-mono text-xs text-muted-foreground">{entry.code}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {entry.code}
+                </span>
                 <span className="truncate">{entry.label}</span>
               </li>
             ))}

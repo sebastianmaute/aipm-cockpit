@@ -14,6 +14,7 @@ import { splitHighlight } from "./search-highlight";
 import { loadRecents, pushRecent, saveRecents } from "./search-recents";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 
@@ -224,27 +225,38 @@ export function GlobalSearchBox({
 
   return (
     <div ref={rootRef} className="relative">
-      <input
-        ref={inputRef}
-        type="text"
-        role="combobox"
-        aria-label={t(lang, "searchLabel")}
-        placeholder={t(lang, "searchGlobalPlaceholder")}
-        aria-expanded={isOpen}
-        aria-controls={isOpen && items.length > 0 ? listId : undefined}
-        aria-activedescendant={
-          isOpen && items.length > 0 && highlight >= 0 ? `${listId}-opt-${highlight}` : undefined
-        }
-        aria-autocomplete="list"
+      {/* Only the field is wrapped: the outer `relative` root above still
+          anchors the ⌘K hint and the listbox. The ✕ and that hint can never
+          collide — the hint renders only while the query is EMPTY and focused,
+          the ✕ only while it is non-empty — so the three-way padding below is
+          exhaustive. */}
+      <ClearableSearchInput
         value={query}
-        onFocus={() => setOpen(true)}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setOpen(true);
-        }}
-        onKeyDown={onKeyDown}
-        className={`w-full rounded-md border border-line bg-surface py-1.5 pl-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION} ${showingRecents ? "pr-14" : "pr-3"}`}
-      />
+        onClear={() => setQuery("")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "searchLabel")}`}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          role="combobox"
+          aria-label={t(lang, "searchLabel")}
+          placeholder={t(lang, "searchGlobalPlaceholder")}
+          aria-expanded={isOpen}
+          aria-controls={isOpen && items.length > 0 ? listId : undefined}
+          aria-activedescendant={
+            isOpen && items.length > 0 && highlight >= 0 ? `${listId}-opt-${highlight}` : undefined
+          }
+          aria-autocomplete="list"
+          value={query}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onKeyDown={onKeyDown}
+          className={`w-full rounded-md border border-line bg-surface py-1.5 pl-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none ${FOCUS_RING} ${TRANSITION} ${showingRecents ? "pr-14" : query ? "pr-8" : "pr-3"}`}
+        />
+      </ClearableSearchInput>
       {/* Decorative focus-shortcut hint. aria-hidden so it never joins the
           combobox's accessible name; hidden once the user starts typing so it
           can't sit under real text. */}

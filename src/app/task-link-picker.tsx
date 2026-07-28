@@ -64,6 +64,9 @@ export function TaskLinkPicker({
       }}
       onRemove={onRemove}
       searchLabel={label}
+      // `label` is already row-unique per Knowledge card, so the clear inherits
+      // that uniqueness instead of announcing a bare "Clear" N times.
+      clearLabel={`${t(lang, "clear")} – ${label}`}
       placeholder={t(lang, "taskLinkSearchPlaceholder")}
       removeLabel={t(lang, "taskUnlink")}
     />

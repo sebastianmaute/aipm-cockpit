@@ -161,4 +161,23 @@ describe("ActivityLogPanel", () => {
     await user.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     expect(onClear).not.toHaveBeenCalled();
   });
+
+  // The field is queried by ROLE, not by label: the search-mode SegmentedControl
+  // beside it carries the SAME `activitySearchPlaceholder` string as its group
+  // aria-label, so getByLabelText matches two elements here.
+  it("clears the search box from a labelled button", async () => {
+    const user = userEvent.setup();
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    const field = screen.getByRole("searchbox", {
+      name: t("en-US", "activitySearchPlaceholder"),
+    }) as HTMLInputElement;
+    await user.type(field, "jira");
+    expect(field.value).toBe("jira");
+    await user.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "clear")} – ${t("en-US", "activitySearchPlaceholder")}`,
+      }),
+    );
+    expect(field.value).toBe("");
+  });
 });
