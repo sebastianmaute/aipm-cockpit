@@ -54,7 +54,22 @@ describe("resolveInitialScope", () => {
       customers,
       customerName: "Initech",
     });
-    expect(r.source).toBe("none");
+    // Whole object, like its siblings: asserting `.source` alone would not
+    // catch a customerId leaking through on the no-match path.
+    expect(r).toEqual({ customerId: "", projectIds: [], source: "none" });
+  });
+
+  it("reports none for an AMBIGUOUS customer name rather than guessing", () => {
+    const r = resolveInitialScope({
+      picker: {},
+      links: {},
+      customers: [
+        { id: 1, name: "Acme" },
+        { id: 2, name: "acme" },
+      ],
+      customerName: "Acme",
+    });
+    expect(r).toEqual({ customerId: "", projectIds: [], source: "none" });
   });
 
   it("treats a picker scope with no projects as still authoritative", () => {

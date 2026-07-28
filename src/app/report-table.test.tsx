@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef } from "react";
 import { KpiGradientBar, ReportCard, Section, SortResizeTh, TableFilter, Tile } from "./report-table";
+import { t } from "./i18n";
 
 function Harness() {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -285,6 +286,31 @@ describe("TableFilter", () => {
     expect(screen.getByRole("button", { name: /clear/i })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: "after" })).toHaveFocus();
+  });
+
+  // ★★ Several of these render on ONE view (Reports has more than one, and it
+  // is axe-scanned), so a bare "Clear" on each gives N controls the same
+  // accessible name — WCAG 2.4.6. The axe gate CANNOT catch this: a name exists,
+  // so it passes. The name is therefore qualified with the field's own
+  // placeholder, and this test is the only thing guarding that.
+  //
+  // Queried by exact name rather than /clear/i: the regex used by the tests
+  // above matches both buttons and would pass even if the qualification were
+  // reverted, which is exactly the failure mode being guarded.
+  it("gives sibling filters DISTINCT accessible names", () => {
+    render(
+      <>
+        <TableFilter lang="en-US" value="a" onChange={() => {}} placeholderKey="reportsFilterGroup" />
+        <TableFilter lang="en-US" value="b" onChange={() => {}} placeholderKey="reportsFilterLabel" />
+      </>,
+    );
+    const names = screen
+      .getAllByRole("button", { name: /clear/i })
+      .map((b) => b.getAttribute("aria-label"));
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
+    expect(names[0]).toContain(t("en-US", "reportsFilterGroup"));
+    expect(names[1]).toContain(t("en-US", "reportsFilterLabel"));
   });
 
   it("clears the value when the ✕ is pressed", () => {
