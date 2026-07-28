@@ -47,6 +47,9 @@ export type ActivityKind =
   | "role.created"
   | "role.updated"
   | "role.deleted"
+  | "budget.created"
+  | "budget.updated"
+  | "budget.deleted"
   | "discipline.deleted"
   | "grade.deleted"
   | "settings.updated"
@@ -199,6 +202,9 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "role.created": "activityRoleCreated",
   "role.updated": "activityRoleUpdated",
   "role.deleted": "activityRoleDeleted",
+  "budget.created": "activityBudgetCreated",
+  "budget.updated": "activityBudgetUpdated",
+  "budget.deleted": "activityBudgetDeleted",
   "discipline.deleted": "activityDisciplineDeleted",
   "grade.deleted": "activityGradeDeleted",
   "settings.updated": "activitySettingsUpdated", // no args — no {0}/{1} placeholder

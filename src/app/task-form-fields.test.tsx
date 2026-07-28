@@ -6,6 +6,8 @@ import { ModalFieldControls } from "./modal-field-controls";
 import { TaskFormFields } from "./task-form-fields";
 import { HEALTH_CHIP_ACTIVE_CLASS } from "./task-health-chip-style";
 import { t } from "./i18n";
+import type { TaskBudgetLink } from "./use-task-budget-link";
+import type { BudgetBucket } from "./types";
 
 // The Description field renders a Tiptap/ProseMirror editor, which touches
 // layout APIs jsdom lacks; stub them so the editor mounts (mirrors rich-text-editor.test.tsx).
@@ -18,7 +20,7 @@ beforeAll(() => {
   Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
 });
 
-function Harness(over: { onOpenNotes?: () => void } = {}) {
+function Harness(over: { onOpenNotes?: () => void; budgetLink?: TaskBudgetLink } = {}) {
   return (
     <form aria-label="form">
       <TaskFormFields
@@ -42,6 +44,7 @@ function Harness(over: { onOpenNotes?: () => void } = {}) {
         onRemoveContact={vi.fn()}
         onAddAssigneeToAddressBook={vi.fn()}
         onOpenNotes={over.onOpenNotes}
+        budgetLink={over.budgetLink}
       />
     </form>
   );
@@ -57,6 +60,31 @@ describe("HEALTH_CHIP_ACTIVE_CLASS (manual health-override chip tint)", () => {
       expect(cls).not.toContain("bg-ui-pink");
       expect(cls).not.toContain("bg-ui-green");
     }
+  });
+});
+
+describe("TaskFormFields — budget bucket", () => {
+  const BUCKETS = [{ id: 1, name: "Design" }, { id: 2, name: "Build" }] as unknown as BudgetBucket[];
+
+  it("renders the budget-bucket select and reports the chosen id", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness budgetLink={{ buckets: BUCKETS, bucketId: 1, onChange }} />, { wrapper: TestProviders });
+    await user.selectOptions(screen.getByLabelText("Budget bucket"), "2");
+    expect(onChange).toHaveBeenCalledWith(2);
+  });
+
+  it("reports null when the none option is chosen", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness budgetLink={{ buckets: BUCKETS, bucketId: 1, onChange }} />, { wrapper: TestProviders });
+    await user.selectOptions(screen.getByLabelText("Budget bucket"), "");
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
+
+  it("renders no budget field at all when no budgetLink is supplied", () => {
+    render(<Harness />, { wrapper: TestProviders });
+    expect(screen.queryByLabelText("Budget bucket")).toBeNull();
   });
 });
 

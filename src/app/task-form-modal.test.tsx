@@ -5,6 +5,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
+import type { BudgetBucket } from "./types";
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
 // the workspace, so renders need a WorkspaceProvider. useTaskForm stays mocked.
@@ -194,5 +195,23 @@ describe("TaskFormModal — Documents field", () => {
   it("shows the Documents field (gated hint when SharePoint is off)", () => {
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.getByText(/enable microsoft 365/i)).toBeInTheDocument();
+  });
+  // The budgetLink prop travels task-manager -> AppModals -> TaskFormModal ->
+  // TaskFormFields, and every hop types it OPTIONAL so a dropped prop degrades
+  // silently into "budget module off" rather than throwing. These pin the hop
+  // this file owns; the ones above and below it are pinned in
+  // app-modals.test.tsx and task-manager.characterization.test.tsx.
+  test("forwards budgetLink so the budget-bucket field reaches the form", () => {
+    const buckets = [{ id: 1, name: "Design" }, { id: 2, name: "Build" }] as unknown as BudgetBucket[];
+    render(
+      <TaskFormModal {...defaultProps({ budgetLink: { buckets, bucketId: 2, onChange: vi.fn() } })} />,
+      { wrapper: Providers },
+    );
+    expect(screen.getByLabelText("Budget bucket")).toHaveValue("2");
+  });
+
+  test("renders no budget-bucket field when budgetLink is absent", () => {
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    expect(screen.queryByLabelText("Budget bucket")).toBeNull();
   });
 });

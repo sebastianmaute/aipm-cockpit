@@ -14,7 +14,7 @@ import {
 import { useTaskForm } from "./task-form-context";
 import { Button } from "./button";
 import { statusLabelKey } from "./task-status-ui";
-import { PRIORITIES, TASK_STATUSES, type Priority, type TaskStatus } from "./types";
+import { PRIORITIES, TASK_STATUSES, type BudgetBucket, type Priority, type TaskStatus } from "./types";
 
 // Canonical field shell, single-sourced from the shared primitive (was a
 // copy-declared ring-1 string; now the ring-2 ui-green standard).
@@ -27,6 +27,8 @@ export interface BulkEditModalProps {
   selectedJiraCount: number;
   uniqueGroups: string[];
   uniqueLabels: string[];
+  /** Budget buckets offered by the bucket row; empty hides the row entirely. */
+  budgetBuckets: readonly BudgetBucket[];
   onApply: () => void;
   onCancel: () => void;
 }
@@ -38,6 +40,7 @@ export function BulkEditModal({
   selectedJiraCount,
   uniqueGroups,
   uniqueLabels,
+  budgetBuckets,
   onApply,
   onCancel,
 }: BulkEditModalProps) {
@@ -328,6 +331,34 @@ export function BulkEditModal({
             disabled={!bulkEdit.enabled.labels}
           />
         </BulkEditFieldRow>
+
+        {budgetBuckets.length > 0 && (
+        <BulkEditFieldRow
+          id="bulk-budget-bucket"
+          label={t(lang, "taskBudgetBucket")}
+          enabled={bulkEdit.enabled.budgetBucket}
+          onToggle={() =>
+            setBulkEdit((b) => ({
+              ...b,
+              enabled: { ...b.enabled, budgetBucket: !b.enabled.budgetBucket },
+            }))
+          }
+        >
+          <select
+            value={bulkEdit.budgetBucket}
+            onChange={(e) =>
+              setBulkEdit((b) => ({ ...b, budgetBucket: e.target.value }))
+            }
+            disabled={!bulkEdit.enabled.budgetBucket}
+            className={`${inputClass} disabled:opacity-50`}
+          >
+            <option value="">{t(lang, "budgetBucketNone")}</option>
+            {budgetBuckets.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </BulkEditFieldRow>
+        )}
       </div>
 
       <div className="mt-6 flex justify-end gap-2">

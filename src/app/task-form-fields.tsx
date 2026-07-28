@@ -38,6 +38,7 @@ import { SegmentedControl } from "./segmented-control";
 import { useTaskForm } from "./task-form-context";
 import { useModalVisibility } from "./use-modal-visibility";
 import { type TaskErrorField, type TaskFieldErrors } from "./task-validation";
+import type { TaskBudgetLink } from "./use-task-budget-link";
 import { PRIORITIES, TASK_STATUSES, type Absence, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";
 
@@ -65,6 +66,10 @@ export interface TaskFormFieldsProps {
   /** Opens the floating note-log window (wired by the host in Task E2). Optional
    *  so this component still compiles/renders standalone before that wiring. */
   onOpenNotes?: () => void;
+  /** Budget-bucket link controls, absent when the budget module is off. A PROP,
+   *  not a context read: this component's own tests render it bare, where a
+   *  `useWorkspace()` call would throw. */
+  budgetLink?: TaskBudgetLink;
 }
 
 export function TaskFormFields({
@@ -87,6 +92,7 @@ export function TaskFormFields({
   jiraDefaultIssueType,
   onAddAssigneeToAddressBook,
   onOpenNotes,
+  budgetLink,
 }: TaskFormFieldsProps) {
   const { form, setForm, editingId } = useTaskForm();
   const isEditing = editingId !== null;
@@ -441,7 +447,7 @@ export function TaskFormFields({
         )}
       </TaskFormSection>
 
-      {(isVisible("dependencies") || isVisible("blockers")) && (
+      {(isVisible("dependencies") || isVisible("blockers") || (budgetLink !== undefined && isVisible("budgetBucket"))) && (
       <TaskFormSection index={4} title={t(lang, "taskFormSectionRelationships")}>
         {isVisible("dependencies") && (
         <Field label={t(lang, "depDependencies")} hint={t(lang, "taskHintDependencies")} className="sm:col-span-2">
@@ -471,6 +477,21 @@ export function TaskFormFields({
             className="w-full"
           />
           <CharCounter value={form.blockers} max={TEXTAREA_MAX} id="blockers-counter" lang={lang} />
+        </Field>
+        )}
+
+        {budgetLink !== undefined && isVisible("budgetBucket") && (
+        <Field label={t(lang, "taskBudgetBucket")}>
+          <Select
+            value={budgetLink.bucketId === null ? "" : String(budgetLink.bucketId)}
+            onChange={(e) => budgetLink.onChange(e.target.value === "" ? null : Number(e.target.value))}
+            className="w-full"
+          >
+            <option value="">{t(lang, "budgetBucketNone")}</option>
+            {budgetLink.buckets.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </Select>
         </Field>
         )}
       </TaskFormSection>

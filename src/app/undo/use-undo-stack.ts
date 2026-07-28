@@ -28,7 +28,7 @@ const UNDO_CAP = 25;
 export type UndoEntityKey =
   | "task" | "milestone" | "raid" | "change" | "stakeholder"
   | "resource" | "absence" | "shift" | "role" | "discipline" | "grade"
-  | "calendarEvent";
+  | "calendarEvent" | "budget";
 
 type I18nKey = Parameters<typeof t>[1];
 
@@ -45,6 +45,7 @@ const ENTITY_SINGULAR: Record<UndoEntityKey, I18nKey> = {
   discipline: "undoEntityDiscipline",
   grade: "undoEntityGrade",
   calendarEvent: "undoEntityCalendarEvent",
+  budget: "undoEntityBudget",
 };
 // Plurals only for entities that appear with a count (bulk/multi-delete); the
 // rest fall back to the singular (they're only ever named, count 1).
@@ -55,6 +56,7 @@ const ENTITY_PLURAL: Partial<Record<UndoEntityKey, I18nKey>> = {
   change: "undoEntityChanges",
   stakeholder: "undoEntityStakeholders",
   resource: "undoEntityResources",
+  budget: "undoEntityBudgets",
 };
 
 // ★ Must stay in lockstep with the entity prefixes in ACTIVITY_KIND_TO_KEY: a
@@ -66,7 +68,7 @@ const ENTITY_PLURAL: Partial<Record<UndoEntityKey, I18nKey>> = {
 const ENTITY_KEY_SET: ReadonlySet<string> = new Set<UndoEntityKey>([
   "task", "milestone", "raid", "change", "stakeholder",
   "resource", "absence", "shift", "role", "discipline", "grade",
-  "calendarEvent",
+  "calendarEvent", "budget",
 ]);
 
 function entityKeyFromKind(kind: ActivityKind): UndoEntityKey | null {

@@ -60,7 +60,8 @@ export type BulkEditField =
   | "blockers"
   | "notes"
   | "group"
-  | "labels";
+  | "labels"
+  | "budgetBucket";
 
 export function emptyBulkEdit() {
   return {
@@ -75,6 +76,7 @@ export function emptyBulkEdit() {
       notes: false,
       group: false,
       labels: false,
+      budgetBucket: false,
     } as Record<BulkEditField, boolean>,
     priority: "Medium" as Priority,
     status: "To Do" as TaskStatus,
@@ -86,6 +88,9 @@ export function emptyBulkEdit() {
     notes: "",
     group: "",
     labels: [] as string[],
+    // Empty string = the "none" option (unlink); other values are stringified
+    // bucket ids. The link lives on the BUCKET, so applying this writes budgets.
+    budgetBucket: "",
   };
 }
 

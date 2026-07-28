@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type { Lang } from "./i18n";
-import type { Task } from "./types";
+import type { BudgetBucket, Task } from "./types";
 import { defaultSettings } from "./settings-types";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
@@ -38,6 +38,7 @@ function makeArgs(
     onCancelEdit: vi.fn(),
     logActivity: vi.fn(),
     capture: vi.fn(),
+    commitBuckets: vi.fn(),
     showToast: vi.fn(),
     ...overrides,
   };
@@ -515,6 +516,104 @@ describe("useBulkOperations", () => {
       expect(logActivity).toHaveBeenCalledWith("bulk.inquiries", 1);
       openSpy.mockRestore();
       confirmSpy.mockRestore();
+    });
+  });
+  describe("bulk budget-bucket assignment", () => {
+    // The link lives on the BUCKET, so every assertion here watches `budgets`.
+    function seedBucketFixture() {
+      const commitBuckets = vi.fn();
+      const r = renderBulk({ commitBuckets });
+      act(() => {
+        r.result.current.workspace.setTasks([
+          { id: 1, taskName: "a", status: "To Do" },
+          { id: 2, taskName: "b", status: "To Do" },
+          { id: 3, taskName: "c", status: "To Do" },
+        ] as unknown as Task[]);
+        r.result.current.workspace.setBudgets([
+          { id: 1, name: "Design", taskIds: [1, 2] },
+          { id: 2, name: "Build", taskIds: [] },
+        ] as unknown as BudgetBucket[]);
+      });
+      act(() => { [1, 2, 3].forEach((id) => r.result.current.bulk.onToggleSelect(id)); });
+      return { ...r, commitBuckets };
+    }
+
+    function enableBucket(r: ReturnType<typeof seedBucketFixture>, value: string) {
+      act(() => {
+        r.result.current.taskForm.setBulkEdit((b) => ({
+          ...b, budgetBucket: value, enabled: { ...b.enabled, budgetBucket: true },
+        }));
+      });
+    }
+
+    it("bulk-links every selected task to the chosen bucket in ONE commit", () => {
+      const r = seedBucketFixture();
+      enableBucket(r, "2");
+      act(() => { r.result.current.bulk.applyBulkEdit(); });
+      expect(r.commitBuckets).toHaveBeenCalledTimes(1);
+      const next = r.commitBuckets.mock.calls[0][0] as BudgetBucket[];
+      expect(next.find((b) => b.id === 2)!.taskIds).toEqual([1, 2, 3]);
+      expect(next.find((b) => b.id === 1)!.taskIds).toEqual([]);
+    });
+
+    it("a bucket-only apply leaves the tasks array untouched", () => {
+      const r = seedBucketFixture();
+      const before = r.result.current.workspace.tasks;
+      enableBucket(r, "2");
+      act(() => { r.result.current.bulk.applyBulkEdit(); });
+      // A no-op task write would bump every selected row’s localModifiedAt,
+      // which a Jira pull would then revert.
+      expect(r.result.current.workspace.tasks).toBe(before);
+    });
+
+    it("a bucket bulk apply tells the boundary the caller owns the activity row", () => {
+      const r = seedBucketFixture();
+      enableBucket(r, "2");
+      act(() => { r.result.current.bulk.applyBulkEdit(); });
+      // commitBuckets is MOCKED here, so this pins the WIRING only (that callerLogs
+      // is passed). The suppression itself — without which the same apply wrote a
+      // SECOND bulk.edit row counting BUCKETS — is proved in use-budget-buckets.test.tsx.
+      expect(r.args.logActivity).toHaveBeenCalledTimes(1);
+      expect(r.args.logActivity).toHaveBeenCalledWith("bulk.edit", 3);
+      expect(r.commitBuckets.mock.calls[0][1].callerLogs).toBe(true);
+    });
+
+    it("a bucket apply that changes nothing writes nothing and claims nothing", () => {
+      const r = seedBucketFixture();
+      // Tasks 1 and 2 are ALREADY in bucket 1; select only those, target bucket 1.
+      act(() => { r.result.current.bulk.clearSelection(); });
+      act(() => { [1, 2].forEach((id) => r.result.current.bulk.onToggleSelect(id)); });
+      enableBucket(r, "1");
+      act(() => { r.result.current.bulk.applyBulkEdit(); });
+      expect(r.commitBuckets).not.toHaveBeenCalled();
+      // The pre-existing code is careful never to claim rows it did not touch
+      // (a managed-fields-only edit on synced rows drives count to 0). A no-op
+      // bucket apply must not report "2 tasks updated" or log a bulk.edit row.
+      expect(r.args.logActivity).not.toHaveBeenCalled();
+      expect(r.args.showToast).not.toHaveBeenCalledWith("info", expect.stringMatching(/updated/i));
+    });
+
+    it("the none option unlinks the selected tasks", () => {
+      const r = seedBucketFixture();
+      enableBucket(r, "");
+      act(() => { r.result.current.bulk.applyBulkEdit(); });
+      const next = r.commitBuckets.mock.calls[0][0] as BudgetBucket[];
+      expect(next.find((b) => b.id === 1)!.taskIds).toEqual([]);
+    });
+
+    it("a task field plus a bucket change produce ONE composite entry", () => {
+      const r = seedBucketFixture();
+      act(() => {
+        r.result.current.taskForm.setBulkEdit((b) => ({
+          ...b, priority: "High", enabled: { ...b.enabled, priority: true },
+        }));
+      });
+      enableBucket(r, "2");
+      act(() => { r.result.current.bulk.applyBulkEdit(); });
+      expect(r.args.capture).not.toHaveBeenCalled();
+      const meta = r.commitBuckets.mock.calls[0][1];
+      expect(meta.kind).toBe("bulk.edit");
+      expect(meta.tasksPart).not.toBeNull();
     });
   });
 });

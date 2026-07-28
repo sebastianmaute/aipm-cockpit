@@ -35,6 +35,7 @@ export const MODAL_FIELDS: Record<ModalId, readonly ModalField[]> = {
     { id: "estimate", labelKey: "taskOriginalEstimate", tier: "advanced" },
     { id: "labels", labelKey: "labels", tier: "advanced" },
     { id: "dependencies", labelKey: "dependencies", tier: "advanced" },
+    { id: "budgetBucket", labelKey: "taskBudgetBucket", tier: "advanced" },
     { id: "blockers", labelKey: "blockers", tier: "advanced" },
     { id: "health", labelKey: "health", tier: "advanced" },
     { id: "email", labelKey: "email", tier: "full" },

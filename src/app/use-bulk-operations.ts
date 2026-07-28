@@ -2,7 +2,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Lang, t } from "./i18n";
 import type { Settings } from "./settings-types";
-import type { Task, Resource } from "./types";
+import type { BudgetBucket, Task, Resource } from "./types";
+import { moveTasksToBucket } from "./budget-task-link";
+import type { BucketCommitMeta } from "./use-budget-buckets";
 import { effectivePersonEmail } from "./resource-foundation";
 import type { ActivityKind } from "./activity-log";
 import type { Command } from "./voice";
@@ -17,7 +19,7 @@ import {
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
 import { applyStatusChange } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
-import type { UndoStackApi } from "./undo/use-undo-stack";
+import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
 // them on a `jiraKey` row would be silently reverted by the next read-only pull
@@ -42,6 +44,9 @@ export interface UseBulkOperationsArgs {
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   /** Capture a pre-op snapshot for undo (clear-all deletes, bulk-edit changes). */
   capture: UndoStackApi["capture"];
+  /** The budget-bucket commit boundary. A bulk bucket change writes `budgets`,
+   *  never `tasks` — the link lives on the bucket. */
+  commitBuckets: (next: readonly BudgetBucket[], meta?: BucketCommitMeta) => void;
   showToast: (kind: "info" | "error", text: string) => void;
   /** Arm the storage layer's one-shot destructive-save bypass before a clear-all
    *  — else the persistence data-loss guard refuses the mass deletion. */
@@ -54,7 +59,8 @@ export interface UseBulkOperationsArgs {
 }
 
 export function useBulkOperations(args: UseBulkOperationsArgs) {
-  const { tasks, setTasks, filteredSortedTasks, project, resources } = useWorkspace();
+  const { tasks, setTasks, filteredSortedTasks, project, resources, budgets } = useWorkspace();
+  const { commitBuckets } = args;
   // Directory for resolving a linked assignee's LIVE email on bulk inquiries
   // (the cached assigneeEmail can be stale after a rename/re-link).
   const resourcesById = useMemo<ReadonlyMap<number, Resource>>(
@@ -195,9 +201,23 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const count = selectedIds.size - untouchedSynced;
     const stamp = new Date().toISOString();
     const beforeRows = tasks.filter((r) => selectedIds.has(r.id));
-    if (beforeRows.length > 0) {
+    // Bucket links live on the BUCKET, so this writes `budgets`. A task-field
+    // patch and a bucket change in the same apply must be ONE undo entry.
+    const nextBuckets = fields.budgetBucket
+      ? moveTasksToBucket(budgets, [...selectedIds], bulkEdit.budgetBucket === "" ? null : Number(bulkEdit.budgetBucket), stamp)
+      : budgets;
+    const bucketsChanged = nextBuckets !== budgets;
+    // A managed-fields-only edit already writes nothing to tasks; a BUCKET-only
+    // edit must behave the same way, or every selected row gets a spurious
+    // localModifiedAt that a Jira pull would revert.
+    const taskFieldsEnabled = statusEnabled || Object.keys(updates).length > 0;
+    const tasksPart = taskFieldsEnabled && beforeRows.length > 0
+      ? capturePart<Task>({ setter: setTasks, edited: beforeRows, fromArray: tasks })
+      : null;
+    if (tasksPart !== null && !bucketsChanged) {
       captureRef.current({ setter: setTasks, kind: "bulk.edit", edited: beforeRows, fromArray: tasks, entityKey: "task" });
     }
+    if (taskFieldsEnabled) {
     setTasks((prev) =>
       prev.map((row) => {
         if (!selectedIds.has(row.id)) return row;
@@ -216,10 +236,18 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
         return { ...withStatus, localModifiedAt: stamp };
       }),
     );
+    }
+    if (bucketsChanged) {
+      commitBuckets(nextBuckets, { kind: "bulk.edit", primaryCount: count, tasksPart, callerLogs: true });
+    }
     if (skippedSynced > 0) {
       showToastRef.current("info", t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
     }
-    if (count > 0) {
+    // A bucket-only apply whose move is a no-op (every selected task is already
+    // in the target) writes nothing — so it must not claim rows either. The
+    // pre-existing managed-fields-only path drives `count` to 0 for the same
+    // reason; this one cannot, because the rows ARE selectable targets.
+    if (count > 0 && (taskFieldsEnabled || bucketsChanged)) {
       showToastRef.current(
         "info",
         count === 1
@@ -231,7 +259,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     setBulkEditOpen(false);
     setBulkEdit(emptyBulkEdit());
     setSelectedIds(new Set());
-  }, [bulkEdit, selectedIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz]);
+  }, [bulkEdit, selectedIds, tasks, setTasks, setBulkEdit, setBulkEditOpen, tz, budgets, commitBuckets]);
 
   // Unconditional clear — callers own the confirmation (the tasks view gates it
   // with TypeToConfirmDialog; the voice command below gates it with window.confirm).

@@ -14,6 +14,7 @@ import { useTaskForm } from "./task-form-context";
 import type { Absence, Resource, Task } from "./types";
 import { TaskFormFields } from "./task-form-fields";
 import { type TaskFieldErrors } from "./task-validation";
+import type { TaskBudgetLink } from "./use-task-budget-link";
 
 export interface TaskFormModalProps {
   lang: Lang;
@@ -51,6 +52,8 @@ export interface TaskFormModalProps {
   /** Opens the shared note-log window for the edited task; absent → the in-form
    *  "Notes" button is disabled (e.g. an unsaved new task with no id). */
   onOpenNotes?: () => void;
+  /** Budget-bucket link controls; absent when the budget module is off. */
+  budgetLink?: TaskBudgetLink;
 }
 
 export function TaskFormModal({
@@ -82,6 +85,7 @@ export function TaskFormModal({
   readOnlyJiraProjectName,
   editorExtras,
   onOpenNotes,
+  budgetLink,
 }: TaskFormModalProps) {
   const { editingId, taskModalOpen } = useTaskForm();
   const isEditing = editingId !== null;
@@ -149,6 +153,7 @@ export function TaskFormModal({
             onRemoveContact={onRemoveContact}
             onAddAssigneeToAddressBook={onAddAssigneeToAddressBook}
             onOpenNotes={onOpenNotes}
+            budgetLink={budgetLink}
           />
           {editorExtras && (
             <div className="space-y-3 border-t border-line pt-4">{editorExtras}</div>

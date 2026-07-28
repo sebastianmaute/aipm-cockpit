@@ -8,6 +8,31 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.207.0] - 2026-07-28 "Goss"
+
+Budget buckets and tasks can now be linked from the task side, a bucket takes
+its manual completion inline, and every budget edit is finally undoable.
+
+- **Assign a task to a budget bucket from the task editor.** The editor gained
+  a "Budget bucket" field. A task belongs to at most one bucket, so picking one
+  removes it from any other — it is no longer possible for a single task to
+  inflate two buckets’ derived completion. On a new task the choice is held
+  until the task is saved and applied to the id it actually receives.
+- **Assign many at once.** The Open Points bulk-edit bar carries the same field,
+  including a "none" option that unlinks. Changing bucket alongside other task
+  fields records a single undo entry, and a bucket-only change leaves the task
+  rows completely untouched, so nothing a Jira sync owns is disturbed.
+- **Manual % complete is editable on the bucket card.** No need to open the
+  bucket editor. When no manual value is set the placeholder shows the
+  percentage derived from the bucket’s linked tasks, so the override
+  relationship is visible in place; clearing the box restores the derivation
+  rather than pinning the bucket at zero.
+- **Budget changes are recorded and reversible.** Creating, editing, reordering
+  or deleting a bucket, and editing its hours, now appear in the activity log
+  and can be undone — budget was the last register writing silently.
+- **Hour cells commit when you leave them.** Typing into a budget or actual
+  hours cell used to write on every keystroke; it now commits on blur or Enter,
+  and Escape restores the previous value. Typing "40" is one change, not two.
 ## [0.206.0] - 2026-07-28 "Shawl"
 
 The AI duplicate finder is now reachable from the Gantt chart, not only from
