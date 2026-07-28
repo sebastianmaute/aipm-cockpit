@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { DiagnosticsPanel } from "./diagnostics-panel";
 import { logDiag, readDiagLog } from "./diagnostics";
+import { t } from "./i18n";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -83,5 +85,22 @@ describe("DiagnosticsPanel", () => {
     expect(screen.getByRole("checkbox", { name: /errors/i })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /warnings/i })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /^info$/i })).toBeInTheDocument();
+  });
+
+  it("clears the search box from a labelled button", async () => {
+    const user = userEvent.setup();
+    logDiag("info", "seed.event");
+    render(<DiagnosticsPanel lang="en-US" />);
+    const field = screen.getByRole("textbox", {
+      name: t("en-US", "diagnosticsSearchCode"),
+    }) as HTMLInputElement;
+    await user.type(field, "jira");
+    expect(field.value).toBe("jira");
+    await user.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "clear")} – ${t("en-US", "diagnosticsSearchCode")}`,
+      }),
+    );
+    expect(field.value).toBe("");
   });
 });

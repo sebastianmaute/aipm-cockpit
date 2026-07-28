@@ -2,8 +2,10 @@ import React from "react";
 import { describe, it, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, act, fireEvent } from "@testing-library/react";
+import { render, act, fireEvent, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { GanttPanel } from "./gantt";
+import { t } from "./i18n";
 import type { Milestone, Task } from "./types";
 
 // useResizable reads/writes localStorage — mock it so tests run in JSDOM.
@@ -435,4 +437,29 @@ describe("GanttPanel baseline ghost range folding", () => {
     expect(ghost).not.toBeNull();
     expect(Number(ghost!.getAttribute("x"))).toBeGreaterThanOrEqual(0);
   });
+});
+
+// ---------- toolbar search clear (slice D) ---------------------------------
+
+// ★ The task is named to MATCH the typed query on purpose. GanttPanel returns
+// two structurally different trees (the `rowsCount === 0` empty-state branch vs
+// the chart), so a query that filters every row away remounts the toolbar and
+// the field loses focus mid-word — a pre-existing behaviour, unrelated to the
+// clear button, that a non-matching fixture would let masquerade as a failure
+// here (it truncated the typed value to "j").
+test("gantt toolbar clears the search box from a labelled button", async () => {
+  const user = userEvent.setup();
+  const tasks = [{ ...BASE_TASKS[0], taskName: "Jira sync" }] as Task[];
+  render(<GanttPanel {...BASE_PROPS} tasks={tasks} />);
+  const field = screen.getByRole("searchbox", {
+    name: t("en-US", "searchPlaceholder"),
+  }) as HTMLInputElement;
+  await user.type(field, "jira");
+  expect(field.value).toBe("jira");
+  await user.click(
+    screen.getByRole("button", {
+      name: `${t("en-US", "clear")} – ${t("en-US", "searchPlaceholder")}`,
+    }),
+  );
+  expect(field.value).toBe("");
 });

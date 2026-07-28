@@ -22,6 +22,7 @@ import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { Checkbox, Input } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
 import { ToggleButton } from "./toggle-button";
 import { readDeviceJson, writeDeviceJson } from "./device-store";
@@ -247,16 +248,23 @@ function ResourceDirectoryInner({
         <AddButton onClick={() => onAddAbsence()}>
           {t(lang, "resourcesAddAbsence")}
         </AddButton>
-        <Input
-          type="search"
+        <ClearableSearchInput
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder={t(lang, "directorySearchPlaceholder")}
-          aria-label={t(lang, "directorySearchPlaceholder")}
-          title={t(lang, "directorySearchHint")}
-          size="xs"
+          onClear={() => setFilter("")}
+          clearLabel={`${t(lang, "clear")} – ${t(lang, "directorySearchPlaceholder")}`}
           className="min-w-0 flex-1"
-        />
+        >
+          <Input
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={t(lang, "directorySearchPlaceholder")}
+            aria-label={t(lang, "directorySearchPlaceholder")}
+            title={t(lang, "directorySearchHint")}
+            size="xs"
+            className={`w-full [&::-webkit-search-cancel-button]:appearance-none${filter ? " pr-8" : ""}`}
+          />
+        </ClearableSearchInput>
         {onImportOutlook && (
           <button
             type="button"
