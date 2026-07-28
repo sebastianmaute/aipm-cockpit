@@ -5,6 +5,7 @@ import { QuestionMarkCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
 import { HelpContentPane } from "./help-content-pane";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { useResizable } from "./use-resizable";
 import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
 import { ResetSizeButton } from "./task-manager-ui";
@@ -139,14 +140,25 @@ export function HelpMenu({ lang }: { lang: Lang }) {
           </div>
 
           <div className="shrink-0 border-b border-line p-2">
-            <input
-              type="search"
+            {/* ★ This window can float ON TOP of the in-pane Help view, whose
+                field carries `helpSearchPlaceholder`. Two identically-named
+                fields (and two identically-named clears) in one accessibility
+                tree is WCAG 2.4.6, so the NAME is window-qualified here while
+                the visible placeholder stays the shared wording. */}
+            <ClearableSearchInput
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t(lang, "helpSearchPlaceholder")}
-              aria-label={t(lang, "helpSearchPlaceholder")}
-              className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green"
-            />
+              onClear={() => setQuery("")}
+              clearLabel={`${t(lang, "clear")} – ${t(lang, "helpSearchPanelLabel")}`}
+            >
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t(lang, "helpSearchPlaceholder")}
+                aria-label={t(lang, "helpSearchPanelLabel")}
+                className={`w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ui-green [&::-webkit-search-cancel-button]:appearance-none${query ? " pr-8" : ""}`}
+              />
+            </ClearableSearchInput>
           </div>
 
           <HelpContentPane lang={lang} query={query} />

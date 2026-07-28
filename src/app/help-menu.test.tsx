@@ -118,3 +118,22 @@ describe("HelpMenu floating panel", () => {
     }
   });
 });
+
+// The floating Help window can be open ON TOP of the in-pane Help view, so with
+// a shared name both fields — and both clears — would appear twice, identically
+// named, in one accessibility tree (WCAG 2.4.6). The window's field therefore
+// carries its own `helpSearchPanelLabel` name while the PLACEHOLDER stays the
+// shared "Search help".
+describe("HelpMenu search clear", () => {
+  it("names the window's field distinctly and clears it from the overlaid X", () => {
+    render(<HelpMenu lang="en-US" />);
+    openPanel();
+    const field = screen.getByLabelText("Search help (window)") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "milestone" } });
+    expect(field.value).toBe("milestone");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear – Search help (window)" }),
+    );
+    expect(field.value).toBe("");
+  });
+});

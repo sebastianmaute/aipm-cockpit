@@ -242,3 +242,26 @@ describe("SharePointPickerModal", () => {
     );
   });
 });
+
+describe("SharePointPickerModal — site-search field", () => {
+  it("gives the site-search field an accessible name and a clear button", () => {
+    mockFetch({ value: [] });
+    render(
+      <SharePointPickerModal
+        mode="link"
+        lang="en-US"
+        acquireToken={acquire}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    // Placeholder-only field: the missing name is the headline claim here.
+    const field = screen.getByLabelText("Search sites…") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "proj" } });
+    expect(field.value).toBe("proj");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear – Search sites…" }),
+    );
+    expect(field.value).toBe("");
+  });
+});

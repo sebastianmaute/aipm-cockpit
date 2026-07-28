@@ -2997,6 +2997,7 @@ const enUS = {
   versionHighlightStakeholderReport: "Stakeholder report + a click-matrix for influence/interest",
 
   helpSearchPlaceholder: "Search help",
+  helpSearchPanelLabel: "Search help (window)",
   helpNoResults: "No help topics match your search.",
   helpGroupConcepts: "Concepts",
   helpGroupWorkflows: "Workflows",

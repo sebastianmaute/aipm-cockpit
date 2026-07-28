@@ -9,6 +9,7 @@ import { useDraggable } from "./use-draggable";
 import { useResizable } from "./use-resizable";
 import { t, type Lang } from "./i18n";
 import { Banner } from "./banner";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { useSharePointBrowser, type AcquireToken } from "./use-sharepoint-browser";
 import { parseSharePointSiteUrl } from "./sharepoint-backend";
 import type { KnowledgeLink } from "./document-link";
@@ -159,14 +160,25 @@ export function SharePointPickerModal({
         <div className="flex flex-col gap-3 overflow-y-auto p-4">
           {/* Search row */}
           <div className="flex gap-2">
-            <Input
-              type="text"
+            <ClearableSearchInput
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder={t(lang, "spPickerSearchPlaceholder")}
+              onClear={() => setSearchQuery("")}
+              clearLabel={`${t(lang, "clear")} – ${t(lang, "spPickerSearchPlaceholder")}`}
               className="flex-1"
-            />
+            >
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={t(lang, "spPickerSearchPlaceholder")}
+                // ★ A placeholder is NOT an accessible name; this modal is not
+                //   in the axe gate's scanned views, which is why the gap here
+                //   went unnoticed.
+                aria-label={t(lang, "spPickerSearchPlaceholder")}
+                className={`w-full${searchQuery ? " pr-8" : ""}`}
+              />
+            </ClearableSearchInput>
             <Button variant="primary" onClick={handleSearch}>
               {t(lang, "spPickerSearchButton")}
             </Button>

@@ -2957,6 +2957,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightStakeholderReport: "Stakeholder-Bericht + Klick-Matrix für Einfluss/Interesse",
 
   helpSearchPlaceholder: "Hilfe durchsuchen",
+  helpSearchPanelLabel: "Hilfe durchsuchen (Fenster)",
   helpNoResults: "Keine Hilfethemen passen zu Ihrer Suche.",
   helpGroupConcepts: "Konzepte",
   helpGroupWorkflows: "Arbeitsabläufe",
