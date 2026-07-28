@@ -1,8 +1,10 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, test, vi } from "vitest";
 import { GeneralSection } from "./general-section";
 import { defaultSettings } from "../settings-types";
 import { t } from "../i18n";
+import type { ProjectMeta } from "../types";
 
 const resetMock = vi.fn();
 vi.mock("../app-reset", () => ({
@@ -49,5 +51,74 @@ describe("GeneralSection", () => {
     expect(confirm).toBeEnabled();
     fireEvent.click(confirm);
     expect(resetMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+// A validateProjectMeta-passing fixture: projectManager/customer/naceSection/
+// products/deployment/profitCenter non-blank + at least one contact person and
+// one regulatory entry, or the edit form's Save button never enables and the
+// submit-reaches-onUpdateProject test cannot exercise the write path.
+const META = {
+  name: "Apollo",
+  code: "APL",
+  projectManager: "Ada Lovelace",
+  keyStakeholdersInternal: [],
+  keyStakeholdersExternal: [],
+  customer: "Acme Corp",
+  naceSection: "C",
+  identityTypes: [],
+  products: "Widgets",
+  deployment: "Cloud",
+  startDate: "2026-01-01",
+  endDate: "2026-12-31",
+  profitCenter: "PC-1",
+  contactPersons: [{ name: "Jane Doe", email: "jane@example.com", synced: false }],
+  regulatory: ["Not applicable"],
+  operatingTimezone: "Europe/Berlin",
+} as unknown as ProjectMeta;
+
+describe("GeneralSection project block", () => {
+  test("shows the current project's summary", () => {
+    render(
+      <GeneralSection
+        lang="en-US" settings={defaultSettings} onChange={vi.fn()}
+        project={META} stakeholderNames={[]} addressBook={[]} resources={[]}
+        onUpdateProject={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Apollo")).toBeInTheDocument();
+    expect(screen.getByText("APL")).toBeInTheDocument();
+    expect(screen.getByText("Europe/Berlin")).toBeInTheDocument();
+  });
+
+  test("the edit button opens the project modal and a submit reaches onUpdateProject", async () => {
+    // Headline claim FIRST: the WRITE direction. A render-only assertion would
+    // stay green with the whole save path removed.
+    const user = userEvent.setup();
+    const onUpdateProject = vi.fn();
+    render(
+      <GeneralSection
+        lang="en-US" settings={defaultSettings} onChange={vi.fn()}
+        project={META} stakeholderNames={[]} addressBook={[]} resources={[]}
+        onUpdateProject={onUpdateProject}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /edit project/i }));
+    const submits = screen.getAllByRole("button", { name: /edit project/i });
+    await user.click(submits[submits.length - 1]);
+    expect(onUpdateProject).toHaveBeenCalledTimes(1);
+    expect(onUpdateProject.mock.calls[0][0]).toMatchObject({ name: "Apollo" });
+  });
+
+  test("without a project the block renders a placeholder and no edit button", () => {
+    render(<GeneralSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    expect(screen.getByText("No project is open.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /edit project/i })).not.toBeInTheDocument();
+  });
+
+  test("without onUpdateProject (popout) the summary shows but editing is unavailable", () => {
+    render(<GeneralSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} project={META} />);
+    expect(screen.getByText("Apollo")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /edit project/i })).not.toBeInTheDocument();
   });
 });
