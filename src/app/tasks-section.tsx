@@ -632,7 +632,6 @@ export function TasksSection({
           ariaLabel={t(lang, "searchPlaceholder")}
           clearLabel={`${t(lang, "clear")} – ${t(lang, "searchPlaceholder")}`}
           title={t(lang, "tasksSearchHint")}
-          className="placeholder:text-muted-foreground"
         />
         <Select
           size="xs"

@@ -66,7 +66,12 @@ export function PaneSearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? ariaLabel}
         aria-label={ariaLabel}
-        className={`w-full rounded-md border border-line bg-surface px-2.5 py-1.5 pr-8 text-xs text-foreground focus:border-ui-dark-blue focus:outline-none [&::-webkit-search-cancel-button]:appearance-none ${FOCUS_RING} ${TRANSITION}${className ? ` ${className}` : ""}`}
+        // pr-8 ONLY while the ✕ is rendered (the TableFilter precedent): it
+        // reserves room for the overlaid button, so applying it unconditionally
+        // would shave ~2rem off the visible placeholder in the (common) empty
+        // state — worst on the `min-w-[10rem]` milestones field. Empty-state
+        // padding therefore stays exactly the pre-clear `px-2.5 py-1.5`.
+        className={`w-full rounded-md border border-line bg-surface py-1.5 pl-2.5 ${value ? "pr-8" : "pr-2.5"} text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none [&::-webkit-search-cancel-button]:appearance-none ${FOCUS_RING} ${TRANSITION}${className ? ` ${className}` : ""}`}
         {...props}
       />
     </ClearableSearchInput>

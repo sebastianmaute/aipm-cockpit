@@ -21,6 +21,10 @@ describe("PaneSearchInput", () => {
     const input = screen.getByRole("searchbox", { name: "Search changes" });
     expect(input).toHaveAttribute("placeholder", "Search changes");
     expect(input.className).toContain("w-full");
+    // Empty: no ✕ is rendered, so no room is reserved for one and the padding
+    // stays what it was before the clear existed.
+    expect(input.className).toContain("pr-2.5");
+    expect(input.className).not.toContain("pr-8");
     // The clear button is overlaid, so the flex sizing lives on the wrapper.
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper.className).toContain("flex-1");
@@ -58,6 +62,8 @@ describe("PaneSearchInput", () => {
     render(
       <PaneSearchInput value="risk" onChange={onChange} ariaLabel="Find" clearLabel="Clear – Find" />,
     );
+    // Non-empty: the field reserves room so its text can't run under the ✕.
+    expect(screen.getByRole("searchbox", { name: "Find" }).className).toContain("pr-8");
     await userEvent.click(screen.getByRole("button", { name: "Clear – Find" }));
     expect(onChange).toHaveBeenCalledWith("");
   });
