@@ -8,6 +8,28 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.204.0] - 2026-07-28 "Benford"
+
+Time bookings remembers what you picked, and both of its filters can now be
+cleared the same way.
+
+- **Both scope filters have one clear button, and you can reach it from the
+  keyboard.** The customer filter previously relied on the browser's own — which
+  Chrome and Safari draw, Firefox does not, and neither exposes to the keyboard.
+  The projects filter had no clear at all.
+- **Your customer and project selection survives a reload.** Previously it was
+  only remembered when you pressed Fetch, so picking a scope and navigating away
+  lost it. The selection is stored per device and per project; it is not written
+  into the project file or the database, and it is not exported.
+- **When the restored selection differs from the bookings on screen, it says
+  so.** The remembered pick can legitimately be a different customer than the
+  loaded bookings came from — the panel now tells you which is which instead of
+  letting the picker imply the data changed with it.
+- **The apply-to-budget confirmation list grows with its content.** It was
+  capped at a fixed height, so a multi-bucket apply showed a handful of rows
+  through a small scroller. It stays bounded, so Apply and Cancel remain
+  reachable.
+
 ## [0.203.0] - 2026-07-27 "Czerneda"
 
 Escape now closes exactly one thing, decided by what you opened last rather
