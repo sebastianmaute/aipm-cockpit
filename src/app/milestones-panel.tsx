@@ -340,6 +340,7 @@ function MilestonesPanelBody({
           value={pf.search}
           onChange={pf.setSearch}
           ariaLabel={t(lang, "milestonesFilterName")}
+          clearLabel={`${t(lang, "clear")} – ${t(lang, "milestonesFilterName")}`}
           minW="min-w-[10rem]"
         />
         <Select

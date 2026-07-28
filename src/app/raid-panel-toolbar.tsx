@@ -81,6 +81,7 @@ export function RaidToolbar({
         value={search}
         onChange={onSearchChange}
         ariaLabel={t(lang, "raidSearchPlaceholder")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "raidSearchPlaceholder")}`}
         title={t(lang, "raidSearchHint")}
       />
       <Select

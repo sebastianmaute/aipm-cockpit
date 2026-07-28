@@ -344,6 +344,7 @@ function ChangePanelBody({
         value={search}
         onChange={pf.setSearch}
         ariaLabel={t(lang, "changeFilterSearch")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "changeFilterSearch")}`}
       />
       <Select
         value={typeFilter}
