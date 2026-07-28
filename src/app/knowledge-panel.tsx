@@ -288,7 +288,10 @@ export function KnowledgePanel() {
                   />
                 </label>
                 {isStandalone && (
-                  <label className="flex flex-col gap-1 text-xs text-foreground">
+                  // ★ Needs its own basis: this sits in a `flex flex-wrap
+                  //   items-end` row where every sibling declares one, so
+                  //   without it the picker collapses to content width.
+                  <label className="flex flex-1 min-w-[16rem] flex-col gap-1 text-xs text-foreground">
                     <span>{t(lang, "knowledgeLinkedTasks")}</span>
                     <TaskLinkPicker
                       lang={lang}
@@ -395,7 +398,10 @@ export function KnowledgePanel() {
           {kItems.length > 0 && (
             <section className="mb-4">
               <h3 className="mb-2 text-sm font-medium text-foreground">{t(lang, "knowledgeLibraryHeading")}</h3>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {/* xl, not lg: these cards carry a linked-tasks picker whose
+                  chips have no room to read at three-up on a laptop. The
+                  attached-document grid below has no chips and keeps lg. */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {kItems.map((it, idx) => {
                   const ft = fileTypeOf(it);
                   const safe = isSafeHttpUrl(it.url);

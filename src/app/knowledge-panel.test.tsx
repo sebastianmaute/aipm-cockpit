@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -210,6 +212,26 @@ describe("KnowledgePanel", () => {
     expect(screen.getByLabelText(t("en-US", "documentsManualName"))).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
     expect(screen.queryByRole("combobox", { name: t("en-US", "documentsTarget") })).toBeNull();
+  });
+
+  // ★ Source scans, deliberately: jsdom reports every rect as zero, so neither
+  // a collapsed field nor a too-narrow card is observable from a render.
+  it("gives the standalone add-form linked-tasks field a flex basis so it cannot collapse", () => {
+    const src = readFileSync(join(__dirname, "knowledge-panel.tsx"), "utf8");
+    // The field sits in a `flex flex-wrap items-end` row where every sibling
+    // declares a basis; without one it shrinks to content width.
+    expect(src).toMatch(/flex flex-1 min-w-\[16rem\] flex-col gap-1 text-xs text-foreground/);
+  });
+
+  it("does not pack knowledge-library cards three-up before xl", () => {
+    const src = readFileSync(join(__dirname, "knowledge-panel.tsx"), "utf8");
+    // Scoped to the LIBRARY section: those cards carry a linked-tasks picker
+    // whose chips overflow a 3-column card. The attached-document grid below
+    // has no chips and deliberately keeps its lg breakpoint.
+    const library = src.slice(src.indexOf("knowledgeLibraryHeading"));
+    const grid = library.slice(0, library.indexOf("</div>"));
+    expect(grid).toMatch(/grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3/);
+    expect(grid).not.toMatch(/lg:grid-cols-3/);
   });
 
   it("keeps the Standalone default after Cancel and reopen", () => {
