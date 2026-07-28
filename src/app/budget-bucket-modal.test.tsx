@@ -457,4 +457,14 @@ describe("BudgetBucketModal", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     expect((onSave.mock.calls[0][0] as BudgetBucket).percentComplete).toBe(0);
   });
+
+  test("the panel carries a default height and min-height, not just a max", () => {
+    // Headline claim FIRST: useResizable needs a class-based default height or a
+    // dragged height is dead space (same defect as the shared edit-modal shell).
+    setup();
+    const panel = document.querySelector("[data-modal-panel]") as HTMLElement;
+    expect(panel.className).toContain("h-[640px]");
+    expect(panel.className).toContain("min-h-[400px]");
+    expect(panel.className).toContain("max-h-[95vh]");
+  });
 });
