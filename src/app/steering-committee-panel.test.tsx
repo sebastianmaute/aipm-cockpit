@@ -308,6 +308,36 @@ describe("SteeringCommitteePanel", () => {
     fireEvent.click(cancel);
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("the status-report panel carries a default height and min-height under its 85vh cap", async () => {
+    // Same defect class as the shared edit-modal shell and the budget/shift
+    // modals: useResizable needs a class-based default height or a dragged
+    // height opens dead space. The content div here already has
+    // min-h-0 flex-1 overflow-auto, so this is a panel-only fix — the 85vh
+    // cap stays (it must fit alongside the print/reset/cancel header on a
+    // laptop viewport, not the 95vh most edit modals use).
+    render(
+      <SteeringCommitteePanel
+        lang="en-US"
+        committee={committee}
+        onChange={() => {}}
+        resources={RESOURCES}
+        today={TODAY}
+        report={reportBag}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "reportStatusReport")} – Kickoff` }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const heading = within(dialog).getByRole("heading", {
+      name: `${t("en-US", "reportStatusReport")} – Kickoff`,
+    });
+    const panel = heading.closest("div.resize") as HTMLElement;
+    expect(panel.className).toContain("h-[600px]");
+    expect(panel.className).toContain("min-h-[320px]");
+    expect(panel.className).toContain("max-h-[85vh]");
+  });
 });
 
 describe("SteeringCommitteePanel (DE)", () => {

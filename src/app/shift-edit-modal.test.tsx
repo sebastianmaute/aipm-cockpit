@@ -61,3 +61,21 @@ describe("ShiftEditModal — assignee ResourcePicker", () => {
     );
   });
 });
+
+describe("ShiftEditModal — panel sizing", () => {
+  it("the panel carries a default height and min-height, not just a max, and the form can shrink to scroll", () => {
+    // Same class of defect as the shared edit-modal shell and the budget
+    // bucket modal: useResizable needs a class-based default height or a
+    // dragged height opens dead space. The form also needs min-h-0 flex-1
+    // so it is the flex child that actually shrinks and scrolls, rather
+    // than the fixed-height panel clipping it.
+    setup();
+    const panel = document.querySelector("[data-modal-panel]") as HTMLElement;
+    expect(panel.className).toContain("h-[560px]");
+    expect(panel.className).toContain("min-h-[400px]");
+    expect(panel.className).toContain("max-h-[95vh]");
+    const form = panel.querySelector("form") as HTMLFormElement;
+    expect(form.className).toContain("min-h-0");
+    expect(form.className).toContain("flex-1");
+  });
+});
