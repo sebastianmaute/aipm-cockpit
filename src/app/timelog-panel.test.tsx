@@ -166,6 +166,12 @@ function Controls() {
   return (
     <>
       <button data-testid="hydrate-links-999" onClick={() => ws.setTimelogLinks({ ...INITIAL_LINKS, customerId: 999 })}>hl</button>
+      {/* ★ Same late hydration, but carrying projectIds. The seeding ladder only
+          replaces the project SELECTION when `seed.projectIds.length > 0`, so a
+          links payload without them can never exercise the selection-clobber
+          path — a test using the button above can only ever discriminate on the
+          customer. Use this one when the assertion is about the selection. */}
+      <button data-testid="hydrate-links-999-projects" onClick={() => ws.setTimelogLinks({ ...INITIAL_LINKS, customerId: 999, projectIds: [77] })}>hlp</button>
       <button data-testid="switch-project-b-empty" onClick={() => {
         ws.setProject({ code: "proj-b" } as unknown as Parameters<typeof ws.setProject>[0]);
         ws.setTimelogLinks({ ...INITIAL_LINKS }); // new project: no customerId scope
@@ -844,12 +850,19 @@ describe("TimelogPanel", () => {
       await act(async () => { fireEvent.click(box); });
       expect((box as HTMLInputElement).checked).toBe(true);
 
-      // Links hydrate for a DIFFERENT customer, carrying their own projectIds.
-      await act(async () => { fireEvent.click(screen.getByTestId("hydrate-links-999")); });
+      // ★ Hydrate WITH projectIds — the variant that can actually clobber the
+      // selection. Using the projectId-less control here would make the checked
+      // assertion below unfalsifiable (the ladder skips the selection write when
+      // `seed.projectIds` is empty), leaving only the customer under test.
+      await act(async () => { fireEvent.click(screen.getByTestId("hydrate-links-999-projects")); });
 
+      // ★ Selection first: it is what the test is NAMED for, and asserting the
+      // customer first would mask it — the customer assertion trips on the same
+      // mutants, so it would always be the reported failure and the selection
+      // claim would never be exercised.
+      expect((box as HTMLInputElement).checked).toBe(true);
       const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
       expect(select.value).toBe("667");
-      expect((box as HTMLInputElement).checked).toBe(true);
     });
 
     it("shows no scope-mismatch note when the picker and the last fetch agree", async () => {
