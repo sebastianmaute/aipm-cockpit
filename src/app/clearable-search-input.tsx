@@ -21,7 +21,7 @@
 //
 // i18n-free (the EntityLinkPicker convention): the caller passes an
 // already-translated `clearLabel`.
-import { type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
@@ -47,13 +47,28 @@ export function ClearableSearchInput({
   children,
   className,
 }: ClearableSearchInputProps) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   return (
-    <div className={`relative${className ? ` ${className}` : ""}`}>
+    <div ref={wrapRef} className={`relative${className ? ` ${className}` : ""}`}>
       {children}
       {value && (
         <button
           type="button"
-          onClick={onClear}
+          // ★ Mouse: keep focus in the field so it is never taken and then
+          //   dropped when this button unmounts (also protects commit-on-blur
+          //   callers — the ResourcePicker precedent). NOT unit-testable:
+          //   jsdom never moves focus on mousedown, so removing this leaves
+          //   the suite green — the onClick refocus below is what the mouse
+          //   test actually proves.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            onClear();
+            // ★ Keyboard: activation focus WAS on this button, which the clear
+            //   just unmounted, so focus would fall to <body>. `children` is
+            //   contractually THE field, so query it rather than adding a
+            //   fieldRef prop that would churn every shipped call site.
+            wrapRef.current?.querySelector<HTMLElement>("input, textarea")?.focus();
+          }}
           aria-label={clearLabel}
           title={clearLabel}
           className={`absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-surface-muted hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
