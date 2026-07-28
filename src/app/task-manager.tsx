@@ -1551,7 +1551,7 @@ function TaskManagerInner() {
     handlers: { onEdit, onDelete, onSendInquiry },
     onCancelEdit: handleCancelEdit,
     logActivity,
-    capture: undoApi.capture,
+    capture: undoApi.capture, commitBuckets,
     showToast, allowDestructiveSave,
     requestClearAllConfirm: () => {
       setActiveTab("open-points");

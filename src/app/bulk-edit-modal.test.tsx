@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { useLayoutEffect, type ReactNode } from "react";
 import { t } from "./i18n";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";
+import type { BudgetBucket } from "./types";
 import { BulkEditModal } from "./bulk-edit-modal";
 
 function Probe({
@@ -23,6 +24,7 @@ function defaultProps(
   overrides: Partial<{
     selectedIds: Set<number>;
     selectedJiraCount: number;
+    budgetBuckets: readonly BudgetBucket[];
   }> = {},
 ) {
   return {
@@ -32,6 +34,7 @@ function defaultProps(
     selectedJiraCount: overrides.selectedJiraCount ?? 0,
     uniqueGroups: [],
     uniqueLabels: [],
+    budgetBuckets: overrides.budgetBuckets ?? [],
     onApply: vi.fn(),
     onCancel: vi.fn(),
   };

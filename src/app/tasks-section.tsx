@@ -881,6 +881,7 @@ export function TasksSection({
         selectedJiraCount={selectedJiraCount}
         uniqueGroups={uniqueGroups}
         uniqueLabels={uniqueLabels}
+        budgetBuckets={workspaceCtx.budgets}
         onApply={applyBulkEdit}
         onCancel={cancelBulkEdit}
       />
