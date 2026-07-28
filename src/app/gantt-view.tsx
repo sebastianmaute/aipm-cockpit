@@ -4,9 +4,14 @@
 // so the caller (workspace-section) doesn't have to thread it, and mounts the
 // AI "Deduplicate & unify" hook — the ONE dependency (undo capture) that isn't
 // reachable via context, so it arrives as a prop from the call site instead.
-// This is the lazy boundary (see workspace-panels.tsx): GanttPanel itself stays
-// a pure presentational chart, and the dedup call/engine/modal only join the
-// bundle when the Gantt view is actually visited.
+// This is the lazy boundary (see workspace-panels.tsx), inherited from the
+// GanttPanel export it replaced: the chart itself still loads only when the
+// Gantt view is visited, and GanttPanel stays a pure presentational component.
+// ★ It does NOT keep the dedup call/engine/modal out of the main bundle —
+// tasks-section.tsx imports the same hook and is imported STATICALLY by
+// task-manager.tsx, so that code ships regardless. Preserving the existing
+// laziness is the whole reason this is a dynamic import; there is no
+// bundle-size win here to protect.
 import { GanttPanel } from "./gantt";
 import { type GanttBarEdit } from "./gantt-engine";
 import { t } from "./i18n";
