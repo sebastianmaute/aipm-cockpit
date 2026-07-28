@@ -17,6 +17,7 @@ import type {
   FieldChange,
 } from "./activity-log";
 import type { CalendarEvent } from "./calendar-event";
+import type { BucketCommitMeta } from "./use-budget-buckets";
 import type {
   Absence,
   BudgetBucket,
@@ -231,7 +232,7 @@ export interface WorkspaceSectionProps {
   onImportOutlook?: () => void;
   onImportOutlookCalendar?: () => void;
   onEditTask?: (task: Task) => void;
-  onChangeBudgets: (next: BudgetBucket[]) => void;
+  onChangeBudgets: (next: BudgetBucket[], meta?: BucketCommitMeta) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
   trends: UseSnapshotsResult & { active: boolean };

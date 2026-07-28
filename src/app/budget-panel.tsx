@@ -11,6 +11,7 @@ import { roleLabel } from "./resource-foundation";
 import { eurToCurrency, resolveRate } from "./fx";
 import type { Absence, BudgetBucket, Discipline, FxRates, Grade, Resource, ResourcePlan, Role, Task } from "./types";
 import { BudgetBucketModal } from "./budget-bucket-modal";
+import type { BucketCommitMeta } from "./use-budget-buckets";
 import { mintId } from "./id-mint-session";
 import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
@@ -176,7 +177,7 @@ export interface BudgetPanelProps {
   today: string;
   /** Tasks available to the bucket editor's "linked tasks" picker (earned value). */
   tasks?: readonly Task[];
-  onChangeBuckets: (next: BudgetBucket[]) => void;
+  onChangeBuckets: (next: BudgetBucket[], meta?: BucketCommitMeta) => void;
   onSetBudgetFollowsPlan?: (v: boolean) => void;
   onRefreshFx: () => void;
   fxLoading?: boolean;
@@ -283,12 +284,16 @@ export function BudgetPanel(props: BudgetPanelProps) {
 
   const addBucket = () => {
     const id = nextBucketId(buckets);
-    props.onChangeBuckets([...buckets, blankBucket(id, plan)]);
+    const fresh = blankBucket(id, plan);
+    props.onChangeBuckets([...buckets, fresh], { kind: "budget.created", name: fresh.name });
     setEditingBucketId(id);
   };
 
   const updateBucket = (id: number, patch: Partial<BudgetBucket>) => {
-    props.onChangeBuckets(buckets.map((b) => (b.id === id ? { ...b, ...patch, localModifiedAt: stamp() } : b)));
+    props.onChangeBuckets(
+      buckets.map((b) => (b.id === id ? { ...b, ...patch, localModifiedAt: stamp() } : b)),
+      { kind: "budget.updated", name: bucketById.get(id)?.name },
+    );
   };
 
   const removeBucket = async (id: number) => {
@@ -297,6 +302,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
       buckets
         .filter((b) => b.id !== id)
         .map((b) => (b.successorId === id ? { ...b, successorId: null, localModifiedAt: stamp() } : b)),
+      { kind: "budget.deleted", name: bucketById.get(id)?.name },
     );
   };
 
@@ -312,6 +318,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         );
         return { ...b, allocations, localModifiedAt: stamp() };
       }),
+      { kind: "budget.updated", name: bucketById.get(bucketId)?.name },
     );
   };
 
@@ -327,6 +334,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         );
         return { ...b, disciplineAllocations, localModifiedAt: stamp() };
       }),
+      { kind: "budget.updated", name: bucketById.get(bucketId)?.name },
     );
   };
 
@@ -343,6 +351,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
         const newOrder = orderById.get(b.id) ?? b.order ?? 0;
         return b.order === newOrder ? b : { ...b, order: newOrder, localModifiedAt: ts };
       }),
+      { kind: "budget.updated" },
     );
   };
 
@@ -671,7 +680,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           resources={resources}
           tasks={tasks}
           onSave={(next) => {
-            props.onChangeBuckets(buckets.map((b) => (b.id === next.id ? next : b)));
+            props.onChangeBuckets(buckets.map((b) => (b.id === next.id ? next : b)), { kind: "budget.updated", name: next.name });
             setEditingBucketId(null);
           }}
           onClose={() => setEditingBucketId(null)}

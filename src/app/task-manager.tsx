@@ -31,12 +31,13 @@ import { useCommTemplates } from "./use-comm-templates";
 import { useOperatingGuides } from "./use-operating-guides";
 import { useTaskSubmit } from "./use-task-submit";
 import { useTaskEditorBuffer, type RaidSpec, type LinkSpec } from "./use-task-editor-buffer";
+import { useBudgetBuckets } from "./use-budget-buckets";
 import { TaskEditorRaidMini } from "./task-editor-raid-mini";
 import { TaskLinkedTaskModal, type LinkedTaskDraft } from "./task-linked-task-modal";
 import { applyTaskLink } from "./task-link";
 import { useGanttHandlers } from "./use-gantt-handlers";
 import { AppModals } from "./app-modals";
-import { type Resource, type BudgetBucket, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
+import { type Resource, type RaidItem, type ChangeItem, type Task, DEFAULT_TASK_STATUS } from "./types";
 import { NotesWindow } from "./notes-window";
 import { useNotesWindow } from "./use-notes-window";
 import { INTERACTIVE } from "./interaction-styles";
@@ -1319,16 +1320,9 @@ function TaskManagerInner() {
     },
     [setTasks],
   );
-  const editorBuffer = useTaskEditorBuffer({
-    applyRaid: applyRaidFromTask,
-    applyLink: applyLinkFromTask,
-  });
-  const {
-    flush: flushEditorBuffer,
-    discard: discardEditorBuffer,
-    stageRaid: stageEditorRaid,
-    stageLink: stageEditorLink,
-  } = editorBuffer;
+  const { commitBuckets } = useBudgetBuckets({ budgets, setBudgets, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity });
+  const editorBuffer = useTaskEditorBuffer({ applyRaid: applyRaidFromTask, applyLink: applyLinkFromTask });
+  const { flush: flushEditorBuffer, discard: discardEditorBuffer, stageRaid: stageEditorRaid, stageLink: stageEditorLink } = editorBuffer;
 
   // create-RAID (Task 7): apply immediately in edit-mode, stage in create-mode.
   const handleAddRaidFromEditor = useCallback(
@@ -1872,7 +1866,6 @@ function TaskManagerInner() {
     );
   }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivity, showToast, lang]);
 
-  const handleChangeBudgets = useCallback((next: BudgetBucket[]) => setBudgets(next), [setBudgets]);
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
   const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
 
@@ -2274,7 +2267,7 @@ function TaskManagerInner() {
         ? guardEdit(() => { void handleOpenCalendarImport(); })
         : undefined,
     onEditTask: openEditModal,
-    onChangeBudgets: handleChangeBudgets,
+    onChangeBudgets: commitBuckets,
     onRefreshFx: () => { void refreshFx().then((err) => { if (err) reportSilentFailure(showToast, lang, "fx.refreshFailed", new Error(err), "guardFxRefreshFailed"); }); },
     fxLoading,
     trends,
