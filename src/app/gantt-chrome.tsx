@@ -2,6 +2,7 @@
 // the filter/sort toolbar, the month/day time-axis header, and the
 // dependency/connector arrow overlay. All pure (no local state); GanttPanel
 // owns the data + handlers and passes them in.
+import type { ReactNode } from "react";
 import { BoltIcon, EllipsisVerticalIcon, FlagIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { FilterMultiSelect, type FilterOption } from "./filter-multiselect";
@@ -57,6 +58,7 @@ export function GanttToolbar({
   hasBaseline,
   toggleMilestonePlacement,
   hasMilestones,
+  dedupButton,
 }: {
   lang: Lang;
   prefs: GanttPrefs;
@@ -77,6 +79,12 @@ export function GanttToolbar({
   hasBaseline: boolean;
   toggleMilestonePlacement: () => void;
   hasMilestones: boolean;
+  /**
+   * The AI "Deduplicate & unify" trigger, pre-built by the view wrapper
+   * (it needs settings/setTasks/undo-capture the chart never sees). Null
+   * whenever the feature is unavailable (AI off, popout, <2 tasks).
+   */
+  dedupButton?: ReactNode;
 }) {
   return (
     <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 print:hidden">
@@ -98,6 +106,7 @@ export function GanttToolbar({
           + {t(lang, "ganttAddMilestone")}
         </AddButton>
       )}
+      {dedupButton}
       {/* Stays AFTER the add buttons: a source-order test in gantt.test.tsx
           pins `onClick={onAddTask}` ahead of this file's `type="search"`. */}
       <ClearableSearchInput
