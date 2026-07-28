@@ -30,6 +30,13 @@ cleared the same way.
   through a small scroller. It stays bounded, so Apply and Cancel remain
   reachable.
 
+### Everywhere else
+
+- **Filter clear buttons now say what they clear.** On views with more than one
+  filter — Reports, Budget, RAID, Resources and Time bookings — every clear
+  button announced simply "Clear", so a screen-reader user had no way to tell
+  them apart. Each now names its own filter.
+
 ## [0.203.0] - 2026-07-27 "Czerneda"
 
 Escape now closes exactly one thing, decided by what you opened last rather
