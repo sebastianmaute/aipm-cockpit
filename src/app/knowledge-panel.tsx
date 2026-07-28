@@ -14,6 +14,7 @@ import { isSharePointEnabled } from "./m365-sharepoint";
 import { INTERACTIVE } from "./interaction-styles";
 import { TaskLinkPicker } from "./task-link-picker";
 import { Input, Select } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { AddButton } from "./pane-toolbar";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";
@@ -366,15 +367,22 @@ export function KnowledgePanel() {
                 );
               })}
             </div>
-            <Input
-              type="search"
+            <ClearableSearchInput
               value={query}
-              aria-label={t(lang, "documentsSearchDocs")}
-              placeholder={t(lang, "documentsSearchDocs")}
-              onChange={(e) => setQuery(e.target.value)}
-              size="xs"
+              onClear={() => setQuery("")}
+              clearLabel={`${t(lang, "clear")} – ${t(lang, "documentsSearchDocs")}`}
               className="min-w-[8rem] flex-1"
-            />
+            >
+              <Input
+                type="search"
+                value={query}
+                aria-label={t(lang, "documentsSearchDocs")}
+                placeholder={t(lang, "documentsSearchDocs")}
+                onChange={(e) => setQuery(e.target.value)}
+                size="xs"
+                className={`w-full [&::-webkit-search-cancel-button]:appearance-none${query ? " pr-8" : ""}`}
+              />
+            </ClearableSearchInput>
             <label className="shrink-0 text-xs text-muted-foreground">
               {t(lang, "documentsSortBy")}
               <Select

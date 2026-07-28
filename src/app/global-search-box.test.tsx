@@ -147,6 +147,16 @@ describe("GlobalSearchBox", () => {
     expect(input).toHaveAttribute("aria-label", t("en-US", "searchLabel"));
   });
 
+  it("clears the query via its ✕", async () => {
+    const { input } = renderBox();
+    await userEvent.type(input, "login");
+    expect((input as HTMLInputElement).value).toBe("login");
+    await userEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "clear")} – ${t("en-US", "searchLabel")}` }),
+    );
+    expect((input as HTMLInputElement).value).toBe("");
+  });
+
   it("renders a decorative aria-hidden shortcut hint when empty and hides it while typing", async () => {
     const { input } = renderBox();
     const kbd = document.querySelector("kbd");

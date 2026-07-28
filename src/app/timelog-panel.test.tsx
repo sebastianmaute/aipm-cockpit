@@ -497,6 +497,26 @@ describe("TimelogPanel", () => {
       expect(removeUsers).toHaveBeenCalledWith([42]);
     });
 
+    it("clears the people filter via its ✕", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const field = screen.getByLabelText(t("en-US", "timelogPeopleFilter")) as HTMLInputElement;
+      fireEvent.change(field, { target: { value: "alice" } });
+      expect(field.value).toBe("alice");
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: `${t("en-US", "clear")} – ${t("en-US", "timelogPeopleFilter")}`,
+        }),
+      );
+      expect(field.value).toBe("");
+    });
+
     it("collapse toggle hides the people region; expand restores it", async () => {
       enableTimelog();
       render(

@@ -143,6 +143,21 @@ describe("KnowledgePanel", () => {
     expect(screen.getByText(t("en-US", "documentsNoneForSource"))).toBeInTheDocument();
   });
 
+  it("clears the search box via its ✕ and restores the filtered-out cards", () => {
+    const second: KnowledgeLink = { id: "dl-2", name: "Risk.pdf", url: "https://example.com/Risk.pdf", kind: "file" };
+    renderWithTasks([{ ...seededTask([LINK, second]) }]);
+    const field = screen.getByLabelText(t("en-US", "documentsSearchDocs")) as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "risk" } });
+    expect(screen.queryByText(/Spec\.docx/)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${t("en-US", "clear")} – ${t("en-US", "documentsSearchDocs")}`,
+      }),
+    );
+    expect(field.value).toBe("");
+    expect(screen.getByText(/Spec\.docx/)).toBeInTheDocument();
+  });
+
   it("renders the derived host badge and file type", () => {
     renderWithTasks([seededTask([LINK])]);
     expect(screen.getByText("SharePoint")).toBeInTheDocument();
