@@ -31,6 +31,7 @@ import { useCommTemplates } from "./use-comm-templates";
 import { useOperatingGuides } from "./use-operating-guides";
 import { useTaskSubmit } from "./use-task-submit";
 import { useTaskEditorBuffer, type RaidSpec, type LinkSpec } from "./use-task-editor-buffer";
+import { useTaskBudgetLink } from "./use-task-budget-link";
 import { useBudgetBuckets } from "./use-budget-buckets";
 import { TaskEditorRaidMini } from "./task-editor-raid-mini";
 import { TaskLinkedTaskModal, type LinkedTaskDraft } from "./task-linked-task-modal";
@@ -1323,6 +1324,7 @@ function TaskManagerInner() {
   const { commitBuckets } = useBudgetBuckets({ budgets, setBudgets, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity });
   const editorBuffer = useTaskEditorBuffer({ applyRaid: applyRaidFromTask, applyLink: applyLinkFromTask });
   const { flush: flushEditorBuffer, discard: discardEditorBuffer, stageRaid: stageEditorRaid, stageLink: stageEditorLink } = editorBuffer;
+  const { budgetLink, onTaskCreated: onTaskCreatedWithBucket, onEditorDiscard: onEditorDiscardWithBucket } = useTaskBudgetLink({ enabled: isModuleEnabled("budget", settings.features), budgets, editingId, commitBuckets, flushEditorBuffer, discardEditorBuffer });
 
   // create-RAID (Task 7): apply immediately in edit-mode, stage in create-mode.
   const handleAddRaidFromEditor = useCallback(
@@ -1394,8 +1396,8 @@ function TaskManagerInner() {
     raid,
     setRaid,
     pendingLinkRaidIdRef,
-    onTaskCreated: flushEditorBuffer,
-    onEditorDiscard: discardEditorBuffer,
+    onTaskCreated: onTaskCreatedWithBucket,
+    onEditorDiscard: onEditorDiscardWithBucket,
     captureFieldEdit: undoApi.captureFieldEdit,
   });
 
@@ -2687,6 +2689,7 @@ function TaskManagerInner() {
         taskDeleteAction={editorDeleteAction}
         taskEditorExtras={editorExtrasEl}
         taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
+        budgetLink={budgetLink}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}
         clearConflicts={clearConflicts}

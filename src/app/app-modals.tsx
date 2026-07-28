@@ -18,6 +18,7 @@ import type { ConflictResolution } from "./jira-conflicts-modal";
 import type { Absence, Resource, Shift, Task } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import type { Toast } from "./use-toast";
+import type { TaskBudgetLink } from "./use-task-budget-link";
 
 export interface AppModalsProps {
   lang: Lang;
@@ -87,6 +88,8 @@ export interface AppModalsProps {
    *  only when editing an EXISTING task (an unsaved draft has no id to target);
    *  absent → the form's "Notes" button is disabled. */
   taskOnOpenNotes?: () => void;
+  /** Budget-bucket link controls; absent when the budget module is off. */
+  budgetLink?: TaskBudgetLink;
 
   // Resource edit modal
   editingResource: { resource: Resource; isNew: boolean } | null;
@@ -150,6 +153,7 @@ export function AppModals({
   taskDeleteAction,
   taskEditorExtras,
   taskOnOpenNotes,
+  budgetLink,
   editingResource,
   onSaveResource,
   onDeleteResource,
@@ -192,6 +196,7 @@ export function AppModals({
           deleteAction={taskDeleteAction}
           editorExtras={taskEditorExtras}
           onOpenNotes={taskOnOpenNotes}
+          budgetLink={budgetLink}
         />
       )}
 
