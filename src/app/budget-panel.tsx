@@ -5,6 +5,8 @@ import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { computeBudgetReport, bucketActivePeriods, effectiveBudgetHours, costIsKnowable, type BucketReport, type CciValue } from "./budget-report";
 import { CostUnknownNotice } from "./budget-cost-notice";
+import { bucketPercentComplete } from "./budget-earned-value";
+import { describeClamp } from "./sanitize-report";
 import type { Period } from "./resource-capacity";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
@@ -138,6 +140,55 @@ function HoursCell({
         <RagBadge value={cellHealth(actual ?? 0, budget ?? 0, periodEnd, today)} lang={lang} />
       </div>
     </div>
+  );
+}
+
+/** The bucket's Manual % complete, editable without opening the bucket modal.
+ *  The placeholder shows the task-derived percentage so the override
+ *  relationship is visible in place. */
+function ManualPercentCell({
+  lang, bucket, tasks, onCommit,
+}: {
+  lang: Lang;
+  bucket: BudgetBucket;
+  /** OPTIONAL on the panel — a caller that omits it gets no derived hint, never
+   *  a misleading 0 %. */
+  tasks: readonly Task[] | undefined;
+  onCommit: (pct: number | undefined) => void;
+}) {
+  const derived = bucket.percentComplete === undefined && tasks
+    ? bucketPercentComplete({ taskIds: bucket.taskIds, percentComplete: undefined }, tasks)
+    : null;
+  // Clearing the box must write `undefined`, NOT 0: `bucketPercentComplete`
+  // treats a manual 0 as a real override that wins over the task derivation,
+  // so a 0 would pin the bucket at 0 % forever.
+  const draft = useCommitDraft(
+    bucket.percentComplete === undefined ? "" : String(bucket.percentComplete),
+    (raw) => onCommit(describeClamp(raw, { min: 0, max: 100, round: 2 }).value),
+  );
+  return (
+    <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+      {t(lang, "budgetPercentComplete")}
+      <InfoTooltip text={t(lang, "budgetPercentCompleteHint")} />
+      <input
+        // Bucket-qualified: N identical "Manual % complete" labels is a WCAG
+        // 2.4.6 failure that the axe gate cannot see (it reports MISSING
+        // accessible names, never duplicate ones).
+        aria-label={`${t(lang, "budgetPercentComplete")} – ${bucket.name}`}
+        type="number"
+        min={0}
+        max={100}
+        step="1"
+        placeholder={derived === null ? "—" : String(Math.round(derived))}
+        value={draft.value}
+        onChange={(e) => draft.onChange(e.target.value)}
+        onFocus={draft.onFocus}
+        onBlur={draft.onBlur}
+        onKeyDown={draft.onKeyDown}
+        className={`w-16 rounded border border-line bg-surface px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
+      />
+      <span aria-hidden="true">%</span>
+    </span>
   );
 }
 
@@ -523,6 +574,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   {t(lang, br.type === "fixed" ? "budgetTypeFixed" : "budgetTypeTm")} · {bucket.currency}
                   {rate !== 1 ? ` (×${rate})` : ""}
                   {" · "}{t(lang, isBlended ? "budgetModeBlended" : "budgetModeDetailed")}
+                  <ManualPercentCell
+                    lang={lang}
+                    bucket={bucket}
+                    tasks={props.tasks}
+                    onCommit={(pct) => updateBucket(bucket.id, { percentComplete: pct })}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">

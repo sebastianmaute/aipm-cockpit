@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { BudgetPanel } from "./budget-panel";
-import type { BudgetBucket, Role, ResourcePlan } from "./types";
+import type { BudgetBucket, Role, ResourcePlan, Task } from "./types";
 
 // The edit modal's header controls read field visibility from the workspace,
 // so any render that can open the modal needs Workspace/Filters providers.
@@ -26,9 +26,11 @@ const roles: Role[] = [{ id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, 
 function Harness({
   initial,
   onChangeSpy,
+  tasks,
 }: {
   initial: BudgetBucket[];
   onChangeSpy: (next: BudgetBucket[]) => void;
+  tasks?: readonly Task[];
 }) {
   const [buckets, setBuckets] = useState<BudgetBucket[]>(initial);
   return (
@@ -45,6 +47,7 @@ function Harness({
       holidaySet={new Set<string>()}
       workdayHours={8}
       today="2026-02-01"
+      tasks={tasks}
       onChangeBuckets={(next) => {
         onChangeSpy(next);
         setBuckets(next);
@@ -179,5 +182,64 @@ describe("BudgetPanel editing", () => {
     await user.tab();
     expect(spy).toHaveBeenCalledTimes(1);
     expect((spy.mock.calls[0][0] as BudgetBucket[])[0].allocations[0].actualHours["2026-01"]).toBe(40);
+  });
+
+  const twoBuckets: BudgetBucket[] = [
+    {
+      id: 1, name: "Design", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [], percentComplete: 65,
+    },
+    {
+      id: 2, name: "Build", type: "tm", currency: "EUR",
+      startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [],
+    },
+  ];
+
+  test("each bucket's manual % input carries a row-UNIQUE accessible name", () => {
+    render(<Harness initial={twoBuckets} onChangeSpy={vi.fn()} />, { wrapper });
+    expect(screen.getByLabelText("Manual % complete – Design")).toBeInTheDocument();
+    expect(screen.getByLabelText("Manual % complete – Build")).toBeInTheDocument();
+  });
+
+  test("clearing the manual % writes undefined, not 0", async () => {
+    const spy = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness initial={twoBuckets} onChangeSpy={spy} />, { wrapper });
+    await user.clear(screen.getByLabelText("Manual % complete – Design"));
+    await user.tab();
+    const next = spy.mock.calls.at(-1)![0] as BudgetBucket[];
+    // Assert the COMMITTED patch, not the rendered value: 0 and undefined both
+    // render as an empty box, so a value assertion here would be vacuous.
+    expect(next.find((b) => b.name === "Design")!.percentComplete).toBeUndefined();
+  });
+
+  test("an out-of-range manual % is clamped to 100", async () => {
+    const spy = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness initial={twoBuckets} onChangeSpy={spy} />, { wrapper });
+    const cell = screen.getByLabelText("Manual % complete – Build");
+    await user.clear(cell);
+    await user.type(cell, "180");
+    await user.tab();
+    const next = spy.mock.calls.at(-1)![0] as BudgetBucket[];
+    expect(next.find((b) => b.name === "Build")!.percentComplete).toBe(100);
+  });
+
+  test("with no manual value the placeholder shows the task-derived percentage", () => {
+    const linked: BudgetBucket[] = [{ ...twoBuckets[1], taskIds: [1, 2] }];
+    const tasks = [
+      { id: 1, status: "Done" },
+      { id: 2, status: "To Do" },
+    ] as unknown as Task[];
+    render(<Harness initial={linked} onChangeSpy={vi.fn()} tasks={tasks} />, { wrapper });
+    expect(screen.getByLabelText("Manual % complete – Build")).toHaveAttribute("placeholder", "50");
+  });
+
+  test("with no tasks prop the placeholder is the em dash, never a derived 0", () => {
+    const linked: BudgetBucket[] = [{ ...twoBuckets[1], taskIds: [1, 2] }];
+    render(<Harness initial={linked} onChangeSpy={vi.fn()} />, { wrapper });
+    expect(screen.getByLabelText("Manual % complete – Build")).toHaveAttribute("placeholder", "—");
   });
 });
