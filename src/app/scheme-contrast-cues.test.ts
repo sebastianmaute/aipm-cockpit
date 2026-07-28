@@ -19,7 +19,6 @@
 // That is false — AIPM and Mockup light use a mid-grey `#636362` foreground and
 // land at 4.79:1. The conclusion survived, the number did not, and nothing in
 // the suite could tell the difference. It can now.
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_SCHEMES } from "./builtin-schemes";
 import { hexToRgb, resolveSchemeColors } from "./scheme-tokens";
@@ -63,21 +62,6 @@ describe("dropdown active-row ring is visible in every shipped scheme", () => {
     it(`${scheme.name} light`, () => assertRingVisible(`${scheme.id} light`, scheme.light));
     const dark = scheme.dark;
     if (dark) it(`${scheme.name} dark`, () => assertRingVisible(`${scheme.id} dark`, dark));
-  }
-
-  // AIPM and Mockup ship as importable theme files rather than code built-ins,
-  // but a user who imports one from the gallery is running it — and they are
-  // precisely the pair whose mid-grey foreground makes this non-obvious.
-  for (const file of ["AIPM", "mockup"]) {
-    it(`${file}.json`, () => {
-      const theme = JSON.parse(readFileSync(`public/themes/${file}.json`, "utf8")) as {
-        light?: SchemeColorMap;
-        dark?: SchemeColorMap;
-      };
-      expect(theme.light, `${file}.json has a light map`).toBeTruthy();
-      assertRingVisible(`${file} light`, theme.light!);
-      if (theme.dark) assertRingVisible(`${file} dark`, theme.dark);
-    });
   }
 
   // The rejected alternative, kept as an executable record of WHY. If someone

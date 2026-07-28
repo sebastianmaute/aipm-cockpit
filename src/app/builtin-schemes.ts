@@ -2,7 +2,8 @@
 // light+dark pair over the 21 editable tokens. Harbor is the fresh-install
 // default. Pure (no DOM). Built-ins are undeletable + refreshed from code on
 // every load (reconcile). AIPM and Mockup are no longer code built-ins — they
-// ship as importable theme files (public/themes/*.json).
+// ship as importable theme files the user supplies (Settings → Appearance →
+// Theme gallery).
 import type { ColorScheme, SchemeStore } from "./color-schemes";
 import type { SchemeColorMap, SchemeStructuralMap } from "./scheme-apply";
 

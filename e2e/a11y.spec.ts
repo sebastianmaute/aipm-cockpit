@@ -1,19 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
-import { readFileSync } from "node:fs";
-import { HARBOR_DARK, HARBOR_LIGHT } from "../src/app/builtin-schemes";
+import {
+  HARBOR_DARK, HARBOR_LIGHT,
+  MERIDIAN_DARK, MERIDIAN_LIGHT,
+  UMBER_DARK, UMBER_LIGHT,
+} from "../src/app/builtin-schemes";
 import { resolveSchemeColors } from "../src/app/scheme-tokens";
-import type { SchemeColorMap, SchemeStructuralMap } from "../src/app/scheme-apply";
-
-const loadTheme = (f: string) =>
-  JSON.parse(readFileSync(`public/themes/${f}`, "utf8")) as {
-    light: SchemeColorMap;
-    dark?: SchemeColorMap;
-    structural: SchemeStructuralMap;
-    supportsDark: boolean;
-  };
-const ICC_THEME = loadTheme("AIPM.json");
-const MOCKUP_THEME = loadTheme("mockup.json");
+import type { SchemeColorMap } from "../src/app/scheme-apply";
 
 // Accessibility gate: scan the critical views (with a DATA-SEEDED project, so
 // colour-coded RAG/status states actually render) for WCAG 2.0/2.1 A & AA
@@ -31,31 +24,28 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
   Insights: "#insights",
 };
 
-// AIPM + Mockup are no longer built-in schemes: they ship as importable theme
-// files (public/themes/*.json), read here at seed time and seeded as USER schemes
-// (Harbor is the sole brand default / built-in). The style axis is the constant
-// data-style="custom" and the active SCHEME drives the look. The 5-combo matrix
-// scans the SAME visual coverage as before: AIPM (light+dark), Mockup (light-only),
-// Harbor (light+dark, the fresh-install default). Represented as a scheme id + dark flag.
+// AIPM and Dashboard no longer exist in the app in any form — a theme is a file
+// the user loads. The matrix therefore runs on the three BUILT-IN schemes, which
+// keeps the check count identical (5 × 16 views + 5 Kanban = 85) while scanning
+// three distinct palettes instead of two. All three are dark-capable; Umber runs
+// light-only to hold the count at five.
 const COMBOS = [
-  { scheme: "AIPM",    dark: false },
-  { scheme: "AIPM",    dark: true  },
-  { scheme: "mockup", dark: false },
-  { scheme: "harbor", dark: false },
-  { scheme: "harbor", dark: true  },
+  { scheme: "harbor",   dark: false },
+  { scheme: "harbor",   dark: true  },
+  { scheme: "meridian", dark: false },
+  { scheme: "meridian", dark: true  },
+  { scheme: "umber",    dark: false },
 ] as const;
 
-// Per-scheme maps (AIPM/Mockup from the shipped theme JSON, Harbor imported; all
-// resolved node-side at seed time — mirrors how the app persists them). Mockup is
-// light-only (no dark map, supportsDark=0); AIPM/Harbor are dark-capable. Structural:
-// AIPM reproduces the flat look, Mockup adds shadows/gradient, Harbor carries none ({}).
+// Per-scheme maps, resolved node-side at seed time (mirrors how the app persists
+// them). Built-ins carry no structural map.
 const SCHEME_SEED: Record<
   (typeof COMBOS)[number]["scheme"],
-  { light: SchemeColorMap; dark?: SchemeColorMap; structural: SchemeStructuralMap; supportsDark: boolean }
+  { light: SchemeColorMap; dark?: SchemeColorMap }
 > = {
-  AIPM:    { light: ICC_THEME.light, dark: ICC_THEME.dark, structural: ICC_THEME.structural, supportsDark: true },
-  mockup: { light: MOCKUP_THEME.light, structural: MOCKUP_THEME.structural, supportsDark: false },
-  harbor: { light: HARBOR_LIGHT, dark: HARBOR_DARK, structural: {}, supportsDark: true },
+  harbor:   { light: HARBOR_LIGHT,   dark: HARBOR_DARK },
+  meridian: { light: MERIDIAN_LIGHT, dark: MERIDIAN_DARK },
+  umber:    { light: UMBER_LIGHT,    dark: UMBER_DARK },
 };
 
 const comboLabel = (combo: (typeof COMBOS)[number]): string =>
@@ -67,38 +57,22 @@ const comboLabel = (combo: (typeof COMBOS)[number]): string =>
 // flag, the resolved color map, the structural map, AND the scheme store's
 // activeId — the latter is essential because post-mount use-style.syncScheme
 // re-resolves from aipm-cockpit:color-schemes and would otherwise snap back to the
-// Harbor default, repainting the AIPM/Mockup scans. Built-in schemes come from
-// reconcileBuiltins, so an empty schemes[] + the activeId selects them.
+// Harbor default, repainting a scan under the wrong palette.
 function seedScript(combo: (typeof COMBOS)[number]): string {
   const spec = SCHEME_SEED[combo.scheme];
-  const useDark = combo.dark && spec.supportsDark;
+  const useDark = combo.dark && !!spec.dark;
   const map = resolveSchemeColors(useDark && spec.dark ? spec.dark : spec.light);
-  // Harbor is a built-in (empty schemes[] + activeId selects it via reconcile);
-  // AIPM/Mockup are shipped theme files -> seed them as user schemes so reconcile
-  // keeps them and syncScheme doesn't snap back to Harbor.
-  const store =
-    combo.scheme === "harbor"
-      ? { schemes: [], activeId: "harbor" }
-      : {
-          schemes: [
-            {
-              id: combo.scheme,
-              name: combo.scheme,
-              supportsDark: spec.supportsDark,
-              light: spec.light,
-              ...(spec.dark ? { dark: spec.dark } : {}),
-              structural: spec.structural,
-              branding: {},
-            },
-          ],
-          activeId: combo.scheme,
-        };
+  // Every combo is a BUILT-IN now, so an empty schemes[] plus the activeId is
+  // enough — reconcileBuiltins injects the scheme. Seeding aipm-cockpit:color-schemes
+  // is still essential: post-mount, use-style.syncScheme re-resolves from it and
+  // would otherwise overwrite the boot paint (scheme landmine 4).
+  const store = { schemes: [], activeId: combo.scheme };
   return [
     `localStorage.setItem("aipm-cockpit-style", "custom");`,
     `localStorage.setItem("aipm-cockpit-theme", ${JSON.stringify(combo.dark ? "dark" : "light")});`,
-    `localStorage.setItem("aipm-cockpit-scheme-supports-dark", ${JSON.stringify(spec.supportsDark ? "1" : "0")});`,
+    `localStorage.setItem("aipm-cockpit-scheme-supports-dark", "1");`,
     `localStorage.setItem("aipm-cockpit-active-scheme-colors", ${JSON.stringify(JSON.stringify(map))});`,
-    `localStorage.setItem("aipm-cockpit-active-scheme-structural", ${JSON.stringify(JSON.stringify(spec.structural))});`,
+    `localStorage.setItem("aipm-cockpit-active-scheme-structural", ${JSON.stringify(JSON.stringify({}))});`,
     `localStorage.setItem("aipm-cockpit:color-schemes", ${JSON.stringify(JSON.stringify(store))});`,
   ].join("\n");
 }
