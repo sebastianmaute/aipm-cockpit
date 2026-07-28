@@ -1418,6 +1418,7 @@ const enUS = {
   timelogCustomerAll: "All customers",
   timelogCustomerFilter: "Filter customers (* wildcard)",
   timelogFetchScopedNote: "Fetching bookings for {0} only (this customer's projects).",
+  timelogScopeMismatchNote: "Showing bookings for {0}. Fetch to load {1}.",
   timelogNoCustomerProjects: "No projects found for this customer — nothing to fetch (previous data kept).",
   timelogProjectScopeLabel: "Projects",
   timelogProjectSelectAll: "Select all",

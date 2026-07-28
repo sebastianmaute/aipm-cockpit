@@ -2,11 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.203.0";
-export const APP_BUILD_DATE = "2026-07-27"; // 0.203.0: Escape dismissal stack (Czerneda)
+export const APP_VERSION = "0.204.0";
+export const APP_BUILD_DATE = "2026-07-28"; // 0.204.0: Timelog picker scope + clear affordance (Benford)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.203.x line is "Czerneda" (Julie E. Czerneda, science-fiction author). */
-export const APP_MILESTONE = "Czerneda";
+ *  0.204.x line is "Benford" (Gregory Benford, science-fiction author). */
+export const APP_MILESTONE = "Benford";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

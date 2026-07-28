@@ -4,6 +4,28 @@
 This version has breaking changes — APIs, conventions, file structure may all differ from training data. Read relevant guide in `node_modules/next/dist/docs/` before writing code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+## Contents
+
+Read [Commands](#commands) and [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges)
+before your first edit — the rest is reference, reachable from here.
+
+| | |
+|---|---|
+| [Commands](#commands) | every script + the CI gotcha that bites for each |
+| [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
+| [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, design-system primitives |
+| [Dashboard landing cockpit](#dashboard-landing-cockpit) | delta strip · KPI trends · masonry · coaching · density |
+| **UI shell** — [Help](#ui-shell--help-system) · [nav](#ui-shell--navigation--landing) · [focus/keyboard](#ui-shell--focus--keyboard-modern-shell) · [surfaces](#ui-shell--surfaces--controls) · [dismissal](#ui-shell--dismissal-escape--tab-ownership) · [theming](#ui-shell--theming--color-schemes) | ★ **dismissal** owns the Escape/Tab protocol — read it before touching any modal, popover or panel |
+| [Insights → action loop](#insights--action-loop) | detect · reconcile · recommend · outcome · digest |
+| [AI Assistant](#ai-assistant) | wire layer · tools · inline edit · dedup · scheduled jobs |
+| [Steering committee](#steering-committee) · [Calendar write-back](#calendar-write-back-engine-generic--milestonescommittee--tasks) · [Timelog](#timelog-integration) | integrations |
+| [Diagnostics · guards · dictation](#diagnostics-log--guard-transparency--dictation) · [AI master switch](#ai-master-switch--integration-disclaimer) | |
+| [Guided tour + demo](#guided-tour--demo) · [Timezones](#timezones) · [Saved views](#saved-views) · [PWA](#installable-pwa) · [Resource calendar meetings](#resource-calendar-meetings) | |
+
+Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
+caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
+live in [`docs/open-followups.md`](docs/open-followups.md), not here.
+
 ## Commands
 
 ```bash
@@ -877,7 +899,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   their input via the shared `buildDashboardInput(entities, ctx)` in `dashboard.ts` (one place for the
   14-field shape + `?? []` array defaults); callers do their OWN gating (feature-off / no-plan budgets)
   BEFORE building — pass `[]` for a gated-off entity.
-- **UI shell:**
+
+### UI shell — Help system
+
   • **Help view:** `help` AppView in the SYSTEM nav group below Settings (help-circle icon). `HelpView`
   (`help-view.tsx`, STATIC import — it takes function-valued callbacks like `onStartTour`/`onNavigateView` and
   `dynamic()` strips function props under the RSC serializable-props rule) renders the SHARED backbone `help-content.ts` (`HELP_ENTRIES`:
@@ -966,6 +990,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   gained an optional `tourTitleKey` label. Help is NOT in axe `A11Y_VIEWS` → catalog a11y eye-verified
   (`tour-catalog` uses the `INTERACTIVE` atom + `text-ui-green-strong` for the ✓-Done badge — there is
   NO `text-ui-green-text` utility token).
+
+### UI shell — navigation & landing
+
   • Default landing view is `dashboard` (`workspace-tab-context.tsx` initial `activeTab`); `useHashView`
   also lands a fresh/empty hash ("" or bare "#") on `dashboard` (not the `slugToView` "open-points"
   fallback), so opening the app at `/` goes to the Dashboard home. Deep-links + reload-on-a-view still honour the hash.
@@ -974,6 +1001,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   ★ TURSO_ONLY child views are pruned in TWO places: `filterNavGroups` (sidebar) AND `subTabsFor(view,
   features, onTurso)` (classic sub-tab row, pass `trends.active`) — gate BOTH for a new turso-only child,
   or it leaks into the classic sub-tab row on file backends.
+
+### UI shell — focus & keyboard (modern shell)
+
   • **Focus/keyboard a11y (modern shell, all modern-only — classic has no sidebar):** `use-focus-trap.ts`
   (`useFocusTrap(ref, active, onEscape)`) is the app's FIRST real focus trap — ★★ `onEscape` MUST be a
   stable `useCallback` or the effect re-focuses the first element every render. **Mobile off-canvas drawer**
@@ -991,6 +1021,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   focusCol` so a window shrink keeps EXACTLY one tab stop; keydown guards on `document.activeElement` being a
   `[data-cell]` so the assignee row-header keeps its own arrow keys; `default: return` before `preventDefault`
   so Tab still escapes). Calendar sub-tab is NOT axe-scanned (Resources default sub-tab = directory).
+
+### UI shell — surfaces & controls
+
   • Steering committee panel uses the STANDARD resizable content-pane shell
   (`VIEW_PANE_RESIZABLE_CLASS` + `useResizable("aipm-cockpit:steering-size")` + `ResetSizeButton`, header OUTSIDE
   the bordered scroller).
@@ -1026,6 +1059,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   `isPopout`-gated (never shown in pop-outs). `SettingsView` gained an `isPopout` prop threaded from
   task-manager. `onMigrateToTurso` is threaded ONLY on the Settings launch (no existing workspace to
   migrate in create-project / empty-state).
+
+### UI shell — dismissal: Escape & Tab ownership
+
   • ★★ **Shared `Modal` (`modal.tsx`) STACKS — topmost-only Escape/Tab.** Per-instance Symbol tokens in
   the SHARED `dismissal-stack.ts` (the local `modalStack` it once owned is GONE — see the ESCAPE PROTOCOL
   bullet below); only the layer that owns the key handles Escape (`claimsEscape`) and only the topmost
@@ -1147,6 +1183,9 @@ RAG `OverrideSelect`s folded into a `<details>` "Adjust health ratings" disclosu
   (`Node`/`Zone` helpers, `role=img`+`aria-label`+`<title>`/`<desc>`; node text hardcoded EN, legend `<dl>` +
   zone-swatch row use i18n). Rendered in BOTH Settings → Integrations AND the Help-view accordion (same
   component, two mounts).
+
+### UI shell — theming & color schemes
+
   • **Dual-CI / style axis:** ★ Phase 2 SUPERSEDES this axis — `data-style` is now the CONSTANT `"custom"` and
   AIPM/Mockup are read-only BUILT-IN SCHEMES (see the scheme bullet below); the CSS-role-token MECHANISM here
   still stands, only its source moved (scheme maps, not per-`data-style` CSS blocks). `data-style` (formerly

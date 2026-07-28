@@ -5,6 +5,7 @@
 // the lazy customer load are owned by the panel and passed as props.
 import { t, type Lang } from "./i18n";
 import { Input, Select } from "./form-controls";
+import { ClearableSearchInput } from "./clearable-search-input";
 
 export type CustomerOption = { id: number; name: string };
 
@@ -32,17 +33,34 @@ export function TimelogCustomerScope({
 }: TimelogCustomerScopeProps) {
   return (
     <>
-      <Input
-        type="search"
-        size="xs"
-        aria-label={t(lang, "timelogCustomerFilter")}
-        placeholder={t(lang, "timelogCustomerFilter")}
+      {/* The sizing lives on the POSITIONING wrapper and the field goes w-full:
+          leaving w-28 on the field would size it independently of the box the
+          clear button is absolutely positioned against, so the ✕ would land
+          off-target.
+
+          ★ `clearLabel` is QUALIFIED, not a bare "Clear": this view renders a
+          second clear button for the projects filter, and two controls
+          announcing the same name is a WCAG 2.4.6 failure the axe gate cannot
+          see (a name exists, so it passes). Mirrors the row-unique
+          `${edit} – ${row.name}` pattern used elsewhere. */}
+      <ClearableSearchInput
         value={filter}
-        disabled={disabled}
-        onFocus={onFocusLoad}
-        onChange={(e) => onFilterChange(e.target.value)}
+        onClear={() => onFilterChange("")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "timelogCustomerLabel")}`}
         className="w-28 print:hidden"
-      />
+      >
+        <Input
+          type="search"
+          size="xs"
+          aria-label={t(lang, "timelogCustomerFilter")}
+          placeholder={t(lang, "timelogCustomerFilter")}
+          value={filter}
+          disabled={disabled}
+          onFocus={onFocusLoad}
+          onChange={(e) => onFilterChange(e.target.value)}
+          className={`w-full ${filter ? "pr-8" : ""} [&::-webkit-search-cancel-button]:appearance-none`}
+        />
+      </ClearableSearchInput>
       <Select
         size="xs"
         aria-label={t(lang, "timelogCustomerLabel")}

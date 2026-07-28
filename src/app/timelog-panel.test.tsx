@@ -138,6 +138,17 @@ function SeedWorkspace({
   return null;
 }
 
+/** Seed a project carrying a free-text customer NAME, so the weakest seed source
+ *  (resolve-the-name-against-the-directory) has something to resolve. */
+function SeedProjectCustomer({ customer }: { customer: string }) {
+  const ws = useWorkspace();
+  useEffect(() => {
+    ws.setProject({ code: "proj-a", customer } as unknown as Parameters<typeof ws.setProject>[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 /** Read-only probe for asserting timelogLinks mutations. */
 function LinksProbe({ testId }: { testId: string }) {
   const { timelogLinks } = useWorkspace();
@@ -155,6 +166,12 @@ function Controls() {
   return (
     <>
       <button data-testid="hydrate-links-999" onClick={() => ws.setTimelogLinks({ ...INITIAL_LINKS, customerId: 999 })}>hl</button>
+      {/* ★ Same late hydration, but carrying projectIds. The seeding ladder only
+          replaces the project SELECTION when `seed.projectIds.length > 0`, so a
+          links payload without them can never exercise the selection-clobber
+          path — a test using the button above can only ever discriminate on the
+          customer. Use this one when the assertion is about the selection. */}
+      <button data-testid="hydrate-links-999-projects" onClick={() => ws.setTimelogLinks({ ...INITIAL_LINKS, customerId: 999, projectIds: [77] })}>hlp</button>
       <button data-testid="switch-project-b-empty" onClick={() => {
         ws.setProject({ code: "proj-b" } as unknown as Parameters<typeof ws.setProject>[0]);
         ws.setTimelogLinks({ ...INITIAL_LINKS }); // new project: no customerId scope
@@ -715,6 +732,157 @@ describe("TimelogPanel", () => {
       // Switch project in place → new project has no customerId scope → picker resets.
       await act(async () => { fireEvent.click(screen.getByTestId("switch-project-b-empty")); });
       await waitFor(() => expect(select.value).toBe(""));
+    });
+
+    // The seeding ladder is RANK-based, not a one-shot boolean, precisely so a
+    // higher-precedence source arriving late still wins. `timelogLinks` is
+    // workspace data and can hydrate well after the customer directory has
+    // already driven a name auto-resolve; a boolean would latch on the weaker
+    // seed and drop the links scope silently.
+    it("late-hydrating links override an earlier customer-name auto-resolve", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          {/* No customerId on links yet — only the project's free-text customer
+              name, which resolves against the directory. */}
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <SeedProjectCustomer customer="Acme" />
+          <Controls />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      // (1) Name auto-resolve seeds the weakest source.
+      await waitFor(() => expect(select.value).toBe("667"));
+      // (2) Links hydrate LATE with a different customer. They outrank the name
+      //     auto-resolve, so the picker must move — no manual pick intervened.
+      await act(async () => { fireEvent.click(screen.getByTestId("hydrate-links-999")); });
+      await waitFor(() => expect(select.value).toBe("999"));
+    });
+
+    it("restores a per-device picker scope in preference to the last-fetched scope", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      // Simulates a prior session in which the user SELECTED 999 and never
+      // pressed Fetch, so only the device store knows about it.
+      window.localStorage.setItem(
+        "aipm-cockpit:timelog-picker",
+        JSON.stringify({ "proj-key": { customerId: 999, projectIds: [], seq: 1 } }),
+      );
+      render(
+        <>
+          {/* Last FETCH was against 667 — the picker must still win. */}
+          <SeedWorkspace links={LINKS_WITH_CUSTOMER} />
+          <TimelogPanel lang="en-US" projectKey="proj-key" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      await waitFor(() => expect(select.value).toBe("999"));
+      // The picker now disagrees with the customer the loaded bookings came
+      // from, so it must say so rather than misrepresent what is on screen.
+      expect(
+        screen.getByText(t("en-US", "timelogScopeMismatchNote", "Acme", "Other")),
+      ).toBeInTheDocument();
+    });
+
+    // ★★ The READ direction (a seeded store restores a selection) was covered
+    // above, but nothing proved the panel ever WRITES. Deleting the
+    // persistPicker calls from both toggles left the entire suite green, which
+    // meant the release's headline claim — "your selection survives a reload" —
+    // was unprotected in the direction that actually produces the stored value.
+    it("persists a ticked project to the device store", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={LINKS_WITH_CUSTOMER} />
+          <TimelogPanel lang="en-US" projectKey="proj-key" />
+        </>,
+        { wrapper },
+      );
+      // Seeding alone must not write: the store records what the USER picked,
+      // not what the ladder restored.
+      expect(window.localStorage.getItem("aipm-cockpit:timelog-picker")).toBeNull();
+
+      const box = await screen.findByRole("checkbox", {
+        name: `${t("en-US", "timelogProjectScopeLabel")} – ForgeOps (PO-1)`,
+      });
+      await act(async () => { fireEvent.click(box); });
+
+      const stored = JSON.parse(window.localStorage.getItem("aipm-cockpit:timelog-picker") ?? "{}");
+      expect(stored["proj-key"]).toMatchObject({ customerId: 667, projectIds: [9] });
+    });
+
+    // Ticking a project is an explicit pick, so a higher-precedence source
+    // arriving afterwards must NOT overwrite it. Without `setUserPicked(true)`
+    // in the toggle, late-hydrating links (rank 2) replace both the customer and
+    // the whole project selection.
+    it("a ticked project survives links hydrating afterwards", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedProjectCustomer customer="Acme" />
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <Controls />
+          <TimelogPanel lang="en-US" projectKey="proj-key" />
+        </>,
+        { wrapper },
+      );
+      const box = await screen.findByRole("checkbox", {
+        name: `${t("en-US", "timelogProjectScopeLabel")} – ForgeOps (PO-1)`,
+      });
+      await act(async () => { fireEvent.click(box); });
+      expect((box as HTMLInputElement).checked).toBe(true);
+
+      // ★ Hydrate WITH projectIds — the variant that can actually clobber the
+      // selection. Using the projectId-less control here would make the checked
+      // assertion below unfalsifiable (the ladder skips the selection write when
+      // `seed.projectIds` is empty), leaving only the customer under test.
+      await act(async () => { fireEvent.click(screen.getByTestId("hydrate-links-999-projects")); });
+
+      // ★ Selection first: it is what the test is NAMED for, and asserting the
+      // customer first would mask it — the customer assertion trips on the same
+      // mutants, so it would always be the reported failure and the selection
+      // claim would never be exercised.
+      expect((box as HTMLInputElement).checked).toBe(true);
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      expect(select.value).toBe("667");
+    });
+
+    it("shows no scope-mismatch note when the picker and the last fetch agree", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={LINKS_WITH_CUSTOMER} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      await waitFor(() => expect(select.value).toBe("667"));
+      expect(
+        screen.queryByText(t("en-US", "timelogScopeMismatchNote", "Acme", "Acme")),
+      ).toBeNull();
     });
 
     it("Fetch is disabled until a customer AND ≥1 project are picked, then routes to fetchBookingsForProjects and persists the scope", async () => {

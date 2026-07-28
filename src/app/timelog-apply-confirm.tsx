@@ -28,12 +28,17 @@ export function TimelogApplyConfirm({
   onCancel: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-2 print:hidden">
+    // items-start, not items-center: once the diff list can grow tall, centring
+    // pushes the Apply/Cancel column to the vertical middle of a long list.
+    <div className="flex items-start gap-3 rounded-md border border-line bg-surface px-3 py-2 print:hidden">
       <div className="min-w-0">
         <p className="text-sm text-foreground">
           {t(lang, "timelogApplyConfirm", String(rows.length))}
         </p>
-        <ul className="mt-1 max-h-40 overflow-auto pr-2 text-xs text-muted-foreground">
+        {/* Bounded on purpose: this card gates a FINANCIAL write into
+            actualHours, so Apply and Cancel must never be pushed out of reach
+            by a long diff. */}
+        <ul className="mt-1 max-h-[50vh] overflow-auto pr-2 text-xs text-muted-foreground">
           {rows.map((r) => (
             <li key={`${r.bucketId}:${r.allocIndex}:${r.period}`} className="tabular-nums">
               {[r.bucketName, r.lineName, r.period].filter(Boolean).join(" · ")}

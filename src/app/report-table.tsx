@@ -2,7 +2,6 @@
 
 import type React from "react";
 import { useCallback, useMemo } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import {
   ColumnResizeHandle,
@@ -11,7 +10,8 @@ import {
   ResetSizeButton,
 } from "./task-manager-ui";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
+import { INTERACTIVE } from "./interaction-styles";
+import { ClearableSearchInput } from "./clearable-search-input";
 import { InfoTooltip } from "./info-tooltip";
 import { Card } from "./card";
 import { ProgressTrack } from "./progress-track";
@@ -94,12 +94,21 @@ export function TableFilter({
 }) {
   return (
     <div className="mb-2 flex items-center gap-2 print:hidden">
-      {/* ONE clear control, overlaid inside the field. type=search makes
-        * Chrome/Safari draw their own ✕ inside the input, which alongside a
-        * sibling button read as two clears — while Firefox, which draws none,
-        * showed only ours. Suppressing the native one and positioning ours over
-        * the field gives every browser the same single, keyboard-reachable ✕. */}
-      <div className="relative min-w-0 flex-1">
+      {/* The overlaid ✕ (and every reason it is overlaid rather than a sibling)
+        * now lives in the shared ClearableSearchInput. The rendered DOM is
+        * unchanged: the primitive emits the same `relative` wrapper and the same
+        * button classes this file used to inline.
+        *
+        * ★ The label is QUALIFIED with the field's own placeholder because a
+        * single view renders SEVERAL of these — Reports alone has more than one,
+        * and it is axe-scanned. N controls all announcing "Clear" is a WCAG
+        * 2.4.6 failure that the axe gate passes, since a name does exist. */}
+      <ClearableSearchInput
+        value={value}
+        onClear={() => onChange("")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, placeholderKey)}`}
+        className="min-w-0 flex-1"
+      >
         <input
           type="search"
           value={value}
@@ -111,25 +120,7 @@ export function TableFilter({
           // off the visible placeholder in the (common) empty state.
           className={`w-full rounded-md border border-line bg-surface py-1.5 pl-2.5 ${value ? "pr-8" : "pr-2.5"} text-xs text-foreground placeholder:text-muted-foreground focus:border-ui-dark-blue focus:outline-none [&::-webkit-search-cancel-button]:appearance-none`}
         />
-        {value && (
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            aria-label={t(lang, "clear")}
-            title={t(lang, "clear")}
-            // FOCUS_RING + TRANSITION, NOT the full INTERACTIVE atom: that
-            // bundles PRESS (`active:translate-y-px`), which writes the same
-            // --tw-translate-y as the -translate-y-1/2 centring here, so the ✕
-            // jumped out of centre for the duration of every press.
-            // h-6 w-6 = 24px, the WCAG 2.2 SC 2.5.8 floor — the icon is 14px, so
-            // padding alone left a ~20px target. right-1.5 + 24px = 30px, which
-            // stays inside the input's pr-8 (32px) so text never runs under it.
-            className={`absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-surface-muted hover:text-foreground ${FOCUS_RING} ${TRANSITION}`}
-          >
-            <XMarkIcon aria-hidden="true" className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+      </ClearableSearchInput>
     </div>
   );
 }

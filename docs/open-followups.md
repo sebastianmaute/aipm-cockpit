@@ -488,6 +488,28 @@ not a code change. Do not open a ticket for it now, and do not lose it if hostin
 
 ---
 
+## 14. Timelog has two per-device stores keyed differently — open, low priority
+
+`timelog-panel.tsx` computes `projectId = ws.project?.code ?? "default"`, which keys the per-device
+**actuals cache** via `useTimelogSync`. Slice C (0.204.0) added a second per-device store, the picker
+scope, keyed on the canonical `portfolioCurrentId ?? "default"` instead — matching `landing-state`
+and project-appearance.
+
+They were deliberately NOT unified. Re-pointing `projectId` at the canonical key would silently
+orphan every existing user's cached actuals: they would open Time bookings and find their fetched
+data gone. Fixing it properly needs a read-both-keys migration, which is its own change.
+
+★ The project *code* is user-editable, so the actuals cache already orphans on a code rename today.
+That is the pre-existing bug this note records, not one slice C introduced.
+
+★ Consequence to keep in mind while it stands: the two stores can disagree about which project they
+describe. Rename the project code and the picker scope survives (canonical key) while the actuals
+cache does not — so the picker restores a selection for bookings that are no longer loaded. The
+scope-mismatch note added in the same slice does not cover this case; it compares the picker against
+`links.customerId`, which is workspace data and unaffected by the rename.
+
+---
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
