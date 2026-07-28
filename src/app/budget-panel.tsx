@@ -14,6 +14,7 @@ import { BudgetBucketModal } from "./budget-bucket-modal";
 import type { BucketCommitMeta } from "./use-budget-buckets";
 import { mintId } from "./id-mint-session";
 import { useColumnResize } from "./use-column-resize";
+import { useCommitDraft } from "./use-commit-draft";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { DataTable } from "./data-table";
 import { useResizable } from "./use-resizable";
@@ -90,6 +91,12 @@ function HoursCell({
   // always editable regardless.
   readOnly?: boolean;
 }) {
+  // Draft-then-commit: these cells write into workspace state, where each write
+  // is captured for undo and logged. Committing per keystroke would make typing
+  // "40" two undo entries and two activity rows. Both hooks are called
+  // unconditionally — only the handler wiring below is conditional.
+  const budgetDraft = useCommitDraft(String(displayHours(budget, readOnly)), (raw) => onBudget(Number(raw) || 0));
+  const actualDraft = useCommitDraft(actual === undefined ? "" : String(actual), (raw) => onActual(Number(raw) || 0));
   // Both label spans are w-14, not w-10: "Actual" plus its tooltip overflowed
   // the narrower box, shoving the icon flush against the input while the
   // shorter "Plan" row kept its gap. The two rows must share one width or the
@@ -104,9 +111,12 @@ function HoursCell({
         <input
           aria-label={`budget-${ariaPrefix}`}
           type="number"
-          value={displayHours(budget, readOnly)}
+          value={readOnly ? displayHours(budget, readOnly) : budgetDraft.value}
           readOnly={readOnly}
-          onChange={readOnly ? undefined : (e) => onBudget(Number(e.target.value) || 0)}
+          onChange={readOnly ? undefined : (e) => budgetDraft.onChange(e.target.value)}
+          onFocus={readOnly ? undefined : budgetDraft.onFocus}
+          onBlur={readOnly ? undefined : budgetDraft.onBlur}
+          onKeyDown={readOnly ? undefined : budgetDraft.onKeyDown}
           className={`w-16 rounded border border-line ${readOnly ? "bg-surface-muted text-muted-foreground" : "bg-surface"} px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
         />
       </div>
@@ -118,8 +128,11 @@ function HoursCell({
         <input
           aria-label={`actual-${ariaPrefix}`}
           type="number"
-          value={actual ?? ""}
-          onChange={(e) => onActual(Number(e.target.value) || 0)}
+          value={actualDraft.value}
+          onChange={(e) => actualDraft.onChange(e.target.value)}
+          onFocus={actualDraft.onFocus}
+          onBlur={actualDraft.onBlur}
+          onKeyDown={actualDraft.onKeyDown}
           className={`w-16 rounded border border-line bg-surface-muted px-1 py-0.5 text-right tabular-nums ${FOCUS_RING} ${TRANSITION}`}
         />
         <RagBadge value={cellHealth(actual ?? 0, budget ?? 0, periodEnd, today)} lang={lang} />

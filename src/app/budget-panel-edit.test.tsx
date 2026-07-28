@@ -88,6 +88,7 @@ describe("BudgetPanel editing", () => {
     // Controlled input starts at the prop value.
     expect(cell.value).toBe("80");
     fireEvent.change(cell, { target: { value: "90" } });
+    fireEvent.blur(cell);
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
     expect(last[0].allocations[0].actualHours["2026-01"]).toBe(90);
     // Re-render reflects the new controlled value.
@@ -142,6 +143,7 @@ describe("BudgetPanel editing", () => {
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
     const input = screen.getByLabelText("budget-1-d1-2026-01") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "50" } });
+    fireEvent.blur(input);
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
     expect(last[0].disciplineAllocations![0].budgetHours["2026-01"]).toBe(50);
   });
@@ -157,7 +159,25 @@ describe("BudgetPanel editing", () => {
     render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
     const input = screen.getByLabelText("actual-1-d1-2026-01") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "30" } });
+    fireEvent.blur(input);
     const last = spy.mock.calls.at(-1)![0] as BudgetBucket[];
     expect(last[0].disciplineAllocations![0].actualHours["2026-01"]).toBe(30);
+  });
+
+  test("typing two digits into an hours cell commits ONCE, on blur", async () => {
+    const spy = vi.fn();
+    const user = userEvent.setup();
+    const initial: BudgetBucket[] = [{
+      id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+      allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+    }];
+    render(<Harness initial={initial} onChangeSpy={spy} />, { wrapper });
+    const cell = screen.getByLabelText("actual-1-3-2026-01");
+    await user.clear(cell);
+    await user.type(cell, "40");
+    expect(spy).not.toHaveBeenCalled();
+    await user.tab();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect((spy.mock.calls[0][0] as BudgetBucket[])[0].allocations[0].actualHours["2026-01"]).toBe(40);
   });
 });
