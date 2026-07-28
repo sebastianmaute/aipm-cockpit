@@ -29,6 +29,18 @@ vi.mock("./workspace-section", async (importOriginal) => ({
   },
 }));
 
+// Capture the props task-manager threads into AppModals. The budgetLink prop is
+// OPTIONAL at every hop down to TaskFormFields, so dropping it here removes the
+// task editor’s Budget bucket field with no type error and no throw.
+const capturedModals: { props: Record<string, unknown> | null } = { props: null };
+vi.mock("./app-modals", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./app-modals")>()),
+  AppModals: (props: Record<string, unknown>) => {
+    capturedModals.props = props;
+    return <div data-testid="app-modals-mock" />;
+  },
+}));
+
 import TaskManager from "./task-manager";
 
 function seedRegistry() {
@@ -94,5 +106,15 @@ describe("@characterization task-manager → WorkspaceSection prop contract", ()
     for (const key of ["dispatcher", "aiAnalysis", "logActivity", "activityLog", "guides"]) {
       expect(p, `missing threaded prop: ${key}`).toHaveProperty(key);
     }
+  });
+  it("threads budgetLink into AppModals (the task-editor budget-bucket field)", () => {
+    const link = capturedModals.props!.budgetLink as
+      | { buckets: unknown[]; bucketId: number | null; onChange: unknown }
+      | undefined;
+    // The budget module is enabled by default, so this must be a real bag —
+    // asserting only that the KEY exists would pass for an undefined value.
+    expect(link).toBeDefined();
+    expect(Array.isArray(link!.buckets)).toBe(true);
+    expect(typeof link!.onChange).toBe("function");
   });
 });

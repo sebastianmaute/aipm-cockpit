@@ -6,7 +6,15 @@ import { AppModals, type AppModalsProps } from "./app-modals";
 
 // Mock all child components so tests focus on conditional rendering only.
 vi.mock("./task-form-modal", () => ({
-  TaskFormModal: () => <div data-testid="task-form-modal" />,
+  // Surfaces the budgetLink it receives: the prop is OPTIONAL at every hop of
+  // the task-manager -> AppModals -> TaskFormModal -> TaskFormFields chain, so a
+  // dropped prop degrades silently into "budget module off" instead of throwing.
+  TaskFormModal: (props: { budgetLink?: { bucketId: number | null } }) => (
+    <div
+      data-testid="task-form-modal"
+      data-budget-bucket={props.budgetLink ? String(props.budgetLink.bucketId) : "absent"}
+    />
+  ),
 }));
 // Dynamic imports are intercepted by vi.mock at the module level.
 vi.mock("./jira-conflicts-modal", () => ({
@@ -151,5 +159,16 @@ describe("AppModals", () => {
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
     rerender(<AppModals {...makeProps()} isPopout={true} />);
     expect(screen.queryByRole("contentinfo")).not.toBeInTheDocument();
+  });
+  it("forwards budgetLink to the task form modal", () => {
+    stubTaskForm();
+    render(<AppModals {...makeProps()} budgetLink={{ buckets: [], bucketId: 7, onChange: vi.fn() }} />);
+    expect(screen.getByTestId("task-form-modal")).toHaveAttribute("data-budget-bucket", "7");
+  });
+
+  it("passes no budgetLink through when it has none", () => {
+    stubTaskForm();
+    render(<AppModals {...makeProps()} />);
+    expect(screen.getByTestId("task-form-modal")).toHaveAttribute("data-budget-bucket", "absent");
   });
 });
