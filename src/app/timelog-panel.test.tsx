@@ -788,6 +788,70 @@ describe("TimelogPanel", () => {
       ).toBeInTheDocument();
     });
 
+    // ★★ The READ direction (a seeded store restores a selection) was covered
+    // above, but nothing proved the panel ever WRITES. Deleting the
+    // persistPicker calls from both toggles left the entire suite green, which
+    // meant the release's headline claim — "your selection survives a reload" —
+    // was unprotected in the direction that actually produces the stored value.
+    it("persists a ticked project to the device store", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={LINKS_WITH_CUSTOMER} />
+          <TimelogPanel lang="en-US" projectKey="proj-key" />
+        </>,
+        { wrapper },
+      );
+      // Seeding alone must not write: the store records what the USER picked,
+      // not what the ladder restored.
+      expect(window.localStorage.getItem("aipm-cockpit:timelog-picker")).toBeNull();
+
+      const box = await screen.findByRole("checkbox", {
+        name: `${t("en-US", "timelogProjectScopeLabel")} – ForgeOps (PO-1)`,
+      });
+      await act(async () => { fireEvent.click(box); });
+
+      const stored = JSON.parse(window.localStorage.getItem("aipm-cockpit:timelog-picker") ?? "{}");
+      expect(stored["proj-key"]).toMatchObject({ customerId: 667, projectIds: [9] });
+    });
+
+    // Ticking a project is an explicit pick, so a higher-precedence source
+    // arriving afterwards must NOT overwrite it. Without `setUserPicked(true)`
+    // in the toggle, late-hydrating links (rank 2) replace both the customer and
+    // the whole project selection.
+    it("a ticked project survives links hydrating afterwards", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), customers: [{ id: 667, name: "Acme" }, { id: 999, name: "Other" }], customerProjects: [{ id: 9, name: "ForgeOps", no: "PO-1" }] } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedProjectCustomer customer="Acme" />
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <Controls />
+          <TimelogPanel lang="en-US" projectKey="proj-key" />
+        </>,
+        { wrapper },
+      );
+      const box = await screen.findByRole("checkbox", {
+        name: `${t("en-US", "timelogProjectScopeLabel")} – ForgeOps (PO-1)`,
+      });
+      await act(async () => { fireEvent.click(box); });
+      expect((box as HTMLInputElement).checked).toBe(true);
+
+      // Links hydrate for a DIFFERENT customer, carrying their own projectIds.
+      await act(async () => { fireEvent.click(screen.getByTestId("hydrate-links-999")); });
+
+      const select = screen.getByRole("combobox", { name: t("en-US", "timelogCustomerLabel") }) as HTMLSelectElement;
+      expect(select.value).toBe("667");
+      expect((box as HTMLInputElement).checked).toBe(true);
+    });
+
     it("shows no scope-mismatch note when the picker and the last fetch agree", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(

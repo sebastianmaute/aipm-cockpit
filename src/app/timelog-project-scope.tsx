@@ -59,11 +59,15 @@ export function TimelogProjectScope({
           </label>
         )}
       </div>
+      {/* ★ The clear button's label is QUALIFIED — see the matching note in
+          timelog-customer-scope: this view carries two clear buttons, and two
+          identical accessible names is a WCAG 2.4.6 failure that the axe gate
+          happily passes because a name does exist. */}
       {hasCustomer && (
         <ClearableSearchInput
           value={filter}
           onClear={() => onFilterChange("")}
-          clearLabel={t(lang, "clear")}
+          clearLabel={`${t(lang, "clear")} – ${t(lang, "timelogProjectScopeLabel")}`}
         >
           {/* type="text" + role="searchbox" is deliberate and stays: switching to
               type="search" would reintroduce the native browser control the

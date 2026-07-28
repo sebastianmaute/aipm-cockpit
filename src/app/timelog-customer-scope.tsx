@@ -36,11 +36,17 @@ export function TimelogCustomerScope({
       {/* The sizing lives on the POSITIONING wrapper and the field goes w-full:
           leaving w-28 on the field would size it independently of the box the
           clear button is absolutely positioned against, so the ✕ would land
-          off-target. */}
+          off-target.
+
+          ★ `clearLabel` is QUALIFIED, not a bare "Clear": this view renders a
+          second clear button for the projects filter, and two controls
+          announcing the same name is a WCAG 2.4.6 failure the axe gate cannot
+          see (a name exists, so it passes). Mirrors the row-unique
+          `${edit} – ${row.name}` pattern used elsewhere. */}
       <ClearableSearchInput
         value={filter}
         onClear={() => onFilterChange("")}
-        clearLabel={t(lang, "clear")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "timelogCustomerLabel")}`}
         className="w-28 print:hidden"
       >
         <Input

@@ -36,6 +36,14 @@ describe("TimelogApplyConfirm", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
+  // ★ This asserts CLASS NAMES, which restates the implementation rather than
+  // observing behaviour — accepted deliberately because jsdom has no layout
+  // engine: every height, scrollHeight and getBoundingClientRect here is 0, so
+  // "does the list actually grow" is unobservable in this environment. The real
+  // check is by eye. What this test does buy is a tripwire against silently
+  // reverting the cap, and it pins that the bound still EXISTS (a financial
+  // write sits behind this card — Apply and Cancel must never be pushed out of
+  // reach), so deleting max-h entirely fails it too.
   it("lets the diff list grow with its content instead of capping at 10rem", () => {
     const rows: ApplyDiffLabel[] = Array.from({ length: 12 }, (_, i) => ({
       bucketId: 1,

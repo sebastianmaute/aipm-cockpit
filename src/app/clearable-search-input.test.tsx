@@ -29,11 +29,23 @@ describe("ClearableSearchInput", () => {
     expect(onClear).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the clear button keyboard-reachable", async () => {
+  // ★ Reaching the button with Tab, NOT `btn.focus()`. Programmatic focus
+  // succeeds even on `tabIndex={-1}`, so a focus()-then-assert-activeElement
+  // test cannot fail for any change to the component — it is vacuous. Tabbing
+  // from the field is what actually proves the button is in the tab order,
+  // which is the whole point of replacing the browser's own unreachable clear.
+  it("is reachable by Tab from the field it clears", async () => {
     setup("abc");
-    const btn = screen.getByRole("button", { name: "Clear" });
-    btn.focus();
-    expect(document.activeElement).toBe(btn);
+    screen.getByLabelText("Filter").focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Clear" }));
+  });
+
+  it("can be activated by keyboard once focused", async () => {
+    const { onClear } = setup("abc");
+    screen.getByRole("button", { name: "Clear" }).focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onClear).toHaveBeenCalledTimes(1);
   });
 
   it("renders the caller's field as its child", () => {

@@ -124,9 +124,18 @@ export function useTimelogPickerScope(deps: TimelogPickerScopeDeps): TimelogPick
   // ★ Reading live `selectedProjectIds` is safe here: these are single user
   // gestures, not the "N saves in one tick" bulk-edit pattern that makes
   // functional setters mandatory elsewhere in this codebase.
+  //
+  // ★★ Both set `userPicked`. Ticking a project IS an explicit pick, and without
+  // this a source that arrives LATER at a higher rank overwrites it: name
+  // auto-resolve seeds (rank 1) → the user ticks a project → `timelogLinks`
+  // hydrates for a different customer (rank 2) → the ladder replaces both the
+  // customer and the whole project selection, and their tick is gone. (The same
+  // hole existed before the ladder was rank-based: the old links block gated on
+  // `!linksSeeded && !userPicked` and neither toggle set the latter.)
   const toggleProject = (id: number) => {
     const next = new Set(selectedProjectIds);
     if (next.has(id)) next.delete(id); else next.add(id);
+    setUserPicked(true);
     setSelectedProjectIds(next);
     persistPicker(projectCustomerId, next);
   };
@@ -137,6 +146,7 @@ export function useTimelogPickerScope(deps: TimelogPickerScopeDeps): TimelogPick
       filteredProjects.length > 0 && filteredProjects.every((p) => selectedProjectIds.has(p.id));
     const next = new Set(selectedProjectIds);
     for (const p of filteredProjects) { if (allVisible) next.delete(p.id); else next.add(p.id); }
+    setUserPicked(true);
     setSelectedProjectIds(next);
     persistPicker(projectCustomerId, next);
   };
