@@ -58,7 +58,7 @@ import {
 
 import {
   ChatPanel,
-  GanttPanel,
+  GanttView,
   ReportsPanel,
   RaidPanel,
   ResourcesPanel,
@@ -391,12 +391,7 @@ export function WorkspaceSection({
             role="tabpanel"
             className={panelClass}
           >
-            <GanttPanel
-              lang={lang}
-              tasks={tasks}
-              absences={absences}
-              resources={resources}
-              milestones={milestonesEnabled ? milestones : []}
+            <GanttView
               onUpdateBar={handleGanttBarUpdate}
               onAddTask={isPopout ? undefined : () => {
                 handleCancelEdit();
@@ -410,9 +405,9 @@ export function WorkspaceSection({
                 ? () => setActiveTab("milestones")
                 : undefined}
               showHints={effectiveSettings.showViewHints !== false}
-              isPopout={isPopout}
-              onLearnMore={requestHelpConcept}
+              milestonesEnabled={milestonesEnabled}
               baselineMilestoneDates={baselineMilestoneDates}
+              onCaptureUndo={onCaptureUndo}
             />
           </div>
         )}
