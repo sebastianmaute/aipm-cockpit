@@ -9,9 +9,10 @@ import { checkSchemePairs } from "./scheme-contrast";
 import { readActiveSchemeColors, type SchemeColorMap } from "./scheme-apply";
 import {
   loadSchemes, addScheme, updateScheme, removeScheme,
-  exportScheme, importScheme, type SchemeStore,
+  exportScheme, setActive, type SchemeStore,
 } from "./color-schemes";
 import { loadSchemesAsync, upsertSchemeAsync, deleteSchemeAsync } from "./color-schemes-store";
+import { importSchemeText } from "./scheme-import";
 import { reconcileBuiltins, HARBOR_LIGHT } from "./builtin-schemes";
 import { BrandingImageInput } from "./branding-image-input";
 import { Input } from "./form-controls";
@@ -148,17 +149,24 @@ export function ColorSchemeEditor({ lang, config = null, onApply, onApplyBrandin
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const parsed = importScheme(String(reader.result));
-      if (!parsed) { setImportError(t(lang, "schemeImportError")); return; }
-      setImportError(null);
-      const next = addScheme(parsed.name, parsed.light, parsed.branding);
-      persist(next);
-      const s = next.schemes[next.schemes.length - 1];
-      dbUpsert(next, s.id);
-      const full = { ...HARBOR_LIGHT, ...s.light };
-      setName(s.name); setColors(full); setBranding(s.branding);
-      applyResolved(full, s.branding); // importing applies the imported scheme
-      onSchemeChange?.();
+      // The complete import (dark + structural + name-dedup + DB upsert) lives in
+      // scheme-import.ts, shared with the theme gallery's picker — it already
+      // upserts to Turso, so no dbUpsert call is needed here.
+      void importSchemeText(String(reader.result), config).then((newId) => {
+        if (!newId) { setImportError(t(lang, "schemeImportError")); return; }
+        setImportError(null);
+        // Activate the imported (or matched-by-name) scheme explicitly: a dedup
+        // hit doesn't otherwise change activeId, and the editor must reflect what
+        // was just imported as the active/editable scheme.
+        const next = setActive(newId);
+        const s = next.schemes.find((x) => x.id === newId);
+        if (!s) return;
+        persist(next);
+        const full = { ...HARBOR_LIGHT, ...s.light };
+        setName(s.name); setColors(full); setBranding(s.branding);
+        applyResolved(full, s.branding); // importing applies the imported scheme
+        onSchemeChange?.();
+      });
     };
     reader.readAsText(file);
   }
