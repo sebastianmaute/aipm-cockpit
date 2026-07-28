@@ -180,8 +180,7 @@ export function CalendarEventModal({ lang, event, isNew, onSave, onDelete, onClo
       onDragReset={dragReset}
       sizeKey="aipm-cockpit:modal-size:calendar-event"
       widthClassName="w-[560px] min-w-[320px]"
-      panelClassName="max-h-[95vh]"
-      formClassName="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
+      formClassName="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
       {isVisible("title") && (
         <label className="flex flex-col gap-1 text-sm sm:col-span-2">

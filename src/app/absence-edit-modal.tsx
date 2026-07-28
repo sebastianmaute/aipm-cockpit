@@ -119,8 +119,7 @@ export function AbsenceEditModal({
       onDragReset={dragReset}
       sizeKey="aipm-cockpit:modal-size:absence-edit"
       widthClassName="w-[560px] min-w-[320px]"
-      panelClassName="max-h-[95vh]"
-      formClassName="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
+      formClassName="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
           {/* Assignee (required) + optional email (Full-only via `email`). */}
           <AssigneeField
