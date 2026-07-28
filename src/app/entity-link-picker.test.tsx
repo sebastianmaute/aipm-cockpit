@@ -15,6 +15,7 @@ function renderPicker(overrides: Partial<React.ComponentProps<typeof EntityLinkP
     searchLabel: "Link items",
     placeholder: "Search…",
     removeLabel: "Unlink",
+    clearLabel: "Clear – Link items",
     ...overrides,
   };
   return { ...render(<EntityLinkPicker {...props} />), props };
@@ -52,6 +53,33 @@ describe("EntityLinkPicker", () => {
     renderPicker();
     const input = screen.getByRole("combobox", { name: "Link items" });
     expect(input).toHaveAttribute("placeholder", "Search…");
+  });
+
+  it("clears the query via a labelled button that names the field", () => {
+    // ★ Exact name, not /clear/i: the point of the label is that it is
+    // QUALIFIED — several of these pickers can render on one surface (one per
+    // Knowledge-library card), so N identical "Clear" names is the WCAG 2.4.6
+    // collision this exists to avoid, and a loose regex passes against the
+    // unqualified string just as happily.
+    const onQueryChange = vi.fn();
+    renderPicker({ query: "api", onQueryChange, clearLabel: "Clear – Linked tasks" });
+    fireEvent.click(screen.getByRole("button", { name: "Clear – Linked tasks" }));
+    expect(onQueryChange).toHaveBeenCalledWith("");
+  });
+
+  it("reserves the clear gutter only while there is something to clear", () => {
+    // pr-8 is ~2rem of padding. Applied unconditionally it shaves the visible
+    // placeholder in the EMPTY state, which is the common one — so it rides the
+    // same condition the ✕ itself does (the TableFilter/PaneSearchInput
+    // precedent). Both states are pinned: asserting only the presence would
+    // pass against an unconditional class.
+    const { unmount } = renderPicker({ query: "api" });
+    expect(screen.getByRole("combobox").className).toContain("pr-8");
+    unmount();
+
+    renderPicker({ query: "" });
+    expect(screen.getByRole("combobox").className).not.toContain("pr-8");
+    expect(screen.queryByRole("button", { name: /clear/i })).not.toBeInTheDocument();
   });
 
   it("removes the entity the clicked chip belongs to", () => {
