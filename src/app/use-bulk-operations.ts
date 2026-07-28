@@ -243,7 +243,11 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     if (skippedSynced > 0) {
       showToastRef.current("info", t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));
     }
-    if (count > 0) {
+    // A bucket-only apply whose move is a no-op (every selected task is already
+    // in the target) writes nothing — so it must not claim rows either. The
+    // pre-existing managed-fields-only path drives `count` to 0 for the same
+    // reason; this one cannot, because the rows ARE selectable targets.
+    if (count > 0 && (taskFieldsEnabled || bucketsChanged)) {
       showToastRef.current(
         "info",
         count === 1

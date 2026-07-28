@@ -578,6 +578,21 @@ describe("useBulkOperations", () => {
       expect(r.commitBuckets.mock.calls[0][1].callerLogs).toBe(true);
     });
 
+    it("a bucket apply that changes nothing writes nothing and claims nothing", () => {
+      const r = seedBucketFixture();
+      // Tasks 1 and 2 are ALREADY in bucket 1; select only those, target bucket 1.
+      act(() => { r.result.current.bulk.clearSelection(); });
+      act(() => { [1, 2].forEach((id) => r.result.current.bulk.onToggleSelect(id)); });
+      enableBucket(r, "1");
+      act(() => { r.result.current.bulk.applyBulkEdit(); });
+      expect(r.commitBuckets).not.toHaveBeenCalled();
+      // The pre-existing code is careful never to claim rows it did not touch
+      // (a managed-fields-only edit on synced rows drives count to 0). A no-op
+      // bucket apply must not report "2 tasks updated" or log a bulk.edit row.
+      expect(r.args.logActivity).not.toHaveBeenCalled();
+      expect(r.args.showToast).not.toHaveBeenCalledWith("info", expect.stringMatching(/updated/i));
+    });
+
     it("the none option unlinks the selected tasks", () => {
       const r = seedBucketFixture();
       enableBucket(r, "");
