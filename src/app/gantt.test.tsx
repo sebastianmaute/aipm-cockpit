@@ -2,7 +2,7 @@ import React from "react";
 import { describe, it, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, act, fireEvent, screen } from "@testing-library/react";
+import { render, act, fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GanttPanel } from "./gantt";
 import { t } from "./i18n";
@@ -462,4 +462,65 @@ test("gantt toolbar clears the search box from a labelled button", async () => {
     }),
   );
   expect(field.value).toBe("");
+});
+
+// ---------- dedupButton slot (slice F, Task 2) ------------------------------
+//
+// GanttPanel/GanttToolbar don't build the AI dedup trigger themselves (that's
+// gantt-view.tsx's job, Task 3) — they just render whatever ReactNode the
+// caller hands them, in the same toolbar slot the Open Points toolbar uses
+// (Add · [Jira sync] · dedup · search).
+
+describe("GanttPanel dedupButton slot", () => {
+  it("renders a passed dedupButton inside the toolbar", () => {
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        dedupButton={<button type="button">Dedup trigger</button>}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Dedup trigger" })).toBeInTheDocument();
+  });
+
+  it("places the dedupButton after Add task and before the search input in DOM order", () => {
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        onAddTask={() => {}}
+        dedupButton={<button type="button">Dedup trigger</button>}
+      />,
+    );
+    const dedupBtn = screen.getByRole("button", { name: "Dedup trigger" });
+    // Scope the neighbour lookups to the toolbar itself — the chart body also
+    // renders an unrelated "Add task" row-affordance with the same accessible
+    // name, which a document-wide query would collide with.
+    const toolbar = dedupBtn.parentElement as HTMLElement;
+    const addTaskBtn = within(toolbar).getByRole("button", { name: t("en-US", "addTaskButton") });
+    const searchField = within(toolbar).getByRole("searchbox", { name: t("en-US", "searchPlaceholder") });
+
+    // Node.DOCUMENT_POSITION_FOLLOWING (4): addTaskBtn precedes dedupBtn.
+    expect(addTaskBtn.compareDocumentPosition(dedupBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    // dedupBtn precedes searchField.
+    expect(dedupBtn.compareDocumentPosition(searchField) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("renders nothing extra when dedupButton is omitted", () => {
+    const { queryByRole } = render(<GanttPanel {...BASE_PROPS} />);
+    expect(queryByRole("button", { name: "Dedup trigger" })).toBeNull();
+  });
+
+  it("shows the dedupButton in the empty-state branch too (no tasks, no milestones)", () => {
+    render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[]}
+        dedupButton={<button type="button">Dedup trigger</button>}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Dedup trigger" })).toBeInTheDocument();
+  });
 });

@@ -8,6 +8,24 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.206.0] - 2026-07-28 "Shawl"
+
+The AI duplicate finder is now reachable from the Gantt chart, not only from
+Open Points.
+
+- **"Deduplicate & unify" in the Gantt toolbar.** The same plan-then-apply AI
+  merge that Open Points offers now sits in the Gantt toolbar, between the add
+  buttons and the search field. It proposes merge groups over the whole task
+  list — never the chart's filtered subset — you review and confirm before
+  anything changes, and the merge records a single undo entry, exactly as it
+  does from the table. It appears only when the AI assistant is configured and
+  enabled, never in a pop-out, and never below two tasks.
+- **The two triggers announce themselves apart.** In the classic layout both
+  surfaces are on screen at once, so the Gantt trigger is announced as
+  "Deduplicate & unify tasks – Gantt" while Open Points keeps its original
+  name. A source-scanning test enforces this for any future mount, because the
+  accessibility gate can only detect a *missing* name, never a duplicate one.
+
 ## [0.205.0] - 2026-07-28 "Griffith"
 
 Every search and filter field in the app now clears the same way, and linked-task

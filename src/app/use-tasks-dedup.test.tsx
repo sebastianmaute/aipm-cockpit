@@ -24,9 +24,10 @@ function mkTask(id: number, name: string): Task {
 interface HarnessProps {
   captureSpy?: ReturnType<typeof vi.fn>;
   onTasks?: (t: readonly Task[]) => void;
+  triggerQualifier?: string;
 }
 
-function Harness({ captureSpy, onTasks }: HarnessProps) {
+function Harness({ captureSpy, onTasks, triggerQualifier }: HarnessProps) {
   const [tasks, setTasks] = useState<readonly Task[]>([
     mkTask(1, "Write API docs"),
     mkTask(2, "Write the API documentation"),
@@ -39,6 +40,7 @@ function Harness({ captureSpy, onTasks }: HarnessProps) {
     tasks,
     setTasks: (u) => setTasks((prev) => { const next = typeof u === "function" ? u(prev) : u; onTasks?.(next); return next; }),
     capture: captureSpy as never,
+    triggerQualifier,
   });
   return (
     <div>
@@ -57,6 +59,25 @@ function renderHarness(props: HarnessProps = {}) {
     </ToastProvider>,
   );
 }
+
+describe("useTasksDedup trigger accessible name", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("qualifies the trigger's accessible name with the view when triggerQualifier is set", () => {
+    renderHarness({ triggerQualifier: "Gantt" });
+    const button = screen.getByRole("button", { name: "Deduplicate & unify tasks – Gantt" });
+    expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify tasks – Gantt");
+    expect(button.getAttribute("title")).toBe("Deduplicate & unify tasks – Gantt");
+  });
+
+  it("leaves the trigger's accessible name unqualified when triggerQualifier is absent", () => {
+    renderHarness();
+    const button = screen.getByRole("button", { name: "Deduplicate & unify tasks" });
+    expect(button.getAttribute("aria-label")).toBe("Deduplicate & unify tasks");
+    expect(button.getAttribute("title")).toBe("Deduplicate & unify tasks");
+  });
+});
 
 describe("useTasksDedup (plan-then-apply)", () => {
   beforeEach(() => { vi.clearAllMocks(); });

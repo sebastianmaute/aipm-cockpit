@@ -46,6 +46,16 @@ export interface TasksDedupDeps {
   /** Single-entry undo capture (merged rows removed + keep rows edited). */
   capture?: UndoStackApi["capture"];
   logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /**
+   * Already-translated view name to append to the trigger's accessible name
+   * (e.g. "Gantt"). Needed once this hook is mounted more than once — in the
+   * classic layout TasksSection and WorkspaceSection render simultaneously,
+   * so two unqualified "Deduplicate & unify tasks" triggers would share one
+   * accessible name (WCAG 2.4.6), a collision the axe gate cannot see since
+   * it only flags MISSING names, not duplicate ones. Omit for the original
+   * single-mount site to keep its name unchanged.
+   */
+  triggerQualifier?: string;
 }
 
 export interface TasksDedup {
@@ -59,7 +69,7 @@ const TRIGGER_CLASS =
   "inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ui-dark-blue hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50";
 
 export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
-  const { settings, isPopout, lang, tasks, setTasks, capture, logActivity } = deps;
+  const { settings, isPopout, lang, tasks, setTasks, capture, logActivity, triggerQualifier } = deps;
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -158,13 +168,17 @@ export function useTasksDedup(deps: TasksDedupDeps): TasksDedup {
     reset();
   }, [phase, groups, selected, tasks, setTasks, capture, logActivity, showToast, lang, reset]);
 
+  const triggerLabel = triggerQualifier
+    ? `${t(lang, "taskDedupTitle")} – ${triggerQualifier}`
+    : t(lang, "taskDedupTitle");
+
   const button = enabled ? (
     <button
       type="button"
       onClick={() => void onOpen()}
       disabled={phase === "thinking" || phase === "applying"}
-      aria-label={t(lang, "taskDedupTitle")}
-      title={t(lang, "taskDedupTitle")}
+      aria-label={triggerLabel}
+      title={triggerLabel}
       className={`${TRIGGER_CLASS} ${INTERACTIVE}`}
     >
       <SparkIcon spinning={phase === "thinking"} />

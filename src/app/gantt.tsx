@@ -25,7 +25,7 @@
 // Nothing here is animated; this is a static, scrollable readout you can
 // glance at. For dynamic editing, the user goes back to the tasks list.
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { ViewCallout } from "./view-callout";
@@ -76,6 +76,7 @@ export function GanttPanel({
   isPopout,
   onLearnMore,
   baselineMilestoneDates,
+  dedupButton,
 }: {
   lang: Lang;
   tasks: readonly Task[];
@@ -91,6 +92,8 @@ export function GanttPanel({
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
   baselineMilestoneDates?: ReadonlyMap<number, string>;
+  /** AI "Deduplicate & unify" trigger, built by the view wrapper. See GanttToolbar. */
+  dedupButton?: ReactNode;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -579,6 +582,7 @@ export function GanttPanel({
       hasBaseline={hasBaseline}
       toggleMilestonePlacement={toggleMilestonePlacement}
       hasMilestones={sortedMilestones.length > 0}
+      dedupButton={dedupButton}
     />
   );
 
