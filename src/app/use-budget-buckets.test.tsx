@@ -80,4 +80,11 @@ describe("commitBuckets", () => {
     expect(opts.parts[0]).toBe(tasksPart);
     expect(opts.parts[1]).not.toBeNull();
   });
+  test("callerLogs suppresses the boundary log so a bulk apply writes ONE row", () => {
+    const prev = bucket(1, "Design");
+    const s = setup([prev]);
+    s.result.current.commitBuckets([{ ...prev, name: "x" }], { kind: "bulk.edit", callerLogs: true });
+    expect(s.logActivity).not.toHaveBeenCalled();
+    expect(s.setBudgets).toHaveBeenCalledTimes(1);
+  });
 });

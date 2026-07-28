@@ -238,7 +238,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     );
     }
     if (bucketsChanged) {
-      commitBuckets(nextBuckets, { kind: "bulk.edit", primaryCount: count, tasksPart });
+      commitBuckets(nextBuckets, { kind: "bulk.edit", primaryCount: count, tasksPart, callerLogs: true });
     }
     if (skippedSynced > 0) {
       showToastRef.current("info", t(lang, "jiraBulkManagedFieldsSkipped", skippedSynced));

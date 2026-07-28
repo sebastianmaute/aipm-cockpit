@@ -23,6 +23,11 @@ export interface BucketCommitMeta {
   tasksPart?: CompositeFragment | null;
   /** User-facing row count for a composite entry's toast. */
   primaryCount?: number;
+  /** The caller already writes its own activity row for this commit (the tasks
+   *  bulk edit logs one `bulk.edit` for the rows it touched). Without this the
+   *  same apply produces TWO rows, the second counting BUCKETS while claiming
+   *  the task kind. */
+  callerLogs?: boolean;
 }
 
 interface Deps {
@@ -100,7 +105,7 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
       });
     }
 
-    logActivity(kind, name ?? touched);
+    if (meta?.callerLogs !== true) logActivity(kind, name ?? touched);
     setBudgets(next);
   }
 

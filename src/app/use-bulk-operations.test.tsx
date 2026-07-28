@@ -566,6 +566,18 @@ describe("useBulkOperations", () => {
       expect(r.result.current.workspace.tasks).toBe(before);
     });
 
+    it("a bucket bulk apply tells the boundary the caller owns the activity row", () => {
+      const r = seedBucketFixture();
+      enableBucket(r, "2");
+      act(() => { r.result.current.bulk.applyBulkEdit(); });
+      // commitBuckets is MOCKED here, so this pins the WIRING only (that callerLogs
+      // is passed). The suppression itself — without which the same apply wrote a
+      // SECOND bulk.edit row counting BUCKETS — is proved in use-budget-buckets.test.tsx.
+      expect(r.args.logActivity).toHaveBeenCalledTimes(1);
+      expect(r.args.logActivity).toHaveBeenCalledWith("bulk.edit", 3);
+      expect(r.commitBuckets.mock.calls[0][1].callerLogs).toBe(true);
+    });
+
     it("the none option unlinks the selected tasks", () => {
       const r = seedBucketFixture();
       enableBucket(r, "");
