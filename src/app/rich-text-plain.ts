@@ -62,6 +62,16 @@ const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;
  *  — collapse to one, so a boundary costs exactly the single space it means. */
 const WS_RUN = /\s+/g;
 
+/** Break mode's two-stage collapse. A whitespace run CONTAINING a newline
+ *  becomes one "\n" — so the close-tag and open-tag boundaries of "</p><p>"
+ *  merge into a single break — while a purely horizontal run still becomes one
+ *  space. `[^\S\n]` is "whitespace that is not a newline".
+ *
+ *  ★ Paragraph-vs-<br> is deliberately NOT preserved: this is a plain-text
+ *  projection, not a format. One boundary, one break. */
+const WS_RUN_WITH_NEWLINE = /[^\S\n]*\n\s*/g;
+const WS_RUN_HORIZONTAL = /[^\S\n]+/g;
+
 /** Code points a numeric reference must NOT decode to.
  *
  *  ★★ `&#38;` IS `&`. Decoding it before the named pass turns `&#38;lt;` into
@@ -103,9 +113,13 @@ function decodeNumericEntities(s: string): string {
  *  DOMPurify pass (htmlToText, ALLOWED_TAGS: []) deletes tags with nothing in
  *  their place and so fuses the boundary BEFORE htmlPlainProjection can see it.
  *  Running this first is what makes the two projections agree. Keep the rule
- *  here, in the one module that owns BLOCK_TAG — a second copy would drift. */
-export function separateBlockBoundaries(html: string): string {
-  return html.replace(BLOCK_TAG, " ");
+ *  here, in the one module that owns BLOCK_TAG — a second copy would drift.
+ *
+ *  ★ The separator defaults to a space, which is the storage-critical path
+ *  (htmlPlainProjection -> capHtmlText -> sanitizeRichText -> every backend).
+ *  descriptionTextWithBreaks passes "\n"; nothing else may. */
+export function separateBlockBoundaries(html: string, sep = " "): string {
+  return html.replace(BLOCK_TAG, sep);
 }
 
 /** A stored value -> HTML. Already-HTML passes through; legacy plain text is
@@ -128,11 +142,21 @@ export function descriptionHtml(stored: string | undefined): string {
  *  also what keeps `&amp;` decoding LAST meaningful.
  *
  *  Numeric references decode after the tag work and before the whitespace
- *  passes, and refuse to emit & < > — see UNSAFE_CODE_POINTS. */
-export function htmlPlainProjection(html: string): string {
-  return decodeNumericEntities(html.replace(BLOCK_TAG, " ").replace(TAG, ""))
-    .replace(NBSP, " ")
-    .replace(WS_RUN, " ")
+ *  passes, and refuse to emit & < > — see UNSAFE_CODE_POINTS.
+ *
+ *  ★★ `preserveBreaks` is OPT-IN and the default path must stay byte-identical:
+ *  this function feeds capHtmlText -> sanitizeRichText -> storage, so a change
+ *  to the options-less result moves stored bytes on every backend. A hardcoded
+ *  byte-stability suite in the test file is the gate. */
+export function htmlPlainProjection(html: string, opts?: { preserveBreaks?: boolean }): string {
+  const breaks = opts?.preserveBreaks === true;
+  const tagless = decodeNumericEntities(
+    html.replace(BLOCK_TAG, breaks ? "\n" : " ").replace(TAG, ""),
+  ).replace(NBSP, " ");
+  const spaced = breaks
+    ? tagless.replace(WS_RUN_WITH_NEWLINE, "\n").replace(WS_RUN_HORIZONTAL, " ")
+    : tagless.replace(WS_RUN, " ");
+  return spaced
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')

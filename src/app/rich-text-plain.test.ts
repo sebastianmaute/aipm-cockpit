@@ -7,6 +7,7 @@ import {
   htmlPlainProjection,
   htmlTextLength,
   sanitizeRichText,
+  separateBlockBoundaries,
 } from "./rich-text-plain";
 
 describe("descriptionHtml", () => {
@@ -370,5 +371,55 @@ describe("DOM-free guard", () => {
     walk(join(repoRoot, "scripts"));
     expect(offenders).toEqual([]);
     expect(scanned).toBeGreaterThan(10);
+  });
+});
+
+describe("break-preserving mode", () => {
+  it("maps a block boundary to ONE newline, not two", () => {
+    // An open+close pair ("</p><p>") is two boundaries; the whitespace collapse
+    // absorbs them into a single break, which is what a reader expects.
+    expect(htmlPlainProjection("<p>a</p><p>b</p>", { preserveBreaks: true })).toBe("a\nb");
+    expect(htmlPlainProjection("<p>a<br>b</p>", { preserveBreaks: true })).toBe("a\nb");
+    expect(htmlPlainProjection("<ul><li>a</li><li>b</li></ul>", { preserveBreaks: true })).toBe("a\nb");
+  });
+
+  it("still collapses horizontal runs to one space", () => {
+    expect(htmlPlainProjection("<p>a   \t b</p>", { preserveBreaks: true })).toBe("a b");
+  });
+
+  it("trims leading and trailing breaks", () => {
+    expect(htmlPlainProjection("<p>a</p>", { preserveBreaks: true })).toBe("a");
+  });
+
+  it("separateBlockBoundaries takes the separator", () => {
+    expect(separateBlockBoundaries("<p>a</p><p>b</p>", "\n")).toBe("\na\n\nb\n");
+    expect(separateBlockBoundaries("<p>a</p>")).toBe(" a ");
+  });
+
+  it("leaves the default path byte-identical", () => {
+    // ★★ This is the acceptance gate for the whole export-fidelity change.
+    // rich-text-plain feeds capHtmlText -> sanitizeRichText -> every backend, so
+    // adding a parameter must not move a single character on the options-less
+    // call. Expected values are HARDCODED, not derived, so a shared bug in the
+    // implementation cannot make both sides agree.
+    const cases: Array<[string, string]> = [
+      ["<p>a</p><p>b</p>", "a b"],
+      ["<p>a<br>b</p>", "a b"],
+      ["<ul><li>a</li><li>b</li></ul>", "a b"],
+      ["<p>a   \t b</p>", "a b"],
+      ["<p>x&nbsp;y</p>", "x y"],
+      ["<p>x&#160;y</p>", "x y"],
+      ["<p>cost &lt; 5k</p>", "cost < 5k"],
+      ["<p>&amp;lt;</p>", "&lt;"],
+      ["<p>a&#8212;b</p>", "a—b"],
+      ["<p>&#38;lt;</p>", "&#38;lt;"],
+      ["<p><strong>bold</strong></p>", "bold"],
+      ["", ""],
+    ];
+    for (const [input, expected] of cases) {
+      expect(htmlPlainProjection(input)).toBe(expected);
+      expect(htmlPlainProjection(input, {})).toBe(expected);
+      expect(htmlPlainProjection(input, { preserveBreaks: false })).toBe(expected);
+    }
   });
 });
