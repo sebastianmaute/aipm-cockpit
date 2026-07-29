@@ -19,6 +19,7 @@ import type { Absence, Resource, Shift, Task } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import type { Toast } from "./use-toast";
 import type { TaskBudgetLink } from "./use-task-budget-link";
+import type { NoteLogPanelProps } from "./note-log-panel";
 
 export interface AppModalsProps {
   lang: Lang;
@@ -88,6 +89,10 @@ export interface AppModalsProps {
    *  only when editing an EXISTING task (an unsaved draft has no id to target);
    *  absent → the form's "Notes" button is disabled. */
   taskOnOpenNotes?: () => void;
+  /** Live note-log panel for the currently-edited task, rendered INLINE in the
+   *  editor. Provided only when editing an EXISTING task; absent → the form
+   *  falls back to the disabled "Notes" launcher button. */
+  taskNotePanel?: NoteLogPanelProps;
   /** Budget-bucket link controls; absent when the budget module is off. */
   budgetLink?: TaskBudgetLink;
 
@@ -153,6 +158,7 @@ export function AppModals({
   taskDeleteAction,
   taskEditorExtras,
   taskOnOpenNotes,
+  taskNotePanel,
   budgetLink,
   editingResource,
   onSaveResource,
@@ -196,6 +202,7 @@ export function AppModals({
           deleteAction={taskDeleteAction}
           editorExtras={taskEditorExtras}
           onOpenNotes={taskOnOpenNotes}
+          taskNotePanel={taskNotePanel}
           budgetLink={budgetLink}
         />
       )}

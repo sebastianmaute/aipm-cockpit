@@ -1,11 +1,31 @@
-import { describe, test, it, expect, vi, beforeEach } from "vitest";
+import { describe, test, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { useTaskForm, emptyForm, emptyBulkEdit } from "./task-form-context";
 import { TaskFormModal } from "./task-form-modal";
-import type { BudgetBucket } from "./types";
+import { t } from "./i18n";
+import type { NoteLogPanelProps } from "./note-log-panel";
+import type { BudgetBucket, NoteLogEntry } from "./types";
+
+const EN = "en-US" as const;
+
+// ProseMirror (the note composer's lean RichTextEditor) touches layout APIs
+// jsdom lacks; stub them so the editor mounts. Mirrors note-log-panel.test.tsx.
+beforeAll(() => {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore jsdom polyfill
+  Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: function* () {} });
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore jsdom polyfill
+  Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
+  // userEvent's pointer press calls document.elementFromPoint (absent in jsdom).
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore jsdom polyfill
+  if (!document.elementFromPoint) document.elementFromPoint = () => null;
+});
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
 // the workspace, so renders need a WorkspaceProvider. useTaskForm stays mocked.
@@ -213,5 +233,119 @@ describe("TaskFormModal — Documents field", () => {
   test("renders no budget-bucket field when budgetLink is absent", () => {
     render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
     expect(screen.queryByLabelText("Budget bucket")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Inline note log (slice B)
+// ---------------------------------------------------------------------------
+
+// TWO entries. The stubbed `form.noteLog` below deliberately holds ONE, so the
+// summary count can only read "2" if it reads the LIVE workspace panel props —
+// same-length fixtures would pass whichever source the code happened to use.
+const PANEL_ENTRIES: NoteLogEntry[] = [
+  { id: 1, timestamp: "2026-01-01T10:00:00Z", html: "<p>Kickoff held</p>", text: "Kickoff held", authorResourceId: 1, authorName: "Alice Anders" },
+  { id: 2, timestamp: "2026-01-02T10:00:00Z", html: "<p>Charter signed</p>", text: "Charter signed", authorResourceId: 1, authorName: "Alice Anders" },
+];
+
+// One STALE draft entry, distinguishable from the panel's two by length AND body.
+const DRAFT_NOTE_LOG: NoteLogEntry[] = [
+  { id: 9, timestamp: "2025-12-01T10:00:00Z", html: "<p>Stale draft note</p>", text: "Stale draft note", authorResourceId: 1 },
+];
+
+function notePanelProps(over: Partial<NoteLogPanelProps> = {}) {
+  const onAdd = vi.fn();
+  const onEdit = vi.fn();
+  const onDelete = vi.fn();
+  const taskNotePanel: NoteLogPanelProps = {
+    entries: PANEL_ENTRIES,
+    onAdd,
+    onEdit,
+    onDelete,
+    self: 1,
+    resources: [],
+    lang: EN,
+    labelSuffix: "Draft charter",
+    ...over,
+  };
+  return { onAdd, onEdit, onDelete, taskNotePanel };
+}
+
+/** Opens the notes `<details>` and returns it. */
+function openNotesDisclosure(): HTMLDetailsElement {
+  const summary = screen.getByText(new RegExp(`^${t(EN, "noteLogTitle")} \\(`));
+  const details = summary.closest("details") as HTMLDetailsElement;
+  expect(details).not.toBeNull();
+  // jsdom implements summary activation, but assert rather than assume — a
+  // silently-still-closed disclosure would make the assertions below vacuous.
+  fireEvent.click(summary);
+  expect(details.open).toBe(true);
+  return details;
+}
+
+describe("inline note log (slice B)", () => {
+  beforeEach(() => {
+    stubTaskForm({ noteLog: DRAFT_NOTE_LOG });
+  });
+
+  it("renders the log inline and writes through on add", async () => {
+    const user = userEvent.setup();
+    const { onAdd, taskNotePanel } = notePanelProps();
+    render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
+
+    openNotesDisclosure();
+    // Read path: the LIVE workspace entries render, not the draft's.
+    expect(screen.getByText("Kickoff held")).toBeInTheDocument();
+    expect(screen.getByText("Charter signed")).toBeInTheDocument();
+    expect(screen.queryByText("Stale draft note")).toBeNull();
+
+    const surface = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
+    await user.click(surface);
+    await user.type(surface, "Fresh in-editor note");
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t(EN, "noteLogAdd")} – Draft charter` }),
+    );
+
+    // ★ headline claim: the WRITE reaches the workspace handler. A read-only
+    //   assertion would stay green with the whole write path removed.
+    expect(onAdd).toHaveBeenCalled();
+    const [html, text] = onAdd.mock.calls[0];
+    expect(text).toBe("Fresh in-editor note");
+    expect(html).toContain("Fresh in-editor note");
+  });
+
+  it("keeps the disabled Notes button for an unsaved task", () => {
+    render(<TaskFormModal {...defaultProps()} />, { wrapper: Providers });
+    // No panel threaded (a new draft has no id to write to) → the launcher button.
+    const button = screen.getByRole("button", { name: `${t(EN, "noteLogTitle")} (1)` });
+    expect(button).toBeDisabled();
+    expect(button.closest("details")).toBeNull();
+  });
+
+  it("shows the live entry count in the summary", () => {
+    const { taskNotePanel } = notePanelProps();
+    render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
+    // Panel holds 2, the draft holds 1 — so "(2)" proves the live source.
+    expect(screen.getByText(`${t(EN, "noteLogTitle")} (2)`)).toBeInTheDocument();
+    expect(screen.queryByText(`${t(EN, "noteLogTitle")} (1)`)).toBeNull();
+  });
+
+  it("reaches the notes disclosure by keyboard", async () => {
+    const user = userEvent.setup();
+    const { taskNotePanel } = notePanelProps();
+    render(<TaskFormModal {...defaultProps({ taskNotePanel })} />, { wrapper: Providers });
+
+    const summary = screen.getByText(`${t(EN, "noteLogTitle")} (2)`);
+    // A real <summary>, so Enter/Space toggle natively — the tabIndex below must
+    // not be standing in for a div dressed up as a disclosure.
+    expect(summary.tagName).toBe("SUMMARY");
+    // ★ .focus() proves nothing — it succeeds on tabIndex={-1}. Only walking the
+    //   tab order proves the disclosure is genuinely reachable.
+    let reached = false;
+    for (let i = 0; i < 200 && !reached; i += 1) {
+      await user.tab();
+      reached = document.activeElement === summary;
+    }
+    expect(reached).toBe(true);
   });
 });

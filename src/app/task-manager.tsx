@@ -1375,7 +1375,7 @@ function TaskManagerInner() {
   );
 
   // Shared floating note-log window (tasks + RAID), popout-gated at the mount below (see use-notes-window.ts).
-  const { openTaskNotes, openRaidNotes, notesWindowProps } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity });
+  const { openTaskNotes, openRaidNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
@@ -2694,6 +2694,7 @@ function TaskManagerInner() {
         taskDeleteAction={editorDeleteAction}
         taskEditorExtras={editorExtrasEl}
         taskOnOpenNotes={editingId !== null ? () => openTaskNotes(editingId) : undefined /* existing task only; a new draft has no id to target */}
+        taskNotePanel={editingId !== null ? notePanelPropsFor("task", editingId) : undefined /* existing task only; a new draft has no id to write to */}
         budgetLink={budgetLink}
         jiraConflicts={jiraConflicts}
         handleResolveConflicts={handleResolveConflicts}

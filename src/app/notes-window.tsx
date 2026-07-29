@@ -9,7 +9,9 @@
 
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { INTERACTIVE } from "./interaction-styles";
-import { type Lang, t } from "./i18n";
+// `Lang` no longer needs importing here: the props are derived from
+// NoteLogPanelProps, which already types `lang`.
+import { t } from "./i18n";
 import { useResizable } from "./use-resizable";
 import { useDraggableWindow, type ComputeInitialPos } from "./use-draggable-window";
 import { ResetSizeButton } from "./task-manager-ui";
