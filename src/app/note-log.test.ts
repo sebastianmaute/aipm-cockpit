@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextNoteId, addNote, editNote, deleteNote, canEditNote, sanitizeNoteLog, encodeNoteLog, decodeNoteLog } from "./note-log";
+import { nextNoteId, addNote, editNote, deleteNote, canEditNote, sanitizeNoteLog, sanitizeNoteFields, encodeNoteLog, decodeNoteLog } from "./note-log";
 import type { NoteLogEntry } from "./types";
 
 describe("note-log codec", () => {
@@ -111,5 +111,42 @@ describe("sanitizeNoteLog legacy upgrade", () => {
     expect(out[0].id).toBe(1);
     expect(out[0].text).toBe("hello");
     expect(out[0].html).toContain("hello");
+  });
+});
+
+describe("sanitizeNoteFields upgrades before sanitizing (slice B)", () => {
+  // ★ headline claim: text inside a non-allow-listed tag must SURVIVE, because
+  // a legacy plain description is escaped before DOMPurify ever sees it.
+  it("keeps the text of a legacy plain description containing tag-shaped input", () => {
+    const out = sanitizeNoteFields({ description: "risk: <b>vendor</b> delay" });
+    expect(out.description).toContain("vendor");
+    expect(out.description).toBe("<p>risk: &lt;b&gt;vendor&lt;/b&gt; delay</p>");
+  });
+
+  it("wraps an ordinary legacy plain description", () => {
+    expect(sanitizeNoteFields({ description: "cost < 5k & rising" }).description).toBe(
+      "<p>cost &lt; 5k &amp; rising</p>",
+    );
+  });
+
+  it("leaves an already-rich description untouched", () => {
+    const html = "<p>already <strong>rich</strong></p>";
+    expect(sanitizeNoteFields({ description: html }).description).toBe(html);
+  });
+
+  it("still strips genuinely dangerous markup from a rich value", () => {
+    const out = sanitizeNoteFields({ description: "<p>ok</p><script>alert(1)</script>" });
+    expect(out.description).not.toContain("script");
+    expect(out.description).toContain("ok");
+  });
+
+  it("is idempotent", () => {
+    const once = sanitizeNoteFields({ description: "a < b" }).description;
+    expect(sanitizeNoteFields({ description: once }).description).toBe(once);
+  });
+
+  it("returns the entity unchanged when it carries neither field", () => {
+    const e = { id: 1 } as { id: number; description?: string };
+    expect(sanitizeNoteFields(e)).toBe(e);
   });
 });

@@ -7,6 +7,7 @@
 
 import type { NoteLogEntry } from "./types";
 import { sanitizeNoteHtml, htmlToText } from "./sanitize-html";
+import { descriptionHtml } from "./rich-text-plain";
 
 /** Caps — keep a hand-edited or model-supplied blob bounded. */
 const MAX_NOTE_ENTRIES = 500;
@@ -108,7 +109,17 @@ export function sanitizeNoteLog(raw: unknown): NoteLogEntry[] {
  *  their tasks/raid verbatim with no per-entity sanitizer (unlike CSV/MD/Turso,
  *  which route noteLog through `decodeNoteLog`). Idempotent on already-clean data
  *  (byte-stable goldens/sample stay green). Returns the entity unchanged when it
- *  carries neither field, so tasks/raid with no rich fields keep identity. */
+ *  carries neither field, so tasks/raid with no rich fields keep identity.
+ *
+ *  ★★★ A legacy PLAIN description is UPGRADED (escaped + wrapped) by
+ *  `descriptionHtml` BEFORE it is sanitized, and the order is load-bearing:
+ *  `sanitizeNoteHtml` runs DOMPurify with `KEEP_CONTENT: false`, so it deletes an
+ *  element outside the lean allow-list TOGETHER WITH ITS TEXT. Sanitizing plain
+ *  text first therefore erases any tag-shaped fragment and its content — a stored
+ *  RAID description of "risk: <b>vendor</b> delay" silently lost the word
+ *  "vendor" on every JSON/IDB load. Escaping first leaves no tag for DOMPurify to
+ *  strip; an already-rich value passes through `descriptionHtml` untouched, so
+ *  genuinely dangerous markup is still sanitized exactly as before. */
 export function sanitizeNoteFields<T extends { description?: string; noteLog?: NoteLogEntry[] }>(
   entity: T,
 ): T {
@@ -117,7 +128,7 @@ export function sanitizeNoteFields<T extends { description?: string; noteLog?: N
   if (!hasDescription && !hasNoteLog) return entity;
   return {
     ...entity,
-    ...(hasDescription ? { description: sanitizeNoteHtml(entity.description as string) } : {}),
+    ...(hasDescription ? { description: sanitizeNoteHtml(descriptionHtml(entity.description as string)) } : {}),
     ...(hasNoteLog ? { noteLog: sanitizeNoteLog(entity.noteLog) } : {}),
   };
 }
