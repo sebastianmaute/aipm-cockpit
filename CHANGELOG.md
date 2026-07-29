@@ -8,6 +8,25 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.208.0] - 2026-07-28 "Yolen"
+
+The open project is now editable without leaving Settings, themes are files you
+load rather than a fixed pair, and every edit modal can finally be resized
+vertically.
+
+- **Project config in Settings → General.** A Project block shows the open
+  project's name, code, dates and operating timezone, with an Edit button that
+  opens the same editor the Projects panel uses. Read-only in pop-out windows.
+- **Themes are files.** The theme gallery is now a library: load any portable
+  theme `.json` from disk, then apply, customise or remove it. The AIPM and
+  Dashboard themes no longer ship with the app — load them as files if you want
+  them. Importing from the scheme editor no longer drops a theme's dark mode or
+  its shadow/gradient settings.
+- **Edit modals resize vertically.** The shared edit modals, the budget bucket
+  modal, the shift modal and the committee status-report modal now open at a
+  sensible height and grow their content when you drag the corner, instead of
+  leaving empty space.
+
 ## [0.207.0] - 2026-07-28 "Goss"
 
 Budget buckets and tasks can now be linked from the task side, a bucket takes
