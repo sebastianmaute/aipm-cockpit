@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   capHtmlText,
@@ -264,10 +264,49 @@ describe("DOM-free guard", () => {
     expect(code).toMatch(/export function descriptionHtml/);
   });
 
-  it("never reaches a DOM-dependent sanitiser from code", () => {
-    expect(code).not.toMatch(/dompurify/i);
-    expect(code).not.toMatch(/htmlToText/);
-    expect(code).not.toMatch(/sanitizeNoteHtml/);
-    expect(code).not.toMatch(/sanitizeTemplateHtml/);
+  it("imports exactly the two modules it is allowed to import", () => {
+    // ★ The old guard banned four SYMBOL names. That let two things past:
+    // plainToHtml growing a DOMPurify.sanitize call (its own comment warns
+    // against exactly that), and a future `import { descriptionText } from
+    // "./rich-text-projection"` — neither the module name nor the symbol was on
+    // the list, and that module DOES call DOMPurify. Pinning the import SURFACE
+    // means a new import has to be added here deliberately, which is the point.
+    const specifiers = [...code.matchAll(/\bfrom\s+"([^"]+)"/g)].map((m) => m[1]).sort();
+    expect(specifiers).toEqual(["./narrative-html", "./sanitize-html"]);
+  });
+
+  it("keeps rich-text-projection out of every DOM-free reach", () => {
+    // ★ Nothing guarded this direction at all. rich-text-projection calls
+    // DOMPurify, so a codec, an entity sanitizer or anything under scripts/
+    // importing it would throw under bare node — where jsonToWorkspace's
+    // catch-all converts the throw into an EMPTY workspace that then
+    // "successfully" writes near-empty sample files.
+    const appDir = join(import.meta.dirname);
+    const repoRoot = join(appDir, "..", "..");
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === "node_modules" || entry.name === ".next") continue;
+          walk(full);
+          continue;
+        }
+        if (!/\.tsx?$/.test(entry.name)) continue;
+        if (/\.test\.tsx?$/.test(entry.name)) continue;
+        const rel = full.replace(/\\/g, "/");
+        const isDomFree =
+          /\/scripts\//.test(rel) ||
+          /\/sanitize[^/]*\.ts$/.test(rel) ||
+          /-codecs[^/]*\.ts$/.test(rel);
+        if (!isDomFree) continue;
+        if (/from\s+"[^"]*rich-text-projection"/.test(readFileSync(full, "utf8"))) {
+          offenders.push(rel);
+        }
+      }
+    };
+    walk(join(repoRoot, "src"));
+    walk(join(repoRoot, "scripts"));
+    expect(offenders).toEqual([]);
   });
 });
