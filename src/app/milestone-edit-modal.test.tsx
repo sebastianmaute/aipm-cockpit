@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
@@ -14,6 +14,17 @@ vi.mock("./use-settings", () => ({
 vi.mock("./use-ms-auth", () => ({
   useMsAuth: () => ({ account: null, ready: true, signIn: vi.fn(), signOut: vi.fn(), acquireToken: vi.fn(async () => "tok") }),
 }));
+
+// ProseMirror (the description RichTextEditor) touches layout APIs jsdom lacks;
+// stub them so the editor mounts. Mirrors notes-window / rich-text-editor tests.
+beforeAll(() => {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore jsdom polyfill
+  Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: function* () {} });
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore jsdom polyfill
+  Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
+});
 
 // ModalFieldControls (rendered in the modal header) reads field visibility from
 // the workspace, so every render needs a WorkspaceProvider/FiltersProvider.
@@ -117,5 +128,79 @@ describe("MilestoneEditModal — field visibility", () => {
     // Advanced field gone, required Name input remains.
     expect(screen.queryByText(ACHIEVED_LABEL)).not.toBeInTheDocument();
     expect(screen.getByDisplayValue("M")).toBeInTheDocument();
+  });
+});
+
+describe("MilestoneEditModal — rich-text description (slice B)", () => {
+  // The lean editor names its contenteditable surface with its `label` prop
+  // (editorProps.attributes sets role="textbox" + aria-label), so the query is
+  // by the same i18n key the visible field label uses.
+  const DESC_LABEL = t("en-US", "milestoneDescription");
+
+  function renderWith(milestone: { id: number; name: string; date: string; description?: string }) {
+    return render(
+      <MilestoneEditModal
+        lang="en-US"
+        milestone={{ ...milestone, linkedTaskIds: [] }}
+        isNew={false}
+        tasks={[]}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />,
+      { wrapper },
+    );
+  }
+
+  it("renders the description in a rich-text editor, not a textarea", async () => {
+    renderWith({ id: 1, name: "M", date: "2026-01-01", description: "<p>cutover</p>" });
+
+    const editor = await screen.findByRole("textbox", { name: DESC_LABEL });
+    expect(editor).toHaveAttribute("contenteditable", "true");
+    expect(editor).toHaveTextContent("cutover");
+  });
+
+  it("shows a legacy plain description as text, not as escaped markup", async () => {
+    // ★ The `<legacy>` token is what makes this test able to fail: a bare
+    // "cost < 5k" round-trips identically whether or not it was escaped (the
+    // HTML tokenizer emits "< " as literal text), so it would prove nothing.
+    // A tag-shaped token is SWALLOWED as an unknown element when the raw
+    // stored string is handed to the editor, and survives when descriptionHtml
+    // escapes it first — which is exactly the upgrade under test.
+    renderWith({
+      id: 1,
+      name: "M",
+      date: "2026-01-01",
+      description: "migrate <legacy> DB & archive",
+    });
+
+    const editor = await screen.findByRole("textbox", { name: DESC_LABEL });
+    expect(editor).toHaveTextContent("migrate <legacy> DB & archive");
+  });
+
+  it("shows the new body when a different milestone is opened in place", async () => {
+    // ★★ Proves `key={draft.id}`. Tiptap binds `content` at MOUNT only, and the
+    // modal re-seeds its draft in a render-time reconcile without unmounting —
+    // so opening B while A's editor is still mounted would leave A's body on
+    // screen. This RERENDERS the same tree (it does not remount the modal), so
+    // only the key can save it.
+    const { rerender } = renderWith({ id: 1, name: "A", date: "2026-01-01", description: "<p>alpha</p>" });
+    expect(await screen.findByRole("textbox", { name: DESC_LABEL })).toHaveTextContent("alpha");
+
+    rerender(
+      <MilestoneEditModal
+        lang="en-US"
+        milestone={{ id: 2, name: "B", date: "2026-02-01", description: "<p>beta</p>", linkedTaskIds: [] }}
+        isNew={false}
+        tasks={[]}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const editor = await screen.findByRole("textbox", { name: DESC_LABEL });
+    expect(editor).toHaveTextContent("beta");
+    expect(editor).not.toHaveTextContent("alpha");
   });
 });
