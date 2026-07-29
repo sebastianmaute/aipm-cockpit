@@ -10,7 +10,7 @@
 // its value through descriptionText. DOM consumers use RichTextView.
 import { htmlToText, plainToHtml } from "./sanitize-html";
 import { appendDictation } from "./dictation-engine";
-import { descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
+import { descriptionHtml, htmlPlainProjection, separateBlockBoundaries } from "./rich-text-plain";
 
 /** Stored value -> plain text, upgrading a legacy plain value on the way so a
  *  never-edited record projects identically to an edited one.
@@ -20,9 +20,15 @@ import { descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
  *  htmlPlainProjection then decodes them (it is entity-decode + whitespace only
  *  once the tags are already gone, so it cannot re-introduce markup). Dropping
  *  either half is wrong: without htmlToText this stops being sanitized, without
- *  the projection every consumer gets escaping artefacts in its plain text. */
+ *  the projection every consumer gets escaping artefacts in its plain text.
+ *
+ *  ★★ separateBlockBoundaries must run FIRST. htmlToText strips tags with
+ *  nothing in their place, so by the time htmlPlainProjection sees the value the
+ *  boundary is already gone and "<p>a</p><p>b</p>" has become "ab". It only
+ *  removes p/div/br/li/... — never a script/style tag — so DOMPurify still sees
+ *  every element it is there to police. */
 export function descriptionText(stored: string | undefined): string {
-  return htmlPlainProjection(htmlToText(descriptionHtml(stored)));
+  return htmlPlainProjection(htmlToText(separateBlockBoundaries(descriptionHtml(stored))));
 }
 
 /** Append a dictated utterance to a rich field.

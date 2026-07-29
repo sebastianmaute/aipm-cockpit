@@ -52,13 +52,61 @@ describe("htmlPlainProjection", () => {
   it("treats &nbsp; in every spelling as a space", () => {
     expect(htmlPlainProjection("<p>a&nbsp;b&#160;c&#xa0;d</p>")).toBe("a b c d");
   });
+
+  // ★★ A tag deleted with NOTHING in its place fuses the words either side of a
+  // block boundary — "Vendor delayMitigation plan" — and that jammed string is
+  // what exports, search and the AI digests read. capHtmlText projects, truncates
+  // and re-wraps, so on overflow it is also what gets PERSISTED.
+  it("separates block boundaries instead of fusing words", () => {
+    expect(htmlPlainProjection("<p>Vendor delay</p><p>Mitigation plan</p>")).toBe(
+      "Vendor delay Mitigation plan",
+    );
+    expect(htmlPlainProjection("<ul><li>alpha</li><li>beta</li></ul>")).toBe("alpha beta");
+  });
+
+  // ★ This is the REGRESSION case, not a gap: descriptionHtml turns every legacy
+  // newline into a <br>, so the most common shape in existing data is exactly
+  // the one a boundary-blind projection jams together.
+  it("treats a <br> as a word boundary — the shape every upgraded multi-line value has", () => {
+    expect(htmlPlainProjection(descriptionHtml("line one\nline two"))).toBe("line one line two");
+  });
+
+  // ★★ The HTML tokenizer only opens a tag when `<` is followed by a letter (or
+  // `/`), so `<[^>]*>` eats from a bare `<` all the way to the next `>` — here
+  // that is 18 characters of the user's text.
+  //
+  // ★★★ THE FIRST ASSERTION IS THE ONE WITH TEETH, and it needs the trailing
+  // inline tag. Block tags are already spaces by the time the inline strip runs,
+  // so in "<p>cost < 5k</p>" the only ">" belonged to "</p>" and the bare "<"
+  // has nothing left to run to — that fixture survives a tokenizer-BLIND
+  // `<[^>]*>` too, and a test built only from it passes against the bug. It
+  // takes a following inline tag to supply the ">". Verified by mutation: revert
+  // TAG and the <strong> case fails while the two below still pass.
+  it("keeps text after a bare < that does not open a tag", () => {
+    expect(htmlPlainProjection("<p>cost < 5k and <strong>rising</strong></p>")).toBe(
+      "cost < 5k and rising",
+    );
+    expect(htmlPlainProjection("<p>cost < 5k and rising</p>")).toBe("cost < 5k and rising");
+    expect(htmlPlainProjection("<p>a < b</p>")).toBe("a < b");
+  });
 });
 
 describe("htmlTextLength", () => {
-  // ★ headline claim first: markup must not consume the user's budget.
+  // ★ headline claim first: markup must not consume the user's budget. The
+  // fixture is deliberately free of block boundaries, so the count is exactly
+  // the four visible characters and nothing about it is ambiguous.
   it("counts text, not markup", () => {
-    const html = "<ul><li><strong>ab</strong></li><li>cd</li></ul>";
+    const html = "<p><strong>ab</strong><em>cd</em></p>";
     expect(htmlTextLength(html)).toBe(4);
+    expect(html.length).toBeGreaterThan(30);
+  });
+
+  // ★ Same claim across a block boundary, which is a real word separator and so
+  // projects to the one space it means: "ab cd" is 5. Markup contributes nothing
+  // else — 47 characters of list/inline tags still cost zero.
+  it("counts a block boundary as the single space it projects to", () => {
+    const html = "<ul><li><strong>ab</strong></li><li>cd</li></ul>";
+    expect(htmlTextLength(html)).toBe(5);
     expect(html.length).toBeGreaterThan(40);
   });
 });
@@ -104,6 +152,23 @@ describe("sanitizeRichText", () => {
   // counts, and here all of it lives inside a tag.
   it("keeps a value whose only content is inside markup", () => {
     expect(sanitizeRichText("<p><strong>x</strong></p>", 5000)).toBe("<p><strong>x</strong></p>");
+  });
+
+  // ★★ Silent data loss: an under-counting projection makes the value read as
+  // visually empty, sanitizeRichText returns "", and every `if (description)`
+  // gate in sanitize-records.ts then DROPS the field. Reachable from a
+  // hand-edited CSV/Markdown workspace or an AI create_raid_item call.
+  it("does not drop a field whose text is only a bare <", () => {
+    expect(sanitizeRichText("<p>< 5k</p>", 5000)).not.toBe("");
+  });
+
+  // ★★ …and the text must survive INTACT, not merely keep the field. This is the
+  // non-vacuous half: see the note on the projection test above — the fixture
+  // needs a following inline tag to supply the ">" a tokenizer-blind regex would
+  // run to. Without the [a-zA-Z] guard this loses "< 5k " and counts 10, not 15.
+  it("keeps the text around a bare < when an inline tag follows it", () => {
+    const out = sanitizeRichText("<p>Budget < 5k <em>cap</em></p>", 5000);
+    expect(htmlTextLength(out)).toBe("Budget < 5k cap".length);
   });
 });
 

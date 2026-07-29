@@ -494,6 +494,32 @@ describe("rich descriptions export as text (slice B)", () => {
     expect(flatten("changes")).toContain("approved with conditions");
   });
 
+  // ★★ Every fixture above is a SINGLE <p> with internal spaces, so a projection
+  // that deletes tags and puts nothing in their place still reads correctly —
+  // none of them can see a block boundary being fused. `<p>…</p><p>…</p>` and
+  // `<p>…<br>…</p>` are the shapes that can, and the second is what
+  // descriptionHtml produces for EVERY legacy multi-line value.
+  it("separates paragraphs and <br> lines instead of fusing the words", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      tasks: [makeTask(1)],
+      raid: [
+        {
+          ...makeRaidItem(1),
+          description: "<p>Vendor delay</p><p>Mitigation plan</p>",
+          // exactly what descriptionHtml("line one\nline two") emits
+          mitigation: "<p>line one<br>line two</p>",
+        },
+      ],
+    };
+    const sections = buildExportSections(ws, richConfig, "en-US");
+    const raid = (sections.find((s) => s.key === "raid")?.rows ?? []).flat().join(" ");
+    expect(raid).toContain("Vendor delay Mitigation plan");
+    expect(raid).toContain("line one line two");
+    expect(raid).not.toContain("delayMitigation");
+    expect(raid).not.toContain("oneline");
+  });
+
   // ★ guards the silent-typo failure mode: a rich-column name that is not a real
   // column means the projection never runs and nothing else notices.
   it("names only real columns in the rich-column sets", () => {
