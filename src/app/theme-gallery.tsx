@@ -1,106 +1,133 @@
 "use client";
 
-// Theme gallery: import shipped AIPM/Dashboard themes as removable USER schemes.
-// Phase 2 moved AIPM + Mockup out of the built-in seed for fresh installs (which
-// now show only Harbor/Meridian/Umber); this gallery re-introduces them on
-// demand by fetching the portable /themes/*.json files and importing them
-// through the same color-scheme pipeline (importScheme → addScheme +
-// updateScheme). Imported schemes are ordinary deletable user schemes.
+// Theme library: load a portable theme JSON from disk, then apply, customise or
+// remove it. AIPM and Dashboard no longer ship with the app in any form — a theme
+// is whatever file the user supplies, so this surface is a file picker plus the
+// list of what has been loaded.
+//
+// Presentational apart from the import itself: the scheme list, the active id
+// and the apply/remove handlers are props, owned by AppearanceSection (which
+// already holds useColorSchemes).
 
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { type Lang, t } from "./i18n";
-import { importScheme, addScheme, updateScheme, loadSchemes } from "./color-schemes";
-import { upsertSchemeAsync } from "./color-schemes-store";
+import type { ColorScheme } from "./color-schemes";
+import { importSchemeText } from "./scheme-import";
 import type { TursoConfig } from "./turso-config";
 import { Button } from "./button";
+import { Card } from "./card";
 import { FieldError } from "./field-feedback";
-
-interface ShippedTheme {
-  id: string;
-  name: string;
-  file: string;
-}
-
-const SHIPPED: readonly ShippedTheme[] = [
-  { id: "AIPM", name: "AIPM", file: "/themes/AIPM.json" },
-  { id: "mockup", name: "Dashboard", file: "/themes/mockup.json" },
-];
 
 interface ThemeGalleryProps {
   lang: Lang;
+  /** The full scheme store list; built-ins are filtered out here. */
+  schemes: readonly ColorScheme[];
+  activeId: string | null;
   /** Turso config → persist the imported scheme to the cross-device DB too (else
    *  the localStorage sync-cache only). Optional (defaults null) for file mode +
    *  tests. */
   config?: TursoConfig | null;
-  /** Called with the new user-scheme id after a successful import (parent applies it). */
+  /** Called with the scheme id after a successful import (parent applies it). */
   onImported: (newId: string) => void;
+  onApply: (id: string) => void;
+  onRemove: (id: string) => void;
 }
 
-export function ThemeGallery({ lang, config = null, onImported }: ThemeGalleryProps) {
-  const [busy, setBusy] = useState<string | null>(null);
+export function ThemeGallery({
+  lang, schemes, activeId, config = null, onImported, onApply, onRemove,
+}: ThemeGalleryProps) {
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const userSchemes = schemes.filter((s) => !s.builtIn);
 
-  async function importTheme(theme: ShippedTheme) {
-    setBusy(theme.id);
+  function onFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
     setError(null);
-    try {
-      const res = await fetch(theme.file);
-      if (!res.ok) throw new Error("fetch");
-      const parsed = importScheme(await res.text());
-      if (!parsed) throw new Error("parse");
-      // Dedup: if a user scheme with this name already exists, just activate it
-      // rather than creating a second identical copy on repeat clicks.
-      const existing = loadSchemes().schemes.find((s) => !s.builtIn && s.name === parsed.name);
-      if (existing) {
-        // Ensure it's DB-persisted too — covers a file-mode import later reopened
-        // with Turso configured (idempotent INSERT OR REPLACE; no-op if no config).
-        await upsertSchemeAsync(config, existing);
-        onImported(existing.id);
-        return;
-      }
-      let store = addScheme(parsed.name, parsed.light, parsed.branding);
-      const newId = store.activeId;
-      if (!newId) throw new Error("add");
-      // addScheme creates a color-only scheme; carry over dark + structural.
-      if (parsed.supportsDark || parsed.dark || parsed.structural) {
-        store = updateScheme(newId, {
-          supportsDark: parsed.supportsDark,
-          dark: parsed.dark,
-          structural: parsed.structural,
-        });
-      }
-      // Persist to the cross-device DB when Turso is configured (mirrors the
-      // editor). Without this the import lives only in the localStorage cache and
-      // the next DB refresh drops it, orphaning activeId -> Harbor. No-op in file
-      // mode (upsertSchemeAsync early-returns on null config).
-      const created = store.schemes.find((s) => s.id === newId);
-      if (created) await upsertSchemeAsync(config, created);
-      onImported(newId);
-    } catch {
-      setError(t(lang, "themeGalleryImportError"));
-    } finally {
-      setBusy(null);
-    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      void importSchemeText(String(reader.result), config)
+        .then((newId) => {
+          if (!newId) { setError(t(lang, "themeGalleryImportError")); return; }
+          onImported(newId);
+        })
+        .finally(() => setBusy(false));
+    };
+    reader.onerror = () => { setError(t(lang, "themeGalleryImportError")); setBusy(false); };
+    reader.readAsText(file);
   }
 
   return (
     <div className="mt-3 flex flex-col gap-2">
       <p className="text-sm font-medium text-foreground">{t(lang, "themeGalleryHeading")}</p>
       <p className="text-xs text-muted-foreground">{t(lang, "themeGalleryHint")}</p>
-      <div className="flex flex-wrap gap-2">
-        {SHIPPED.map((th) => (
-          <Button
-            key={th.id}
-            variant="secondary"
-            size="sm"
-            disabled={busy !== null}
-            onClick={() => importTheme(th)}
-            aria-label={t(lang, "themeGalleryImport", th.name)}
-          >
-            {t(lang, "themeGalleryImport", th.name)}
-          </Button>
-        ))}
+
+      <div>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+        >
+          {t(lang, "themeGalleryLoadFile")}
+        </Button>
+        {/* The Button is the control; this input is only its file dialog. It stays
+            sr-only rather than hidden (a display:none input can't be clicked in
+            every browser), so it needs tabIndex -1 + aria-hidden or it is a SECOND
+            tab stop announcing the same name as the Button above it. */}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/json,.json"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={onFile}
+        />
       </div>
+
+      {userSchemes.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t(lang, "themeGalleryEmpty")}</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {userSchemes.map((s) => (
+            <Card
+              as="li"
+              key={s.id}
+              className="flex items-center justify-between gap-2 px-3 py-2"
+            >
+              <span className="min-w-0 flex-1 truncate text-sm text-foreground">{s.name}</span>
+              {s.id === activeId && (
+                <span className="text-xs text-muted-foreground">{t(lang, "themeGalleryActive")}</span>
+              )}
+              {/* Row controls carry the scheme NAME: N rows with an identical
+                  "Apply" would be a WCAG 2.4.6 fail that the axe gate cannot
+                  see (it reports missing names, never duplicate ones). */}
+              <Button
+                variant="ghost"
+                size="xs"
+                disabled={s.id === activeId}
+                aria-label={t(lang, "themeGalleryApply", s.name)}
+                onClick={() => onApply(s.id)}
+              >
+                {t(lang, "themeGalleryApply", s.name)}
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                aria-label={t(lang, "themeGalleryRemove", s.name)}
+                onClick={() => onRemove(s.id)}
+              >
+                {t(lang, "themeGalleryRemove", s.name)}
+              </Button>
+            </Card>
+          ))}
+        </ul>
+      )}
+
       <FieldError>{error}</FieldError>
     </div>
   );

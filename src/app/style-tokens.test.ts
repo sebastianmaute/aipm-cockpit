@@ -11,8 +11,8 @@ describe("CI-style role tokens", () => {
   );
   it("Mockup values live in the scheme data, not a CSS override block", () => {
     // Phase 2 removed the hardcoded :root[data-style="mockup"] block; AIPM/Mockup
-    // now ship as importable theme files (public/themes/*.json) — their fidelity is
-    // asserted in shipped-themes.test.ts, not here.
+    // now ship as importable theme files the user supplies (Settings → Appearance →
+    // Theme gallery) — there is no shipped fixture to assert fidelity against here.
     expect(css).not.toContain(':root[data-style="mockup"]');
   });
   it("Harbor role values are the brand-default fallback", () => {

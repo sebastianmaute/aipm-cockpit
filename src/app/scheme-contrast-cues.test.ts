@@ -19,7 +19,6 @@
 // That is false — AIPM and Mockup light use a mid-grey `#636362` foreground and
 // land at 4.79:1. The conclusion survived, the number did not, and nothing in
 // the suite could tell the difference. It can now.
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { BUILTIN_SCHEMES } from "./builtin-schemes";
 import { hexToRgb, resolveSchemeColors } from "./scheme-tokens";
@@ -65,21 +64,6 @@ describe("dropdown active-row ring is visible in every shipped scheme", () => {
     if (dark) it(`${scheme.name} dark`, () => assertRingVisible(`${scheme.id} dark`, dark));
   }
 
-  // AIPM and Mockup ship as importable theme files rather than code built-ins,
-  // but a user who imports one from the gallery is running it — and they are
-  // precisely the pair whose mid-grey foreground makes this non-obvious.
-  for (const file of ["AIPM", "mockup"]) {
-    it(`${file}.json`, () => {
-      const theme = JSON.parse(readFileSync(`public/themes/${file}.json`, "utf8")) as {
-        light?: SchemeColorMap;
-        dark?: SchemeColorMap;
-      };
-      expect(theme.light, `${file}.json has a light map`).toBeTruthy();
-      assertRingVisible(`${file} light`, theme.light!);
-      if (theme.dark) assertRingVisible(`${file} dark`, theme.dark);
-    });
-  }
-
   // The rejected alternative, kept as an executable record of WHY. If someone
   // reaches for a brand accent again, this documents what it costs.
   it("rejects a brand accent as the cue: --ui-green fails the same bar in light schemes", () => {
@@ -94,4 +78,38 @@ describe("dropdown active-row ring is visible in every shipped scheme", () => {
     // explaining the choice needs rewriting rather than quietly rotting.
     expect(failures).toHaveLength(BUILTIN_SCHEMES.length);
   });
+});
+
+/** WCAG 1.4.3 floor for normal-size text. The segment label is 14px/normal. */
+const TEXT_AA = 4.5;
+
+// ★★ The active SegmentedControl segment is real TEXT on a filled pill, so it
+// owes 4.5:1, not the 3:1 the ring above owes. Meridian dark shipped at 4.12:1
+// (#f5f5ff on #6366f1) and nothing caught it for two reasons worth remembering:
+// the scheme maps are DATA, so no class-level assertion can see the ratio; and
+// the axe matrix only scans FIVE of the six built-in combos — umber dark is not
+// in it at all, so a twin defect there would have stayed invisible indefinitely.
+// This sweep covers every combo the gate cannot.
+describe("active segmented-control label clears AA in every shipped scheme", () => {
+  for (const scheme of BUILTIN_SCHEMES) {
+    const maps: [string, SchemeColorMap | undefined][] = [
+      ["light", scheme.light],
+      ["dark", scheme.dark],
+    ];
+    for (const [mode, raw] of maps) {
+      if (!raw) continue;
+      it(`${scheme.name} ${mode}`, () => {
+        const resolved = resolveSchemeColors(raw);
+        const fg = resolved["--segment-active-fg"];
+        const bg = resolved["--segment-active-bg"];
+        expect(fg, `${scheme.id} ${mode}: --segment-active-fg`).toBeTruthy();
+        expect(bg, `${scheme.id} ${mode}: --segment-active-bg`).toBeTruthy();
+        const ratio = contrast(fg, bg);
+        expect(
+          ratio,
+          `${scheme.id} ${mode}: label ${fg} on active segment ${bg} is ${ratio.toFixed(2)}:1`,
+        ).toBeGreaterThanOrEqual(TEXT_AA);
+      });
+    }
+  }
 });

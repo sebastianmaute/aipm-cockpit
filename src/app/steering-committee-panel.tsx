@@ -566,7 +566,7 @@ export function SteeringCommitteePanel({
                     only the report prints. Resizable + reset/print/cancel chrome. */}
                 <div
                   ref={reportPaneRef}
-                  className="print-root flex max-h-[85vh] min-w-[320px] w-[min(90vw,720px)] resize flex-col overflow-auto rounded-lg border border-line bg-surface p-4"
+                  className="print-root flex h-[600px] min-h-[320px] max-h-[85vh] min-w-[320px] w-[min(90vw,720px)] resize flex-col overflow-auto rounded-lg border border-line bg-surface p-4"
                 >
                   <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
                     <h2 className="text-sm font-semibold text-foreground">{title}</h2>

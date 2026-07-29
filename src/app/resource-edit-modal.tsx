@@ -132,8 +132,10 @@ export function ResourceEditModal({
       onDragReset={dragReset}
       sizeKey="aipm-cockpit:modal-size:resource-edit"
       widthClassName="w-[560px] min-w-[320px]"
-      panelClassName="max-h-[95vh]"
-      formClassName="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
+      /* Slightly under the shell's 720px default — ~11 rows in a two-column
+         grid, several of them field-visibility gated. */
+      heightClassName="h-[620px] min-h-[400px] max-h-[95vh]"
+      formClassName="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
     >
           {/* First name */}
           <label className="flex flex-col gap-1 text-sm">

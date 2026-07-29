@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, test, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ColorSchemeEditor } from "./color-scheme-editor";
 import { addScheme, loadSchemes } from "./color-schemes";
 
@@ -129,5 +130,38 @@ describe("ColorSchemeEditor branding-apply guard", () => {
     fireEvent.change(screen.getByLabelText("App name"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: /^apply$/i }));
     expect(onApplyBranding).toHaveBeenCalledWith(expect.objectContaining({ slogan: "" }));
+  });
+});
+
+describe("ColorSchemeEditor file import", () => {
+  beforeEach(() => localStorage.clear());
+
+  test("importing a full portable theme keeps dark and structural", async () => {
+    // Headline claim FIRST: the editor's picker used to call addScheme alone,
+    // silently degrading a light+dark+structural theme to light-only.
+    const user = userEvent.setup();
+    render(<ColorSchemeEditor lang="en-US" onApply={vi.fn()} />);
+    const file = new File(
+      [JSON.stringify({
+        name: "Portable",
+        supportsDark: true,
+        light: { "--surface": "#ffffff" },
+        dark: { "--surface": "#121619" },
+        structural: { "--shadow-card": "none" },
+        branding: {},
+      })],
+      "portable.json",
+      { type: "application/json" },
+    );
+    const input = (screen.queryByLabelText(/import/i) ??
+      document.querySelector('input[type="file"]')) as HTMLInputElement;
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      const s = loadSchemes().schemes.find((x) => x.name === "Portable");
+      expect(s?.dark?.["--surface"]).toBe("#121619");
+      expect(s?.structural?.["--shadow-card"]).toBe("none");
+      expect(s?.supportsDark).toBe(true);
+    });
   });
 });

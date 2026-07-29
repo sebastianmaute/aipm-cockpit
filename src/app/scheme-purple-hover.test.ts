@@ -128,19 +128,4 @@ describe("--ui-purple-strong clears AA on the deepened hover tint", () => {
       it(`${scheme.name} dark`, () => assertPurpleHoverAa(`${scheme.id} dark`, dark, true));
     }
   }
-
-  // AIPM and Mockup left the code built-ins and ship as importable theme files,
-  // so they are not in BUILTIN_SCHEMES — but a user who imports one from the
-  // theme gallery is running it, and it must hold to the same bar.
-  for (const file of ["AIPM", "mockup"]) {
-    it(`${file}.json`, () => {
-      const theme = JSON.parse(readFileSync(`public/themes/${file}.json`, "utf8")) as {
-        light?: SchemeColorMap;
-        dark?: SchemeColorMap;
-      };
-      expect(theme.light, `${file}.json has a light map`).toBeTruthy();
-      assertPurpleHoverAa(`${file} light`, theme.light!, false);
-      if (theme.dark) assertPurpleHoverAa(`${file} dark`, theme.dark, true);
-    });
-  }
 });

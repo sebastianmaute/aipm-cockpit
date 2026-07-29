@@ -44,6 +44,12 @@ interface EditModalShellProps {
    *  change/raid/stakeholder modals); the narrower register modals
    *  (absence/milestone/resource) pass `"w-[560px] min-w-[320px]"`. */
   widthClassName?: string;
+  /** Panel height classes. Default `"h-[720px] min-h-[420px] max-h-[95vh]"` —
+   *  `useResizable` needs a class-based default height or a dragged height opens
+   *  dead space. Overriding replaces all three; the override must carry its own
+   *  `max-h-` cap (there is no tailwind-merge, so a stray leftover would be
+   *  resolved by Tailwind's output ordering, not by the call site). */
+  heightClassName?: string;
   /** `<form>` classes. Default is the two-column grid the wide modals use;
    *  narrower modals override the padding, and the milestone modal opts into a
    *  single-column flow. */
@@ -72,7 +78,8 @@ export function EditModalShell({
   backdropScroll = false,
   panelClassName,
   widthClassName = "w-[720px] min-w-[460px]",
-  formClassName = "grid grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2",
+  heightClassName = "h-[720px] min-h-[420px] max-h-[95vh]",
+  formClassName = "grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-6 sm:grid-cols-2",
   children,
 }: EditModalShellProps) {
   const { ref: sizeRef, reset: sizeReset } = useResizable(sizeKey);
@@ -90,7 +97,7 @@ export function EditModalShell({
         ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className={`relative flex ${widthClassName} max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface${panelClassName ? ` ${panelClassName}` : ""}`}
+        className={`relative flex ${widthClassName} ${heightClassName} max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface${panelClassName ? ` ${panelClassName}` : ""}`}
       >
         <ModalHeader
           lang={lang}

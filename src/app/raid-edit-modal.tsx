@@ -248,7 +248,6 @@ export function RaidEditModal({
       sizeKey="aipm-cockpit:modal-size:raid-edit"
       align="start"
       backdropScroll
-      panelClassName="max-h-[95vh]"
     >
           {isVisible("category") && (
           <div className="flex flex-col gap-1 text-sm">

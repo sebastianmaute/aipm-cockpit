@@ -170,7 +170,7 @@ export function ShiftEditModal({
         ref={sizeRef}
         data-modal-panel
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        className="relative flex max-h-[95vh] w-[640px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
+        className="relative flex h-[560px] min-h-[400px] max-h-[95vh] w-[640px] min-w-[320px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
       >
         <ModalHeader
           lang={lang}
@@ -185,7 +185,7 @@ export function ShiftEditModal({
 
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
+          className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-5 sm:grid-cols-2"
         >
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-foreground">{t(lang, "shiftAssignee")}</span>

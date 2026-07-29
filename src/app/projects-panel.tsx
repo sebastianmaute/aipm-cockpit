@@ -24,9 +24,7 @@ import { CreateProjectWizard } from "./create-project-wizard";
 import { type ExportFormat } from "./export";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { t, type Lang } from "./i18n";
-import { Modal } from "./modal";
-import { ModalHeader } from "./modal-header";
-import { ProjectForm } from "./project-form";
+import { ProjectEditModal, ProjectModalShell } from "./project-edit-modal";
 import { type ProjectRegistryEntry } from "./projects-registry";
 import { type Settings } from "./settings-types";
 import { getTursoConfig } from "./turso-config";
@@ -130,7 +128,6 @@ export function ProjectsPanel({
     settings.integrations?.turso?.authToken,
   );
   const { ref: paneSizeRef, reset: resetPaneSize } = useResizable("aipm-cockpit:projects-pane-size");
-  const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:create-modal-size");
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [hardDeleteTarget, setHardDeleteTarget] =
@@ -408,54 +405,37 @@ export function ProjectsPanel({
       )}
 
       {/* Create / edit modal ------------------------------------------- */}
-      {modal.mode !== "closed" && (
-        <Modal
-          open
+      {modal.mode === "create" && (
+        <ProjectModalShell
+          lang={lang}
+          title={t(lang, "projectsNew")}
+          sizeKey="aipm-cockpit:create-modal-size"
           onClose={closeModal}
-          ariaLabel={t(lang, modal.mode === "create" ? "projectsNew" : "projectsEdit")}
-          align="center"
-          backdropClassName="bg-ui-dark-blue/40"
-          zIndex={50}
         >
-          <div
-            ref={sizeRef}
-            data-modal-panel
-            className="relative flex max-h-[90vh] min-h-[420px] w-[960px] min-w-[360px] max-w-[95vw] resize flex-col overflow-hidden rounded-xl border border-line bg-surface"
-          >
-            <ModalHeader
-              lang={lang}
-              title={t(lang, modal.mode === "create" ? "projectsNew" : "projectsEdit")}
-              onClose={closeModal}
-              headerExtra={<ResetSizeButton onClick={resetSize} lang={lang} />}
-            />
-            <div className="min-h-0 flex-1 overflow-y-auto p-6">
-              {modal.mode === "create" ? (
-                <CreateProjectWizard
-                  lang={lang}
-                  stakeholderNames={stakeholderNames}
-                  addressBook={addressBook}
-                  resources={resources}
-                  settings={settings}
-                  onChangeSettings={onChangeSettings}
-                  onCreate={handleCreate}
-                  onCancel={closeModal}
-                  hideFormat={isTurso}
-                />
-              ) : (
-                <ProjectForm
-                  initial={currentProject}
-                  stakeholderNames={stakeholderNames}
-                  addressBook={addressBook}
-                  resources={resources}
-                  lang={lang}
-                  onSubmit={handleEditSubmit}
-                  onCancel={closeModal}
-                />
-              )}
-            </div>
-
-          </div>
-        </Modal>
+          <CreateProjectWizard
+            lang={lang}
+            stakeholderNames={stakeholderNames}
+            addressBook={addressBook}
+            resources={resources}
+            settings={settings}
+            onChangeSettings={onChangeSettings}
+            onCreate={handleCreate}
+            onCancel={closeModal}
+            hideFormat={isTurso}
+          />
+        </ProjectModalShell>
+      )}
+      {modal.mode === "edit" && currentProject && (
+        <ProjectEditModal
+          lang={lang}
+          initial={currentProject}
+          stakeholderNames={stakeholderNames}
+          addressBook={addressBook}
+          resources={resources}
+          sizeKey="aipm-cockpit:create-modal-size"
+          onSubmit={handleEditSubmit}
+          onCancel={closeModal}
+        />
       )}
     </div>
   );
