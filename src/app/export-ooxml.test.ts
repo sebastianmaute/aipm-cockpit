@@ -668,3 +668,33 @@ describe("PPTX export text", () => {
     expect((xml.match(/<a:t>Task one<\/a:t>/g) ?? []).length).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// XLSX text rendering (§17 part 4d — the export projection's newline)
+// ---------------------------------------------------------------------------
+
+describe("XLSX carries a projected paragraph break", () => {
+  it("keeps the newline in the shared string and wraps the body cells", async () => {
+    // No code change backs this — the builder already gets it right. The pin
+    // exists because three things have to STAY true: xml:space="preserve" on
+    // <t>, xmlEscape leaving \n alone, and wrapText on the BODY cell styles.
+    const blob = buildXlsx([
+      { key: "tasks", title: "Tasks", columns: ["description"], rows: [["one\ntwo"]] },
+    ]);
+    const parts = await unzipBlob(blob);
+    expect(parts.get("xl/sharedStrings.xml")!).toContain(
+      '<t xml:space="preserve">one\ntwo</t>',
+    );
+    // ★ A bare `toContain('wrapText="1"')` would also be satisfied by the
+    // HEADER style (cellXfs index 1), which must NOT wrap. Pin the two BODY
+    // <xf> elements (indices 2 = grey, 3 = white) whole, so removing wrapText
+    // from either — or moving it onto the header — fails here.
+    const styles = parts.get("xl/styles.xml")!;
+    expect(styles).toContain(
+      '<xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
+    );
+    expect(styles).toContain(
+      '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
+    );
+  });
+});
