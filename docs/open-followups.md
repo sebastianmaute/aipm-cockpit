@@ -72,6 +72,8 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 19 | Inline-AI task descriptor names the dead `notes` field | 0.196.0 | S | open — cosmetic |
 | 20 | `applied[f]` in inline-AI plan is untestable | 0.209.0 (Lafferty) | S | open — needs a seam |
 | 21 | Eye verification owed: change + milestone editors, 4 detail cases | 0.209.0 (Lafferty) | S | open — a11y/visual |
+| 22 | `clipText` can split a surrogate pair (~54 call sites) | 0.209.0 (Lafferty) | M | open — needs golden regen |
+| 23 | Five `Task.description` consumers still fuse block boundaries | 0.196.0, found 0.209.0 | S | open — one import each |
 
 ---
 
@@ -638,6 +640,93 @@ log**. Not verified:
 - **The disclosure summary's contrast** across the six scheme combos. The axe matrix scans five of
   the six built-in combinations, so a scheme it does not scan can carry a contrast failure with the
   gate green — exactly how 0.208.0 shipped one.
+
+---
+
+## 22. `clipText` truncates on UTF-16 code units and can split a surrogate pair — open
+
+**Where:** `sanitize-core.ts:52-55`.
+
+```ts
+function clipText(s: unknown, max: number): string {
+  if (typeof s !== "string") return "";
+  return s.length > max ? s.slice(0, max) : s;
+}
+```
+
+`slice` counts UTF-16 **code units**, so an over-cap value ending on an astral character (emoji,
+rarer CJK, most symbols above the BMP) keeps a **lone surrogate**. That is not a character: it
+UTF-8-encodes to `U+FFFD` on the **CSV and Markdown** backends while surviving intact on **JSON and
+IndexedDB**, because `JSON.stringify` escapes it as `\ud83d`. A silent, **backend-dependent**
+corruption — harder to diagnose than a uniform one, because the same workspace reads correctly or
+incorrectly depending on where it was stored.
+
+`clipText` is the truncator behind `sanitizeText` and `sanitizeMultiline`, used **~54 times** across
+`sanitize-core` / `sanitize-entities` / `sanitize-records` — every capped name, title, note and
+plain-text field in the app. The same shape recurs in `note-log.ts`'s `cleanText`,
+`color-schemes.ts` names, `ai-errors.ts` and `diagnostics-redact.ts`.
+
+**The fix is known and already shipped once.** `capHtmlText` had the identical defect and was fixed
+in `ca8ab6f4` (slice B) by backing the cut off one code unit when it would land on a high surrogate:
+
+```ts
+const last = text.charCodeAt(max - 1);
+const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
+```
+
+Applied once inside `clipText`, that closes all ~54 sites at once.
+
+**Why it was NOT done in slice B:** unlike `capHtmlText` — whose fields are empty in the sample —
+`clipText` reaches fields that **DO ship in the sample workspace**, so changing it needs its own
+golden regeneration and its own review. Bundling it into a rich-text slice would have put a
+fixture-moving change under a commit message about something else.
+
+★ `max <= 0` is safe in the `capHtmlText` version (`charCodeAt(-1)` is `NaN`, and `NaN` fails every
+comparison) but that was *asserted with a test*, not assumed — do the same here rather than
+reasoning about it, because `clipText`'s `max` is a per-field argument, not one constant.
+
+---
+
+## 23. Five `Task.description` consumers still fuse block boundaries — open, one import
+
+`descriptionText` (`rich-text-projection.ts:31`) is the correct projection: it runs
+`separateBlockBoundaries` **first**, because `htmlToText` strips tags with nothing in their place and
+would otherwise turn `<p>a</p><p>b</p>` into `"ab"`. Five `Task.description` consumers still call
+bare `htmlToText` and so fuse every block boundary. All five verified 2026-07-29:
+
+| site | call |
+|---|---|
+| `workspace-context.tsx:235` | `htmlToText(t.description)` — the tasks pane's own search index |
+| `gantt.tsx:251` | `htmlToText(task.description ?? "")` — gantt search |
+| `task-row.tsx:581` | `const preview = htmlToText(task.description)` — the row preview |
+| `task-dedup/dedup.ts:62` | `const noteText = htmlToText(tk.description)` — the AI dedup digest |
+| `jira-api.ts:263` | `textToAdf(htmlToText(task.description ?? ""))` — the Jira **push** |
+
+Two consequences worth naming. The tasks pane's search **disagrees with global search** on a
+two-paragraph description: global search goes through `descriptionText` and matches
+`"delay Mitigation"`, the pane matches only `"delayMitigation"`. And `jira-api.ts:263` is a **write**
+— the fused text is what lands in the Jira issue, where the app is no longer the system of record.
+
+Pre-existing since 0.196.0 (when `Task.notes` became the rich `Task.description`); slice B did not
+introduce it and did not widen it — the six register fields it added all route through
+`descriptionText` correctly. Found while auditing that boundary.
+
+**The fix is one import per site**, swapping `htmlToText(x)` for `descriptionText(x)` — which also
+upgrades a legacy plain value on the way, so a never-edited task projects identically to an edited
+one. ★ Confirm each site is DOM-safe first: `descriptionText` calls DOMPurify, so it must never be
+reached from a codec, an entity sanitizer, or anything that runs under bare node. All five above are
+browser-side, but check rather than assume — that is exactly the constraint `rich-text-plain.ts`
+exists to enforce.
+
+★ A grep for `htmlToText(` finds four further call sites that are **correct and must not be
+changed**: `note-log-panel.tsx:152,168` and `note-log.ts:74` operate on note HTML, not descriptions,
+and `rich-text-projection.ts:31` is the wrapped call itself.
+
+★★ **Not the same item as §17, and fixing this does not fix that.** §17 is that `htmlToText`
+collapses whitespace, so even the CORRECT `descriptionText` path loses paragraph breaks on export.
+This item is that five sites never reach `descriptionText` at all, so they lose the word boundary
+too. Swapping the import here buys them the boundary space and leaves them with §17's flattening,
+exactly like every other consumer.
 
 ---
 
