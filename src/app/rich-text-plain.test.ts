@@ -113,6 +113,38 @@ describe("htmlPlainProjection", () => {
   });
 });
 
+describe("numeric entity references", () => {
+  it("decodes decimal and hex forms so the counter measures visible text", () => {
+    expect(htmlPlainProjection("<p>a&#8212;b</p>")).toBe("a—b");
+    expect(htmlPlainProjection("<p>a&#x2014;b</p>")).toBe("a—b");
+    expect(htmlPlainProjection("<p>a&#X2014;b</p>")).toBe("a—b");
+    expect(htmlTextLength("<p>&#8212;</p>")).toBe(1);
+  });
+
+  it("REFUSES to emit & < >, which would re-open the double-decode hole", () => {
+    // ★★ &#38; IS "&". Decoding it before the named pass turns "&#38;lt;" into
+    // "&lt;", which the named pass then decodes to "<" — exactly the
+    // double-decode that "&amp; decodes LAST" exists to prevent. &#60;/&#62;
+    // would re-introduce a tag delimiter AFTER the tag work has already run.
+    expect(htmlPlainProjection("<p>&#38;lt;</p>")).toBe("&#38;lt;");
+    expect(htmlPlainProjection("<p>&#60;script&#62;</p>")).toBe("&#60;script&#62;");
+    expect(htmlPlainProjection("<p>&#x26;lt;</p>")).toBe("&#x26;lt;");
+  });
+
+  it("refuses lone surrogates and out-of-range code points instead of throwing", () => {
+    // String.fromCodePoint throws on both; a projection must never throw — it
+    // runs inside the entity sanitizers on every load.
+    expect(htmlPlainProjection("<p>&#xd800;</p>")).toBe("&#xd800;");
+    expect(htmlPlainProjection("<p>&#1114112;</p>")).toBe("&#1114112;");
+    expect(htmlPlainProjection("<p>&#0;</p>")).toBe("&#0;");
+  });
+
+  it("leaves the existing named decodes and their ordering intact", () => {
+    expect(htmlPlainProjection("<p>&amp;lt;</p>")).toBe("&lt;");
+    expect(htmlPlainProjection("<p>&#39;a&apos;</p>")).toBe("'a'");
+  });
+});
+
 describe("htmlTextLength", () => {
   // ★ headline claim first: markup must not consume the user's budget. The
   // fixture is deliberately free of block boundaries, so the count is exactly

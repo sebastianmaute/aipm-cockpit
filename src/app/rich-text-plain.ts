@@ -62,6 +62,41 @@ const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;
  *  — collapse to one, so a boundary costs exactly the single space it means. */
 const WS_RUN = /\s+/g;
 
+/** Code points a numeric reference must NOT decode to.
+ *
+ *  ★★ `&#38;` IS `&`. Decoding it before the named pass turns `&#38;lt;` into
+ *  `&lt;`, which the named pass then decodes to `<` — the exact double-decode
+ *  that "&amp; decodes LAST" exists to prevent. `&#60;`/`&#62;` would put a tag
+ *  delimiter back into a string the TAG pass has already finished with. All
+ *  three stay literal text: over-counted, which is the pre-existing behaviour,
+ *  but never corrupting. */
+const UNSAFE_CODE_POINTS = new Set([0x26, 0x3c, 0x3e]);
+/** `&#8212;` / `&#x2014;`, either case. */
+const NUMERIC_ENTITY = /&#(x[0-9a-f]+|\d+);/gi;
+
+/** Decode numeric character references to the characters they denote.
+ *
+ *  Runs AFTER the tag work (so a decoded character can never be read as markup)
+ *  and BEFORE the &nbsp;/whitespace passes (so a decoded space collapses like
+ *  any other). Anything it declines is returned verbatim — this must never
+ *  throw, because it runs inside the entity sanitizers on every load.
+ *
+ *  ★ NAMED references beyond the small set below are deliberately still
+ *  untouched: `&mdash;` continues to count 7. The numeric forms are what an
+ *  Office paste actually produces; the named tail is open-followups.md §24's
+ *  remainder. */
+function decodeNumericEntities(s: string): string {
+  return s.replace(NUMERIC_ENTITY, (whole, body: string) => {
+    const hex = body[0] === "x" || body[0] === "X";
+    const cp = hex ? parseInt(body.slice(1), 16) : parseInt(body, 10);
+    if (!Number.isInteger(cp) || cp <= 0 || cp > 0x10ffff) return whole;
+    if (UNSAFE_CODE_POINTS.has(cp)) return whole;
+    // Lone surrogates are not characters and fromCodePoint throws on them.
+    if (cp >= 0xd800 && cp <= 0xdfff) return whole;
+    return String.fromCodePoint(cp);
+  });
+}
+
 /** Turn every block boundary into a space, leaving all other markup alone.
  *
  *  ★★ Exported for ONE caller: rich-text-projection's descriptionText, whose
@@ -90,11 +125,12 @@ export function descriptionHtml(stored: string | undefined): string {
  *  the boundary survives it. Whitespace collapses AFTER the &nbsp; rewrite (or a
  *  run of them would not collapse) but the entity decodes stay AFTER the tag
  *  work, so a decoded `&lt;` can never be re-read as a tag opener — which is
- *  also what keeps `&amp;` decoding LAST meaningful. */
+ *  also what keeps `&amp;` decoding LAST meaningful.
+ *
+ *  Numeric references decode after the tag work and before the whitespace
+ *  passes, and refuse to emit & < > — see UNSAFE_CODE_POINTS. */
 export function htmlPlainProjection(html: string): string {
-  return html
-    .replace(BLOCK_TAG, " ")
-    .replace(TAG, "")
+  return decodeNumericEntities(html.replace(BLOCK_TAG, " ").replace(TAG, ""))
     .replace(NBSP, " ")
     .replace(WS_RUN, " ")
     .replace(/&lt;/gi, "<")
