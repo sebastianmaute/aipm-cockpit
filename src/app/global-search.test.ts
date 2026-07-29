@@ -334,19 +334,28 @@ describe("rich descriptions are indexed as text (slice B)", () => {
     expect(searchIndex(index, "escalate").map((r) => r.id)).toEqual([1]);
   });
 
+  // TWO call sites on the milestone row and they need separate assertions: the
+  // SUBTITLE (rendered in the results list) and the HAYSTACK. "cutover" is a
+  // substring of the raw html too, so finding the row proves only that the
+  // haystack is non-empty — the "em" query is what proves it holds text.
   it("shows a milestone's description as plain text in the result subtitle", () => {
     const index = buildSearchIndex(
       ws({ milestones: [makeMilestone({ id: 7, description: "<p>final <em>cutover</em></p>" })] }),
     );
     const [row] = searchIndex(index, "cutover");
     expect(row.subtitle).toBe("final cutover");
+    expect(searchIndex(index, "em")).toHaveLength(0);
   });
 
-  it("finds a change by a word inside its rich description", () => {
+  // The positive half alone would pass even unprojected ("creep" is a substring
+  // of the raw html), so the negative assertion is what proves the change line.
+  // No other seeded entity carries the word "strong".
+  it("finds a change by a word inside its rich description, not by its markup", () => {
     const index = buildSearchIndex(
       ws({ changes: [makeChange({ id: 3, description: "<p>scope <strong>creep</strong></p>" })] }),
     );
-    expect(searchIndex(index, "creep")).toHaveLength(1);
+    expect(searchIndex(index, "strong")).toHaveLength(0);
+    expect(searchIndex(index, "creep").map((r) => r.id)).toEqual([3]);
   });
 
   // ★ pre-existing defect: bare htmlToText leaves DOMPurify's entity escapes in

@@ -631,4 +631,26 @@ describe("RaidPanel search over a rich description", () => {
     fireEvent.change(box, { target: { value: "badly" } });
     expect(screen.getByText("Slip risk")).toBeInTheDocument();
   });
+
+  // The mitigation is a SECOND rich entry in the same haystack — a description
+  // that is plain text keeps this test honest about which entry it proves.
+  it("matches the mitigation words, not its markup", () => {
+    const raid: RaidItem[] = [
+      makeRaidItem({
+        id: 1,
+        title: "Vendor risk",
+        severity: "Medium",
+        description: "plain text",
+        mitigation: "<p>escalate <strong>now</strong></p>",
+      }),
+    ];
+    renderPanel(makeProps({ raid }));
+    const box = screen.getByPlaceholderText(/search title, owner/i);
+
+    fireEvent.change(box, { target: { value: "strong" } });
+    expect(screen.queryByText("Vendor risk")).toBeNull();
+
+    fireEvent.change(box, { target: { value: "escalate" } });
+    expect(screen.getByText("Vendor risk")).toBeInTheDocument();
+  });
 });
