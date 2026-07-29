@@ -79,3 +79,37 @@ describe("dropdown active-row ring is visible in every shipped scheme", () => {
     expect(failures).toHaveLength(BUILTIN_SCHEMES.length);
   });
 });
+
+/** WCAG 1.4.3 floor for normal-size text. The segment label is 14px/normal. */
+const TEXT_AA = 4.5;
+
+// ★★ The active SegmentedControl segment is real TEXT on a filled pill, so it
+// owes 4.5:1, not the 3:1 the ring above owes. Meridian dark shipped at 4.12:1
+// (#f5f5ff on #6366f1) and nothing caught it for two reasons worth remembering:
+// the scheme maps are DATA, so no class-level assertion can see the ratio; and
+// the axe matrix only scans FIVE of the six built-in combos — umber dark is not
+// in it at all, so a twin defect there would have stayed invisible indefinitely.
+// This sweep covers every combo the gate cannot.
+describe("active segmented-control label clears AA in every shipped scheme", () => {
+  for (const scheme of BUILTIN_SCHEMES) {
+    const maps: [string, SchemeColorMap | undefined][] = [
+      ["light", scheme.light],
+      ["dark", scheme.dark],
+    ];
+    for (const [mode, raw] of maps) {
+      if (!raw) continue;
+      it(`${scheme.name} ${mode}`, () => {
+        const resolved = resolveSchemeColors(raw);
+        const fg = resolved["--segment-active-fg"];
+        const bg = resolved["--segment-active-bg"];
+        expect(fg, `${scheme.id} ${mode}: --segment-active-fg`).toBeTruthy();
+        expect(bg, `${scheme.id} ${mode}: --segment-active-bg`).toBeTruthy();
+        const ratio = contrast(fg, bg);
+        expect(
+          ratio,
+          `${scheme.id} ${mode}: label ${fg} on active segment ${bg} is ${ratio.toFixed(2)}:1`,
+        ).toBeGreaterThanOrEqual(TEXT_AA);
+      });
+    }
+  }
+});

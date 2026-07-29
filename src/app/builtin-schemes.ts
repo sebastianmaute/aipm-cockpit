@@ -40,7 +40,10 @@ export const MERIDIAN_DARK: SchemeColorMap = {
   "--ui-pink": "#e87ab8", "--ui-purple": "#7d5fd6", "--ui-blue": "#818cf8", "--ui-medium-grey": "#82849e",
   "--ui-light-grey": "#b4b8da", "--surface-muted": "#23233a", "--line": "#31314a", "--table-head-bg": "#2c2b6e",
   "--table-head-fg": "#e2e2f5", "--table-head-accent": "#a5b4fc", "--segment-track-bg": "#23233a",
-  "--segment-active-bg": "#6366f1", "--segment-active-fg": "#f5f5ff",
+  // #6366f1 measured 4.12:1 against the #f5f5ff label — under AA for 14px text.
+  // Darkened to indigo-600, which lands at 5.80:1, in line with the other dark
+  // built-ins (harbor 5.86, umber 5.82).
+  "--segment-active-bg": "#4f46e5", "--segment-active-fg": "#f5f5ff",
 };
 
 // ── Umber ────────────────────────────────────────────────────────────────
