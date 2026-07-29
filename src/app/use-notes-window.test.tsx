@@ -71,6 +71,19 @@ describe("useNotesWindow — notePanelPropsFor", () => {
     expect(setTasks).toHaveBeenCalledTimes(1);
     // Functional setter — the bulk "N saves in one tick" landmine.
     expect(typeof setTasks.mock.calls[0][0]).toBe("function");
+
+    // ★★ APPLY the updater. Asserting only that a function was passed accepts
+    // `setTasks(prev => prev)` — a no-op write — so the whole
+    // `prev.map(tk => tk.id === id ? {...tk, noteLog: addNote(...)} : tk)`
+    // composition was verified nowhere (notes-window.test.tsx renders the
+    // presentational panel with mock callbacks and never reaches this).
+    const next = (setTasks.mock.calls[0][0] as (p: Task[]) => Task[])(TASKS);
+    expect(next.find((t) => t.id === 7)?.noteLog).toHaveLength(2);
+    // ★ ID ROUTING. logActivity's label comes from a SEPARATE lookup, so without
+    // this a handler writing the note to the WRONG task still passes every
+    // assertion above — including the one naming "Draft charter".
+    expect(next.find((t) => t.id === 8)?.noteLog).toBeUndefined();
+
     expect(logActivity).toHaveBeenCalledWith("task.updated", 7, "Draft charter");
   });
 });
