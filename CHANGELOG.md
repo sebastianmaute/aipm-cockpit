@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.210.0] - 2026-07-29 "Larbalestier"
+
+Formatted descriptions now survive the trip out of the app: exports keep their
+paragraph breaks, and a task description exports as text rather than raw markup.
+Two of the fixes below are data-integrity ones you may have been hit by without
+noticing.
+
+- **Exports keep paragraph breaks.** A three-paragraph description used to arrive
+  as one run-on line in every export format. It now lays out as real paragraphs:
+  line breaks in PDF and HTML, Word line breaks in DOCX, separate paragraphs in
+  PPTX, and wrapped multi-line cells in XLSX (which already handled it, and is now
+  pinned so it stays that way).
+- **Task descriptions export as text, not markup.** The Tasks section of a PDF,
+  DOCX, XLSX or PPTX export still emitted the raw `<p>` tags of a formatted task
+  description, where every other register already exported readable text.
+- **Fixed: an inline AI edit flattened a description's formatting.** Confirming an
+  "Ask Claude" edit wrote the plain-text *preview* over the field instead of the
+  value the assistant proposed, silently discarding bold, lists and links from
+  task, RAID, change and milestone descriptions. The preview still shows readable
+  text; the value saved keeps its formatting.
+- **Fixed: five places read a description with its paragraphs fused.** The tasks
+  pane preview, the Gantt search index, the task-row preview, the AI duplicate
+  finder and the Jira push all joined the text either side of a paragraph break
+  with no space — so the tasks pane matched "delayMitigation" where global search
+  matched "delay Mitigation", and the fused form was what got pushed to Jira.
+- **Fixed: pressing Enter saved a longer value than the app said it did.** In the
+  RAID and change editors, submitting with Enter from a text field skipped the
+  length cap that clicking Save applied, so an over-long title or owner was saved
+  in full while the notification announced it had been shortened.
+- **Fixed: character counts could disagree with the limit they enforce.** For a
+  description still stored as plain text, the counter measured a different value
+  than the cap did, so the remaining budget it showed could be wrong.
+- **Special characters written as numeric codes now count as one character.** A
+  description carrying a numeric character reference (what an Office paste
+  produces for an em dash) was charged the length of the code rather than of the
+  character, and a value near the limit could be cut mid-code.
+
 ## [0.209.0] - 2026-07-29 "Lafferty"
 
 Six register descriptions became rich text, and a task's note log moved inside
